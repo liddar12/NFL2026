@@ -3,10 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "NFL2026 — domain-agnostic prediction platform (first adapter: NFL). Evaluation harness first, models second. Zero runtime dependencies; the regression gate runs on Node built-ins only.",
+  "description": "NFL2026 — domain-agnostic prediction platform (first adapter: NFL). Evaluation harness first, models second. The FAST regression gate runs on Node built-ins only; Playwright E2E is a dev/CI opt-in.",
   "scripts": {
     "test": "node --test tests/feature/*.mjs",
+    "test:unit": "node --test tests/feature/*.mjs",
+    "test:web": "playwright test --config tests/playwright.config.mjs --project=web",
+    "test:pwa": "playwright test --config tests/playwright.config.mjs --project=pwa",
+    "test:e2e": "playwright test --config tests/playwright.config.mjs",
+    "serve": "python3 -m http.server 4321",
     "gate": "bash tests/run_gate.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
   },
   "license": "MIT"
 }

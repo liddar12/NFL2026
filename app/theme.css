@@ -1,0 +1,712 @@
+/* =============================================================================
+   NFL2026 — theme.css  (Broadcast Gameday · J5L · DARK ONLY)
+   Design-system stylesheet. Owns ALL styling for the app shell + every shared
+   component in the build contract. Dark theme only — no light mode, no media
+   queries, no theme toggle. color-scheme:dark is declared once on :root.
+
+   Invariants enforced here:
+   - LOCKED TOKENS: the :root block below is AA-audited. Do NOT invent colors.
+   - AA: text uses ink/muted or the *-txt colored tokens (>=4.5:1). Bar fills and
+     markers use the base data tokens (home/away/accent/pos, >=3:1 as graphics).
+     A small % label never wears a base bar-fill token (fails AA).
+   - Semantic sign is carried by a glyph/word (up/down + / -), never color alone.
+   - Team tint: .team-ab reads var(--team-tint) — JS sets it per card. No team
+     color is hardcoded in CSS (tints live in app/teams.js + the contrast test).
+   - Numbers are tabular (font-variant-numeric:tabular-nums) so columns align.
+   - Body never scrolls horizontally; the .view region is the only scroller.
+   ========================================================================== */
+
+/* ---- LOCKED TOKENS (verbatim from the build contract, AA-audited) -------- */
+:root {
+  color-scheme: dark;              /* dark-only surface; drives form controls */
+
+  /* surfaces / structure */
+  --bg:#0D1117; --surface:#161B22; --surface-2:#1F2630; --elev:#232C38; --border:#2A3340;
+
+  /* text */
+  --ink:#F0F3F8; --muted:#B0BDCC;
+
+  /* brand — J5L blue */
+  --brand:#4A90C2;        /* LARGE text / display / stripes only (AA large 3:1) */
+  --brand-txt:#78B4DE;    /* SMALL text / links (AA 4.5:1) */
+
+  /* accent — J5L crimson */
+  --accent:#E35A61;       /* hot accent, markers, large text */
+  --accent-txt:#F08A8F;   /* crimson for small text (AA 4.5:1) */
+
+  /* win-probability data pair (validated CVD pair) */
+  --home:#4288DB;         /* favorite BAR FILL */
+  --home-txt:#6FB0F0;     /* home % small label (AA 4.5:1) */
+  --away:#BE7E34;         /* underdog BAR FILL */
+  --away-txt:#E0A64A;     /* away % small label (AA 4.5:1) */
+
+  /* semantic value */
+  --pos:#56C168; --pos-txt:#6FD182;   /* EV+/good */
+  --warn:#E0B75D;         /* stale/degraded health text (AA 4.5:1 on surface) */
+  --neg:#E35A61;          /* EV-/bad (same as accent) */
+
+  /* team tint fallback — JS overrides --team-tint per card */
+  --team-tint:var(--ink);
+
+  /* geometry */
+  --radius:16px; --radius-sm:10px;
+
+  /* iOS safe-area insets (standalone PWA) */
+  --safe-top:env(safe-area-inset-top);
+  --safe-bottom:env(safe-area-inset-bottom);
+  --safe-left:env(safe-area-inset-left);
+  --safe-right:env(safe-area-inset-right);
+
+  /* type stacks — iOS-native system fonts (no webfont CDN, deliberate for PWA) */
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,"Cascadia Code",monospace;
+
+  /* shell metrics (base padding before safe-area is added) */
+  --topbar-pad:12px;
+  --tabbar-pad:8px;
+}
+
+/* ---- minimal reset -------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.4;
+  /* body itself never scrolls horizontally; .view owns vertical scroll */
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+a { color: var(--brand-txt); text-decoration: none; }
+img { max-width: 100%; display: block; }
+button { font: inherit; color: inherit; }
+
+/* All numeric cells align in columns (contract requirement) */
+.wm-accent, .prob, .est, .p-proj, .p-num, .p-unit, .interval, .iv-ends,
+.leg-od, .ev, .k, .legcount, .track, .g-time, .prob-heads, .ph {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus ring — visible, >=3:1 against dark surfaces, uses the crimson accent */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Do not show a ring on the programmatic route-focus target */
+.view:focus { outline: none; }
+
+/* Respect reduced-motion: kill transitions/animations for sensitive users */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================================
+   APP SHELL
+   .app  — full-height flex column: fixed topbar, health, scrolling view, fixed
+           tabbar. Insets clear the Dynamic Island (top) and home indicator
+           (bottom) in standalone.
+   ========================================================================== */
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;              /* dynamic viewport on iOS */
+  display: flex;
+  flex-direction: column;
+  /* honor left/right safe insets in landscape / rounded corners */
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+/* ---- topbar --------------------------------------------------------------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* base padding PLUS the top safe inset so content clears the Dynamic Island */
+  padding: calc(var(--topbar-pad) + var(--safe-top)) 16px var(--topbar-pad);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* Wordmark — heavy italic uppercase broadcast lockup */
+.wordmark {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1;
+}
+.wm-accent { color: var(--accent); }   /* "2026" in crimson (large -> 3:1 ok) */
+
+/* Week chip */
+.wk {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+}
+
+/* ---- health chip (below topbar) ------------------------------------------ */
+.health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  /* left color stripe set per-status below */
+  border-left: 3px solid var(--border);
+  font-size: 12px;
+}
+.health:empty { display: none; }        /* no chrome before status loads */
+
+.health-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--muted);
+}
+/* status colors: ok->pos, stale/degraded->warn, down->neg */
+.health-dot--ok        { background: var(--pos); }
+.health-dot--stale     { background: var(--warn); }
+.health-dot--degraded  { background: var(--warn); }
+.health-dot--down      { background: var(--neg); }
+
+.health-label {
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.health-note {
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+/* Tie the left stripe of the .health bar to the status via the dot modifier.
+   :has() lets the container reflect its child status without extra classes. */
+.health:has(.health-dot--ok)       { border-left-color: var(--pos); }
+.health:has(.health-dot--stale)    { border-left-color: var(--warn); }
+.health:has(.health-dot--degraded) { border-left-color: var(--warn); }
+.health:has(.health-dot--down)     { border-left-color: var(--neg); }
+/* colored status words use text-safe tokens (>=4.5:1) */
+.health:has(.health-dot--ok) .health-label       { color: var(--pos-txt); }
+.health:has(.health-dot--stale) .health-label,
+.health:has(.health-dot--degraded) .health-label { color: var(--warn); }
+.health:has(.health-dot--down) .health-label     { color: var(--accent-txt); }
+
+/* ---- view (the only scroll region) --------------------------------------- */
+.view {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
+  /* bottom padding so the fixed tabbar never covers the last card:
+     tab height + label + its safe inset */
+  padding-bottom: calc(72px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Empty / error state message (views paint this instead of a blank screen) */
+.state {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: center;
+  padding: 40px 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ---- tabbar (fixed bottom) ----------------------------------------------- */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 30;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  /* base padding PLUS bottom safe inset so tabs clear the home indicator */
+  padding: var(--tabbar-pad) var(--safe-right) calc(var(--tabbar-pad) + var(--safe-bottom)) var(--safe-left);
+}
+.tab {
+  flex: 1 1 0;
+  text-align: center;
+  padding: 8px 4px;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: 13px;
+  color: var(--muted);
+  border-top: 2px solid transparent;   /* active indicator sits here */
+  transition: color 120ms ease;
+}
+/* active tab (route match) — brand underline + brighter label */
+.tab--active,
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  border-top-color: var(--brand);
+}
+
+/* =============================================================================
+   CARD SYSTEM
+   ========================================================================== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+/* Broadcast display numerals — big italic mono for hero numbers */
+.p-num {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+/* =============================================================================
+   GAME CARD (slate)
+   ========================================================================== */
+.game { display: flex; flex-direction: column; gap: 12px; }
+
+.game-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.g-time { color: var(--brand-txt); font-weight: 700; }
+.g-venue { text-align: right; }
+
+/* teams row: AWAY  @  HOME */
+.game-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.team { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.team--away { align-items: flex-start; text-align: left; }
+.team--home { align-items: flex-end; text-align: right; }
+
+/* Abbreviation wears the team tint (JS sets --team-tint per card). Large + bold
+   -> 3:1 suffices; tints in teams.js are lightened to clear it on --surface. */
+.team-ab {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--team-tint, var(--ink));
+}
+.team-nm {
+  font-family: var(--mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.at {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* ---- win-probability block ----------------------------------------------- */
+.prob { display: flex; flex-direction: column; gap: 6px; }
+
+.prob-heads {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+}
+.ph--away { color: var(--away-txt); }   /* small % label -> text-safe token */
+.ph--home { color: var(--home-txt); }
+
+/* the probability track: two segs with a 2px gap, rounded 4px on data ends */
+.track {
+  display: flex;
+  gap: 2px;                              /* the 2px gap between segments */
+  height: 12px;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.seg { height: 100%; min-width: 3px; }
+.seg--away { background: var(--away); border-radius: 4px 0 0 4px; }
+.seg--home { background: var(--home); border-radius: 0 4px 4px 0; }
+
+.prob-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* ESTIMATE pill — honesty marker, shown only when data.estimate === true */
+.est {
+  color: var(--accent-txt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-weight: 700;
+}
+
+/* =============================================================================
+   PLAYER CARD
+   ========================================================================== */
+.player { display: flex; flex-direction: column; gap: 12px; }
+
+.p-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.p-id { min-width: 0; }
+.p-pos {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  font-weight: 700;
+}
+.p-name {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.p-proj { text-align: right; flex: none; }
+/* .p-num styled in the card system block above */
+.p-unit {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ---- conformal interval --------------------------------------------------- */
+.interval { display: flex; flex-direction: column; gap: 6px; }
+.lbl {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.iv-scale {
+  position: relative;
+  height: 10px;
+  width: 100%;
+}
+/* band spans the full track (low->high) */
+.iv-band {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+/* point marker — the projection within [low,high]; left% set inline by JS */
+.iv-pt {
+  position: absolute;
+  top: 50%;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--accent);           /* marker -> base accent (graphic, 3:1) */
+  border: 2px solid var(--surface);
+  transform: translate(-50%, -50%);
+}
+.iv-ends {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---- signals -------------------------------------------------------------- */
+.sigs { display: flex; flex-wrap: wrap; gap: 6px; }
+.sig {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+/* day-zero empty state — honest "no signals weighted yet" */
+.sig--none { color: var(--muted); font-style: italic; }
+/* if signals ever appear, sign is carried by the glyph the data supplies,
+   these just tint the chip text (text-safe tokens) */
+.sig--pos { color: var(--pos-txt); }
+.sig--neg { color: var(--accent-txt); }
+.sig--neutral { color: var(--muted); }
+
+/* ---- estimate footer (honesty) ------------------------------------------- */
+.estimate {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.em {
+  color: var(--accent-txt);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+/* ---- position filter row -------------------------------------------------- */
+.posfilter {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.posfilter .chip,
+.posfilter button {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.posfilter .chip[aria-pressed="true"],
+.posfilter button[aria-pressed="true"],
+.posfilter .chip--active {
+  color: var(--ink);
+  border-color: var(--brand);
+  background: var(--elev);
+}
+
+/* position group header (alternative to filter row) */
+.pos-header {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: var(--brand-txt);
+  padding: 4px 2px;
+}
+
+/* =============================================================================
+   PARLAY CARD
+   ========================================================================== */
+.parlay { display: flex; flex-direction: column; gap: 12px; }
+
+.p-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* .p-head .lbl inherits .lbl styling above */
+
+/* confidence tier badge */
+.tier {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.tier--low    { color: var(--muted);     background: var(--surface-2); }
+.tier--medium { color: var(--brand-txt); background: var(--surface-2); }
+.tier--high   { color: var(--pos-txt);   background: var(--surface-2); }
+
+/* ---- legs ----------------------------------------------------------------- */
+.legs { display: flex; flex-direction: column; gap: 8px; }
+.leg {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.leg-nm {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leg-od {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.mo b { color: var(--ink); font-weight: 800; }   /* model prob emphasized */
+.im { color: var(--muted); }                      /* implied prob */
+/* edge — sign glyph carries meaning; color is a reinforcement (text-safe) */
+.lg-edge { font-weight: 700; }
+.lg-edge--pos { color: var(--pos-txt); }
+.lg-edge--neg { color: var(--accent-txt); }
+
+/* ---- foot: EV + leg count ------------------------------------------------- */
+.p-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ev {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 22px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ev--pos { color: var(--pos-txt); }     /* large-ish but keep text-safe */
+.ev--neg { color: var(--accent-txt); }
+.k {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.legcount {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+/* ---- correlation note ----------------------------------------------------- */
+.corr {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.lk { color: var(--brand-txt); flex: none; }   /* link glyph */
+
+/* ---- scope segmented control (GAME / WEEK) -------------------------------- */
+.scopeseg {
+  display: flex;
+  gap: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+.scopeseg button,
+.scopeseg .seg-opt {
+  flex: 1 1 0;
+  text-align: center;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.scopeseg button[aria-pressed="true"],
+.scopeseg .seg-opt--active,
+.scopeseg .seg-opt[aria-selected="true"] {
+  color: var(--ink);
+  background: var(--elev);
+}

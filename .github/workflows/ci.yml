@@ -1,14 +1,19 @@
 # CI regression gate — runs on every push / PR.
 #
-# THE ZERO-DEP INVARIANT: this workflow installs NOTHING (no pip install, no npm
-# install). The entire gate is stdlib Python 3.11 + Node 22 built-ins, so it runs green
-# on a clean box. If a gate step ever needs an external package, the gate is wrong — fix
-# the code, not this workflow. Scrapers (which DO need nfl_data_py/requests) are never
-# invoked by the gate; their heavy imports are guarded inside functions.
+# TWO JOBS, deliberately split so the invariant is visible:
+#   - `gate`  : the dependency-free FAST gate. Installs NOTHING (no pip, no npm).
+#               stdlib Python 3.11 + Node 22 built-ins only. If a fast-gate step
+#               ever needs an external package, the gate is wrong — fix the code,
+#               not this workflow. Scrapers (which DO need nfl_data_py/requests)
+#               are never invoked by the gate; their heavy imports are guarded
+#               inside functions.
+#   - `e2e`   : the browser E2E (Playwright web + pwa). This is the ONE place that
+#               installs deps (npm + a chromium browser). Kept out of `gate` so the
+#               zero-dep guarantee for the fast gate is never eroded.
 #
 # The gate is exit-code gated (never grep colored summaries). tests/run_gate.sh runs, in
-# order: validate_data.py -> smoke.sh -> node --test tests/feature/*.mjs, and fails fast
-# on the first non-zero exit.
+# order: validate_data.py -> smoke.sh -> node --test tests/feature/*.mjs (which now
+# includes the WCAG AA contrast test), and fails fast on the first non-zero exit.
 name: ci
 
 on:
@@ -43,7 +48,41 @@ jobs:
         with:
           node-version: "22"
 
-      # The single source of truth for the gate. Gates on exit code; the workflow fails
-      # if run_gate.sh returns non-zero.
+      # The single source of truth for the fast gate. Gates on exit code; the
+      # workflow fails if run_gate.sh returns non-zero. On this runner
+      # @playwright/test is absent, so run_gate.sh's step 4 skips loudly.
       - name: Run regression gate
         run: bash tests/run_gate.sh
+
+  # Browser E2E: the INDEPENDENT web + pwa proofs. The only job allowed to install
+  # dependencies (Playwright + chromium). It does not gate the fast gate above.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Python powers the static webServer (python3 -m http.server 4321).
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Install JS deps. `npm i` (no lockfile committed — the fast gate has no npm
+      # deps, so there is nothing to `npm ci` against on the main path).
+      - name: Install dependencies
+        run: npm i
+
+      # Fetch Playwright's own chromium + OS libraries for headless browser tests.
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      # Both projects: web (in-browser) and pwa (standalone). The config's
+      # webServer boots `python3 -m http.server 4321` against the repo root.
+      - name: Run browser E2E (web + pwa)
+        run: npm run test:e2e
