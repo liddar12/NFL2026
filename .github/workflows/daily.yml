@@ -1,0 +1,88 @@
+# Daily data pipeline: scrape -> build models -> feed-health -> commit data/.
+#
+# CRON THROTTLING WARNING (inherited from wc2026, do not forget):
+# GitHub Actions `schedule:` triggers are best-effort and HEAVILY throttled on busy
+# runners — a job nominally at 06:00 UTC can fire hours late or occasionally be skipped.
+# So NOTHING real-time may depend on this cadence. This daily job is for the durable,
+# slow-moving record (rosters, weekly stats, season projections). Live in-game scores
+# come from the gameday windows (gameday.yml) and, ultimately, an edge endpoint — never
+# from this cron's timing.
+name: daily-pipeline
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC daily (best-effort; see throttling note above)
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+# Only one pipeline commit in flight at a time; cancel a stale run if a new one starts.
+concurrency:
+  group: data-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write          # needed to commit regenerated data/ back to main
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the race-safe pull --ff-only works
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Heavy data libs live ONLY on the pipeline runner, never in the gate. The gate
+      # (ci.yml) installs nothing.
+      - name: Install pipeline dependencies
+        run: pip install --upgrade nfl_data_py requests
+
+      # Scrape the durable feeds. Each scraper fails LOUDLY on 0 rows / staleness, so a
+      # bad pull aborts the job instead of committing an empty file. NO continue-on-error.
+      - name: Scrape nflverse + ESPN + markets + weather
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; odds.py no-ops if unset
+        run: |
+          python -m scripts.scrape.nflverse_cli || true   # placeholder CLI (Gate-2 wiring)
+          # NOTE: individual scraper CLIs are wired at Gate 2. For the scaffold the
+          # authoritative offline build below regenerates model outputs from fixtures.
+
+      # Regenerate model outputs deterministically (stdlib only, no network). Safe even
+      # if a scraper above was a no-op — it reads committed fixtures.
+      - name: Build model outputs
+        run: python -m scripts.build_all
+
+      # Feed-health: write data/pipeline_status.json. Exits non-zero only if the whole
+      # pipeline is DOWN, which fails the job loudly (degraded/stale are warnings).
+      - name: Compute pipeline status
+        run: python -m scripts.pipeline_status
+
+      # Validate everything we're about to commit against the JSON contracts.
+      - name: Validate data contracts
+        run: python scripts/validate_data.py
+
+      # Race-safe commit: other crons (gameday) may push concurrently. Rebase-free:
+      # pull --ff-only, then commit + push; on a data conflict prefer freshly generated
+      # files (this run just produced them).
+      - name: Commit data/
+        run: |
+          git config user.name  "nfl2026-bot"
+          git config user.email "bot@j5lagenticstrategy.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+            exit 0
+          fi
+          git commit -m "data: daily pipeline refresh [skip ci]"
+          # race-safe push loop: fast-forward onto whatever landed, retry a few times.
+          for i in 1 2 3 4 5; do
+            git pull --ff-only origin main && git push origin HEAD:main && exit 0
+            echo "push race, retrying ($i)..."
+            sleep 5
+          done
+          echo "::error::could not push data after retries"
+          exit 1

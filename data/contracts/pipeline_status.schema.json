@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "pipeline_status.schema.json",
+  "title": "Feed-health / pipeline status",
+  "description": "Per-feed health, written by scripts/pipeline_status.py with loud assertions. The silent-scraper-404 lesson: every feed asserts row-count and staleness and fails loudly instead of masking a 0-row write.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_utc", "health", "feeds"],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp this status was written."
+    },
+    "health": {
+      "type": "string",
+      "description": "Overall roll-up across all feeds.",
+      "enum": ["ok", "stale", "degraded", "down"]
+    },
+    "feeds": {
+      "type": "object",
+      "description": "Map of feed name -> its health record.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rows", "age_hours", "last_success_utc", "status"],
+        "properties": {
+          "rows": {
+            "type": "integer",
+            "description": "Row count of the last write; 0 must never be silently ok.",
+            "minimum": 0
+          },
+          "age_hours": {
+            "type": "number",
+            "description": "Hours since last_success_utc.",
+            "minimum": 0
+          },
+          "last_success_utc": {
+            "type": ["string", "null"],
+            "description": "Timestamp of last successful non-empty write, or null if never."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "stale", "degraded", "down"]
+          }
+        }
+      }
+    }
+  }
+}

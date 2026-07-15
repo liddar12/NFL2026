@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_projections.schema.json",
+  "title": "Player season-long projections",
+  "description": "Per-player point projection by position. Keyed on nflverse gsis_id. Produced by scripts/models/player_projection.py, validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "players"],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "description": "NFL regular-season year.",
+      "minimum": 2026
+    },
+    "updated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of the last regeneration."
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gsis_id",
+          "name",
+          "team",
+          "position",
+          "proj_points",
+          "low",
+          "high",
+          "signals_used"
+        ],
+        "properties": {
+          "gsis_id": {
+            "type": "string",
+            "description": "Canonical nflverse player key, e.g. '00-0034796'."
+          },
+          "name": { "type": "string" },
+          "team": {
+            "type": "string",
+            "description": "Canonical nflverse team abbreviation.",
+            "enum": [
+              "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
+              "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
+              "LV", "LAC", "LAR", "MIA", "MIN", "NE", "NO", "NYG",
+              "NYJ", "PHI", "PIT", "SF", "SEA", "TB", "TEN", "WAS"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "description": "Fantasy-relevant positions modeled first.",
+            "enum": ["QB", "RB", "WR", "TE"]
+          },
+          "proj_points": {
+            "type": "number",
+            "description": "Projected season fantasy points (baseline + earned signal weight)."
+          },
+          "low": {
+            "type": "number",
+            "description": "Lower bound of the projection interval."
+          },
+          "high": {
+            "type": "number",
+            "description": "Upper bound of the projection interval."
+          },
+          "signals_used": {
+            "type": "array",
+            "description": "Names of signals that contributed non-zero weight to this projection.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

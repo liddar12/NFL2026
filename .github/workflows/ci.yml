@@ -1,0 +1,49 @@
+# CI regression gate — runs on every push / PR.
+#
+# THE ZERO-DEP INVARIANT: this workflow installs NOTHING (no pip install, no npm
+# install). The entire gate is stdlib Python 3.11 + Node 22 built-ins, so it runs green
+# on a clean box. If a gate step ever needs an external package, the gate is wrong — fix
+# the code, not this workflow. Scrapers (which DO need nfl_data_py/requests) are never
+# invoked by the gate; their heavy imports are guarded inside functions.
+#
+# The gate is exit-code gated (never grep colored summaries). tests/run_gate.sh runs, in
+# order: validate_data.py -> smoke.sh -> node --test tests/feature/*.mjs, and fails fast
+# on the first non-zero exit.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Python + Node only. NO dependency install steps — that is the point.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The single source of truth for the gate. Gates on exit code; the workflow fails
+      # if run_gate.sh returns non-zero.
+      - name: Run regression gate
+        run: bash tests/run_gate.sh

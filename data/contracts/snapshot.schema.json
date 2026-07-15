@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "snapshot.schema.json",
+  "title": "Point-in-time prediction snapshot file",
+  "description": "A snapshot file is an ARRAY of rows written by scripts/harness/snapshot.py to data/snapshots/. Each row is a prediction frozen before its event, later resolved. The honesty invariant (see scripts/harness/honesty.py) is enforced in code, not fully expressible in JSON Schema: estimate=true => brier/log_loss absent/null; estimate=false & resolved=true => brier/log_loss present.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "event_id",
+      "event_type",
+      "model",
+      "locked_utc",
+      "as_of_utc",
+      "estimate",
+      "resolved"
+    ],
+    "properties": {
+      "event_id": {
+        "type": "string",
+        "description": "Stable id of the game or player-week."
+      },
+      "event_type": {
+        "type": "string",
+        "enum": ["game", "player_week"]
+      },
+      "model": {
+        "type": "string",
+        "description": "Which model produced this row."
+      },
+      "locked_utc": {
+        "type": "string",
+        "description": "When the prediction was frozen."
+      },
+      "as_of_utc": {
+        "type": "string",
+        "description": "Information cutoff (<= kickoff) — the leak-safety anchor."
+      },
+      "probs": {
+        "type": "array",
+        "description": "Probability vector (games). Mutually exclusive with point.",
+        "items": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "point": {
+        "type": "number",
+        "description": "Point estimate (player points). Mutually exclusive with probs."
+      },
+      "interval": {
+        "type": "array",
+        "description": "[low, high] prediction interval.",
+        "items": { "type": "number" },
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "estimate": {
+        "type": "boolean",
+        "description": "true => NOT a measurement; scores must be absent/null."
+      },
+      "resolved": {
+        "type": "boolean",
+        "description": "true once the event has finished and actual is known."
+      },
+      "actual": {
+        "description": "Realized outcome: an outcome index (int) for probs rows, or a value for point rows. Untyped on purpose."
+      },
+      "brier": {
+        "type": ["number", "null"],
+        "description": "Present iff estimate=false and resolved=true."
+      },
+      "log_loss": {
+        "type": ["number", "null"],
+        "description": "Present iff estimate=false and resolved=true."
+      }
+    }
+  }
+}

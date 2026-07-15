@@ -1,0 +1,79 @@
+{
+  "season": 2026,
+  "week": 1,
+  "updated_utc": "2026-07-15T12:00:00Z",
+  "parlays": [
+    {
+      "parlay_id": "2026_01_BAL_KC_g1",
+      "scope": "game",
+      "game_id": "2026_01_BAL_KC",
+      "legs": [
+        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
+        { "market": "total", "selection": "Over 47.5", "implied_prob": 0.512, "model_prob": 0.54 }
+      ],
+      "model_ev": 0.041,
+      "confidence_tier": "medium",
+      "correlation_note": "Positively correlated same-game legs: KC winning outright tends to coincide with a higher-scoring game, so the joint probability exceeds the naive product. EV computed with a correlation haircut on the shared scoring driver rather than assuming independence."
+    },
+    {
+      "parlay_id": "2026_01_BAL_KC_g2",
+      "scope": "game",
+      "game_id": "2026_01_BAL_KC",
+      "legs": [
+        { "market": "spread", "selection": "KC -2.5", "implied_prob": 0.524, "model_prob": 0.53 },
+        { "market": "anytime_td", "selection": "Patrick Mahomes TD", "implied_prob": 0.31, "model_prob": 0.34 }
+      ],
+      "model_ev": 0.028,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game correlation: a KC cover is more likely in games where Mahomes reaches the end zone. Joint probability modeled with a shared game-script factor, not as independent legs."
+    },
+    {
+      "parlay_id": "2026_01_BAL_KC_g3",
+      "scope": "game",
+      "game_id": "2026_01_BAL_KC",
+      "legs": [
+        { "market": "total", "selection": "Over 47.5", "implied_prob": 0.512, "model_prob": 0.54 },
+        { "market": "player_receptions", "selection": "Travis Kelce 5+ rec", "implied_prob": 0.47, "model_prob": 0.5 },
+        { "market": "player_receptions", "selection": "Zay Flowers 5+ rec", "implied_prob": 0.45, "model_prob": 0.46 }
+      ],
+      "model_ev": 0.033,
+      "confidence_tier": "low",
+      "correlation_note": "Three same-game legs sharing the game-total driver (a shootout lifts all three). Strong positive correlation modeled explicitly; treating them as independent would badly overstate the parlay's odds and understate its true probability."
+    },
+    {
+      "parlay_id": "2026_01_week_w1",
+      "scope": "week",
+      "legs": [
+        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
+        { "market": "moneyline", "selection": "DET", "implied_prob": 0.588, "model_prob": 0.58 },
+        { "market": "moneyline", "selection": "SF", "implied_prob": 0.606, "model_prob": 0.62 }
+      ],
+      "model_ev": 0.057,
+      "confidence_tier": "medium",
+      "correlation_note": "Independent legs: three different games with no shared game script, so the joint probability is the product of the leg probabilities."
+    },
+    {
+      "parlay_id": "2026_01_week_w2",
+      "scope": "week",
+      "legs": [
+        { "market": "moneyline", "selection": "PHI", "implied_prob": 0.524, "model_prob": 0.52 },
+        { "market": "moneyline", "selection": "SF", "implied_prob": 0.606, "model_prob": 0.62 }
+      ],
+      "model_ev": 0.019,
+      "confidence_tier": "medium",
+      "correlation_note": "Independent legs: separate games, treated as independent (product of leg probabilities)."
+    },
+    {
+      "parlay_id": "2026_01_week_w3",
+      "scope": "week",
+      "legs": [
+        { "market": "spread", "selection": "DET -6.5", "implied_prob": 0.5, "model_prob": 0.52 },
+        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
+        { "market": "total", "selection": "SEA/SF Under 44.5", "implied_prob": 0.49, "model_prob": 0.51 }
+      ],
+      "model_ev": 0.022,
+      "confidence_tier": "low",
+      "correlation_note": "Independent legs across three games; no shared driver, so joint probability is the product of leg probabilities."
+    }
+  ]
+}

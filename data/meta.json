@@ -1,0 +1,53 @@
+{
+  "season": 2026,
+  "updated_utc": "2026-07-15T12:00:00Z",
+  "models": {
+    "elo": "0.1.0",
+    "market": "0.1.0",
+    "j5l_composite": "0.1.0",
+    "hybrid": "0.1.0",
+    "stacker": "0.1.0",
+    "conformal": "0.1.0",
+    "player_projection": "0.1.0"
+  },
+  "weights": {
+    "prior_perf": 0.0,
+    "age_curve": 0.0,
+    "injury_status": 0.0,
+    "injury_history": 0.0,
+    "ol_composite_vs_dl": 0.0,
+    "target_competition": 0.0,
+    "qb_accuracy_delta": 0.0,
+    "qb_coaching": 0.0,
+    "coordinator_change": 0.0,
+    "head_coach_change": 0.0,
+    "scheme_fit": 0.0,
+    "supporting_cast_delta": 0.0,
+    "one_on_one_matchup": 0.0,
+    "schedule_strength": 0.0,
+    "home_away": 0.0,
+    "indoor_outdoor": 0.0,
+    "weather": 0.0,
+    "rest_days": 0.0,
+    "off_field": 0.0,
+    "elo": 0.0,
+    "market_spread": 0.0,
+    "market_moneyline": 0.0,
+    "market_total": 0.0,
+    "j5l_composite": 0.0,
+    "home_field": 0.0,
+    "rest_differential": 0.0,
+    "travel": 0.0,
+    "weather_game": 0.0,
+    "injury_impact": 0.0,
+    "odds_api": 0.0,
+    "kalshi": 0.0,
+    "polymarket": 0.0
+  },
+  "optimizer": {
+    "objective": "log_loss",
+    "margin": 0.0015,
+    "shrinkage": 0.5
+  },
+  "notes": "Day zero. Every signal weight is 0.0 (the 'Dominance started at 0' rule): nothing has earned weight until the walk-forward optimizer proves it beats the incumbent by the NEVER-REGRESS margin on leak-safe held-out log-loss. Names mirror scripts/signals/registry.py byte-for-byte."
+}

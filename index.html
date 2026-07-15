@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- Mobile PWA first: this is an installable phone app, not a desktop site. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <meta name="description" content="NFL2026 — domain-agnostic prediction platform (NFL adapter). Platform skeleton." />
+
+  <title>NFL2026</title>
+
+  <!-- PWA manifest: standalone, portrait, name NFL2026. -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+  <!-- MINIMAL provisional styling only. No design system, no framework, no CDN.
+       Real visual design is deliberately Gate 2's job — do not build it here. -->
+  <style>
+    :root { color-scheme: dark; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0b0f14;
+      color: #e6edf3;
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+    }
+    /* Single provisional placeholder card. Intentionally plain — no gradients. */
+    .card {
+      border: 1px solid #232b34;
+      border-radius: 10px;
+      background: #11161d;
+      padding: 20px;
+    }
+    .card h1 { margin: 0 0 8px; font-size: 18px; }
+    .card p  { margin: 0; color: #9fb0c0; }
+    nav { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+    nav a {
+      color: #9fb0c0;
+      text-decoration: none;
+      border: 1px solid #232b34;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 14px;
+    }
+    nav a:hover { color: #e6edf3; }
+    #view { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- The provisional skeleton card, exactly as the spec dictates. -->
+    <section class="card">
+      <h1>NFL2026 — platform skeleton live.</h1>
+      <p>Visual design pending Gate 2.</p>
+    </section>
+
+    <!-- Hash-router nav stubs. Each route renders a "Gate 2 pending" view. -->
+    <nav>
+      <a href="#/">Home</a>
+      <a href="#/players">Players</a>
+      <a href="#/games">Games</a>
+      <a href="#/parlays">Parlays</a>
+    </nav>
+
+    <!-- Router paints route views here. -->
+    <section id="view" aria-live="polite"></section>
+  </main>
+
+  <!-- Runtime config is a committed placeholder, regenerated at build time. It is
+       a plain ES module (loaded by app/data.js), so nothing to include here. -->
+
+  <!-- App entry point. ES module, no bundler, no build step. -->
+  <script type="module" src="/app/main.js"></script>
+
+  <!-- Register the pure cache-purger service worker (it does NOT cache anything;
+       see sw.js). Registration is best-effort and never blocks first paint. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch((err) => {
+          // Non-fatal: the app works fine without the SW registered.
+          console.warn('[nfl2026] SW registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

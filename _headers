@@ -1,0 +1,36 @@
+# Netlify _headers — freshness + baseline security for the NFL2026 PWA.
+#
+# The service worker does NOT cache (sw.js is a pure cache-purger), so these
+# headers are the ONLY freshness control for app code. Filenames are unhashed,
+# so we use a short max-age + a longer stale-while-revalidate window: a tab gets
+# an instant cached response but revalidates in the background, so a deploy
+# reaches every open tab within minutes instead of running day-old JS.
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# App code: short cache, background-revalidate. ~2 min fresh, ~10 min stale-OK.
+/app/*
+  Cache-Control: public, max-age=120, stale-while-revalidate=600
+
+# Data feeds: crons/pipeline rewrite these; always revalidate so the client
+# never scores or displays stale results. meta.json gates logical freshness.
+/data/*
+  Cache-Control: public, max-age=0, stale-while-revalidate=120
+
+# The shell and SW must update promptly after a deploy — keep them short-lived.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/manifest.webmanifest
+  Cache-Control: public, max-age=120, stale-while-revalidate=600
+
+# Static art never changes content under the same name — cache hard + immutable.
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

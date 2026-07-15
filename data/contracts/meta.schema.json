@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "meta.schema.json",
+  "title": "Model + optimizer metadata",
+  "description": "Fitted-weights table and model versions. On day zero every signal weight is 0.0 (the 'Dominance started at 0' rule) — nothing has earned weight yet. The signal_registry Node test reads weights and asserts every registry signal is present at 0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "models", "weights", "optimizer"],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "updated_utc": { "type": "string" },
+    "models": {
+      "type": "object",
+      "description": "Map of model name -> version string.",
+      "additionalProperties": { "type": "string" }
+    },
+    "weights": {
+      "type": "object",
+      "description": "Map of signal name -> fitted weight. All 0.0 on day zero.",
+      "additionalProperties": { "type": "number" }
+    },
+    "optimizer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective", "margin", "shrinkage"],
+      "properties": {
+        "objective": {
+          "type": "string",
+          "description": "The optimized objective. Accuracy is reported, never optimized.",
+          "enum": ["log_loss"]
+        },
+        "margin": {
+          "type": "number",
+          "description": "NEVER REGRESS adoption margin (default 0.0015).",
+          "minimum": 0
+        },
+        "shrinkage": {
+          "type": "number",
+          "description": "Shrinkage strength toward current weights (regularizes small samples).",
+          "minimum": 0
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form human notes about this fit."
+    }
+  }
+}

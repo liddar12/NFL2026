@@ -1,0 +1,11 @@
+{
+  "note": "Four Week-1 (2026) games used as a scaffold fixture for the game model and parlay builder. game_id follows the nflverse convention SEASON_WEEK_AWAY_HOME. `roof` mirrors the HOME team's stadium in teams.json — it is the game-day roof state the weather_game signal gates on. kickoff_utc doubles as the walk-forward information cutoff (nothing after it may inform the prediction).",
+  "season": 2026,
+  "week": 1,
+  "games": [
+    { "game_id": "2026_01_BAL_KC", "home": "KC", "away": "BAL", "kickoff_utc": "2026-09-11T00:20:00Z", "roof": "outdoor" },
+    { "game_id": "2026_01_PHI_DAL", "home": "DAL", "away": "PHI", "kickoff_utc": "2026-09-13T17:00:00Z", "roof": "retractable" },
+    { "game_id": "2026_01_GB_DET", "home": "DET", "away": "GB", "kickoff_utc": "2026-09-13T20:25:00Z", "roof": "indoor" },
+    { "game_id": "2026_01_SEA_SF", "home": "SF", "away": "SEA", "kickoff_utc": "2026-09-14T00:20:00Z", "roof": "outdoor" }
+  ]
+}

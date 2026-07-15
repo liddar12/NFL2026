@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlays.schema.json",
+  "title": "Weekly and per-game parlays",
+  "description": "Correlation-aware parlays with model EV and a conformal confidence tier. Produced by scripts/models/parlay_builder.py (>=3 per game and >=3 per week), validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "week", "updated_utc", "parlays"],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18
+    },
+    "updated_utc": { "type": "string" },
+    "parlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parlay_id",
+          "scope",
+          "legs",
+          "model_ev",
+          "confidence_tier",
+          "correlation_note"
+        ],
+        "properties": {
+          "parlay_id": {
+            "type": "string",
+            "description": "Stable parlay identifier."
+          },
+          "scope": {
+            "type": "string",
+            "description": "'game' = same-game (correlation-critical); 'week' = cross-game.",
+            "enum": ["game", "week"]
+          },
+          "game_id": {
+            "type": "string",
+            "description": "Present for scope='game' parlays; the game they attach to."
+          },
+          "legs": {
+            "type": "array",
+            "description": "Individual parlay legs.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["market", "selection", "implied_prob", "model_prob"],
+              "properties": {
+                "market": {
+                  "type": "string",
+                  "description": "Market type, e.g. 'moneyline', 'spread', 'total', 'anytime_td'."
+                },
+                "selection": {
+                  "type": "string",
+                  "description": "The specific pick within the market."
+                },
+                "implied_prob": {
+                  "type": "number",
+                  "description": "Sportsbook-implied probability (vig-inclusive).",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "model_prob": {
+                  "type": "number",
+                  "description": "Model probability for this leg.",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "model_ev": {
+            "type": "number",
+            "description": "Model expected value of the parlay (edge vs implied odds)."
+          },
+          "confidence_tier": {
+            "type": "string",
+            "description": "Conformal-derived confidence band.",
+            "enum": ["high", "medium", "low"]
+          },
+          "correlation_note": {
+            "type": "string",
+            "description": "How leg correlation was handled (required, may be 'independent legs')."
+          }
+        }
+      }
+    }
+  }
+}

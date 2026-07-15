@@ -1,0 +1,39 @@
+# Netlify config for the NFL2026 PWA.
+#
+# No bundler, no framework: the "build" only regenerates app/runtime-config.js
+# from (non-secret) env vars, then publishes the repo root as static files.
+# Mirrors the wc2026 topology: the PWA is static on Netlify; any live-score API
+# is a separate deploy and is not built here.
+
+[build]
+  command = "node scripts/write-runtime-config.mjs"
+  publish = "."
+
+# SPA support: the app is a hash-router single page, but deep links to real
+# static paths (app code, data feeds, icons, the manifest, the SW) must be
+# served as-is and NOT rewritten to index.html. Order matters — specific passes
+# first, catch-all last.
+
+[[redirects]]
+  from = "/app/*"
+  to = "/app/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/data/*"
+  to = "/data/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/icons/*"
+  to = "/icons/:splat"
+  status = 200
+  force = false
+
+# Everything else falls through to the single-page shell.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

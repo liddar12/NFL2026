@@ -1,0 +1,70 @@
+{
+  "note": "Small realistic fixture: eight players across the four positions modeled first (QB/RB/WR/TE). Keyed on nflverse gsis_id. `prior` holds the prior-season (2025) per-player inputs the projection baseline reads (prior_perf signal); `age` feeds the position age curve (age_curve signal). These are illustrative scaffold values, not a live pull — the real pipeline replaces them from scripts/scrape/nflverse.py. Fantasy points are season totals in standard PPR.",
+  "season_prior": 2025,
+  "players": [
+    {
+      "gsis_id": "00-0033873",
+      "name": "Patrick Mahomes",
+      "team": "KC",
+      "position": "QB",
+      "age": 30,
+      "prior": { "games": 17, "pass_yards": 4183, "pass_tds": 27, "interceptions": 11, "rush_yards": 307, "rush_tds": 2, "fantasy_points": 341.6 }
+    },
+    {
+      "gsis_id": "00-0034857",
+      "name": "Josh Allen",
+      "team": "BUF",
+      "position": "QB",
+      "age": 30,
+      "prior": { "games": 17, "pass_yards": 3731, "pass_tds": 28, "interceptions": 6, "rush_yards": 531, "rush_tds": 12, "fantasy_points": 385.4 }
+    },
+    {
+      "gsis_id": "00-0038542",
+      "name": "Bijan Robinson",
+      "team": "ATL",
+      "position": "RB",
+      "age": 24,
+      "prior": { "games": 17, "rush_yards": 1456, "rush_tds": 14, "receptions": 61, "rec_yards": 431, "rec_tds": 1, "fantasy_points": 328.7 }
+    },
+    {
+      "gsis_id": "00-0034796",
+      "name": "Saquon Barkley",
+      "team": "PHI",
+      "position": "RB",
+      "age": 29,
+      "prior": { "games": 16, "rush_yards": 2005, "rush_tds": 13, "receptions": 33, "rec_yards": 278, "rec_tds": 2, "fantasy_points": 322.3 }
+    },
+    {
+      "gsis_id": "00-0036322",
+      "name": "Justin Jefferson",
+      "team": "MIN",
+      "position": "WR",
+      "age": 27,
+      "prior": { "games": 17, "receptions": 103, "rec_yards": 1533, "rec_tds": 10, "targets": 154, "fantasy_points": 316.3 }
+    },
+    {
+      "gsis_id": "00-0036459",
+      "name": "CeeDee Lamb",
+      "team": "DAL",
+      "position": "WR",
+      "age": 27,
+      "prior": { "games": 15, "receptions": 101, "rec_yards": 1194, "rec_tds": 6, "targets": 152, "fantasy_points": 265.4 }
+    },
+    {
+      "gsis_id": "00-0033857",
+      "name": "Travis Kelce",
+      "team": "KC",
+      "position": "TE",
+      "age": 37,
+      "prior": { "games": 16, "receptions": 97, "rec_yards": 823, "rec_tds": 3, "targets": 133, "fantasy_points": 197.3 }
+    },
+    {
+      "gsis_id": "00-0038543",
+      "name": "Sam LaPorta",
+      "team": "DET",
+      "position": "TE",
+      "age": 25,
+      "prior": { "games": 17, "receptions": 60, "rec_yards": 726, "rec_tds": 7, "targets": 83, "fantasy_points": 174.6 }
+    }
+  ]
+}

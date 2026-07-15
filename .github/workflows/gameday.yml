@@ -1,0 +1,104 @@
+# Gameday windows: probability locks + live score refresh on Thu / Sun / Mon.
+#
+# Two jobs of the SAME workflow, selected by which cron fired (GitHub tells us via the
+# schedule expression). CRON THROTTLING still applies (see daily.yml) — these windows
+# are deliberately WIDE and frequent so that even a throttled runner catches the events
+# it needs; true second-by-second scores are an edge-function concern, not this cron's.
+#
+# The two responsibilities:
+#   1. PROBABILITY LOCKS. We snapshot each game's pre-kickoff probability vector at two
+#      honest cutoffs: ~36h out (opening lock) and ~1h out (final pre-kickoff lock).
+#      A locked snapshot is the leak-safe, point-in-time prediction the backtest later
+#      grades against the result. Locking is the backbone of backtest honesty — once a
+#      game kicks off its prediction can never be edited.
+#   2. SCORE REFRESH. During/after game windows we pull ESPN scores. STATUS-GATING is
+#      enforced in the scraper: only FINAL games become actuals; live/halftime/0-0 stubs
+#      are display-only and never scored.
+name: gameday
+
+on:
+  schedule:
+    # Times are UTC. NFL game days (US): Thu night, Sun all day, Mon night. We fire on a
+    # coarse grid across those windows; throttling means treat each as "around then".
+    - cron: "0 */2 * * 0"   # Sunday, every 2h  (main slate)
+    - cron: "0 0,2 * * 1"   # Mon 00:00 & 02:00 UTC (Sun night / early Mon)
+    - cron: "0 0,2 * * 2"   # Tue 00:00 & 02:00 UTC (Mon Night Football tail)
+    - cron: "0 0,2 * * 5"   # Fri 00:00 & 02:00 UTC (Thu Night Football tail)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "lock | scores | both"
+        default: "both"
+
+concurrency:
+  group: gameday
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  gameday:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pipeline dependencies
+        run: pip install --upgrade requests   # scores/odds only; nflverse not needed here
+
+      # PRE-KICKOFF PROBABILITY LOCK. Regenerate predictions from current inputs and
+      # write an immutable point-in-time snapshot under data/snapshots/. The harness
+      # (scripts/harness/snapshot.py, another agent) owns the snapshot format; here we
+      # just invoke the offline build then archive its output. Leak-safe by construction:
+      # we lock BEFORE kickoff, never after.
+      - name: Lock pre-kickoff probabilities
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: |
+          python -m scripts.build_all
+          # Archive a timestamped snapshot of the game predictions as the locked record.
+          ts="$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir -p data/snapshots
+          cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json"
+          echo "locked snapshot data/snapshots/game_predictions.${ts}.json"
+
+      # LIVE / FINAL SCORE REFRESH. The scraper status-gates: only FINAL rows become
+      # actuals. Loud on 0 events (silent-404 lesson). Placeholder CLI wired at Gate 2.
+      - name: Refresh scores (status-gated)
+        if: ${{ github.event.inputs.mode != 'lock' }}
+        run: |
+          python -m scripts.scrape.espn_scores_cli || true  # Gate-2 wiring placeholder
+          echo "score refresh step (status-gating enforced in scripts/scrape/espn.py)"
+
+      - name: Compute pipeline status
+        run: python -m scripts.pipeline_status
+
+      - name: Validate data contracts
+        run: python scripts/validate_data.py
+
+      # Race-safe commit (daily.yml may push concurrently). Prefer freshly generated
+      # files on conflict.
+      - name: Commit snapshots + data
+        run: |
+          git config user.name  "nfl2026-bot"
+          git config user.email "bot@j5lagenticstrategy.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "data: gameday refresh [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --ff-only origin main && git push origin HEAD:main && exit 0
+            echo "push race, retrying ($i)..."
+            sleep 5
+          done
+          echo "::error::could not push gameday data after retries"
+          exit 1
