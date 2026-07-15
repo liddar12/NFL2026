@@ -16,6 +16,15 @@
  */
 
 import { defineConfig } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+// Resolve paths from THIS file's location, never a hardcoded absolute — the repo
+// lives at different paths locally (/home/user/nfl2026) vs CI
+// (/home/runner/work/NFL2026/NFL2026). A hardcoded cwd makes the webServer spawn
+// fail with ENOENT on any machine but the author's.
+const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(TESTS_DIR, '..');
 
 // iPhone 16 Pro metrics, shared by both projects (the contract's reference).
 const IPHONE_16_PRO = {
@@ -27,14 +36,14 @@ const IPHONE_16_PRO = {
 };
 
 export default defineConfig({
-  testDir: '/home/user/nfl2026/tests',
+  testDir: TESTS_DIR,
 
   // Serve the repo root statically so absolute /data, /app, /manifest paths
   // resolve exactly as they do in production. reuseExistingServer lets a dev
   // keep `npm run serve` running across test runs.
   webServer: {
     command: 'python3 -m http.server 4321',
-    cwd: '/home/user/nfl2026',
+    cwd: REPO_ROOT,
     url: 'http://127.0.0.1:4321',
     reuseExistingServer: true,
     timeout: 30000,
