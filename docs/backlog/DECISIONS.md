@@ -119,3 +119,21 @@ is the platform's #1 discipline.
 **Status:** adopted. Day-zero honesty: projection == prior-season production until signals earn
 weight (locked by tests/feature/real_data.test.mjs); smoke + parlay tests now derive the slate
 instead of hardcoding fixture ids.
+
+## 2026-07-16 — Weekly model v1, selectable scoring, and the TEAM builder
+**Decision:** (1) Week-by-week projections via `scripts/build_weekly.py`: season projection split
+over scheduled weeks, tilted by opponent Elo (`tilt = 1 + 0.5·Δelo/400`, clamped [0.75,1.25]) and
+home/away (±2%), zeroed on byes, renormalized to the season total — labeled ESTIMATE, with
+`tilt_coef`/`home_coef` recorded in the contract meta as the parameters the P2 optimizer refits
+in-season against resolved weekly locks (the self-learning loop, NEVER-REGRESS gated). New contract
+`data/player_weekly.json` mirrors player_projections order. (2) Scoring is user-selectable
+(PPR/Half/Standard) with EXACT conversion via real prior-season receptions (ESPN raw statId 53).
+(3) TEAM tab: QB·2RB·2WR·TE·FLEX + 6 bench (no K/D-ST until modeled), localStorage persistence,
+and a deterministic fit engine (`app/team-logic.js`, pure + unit-locked) whose recommendations carry
+plain-language reasons: QB↔receiver stacks, bye-clash penalties, bye-cover credits, worst-week
+floor raises, complementary-matchup weeks. (4) Slate gained a WK 1–18 selector off schedule_full;
+parlay GAME/WEEK toggle restyled to a solid-brand active pill (AA pair added to the contrast test).
+**Rationale:** User feedback after first prod review. Weekly numbers stay honest (a transparent
+split of a real season prior, not fabricated per-week skill), and the builder recommends by LOGIC,
+not just points — the explicit ask.
+**Status:** adopted. Gate at 66 unit + 16 e2e, all green.

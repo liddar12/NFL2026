@@ -10,6 +10,12 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+/** Read a committed data contract — the tests derive expectations from the
+ * SAME JSON the app serves, so they never hardcode player names or counts. */
+const readData = (rel) =>
+  JSON.parse(readFileSync(new URL(`../../data/${rel}`, import.meta.url), 'utf8'));
 
 /** Poll until the view has painted at least one card of the given selector. */
 async function waitForCards(page, selector) {
@@ -103,5 +109,164 @@ test.describe('web (in-browser) experience', () => {
     expect(boxes.view.top).toBeGreaterThanOrEqual(boxes.topbar.bottom - 1);
     // The fixed tabbar is anchored to the bottom, below the topbar.
     expect(boxes.tabbar.top).toBeGreaterThanOrEqual(boxes.topbar.bottom - 1);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Build 3 — week selector, weekly strips, scoring toggle, team builder
+ * (Agent E). Expected values are derived from the committed data contracts at
+ * runtime, never hardcoded.
+ * ------------------------------------------------------------------------- */
+
+test.describe('week selector (slate)', () => {
+  test('clicking a week chip re-renders the slate to that week', async ({ page }) => {
+    // Derive per-week game counts from the schedule contract; pick the week
+    // with the FEWEST games (a bye week) so the count provably differs from
+    // the default week's full slate.
+    const sched = readData('schedule_full.json');
+    const preds = readData('game_predictions.json');
+    const defaultWeek = Number(preds.week);
+    const perWeek = new Map();
+    for (const g of sched.games) {
+      perWeek.set(Number(g.week), (perWeek.get(Number(g.week)) || 0) + 1);
+    }
+    let target = null;
+    for (const [wk, n] of perWeek) {
+      if (wk === defaultWeek) continue;
+      if (target === null || n < perWeek.get(target)) target = wk;
+    }
+    expect(target).not.toBeNull();
+    expect(perWeek.get(target)).not.toBe(perWeek.get(defaultWeek));
+
+    await page.goto('/#/');
+    await waitForCards(page, '.card.game');
+
+    // Default paint: the pipeline's current week, its chip active.
+    await expect(page.locator('.wk-chip--active')).toHaveAttribute(
+      'data-wk', String(defaultWeek),
+    );
+    expect(await page.locator('.card.game').count()).toBe(perWeek.get(defaultWeek));
+
+    // Switch weeks: the active chip moves and the slate repaints to the bye
+    // week's (smaller) game count.
+    await page.locator(`.wk-chip[data-wk="${target}"]`).click();
+    await expect(page.locator('.wk-chip--active')).toHaveAttribute(
+      'data-wk', String(target),
+    );
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('.card.game').length === n,
+      perWeek.get(target),
+      { timeout: 8000 },
+    );
+    const shown = await page.locator('.card.game').count();
+    expect(shown).toBe(perWeek.get(target));
+    expect(shown).toBeGreaterThanOrEqual(1);
+    expect(shown).not.toBe(perWeek.get(defaultWeek));
+  });
+});
+
+test.describe('players weekly strip + scoring toggle', () => {
+  test('expanding a player card shows 18 week cells including a BYE', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+
+    const card = page.locator('.card.player').first();
+    const btn = card.locator('.p-expand');
+    await expect(btn).toHaveAttribute('aria-expanded', 'false');
+
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
+
+    const strip = card.locator('.wkstrip');
+    await expect(strip).toBeVisible();
+    // 18 regular-season cells, exactly one of them the player's bye.
+    await expect(strip.locator('.wkcell')).toHaveCount(18);
+    expect(await strip.locator('.wkcell--bye').count()).toBeGreaterThanOrEqual(1);
+  });
+
+  test('scoring toggle to STD lowers a receiving WR\'s displayed season points', async ({ page }) => {
+    // Pick (at runtime) a WR with a real receptions prior, so std < ppr.
+    const proj = readData('player_projections.json');
+    const weekly = readData('player_weekly.json');
+    const recById = new Map(
+      weekly.players.map((p) => [p.gsis_id, Number(p.receptions_prior) || 0]),
+    );
+    const wr = proj.players.find(
+      (p) => p.position === 'WR' && recById.get(p.gsis_id) > 0,
+    );
+    expect(wr, 'no WR with a receptions prior in the data').toBeTruthy();
+
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+
+    const num = page.locator(`.card.player[data-gsis="${wr.gsis_id}"] .p-num`);
+    const pprShown = parseFloat(await num.textContent());
+    expect(pprShown).toBeCloseTo(wr.proj_points, 0); // display rounds to 1dp
+
+    await page.locator('.scoreseg button[data-scoring="std"]').click();
+    await expect(
+      page.locator('.scoreseg button[data-scoring="std"]'),
+    ).toHaveClass(/scoreseg--active/);
+
+    const stdShown = parseFloat(await num.textContent());
+    expect(stdShown).toBeLessThan(pprShown);
+    // EXACT conversion: std = ppr − receptions (to display rounding).
+    expect(stdShown).toBeCloseTo(wr.proj_points - recById.get(wr.gsis_id), 0);
+  });
+});
+
+test.describe('team builder (#/team)', () => {
+  test('add QB + same-team WR -> "Stacks with" reason; roster persists', async ({ page }) => {
+    // Runtime pair pick: the highest-projected WR whose team also fields a
+    // projected QB (the WR is top-5 at his position, so he MUST appear in the
+    // WR recommendations, carrying the stack reason once his QB is rostered).
+    const proj = readData('player_projections.json');
+    const qbByTeam = new Map();
+    for (const p of proj.players) {
+      if (p.position === 'QB' && !qbByTeam.has(p.team)) qbByTeam.set(p.team, p);
+    }
+    const wr = proj.players.find(
+      (p) => p.position === 'WR' && qbByTeam.has(p.team),
+    );
+    expect(wr, 'no QB+WR same-team pair in the data').toBeTruthy();
+    const qb = qbByTeam.get(wr.team);
+
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    // The contract roster: QB,RB,RB,WR,WR,TE,FLEX + 6 bench = 13 slots.
+    expect(await page.locator('.roster .slot').count()).toBe(13);
+
+    // Add the QB via the finder — he fills QB1.
+    await page.fill('.finder-input', qb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: qb.name }).first()
+      .locator('.cand-add').click();
+    await expect(page.locator('.slot[data-slot="QB1"] .slot-player'))
+      .toContainText(qb.name);
+
+    // Select the WR1 slot (the empty slot's ADD button is the pick control):
+    // the reco panel retargets to WR1 and the rostered QB's same-team WR —
+    // the top projected WR — must carry the plain-language stack reason.
+    await page.locator('.slot[data-slot="WR1"] .slot-empty').click();
+    await expect(page.locator('.reco .reco-slot')).toContainText('WR1');
+    await expect(
+      page.locator('.reco-why', { hasText: 'Stacks with' }).first(),
+    ).toBeVisible();
+
+    // Add the same-team WR via the finder.
+    await page.fill('.finder-input', wr.name);
+    await page.locator('.cand', { hasText: wr.name }).first()
+      .locator('.cand-add').click();
+    await expect(page.locator('.roster .slot-player')).toHaveCount(2);
+
+    // Persistence: reload -> the roster re-renders from localStorage.
+    await page.reload();
+    await page.waitForSelector('.roster .slot-player', { timeout: 8000 });
+    expect(await page.locator('.roster .slot-player').count()).toBe(2);
+    const stored = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('nfl2026.team.v1') || 'null'),
+    );
+    expect(stored && stored.slots && stored.slots.QB1).toBe(qb.gsis_id);
+    expect(Object.values(stored.slots)).toContain(wr.gsis_id);
   });
 });

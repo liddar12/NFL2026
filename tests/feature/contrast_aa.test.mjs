@@ -158,6 +158,14 @@ test('brand/accent as LARGE text meet 3.0:1 on bg', () => {
   assertContrast('accent', 'bg', AA_LARGE);
 });
 
+test('active pill: dark ink (#0D1117) on solid --brand meets 3.0:1 (large bold)', () => {
+  // .scopeseg / .scoreseg active pills: solid --brand background with dark
+  // BOLD ink (#0D1117 = --bg). Bold >=14px qualifies as large text, so the
+  // 3.0:1 threshold applies; the pair measures 5.46:1. Locked here so neither
+  // token can drift the pill below AA.
+  assertContrast('bg', 'brand', AA_LARGE); // #0D1117 ink on #4A90C2 pill
+});
+
 /* ---- UI graphics (bar fills, markers): >= 3.0:1 --------------------------- */
 test('win-prob / EV bar fills meet 3.0:1 on surface', () => {
   // .seg--home/.seg--away and pos/accent markers render ON the card (--surface).

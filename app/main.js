@@ -1,6 +1,6 @@
 /* app/main.js — app entry: hash router, health chip, tab state, SW.
  *
- * Wires the three views (slate/players/parlays) to a hash router, paints the
+ * Wires the four views (slate/players/parlays/team) to a hash router, paints the
  * pipeline-health chip once, keeps the tab bar's active state + ARIA in sync,
  * and registers the pure cache-purger service worker (best-effort). No
  * framework, no build step, dependency-free (platform fetch + DOM only).
@@ -16,11 +16,27 @@ import mountSlate from './views/slate.js';
 import mountPlayers from './views/players.js';
 import mountParlays from './views/parlays.js';
 
+/** Lazy TEAM mount: the builder ships as its own module (team-logic + weekly
+ * data). Import at navigation time so a failed load degrades to a .state
+ * message inside #view — the shell and the other three tabs stay alive. */
+async function mountTeam(el) {
+  let mod;
+  try {
+    mod = await import('./views/team.js');
+  } catch (err) {
+    console.warn('[nfl2026] team view failed to load:', err);
+    el.innerHTML = '<div class="state">Team builder unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
 // hash -> { mount, tab }. '#/' is the default/fallback (slate).
 const ROUTES = {
   '#/': { mount: mountSlate, tab: 'slate' },
   '#/players': { mount: mountPlayers, tab: 'players' },
   '#/parlays': { mount: mountParlays, tab: 'parlays' },
+  '#/team': { mount: mountTeam, tab: 'team' },
 };
 
 // Monotonic navigation token: guards against out-of-order async paints when the
