@@ -28,6 +28,8 @@ FINAL_STATUSES = frozenset(["STATUS_FINAL", "STATUS_FINAL_OVERTIME"])
 _SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 # Public injuries endpoint (per-team injury report).
 _INJURIES_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
+# Public teams endpoint (identity: colors, venue, ids).
+_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 
 _HTTP_TIMEOUT = 20  # seconds; ESPN is fast, a long hang means trouble — fail, don't wait.
 
@@ -111,6 +113,7 @@ def fetch_schedule(season, week=None, seasontype=2):
     for ev in events:
         home, away = _competitors(ev)
         status = (((ev.get("status") or {}).get("type")) or {}).get("name")
+        venue = (ev.get("competitions") or [{}])[0].get("venue") or {}
         out.append(
             {
                 "game_id": str(ev.get("id")),
@@ -118,9 +121,66 @@ def fetch_schedule(season, week=None, seasontype=2):
                 "away": _team_abbrev(away),
                 "kickoff_utc": ev.get("date"),  # e.g. "2026-09-10T00:20Z"
                 "status": status,
+                "venue": venue.get("fullName"),
+                # ESPN's `indoor` flag covers domes + closed retractables; we record
+                # the binary here and let the stadium table refine retractable/open.
+                "roof": "indoor" if venue.get("indoor") else "outdoor",
             }
         )
     return out
+
+
+def fetch_teams(min_rows=30):
+    """Return {canonical_abbrev: {name, location, display, espn_id, color, alt_color}}.
+
+    Colors are ESPN identity hex WITH a leading '#'. `color` is the primary; the app
+    lightens it for AA on the dark surface (never used raw as small text). Loud if the
+    league doesn't return ~32 teams.
+    """
+    data = _get_json(_TEAMS_URL)
+    rows = (((data.get("sports") or [{}])[0].get("leagues") or [{}])[0].get("teams")) or []
+    if len(rows) < min_rows:
+        raise FeedError(f"ESPN teams returned {len(rows)} (< {min_rows}) — outage or bad shape.")
+    out = {}
+    for r in rows:
+        t = r.get("team") or {}
+        raw = t.get("abbreviation")
+        ab = normalize_team(raw)
+        if ab is None:
+            raise FeedError(f"ESPN team '{raw}' unmapped — update renames.py before trusting this run.")
+        out[ab] = {
+            "name": t.get("nickname") or t.get("name"),
+            "location": t.get("location"),
+            "display": t.get("displayName"),
+            "espn_id": t.get("id"),
+            "color": ("#" + t["color"]) if t.get("color") else None,
+            "alt_color": ("#" + t["alternateColor"]) if t.get("alternateColor") else None,
+        }
+    return out
+
+
+def fetch_season_schedule(season, weeks=range(1, 19), seasontype=2):
+    """Full regular-season schedule for `season`, each row tagged with its `week`.
+    Asserts a sane total (a full NFL regular season is 272 games)."""
+    games = []
+    for wk in weeks:
+        for g in fetch_schedule(season, week=wk, seasontype=seasontype):
+            g["week"] = wk
+            games.append(g)
+    if len(games) < 200:
+        raise FeedError(f"season {season} schedule: only {len(games)} games (expected ~272).")
+    return games
+
+
+def fetch_final_results(season, weeks=range(1, 19), seasontype=2):
+    """All FINAL games from `season` (STATUS-gated) with integer scores — the input to
+    Elo priors. A future season with nothing played yet legitimately returns []."""
+    finals = []
+    for wk in weeks:
+        for g in fetch_scores(season, week=wk, seasontype=seasontype, final_only=True):
+            g["week"] = wk
+            finals.append(g)
+    return finals
 
 
 def fetch_scores(season, week=None, seasontype=2, final_only=True):

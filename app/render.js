@@ -90,6 +90,9 @@ export function formatKickoff(utc) {
  */
 export function formatLeg(market, selection) {
   const sel = String(selection == null ? '' : selection);
+  // Abbreviate a leading "First Last" to "F. Last" so long player-prop names fit
+  // one card row instead of truncating with an ellipsis.
+  const abbrevPlayer = (s) => String(s).replace(/^([A-Z])[a-z]+\s+([A-Z][a-z'.-]+)/, '$1. $2');
   switch (market) {
     case 'moneyline':
       return `${sel} ML`;
@@ -97,11 +100,12 @@ export function formatLeg(market, selection) {
       // Data carries e.g. "Patrick Mahomes TD"; strip trailing " TD" so we can
       // append the canonical "anytime TD" phrasing without duplicating it.
       const player = sel.replace(/\s+TD$/i, '');
-      return `${player} anytime TD`;
+      return `${abbrevPlayer(player)} anytime TD`;
     }
+    case 'player_receptions':
+      return abbrevPlayer(sel);
     case 'spread':
     case 'total':
-    case 'player_receptions':
     default:
       return sel;
   }

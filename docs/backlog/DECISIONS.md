@@ -86,3 +86,19 @@ locked so it can't regress.
 **Rationale:** A future adapter re-skins by swapping tokens, not rebuilding the shell — the P7
 framework seam.
 **Status:** adopted.
+
+
+## 2026-07-16 — Real data pipeline: ESPN + Elo priors (nflverse deferred to cron)
+**Decision:** The live pipeline is `scripts/build_predictions.py`. ESPN's keyless public API
+supplies the real 2026 schedule (272 games), team identity (colors/venues), 2025 FINAL results,
+and injuries; 2025 results feed `scripts/models/elo.py` (MOV-adjusted Elo, reverted to mean) to
+produce real 2026 win probabilities through the full-vector game model. Weather via Open-Meteo.
+nflverse ingestion stays a guarded, cron-only path (its release CSVs are proxy-blocked in the build
+sandbox but fine on GitHub runners). Market feeds (Odds API / Kalshi) stay honestly `degraded` until
+a key is set. `build_all.py` remains the offline, stdlib-only, fixtures-based generator (players +
+parlays); crons run `build_all` then `build_predictions` so real game data overwrites the fixture
+placeholder.
+**Rationale:** Ship real, honest predictions now without waiting on paid keys — ESPN covers the
+adapter's backbone keylessly. Elo-only is a transparent baseline every later signal must beat.
+**Status:** adopted; game/schedule/team/feed-health data is now real. Player projections stay
+fixture-based estimates until N2's real ingestion.

@@ -39,27 +39,23 @@ jobs:
       # Heavy data libs live ONLY on the pipeline runner, never in the gate. The gate
       # (ci.yml) installs nothing.
       - name: Install pipeline dependencies
-        run: pip install --upgrade nfl_data_py requests
+        run: pip install --upgrade requests
 
-      # Scrape the durable feeds. Each scraper fails LOUDLY on 0 rows / staleness, so a
-      # bad pull aborts the job instead of committing an empty file. NO continue-on-error.
-      - name: Scrape nflverse + ESPN + markets + weather
-        env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; odds.py no-ops if unset
-        run: |
-          python -m scripts.scrape.nflverse_cli || true   # placeholder CLI (Gate-2 wiring)
-          # NOTE: individual scraper CLIs are wired at Gate 2. For the scaffold the
-          # authoritative offline build below regenerates model outputs from fixtures.
-
-      # Regenerate model outputs deterministically (stdlib only, no network). Safe even
-      # if a scraper above was a no-op — it reads committed fixtures.
-      - name: Build model outputs
+      # Step 1 — deterministic offline outputs from committed fixtures: player
+      # projections + parlays. Stdlib only, no network; safe on any runner.
+      - name: Build fixture-based players + parlays
         run: python -m scripts.build_all
 
-      # Feed-health: write data/pipeline_status.json. Exits non-zero only if the whole
-      # pipeline is DOWN, which fails the job loudly (degraded/stale are warnings).
-      - name: Compute pipeline status
-        run: python -m scripts.pipeline_status
+      # Step 2 — the REAL feed. ESPN 2026 schedule + 2025 FINAL results -> Elo priors
+      # -> game predictions, plus schedule_full, real team identity, injuries, and the
+      # honest feed-health status. Runs AFTER build_all so real game data overwrites the
+      # fixture placeholder. Fails LOUDLY on a broken feed (no continue-on-error). Market
+      # feeds (odds/kalshi) stay "degraded" until ODDS_API_KEY is set; nflverse joins
+      # when its scraper is wired (proxy-blocked in some sandboxes, fine on GH runners).
+      - name: Fetch ESPN + build real predictions + feed health
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
+        run: python -m scripts.build_predictions
 
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts

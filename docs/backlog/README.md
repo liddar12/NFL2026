@@ -18,9 +18,9 @@ log lives in [`DECISIONS.md`](./DECISIONS.md).
 `✅ Done` · `🟡 Partial` (skeleton/scaffold exists, not yet fed by real data) · `⬜ Planned`
 
 > **Branch note:** this backlog is based on `main`. The **design system + wired views** (epics P7 and
-> N5) were built and CI-verified in **PR #1** (draft, pending merge to `main`), so on `main` today
-> those files aren't yet present — the epics carry a banner and a "delivered in PR #1" status so the
-> record stays honest. Everything else reflects the current `main` tree.
+> N5) were built and CI-verified in **PR #1**, now **merged to `main`** — so those files are present on
+> `main`. The P7/N5 epics carry a banner; some story statuses drafted pre-merge still read ⬜/🟡 and
+> should be read as ✅ delivered. Everything else reflects the current `main` tree.
 
 ## The two layers
 
