@@ -2,92 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- Mobile PWA first: this is an installable phone app, not a desktop site. -->
+  <!-- Installable iOS PWA first. viewport-fit=cover lets the layout extend under
+       the Dynamic Island / home indicator; theme.css re-insets it with the
+       safe-area env() vars so nothing is occluded in standalone. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0f14" />
-  <meta name="description" content="NFL2026 — domain-agnostic prediction platform (NFL adapter). Platform skeleton." />
+  <meta name="theme-color" content="#0D1117" />
+  <meta name="description" content="NFL2026 — Broadcast Gameday predictions, player projections, and model-EV parlays. Installable PWA." />
+
+  <!-- Standalone PWA hints (iOS + Android). black-translucent lets our dark bg
+       run under the status bar; the app title shows on the iOS home screen. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NFL2026" />
 
   <title>NFL2026</title>
 
-  <!-- PWA manifest: standalone, portrait, name NFL2026. -->
+  <!-- PWA manifest + iOS home-screen icon (opaque per iOS requirement). -->
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
 
-  <!-- MINIMAL provisional styling only. No design system, no framework, no CDN.
-       Real visual design is deliberately Gate 2's job — do not build it here. -->
-  <style>
-    :root { color-scheme: dark; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #0b0f14;
-      color: #e6edf3;
-      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    main {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
-    }
-    /* Single provisional placeholder card. Intentionally plain — no gradients. */
-    .card {
-      border: 1px solid #232b34;
-      border-radius: 10px;
-      background: #11161d;
-      padding: 20px;
-    }
-    .card h1 { margin: 0 0 8px; font-size: 18px; }
-    .card p  { margin: 0; color: #9fb0c0; }
-    nav { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
-    nav a {
-      color: #9fb0c0;
-      text-decoration: none;
-      border: 1px solid #232b34;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 14px;
-    }
-    nav a:hover { color: #e6edf3; }
-    #view { margin-top: 16px; }
-  </style>
+  <!-- theme.css owns ALL styling (dark-only Broadcast Gameday design system).
+       No inline styles, no CDN, no build step. -->
+  <link rel="stylesheet" href="/app/theme.css" />
 </head>
 <body>
-  <main>
-    <!-- The provisional skeleton card, exactly as the spec dictates. -->
-    <section class="card">
-      <h1>NFL2026 — platform skeleton live.</h1>
-      <p>Visual design pending Gate 2.</p>
-    </section>
+  <!-- App shell. .topbar clears the Dynamic Island, .tabbar clears the home
+       indicator (both inset with safe-area env() in theme.css); .view scrolls
+       between them. Markup classes are the shared contract the CSS + tests use. -->
+  <div class="app">
+    <header class="topbar">
+      <div class="wordmark">NFL<span class="wm-accent">2026</span></div>
+      <div class="wk" id="week-chip">WK 1</div>
+    </header>
 
-    <!-- Hash-router nav stubs. Each route renders a "Gate 2 pending" view. -->
-    <nav>
-      <a href="#/">Home</a>
-      <a href="#/players">Players</a>
-      <a href="#/games">Games</a>
-      <a href="#/parlays">Parlays</a>
+    <!-- Pipeline health chip (honest degraded/stale reporting), painted by main.js. -->
+    <div class="health" id="health" role="status" aria-live="polite"></div>
+
+    <!-- Router paints the active view here; tabindex="-1" so focus can land on
+         route change for a11y. -->
+    <main class="view" id="view" aria-live="polite" tabindex="-1"></main>
+
+    <!-- Bottom tab bar. Active tab gets .tab--active + aria-selected via main.js. -->
+    <nav class="tabbar" role="tablist" aria-label="Sections">
+      <a class="tab" href="#/" data-tab="slate" role="tab">Slate</a>
+      <a class="tab" href="#/players" data-tab="players" role="tab">Players</a>
+      <a class="tab" href="#/parlays" data-tab="parlays" role="tab">Parlays</a>
     </nav>
+  </div>
 
-    <!-- Router paints route views here. -->
-    <section id="view" aria-live="polite"></section>
-  </main>
-
-  <!-- Runtime config is a committed placeholder, regenerated at build time. It is
-       a plain ES module (loaded by app/data.js), so nothing to include here. -->
-
-  <!-- App entry point. ES module, no bundler, no build step. -->
+  <!-- App entry point. ES module (deferred), no bundler. It also registers the
+       pure cache-purger service worker best-effort. -->
   <script type="module" src="/app/main.js"></script>
-
-  <!-- Register the pure cache-purger service worker (it does NOT cache anything;
-       see sw.js). Registration is best-effort and never blocks first paint. -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch((err) => {
-          // Non-fatal: the app works fine without the SW registered.
-          console.warn('[nfl2026] SW registration failed:', err);
-        });
-      });
-    }
-  </script>
 </body>
 </html>

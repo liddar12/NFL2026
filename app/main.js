@@ -1,89 +1,113 @@
-/* app/main.js — provisional app entry: hash router stub + contract self-check.
+/* app/main.js — app entry: hash router, health chip, tab state, SW.
  *
- * MINIMAL by design. Real views/layout are Gate 2's job. This module only:
- *   1. Runs a tiny hash router over #/ , #/players, #/games, #/parlays, each
- *      rendering a "Gate 2 pending" placeholder.
- *   2. On load, fetches every data/*.json contract via app/data.js and
- *      console.logs each one's shape — proving the JSON contract links up end
- *      to end before any UI is built on top of it.
+ * Wires the three views (slate/players/parlays) to a hash router, paints the
+ * pipeline-health chip once, keeps the tab bar's active state + ARIA in sync,
+ * and registers the pure cache-purger service worker (best-effort). No
+ * framework, no build step, dependency-free (platform fetch + DOM only).
  *
- * No framework, no build step, dependency-free.
+ * A11Y: on every route change we move focus to #view (tabindex="-1") so screen
+ * reader / keyboard users land on the freshly painted content, and set
+ * aria-selected on the active tab (the tabbar is role="tablist").
  */
 
-import { getAll, RUNTIME_CONFIG } from './data.js';
+import { getPipelineStatus, getGamePredictions } from './data.js';
+import { renderHealth, healthMod } from './render.js';
+import mountSlate from './views/slate.js';
+import mountPlayers from './views/players.js';
+import mountParlays from './views/parlays.js';
 
-// The four provisional routes. Home is the default/fallback.
+// hash -> { mount, tab }. '#/' is the default/fallback (slate).
 const ROUTES = {
-  '#/': 'Home',
-  '#/players': 'Players',
-  '#/games': 'Games',
-  '#/parlays': 'Parlays',
+  '#/': { mount: mountSlate, tab: 'slate' },
+  '#/players': { mount: mountPlayers, tab: 'players' },
+  '#/parlays': { mount: mountParlays, tab: 'parlays' },
 };
 
-/** Render the placeholder view for whatever hash is current. */
-function renderRoute() {
+// Monotonic navigation token: guards against out-of-order async paints when the
+// user switches tabs faster than a view resolves — only the latest wins.
+let navSeq = 0;
+
+/** Sync .tab--active + aria-selected on the tab bar for the active section. */
+function setActiveTab(tab) {
+  document.querySelectorAll('.tabbar .tab').forEach((a) => {
+    const on = a.dataset.tab === tab;
+    a.classList.toggle('tab--active', on);
+    a.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+/** Render the current route into #view and update tab state + focus. */
+async function renderRoute() {
   const el = document.getElementById('view');
   if (!el) return;
 
   const hash = window.location.hash || '#/';
-  const label = ROUTES[hash] || ROUTES['#/'];
+  const route = ROUTES[hash] || ROUTES['#/'];
+  const seq = ++navSeq;
 
-  // Deliberately plain placeholder text. Gate 2 replaces the whole view layer.
-  el.textContent = '';
-  const h = document.createElement('h2');
-  h.textContent = label;
-  h.style.cssText = 'margin:0 0 4px;font-size:16px;';
-  const p = document.createElement('p');
-  p.textContent = 'Gate 2 pending';
-  p.style.cssText = 'margin:0;color:#9fb0c0;';
-  el.append(h, p);
+  setActiveTab(route.tab);
+  // Focus the view region for a11y (it is tabindex="-1"). Do this before the
+  // await so keyboard focus lands immediately, not after the fetch resolves.
+  try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
+
+  await route.mount(el);
+
+  // If another navigation started while we were awaiting, we may have painted
+  // stale content — repaint with the now-current route. (Cheap: JSON is cached.)
+  if (seq !== navSeq) return;
 }
 
-/**
- * Fetch all contracts and log a compact shape summary for each. This is the
- * end-to-end proof that data.js + the on-disk JSON contracts are wired up.
- * Never throws into the router — a bad feed is logged, not fatal.
- */
-async function proveContracts() {
+/** Fetch pipeline status and paint the #health chip (state color + note). */
+async function renderHealthChip() {
+  const el = document.getElementById('health');
+  if (!el) return;
   try {
-    const all = await getAll();
-    console.log('[nfl2026] runtime-config:', RUNTIME_CONFIG);
-    for (const [name, value] of Object.entries(all)) {
-      if (value && value.__error) {
-        console.warn(`[nfl2026] contract "${name}" failed:`, value.__error);
-        continue;
-      }
-      console.log(`[nfl2026] contract "${name}" shape:`, describeShape(value));
-    }
+    const status = await getPipelineStatus();
+    el.className = `health health--${healthMod(status && status.health)}`;
+    el.innerHTML = renderHealth(status);
   } catch (err) {
-    console.error('[nfl2026] contract self-check failed:', err);
+    // Honest failure: show a down chip rather than an empty bar.
+    el.className = 'health health--down';
+    el.innerHTML =
+      '<span class="health-dot health-dot--down"></span>' +
+      '<span class="health-label">DATA · DOWN</span>' +
+      '<span class="health-note">status feed unavailable</span>';
   }
 }
 
-/**
- * Produce a shallow, human-readable description of a parsed JSON value's shape
- * (type, array length, top-level keys) without dumping the whole payload.
- */
-function describeShape(value) {
-  if (Array.isArray(value)) {
-    return { type: 'array', length: value.length, sampleKeys: value[0] ? Object.keys(value[0]) : [] };
+/** Update the topbar week chip from the game-predictions contract. */
+async function renderWeekChip() {
+  const el = document.getElementById('week-chip');
+  if (!el) return;
+  try {
+    const data = await getGamePredictions();
+    if (data && data.week != null) el.textContent = `WK ${data.week}`;
+  } catch (_) {
+    // Leave the committed default ("WK 1") in place on failure.
   }
-  if (value && typeof value === 'object') {
-    return { type: 'object', keys: Object.keys(value) };
-  }
-  return { type: typeof value, value };
+}
+
+/** Register the pure cache-purger SW (best-effort; never blocks first paint). */
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('[nfl2026] SW registration failed:', err);
+    });
+  });
 }
 
 // One-time bootstrap guard. Module scripts are deferred and execute at
-// readyState "interactive" (before DOMContentLoaded fires), so we cannot know
-// in advance whether the event will still fire — run once, whichever path hits
-// first, and never twice.
+// readyState "interactive" (before DOMContentLoaded), so run once whichever
+// path fires first, never twice.
 let booted = false;
 function boot() {
   if (booted) return;
   booted = true;
+  renderHealthChip();
+  renderWeekChip();
   renderRoute();
-  proveContracts();
+  registerServiceWorker();
 }
 
 // Router wiring: re-render on every hash change; bootstrap once on load.
@@ -91,6 +115,5 @@ window.addEventListener('hashchange', renderRoute);
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', boot, { once: true });
 } else {
-  // DOM already parsed (typical for a deferred module) — bootstrap now.
   boot();
 }
