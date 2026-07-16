@@ -76,8 +76,8 @@ def _kona_page(season, offset, limit=_PAGE, timeout=30):
             return json.load(resp)
 
 
-def _real_season_total(player, season):
-    """The measured season fantasy total, or None if the player has no actuals entry.
+def _real_season_entry(player, season):
+    """The measured full-season stat entry, or None if the player has no actuals.
     See the module docstring for why sourceId/splitType are checked explicitly."""
     for s in player.get("stats") or []:
         if (
@@ -85,7 +85,7 @@ def _real_season_total(player, season):
             and s.get("statSourceId") == 0
             and s.get("statSplitTypeId") == 0
         ):
-            return float(s.get("appliedTotal") or 0.0)
+            return s
     return None
 
 
@@ -104,9 +104,13 @@ def fetch_fantasy_pool(season, min_rows=150):
         for row in rows:
             p = row.get("player") or {}
             pos = _POSITION_BY_ID.get(p.get("defaultPositionId"))
-            total = _real_season_total(p, season)
+            entry = _real_season_entry(p, season)
+            total = float(entry.get("appliedTotal") or 0.0) if entry else None
             if not pos or total is None or total <= 0:
                 continue
+            # Raw receptions ride the SAME actuals entry under statId "53" —
+            # exact PPR<->Half<->Standard conversion downstream, never a guess.
+            receptions = float((entry.get("stats") or {}).get("53") or 0.0)
             pool.append({
                 "espn_id": str(p.get("id")),
                 "name": p.get("fullName") or str(p.get("id")),
@@ -114,6 +118,7 @@ def fetch_fantasy_pool(season, min_rows=150):
                 "pro_team_id": p.get("proTeamId"),
                 "injury_status": (p.get("injuryStatus") or "").lower() or None,
                 "prior_season_points": round(total, 2),
+                "receptions": round(receptions, 1),
             })
         if len(rows) < _PAGE:
             break
@@ -173,6 +178,7 @@ def build_player_records(season, teams):
             "age": ages.get(p["espn_id"]),
             "injury_status": p["injury_status"],
             "prior_season_points": p["prior_season_points"],
+            "receptions": p["receptions"],
         })
     return records
 

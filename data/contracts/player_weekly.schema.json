@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_weekly.schema.json",
+  "title": "Player weekly projection splits",
+  "description": "Per-player 18-week split of the season projection (weekly_split_v1: even split, Elo matchup tilt, home/away, renormalized to the season total). Player order mirrors player_projections.json. Produced by scripts/build_weekly.py, validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "model", "players"],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "updated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of the last regeneration."
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tilt_coef", "home_coef", "estimate", "notes"],
+      "properties": {
+        "name": { "type": "string" },
+        "tilt_coef": {
+          "type": "number",
+          "description": "Elo matchup-tilt coefficient — the transparent prior the P2 optimizer refits in-season."
+        },
+        "home_coef": {
+          "type": "number",
+          "description": "Home/away multiplicative edge (home 1+c, away 1-c)."
+        },
+        "estimate": {
+          "type": "boolean",
+          "description": "true => NOT a validated measurement (honesty flag)."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gsis_id", "receptions_prior", "weeks"],
+        "properties": {
+          "gsis_id": {
+            "type": "string",
+            "description": "Same key and order as player_projections.json."
+          },
+          "receptions_prior": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Prior-season receptions (ESPN raw statId 53); exact PPR<->Half<->Standard conversion. 0.0 when unknown."
+          },
+          "weeks": {
+            "type": "array",
+            "minItems": 18,
+            "maxItems": 18,
+            "description": "Always 18 rows, weeks 1..18. Non-bye pts sum to the season projection (within rounding).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["wk", "opp", "home", "bye", "pts"],
+              "properties": {
+                "wk": { "type": "integer", "minimum": 1, "maximum": 18 },
+                "opp": {
+                  "type": ["string", "null"],
+                  "description": "Canonical opponent abbreviation; null on bye.",
+                  "enum": [
+                    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
+                    "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
+                    "LV", "LAC", "LAR", "MIA", "MIN", "NE", "NO", "NYG",
+                    "NYJ", "PHI", "PIT", "SF", "SEA", "TB", "TEN", "WAS",
+                    null
+                  ]
+                },
+                "home": { "type": "boolean" },
+                "bye": { "type": "boolean" },
+                "pts": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "ESTIMATE weekly PPR points, 2dp. 0.0 on bye."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

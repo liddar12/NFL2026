@@ -41,6 +41,7 @@ DATA = os.path.join(ROOT, "data")
 # that is fine — we simply skip an empty directory).
 SCHEMA_TO_DATA = {
     "player_projections.schema.json": "player_projections.json",
+    "player_weekly.schema.json": "player_weekly.json",
     "game_predictions.schema.json": "game_predictions.json",
     "parlays.schema.json": "parlays.json",
     "pipeline_status.schema.json": "pipeline_status.json",

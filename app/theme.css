@@ -287,6 +287,15 @@ button { font: inherit; color: inherit; }
   padding: 14px;
 }
 
+/* Nested card container (#slate-list / #players-list / #parlays-list). The
+   .view gap only reaches direct children — this restores the same 12px rhythm
+   for cards painted inside a list wrapper. */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Broadcast display numerals — big italic mono for hero numbers */
 .p-num {
   font-family: var(--mono);
@@ -678,17 +687,24 @@ button { font: inherit; color: inherit; }
 }
 .lk { color: var(--brand-txt); flex: none; }   /* link glyph */
 
-/* ---- scope segmented control (GAME / WEEK) -------------------------------- */
-.scopeseg {
+/* ---- segmented controls: parlay scope (GAME / WEEK) + player scoring
+   (PPR / HALF / STD). HIGH-CONTRAST pills — the old elev-on-surface active
+   state read as barely-on. Active = SOLID --brand fill with DARK ink:
+   #0D1117 (== --bg) on #4A90C2 is 5.46:1, AA even for small bold text (the
+   pair is pinned in the contrast test). Inactive = outlined + muted.
+   State selectors: aria-pressed (canonical) plus each control's legacy
+   active class so either attribute or class flips the pill. ---------------- */
+.scopeseg,
+.scoreseg {
   display: flex;
-  gap: 0;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 .scopeseg button,
-.scopeseg .seg-opt {
+.scopeseg .seg-opt,
+.scoreseg button {
   flex: 1 1 0;
   text-align: center;
   font-family: var(--sans);
@@ -699,14 +715,308 @@ button { font: inherit; color: inherit; }
   font-size: 13px;
   color: var(--muted);
   background: transparent;
-  border: none;
-  border-radius: 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   padding: 8px 4px;
   cursor: pointer;
 }
 .scopeseg button[aria-pressed="true"],
+.scopeseg .seg-btn--active,
 .scopeseg .seg-opt--active,
-.scopeseg .seg-opt[aria-selected="true"] {
+.scopeseg .seg-opt[aria-selected="true"],
+.scoreseg button[aria-pressed="true"],
+.scoreseg .scoreseg--active {
+  color: #0D1117;                 /* dark ink (== --bg) — AA pair with --brand */
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+/* =============================================================================
+   WEEK SELECTOR (slate) — .wkbar under the view head
+   Horizontal scroll row of 18 chips. THE BAR is the only horizontal scroller
+   (overflow-x:auto here; body stays overflow-x:hidden — no page overflow).
+   Active chip uses the same solid-brand / dark-ink AA pair as the segs.
+   ========================================================================== */
+.wkbar {
+  display: flex;
+  gap: 8px;
+  flex: none;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;               /* chips ARE the affordance */
+  padding: 2px;                        /* room for the focus ring */
+}
+.wkbar::-webkit-scrollbar { display: none; }
+
+.wk-chip {
+  flex: none;                          /* chips never shrink — the bar scrolls */
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.wk-chip--active,
+.wk-chip[aria-selected="true"] {
+  color: #0D1117;                      /* dark ink on solid brand (AA 5.46:1) */
+  background: var(--brand);
+  border-color: var(--brand);
+  font-weight: 800;
+}
+
+/* =============================================================================
+   PLAYER WEEKLY STRIP — .p-expand toggle + .wkstrip 18-cell grid
+   ========================================================================== */
+/* WEEKS toggle chip on the player card */
+.p-expand {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.p-expand[aria-expanded="true"] {
   color: var(--ink);
   background: var(--elev);
+  border-color: var(--brand);
+}
+
+/* 18 cells -> 2 columns of 9 (fits a phone card without a scroller) */
+.wkstrip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.wkcell {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.wkc-wk  { color: var(--muted); flex: none; min-width: 3ch; }
+.wkc-opp {
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wkc-pts { color: var(--brand-txt); font-weight: 700; margin-left: auto; flex: none; }
+/* bye cell — muted throughout ("BYE", zero week); no points emphasis */
+.wkcell--bye .wkc-opp,
+.wkcell--bye .wkc-pts {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* =============================================================================
+   TEAM TAB (#/team) — roster slots, player finder, recommendation panel,
+   team summary. All small text on ink/muted/*-txt tokens (AA >= 4.5:1);
+   solid-brand elements reuse the audited dark-ink pair.
+   ========================================================================== */
+
+/* ---- roster slot list ------------------------------------------------------ */
+.roster { display: flex; flex-direction: column; gap: 8px; }
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+/* selected slot (recommendation target) — brand edge, no fill change */
+.slot--active,
+.slot[aria-selected="true"] {
+  border-color: var(--brand);
+  background: var(--elev);
+}
+.slot-pos {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  flex: none;
+  min-width: 44px;                     /* QB..FLEX/BN align in a column */
+}
+/* empty slot — dashed "ADD <POS>" affordance (styled tag-agnostic: works as
+   a <button> or a <span> inside a clickable slot) */
+.slot-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+/* filled slot — name + team tint + wk pts laid out by the view */
+.slot-player {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- player finder ---------------------------------------------------------- */
+.finder { display: flex; flex-direction: column; gap: 8px; }
+
+.finder-input {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 16px;                     /* >=16px keeps iOS from zooming on focus */
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.finder-input::placeholder { color: var(--muted); }
+
+/* candidate row: name / pos / team / season pts + ADD */
+.cand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.cand-add {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0D1117;                      /* dark ink on solid brand (AA 5.46:1) */
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+/* ---- recommendation panel --------------------------------------------------- */
+.reco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);  /* stripe = graphic, base brand ok */
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.reco-score {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--brand-txt);              /* text-safe brand token, 4.5:1 */
+  font-variant-numeric: tabular-nums;
+}
+/* plain-language reason lines (fit engine output) */
+.reco-why {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---- team summary ------------------------------------------------------------ */
+.team-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+/* 18 weeks -> 6 x 3 mini-grid of summed starter points */
+.team-weeks {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+.tw-cell {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 2px;
+  min-width: 0;
+}
+/* worst week (the floor) — warn ink + edge; the cell's "floor" word/marker in
+   the markup carries the meaning, color reinforces (never color alone) */
+.tw-cell--floor {
+  color: var(--warn);
+  border-color: var(--warn);
+  font-weight: 700;
+}
+/* bye-clash chip: ">=2 starters share Week N bye" */
+.bye-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
 }

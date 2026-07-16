@@ -11,6 +11,9 @@
  *   data/parlays.json             built parlays (>=3/game, >=3/week)
  *   data/meta.json                fitted weights, model versions, optimizer cfg
  *   data/pipeline_status.json     per-feed health (honest, may be "degraded")
+ *   data/schedule_full.json       all 272 games, all 18 weeks (week selector)
+ *   data/player_weekly.json       per-player 18-week split (may be ABSENT on
+ *                                 older deploys — callers MUST catch rejection)
  *
  * Dependency-free: uses the platform `fetch` only. No build step, no framework.
  */
@@ -24,6 +27,8 @@ const PATHS = Object.freeze({
   parlays: '/data/parlays.json',
   meta: '/data/meta.json',
   pipelineStatus: '/data/pipeline_status.json',
+  scheduleFull: '/data/schedule_full.json',
+  playerWeekly: '/data/player_weekly.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -60,6 +65,11 @@ export const getGamePredictions = (opts) => loadJson(PATHS.gamePredictions, opts
 export const getParlays = (opts) => loadJson(PATHS.parlays, opts);
 export const getMeta = (opts) => loadJson(PATHS.meta, opts);
 export const getPipelineStatus = (opts) => loadJson(PATHS.pipelineStatus, opts);
+export const getScheduleFull = (opts) => loadJson(PATHS.scheduleFull, opts);
+// player_weekly may 404 on a deploy that predates the weekly model. loadJson
+// rejects with a clear "HTTP 404" error and EVICTS the cached promise, so the
+// rejection is graceful (catchable, retryable) — views degrade, never blank.
+export const getPlayerWeekly = (opts) => loadJson(PATHS.playerWeekly, opts);
 
 /**
  * Load every contract at once. Uses allSettled so one bad feed does not blank

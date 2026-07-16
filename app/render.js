@@ -252,8 +252,16 @@ function renderSignals(signals) {
     .join('');
 }
 
-/** One .card.player article from a player_projections[] entry. */
-export function renderPlayerCard(player) {
+/**
+ * One .card.player article from a player_projections[] entry.
+ *
+ * `opts.weekly === true` appends the .p-expand WEEKS toggle (collapsed; the
+ * view lazily injects the .wkstrip on first expand). Guarded so a bare
+ * `players.map(renderPlayerCard)` (opts = array index) still renders the
+ * legacy card unchanged — existing callers/tests keep working.
+ */
+export function renderPlayerCard(player, opts) {
+  const o = opts && typeof opts === 'object' ? opts : {};
   const low = Number(player.low);
   const high = Number(player.high);
   const proj = Number(player.proj_points);
@@ -261,6 +269,10 @@ export function renderPlayerCard(player) {
   // Point marker position inside the conformal band, clamped to the track.
   const span = high - low;
   const pctLeft = span > 0 ? clamp(((proj - low) / span) * 100, 0, 100) : 50;
+
+  const expand = o.weekly === true
+    ? '<button type="button" class="p-expand" aria-expanded="false">WEEKS</button>'
+    : '';
 
   return (
     `<article class="card player" data-gsis="${esc(player.gsis_id)}">` +
@@ -288,8 +300,59 @@ export function renderPlayerCard(player) {
       '<div class="estimate">' +
         '<span class="em">ESTIMATE</span> preseason — not yet measured' +
       '</div>' +
+      expand +
     '</article>'
   );
+}
+
+/* --------------------------------------------------------------------------
+ * Scoring seg + weekly strip (players view)
+ * ------------------------------------------------------------------------ */
+
+/** Scoring modes in display order. Persisted value ∈ this set (default ppr). */
+export const SCORING_MODES = ['ppr', 'half', 'std'];
+
+/**
+ * The global PPR/HALF/STD scoring toggle (.scoreseg) for the players header.
+ * Active button carries .scoreseg--active + aria-pressed (CSS matches either).
+ * Only rendered when player_weekly.json is available — the conversion needs
+ * receptions_prior, so without it the view is honestly PPR-only.
+ */
+export function renderScoreSeg(active) {
+  const btns = SCORING_MODES.map((mode) => {
+    const on = mode === active;
+    return (
+      `<button type="button" data-scoring="${mode}"` +
+        `${on ? ' class="scoreseg--active"' : ''} aria-pressed="${on ? 'true' : 'false'}">` +
+        `${mode.toUpperCase()}</button>`
+    );
+  }).join('');
+  return `<div class="scoreseg" role="group" aria-label="Scoring format">${btns}</div>`;
+}
+
+/**
+ * The 18-cell .wkstrip from a player_weekly weeks[] array.
+ * `ratio` = season_adj / season_ppr — the EXACT scoring rescale (weekly points
+ * scale proportionally to the season conversion; callers guard division by
+ * zero and pass 1). Byes render .wkcell--bye with "BYE" and NO points (a bye
+ * is a zero-week, not a 0.0 projection). Away opponents are "@OPP".
+ */
+export function renderWeekStrip(weeks, ratio) {
+  const r = Number.isFinite(Number(ratio)) ? Number(ratio) : 1;
+  const cells = (Array.isArray(weeks) ? weeks : []).map((w) => {
+    const wk = `<span class="wkc-wk">W${esc(w.wk)}</span>`;
+    if (w.bye === true) {
+      return `<div class="wkcell wkcell--bye">${wk}<span class="wkc-opp">BYE</span></div>`;
+    }
+    const opp = `${w.home ? '' : '@'}${w.opp == null ? '' : w.opp}`;
+    return (
+      `<div class="wkcell">${wk}` +
+        `<span class="wkc-opp">${esc(opp)}</span>` +
+        `<span class="wkc-pts">${esc(fix1(Number(w.pts) * r))}</span>` +
+      '</div>'
+    );
+  }).join('');
+  return `<div class="wkstrip">${cells}</div>`;
 }
 
 /* --------------------------------------------------------------------------

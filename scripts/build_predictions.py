@@ -21,6 +21,7 @@ if _ROOT not in sys.path:
 
 from scripts.scrape import espn  # noqa: E402
 from scripts.scrape import espn_players  # noqa: E402
+from scripts import build_weekly  # noqa: E402
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.models import game_model  # noqa: E402
 from scripts.models import parlay_builder  # noqa: E402
@@ -192,8 +193,18 @@ def main():
         "generated_utc": now, "health": health, "feeds": feeds,
     })
 
+    # Weekly split (weekly_split_v1) — pure math lives in scripts.build_weekly;
+    # this call just feeds it the artifacts already in hand. Player order mirrors
+    # player_projections.json (same projected[:300] slice), elos are the SAME
+    # priors the game model used, receptions ride the N2 feed (kona statId 53).
+    receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
+    weekly_doc = build_weekly.build_weekly_document(
+        projected[:300], predicted, ratings, receptions_by_id, SEASON, now)
+    _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
+
     print(f"OK  teams={len(teams)} elo_teams={len(ratings)} schedule={len(schedule)} "
-          f"week={wk} week_games={len(week_games)} health={health}")
+          f"week={wk} week_games={len(week_games)} "
+          f"weekly_players={len(weekly_doc['players'])} health={health}")
 
 
 if __name__ == "__main__":

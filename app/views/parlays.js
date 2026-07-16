@@ -21,9 +21,12 @@ function scopeSeg(active) {
     // NOTE: uses data-seg, NOT data-scope — data-scope is reserved for the
     // parlay CARDS (the contract/test selector `[data-scope="game|week"]`), so
     // the control must not pollute that count.
+    // aria-pressed drives the high-contrast pill CSS (solid --brand + dark
+    // ink); aria-selected stays for the role="tablist" semantics + old tests.
     return (
       `<button type="button" class="seg-btn${on ? ' seg-btn--active' : ''}" ` +
-        `data-seg="${scope}" role="tab" aria-selected="${on ? 'true' : 'false'}">${label}</button>`
+        `data-seg="${scope}" role="tab" aria-selected="${on ? 'true' : 'false'}" ` +
+        `aria-pressed="${on ? 'true' : 'false'}">${label}</button>`
     );
   };
   return (
@@ -89,6 +92,7 @@ export default async function mountParlays(el) {
         const on = b === btn;
         b.classList.toggle('seg-btn--active', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
       paintList();
     });

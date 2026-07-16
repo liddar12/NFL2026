@@ -252,6 +252,45 @@ test.describe('installed (standalone) PWA experience', () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
+  test('TEAM tab renders standalone and the roster persists across reload', async ({ page }) => {
+    await page.goto(url('/#/team'));
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    // Contract roster: QB,RB,RB,WR,WR,TE,FLEX + 6 bench = 13 slots.
+    expect(await page.locator('.roster .slot').count()).toBe(13);
+    // Still a genuine app-mode window on the team route.
+    const standalone = await page.evaluate(
+      () => window.matchMedia('(display-mode: standalone)').matches,
+    );
+    expect(standalone).toBe(true);
+
+    // Runtime player pick (no hardcoded names): the top projected QB, fetched
+    // from the same contract the app renders from.
+    const qb = await page.evaluate(async () => {
+      const res = await fetch('/data/player_projections.json');
+      const d = await res.json();
+      return d.players.find((p) => p.position === 'QB');
+    });
+    expect(qb, 'no QB in player_projections').toBeTruthy();
+
+    await page.fill('.finder-input', qb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: qb.name }).first()
+      .locator('.cand-add').click();
+    await expect(page.locator('.slot[data-slot="QB1"] .slot-player'))
+      .toContainText(qb.name);
+
+    // Reload INSIDE the app window (stays standalone — see fixture header):
+    // the roster must re-render from localStorage nfl2026.team.v1.
+    await page.reload();
+    await page.waitForSelector('.roster .slot-player', { timeout: 8000 });
+    await expect(page.locator('.slot[data-slot="QB1"] .slot-player'))
+      .toContainText(qb.name);
+    const stored = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('nfl2026.team.v1') || 'null'),
+    );
+    expect(stored && stored.slots && stored.slots.QB1).toBe(qb.gsis_id);
+  });
+
   test('service worker registers (cache-purger)', async ({ page }) => {
     await page.goto(url('/'));
     // navigator.serviceWorker.ready resolves once the SW is active.
