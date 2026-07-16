@@ -1,79 +1,1189 @@
 {
   "season": 2026,
   "week": 1,
-  "updated_utc": "2026-07-15T12:00:00Z",
+  "updated_utc": "2026-07-16T16:37:02Z",
   "parlays": [
     {
-      "parlay_id": "2026_01_BAL_KC_g1",
+      "parlay_id": "401872656-g1",
       "scope": "game",
-      "game_id": "2026_01_BAL_KC",
       "legs": [
-        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
-        { "market": "total", "selection": "Over 47.5", "implied_prob": 0.512, "model_prob": 0.54 }
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "spread",
+          "selection": "SEA cover",
+          "implied_prob": 0.6328,
+          "model_prob": 0.6056
+        }
       ],
-      "model_ev": 0.041,
+      "model_ev": 0.2135,
       "confidence_tier": "medium",
-      "correlation_note": "Positively correlated same-game legs: KC winning outright tends to coincide with a higher-scoring game, so the joint probability exceeds the naive product. EV computed with a correlation haircut on the shared scoring driver rather than assuming independence."
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872656"
     },
     {
-      "parlay_id": "2026_01_BAL_KC_g2",
+      "parlay_id": "401872656-g2",
       "scope": "game",
-      "game_id": "2026_01_BAL_KC",
       "legs": [
-        { "market": "spread", "selection": "KC -2.5", "implied_prob": 0.524, "model_prob": 0.53 },
-        { "market": "anytime_td", "selection": "Patrick Mahomes TD", "implied_prob": 0.31, "model_prob": 0.34 }
+        {
+          "market": "spread",
+          "selection": "SEA cover",
+          "implied_prob": 0.6328,
+          "model_prob": 0.6056
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
       ],
-      "model_ev": 0.028,
+      "model_ev": 0.0267,
       "confidence_tier": "low",
-      "correlation_note": "Same-game correlation: a KC cover is more likely in games where Mahomes reaches the end zone. Joint probability modeled with a shared game-script factor, not as independent legs."
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872656"
     },
     {
-      "parlay_id": "2026_01_BAL_KC_g3",
+      "parlay_id": "401872656-g3",
       "scope": "game",
-      "game_id": "2026_01_BAL_KC",
       "legs": [
-        { "market": "total", "selection": "Over 47.5", "implied_prob": 0.512, "model_prob": 0.54 },
-        { "market": "player_receptions", "selection": "Travis Kelce 5+ rec", "implied_prob": 0.47, "model_prob": 0.5 },
-        { "market": "player_receptions", "selection": "Zay Flowers 5+ rec", "implied_prob": 0.45, "model_prob": 0.46 }
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
       ],
-      "model_ev": 0.033,
+      "model_ev": 0.0163,
       "confidence_tier": "low",
-      "correlation_note": "Three same-game legs sharing the game-total driver (a shootout lifts all three). Strong positive correlation modeled explicitly; treating them as independent would badly overstate the parlay's odds and understate its true probability."
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872656"
     },
     {
-      "parlay_id": "2026_01_week_w1",
-      "scope": "week",
+      "parlay_id": "401872657-g1",
+      "scope": "game",
       "legs": [
-        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
-        { "market": "moneyline", "selection": "DET", "implied_prob": 0.588, "model_prob": 0.58 },
-        { "market": "moneyline", "selection": "SF", "implied_prob": 0.606, "model_prob": 0.62 }
+        {
+          "market": "moneyline",
+          "selection": "LAR ML",
+          "implied_prob": 0.6549,
+          "model_prob": 0.6267
+        },
+        {
+          "market": "spread",
+          "selection": "LAR cover",
+          "implied_prob": 0.6152,
+          "model_prob": 0.5887
+        }
       ],
-      "model_ev": 0.057,
+      "model_ev": 0.2406,
       "confidence_tier": "medium",
-      "correlation_note": "Independent legs: three different games with no shared game script, so the joint probability is the product of the leg probabilities."
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
     },
     {
-      "parlay_id": "2026_01_week_w2",
-      "scope": "week",
+      "parlay_id": "401872657-g2",
+      "scope": "game",
       "legs": [
-        { "market": "moneyline", "selection": "PHI", "implied_prob": 0.524, "model_prob": 0.52 },
-        { "market": "moneyline", "selection": "SF", "implied_prob": 0.606, "model_prob": 0.62 }
+        {
+          "market": "spread",
+          "selection": "LAR cover",
+          "implied_prob": 0.6152,
+          "model_prob": 0.5887
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0305,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
+    },
+    {
+      "parlay_id": "401872657-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "LAR ML",
+          "implied_prob": 0.6549,
+          "model_prob": 0.6267
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0217,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
+    },
+    {
+      "parlay_id": "401872925-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "CIN ML",
+          "implied_prob": 0.6084,
+          "model_prob": 0.5822
+        },
+        {
+          "market": "spread",
+          "selection": "CIN cover",
+          "implied_prob": 0.5826,
+          "model_prob": 0.5575
+        }
+      ],
+      "model_ev": 0.2958,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872925"
+    },
+    {
+      "parlay_id": "401872925-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "CIN cover",
+          "implied_prob": 0.5826,
+          "model_prob": 0.5575
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0381,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872925"
+    },
+    {
+      "parlay_id": "401872925-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "CIN ML",
+          "implied_prob": 0.6084,
+          "model_prob": 0.5822
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0321,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872925"
+    },
+    {
+      "parlay_id": "401872923-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DET ML",
+          "implied_prob": 0.6924,
+          "model_prob": 0.6626
+        },
+        {
+          "market": "spread",
+          "selection": "DET cover",
+          "implied_prob": 0.6414,
+          "model_prob": 0.6138
+        }
+      ],
+      "model_ev": 0.2009,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872923"
+    },
+    {
+      "parlay_id": "401872923-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "DET cover",
+          "implied_prob": 0.6414,
+          "model_prob": 0.6138
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0247,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872923"
+    },
+    {
+      "parlay_id": "401872923-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DET ML",
+          "implied_prob": 0.6924,
+          "model_prob": 0.6626
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0138,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872923"
+    },
+    {
+      "parlay_id": "401872924-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "TEN ML",
+          "implied_prob": 0.6394,
+          "model_prob": 0.6119
+        },
+        {
+          "market": "spread",
+          "selection": "TEN cover",
+          "implied_prob": 0.6044,
+          "model_prob": 0.5783
+        }
+      ],
+      "model_ev": 0.2582,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872924"
+    },
+    {
+      "parlay_id": "401872924-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "TEN cover",
+          "implied_prob": 0.6044,
+          "model_prob": 0.5783
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0329,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872924"
+    },
+    {
+      "parlay_id": "401872924-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "TEN ML",
+          "implied_prob": 0.6394,
+          "model_prob": 0.6119
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0252,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872924"
+    },
+    {
+      "parlay_id": "401872659-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "IND ML",
+          "implied_prob": 0.5754,
+          "model_prob": 0.5506
+        },
+        {
+          "market": "spread",
+          "selection": "IND cover",
+          "implied_prob": 0.5595,
+          "model_prob": 0.5354
+        }
+      ],
+      "model_ev": 0.3395,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872659"
+    },
+    {
+      "parlay_id": "401872659-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "IND cover",
+          "implied_prob": 0.5595,
+          "model_prob": 0.5354
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0437,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872659"
+    },
+    {
+      "parlay_id": "401872659-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "IND ML",
+          "implied_prob": 0.5754,
+          "model_prob": 0.5506
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0398,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872659"
+    },
+    {
+      "parlay_id": "401872658-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "PIT ML",
+          "implied_prob": 0.6518,
+          "model_prob": 0.6237
+        },
+        {
+          "market": "spread",
+          "selection": "PIT cover",
+          "implied_prob": 0.613,
+          "model_prob": 0.5866
+        }
+      ],
+      "model_ev": 0.2441,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872658"
+    },
+    {
+      "parlay_id": "401872658-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "PIT cover",
+          "implied_prob": 0.613,
+          "model_prob": 0.5866
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.031,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872658"
+    },
+    {
+      "parlay_id": "401872658-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "PIT ML",
+          "implied_prob": 0.6518,
+          "model_prob": 0.6237
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0224,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872658"
+    },
+    {
+      "parlay_id": "401872661-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "CHI ML",
+          "implied_prob": 0.5299,
+          "model_prob": 0.5071
+        },
+        {
+          "market": "spread",
+          "selection": "CHI cover",
+          "implied_prob": 0.5277,
+          "model_prob": 0.505
+        }
+      ],
+      "model_ev": 0.4075,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872661"
+    },
+    {
+      "parlay_id": "401872661-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "CHI cover",
+          "implied_prob": 0.5277,
+          "model_prob": 0.505
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0518,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872661"
+    },
+    {
+      "parlay_id": "401872661-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "CHI ML",
+          "implied_prob": 0.5299,
+          "model_prob": 0.5071
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0512,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872661"
+    },
+    {
+      "parlay_id": "401872922-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "JAX ML",
+          "implied_prob": 0.8141,
+          "model_prob": 0.779
+        },
+        {
+          "market": "spread",
+          "selection": "JAX cover",
+          "implied_prob": 0.7266,
+          "model_prob": 0.6953
+        }
+      ],
+      "model_ev": 0.0932,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872922"
+    },
+    {
+      "parlay_id": "401872922-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "JAX cover",
+          "implied_prob": 0.7266,
+          "model_prob": 0.6953
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0066,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872922"
+    },
+    {
+      "parlay_id": "401872922-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "JAX ML",
+          "implied_prob": 0.8141,
+          "model_prob": 0.779
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": -0.0112,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872922"
+    },
+    {
+      "parlay_id": "401872660-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "HOU ML",
+          "implied_prob": 0.6478,
+          "model_prob": 0.6199
+        },
+        {
+          "market": "spread",
+          "selection": "HOU cover",
+          "implied_prob": 0.6102,
+          "model_prob": 0.5839
+        }
+      ],
+      "model_ev": 0.2486,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872660"
+    },
+    {
+      "parlay_id": "401872660-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "HOU cover",
+          "implied_prob": 0.6102,
+          "model_prob": 0.5839
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0316,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872660"
+    },
+    {
+      "parlay_id": "401872660-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "HOU ML",
+          "implied_prob": 0.6478,
+          "model_prob": 0.6199
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0233,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872660"
+    },
+    {
+      "parlay_id": "401872928-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "MIA ML",
+          "implied_prob": 0.5544,
+          "model_prob": 0.5305
+        },
+        {
+          "market": "spread",
+          "selection": "MIA cover",
+          "implied_prob": 0.5448,
+          "model_prob": 0.5213
+        }
+      ],
+      "model_ev": 0.3696,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872928"
+    },
+    {
+      "parlay_id": "401872928-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "MIA cover",
+          "implied_prob": 0.5448,
+          "model_prob": 0.5213
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0473,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872928"
+    },
+    {
+      "parlay_id": "401872928-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "MIA ML",
+          "implied_prob": 0.5544,
+          "model_prob": 0.5305
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0449,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872928"
+    },
+    {
+      "parlay_id": "401872927-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "MIN ML",
+          "implied_prob": 0.6454,
+          "model_prob": 0.6176
+        },
+        {
+          "market": "spread",
+          "selection": "MIN cover",
+          "implied_prob": 0.6085,
+          "model_prob": 0.5823
+        }
+      ],
+      "model_ev": 0.2514,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872927"
+    },
+    {
+      "parlay_id": "401872927-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "MIN cover",
+          "implied_prob": 0.6085,
+          "model_prob": 0.5823
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0321,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872927"
+    },
+    {
+      "parlay_id": "401872927-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "MIN ML",
+          "implied_prob": 0.6454,
+          "model_prob": 0.6176
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0238,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872927"
+    },
+    {
+      "parlay_id": "401872929-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "PHI ML",
+          "implied_prob": 0.7301,
+          "model_prob": 0.6987
+        },
+        {
+          "market": "spread",
+          "selection": "PHI cover",
+          "implied_prob": 0.6678,
+          "model_prob": 0.6391
+        }
+      ],
+      "model_ev": 0.1644,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872929"
+    },
+    {
+      "parlay_id": "401872929-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "PHI cover",
+          "implied_prob": 0.6678,
+          "model_prob": 0.6391
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
       ],
       "model_ev": 0.019,
-      "confidence_tier": "medium",
-      "correlation_note": "Independent legs: separate games, treated as independent (product of leg probabilities)."
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872929"
     },
     {
-      "parlay_id": "2026_01_week_w3",
+      "parlay_id": "401872929-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "PHI ML",
+          "implied_prob": 0.7301,
+          "model_prob": 0.6987
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.006,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872929"
+    },
+    {
+      "parlay_id": "401872926-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "LAC ML",
+          "implied_prob": 0.7865,
+          "model_prob": 0.7526
+        },
+        {
+          "market": "spread",
+          "selection": "LAC cover",
+          "implied_prob": 0.7073,
+          "model_prob": 0.6768
+        }
+      ],
+      "model_ev": 0.1152,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872926"
+    },
+    {
+      "parlay_id": "401872926-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "LAC cover",
+          "implied_prob": 0.7073,
+          "model_prob": 0.6768
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0106,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872926"
+    },
+    {
+      "parlay_id": "401872926-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "LAC ML",
+          "implied_prob": 0.7865,
+          "model_prob": 0.7526
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": -0.0056,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872926"
+    },
+    {
+      "parlay_id": "401872930-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "NYG ML",
+          "implied_prob": 0.5919,
+          "model_prob": 0.5664
+        },
+        {
+          "market": "spread",
+          "selection": "NYG cover",
+          "implied_prob": 0.5711,
+          "model_prob": 0.5465
+        }
+      ],
+      "model_ev": 0.3171,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872930"
+    },
+    {
+      "parlay_id": "401872930-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "NYG cover",
+          "implied_prob": 0.5711,
+          "model_prob": 0.5465
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0408,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872930"
+    },
+    {
+      "parlay_id": "401872930-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "NYG ML",
+          "implied_prob": 0.5919,
+          "model_prob": 0.5664
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0359,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872930"
+    },
+    {
+      "parlay_id": "401872931-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.6244,
+          "model_prob": 0.5975
+        },
+        {
+          "market": "spread",
+          "selection": "DEN cover",
+          "implied_prob": 0.5938,
+          "model_prob": 0.5683
+        }
+      ],
+      "model_ev": 0.2761,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872931"
+    },
+    {
+      "parlay_id": "401872931-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "DEN cover",
+          "implied_prob": 0.5938,
+          "model_prob": 0.5683
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0356,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872931"
+    },
+    {
+      "parlay_id": "401872931-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.6244,
+          "model_prob": 0.5975
+        },
+        {
+          "market": "total",
+          "selection": "Over",
+          "implied_prob": 0.5225,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0284,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872931"
+    },
+    {
+      "parlay_id": "week-1",
       "scope": "week",
       "legs": [
-        { "market": "spread", "selection": "DET -6.5", "implied_prob": 0.5, "model_prob": 0.52 },
-        { "market": "moneyline", "selection": "KC", "implied_prob": 0.571, "model_prob": 0.55 },
-        { "market": "total", "selection": "SEA/SF Under 44.5", "implied_prob": 0.49, "model_prob": 0.51 }
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "LAR ML",
+          "implied_prob": 0.6549,
+          "model_prob": 0.6267
+        }
       ],
-      "model_ev": 0.022,
+      "model_ev": -0.0843,
       "confidence_tier": "low",
-      "correlation_note": "Independent legs across three games; no shared driver, so joint probability is the product of leg probabilities."
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-2",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "CIN ML",
+          "implied_prob": 0.6084,
+          "model_prob": 0.5822
+        }
+      ],
+      "model_ev": -0.0843,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-3",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "DET ML",
+          "implied_prob": 0.6924,
+          "model_prob": 0.6626
+        }
+      ],
+      "model_ev": -0.0843,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-4",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "TEN ML",
+          "implied_prob": 0.6394,
+          "model_prob": 0.6119
+        }
+      ],
+      "model_ev": -0.0842,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-5",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "IND ML",
+          "implied_prob": 0.5754,
+          "model_prob": 0.5506
+        }
+      ],
+      "model_ev": -0.0843,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-6",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6801,
+          "model_prob": 0.6508
+        },
+        {
+          "market": "moneyline",
+          "selection": "PIT ML",
+          "implied_prob": 0.6518,
+          "model_prob": 0.6237
+        }
+      ],
+      "model_ev": -0.0843,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
     }
   ]
 }
