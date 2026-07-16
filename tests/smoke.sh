@@ -67,24 +67,31 @@ nonzero = {k: v for k, v in weights.items() if v != 0.0}
 if nonzero:
     problems.append(f"meta.weights has non-zero day-zero weights: {nonzero}")
 
-# pipeline_status: honestly degraded (not 'ok'), at least one non-ok feed.
+# pipeline_status: health must mirror the WORST feed status exactly (honesty:
+# never rosier than reality, and no stale "degraded" once every feed is ok).
 ps = load("data/pipeline_status.json")
-if ps["health"] == "ok":
-    problems.append("pipeline_status health is 'ok' but the example must be honest/degraded")
-if not any(f["status"] != "ok" for f in ps["feeds"].values()):
-    problems.append("pipeline_status has no non-ok feed")
+order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
+worst = max((f["status"] for f in ps["feeds"].values()), key=lambda x: order[x])
+if ps["health"] != worst:
+    problems.append(f"pipeline_status health {ps['health']!r} != worst feed status {worst!r}")
 
 # model_tuning: the NEVER-REGRESS example must be a non-adoption.
 mt = load("data/model_tuning.json")
 if mt["adopted"] is not False:
     problems.append("model_tuning.adopted must be False (the example is a non-adoption)")
 
-# parlays: >=3 game (sample) and >=3 week.
+# parlays: >=3 game-scope for EVERY game on the current slate, and >=3 week.
+# The slate is derived from game_predictions.json (never a hardcoded fixture id).
 parlays = load("data/parlays.json")["parlays"]
-game_n = sum(1 for p in parlays if p["scope"] == "game" and p.get("game_id") == "2026_01_BAL_KC")
+slate = {g["game_id"] for g in load("data/game_predictions.json")["games"]}
+per_game = {}
+for p in parlays:
+    if p["scope"] == "game":
+        per_game[p["game_id"]] = per_game.get(p["game_id"], 0) + 1
+short = {g: per_game.get(g, 0) for g in slate if per_game.get(g, 0) < 3}
+if short:
+    problems.append(f"slate games with <3 parlays: {short}")
 week_n = sum(1 for p in parlays if p["scope"] == "week")
-if game_n < 3:
-    problems.append(f"only {game_n} sample-game parlays (need >=3)")
 if week_n < 3:
     problems.append(f"only {week_n} week parlays (need >=3)")
 

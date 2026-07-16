@@ -17,22 +17,41 @@ const doc = JSON.parse(
   readFileSync(new URL("../../data/parlays.json", import.meta.url), "utf8"),
 );
 const parlays = doc.parlays;
-const SAMPLE_GAME = "2026_01_BAL_KC";
+// The slate the parlays must cover is whatever game_predictions.json carries —
+// derived, not hardcoded, so the invariant holds for fixture AND real data.
+const gamesDoc = JSON.parse(
+  readFileSync(new URL("../../data/game_predictions.json", import.meta.url), "utf8"),
+);
+const slateIds = new Set(gamesDoc.games.map((g) => g.game_id));
 
 test("parlays file has the expected envelope", () => {
   assert.equal(doc.season, 2026);
-  assert.equal(doc.week, 1);
+  assert.equal(doc.week, gamesDoc.week, "parlays week must match the slate week");
   assert.ok(Array.isArray(parlays) && parlays.length > 0);
 });
 
-test(">= 3 parlays scope='game' for the sample game", () => {
-  const gameParlays = parlays.filter(
-    (p) => p.scope === "game" && p.game_id === SAMPLE_GAME,
-  );
-  assert.ok(
-    gameParlays.length >= 3,
-    `expected >=3 game parlays for ${SAMPLE_GAME}, got ${gameParlays.length}`,
-  );
+test(">= 3 parlays scope='game' for EVERY game on the slate", () => {
+  const perGame = new Map();
+  for (const p of parlays) {
+    if (p.scope === "game") perGame.set(p.game_id, (perGame.get(p.game_id) || 0) + 1);
+  }
+  for (const gid of slateIds) {
+    assert.ok(
+      (perGame.get(gid) || 0) >= 3,
+      `expected >=3 game parlays for ${gid}, got ${perGame.get(gid) || 0}`,
+    );
+  }
+});
+
+test("every game-scope parlay references a game that exists on the slate", () => {
+  for (const p of parlays) {
+    if (p.scope !== "game") continue;
+    assert.ok(
+      slateIds.has(p.game_id),
+      `parlay ${p.parlay_id} references unknown game_id ${p.game_id} — ` +
+        `parlays and game_predictions have drifted apart`,
+    );
+  }
 });
 
 test(">= 3 parlays scope='week'", () => {

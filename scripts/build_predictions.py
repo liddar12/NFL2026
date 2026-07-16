@@ -20,8 +20,12 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from scripts.scrape import espn  # noqa: E402
+from scripts.scrape import espn_players  # noqa: E402
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.models import game_model  # noqa: E402
+from scripts.models import parlay_builder  # noqa: E402
+from scripts.models.player_projection import project_players  # noqa: E402
+from scripts.harness import snapshot as snap  # noqa: E402
 
 SEASON = 2026
 PRIOR_SEASON = 2025
@@ -103,6 +107,54 @@ def main():
     ]
     _write(os.path.join(DATA, "game_predictions.json"), {
         "season": SEASON, "week": wk, "updated_utc": now, "games": week_games,
+    })
+
+    # P1 — POINT-IN-TIME SNAPSHOT LOCK. The week's predictions are archived as
+    # measurable (estimate=False) snapshot rows the harness later resolves against
+    # FINAL scores. A lock is immutable: if this week's opening lock already exists
+    # we do NOT rewrite it — re-running the pipeline must never launder a newer
+    # prediction into an older lock (the whole point of point-in-time archiving).
+    lock_name = f"{SEASON}_wk{wk:02d}_games_open"
+    lock_path = os.path.join(DATA, "snapshots", lock_name + ".json")
+    if os.path.exists(lock_path):
+        print(f"lock exists, untouched: {lock_path}")
+    else:
+        rows = [
+            snap.make_row(
+                event_id=g["game_id"], event_type="game", model=g["model"],
+                locked_utc=now, as_of_utc=now,
+                probs=[g["probs"]["home"], g["probs"]["away"]],
+                estimate=False,  # a lock is a measurable prediction we stand behind
+            )
+            for g in week_games
+        ]
+        snap.write_snapshot(lock_name, rows)
+        print(f"locked {len(rows)} game rows -> {lock_path}")
+
+    # N4 (real-slate wiring) — rebuild parlays from the REAL week's games via the
+    # correlation-aware builder, so parlay game_ids always reference games that
+    # exist in game_predictions.json. Edges remain model-vs-hold placeholders until
+    # the odds feed carries real lines (ODDS_API_KEY).
+    _write(os.path.join(DATA, "parlays.json"),
+           parlay_builder.build_parlays_document(week_games, SEASON, wk, now))
+
+    # N2 — REAL player projections. ESPN fantasy pool (real prior-season PPR totals)
+    # + roster ages -> the projection engine. At day-zero weights every signal is
+    # neutral, so proj == prior-season production: the honest baseline every future
+    # signal must beat through the optimizer.
+    players_in = espn_players.build_player_records(PRIOR_SEASON, teams)
+    feeds["espn_fantasy"] = {"rows": len(players_in), "age_hours": 0.0,
+                             "last_success_utc": now, "status": "ok"}
+    try:
+        with open(os.path.join(DATA, "fixtures", "teams.json"), encoding="utf-8") as fh:
+            teams_fixture = json.load(fh)
+    except (OSError, ValueError):
+        teams_fixture = None
+    projected = project_players(players_in, ctx={"teams": teams_fixture})
+    projected = [p for p in projected if p["proj_points"] > 0]
+    projected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
+    _write(os.path.join(DATA, "player_projections.json"), {
+        "season": SEASON, "updated_utc": now, "players": projected[:300],
     })
 
     # Refresh the teams fixture with real ESPN identity (name/location/colors).

@@ -102,3 +102,20 @@ placeholder.
 adapter's backbone keylessly. Elo-only is a transparent baseline every later signal must beat.
 **Status:** adopted; game/schedule/team/feed-health data is now real. Player projections stay
 fixture-based estimates until N2's real ingestion.
+
+## 2026-07-16 — N2 real player projections via ESPN Fantasy API + P1 opening locks
+**Decision:** Player projections now come from ESPN's Fantasy API (`kona_player_info`,
+leaguedefaults/3 = ESPN PPR scoring): ~400 fantasy-relevant players with REAL prior-season
+totals (statSourceId 0 / statSplitTypeId 0 — never ESPN's projections), ages merged from the
+32 team rosters, live injuryStatus flowing into interval widening. Records key `espn-<id>`
+until the nflverse cron lands the gsis mapping. Parlays are rebuilt from the real slate each
+run (ids can no longer drift from game_predictions). P1 is on: each week's game predictions
+are archived as an immutable `_games_open` snapshot lock (estimate=false, measurable) the
+harness will grade against FINAL scores.
+**Rationale:** The statistics/byathlete API has deterministic server-side holes (mid-pagination
+pages return empty at any page size — observed receiving ranks 26-40), silently dropping top
+players; the fantasy endpoint is whole, ESPN-scored, and carries injury status. Locks-from-day-one
+is the platform's #1 discipline.
+**Status:** adopted. Day-zero honesty: projection == prior-season production until signals earn
+weight (locked by tests/feature/real_data.test.mjs); smoke + parlay tests now derive the slate
+instead of hardcoding fixture ids.
