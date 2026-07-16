@@ -62,8 +62,9 @@ jobs:
       - name: Lock pre-kickoff probabilities
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: |
-          python -m scripts.build_all
-          # Archive a timestamped snapshot of the game predictions as the locked record.
+          python -m scripts.build_predictions
+          # Archive a timestamped snapshot of the REAL game predictions as the locked,
+          # point-in-time record (leak-safe: locked before kickoff, never edited after).
           ts="$(date -u +%Y%m%dT%H%M%SZ)"
           mkdir -p data/snapshots
           cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json"
@@ -77,8 +78,8 @@ jobs:
           python -m scripts.scrape.espn_scores_cli || true  # Gate-2 wiring placeholder
           echo "score refresh step (status-gating enforced in scripts/scrape/espn.py)"
 
-      - name: Compute pipeline status
-        run: python -m scripts.pipeline_status
+      # (build_predictions writes data/pipeline_status.json with honest feed health;
+      # no separate status step needed.)
 
       - name: Validate data contracts
         run: python scripts/validate_data.py

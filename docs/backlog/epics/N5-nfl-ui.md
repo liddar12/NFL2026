@@ -1,7 +1,7 @@
 # N5 · NFL UI (Slate / Players / Parlays / Live)
-**Layer:** NFL Adapter   ·   **Status:** ✅ three views delivered in PR #1 (pending merge to `main`); live/detail ⬜   ·   **Instantiates:** P7 (PWA Shell & Design System)
+**Layer:** NFL Adapter   ·   **Status:** ✅ three views delivered in PR #1 (merged to `main` in PR #1); live/detail ⬜   ·   **Instantiates:** P7 (PWA Shell & Design System)
 
-> **Branch note:** this backlog branch is based on `main`; the design-system and view code was **built and CI-verified in PR #1** (draft, pending merge). Per-story ⬜/🟡 statuses below mean "not yet on `main`," not "not built" — treat PR #1's delivered items as ✅.
+> **Branch note:** this backlog branch is based on `main`; the design-system and view code was **built, CI-verified, and MERGED to `main` in PR #1.** Design-system/view stories below still marked ⬜/🟡 predate the merge — treat PR #1's delivered items as ✅ (now on `main`).
 
 **Reuse:** A future adapter re-authors THIS epic end to end — the views, the team-identity tints, and the domain labels are NFL-specific. What it reuses from P7 is the shell, the token/design primitives, the contrast gate, and the `app/data.js` contract-reader pattern. The reusable seam is: views render *only* from validated `data/*.json` contracts through `app/render.js` primitives; swap the contracts + view copy and the presentation machinery carries over.
 

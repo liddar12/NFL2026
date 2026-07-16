@@ -1,7 +1,7 @@
 # P7 · PWA Shell & Design System
-**Layer:** Platform   ·   **Status:** ✅ delivered in PR #1 (pending merge to `main`)   ·   **Instantiates:** —
+**Layer:** Platform   ·   **Status:** ✅ delivered in PR #1 (merged to `main` in PR #1)   ·   **Instantiates:** —
 
-> **Branch note:** this backlog branch is based on `main`; the design-system and view code was **built and CI-verified in PR #1** (draft, pending merge). Per-story ⬜/🟡 statuses below mean "not yet on `main`," not "not built" — treat PR #1's delivered items as ✅.
+> **Branch note:** this backlog branch is based on `main`; the design-system and view code was **built, CI-verified, and MERGED to `main` in PR #1.** Design-system/view stories below still marked ⬜/🟡 predate the merge — treat PR #1's delivered items as ✅ (now on `main`).
 
 **Reuse:** A future adapter (NBA/MLB/markets) reuses the entire shell — hash router, pure-cache-purger `sw.js`, standalone manifest scaffold, safe-area handling, the tokenized design system, and the automated WCAG-AA contrast gate — verbatim. It re-authors ONLY the token *values* (one theme file) and the brand assets (icons, name, theme-color). Nothing in this epic is NFL-specific; the current instance happens to render as *Broadcast Gameday · dark-only · J5L · iPhone 16 Pro*, but that identity lives entirely in swappable tokens.
 
