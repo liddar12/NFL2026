@@ -314,6 +314,18 @@ def main():
               file=sys.stderr)
     # === end GAME SCRIPT block ====================================================
 
+    # === NFLVERSE AGGREGATES (combine bench, pbp score-state) =====================
+    # Release CSVs 403 through some sandbox proxies but fetch fine on the GH
+    # runner; the builder leaves any existing file untouched on failure and the
+    # o-line composite below consumes the combine bench when the file exists.
+    try:
+        from scripts import build_nflverse_aggregates  # noqa: PLC0415 (guarded)
+        build_nflverse_aggregates.main()
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        print(f"[warn] nflverse aggregates failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end NFLVERSE AGGREGATES block ============================================
+
     # === O-LINE COMPOSITE (scripts/build_oline.py) ================================
     # Per-team OL weight/age/experience/continuity from live ESPN rosters (32
     # calls), refined with nflverse snap counts when that host is reachable.
@@ -331,7 +343,60 @@ def main():
                           "last_success_utc": None, "status": "degraded"}
         print(f"[warn] o-line composite build failed (core pipeline continues): {exc}",
               file=sys.stderr)
+    # nflverse feed row mirrors what the o-line build ACTUALLY reached: its
+    # `source` field says whether snap counts refined continuity or the build
+    # fell back to ESPN-only (proxy-blocked here; reachable on the GH runner).
+    try:
+        with open(os.path.join(DATA, "oline_composite.json"), encoding="utf-8") as fh:
+            ol_src = json.load(fh).get("source", "")
+        nv_ok = "nflverse" in ol_src and "unreachable" not in ol_src
+        feeds["nflverse"] = (
+            {"rows": 32, "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
+            if nv_ok else
+            {"rows": 0, "age_hours": 999.0, "last_success_utc": None, "status": "degraded"})
+    except (OSError, ValueError):
+        feeds["nflverse"] = {"rows": 0, "age_hours": 999.0,
+                             "last_success_utc": None, "status": "degraded"}
     # === end O-LINE COMPOSITE block ===============================================
+
+    # === MARKET PRICES (Kalshi + Polymarket — DISPLAY ONLY) =======================
+    # The scoreboard we measure ourselves against: keyless public prices joined
+    # to OUR schedule. USER POLICY: never an input — no model, optimizer, or
+    # parlay probability reads this file (validate_data MARKET_DISPLAY_ONLY).
+    try:
+        from scripts import build_markets  # noqa: PLC0415 (guarded feature import)
+        mdoc = build_markets.main()
+        for src_name in ("kalshi", "polymarket"):
+            src = mdoc["sources"].get(src_name, {})
+            ok = src.get("status") == "ok"
+            feeds[src_name] = (
+                {"rows": src.get("rows", 0), "age_hours": 0.0,
+                 "last_success_utc": now, "status": "ok"}
+                if ok else
+                {"rows": 0, "age_hours": 999.0, "last_success_utc": None,
+                 "status": "degraded"})
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        for src_name in ("kalshi", "polymarket"):
+            feeds[src_name] = {"rows": 0, "age_hours": 999.0,
+                               "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] market prices build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end MARKET PRICES block ==================================================
+
+    # === PLAYOFF ODDS (season simulator — OUR MODEL ONLY) =========================
+    # Deterministic Monte Carlo from the schedule probs + Elo written above.
+    # No market input anywhere; the MODEL tab shows markets NEXT TO these odds.
+    try:
+        from scripts import simulate_season  # noqa: PLC0415 (guarded feature import)
+        podds = simulate_season.main()
+        feeds["playoff_sim"] = {"rows": len(podds["teams"]), "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["playoff_sim"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] playoff simulation failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end PLAYOFF ODDS block ===================================================
 
     # Weekly split (weekly_split_v1) — pure math lives in scripts.build_weekly;
     # this call just feeds it the artifacts already in hand. Player order mirrors
@@ -349,11 +414,19 @@ def main():
     markets_by_game = None
     try:
         from scripts.scrape import odds_api  # noqa: PLC0415 (guarded feature import)
-        markets_by_game = odds_api.fetch_markets(week_games)
-        feeds["odds_api"] = {"rows": len(markets_by_game), "age_hours": 0.0,
-                             "last_success_utc": now, "status": "ok"}
-        print(f"odds: real lines for {len(markets_by_game)} slate games")
-    except Exception as exc:  # noqa: BLE001 — no key / blocked host degrades, loudly
+        try:
+            markets_by_game = odds_api.fetch_markets(week_games)
+            feeds["odds_api"] = {"rows": len(markets_by_game), "age_hours": 0.0,
+                                 "last_success_utc": now, "status": "ok"}
+            print(f"odds: real lines for {len(markets_by_game)} slate games")
+        except odds_api.OddsKeyMissing as exc:
+            # No key = the owner hasn't turned this feed on. A fact, not a
+            # failure: 'unconfigured' is excluded from the health roll-up and
+            # surfaced as "awaiting config" instead of dragging DEGRADED.
+            feeds["odds_api"] = {"rows": 0, "age_hours": 999.0,
+                                 "last_success_utc": None, "status": "unconfigured"}
+            print(f"[info] odds feed unconfigured: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 — a real failure degrades, loudly
         feeds["odds_api"] = {"rows": 0, "age_hours": 999.0,
                              "last_success_utc": None, "status": "degraded"}
         print(f"[warn] odds feed unavailable (model-seeded lines in use): {exc}",
@@ -372,17 +445,13 @@ def main():
                markets_by_game=markets_by_game,
                props_by_game=props_by_game))
 
-    # Feeds that need a key (kalshi/polymarket) or are proxy-blocked in this
-    # sandbox (nflverse) are DEGRADED, not down — unconfigured/unavailable, not
-    # broken. The cron runner with keys + open network populates them. age_hours
-    # is a large sentinel (never succeeded here) so the numeric contract holds.
-    for name in ("kalshi", "polymarket", "nflverse"):
-        feeds[name] = {"rows": 0, "age_hours": 999.0, "last_success_utc": None, "status": "degraded"}
-
-    # Overall health mirrors the WORST feed exactly — never rosier than reality.
-    # Written LAST so every feed above (odds, game-script, o-line included) is in.
+    # Overall health mirrors the WORST CONFIGURED feed — never rosier than
+    # reality; 'unconfigured' feeds are excluded (not turned on ≠ broken) and
+    # surfaced separately by the UI as "awaiting config". Written LAST so every
+    # feed above (odds, markets, game-script, o-line, sim) is in.
     order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
-    health = max((f["status"] for f in feeds.values()), key=lambda s: order[s])
+    configured = [f["status"] for f in feeds.values() if f["status"] != "unconfigured"]
+    health = max(configured, key=lambda s: order[s]) if configured else "degraded"
     _write(os.path.join(DATA, "pipeline_status.json"), {
         "generated_utc": now, "health": health, "feeds": feeds,
     })

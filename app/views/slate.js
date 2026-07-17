@@ -11,8 +11,8 @@
  * here — that is render.js's job; this module orchestrates fetch -> paint.
  */
 
-import { getGamePredictions, getScheduleFull } from '../data.js';
-import { renderGameCard } from '../render.js';
+import { getGamePredictions, getScheduleFull, getMarketPrices } from '../data.js';
+import { renderGameCard, renderMarketStrip } from '../render.js';
 
 const WEEKS = 18; // fixed 2026 regular season length — chips are WK 1..18
 
@@ -53,6 +53,15 @@ export default async function mountSlate(el) {
     stateMsg(el, 'Slate unavailable — the game feed did not load.');
     return;
   }
+  // Market prices are OPTIONAL adornment (DISPLAY ONLY — never a model input):
+  // a 404 or empty file simply means no strips render, zero behavior change.
+  let marketGames = {};
+  try {
+    const mp = await getMarketPrices();
+    if (mp && mp.games && typeof mp.games === 'object') marketGames = mp.games;
+  } catch (err) {
+    marketGames = {};
+  }
 
   const defaultGames = (data && Array.isArray(data.games)) ? data.games : [];
   if (defaultGames.length === 0) {
@@ -79,8 +88,10 @@ export default async function mountSlate(el) {
   const titleEl = el.querySelector('.view-title');
 
   function paintGames(games) {
+    // Card + its market-comparison strip (when this game has a priced market).
+    const card = (g) => renderGameCard(g) + renderMarketStrip(g, marketGames[g.game_id]);
     listEl.innerHTML = games.length
-      ? games.map(renderGameCard).join('')
+      ? games.map(card).join('')
       : '<div class="state">No games scheduled this week.</div>';
   }
 

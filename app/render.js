@@ -150,13 +150,54 @@ export function healthMod(health) {
 export function renderHealth(status) {
   const mod = healthMod(status && status.health);
   const feeds = (status && status.feeds) || {};
-  const bad = Object.values(feeds).filter((f) => f && f.status && f.status !== 'ok').length;
+  const all = Object.values(feeds).filter((f) => f && f.status);
+  // 'unconfigured' = a feed the owner has not turned on (needs a key /
+  // integration) — a fact, not a failure. It never colors health (the pipeline
+  // excludes it from the roll-up) and is reported as "awaiting config", so
+  // DEGRADED is reserved for feeds that WERE working and broke.
+  const unconfigured = all.filter((f) => f.status === 'unconfigured').length;
+  const bad = all.filter((f) => f.status !== 'ok' && f.status !== 'unconfigured').length;
   const label = `DATA · ${mod.toUpperCase()}`;
-  const note = bad > 0 ? `${bad} ${bad === 1 ? 'feed' : 'feeds'} stale / degraded` : 'all feeds ok';
+  const parts = [];
+  if (bad > 0) parts.push(`${bad} ${bad === 1 ? 'feed' : 'feeds'} stale / degraded`);
+  if (unconfigured > 0) parts.push(`${unconfigured} awaiting config`);
+  const note = parts.length ? parts.join(' · ') : 'all feeds ok';
   return (
     `<span class="health-dot health-dot--${mod}"></span>` +
     `<span class="health-label">${esc(label)}</span>` +
     `<span class="health-note">${esc(note)}</span>`
+  );
+}
+
+/**
+ * Compact market-comparison strip for a game card — DISPLAY ONLY (user
+ * policy: market prices are never a model input; the badge + title say so on
+ * every render). `game` is a game_predictions[] entry (probs.home is OURS);
+ * `markets` is data/market_prices.json games[game_id] ({kalshi?, polymarket?}).
+ * Returns '' when no market has a price for this game — cards unchanged.
+ */
+export function renderMarketStrip(game, markets) {
+  if (!markets || typeof markets !== 'object') return '';
+  const ours = game && game.probs ? Number(game.probs.home) : NaN;
+  const rows = [];
+  if (Number.isFinite(ours)) {
+    rows.push(`<span class="ms-src ms-src--us">MODEL <b class="ms-val">${(ours * 100).toFixed(1)}%</b></span>`);
+  }
+  const src = (key, label) => {
+    const m = markets[key];
+    if (!m || !Number.isFinite(Number(m.home_prob))) return;
+    rows.push(`<span class="ms-src">${label} <b class="ms-val">${(Number(m.home_prob) * 100).toFixed(1)}%</b></span>`);
+  };
+  src('kalshi', 'KALSHI');
+  src('polymarket', 'POLYMKT');
+  if (rows.length < 2) return ''; // nothing to compare against — no strip
+  return (
+    '<div class="mstrip" ' +
+      'title="Market prices are shown for comparison only — never used in predictions">' +
+      `<span class="ms-lbl">${esc(teamName(game.home))} WIN</span>` +
+      rows.join('') +
+      '<span class="ms-badge">MARKET · DISPLAY ONLY</span>' +
+    '</div>'
   );
 }
 

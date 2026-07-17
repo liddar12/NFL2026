@@ -1441,3 +1441,123 @@ button { font: inherit; color: inherit; }
 /* Players-tab legend reuses the .legend block; this variant restores block
    flow (the :not(.legend--team) flex rule above targets the parlays row). */
 .legend.legend--players { display: block; }
+
+/* ==========================================================================
+   REL5 — market-comparison strip (DISPLAY ONLY), MODEL tab, health config
+   note. AA discipline: text only via audited tokens on surface layers.
+   ========================================================================== */
+
+/* ---- market strip under a game card ---- */
+.mstrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  margin-top: -6px;              /* visually attaches to the card above */
+}
+.ms-lbl { letter-spacing: 0.04em; text-transform: uppercase; }
+.ms-src { color: var(--muted); }
+.ms-src--us .ms-val { color: var(--brand-txt); }
+.ms-val { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.ms-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ---- MODEL tab cards ---- */
+.mcard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.m-head {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.m-explain {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--brand);
+  padding-left: 8px;
+}
+.mp-row, .sg-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mp-name, .sg-name { color: var(--ink); }
+.mp-val { color: var(--brand-txt); font-weight: 800; }
+.mp-def, .mp-src { color: var(--muted); font-size: 11px; }
+.sg-w { margin-left: auto; }
+.bt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(40px, 2fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bt-bar {
+  height: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  justify-self: start;
+  min-width: 12px;
+  max-width: 100%;
+}
+.bt-row--best .bt-bar { background: var(--brand); border-color: var(--brand); }
+.bt-row--best .bt-lbl, .bt-row--best .bt-val { color: var(--ink); font-weight: 700; }
+.po-row {
+  display: grid;
+  grid-template-columns: 44px repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  align-items: baseline;
+}
+.po-row--head {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--brand-txt);
+  text-transform: uppercase;
+}
+.po-team { font-weight: 800; }
+.po-champ { color: var(--ink); font-weight: 700; }
+.po-mkt { color: var(--muted); }

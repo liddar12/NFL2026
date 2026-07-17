@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "playoff_odds.schema.json",
+  "title": "Season-simulated playoff odds (OUR MODEL ONLY)",
+  "description": "Produced by scripts/simulate_season.py: deterministic Monte Carlo from schedule_full.json probabilities (adopted game params) + team_strength Elo. No market input anywhere - Vegas/Kalshi/Polymarket prices are display-only comparisons, never simulator inputs. Simplified documented tiebreakers; estimate is pinned true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "sims", "estimate", "source", "method", "notes", "teams"],
+  "properties": {
+    "season": { "type": "integer", "minimum": 2026 },
+    "updated_utc": { "type": "string" },
+    "sims": { "type": "integer", "minimum": 1000 },
+    "estimate": { "type": "boolean", "enum": [true] },
+    "source": { "type": "string" },
+    "method": { "type": "string" },
+    "notes": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "teams": {
+      "type": "object",
+      "minProperties": 30,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["playoff", "division", "conference", "champion"],
+        "properties": {
+          "playoff": { "type": "number", "minimum": 0, "maximum": 1 },
+          "division": { "type": "number", "minimum": 0, "maximum": 1 },
+          "conference": { "type": "number", "minimum": 0, "maximum": 1 },
+          "champion": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    }
+  }
+}

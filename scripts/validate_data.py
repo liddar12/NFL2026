@@ -60,6 +60,8 @@ SCHEMA_TO_DATA = {
     "team_strength.schema.json": "team_strength.json",
     "game_script.schema.json": "game_script.json",
     "oline_composite.schema.json": "oline_composite.json",
+    "market_prices.schema.json": "market_prices.json",
+    "playoff_odds.schema.json": "playoff_odds.json",
     "parlays.schema.json": "parlays.json",
     "pipeline_status.schema.json": "pipeline_status.json",
     "meta.schema.json": "meta.json",
@@ -201,8 +203,23 @@ def validate_against_schema(data, schema, label):
 # Cross-file invariants.
 # ---------------------------------------------------------------------------
 
+# MARKET INDEPENDENCE (user policy, PERMANENT): market-price signals are
+# DISPLAY ONLY. They are pinned to weight 0.0 forever — even after the day-zero
+# rule relaxes for earned signals, these may never be fitted. Any optimizer
+# that writes a non-zero weight here reds the gate and nothing deploys.
+MARKET_DISPLAY_ONLY = frozenset([
+    "market_spread", "market_moneyline", "market_total",
+    "odds_api", "kalshi", "polymarket",
+])
+
+
 def check_meta_weights(meta):
-    """Every registry signal present at exactly 0.0, and no unexpected extras."""
+    """Every registry signal present at exactly 0.0, and no unexpected extras.
+
+    When signals start earning weight the blanket 0.0 assertion will relax —
+    but the MARKET_DISPLAY_ONLY subset stays pinned at 0.0 permanently (the
+    dedicated loop below stands on its own so relaxing day-zero cannot
+    accidentally unpin the market signals)."""
     weights = meta.get("weights", {})
     problems = []
     for name in EXPECTED_SIGNALS:
@@ -211,6 +228,11 @@ def check_meta_weights(meta):
         elif weights[name] != 0.0:
             problems.append("signal '%s' is %r, expected 0.0 (day-zero rule)"
                             % (name, weights[name]))
+    for name in MARKET_DISPLAY_ONLY:
+        if weights.get(name, 0.0) != 0.0:
+            problems.append(
+                "signal '%s' is %r — MARKET DISPLAY-ONLY POLICY: market prices "
+                "are never weighted into predictions" % (name, weights[name]))
     extra = set(weights) - set(EXPECTED_SIGNALS)
     if extra:
         problems.append("unexpected weight(s): %s" % ", ".join(sorted(extra)))
@@ -223,18 +245,27 @@ def check_meta_weights(meta):
 
 
 def check_pipeline_health(status):
-    """Overall `health` must equal the worst feed status — honesty, not optics."""
+    """Overall `health` must equal the worst CONFIGURED feed status.
+
+    Honesty, not optics — with one carve-out: a feed that is 'unconfigured'
+    (needs a key / integration the owner has not turned on) is excluded from
+    the health roll-up, because "not set up" is a fact, not a failure. A feed
+    that WAS working and broke is degraded/down and still drags health. The UI
+    surfaces unconfigured feeds separately ("N awaiting config")."""
     feeds = status.get("feeds", {})
     if not feeds:
         raise ValidationError("pipeline_status.json has no feeds")
-    worst = max(_STATUS_SEVERITY[f["status"]] for f in feeds.values())
+    configured = [f for f in feeds.values() if f["status"] != "unconfigured"]
+    if not configured:
+        raise ValidationError("pipeline_status.json: every feed unconfigured?")
+    worst = max(_STATUS_SEVERITY[f["status"]] for f in configured)
     worst_label = next(k for k, v in _STATUS_SEVERITY.items() if v == worst)
     health = status.get("health")
     if _STATUS_SEVERITY.get(health) != worst:
         raise ValidationError(
-            "pipeline_status.json health %r is dishonest: worst feed status is %r; "
-            "health must reflect the worst feed (you cannot report 'ok' while a "
-            "feed is broken)" % (health, worst_label))
+            "pipeline_status.json health %r is dishonest: worst configured feed "
+            "status is %r; health must reflect the worst configured feed (you "
+            "cannot report 'ok' while a feed is broken)" % (health, worst_label))
 
 
 # ---------------------------------------------------------------------------

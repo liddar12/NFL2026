@@ -67,13 +67,16 @@ nonzero = {k: v for k, v in weights.items() if v != 0.0}
 if nonzero:
     problems.append(f"meta.weights has non-zero day-zero weights: {nonzero}")
 
-# pipeline_status: health must mirror the WORST feed status exactly (honesty:
-# never rosier than reality, and no stale "degraded" once every feed is ok).
+# pipeline_status: health must mirror the WORST CONFIGURED feed status exactly
+# (honesty: never rosier than reality, and no stale "degraded" once every feed
+# is ok). 'unconfigured' = not turned on (needs a key) — excluded from the
+# roll-up and surfaced separately by the UI as "awaiting config".
 ps = load("data/pipeline_status.json")
 order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
-worst = max((f["status"] for f in ps["feeds"].values()), key=lambda x: order[x])
+configured = [f["status"] for f in ps["feeds"].values() if f["status"] != "unconfigured"]
+worst = max(configured, key=lambda x: order[x]) if configured else "degraded"
 if ps["health"] != worst:
-    problems.append(f"pipeline_status health {ps['health']!r} != worst feed status {worst!r}")
+    problems.append(f"pipeline_status health {ps['health']!r} != worst configured feed status {worst!r}")
 
 # model_tuning: the NEVER-REGRESS example must be a non-adoption.
 mt = load("data/model_tuning.json")

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "market_prices.schema.json",
+  "title": "Kalshi + Polymarket NFL prices (DISPLAY ONLY)",
+  "description": "Produced by scripts/build_markets.py from the keyless Kalshi + Polymarket public APIs. USER POLICY: display_only is pinned true - these prices are shown next to our probabilities and are never an input to predictions, weights, fit scores, or parlay probabilities (see validate_data.py MARKET_DISPLAY_ONLY). Only real prices are emitted; a dead book emits nothing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["updated_utc", "display_only", "note", "sources", "games", "futures"],
+  "properties": {
+    "updated_utc": { "type": "string" },
+    "display_only": { "type": "boolean", "enum": [true] },
+    "note": { "type": "string" },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kalshi", "polymarket"],
+      "properties": {
+        "kalshi": { "$ref": "#/definitions/source" },
+        "polymarket": { "$ref": "#/definitions/source" }
+      }
+    },
+    "games": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kalshi": { "$ref": "#/definitions/gamePrices" },
+          "polymarket": { "$ref": "#/definitions/gamePrices" }
+        }
+      }
+    },
+    "futures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kalshi", "polymarket"],
+      "properties": {
+        "kalshi": { "type": "array", "items": { "$ref": "#/definitions/futureRow" } },
+        "polymarket": { "type": "array", "items": { "$ref": "#/definitions/futureRow" } }
+      }
+    }
+  },
+  "definitions": {
+    "source": {
+      "type": "object",
+      "required": ["status", "rows"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ok", "down"] },
+        "rows": { "type": "integer", "minimum": 0 },
+        "events_seen": { "type": "integer" },
+        "unmatched": { "type": "integer" },
+        "dropped_unmapped": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "gamePrices": {
+      "type": "object",
+      "properties": {
+        "home_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+        "away_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ticker": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "futureRow": {
+      "type": "object",
+      "required": ["team", "prob"],
+      "properties": {
+        "team": { "type": "string" },
+        "prob": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ticker": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

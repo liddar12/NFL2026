@@ -256,3 +256,48 @@ win-run/lose-pass theory, and roadmap items 1-8. The backtest adoption is the le
 real earn — fitted on resolved history through the same gate in-season refits will use.
 **Status:** adopted. Gate at 152 unit + 36 e2e, validate + smoke green. Odds feed stays degraded
 until ODDS_API_KEY is set (manual handoff documented in the PR).
+
+## 2026-07-17 — POLICY: predictions are market-independent (permanent)
+**Decision:** Market prices (Vegas books, Kalshi, Polymarket) are DISPLAY ONLY, forever. They are
+shown next to our probabilities as the scoreboard we measure ourselves against and are NEVER an
+input: no model, optimizer, fit score, parlay probability, or simulator reads them. ENFORCED, not
+conventional: validate_data.py MARKET_DISPLAY_ONLY pins market_spread / market_moneyline /
+market_total / odds_api / kalshi / polymarket at weight 0.0 permanently — a non-zero weight reds the
+gate and nothing deploys (locked by tests/feature/market_prices.test.mjs "POLICY GATE"). The
+optimizer grids (backtest/refit) structurally exclude market signals. Every market surface carries a
+"MARKET · DISPLAY ONLY" badge.
+**Rationale:** Owner directive: "I want my analytics and AI to be priority... using polymarket or
+kalshi can be shown, but should not be included in the weighting. I want to operate independently of
+Vegas for predictions." Beating the markets is the goal; blending them in would make the comparison
+circular.
+**Status:** adopted.
+
+## 2026-07-17 — REL5: market scoreboard, MODEL tab, playoff simulator, nflverse aggregates, unconfigured feeds
+**Decision:** (1) MARKET SCOREBOARD (display-only per the policy above): ported the wc2026 Kalshi +
+Polymarket scraper patterns to NFL — scripts/scrape/kalshi_nfl.py (anonymous API, KXNFLGAME game
+events + KXSB-27 champion futures, last-trade/midpoint pricing, never fabricates a dead book) and
+polymarket_nfl.py (keyless Gamma, "NFL Champion 2027" de-vigged) -> build_markets.py joins onto OUR
+schedule (ticker-date + canonical-abbrev matching, unmatched dropped loudly) -> data/market_prices.json.
+Slate game cards gain a MODEL-vs-KALSHI-vs-POLYMKT strip when a game is priced. First real read:
+Polymarket champion field has LAR 15.0% while OUR simulator says SEA 15.0% — the scoreboard works.
+(2) MODEL TAB (5th tab): adopted params vs defaults, walk-forward backtest trial bars, lock-grading
+status, the 32-signal registry with DISPLAY-ONLY badges (UI list mirror-locked to the validator set
+by test), and the playoff-odds table with market futures alongside. (3) PLAYOFF-ODDS SIMULATOR
+(scripts/simulate_season.py): deterministic 10k-season Monte Carlo from schedule_full probs (adopted
+params) + Elo playoffs; simplified documented tiebreakers (h2h, division, conference, RNG);
+accounting locked by test (champion sums 1, playoff 14, division 8, conference 2). Our first
+future-timescale product: SEA 15.0% / JAX 8.9% / HOU 8.9% champions. (4) NFLVERSE AGGREGATES
+(scripts/build_nflverse_aggregates.py): combine BENCH-PRESS joined to current OL rosters (the
+composite's original strength design — build_oline folds it in as a 4th z-term when present,
+3-term byte-identical otherwise) + play-by-play SCORE-STATE rush shares (game-script v2: situational
+at-the-snap splits that remove the kneel-down confound). Release host 403s in the sandbox ->
+selftest-fixture-verified math; the cron fills real data on the GH runner (depth-chart continuity
+deferred, documented). (5) 'UNCONFIGURED' FEED STATE: schema + validator + smoke + UI distinguish
+"not turned on" (odds_api awaiting its key — excluded from the health roll-up, shown as
+"N AWAITING CONFIG") from real degradation. Board after this release: kalshi ok, polymarket ok,
+playoff_sim ok, odds_api unconfigured; nflverse flips ok on the runner. (6) WEEKLY BACKTEST CRON
+(.github/workflows/backtest.yml, Tuesdays): resolve locks -> full 45-trial grid -> NEVER-REGRESS
+adoption -> commit. The learning cadence is now autonomous.
+**Rationale:** Rel5 scope as approved (P1+P2+P3, MODEL tab, game winners + SB futures). Analytics
+first: everything new is our own model or context for it; markets are strictly the yardstick.
+**Status:** adopted. Gate at 178 unit + 41 e2e, validate + smoke green.

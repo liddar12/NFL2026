@@ -651,3 +651,64 @@ test.describe('players legend + BEST PICK NOW + prop parlays (REL4)', () => {
     await expect(card).toContainText(propLeg.selection.split(' ')[0]);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL5 — MODEL tab, market display-only policy, health "awaiting config".
+ * ------------------------------------------------------------------------- */
+
+test.describe('MODEL tab + market policy + health config note (REL5)', () => {
+  test('MODEL tab renders all five transparency cards', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.mcard', { timeout: 8000 });
+    await expect(page.locator('.tabbar .tab[data-tab="model"]')).toHaveCount(1);
+    await expect(page.locator('.m-params')).toHaveCount(1);
+    await expect(page.locator('.m-backtest')).toHaveCount(1);
+    await expect(page.locator('.m-locks')).toHaveCount(1);
+    await expect(page.locator('.m-playoffs')).toHaveCount(1);
+    await expect(page.locator('.m-signals')).toHaveCount(1);
+  });
+
+  test('adopted params show the fitted values with provenance', async ({ page }) => {
+    const tuning = readData('model_tuning.json');
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-params', { timeout: 8000 });
+    const txt = await page.locator('.m-params').innerText();
+    expect(txt).toContain(String(tuning.game_params.hfa_elo));
+    expect(txt).toContain('NEVER-REGRESS');
+  });
+
+  test('playoff odds table shows our odds beside markets, labeled display-only', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-playoffs .po-row', { timeout: 8000 });
+    expect(await page.locator('.m-playoffs .po-row').count()).toBeGreaterThanOrEqual(5);
+    const head = await page.locator('.m-playoffs .po-row--head').innerText();
+    expect(head).toContain('CHAMP');
+    expect(head).toContain('KALSHI');
+    expect(head).toContain('POLYMKT');
+    await expect(page.locator('.m-playoffs .ms-badge').first())
+      .toContainText('DISPLAY ONLY');
+  });
+
+  test('signal registry badges market signals as display-only', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-signals .sg-row', { timeout: 8000 });
+    expect(await page.locator('.m-signals .sg-row').count()).toBe(32);
+    // Every market signal row carries the badge; a model signal does not.
+    const badged = await page.locator('.m-signals .sg-row:has(.ms-badge)').count();
+    expect(badged).toBe(6);
+  });
+
+  test('health strip reports awaiting-config feeds separately from degradation', async ({ page }) => {
+    const status = readData('pipeline_status.json');
+    const unconfigured = Object.values(status.feeds)
+      .filter((f) => f.status === 'unconfigured').length;
+    await page.goto('/');
+    await page.waitForSelector('#health .health-note', { timeout: 8000 });
+    const note = await page.locator('#health .health-note').innerText();
+    if (unconfigured > 0) {
+      expect(note).toContain(`${unconfigured} awaiting config`);
+    } else {
+      expect(note).not.toContain('awaiting config');
+    }
+  });
+});
