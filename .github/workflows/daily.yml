@@ -79,7 +79,7 @@ jobs:
             echo "No data changes to commit."
             exit 0
           fi
-          git commit -m "data: daily pipeline refresh [skip ci]"
+          git commit -m "data: daily pipeline refresh [skip actions]"
           # race-safe push loop: fast-forward onto whatever landed, retry a few times.
           for i in 1 2 3 4 5; do
             git pull --ff-only origin main && git push origin HEAD:main && exit 0

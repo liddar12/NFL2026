@@ -301,3 +301,13 @@ adoption -> commit. The learning cadence is now autonomous.
 **Rationale:** Rel5 scope as approved (P1+P2+P3, MODEL tab, game winners + SB futures). Analytics
 first: everything new is our own model or context for it; markets are strictly the yardstick.
 **Status:** adopted. Gate at 178 unit + 41 e2e, validate + smoke green.
+
+## 2026-07-17 — FIX: cron data commits now deploy to Netlify ([skip ci] -> [skip actions])
+**Decision:** Cron data commits used "[skip ci]", which GitHub Actions AND Netlify both honor — so
+every data refresh (daily, gameday scores, backtest) was committed to main but NEVER deployed to
+prod; the live site only picked up data when the next feature merge triggered a build. Discovered
+during Rel5 prod verification (the runner cron flipped health to ok on main while prod kept serving
+the older board). Fixed by switching the three cron workflows to "[skip actions]" — a GitHub-only
+skip token: the CI gate still skips data commits (no runner burn), Netlify now builds them, so prod
+data is as fresh as the crons.
+**Status:** adopted.
