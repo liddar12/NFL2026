@@ -601,3 +601,53 @@ test.describe('iPad / wide responsive layout', () => {
     expect(cols.trim().split(/\s+/).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL4 — players-view legend, BEST PICK NOW (VOR), prop legs in parlays.
+ * ------------------------------------------------------------------------- */
+
+test.describe('players legend + BEST PICK NOW + prop parlays (REL4)', () => {
+  test('players view has the WHAT DO THESE MEAN legend with PROJ/TREND/SOS', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    const legend = page.locator('.legend--players');
+    await expect(legend).toHaveCount(1);
+    await legend.locator('summary').click();
+    await expect(legend).toContainText('PROJ');
+    await expect(legend).toContainText('SOS');
+    await expect(legend).toContainText('descending');
+  });
+
+  test('BEST PICK NOW strip renders VOR picks and re-ranks when a player is TAKEN', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.bestpick', { timeout: 8000 });
+    await expect(page.locator('.bestpick .bp-label')).toContainText('VALUE OVER REPLACEMENT');
+    const rows = page.locator('.bestpick .bp-row');
+    expect(await rows.count()).toBeGreaterThanOrEqual(1);
+    await expect(rows.first().locator('.bp-vor')).toContainText('VOR');
+    // Mark the top pick TAKEN in the finder -> the strip must drop that player.
+    const topId = await rows.first().getAttribute('data-gsis');
+    const topName = await rows.first().locator('.bp-name').innerText();
+    await page.fill('.finder-input', topName);
+    await page.waitForSelector('.cand .cand-taken', { timeout: 8000 });
+    await page.locator(`.cand[data-gsis="${topId}"] .cand-taken`).click();
+    await expect(page.locator(`.bestpick .bp-row[data-gsis="${topId}"]`)).toHaveCount(0);
+  });
+
+  test('same-game parlays can carry player-prop legs (qb/rb/wr yds markets)', async ({ page }) => {
+    // Data-driven: the committed parlays.json must contain at least one game-scope
+    // parlay with a prop-market leg, and its card must render that selection.
+    const doc = readData('parlays.json');
+    const propMarkets = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
+    const withProp = doc.parlays.find(
+      (p) => p.scope === 'game' && p.legs.some((l) => propMarkets.has(l.market)));
+    expect(withProp, 'no game parlay carries a prop leg').toBeTruthy();
+    const propLeg = withProp.legs.find((l) => propMarkets.has(l.market));
+
+    await page.goto('/#/parlays');
+    await waitForCards(page, '.card.parlay');
+    const card = page.locator(`.card.parlay[data-parlay-id="${withProp.parlay_id}"]`);
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText(propLeg.selection.split(' ')[0]);
+  });
+});

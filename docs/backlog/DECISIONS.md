@@ -221,3 +221,38 @@ hold (the 2-leg week bucket covers the week floor, with a fallback to the old bu
 context" gap; the iPad layout matches how it will actually be used on a 13" screen; the leg selector
 turns the parlay engine into the 2-7 leg tool requested. No new unproven weight enters the model.
 **Status:** adopted. Gate at 109 unit + 33 e2e (web + standalone PWA), validate + smoke green.
+
+## 2026-07-17 — REL4: learning loop ADOPTS, game-script validated, odds+props, VOR draft AI, O-line, injury-aware weekly
+**Decision:** (1) FIRST REAL PARAMETER ADOPTION. scripts/backtest.py walk-forward backtests the Elo
+game model on 1,084 real FINAL games (2022-2025, leak-free predict-before-update), 45-trial grid over
+hfa x revert x k, NEVER-REGRESS gated: candidate hfa=45 / revert=0.45 / k=25 beat the incumbent
+(mean log-loss 0.6409 -> 0.6369, margin 0.0015 cleared) and was ADOPTED into data/model_tuning.json
+game_params — every 2026 game probability now prices with the fitted params (all 16 slate probs moved,
+e.g. SEA-NE 0.651 -> 0.610). All 45 trials archived in history. (2) GAME-SCRIPT THEORY VALIDATED
+(descriptively, 272 FINAL 2025 games): winners out-rush losers +7.5 att (30.6 vs 23.1) and attempt
+FEWER passes (-4.0); winner-minus-loser rush-share gap +0.101, correlation with margin +0.249;
+blowout winners rush-share 0.536 vs 0.482 in one-score games; garbage time confirmed — teams trailing
+>= 14 entering Q4 (n=89) score 7.15 Q4 pts vs their own 2.51/quarter pace (+4.64 uplift) with a 59.6%
+Q4-TD-proxy rate. Recorded in data/game_script.json at weight 0 / applied=false with an explicit
+causation caveat (winners-run conflates cause and clock-kneeling effect). (3) REAL ODDS WIRED:
+scripts/scrape/odds_api.py (The Odds API v4, pairwise de-vig, renames-matched to our game ids);
+build_predictions consumes it when ODDS_API_KEY is set, degrades loudly to model seeds when not.
+(4) PLAYER-PROP LEGS: top QB/RB/WR per game (qb_pass_yds 225+, rb_rush_yds 60+, wr_rec_yds 60+ seeds,
+win-prob-shaded probs clamped [0.35,0.65], estimate-labeled) flow through build_game_parlays — parlay
+markets now span ML/spread/total/props. (5) INJURY-AWARE WEEKLY: Out 0.55 / Doubtful 0.7 /
+Questionable 0.9 on the first 3 non-bye weeks, renormalized so the season total is EXACTLY preserved
+(28 of the top 300 shaped this run; model.injury_shape records it). (6) ROOKIE ESTIMATES: 0-season
+players get documented year-2-delta priors (WR +0.06 / RB +0.04 / QB +0.03 / TE +0.02, ai_estimated).
+(7) DRAFT VOR: team-logic replacementLevel/vorScore/bestPickNow (FLEX-aware demand, deterministic);
+the TEAM tab paints a BEST PICK NOW strip from the taken-filtered pool with scarcity warnings.
+(8) O-LINE COMPOSITE: 32 teams from live ESPN rosters (weight/age/experience/continuity z-blend;
+nflverse snap refinement on the runner; NYG/PHI/ARI strongest, PIT/MIA/MIN weakest this run) ->
+data/oline_composite.json feeding the registered weight-0 ol_composite_vs_dl signal. (9) Players view
+gained the WHAT-DO-THESE-MEAN legend; pipeline_status now written LAST so odds/game-script/oline
+feeds are in it; weekly cadence: every daily/gameday run refreshes rosters, injuries, oline,
+insights, so SoS/Trend/fit inputs track personnel changes automatically.
+**Rationale:** Rel4 user asks: explanations everywhere, weekly-updating AI data, validate the
+win-run/lose-pass theory, and roadmap items 1-8. The backtest adoption is the learning loop's first
+real earn — fitted on resolved history through the same gate in-season refits will use.
+**Status:** adopted. Gate at 152 unit + 36 e2e, validate + smoke green. Odds feed stays degraded
+until ODDS_API_KEY is set (manual handoff documented in the PR).

@@ -42,6 +42,7 @@ import {
   trendLabel,
   positionAtCap,
   POSITION_CAPS,
+  bestPickNow,
 } from '../team-logic.js';
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
@@ -551,6 +552,36 @@ export default async function mountTeam(el) {
     box.innerHTML = rows.join('');
   }
 
+  /** BEST PICK NOW strip: top-3 by value over replacement, from the SAME
+   * available pool the fit engine sees, so TAKEN players are excluded and the
+   * strip re-ranks live as players are taken. Empty picks -> no strip. */
+  function bestPickStrip(pool) {
+    const picks = bestPickNow(roster, pool, weeklyById, mode);
+    if (picks.length === 0) return '';
+    const rows = picks.map((r) => {
+      const p = r.player;
+      const id = String(p.gsis_id);
+      const sign = r.vor >= 0 ? '+' : '';
+      return (
+        `<div class="bp-row" data-gsis="${esc(id)}">` +
+          `<span class="bp-name">${esc(p.name)}</span>` +
+          `<span class="bp-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span></span>` +
+          `<span class="bp-vor" title="Value over replacement (adjusted pts above the replacement-level ${esc(p.position)})">${sign}${fix1(r.vor)} VOR</span>` +
+          `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}">ADD</button>` +
+        '</div>'
+      );
+    }).join('');
+    return (
+      '<div class="bestpick">' +
+        '<div class="bp-head">' +
+          '<span class="bp-label">BEST PICK NOW - VALUE OVER REPLACEMENT</span> ' +
+          '<span class="est">ESTIMATE</span>' +
+        '</div>' +
+        rows +
+      '</div>'
+    );
+  }
+
   function paintReco() {
     const box = el.querySelector('#t-reco');
     // Target = the user-selected empty slot, else the engine's neediest open
@@ -558,11 +589,12 @@ export default async function mountTeam(el) {
     // The engine sees the AVAILABLE pool: projections minus drafted-by-others.
     // Marking a player TAKEN re-optimizes the recommendations immediately.
     const pool = availablePool();
+    const strip = bestPickStrip(pool);
     const target = (selectedSlot && !roster.slots[selectedSlot])
       ? selectedSlot
       : neediestOpenSlot(roster, pool, weeklyById, mode);
     if (!target) {
-      box.innerHTML =
+      box.innerHTML = strip +
         '<div class="reco-head"><span class="reco-slot">FIT ENGINE</span> <span class="est">ESTIMATE</span></div>' +
         '<div class="reco-why">Roster complete — tap a filled slot to remove a player and rework the build.</div>';
       return;
@@ -590,7 +622,7 @@ export default async function mountTeam(el) {
         : '') +
       `<div class="reco-sublabel">Ranked by ${sortLabel}${ai ? ' · AI+' : ''}</div>`;
     if (recos.length === 0) {
-      box.innerHTML = head + `<div class="reco-why">No eligible players left for ${esc(target)}.</div>`;
+      box.innerHTML = strip + head + `<div class="reco-why">No eligible players left for ${esc(target)}.</div>`;
       return;
     }
     const items = recos.map((r) => {
@@ -622,7 +654,7 @@ export default async function mountTeam(el) {
         '</div>'
       );
     });
-    box.innerHTML = head + items.join('');
+    box.innerHTML = strip + head + items.join('');
   }
 
   function paintSummary() {

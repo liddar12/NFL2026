@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "game_script.schema.json",
+  "title": "Game-script model (measured 2025 run/pass tendency by game state)",
+  "description": "Produced by scripts/build_gamescript.py from ESPN FINAL-game boxscores + quarter linescores. Every split carries its sample size n and a low_n flag when n < 8. Values are DESCRIPTIVE deltas (causation caveat in notes). params are RECORDED for the optimizer (weight-0 discipline, applied=false), never silently applied — game probabilities are unchanged by this file. Shape-checked by tests/feature/game_script.test.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "updated_utc",
+    "games_analyzed",
+    "splits",
+    "params",
+    "estimate",
+    "notes"
+  ],
+  "properties": {
+    "season": { "type": "integer", "minimum": 2025, "maximum": 2025 },
+    "updated_utc": { "type": "string" },
+    "games_analyzed": {
+      "type": "integer",
+      "description": "FINAL regular-season games analyzed (~272).",
+      "minimum": 250
+    },
+    "splits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rush_attempts",
+        "pass_attempts",
+        "rush_share",
+        "winner_rush_share_blowout",
+        "winner_rush_share_one_score",
+        "garbage_time"
+      ],
+      "properties": {
+        "rush_attempts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["winner_avg", "loser_avg", "delta", "n", "low_n"],
+          "properties": {
+            "winner_avg": { "type": "number", "minimum": 0 },
+            "loser_avg": { "type": "number", "minimum": 0 },
+            "delta": { "type": "number" },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        },
+        "pass_attempts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["winner_avg", "loser_avg", "delta", "n", "low_n"],
+          "properties": {
+            "winner_avg": { "type": "number", "minimum": 0 },
+            "loser_avg": { "type": "number", "minimum": 0 },
+            "delta": { "type": "number" },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        },
+        "rush_share": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["winner_avg", "loser_avg", "delta", "margin_correlation", "n", "low_n"],
+          "properties": {
+            "winner_avg": { "type": "number", "minimum": 0, "maximum": 1 },
+            "loser_avg": { "type": "number", "minimum": 0, "maximum": 1 },
+            "delta": { "type": "number", "minimum": -1, "maximum": 1 },
+            "margin_correlation": { "type": "number", "minimum": -1, "maximum": 1 },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        },
+        "winner_rush_share_blowout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avg", "n", "low_n"],
+          "properties": {
+            "avg": { "type": "number", "minimum": 0, "maximum": 1 },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        },
+        "winner_rush_share_one_score": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avg", "n", "low_n"],
+          "properties": {
+            "avg": { "type": "number", "minimum": 0, "maximum": 1 },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        },
+        "garbage_time": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "trailing_q4_avg_points",
+            "trailing_q123_avg_points_per_quarter",
+            "delta",
+            "q4_td_rate",
+            "n",
+            "low_n"
+          ],
+          "properties": {
+            "trailing_q4_avg_points": { "type": "number", "minimum": 0 },
+            "trailing_q123_avg_points_per_quarter": { "type": "number", "minimum": 0 },
+            "delta": { "type": "number" },
+            "q4_td_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+            "n": { "type": "integer", "minimum": 0 },
+            "low_n": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rush_lean_when_leading", "trailing_pass_boost"],
+      "properties": {
+        "rush_lean_when_leading": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "applied", "weight"],
+          "properties": {
+            "value": { "type": "number" },
+            "applied": {
+              "type": "boolean",
+              "description": "MUST stay false until the optimizer adopts via NEVER-REGRESS.",
+              "enum": [false]
+            },
+            "weight": { "type": "number", "minimum": 0, "maximum": 0 }
+          }
+        },
+        "trailing_pass_boost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "applied", "weight"],
+          "properties": {
+            "value": { "type": "number" },
+            "applied": {
+              "type": "boolean",
+              "description": "MUST stay false until the optimizer adopts via NEVER-REGRESS.",
+              "enum": [false]
+            },
+            "weight": { "type": "number", "minimum": 0, "maximum": 0 }
+          }
+        }
+      }
+    },
+    "estimate": {
+      "type": "boolean",
+      "description": "true at document level = descriptive history, not yet a validated predictor; the splits themselves are measured with per-split n/low_n."
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  }
+}

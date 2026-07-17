@@ -26,7 +26,7 @@ THE RULES (each bounded to |value| <= ADJ_BOUND = 0.25):
        declining FASTER than their position age curve is penalized on top of the
        raw slope; outperforming the curve is already in the slope (never
        double-counted). Clamped to +/-0.25.
-     * <3 observed seasons (ai_estimated): the position age curve supplies the
+     * 1-2 observed seasons (ai_estimated): the position age curve supplies the
        prior. value = age_multiplier(pos, age+1) - age_multiplier(pos, age):
        on the rookie ramp this is POSITIVE and naturally scaled by the
        rookie-floor gap ((1 - rookie_floor) / ramp years); past peak_end it is
@@ -34,6 +34,12 @@ THE RULES (each bounded to |value| <= ADJ_BOUND = 0.25):
        (neutral — missing data is never a punishment). slope_pts_per_yr =
        value x baseline, where baseline = the latest observed season total,
        else the positional default in POS_BASELINE_PTS.
+     * 0 observed seasons (ai_estimated): the rookie/no-history prior. The
+       position table ROOKIE_YEAR2_DELTA supplies value directly (typical
+       year-1 -> year-2 PPR delta direction: WR +0.06, RB +0.04, QB +0.03,
+       TE +0.02; unknown position 0). A documented rule, NOT fitted;
+       slope_pts_per_yr = value x the POS_BASELINE_PTS positional default
+       (no observed season exists to anchor on). Clamped like everything.
 
   2. stack_synergy — extra QB+receiver stack compounding beyond the flat v1
      STACK_BONUS, defaulted BY POSITION PAIR (no measured stack data this
@@ -86,6 +92,13 @@ MIN_PLAYERS = 250         # fewer insights than this = broken join, fail loudly
 # slope into display pts/yr for rookies.
 POS_BASELINE_PTS = {"QB": 250.0, "RB": 180.0, "WR": 170.0, "TE": 120.0}
 
+# Rookie/no-history trajectory prior (rule 1, 0 observed seasons): typical
+# year-1 -> year-2 PPR delta direction by position. The second-year leap is
+# largest for WRs (route-tree + rapport growth), then RBs (workload growth),
+# then QBs (system comfort), smallest for TEs (slowest positional ramp).
+# Documented prior, NOT fitted — every value it emits is ai_estimated.
+ROOKIE_YEAR2_DELTA = {"WR": 0.06, "RB": 0.04, "TE": 0.02, "QB": 0.03}
+
 # Position-pair stack-synergy defaults (rule 2). Value = extra fraction of the
 # flat v1 STACK_BONUS a stack with this player is worth. No measured stack data
 # exists this build, so these are ai_estimated by definition.
@@ -122,16 +135,22 @@ def _baseline_pts(position, seasons):
 def estimate_trajectory(position=None, age=None, seasons=None):
     """RULE 1 (<3 seasons) — the build_history.py hook.
 
-    The position age curve supplies the slope prior: value = next-year minus
-    this-year age multiplier (rookie ramp => positive, scaled by the
-    rookie-floor gap; past the cliff => negative; plateau/unknown age => 0).
-    curve_residual_per_yr is 0.0 — the curve IS the estimate, so by definition
-    there is no observed deviation from it.
+    0 observed seasons -> the ROOKIE_YEAR2_DELTA position table supplies the
+    fraction directly (documented year-1 -> year-2 prior; unknown position 0).
+    1-2 observed seasons -> the position age curve supplies the slope prior:
+    value = next-year minus this-year age multiplier (rookie ramp => positive,
+    scaled by the rookie-floor gap; past the cliff => negative; plateau/unknown
+    age => 0). curve_residual_per_yr is 0.0 — the prior IS the estimate, so by
+    definition there is no observed deviation from it.
     """
-    frac = 0.0
-    if age is not None:
+    observed = [s for s in (seasons or []) if s.get("pts", 0) > 0]
+    if not observed:
+        frac = _clamp(ROOKIE_YEAR2_DELTA.get(str(position or "").upper(), 0.0))
+    elif age is not None:
         frac = _clamp(aging.age_multiplier(position, float(age) + 1.0)
                       - aging.age_multiplier(position, float(age)))
+    else:
+        frac = 0.0
     base = _baseline_pts(position, seasons)
     return {"slope_pts_per_yr": frac * base, "curve_residual_per_yr": 0.0}
 
@@ -156,6 +175,15 @@ def _trajectory_insight(position, hist_rec):
                "%+.4f/yr (measured 2021-2025)"
                % (slope, n, position, (resid or 0.0)))
         out = {"value": round(value, 4), "source": "measured", "why": why}
+    elif int(n) == 0:
+        # Rookie/no-history: the ROOKIE_YEAR2_DELTA table IS the estimate.
+        pos = str(position or "").upper()
+        value = _clamp(ROOKIE_YEAR2_DELTA.get(pos, 0.0))
+        slope = value * _baseline_pts(position, seasons)
+        why = ("0 seasons observed - rookie year-1 -> year-2 position prior "
+               "%+.2f for %s (ROOKIE_YEAR2_DELTA rule, documented not fitted) "
+               "(AI estimate)" % (value, pos or "unknown position"))
+        out = {"value": round(value, 4), "source": "ai_estimated", "why": why}
     elif source == "ai_estimated" and slope is not None:
         # Invert the rule-1 forward map exactly: frac = slope / baseline.
         value = _clamp(slope / _baseline_pts(position, seasons))
@@ -276,7 +304,10 @@ def build_insights_document(projections, history, environment, schedule, now):
             "regenerable via the quarantined P10 workflow; runtime is "
             "deterministic committed code, never a live model call. "
             "trajectory_adj: measured = OLS slope / 200 PPR plus any negative "
-            "age-curve residual; <3 seasons = position age-curve slope prior. "
+            "age-curve residual; 1-2 seasons = position age-curve slope prior; "
+            "0 seasons = rookie year-1 -> year-2 position prior "
+            "(ROOKIE_YEAR2_DELTA: WR +0.06, RB +0.04, QB +0.03, TE +0.02, "
+            "documented not fitted). "
             "stack_synergy: position-pair defaults (QB+WR 0.06, QB+TE 0.04), "
             "no measured stack data this build. cold_adj: passthrough of the "
             "measured environment_model per-team sub-32F win-pct delta; dome "

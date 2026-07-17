@@ -190,12 +190,10 @@ def main():
         snap.write_snapshot(lock_name, rows)
         print(f"locked {len(rows)} game rows -> {lock_path}")
 
-    # N4 (real-slate wiring) — rebuild parlays from the REAL week's games via the
-    # correlation-aware builder, so parlay game_ids always reference games that
-    # exist in game_predictions.json. Edges remain model-vs-hold placeholders until
-    # the odds feed carries real lines (ODDS_API_KEY).
-    _write(os.path.join(DATA, "parlays.json"),
-           parlay_builder.build_parlays_document(week_games, SEASON, wk, now))
+    # N4 (real-slate wiring) — parlays are built at the END of this run (see the
+    # PARLAYS block below): the prop legs need player_weekly + player_projections
+    # in hand, and real odds (when ODDS_API_KEY is set) need the slate. Moving the
+    # write does not change the contract — every run still writes parlays.json.
 
     # N2 — REAL player projections. ESPN fantasy pool (real prior-season PPR totals)
     # + roster ages -> the projection engine. At day-zero weights every signal is
@@ -296,28 +294,98 @@ def main():
               file=sys.stderr)
     # === end AI INSIGHTS block ====================================================
 
-    # Feeds that need a key (odds/kalshi) or are proxy-blocked in this sandbox
-    # (nflverse) are DEGRADED, not down — unconfigured/unavailable, not broken. The
-    # cron runner with keys + open network populates them. age_hours is a large
-    # sentinel (never succeeded here) so the schema's numeric contract holds.
-    for name in ("odds_api", "kalshi", "polymarket", "nflverse"):
-        feeds[name] = {"rows": 0, "age_hours": 999.0, "last_success_utc": None, "status": "degraded"}
+    # === GAME SCRIPT (measured run/pass splits — scripts/build_gamescript.py) ====
+    # Winner/loser rush-pass volume, blowout vs one-score rush share, and the
+    # trailing-team Q4 (garbage-time) uplift, measured from FINAL 2025 boxscores.
+    # DESCRIPTIVE, weight-0 / applied=false — game probabilities untouched. The
+    # raw rows are cached (data/fixtures/gamestats_2025.json), so this is a cheap
+    # re-analysis per run, not a 272-call refetch. GUARDED like the blocks above.
+    try:
+        from scripts import build_gamescript  # noqa: PLC0415 (guarded feature import)
+        build_gamescript.main()
+        with open(os.path.join(DATA, "game_script.json"), encoding="utf-8") as fh:
+            gs_rows = json.load(fh)["games_analyzed"]
+        feeds["game_script"] = {"rows": gs_rows, "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["game_script"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] game-script build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end GAME SCRIPT block ====================================================
 
-    # Overall health mirrors the WORST feed exactly — never rosier than reality.
-    order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
-    health = max((f["status"] for f in feeds.values()), key=lambda s: order[s])
-    _write(os.path.join(DATA, "pipeline_status.json"), {
-        "generated_utc": now, "health": health, "feeds": feeds,
-    })
+    # === O-LINE COMPOSITE (scripts/build_oline.py) ================================
+    # Per-team OL weight/age/experience/continuity from live ESPN rosters (32
+    # calls), refined with nflverse snap counts when that host is reachable.
+    # Context for the registered weight-0 ol_composite_vs_dl signal — weekly
+    # refresh matters here (personnel churn), so it runs every pipeline pass.
+    try:
+        from scripts import build_oline  # noqa: PLC0415 (guarded feature import)
+        build_oline.main()
+        with open(os.path.join(DATA, "oline_composite.json"), encoding="utf-8") as fh:
+            ol_rows = len(json.load(fh)["teams"])
+        feeds["oline"] = {"rows": ol_rows, "age_hours": 0.0,
+                          "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["oline"] = {"rows": 0, "age_hours": 999.0,
+                          "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] o-line composite build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end O-LINE COMPOSITE block ===============================================
 
     # Weekly split (weekly_split_v1) — pure math lives in scripts.build_weekly;
     # this call just feeds it the artifacts already in hand. Player order mirrors
     # player_projections.json (same projected[:300] slice), elos are the SAME
     # priors the game model used, receptions ride the N2 feed (kona statId 53).
+    # Injury-aware since Rel4: build_weekly reads data/injuries.json (written
+    # fresh above) and shapes the first weeks of injured players' splits.
     receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
     weekly_doc = build_weekly.build_weekly_document(
         projected[:300], predicted, ratings, receptions_by_id, SEASON, now)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
+
+    # === PARLAYS (moved from the early slot — needs weekly + projections) ========
+    # Real odds when ODDS_API_KEY is set; graceful model-seeded fallback when not.
+    markets_by_game = None
+    try:
+        from scripts.scrape import odds_api  # noqa: PLC0415 (guarded feature import)
+        markets_by_game = odds_api.fetch_markets(week_games)
+        feeds["odds_api"] = {"rows": len(markets_by_game), "age_hours": 0.0,
+                             "last_success_utc": now, "status": "ok"}
+        print(f"odds: real lines for {len(markets_by_game)} slate games")
+    except Exception as exc:  # noqa: BLE001 — no key / blocked host degrades, loudly
+        feeds["odds_api"] = {"rows": 0, "age_hours": 999.0,
+                             "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] odds feed unavailable (model-seeded lines in use): {exc}",
+              file=sys.stderr)
+
+    # Player-prop legs (top QB/RB/WR per game, seeded lines, labeled estimates)
+    # diversify the same-game parlay candidate pool. Pure function, no network.
+    props_by_game = parlay_builder.build_props_by_game(
+        week_games,
+        weekly_doc,
+        {"season": SEASON, "updated_utc": now, "players": projected[:300]},
+    )
+    _write(os.path.join(DATA, "parlays.json"),
+           parlay_builder.build_parlays_document(
+               week_games, SEASON, wk, now,
+               markets_by_game=markets_by_game,
+               props_by_game=props_by_game))
+
+    # Feeds that need a key (kalshi/polymarket) or are proxy-blocked in this
+    # sandbox (nflverse) are DEGRADED, not down — unconfigured/unavailable, not
+    # broken. The cron runner with keys + open network populates them. age_hours
+    # is a large sentinel (never succeeded here) so the numeric contract holds.
+    for name in ("kalshi", "polymarket", "nflverse"):
+        feeds[name] = {"rows": 0, "age_hours": 999.0, "last_success_utc": None, "status": "degraded"}
+
+    # Overall health mirrors the WORST feed exactly — never rosier than reality.
+    # Written LAST so every feed above (odds, game-script, o-line included) is in.
+    order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
+    health = max((f["status"] for f in feeds.values()), key=lambda s: order[s])
+    _write(os.path.join(DATA, "pipeline_status.json"), {
+        "generated_utc": now, "health": health, "feeds": feeds,
+    })
 
     print(f"OK  teams={len(teams)} elo_teams={len(ratings)} schedule={len(schedule)} "
           f"week={wk} week_games={len(week_games)} "

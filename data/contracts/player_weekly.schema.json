@@ -33,7 +33,17 @@
           "type": "boolean",
           "description": "true => NOT a validated measurement (honesty flag)."
         },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "injury_shape": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applied", "statuses_used"],
+          "description": "Present ONLY when at least one player's split was shaped by data/injuries.json (Out 0.55 / Doubtful 0.7 / Questionable 0.9 on the first 3 non-bye weeks, season total unchanged). statuses_used = players shaped.",
+          "properties": {
+            "applied": { "type": "boolean" },
+            "statuses_used": { "type": "integer", "minimum": 1 }
+          }
+        }
       }
     },
     "players": {

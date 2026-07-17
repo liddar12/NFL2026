@@ -1,0 +1,68 @@
+{
+  "season": 2025,
+  "updated_utc": "2026-07-17T17:28:39Z",
+  "games_analyzed": 272,
+  "splits": {
+    "rush_attempts": {
+      "winner_avg": 30.59,
+      "loser_avg": 23.06,
+      "delta": 7.54,
+      "n": 271,
+      "low_n": false
+    },
+    "pass_attempts": {
+      "winner_avg": 30.0,
+      "loser_avg": 34.04,
+      "delta": -4.04,
+      "n": 271,
+      "low_n": false
+    },
+    "rush_share": {
+      "winner_avg": 0.5066,
+      "loser_avg": 0.4052,
+      "delta": 0.1014,
+      "margin_correlation": 0.2494,
+      "n": 271,
+      "low_n": false
+    },
+    "winner_rush_share_blowout": {
+      "avg": 0.536,
+      "n": 96,
+      "low_n": false
+    },
+    "winner_rush_share_one_score": {
+      "avg": 0.4819,
+      "n": 144,
+      "low_n": false
+    },
+    "garbage_time": {
+      "trailing_q4_avg_points": 7.15,
+      "trailing_q123_avg_points_per_quarter": 2.51,
+      "delta": 4.64,
+      "q4_td_rate": 0.5955,
+      "n": 89,
+      "low_n": false
+    }
+  },
+  "params": {
+    "rush_lean_when_leading": {
+      "value": 0.1014,
+      "applied": false,
+      "weight": 0.0
+    },
+    "trailing_pass_boost": {
+      "value": 4.64,
+      "applied": false,
+      "weight": 0.0
+    }
+  },
+  "estimate": true,
+  "notes": [
+    "Measured from 272 FINAL 2025 regular-season games (ESPN scoreboard + summary boxscore, STATUS-gated). Ties excluded from winner/loser splits.",
+    "CAUSATION CAVEAT: full-game totals conflate cause and effect. Winners out-rushing losers mixes 'good running wins games' with 'leading teams kneel on the clock'. These are DESCRIPTIVE deltas, not causal effects.",
+    "Blowout = final margin >= 14; one-score = margin <= 8. rush_share = rushAtt / (rushAtt + passAtt).",
+    "garbage_time: teams trailing by >= 14 entering Q4 (from scoreboard linescores, periods 1-3). Q4 points only (OT excluded); q4_td_rate = share of those teams scoring >= 7 in Q4 (TD proxy, since linescores carry points, not scoring plays).",
+    "params.rush_lean_when_leading.value = mean winner-minus-loser rush-share gap; params.trailing_pass_boost.value = trailing team's Q4 points minus its own Q1-Q3 per-quarter pace. Both recorded at weight 0 / applied false; game probabilities are unchanged by this file.",
+    "Raw rows cached at data/fixtures/gamestats_2025.json; delete the cache to force a refetch."
+  ]
+}

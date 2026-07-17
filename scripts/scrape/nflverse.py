@@ -4,6 +4,12 @@ Data source of record for player-side truth. Uses `nfl_data_py`, which is a HEAV
 optional dependency (pandas under the hood). Per the ZERO-DEP gate rule it is imported
 **inside each function**, guarded, so importing this module never fails on a clean box.
 
+A second, lighter path lives at the bottom: the nflverse-data GitHub RELEASE CSVs
+(rosters / snap counts), fetched with guarded `requests` and parsed with the stdlib
+`csv` module, no pandas, no nfl_data_py. Some sandboxes proxy-block github.com
+release assets (403); those fetchers raise FeedError on ANY transport failure so
+callers can degrade loudly-but-gracefully rather than trusting a truncated pull.
+
 Honesty invariants enforced here:
   * Row-count assertions — a 0-row return from nflverse is almost always an upstream
     outage or a season/week that hasn't happened yet, NOT "no players". We raise loudly
@@ -151,3 +157,63 @@ def fetch_snap_counts(season, weeks=None, min_rows=500, as_of=None):
     rows = _records(frame)
     _assert_rows("snap_counts", rows, min_rows)
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Release-CSV path (no pandas). The nflverse-data repo publishes flat CSVs as
+# GitHub release assets; these are the same tables nfl_data_py wraps, minus the
+# heavy dependency. Guarded-requests + stdlib csv only.
+# ---------------------------------------------------------------------------
+
+_RELEASE_BASE = "https://github.com/nflverse/nflverse-data/releases/download"
+_HTTP_TIMEOUT = 30  # seconds; release assets are small, a hang means trouble.
+
+
+def _require_requests():
+    """Import `requests` on demand with one actionable line (scrape/espn.py pattern).
+    Kept out of module scope so the gate can import this file without the package."""
+    try:
+        import requests  # noqa: PLC0415 (intentional in-function import)
+    except ImportError as exc:  # pragma: no cover - exercised only off the gate
+        raise FeedError(
+            "requests is not installed. Install it in the pipeline runner only: "
+            "`pip install requests`. It must NEVER be a gate dependency."
+        ) from exc
+    return requests
+
+
+def fetch_release_csv(url, name, min_rows=1):
+    """GET a nflverse release CSV and parse it to list[dict] with the stdlib csv
+    module. LOUD on everything: a non-200 (proxy-blocked sandboxes 403 these
+    assets), a transport error, or a row count under `min_rows` all raise
+    FeedError - never return a possibly-truncated table."""
+    import csv
+    import io
+
+    requests = _require_requests()
+    try:
+        resp = requests.get(url, timeout=_HTTP_TIMEOUT)
+    except Exception as exc:  # requests.RequestException and proxy/TLS failures
+        raise FeedError(f"nflverse release GET {url} failed in transport: {exc}") from exc
+    if resp.status_code != 200:
+        raise FeedError(
+            f"nflverse release GET {url} returned HTTP {resp.status_code}. Refusing "
+            f"to treat a non-200 as empty data (the silent-404 lesson)."
+        )
+    rows = list(csv.DictReader(io.StringIO(resp.text)))
+    _assert_rows(name, rows, min_rows)
+    return rows
+
+
+def fetch_roster_release(season, min_rows=1500):
+    """Season roster from the release CSV (roster_{season}.csv). ~32 teams * ~53
+    players, so under `min_rows` (1500) signals a partial pull."""
+    url = f"{_RELEASE_BASE}/rosters/roster_{int(season)}.csv"
+    return fetch_release_csv(url, f"roster_release_{season}", min_rows=min_rows)
+
+
+def fetch_snap_counts_release(season, min_rows=500):
+    """Weekly snap counts from the release CSV (snap_counts_{season}.csv). Even a
+    few weeks of a season is thousands of rows; under `min_rows` is a partial pull."""
+    url = f"{_RELEASE_BASE}/snap_counts/snap_counts_{int(season)}.csv"
+    return fetch_release_csv(url, f"snap_counts_release_{season}", min_rows=min_rows)

@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-07-17T12:18:57Z",
+  "updated_utc": "2026-07-17T17:26:08Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -1056,9 +1056,9 @@
     },
     "espn-16800": {
       "trajectory_adj": {
-        "value": -0.25,
+        "value": -0.2376,
         "source": "measured",
-        "why": "OLS slope -33.7 pts/yr over 5 seasons; WR age-curve residual -0.1004/yr (measured 2021-2025)",
+        "why": "OLS slope -33.7 pts/yr over 5 seasons; WR age-curve residual -0.0691/yr (measured 2021-2025)",
         "slope_pts_per_yr": -33.7,
         "seasons_observed": 5
       },
@@ -1735,9 +1735,9 @@
     },
     "espn-15847": {
       "trajectory_adj": {
-        "value": -0.186,
+        "value": -0.1474,
         "source": "measured",
-        "why": "OLS slope -26.0 pts/yr over 5 seasons; TE age-curve residual -0.0559/yr (measured 2021-2025)",
+        "why": "OLS slope -26.0 pts/yr over 5 seasons; TE age-curve residual -0.0174/yr (measured 2021-2025)",
         "slope_pts_per_yr": -26.01,
         "seasons_observed": 5
       },
@@ -7861,5 +7861,5 @@
       }
     }
   },
-  "method_notes": "Estimation rules authored by generative AI (this build) and regenerable via the quarantined P10 workflow; runtime is deterministic committed code, never a live model call. trajectory_adj: measured = OLS slope / 200 PPR plus any negative age-curve residual; <3 seasons = position age-curve slope prior. stack_synergy: position-pair defaults (QB+WR 0.06, QB+TE 0.04), no measured stack data this build. cold_adj: passthrough of the measured environment_model per-team sub-32F win-pct delta; dome teams get the measured group delta as an ai_estimated value; weeks = 2026 Nov-Jan games at open-air cold-region venues. All values clamped to +/-0.25. Every field carries source ('measured' | 'ai_estimated') and a one-line why. This file only feeds the TEAM tab's opt-in AI+ toggle (default off) - game probabilities and meta.json weights are untouched by it."
+  "method_notes": "Estimation rules authored by generative AI (this build) and regenerable via the quarantined P10 workflow; runtime is deterministic committed code, never a live model call. trajectory_adj: measured = OLS slope / 200 PPR plus any negative age-curve residual; 1-2 seasons = position age-curve slope prior; 0 seasons = rookie year-1 -> year-2 position prior (ROOKIE_YEAR2_DELTA: WR +0.06, RB +0.04, QB +0.03, TE +0.02, documented not fitted). stack_synergy: position-pair defaults (QB+WR 0.06, QB+TE 0.04), no measured stack data this build. cold_adj: passthrough of the measured environment_model per-team sub-32F win-pct delta; dome teams get the measured group delta as an ai_estimated value; weeks = 2026 Nov-Jan games at open-air cold-region venues. All values clamped to +/-0.25. Every field carries source ('measured' | 'ai_estimated') and a one-line why. This file only feeds the TEAM tab's opt-in AI+ toggle (default off) - game probabilities and meta.json weights are untouched by it."
 }

@@ -40,5 +40,407 @@
     "odds_api": 0.0,
     "kalshi": 0.0,
     "polymarket": 0.0
+  },
+  "history": [
+    {
+      "generated_utc": "2026-07-17T17:16:18Z",
+      "kind": "game_params",
+      "source": "backtest_2022_2025",
+      "objective": "log_loss",
+      "margin": 0.0015,
+      "eval_seasons": [
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_resolved": 1084,
+      "current": {
+        "hfa_elo": 65.0,
+        "revert": 0.33,
+        "k": 20.0
+      },
+      "candidate": {
+        "hfa_elo": 45.0,
+        "revert": 0.45,
+        "k": 25.0
+      },
+      "current_loss": 0.64088,
+      "candidate_loss": 0.636901,
+      "current_brier": 0.450252,
+      "candidate_brier": 0.446794,
+      "improvement": 0.003979,
+      "adopted": true,
+      "reason": "ADOPTED: walk-forward backtest candidate hfa_elo=45 revert=0.45 k=25 improves mean log-loss over seasons 2022-2023-2024-2025 from 0.6409 to 0.6369 (n=1084 real FINAL games), clearing the 0.0015 margin. should_adopt == true.",
+      "trials": [
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.64168,
+          "brier": 0.450321,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.638877,
+          "brier": 0.447829,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.638314,
+          "brier": 0.447346,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.639938,
+          "brier": 0.44903,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.637473,
+          "brier": 0.446918,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.637176,
+          "brier": 0.446743,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.639362,
+          "brier": 0.44866,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.637064,
+          "brier": 0.44678,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.636901,
+          "brier": 0.446794,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.642917,
+          "brier": 0.451539,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.640133,
+          "brier": 0.44905,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.639585,
+          "brier": 0.448551,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.64122,
+          "brier": 0.450349,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.638766,
+          "brier": 0.448225,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.638476,
+          "brier": 0.44802,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.640681,
+          "brier": 0.45006,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.638387,
+          "brier": 0.448152,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.638226,
+          "brier": 0.448126,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.64495,
+          "brier": 0.453455,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.642201,
+          "brier": 0.45097,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.64168,
+          "brier": 0.450448,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.643309,
+          "brier": 0.452394,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.64088,
+          "brier": 0.450252,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.640611,
+          "brier": 0.45001,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.642816,
+          "brier": 0.452208,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.640539,
+          "brier": 0.450265,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.640394,
+          "brier": 0.45019,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.647771,
+          "brier": 0.456047,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.645069,
+          "brier": 0.453564,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.644591,
+          "brier": 0.453016,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.646196,
+          "brier": 0.455141,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.643803,
+          "brier": 0.452977,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.64357,
+          "brier": 0.452691,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.645756,
+          "brier": 0.455079,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.643508,
+          "brier": 0.453094,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.643393,
+          "brier": 0.452959,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.651369,
+          "brier": 0.459291,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.648728,
+          "brier": 0.456807,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.648305,
+          "brier": 0.456225,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.649869,
+          "brier": 0.458564,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.647525,
+          "brier": 0.456371,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.64734,
+          "brier": 0.456031,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.649492,
+          "brier": 0.458646,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.647283,
+          "brier": 0.456607,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.647209,
+          "brier": 0.456403,
+          "n": 1084
+        }
+      ]
+    }
+  ],
+  "game_params": {
+    "hfa_elo": 45.0,
+    "revert": 0.45,
+    "k": 25.0,
+    "adopted_utc": "2026-07-17T17:16:18Z",
+    "source": "scripts/backtest.py walk-forward grid on 2022-2023-2024-2025 finals (never-regress gated)"
   }
 }
