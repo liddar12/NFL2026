@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "team_strength.schema.json",
+  "title": "Per-team Elo strength (for client strength-of-schedule)",
+  "description": "The exact Elo ratings scripts/build_predictions.py used to price every game probability this run (2025-reverted priors plus any in-season chaining). Published so the PWA can compute a per-player strength-of-schedule from mean opponent Elo without re-deriving strength. Not a new model - it is the same `ratings` map, so SoS can never disagree with game_predictions. Validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "source", "estimate", "elo_min", "elo_max", "ratings"],
+  "properties": {
+    "season": { "type": "integer", "minimum": 2026 },
+    "updated_utc": { "type": "string" },
+    "source": { "type": "string" },
+    "estimate": { "type": "boolean" },
+    "elo_min": { "type": "number" },
+    "elo_max": { "type": "number" },
+    "ratings": {
+      "type": "object",
+      "description": "canonical team abbrev -> Elo rating. ~32 teams.",
+      "minProperties": 30,
+      "additionalProperties": { "type": "number" }
+    }
+  }
+}

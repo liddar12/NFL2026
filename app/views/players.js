@@ -11,17 +11,38 @@
  *     Persisted in localStorage nfl2026.scoring.v1 (TEAM tab reads the same).
  *   - a per-card WEEKS toggle (.p-expand) that lazily injects the 18-cell
  *     .wkstrip at the CURRENT scoring mode.
- * If player_weekly.json is absent (older deploy), both are hidden and the
- * view is honestly PPR-only — never blank.
+ *
+ * REL2 layers (all optional — each hides itself if its feed 404s on an older
+ * deploy, view never blanks):
+ *   - AI TREND chip per card (player_history/ai_insights trajectory): up/down
+ *     with real pts/yr when measured, "AI EST" when age-curve estimated.
+ *   - STRENGTH OF SCHEDULE 1.0–5.0 per card (team_strength + weekly opponents).
+ *   - a .aiseg BASE/AI+ toggle (shared nfl2026.ai.v1 with the TEAM tab): AI+ ON
+ *     re-ranks the list by an AI-adjusted projection (proj × (1+trajectory_adj),
+ *     bounded ±25%) and shows the per-player AI delta — so the AI's effect is
+ *     visible on the numbers, not just the team-builder recos.
+ *   - a .sortseg (PROJ / TREND / SOS) with a direction arrow.
  */
 
-import { getPlayerProjections, getPlayerWeekly } from '../data.js';
+import {
+  getPlayerProjections, getPlayerWeekly, getAiInsights,
+  getPlayerHistory, getTeamStrength,
+} from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
+import { strengthOfSchedule, trendLabel } from '../team-logic.js';
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
 
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const SCORING_SET = new Set(['ppr', 'half', 'std']);
+const AI_KEY = 'nfl2026.ai.v1'; // shared with the TEAM tab — one AI+ preference
+
+// Sort modes: which value orders the list. Direction toggles per click.
+const SORTS = [
+  { key: 'proj', label: 'PROJ' },
+  { key: 'trend', label: 'TREND' },
+  { key: 'sos', label: 'SOS' },
+];
 
 /** Read the persisted scoring mode; unknown/unreadable values fall to ppr. */
 function loadScoring() {
@@ -39,6 +60,24 @@ function saveScoring(mode) {
     localStorage.setItem(SCORING_KEY, mode);
   } catch (err) {
     /* storage blocked — the in-memory mode still drives the render */
+  }
+}
+
+/** Read the shared AI+ preference (default OFF). */
+function loadAiPref() {
+  try {
+    return localStorage.getItem(AI_KEY) === 'on';
+  } catch (err) {
+    return false;
+  }
+}
+
+/** Persist the shared AI+ preference; failures are non-fatal. */
+function saveAiPref(on) {
+  try {
+    localStorage.setItem(AI_KEY, on ? 'on' : 'off');
+  } catch (err) {
+    /* storage blocked — in-memory flag still drives the render */
   }
 }
 
@@ -70,19 +109,53 @@ function filterRow(active) {
   return `<div class="posfilter" role="group" aria-label="Filter by position">${chips}</div>`;
 }
 
+/** The BASE/AI+ segmented toggle (shared pattern with the TEAM tab). */
+function aiSegRow(on) {
+  const btn = (label, active, val) => (
+    `<button type="button" data-ai="${val}"` +
+      `${active ? ' class="aiseg--active"' : ''} aria-pressed="${active ? 'true' : 'false'}">` +
+      `${label}</button>`
+  );
+  return (
+    '<div class="aiseg" role="group" aria-label="AI projection mode">' +
+      `${btn('BASE', !on, 'off')}${btn('AI+', on, 'on')}` +
+    '</div>'
+  );
+}
+
+/** The inner buttons of the sort control (active one shows a ▼/▲ arrow). */
+function sortChips(activeKey, dir) {
+  return SORTS.map((s) => {
+    const on = s.key === activeKey;
+    const arrow = on ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return (
+      `<button type="button" class="sort-chip${on ? ' sort-chip--active' : ''}" ` +
+        `data-sort="${s.key}" aria-pressed="${on ? 'true' : 'false'}">${s.label}${arrow}</button>`
+    );
+  }).join('');
+}
+
+/** The sort control wrapper. */
+function sortRow(activeKey, dir) {
+  return `<div class="sortseg" role="group" aria-label="Sort players">${sortChips(activeKey, dir)}</div>`;
+}
+
 /**
- * Mount the players view. Renders the header + filter + full list once, then
+ * Mount the players view. Renders the header + controls + full list once, then
  * rewires chip/seg/expand clicks against data held in closure — no network
- * happens on filter, scoring, or expand changes.
+ * happens on filter, scoring, sort, or AI toggle changes.
  */
 export default async function mountPlayers(el) {
   el.innerHTML = '<div class="state state--loading">Loading players…</div>';
 
-  // Projections are required; the weekly contract is optional (may 404 on an
-  // older deploy) — allSettled so a missing weekly file never blanks the view.
-  const [projRes, weeklyRes] = await Promise.allSettled([
+  // Projections required; everything else optional (allSettled) so a missing
+  // weekly/insight/history/strength file never blanks the view.
+  const [projRes, weeklyRes, aiRes, histRes, strRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
+    getAiInsights(),
+    getPlayerHistory(),
+    getTeamStrength(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
@@ -105,8 +178,39 @@ export default async function mountPlayers(el) {
   }
   const hasWeekly = weeklyById.size > 0;
 
+  // AI insights ({players:{id:{trajectory_adj,...}}}) — only real when populated.
+  const aiInsights = (aiRes.status === 'fulfilled' && aiRes.value
+    && aiRes.value.players && Object.keys(aiRes.value.players).length > 0)
+    ? aiRes.value.players : null;
+  // player_history fallback for trend when a player has no ai_insights entry.
+  const history = (histRes.status === 'fulfilled' && histRes.value && histRes.value.players)
+    ? histRes.value.players : null;
+  const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings)
+    ? strRes.value : null;
+  const hasAi = aiInsights !== null || history !== null; // trend feed present?
+
   let scoring = hasWeekly ? loadScoring() : 'ppr';
   let active = 'ALL';
+  let aiOn = hasAi ? loadAiPref() : false;
+  let sortKey = 'proj';
+  let sortDir = 'desc';
+
+  /** trajectory_adj insight for a player id (ai_insights first, else history). */
+  function trajFor(id) {
+    if (aiInsights && aiInsights[id] && aiInsights[id].trajectory_adj) {
+      return aiInsights[id].trajectory_adj;
+    }
+    if (history && history[id] && history[id].trajectory) return history[id].trajectory;
+    return null;
+  }
+
+  /** Bounded AI multiplier from trajectory_adj.value (±0.25); 1 when absent. */
+  function aiRatio(id) {
+    const t = aiInsights && aiInsights[id] ? aiInsights[id].trajectory_adj : null;
+    const v = t && Number.isFinite(Number(t.value)) ? Number(t.value) : 0;
+    const clamped = Math.max(-0.25, Math.min(0.25, v));
+    return 1 + clamped;
+  }
 
   const head =
     '<header class="view-head">' +
@@ -114,41 +218,72 @@ export default async function mountPlayers(el) {
       `<span class="view-sub">${data.season != null ? data.season : ''} · SEASON POINTS</span>` +
     '</header>';
 
-  // Season/interval numbers rescaled to the current scoring mode. The whole
-  // card scales by one ratio (season_adj/season_ppr), so the marker position
-  // inside the band is unchanged — only the printed numbers move. ppr==0
-  // guards the division (ratio 1: nothing to redistribute).
-  function adjust(p) {
-    const w = weeklyById.get(String(p.gsis_id));
-    if (!w || scoring === 'ppr') return { player: p, weekly: !!w, ratio: 1 };
+  /**
+   * Build the render model for a player at the current scoring mode + AI mode.
+   * Returns { player (scaled), weekly, trend, sos, aiDelta }.
+   *  - scoring rescale: whole card scales by season_adj/season_ppr (ppr==0 -> 1)
+   *  - AI+ ON: proj/interval further scale by the bounded AI ratio; aiDelta =
+   *    (aiProj − baseProj) so the number visibly moves and the delta is shown.
+   */
+  function model(p) {
+    const id = String(p.gsis_id);
+    const w = weeklyById.get(id);
     const ppr = Number(p.proj_points);
-    const adj = seasonAdjust(ppr, w.receptions_prior, scoring);
-    const ratio = ppr > 0 ? adj / ppr : 1;
-    return {
-      player: {
-        ...p,
-        proj_points: adj,
-        low: Number(p.low) * ratio,
-        high: Number(p.high) * ratio,
-      },
-      weekly: true,
-      ratio,
+    const scoreAdj = (w && scoring !== 'ppr') ? seasonAdjust(ppr, w.receptions_prior, scoring) : ppr;
+    const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
+    const r = aiOn ? aiRatio(id) : 1;
+    const proj = scoreAdj * r;
+    const player = {
+      ...p,
+      proj_points: proj,
+      low: Number(p.low) * scoreRatio * r,
+      high: Number(p.high) * scoreRatio * r,
     };
+    const trend = trendLabel(trajFor(id));
+    const sos = teamStrength ? strengthOfSchedule(w, teamStrength) : null;
+    const aiDelta = aiOn ? (proj - scoreAdj) : null;
+    return { player, weekly: !!w, trend, sos, aiDelta };
   }
 
-  // Render the card list for the active position filter into #players-list.
-  // Re-painting collapses any open .wkstrip — it re-injects lazily at the
-  // (possibly new) scoring mode on the next expand, so strips never go stale.
+  /** Sort key value for a player under the active sort. */
+  function sortVal(p) {
+    const id = String(p.gsis_id);
+    if (sortKey === 'trend') {
+      const t = trajFor(id);
+      const tl = t ? trendLabel(t) : null;
+      // Rank by the signed adjustment magnitude+direction: use ai value if
+      // present, else slope; flat/absent sinks to the middle (0).
+      if (t && Number.isFinite(Number(t.value))) return Number(t.value);
+      if (tl && Number.isFinite(Number(tl.slope_pts_per_yr))) return Number(tl.slope_pts_per_yr);
+      return 0;
+    }
+    if (sortKey === 'sos') {
+      const w = weeklyById.get(id);
+      const s = teamStrength ? strengthOfSchedule(w, teamStrength) : null;
+      return s == null ? -Infinity : s; // players without SoS sink on desc
+    }
+    // proj: honor the AI-adjusted number when AI+ is on (matches the display).
+    return model(p).player.proj_points;
+  }
+
+  // Render the card list for the active filter + sort into #players-list.
   function paintList() {
-    const filtered = active === 'ALL'
-      ? players
-      : players.filter((p) => String(p.position).toUpperCase() === active);
+    const filtered = (active === 'ALL'
+      ? players.slice()
+      : players.filter((p) => String(p.position).toUpperCase() === active));
+    filtered.sort((a, b) => {
+      const d = sortVal(b) - sortVal(a);
+      const signed = sortDir === 'asc' ? -d : d;
+      return signed || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1);
+    });
     const listEl = el.querySelector('#players-list');
     if (!listEl) return;
     listEl.innerHTML = filtered.length
       ? filtered.map((p) => {
-          const a = adjust(p);
-          return renderPlayerCard(a.player, { weekly: a.weekly });
+          const m = model(p);
+          return renderPlayerCard(m.player, {
+            weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta,
+          });
         }).join('')
       : '<div class="state">No players at that position.</div>';
   }
@@ -156,7 +291,12 @@ export default async function mountPlayers(el) {
   el.innerHTML =
     head +
     (hasWeekly ? renderScoreSeg(scoring) : '') +
+    (hasAi ? aiSegRow(aiOn) : '') +
     filterRow(active) +
+    sortRow(sortKey, sortDir) +
+    (hasAi && aiOn
+      ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
+      : '') +
     '<div id="players-list" class="card-list"></div>';
   paintList();
 
@@ -172,6 +312,26 @@ export default async function mountPlayers(el) {
         c.classList.toggle('pf-chip--active', on);
         c.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      paintList();
+    });
+  }
+
+  // Wire the sort control. Clicking a new key selects it (desc); clicking the
+  // active key toggles direction. The node persists — only its inner buttons
+  // are repainted, so the single listener stays live.
+  const ss = el.querySelector('.sortseg');
+  if (ss) {
+    ss.addEventListener('click', (e) => {
+      const btn = e.target.closest('.sort-chip');
+      if (!btn) return;
+      const key = btn.dataset.sort;
+      if (key === sortKey) {
+        sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+      } else {
+        sortKey = key;
+        sortDir = 'desc';
+      }
+      ss.innerHTML = sortChips(sortKey, sortDir);
       paintList();
     });
   }
@@ -195,9 +355,39 @@ export default async function mountPlayers(el) {
     });
   }
 
-  // Wire the per-card WEEKS toggles (delegation on the persistent list node —
-  // survives every paintList innerHTML swap). First expand lazily injects the
-  // .wkstrip at the current scoring ratio; collapse just hides it.
+  // Wire the AI+ toggle (only rendered when a trend feed exists). Flipping it
+  // re-ranks + re-scales the projections and shows/hides the explainer note.
+  const aiSeg = el.querySelector('.aiseg');
+  if (aiSeg) {
+    aiSeg.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-ai]');
+      if (!btn) return;
+      const on = btn.dataset.ai === 'on';
+      if (on === aiOn) return;
+      aiOn = on;
+      saveAiPref(on);
+      aiSeg.querySelectorAll('button[data-ai]').forEach((b) => {
+        const act = (b.dataset.ai === 'on') === on;
+        b.classList.toggle('aiseg--active', act);
+        b.setAttribute('aria-pressed', act ? 'true' : 'false');
+      });
+      // Toggle the explainer note without a full re-render.
+      let note = el.querySelector('.ai-note');
+      if (on && !note) {
+        const anchor = el.querySelector('.sortseg') || el.querySelector('.posfilter');
+        if (anchor) {
+          anchor.insertAdjacentHTML('afterend',
+            '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). '
+            + 'Trend + SoS labeled per card. ESTIMATE.</div>');
+        }
+      } else if (!on && note) {
+        note.remove();
+      }
+      paintList();
+    });
+  }
+
+  // Wire the per-card WEEKS toggles (delegation on the persistent list node).
   const listEl = el.querySelector('#players-list');
   if (listEl && hasWeekly) {
     listEl.addEventListener('click', (e) => {
@@ -211,7 +401,12 @@ export default async function mountPlayers(el) {
         const p = players.find((pl) => String(pl.gsis_id) === card.dataset.gsis);
         const w = weeklyById.get(card.dataset.gsis);
         if (!p || !w) return; // no weekly row — leave the card collapsed
-        btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, adjust(p).ratio));
+        // Match the card's displayed ratio (scoring × AI) so the strip agrees.
+        const ppr = Number(p.proj_points);
+        const scoreAdj = scoring !== 'ppr' ? seasonAdjust(ppr, w.receptions_prior, scoring) : ppr;
+        const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
+        const ratio = scoreRatio * (aiOn ? aiRatio(card.dataset.gsis) : 1);
+        btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, ratio));
         strip = card.querySelector('.wkstrip');
       }
       btn.setAttribute('aria-expanded', open ? 'false' : 'true');

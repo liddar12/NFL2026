@@ -378,3 +378,129 @@ test.describe('fit engine AI+ toggle (#/team)', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL2 — players trend + SoS + AI-adjusted projection; team finder/reco/bye/cap
+ * All expectations are derived from the committed contracts, never hardcoded.
+ * ------------------------------------------------------------------------- */
+
+test.describe('players trend + strength-of-schedule + AI+ projection (#/players)', () => {
+  test('cards show an AI trend chip and a strength-of-schedule pill', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    expect(await page.locator('.p-trend').count()).toBeGreaterThanOrEqual(1);
+    expect(await page.locator('.p-sos').count()).toBeGreaterThanOrEqual(1);
+    const sosTxt = await page.locator('.p-sos .sos-num').first().innerText();
+    const sos = Number(sosTxt);
+    expect(Number.isFinite(sos)).toBe(true);
+    expect(sos).toBeGreaterThanOrEqual(1);
+    expect(sos).toBeLessThanOrEqual(5);
+    expect(sosTxt).toMatch(/^\d\.\d$/); // exactly one decimal
+  });
+
+  test('AI+ toggle changes the projection number (AI PROJ PTS + delta)', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+
+    await expect(page.locator('.p-unit').first()).toHaveText(/PROJ PTS/);
+    expect(await page.locator('.p-aidelta').count()).toBe(0);
+
+    await page.locator('.aiseg button[data-ai="on"]').click();
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.p-unit').first()).toHaveText(/AI PROJ PTS/);
+    expect(await page.locator('.p-aidelta').count()).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('.ai-note')).toHaveCount(1);
+
+    await page.locator('.aiseg button[data-ai="off"]').click();
+    await expect(page.locator('.p-unit').first()).toHaveText(/PROJ PTS/);
+    expect(await page.locator('.p-aidelta').count()).toBe(0);
+  });
+
+  test('sort control re-orders the list (PROJ vs TREND differ) with a direction arrow', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    const order = async () => page.locator('.card.player').evaluateAll(
+      (nodes) => nodes.map((n) => n.getAttribute('data-gsis')));
+    const byProj = await order();
+    await page.locator('.sort-chip[data-sort="trend"]').click();
+    await expect(page.locator('.sort-chip[data-sort="trend"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.sort-chip[data-sort="trend"]')).toContainText('▼');
+    const byTrend = await order();
+    expect(byTrend.join(',')).not.toBe(byProj.join(','));
+    await page.locator('.sort-chip[data-sort="trend"]').click();
+    await expect(page.locator('.sort-chip[data-sort="trend"]')).toContainText('▲');
+  });
+});
+
+test.describe('team finder filter/sort, reco sort, named byes, QB cap (#/team)', () => {
+  test('finder position filter narrows candidates to that position', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    await page.locator('.finder-posfilter .pf-chip[data-fpos="RB"]').click();
+    await page.waitForSelector('.cand', { timeout: 8000 });
+    const metas = await page.locator('.cand .cd-meta').allInnerTexts();
+    expect(metas.length).toBeGreaterThan(0);
+    for (const m of metas) expect(m.startsWith('RB')).toBe(true);
+  });
+
+  test('finder sort buttons toggle active state + direction arrow', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.finder-sortseg', { timeout: 8000 });
+    const trend = page.locator('.finder-sortseg .sort-chip[data-fsort="trend"]');
+    await trend.click();
+    await expect(trend).toHaveAttribute('aria-pressed', 'true');
+    await expect(trend).toContainText('▼');
+    await trend.click();
+    await expect(trend).toContainText('▲');
+  });
+
+  test('reco sort exposes BEST FIT / BEST AVAIL and a ranked-by sublabel', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.reco', { timeout: 8000 });
+    await expect(page.locator('.reco-controls .sort-chip[data-rsort="fit"]')).toHaveCount(1);
+    await expect(page.locator('.reco-controls .sort-chip[data-rsort="available"]')).toHaveCount(1);
+    await expect(page.locator('.reco-sublabel')).toContainText('BEST FIT');
+    await page.locator('.reco-controls .sort-chip[data-rsort="available"]').click();
+    await expect(page.locator('.reco-sublabel')).toContainText('BEST AVAIL');
+  });
+
+  test('starters bye section lists the player NAME, not just a count', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const weekly = readData('player_weekly.json');
+    const byeById = new Map(
+      weekly.players.map((p) => [String(p.gsis_id), (p.weeks.find((w) => w.bye) || {}).wk]));
+    const qb = proj.players.find(
+      (p) => p.position === 'QB' && byeById.get(String(p.gsis_id)) != null);
+    expect(qb, 'no QB with a bye in the data').toBeTruthy();
+
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    await page.fill('.finder-input', qb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: qb.name }).first().locator('.cand-add').click();
+
+    const byes = page.locator('.ts-byes');
+    await expect(byes).toContainText('BYE');
+    await expect(byes).toContainText(qb.name);
+  });
+
+  test('QB cap: a 3rd QB cannot be added once two are rostered', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const qbs = proj.players.filter((p) => p.position === 'QB').slice(0, 3);
+    expect(qbs.length).toBe(3);
+
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    for (const qb of qbs.slice(0, 2)) {
+      await page.fill('.finder-input', qb.name);
+      await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+      await page.locator('.cand', { hasText: qb.name }).first().locator('.cand-add').click();
+    }
+    await page.fill('.finder-input', qbs[2].name);
+    const add = page.locator('.cand', { hasText: qbs[2].name }).first().locator('.cand-add');
+    await expect(add).toBeDisabled();
+    await expect(add).toContainText('FULL');
+  });
+});

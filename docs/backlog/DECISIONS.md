@@ -168,3 +168,32 @@ dome teams in outdoor cold negligible (+0.067, n=11).
 to look at HFA / turf-grass / dome-open / cold-weather / international bias. Everything measured is admitted
 at zero weight so no unproven signal moves a prediction until it beats the incumbent under NEVER-REGRESS.
 **Status:** adopted. Gate at 92 unit + 19 e2e, all green.
+
+## 2026-07-17 — REL2: visible AI+, QB cap, trend + strength-of-schedule, finder/reco sort, named byes
+**Decision:** Second feature release from prod review. (1) AI+ is now VISIBLE: on the TEAM
+recos each pick shows a base->AI+ score delta (recommendV2 carries the v1 `base` score) plus a
+one-line explainer of what AI+ optimizes (5-yr trajectory, cold-weather, stack synergy -> weekly
+ceiling / playoff odds); and AI+ now also re-ranks the PLAYERS list by an AI-adjusted projection
+(proj x (1 + trajectory_adj), bounded +/-25%) with the per-player delta shown, so "nothing changes
+when I toggle AI" is fixed on both surfaces. (2) Fit-engine POSITION CAPS (app/team-logic.js
+POSITION_CAPS = QB 2, DEF/DST/K 1): recommend()/recommendV2() drop capped-position candidates, so
+no 3rd QB is ever proposed for a bench slot; the finder disables a capped ADD with a "<POS> FULL"
+label. DEF/K caps are ready but no K/DEF slots are added (still unmodeled -> no fabricated numbers).
+(3) Per-player STRENGTH OF SCHEDULE 1.0 (easiest) - 5.0 (hardest), one decimal: strengthOfSchedule()
+maps mean opponent Elo around the 1500 mean at a fixed, documented sensitivity (SOS_ELO_PER_POINT=25),
+fed by a new data/team_strength.json (the exact Elo ratings build_predictions already priced games
+with, published + contract + validator mapping; bootstrap file reconstructed from committed game
+probabilities, residual <0.06 Elo, and overwritten byte-exact by the next cron). (4) AI TREND chip
+per player card (up/down/flat + pts/yr, "5-YR" when measured / "AI EST" when age-curve estimated),
+from player_history/ai_insights via trendLabel(). (5) FINDER + RECO SORT/FILTER: finder gains a
+position filter and PTS/TREND/BYE sort buttons with a direction arrow; recos gain BEST FIT / BEST
+AVAIL sort (recommend sort option). (6) Named byes: the starters summary lists WHO is on bye each
+week (team + name), clashes (>=2) keep the warn styling, singles are info chips. All new signals stay
+labeled ESTIMATE; the AI multiplier is bounded and never touches game_predictions or meta weights.
+**Rationale:** Direct prod-review feedback. The AI layer existed but was invisible and confined to
+recos; the fixes make its effect legible AND honest (bounded, provenance-labeled) without inventing
+new weight for unproven signals. SoS reuses measured Elo so it can never disagree with the game model.
+**Status:** adopted. Gate at 106 unit + 27 e2e (both web and standalone-PWA), validate + smoke green.
+Also fixed a latent red on main: tests/feature/real_data.test.mjs now routes the gameday cron's
+archived game_predictions.<ts>.json snapshots out of the lock-honesty scan (same two-family split as
+the Rel1 validator fix; the archive is a dict, not a lock array).

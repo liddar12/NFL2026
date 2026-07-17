@@ -224,10 +224,14 @@ test.describe('installed (standalone) PWA experience', () => {
     expect(await page.locator('.card.game').count()).toBeGreaterThanOrEqual(1);
     expect(await page.locator('.card.game .track').count()).toBeGreaterThanOrEqual(1);
 
-    // Players: >= 1 player card.
+    // Players: >= 1 player card, and the REL2 adornments render standalone too
+    // (trend chip + strength-of-schedule pill) — the installed PWA is not a
+    // lesser experience than the web build.
     await page.goto(url('/#/players'));
     await waitForCards(page, '.card.player');
     expect(await page.locator('.card.player').count()).toBeGreaterThanOrEqual(1);
+    expect(await page.locator('.p-trend').count()).toBeGreaterThanOrEqual(1);
+    expect(await page.locator('.p-sos').count()).toBeGreaterThanOrEqual(1);
 
     // Parlays: GAME scope >= 3, WEEK scope >= 3. Toggle the segmented control so
     // each scope's cards are in the DOM before counting.
@@ -257,6 +261,10 @@ test.describe('installed (standalone) PWA experience', () => {
     await page.waitForSelector('.roster .slot', { timeout: 8000 });
     // Contract roster: QB,RB,RB,WR,WR,TE,FLEX + 6 bench = 13 slots.
     expect(await page.locator('.roster .slot').count()).toBe(13);
+    // REL2 finder + reco controls render inside the standalone window.
+    expect(await page.locator('.finder-posfilter .pf-chip').count()).toBeGreaterThanOrEqual(1);
+    expect(await page.locator('.finder-sortseg .sort-chip').count()).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('.reco-controls .sort-chip[data-rsort="available"]')).toHaveCount(1);
     // Still a genuine app-mode window on the team route.
     const standalone = await page.evaluate(
       () => window.matchMedia('(display-mode: standalone)').matches,

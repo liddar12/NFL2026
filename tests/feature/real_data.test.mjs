@@ -89,8 +89,15 @@ test("an opening game lock exists for the current slate week", () => {
 });
 
 test("every snapshot row is an honest, measurable, unresolved-or-scored lock", () => {
-  const files = readdirSync(snapDir).filter((f) => f.endsWith(".json"));
-  assert.ok(files.length >= 1, "no snapshot files at all");
+  // Two families live under data/snapshots/ (see scripts/validate_data.py
+  // snapshot_schema_for): point-in-time LOCK arrays (*_games_open.json and
+  // future *_wk* locks) and the gameday cron's archived game_predictions.<ts>.json
+  // copies (a dict, validated against game_predictions.schema.json — NOT a lock
+  // array). This test owns ONLY the lock family; route the archives out so a
+  // committed archive can never fail the lock-honesty assertions.
+  const files = readdirSync(snapDir)
+    .filter((f) => f.endsWith(".json") && !f.startsWith("game_predictions."));
+  assert.ok(files.length >= 1, "no snapshot lock files at all");
   for (const f of files) {
     const rows = JSON.parse(readFileSync(snapDir + f, "utf8"));
     assert.ok(Array.isArray(rows) && rows.length > 0, `${f}: empty snapshot`);
