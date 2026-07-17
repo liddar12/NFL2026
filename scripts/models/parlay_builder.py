@@ -301,6 +301,107 @@ def derive_candidate_legs(game_pred, market=None, props=None):
     return legs
 
 
+# ---------------------------------------------------------------------------
+# Player-prop leg derivation (feeds the props= path of build_game_parlays).
+# ---------------------------------------------------------------------------
+# Seed prop lines per position: (market/corr tag, yardage line, selection label).
+# The lines are DOCUMENTED SEEDS, not book lines: round league-typical thresholds
+# (a mid-tier starter's over/under) so a 0.5-ish model prob is honest. When a real
+# prop feed lands, its line/implied_prob replaces these seeds via make_leg.
+_PROP_SEEDS = {
+    "QB": ("qb_pass_yds", 224.5, "pass yds"),
+    "RB": ("rb_rush_yds", 59.5, "rush yds"),
+    "WR": ("wr_rec_yds", 59.5, "rec yds"),
+}
+
+# Prop model_prob seed: start at the fair-line 0.5 and shade by the player's TEAM win
+# probability (volume follows game script: winning teams sustain drives), clamped so a
+# seeded prop never claims strong conviction either way:
+#   model_prob = clamp(0.5 + _PROP_WIN_SHADE * (p_team_win - 0.5), 0.35, 0.65)
+_PROP_WIN_SHADE = 0.4
+_PROP_CLAMP_LO = 0.35
+_PROP_CLAMP_HI = 0.65
+
+
+def _abbrev_player(name):
+    """'Patrick Mahomes' -> 'P. Mahomes' for compact selection strings."""
+    tokens = str(name).split()
+    if len(tokens) < 2:
+        return str(name)
+    return "%s. %s" % (tokens[0][0], " ".join(tokens[1:]))
+
+
+def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc):
+    """Derive seeded player-prop legs per game: top QB, top RB, top WR on the slate.
+
+    game_preds             : list of game_model.predict_game records (game_id, home,
+                             away, probs).
+    player_weekly_doc      : data/player_weekly.json shape ({"players": [{gsis_id,..}]}).
+                             Used as a roster sanity filter: only players with weekly
+                             data are eligible (a projection with no weekly record is
+                             stale or unrostered — skip, never guess).
+    player_projections_doc : data/player_projections.json shape ({"players": [
+                             {gsis_id, name, team, position, proj_points, ...}]}).
+
+    For each game, picks the top-projected QB (market qb_pass_yds), RB (rb_rush_yds),
+    and WR (wr_rec_yds) among the two teams' players by proj_points desc, ties broken
+    by gsis_id asc (deterministic). Each leg is a dict the props= path of
+    build_game_parlays consumes: {market, selection, model_prob, _corr_tag, _side}
+    plus provenance fields (gsis_id, line, estimate). model_prob is the documented
+    seed above — no implied_prob is attached, so make_leg charges the standard hold
+    (no fabricated positive edge). Returns {game_id: [prop leg dicts]}.
+    """
+    weekly_ids = set()
+    for rec in (player_weekly_doc or {}).get("players", []) or []:
+        if rec.get("gsis_id"):
+            weekly_ids.add(rec["gsis_id"])
+    players = (player_projections_doc or {}).get("players", []) or []
+
+    out = {}
+    for gp in game_preds:
+        gid = str(gp.get("game_id", "GAME"))
+        home, away = gp.get("home", "HOME"), gp.get("away", "AWAY")
+        p_home = float(gp.get("probs", {}).get("home", 0.5))
+
+        legs = []
+        for pos in ("QB", "RB", "WR"):
+            market, line, label = _PROP_SEEDS[pos]
+            cands = [
+                p for p in players
+                if p.get("position") == pos
+                and p.get("team") in (home, away)
+                and p.get("gsis_id") in weekly_ids
+            ]
+            # Stable rank: proj_points desc, tie by gsis_id asc (deterministic).
+            cands.sort(key=lambda p: (-float(p.get("proj_points", 0.0)),
+                                      str(p.get("gsis_id"))))
+            if not cands:
+                continue  # no eligible player at this position; honest omission
+            top = cands[0]
+            side = "home" if top.get("team") == home else "away"
+            p_team = p_home if side == "home" else 1.0 - p_home
+            model_prob = _clamp(
+                0.5 + _PROP_WIN_SHADE * (p_team - 0.5),
+                _PROP_CLAMP_LO, _PROP_CLAMP_HI,
+            )
+            legs.append({
+                "market": market,
+                "selection": "%s %d+ %s" % (
+                    _abbrev_player(top.get("name", "?")),
+                    int(math.ceil(line)), label,
+                ),
+                "model_prob": round(model_prob, 4),
+                "_corr_tag": market,
+                "_side": side,
+                # Provenance (ignored by make_leg; kept for audit/debug honesty).
+                "gsis_id": top.get("gsis_id"),
+                "line": line,
+                "estimate": True,
+            })
+        out[gid] = legs
+    return out
+
+
 def build_game_parlays(game_pred, market=None, props=None):
     """Build >=3 correlation-aware parlays for a single game.
 

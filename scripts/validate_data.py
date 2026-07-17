@@ -58,6 +58,8 @@ SCHEMA_TO_DATA = {
     "player_weekly.schema.json": "player_weekly.json",
     "game_predictions.schema.json": "game_predictions.json",
     "team_strength.schema.json": "team_strength.json",
+    "game_script.schema.json": "game_script.json",
+    "oline_composite.schema.json": "oline_composite.json",
     "parlays.schema.json": "parlays.json",
     "pipeline_status.schema.json": "pipeline_status.json",
     "meta.schema.json": "meta.json",

@@ -97,6 +97,26 @@ function stateMsg(el, text) {
   el.innerHTML = `<div class="state">${text}</div>`;
 }
 
+/** A compact glossary so no acronym or arrow is ever unexplained; the same
+ * collapsible <details> pattern the TEAM tab uses, owned locally (render.js is
+ * integrator-owned, and this view's markup is its own). Static markup, placed
+ * once under the view header. */
+function renderLegend() {
+  return (
+    '<details class="legend legend--players">' +
+      '<summary>WHAT DO THESE MEAN?</summary>' +
+      '<div class="legend-body">' +
+        '<span class="legend-item"><b>PROJ</b> projected season points (your scoring mode)</span>' +
+        '<span class="legend-item"><b>TREND</b> 5-yr trajectory — <span class="cd-trend--up">▲</span> improving, <span class="cd-trend--down">▼</span> declining</span>' +
+        '<span class="legend-item"><b>SOS</b> strength of schedule, 1.0 easiest to 5.0 hardest</span>' +
+        '<span class="legend-item"><b>BYE</b> the week this player has no game (scores 0)</span>' +
+        '<span class="legend-item"><b>AI+</b> AI re-rank by 5-yr trajectory (bounded ±25%, labeled ESTIMATE)</span>' +
+        '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
+      '</div>' +
+    '</details>'
+  );
+}
+
 /** Build the position filter chip row. `active` is the selected position. */
 function filterRow(active) {
   const chips = POSITIONS.map((pos) => {
@@ -290,6 +310,7 @@ export default async function mountPlayers(el) {
 
   el.innerHTML =
     head +
+    renderLegend() +
     (hasWeekly ? renderScoreSeg(scoring) : '') +
     (hasAi ? aiSegRow(aiOn) : '') +
     filterRow(active) +

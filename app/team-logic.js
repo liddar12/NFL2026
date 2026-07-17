@@ -709,3 +709,154 @@ export function trendLabel(traj) {
   const dir = signal == null || signal === 0 ? 'flat' : (signal > 0 ? 'up' : 'down');
   return { dir, slope_pts_per_yr: slope, seasons, source };
 }
+
+/* --------------------------------------------------------------------------
+ * VOR - value over replacement + BEST PICK NOW (draft-time pick ranking)
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Starter demand per position: how many starting slots each position must
+ * fill on a legal lineup (QB1 / RB1+RB2 / WR1+WR2 / TE1). The FLEX slot is
+ * absorbed here rather than modeled separately: it adds +1 demand to whichever
+ * of RB/WR/TE currently owns the BEST available player (highest adjusted
+ * season points; tie broken RB before WR before TE), because that is the
+ * position the FLEX would realistically be filled from.
+ */
+export const STARTER_DEMAND = Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1 });
+
+/** Scarcity threshold: at or below this many startable (at-or-above the
+ * replacement level) players left at a position, bestPickNow adds a
+ * "drying up" reason line. */
+export const VOR_SCARCITY_MAX = 3;
+
+/** Adjusted season points for a projection player at a scoring mode. */
+function adjOf(p, weeklyById, mode) {
+  const e = lookup(weeklyById, p.gsis_id);
+  return scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
+}
+
+/** Pool rows at `position`, sorted adjusted points desc, tie gsis_id asc. */
+function rankedAtPos(pool, weeklyById, mode, position) {
+  const pos = String(position || '').toUpperCase();
+  return (Array.isArray(pool) ? pool : [])
+    .filter((p) => String(p.position || '').toUpperCase() === pos)
+    .map((p) => ({ p, adj: adjOf(p, weeklyById, mode) }))
+    .sort((a, b) => b.adj - a.adj
+      || (String(a.p.gsis_id) < String(b.p.gsis_id) ? -1 : 1));
+}
+
+/** The FLEX-absorbing position: the RB/WR/TE whose best available player has
+ * the highest adjusted points (tie: earlier in RB, WR, TE order). */
+function flexAbsorbPos(pool, weeklyById, mode) {
+  let best = 'RB';
+  let bestAdj = -Infinity;
+  FLEX_TAKES.forEach((pos) => {
+    const top = rankedAtPos(pool, weeklyById, mode, pos)[0];
+    if (top && top.adj > bestAdj + EPS) {
+      best = pos;
+      bestAdj = top.adj;
+    }
+  });
+  return best;
+}
+
+/**
+ * REPLACEMENT LEVEL at `position`: the adjusted season points of the player a
+ * manager could still get "for free", the (starterDemand+1)th best available
+ * at that position, where starterDemand comes from STARTER_DEMAND with the
+ * FLEX absorbed as +1 on the RB/WR/TE owning the best available player (see
+ * STARTER_DEMAND). Fewer than demand+1 players available -> 0 (there is no
+ * replacement; everything left is a starter). Unmodeled position -> 0.
+ */
+export function replacementLevel(pool, weeklyById, mode, position) {
+  const pos = String(position || '').toUpperCase();
+  const demand = STARTER_DEMAND[pos];
+  if (demand == null) return 0;
+  const extra = FLEX_TAKES.includes(pos)
+    && flexAbsorbPos(pool, weeklyById, mode) === pos ? 1 : 0;
+  const ranked = rankedAtPos(pool, weeklyById, mode, pos);
+  const row = ranked[demand + extra]; // 0-based: index d == the (d+1)th best
+  return row ? Math.round(row.adj * 100) / 100 : 0;
+}
+
+/**
+ * VALUE OVER REPLACEMENT for one candidate: adjusted season points minus the
+ * replacement level at the candidate's own position (same pool, same mode).
+ * Positive = worth drafting ahead of need; near zero = wait, a same-value
+ * player will still be there.
+ */
+export function vorScore(candidate, pool, weeklyById, mode) {
+  const adj = adjOf(candidate, weeklyById, mode);
+  const repl = replacementLevel(pool, weeklyById, mode, candidate.position);
+  return Math.round((adj - repl) * 100) / 100;
+}
+
+/**
+ * BEST PICK NOW: the top-3 available players ranked by VOR, i.e. who to draft
+ * THIS pick. Candidates must be eligible for at least one OPEN slot on the
+ * roster (starters or bench), not already rostered, and not at their
+ * POSITION_CAPS cap. Replacement levels are computed from the AVAILABLE pool
+ * (pool minus rostered ids), so the ranking re-optimizes live as players are
+ * taken. Deterministic: VOR desc, then adjusted points desc, then gsis_id asc.
+ *
+ * Returns [{ player, vor, replacement, reasons: [string,...] }] where reasons
+ * are real sentences: the VOR line always, plus a scarcity line when the
+ * position's startable supply (at-or-above replacement) is at most
+ * VOR_SCARCITY_MAX.
+ * opts.limit overrides the row count (default 3).
+ */
+export function bestPickNow(roster, pool, weeklyById, mode, opts) {
+  const players = Array.isArray(pool) ? pool : [];
+  const slots = (roster && roster.slots) || {};
+  const limit = opts && Number.isFinite(Number(opts.limit)) ? Number(opts.limit) : 3;
+
+  const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
+  const openSlots = SLOT_ORDER.filter((s) => !slots[s]);
+  const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
+
+  // Replacement math sees only what is actually still available.
+  const available = players.filter((p) => !rostered.has(String(p.gsis_id)));
+
+  // Per-position replacement level + STARTABLE supply, computed once.
+  // Startable = at or above the replacement level (the replacement player is
+  // the last startable one); with fewer than demand+1 left the replacement is
+  // 0 and everyone still projecting points counts. Supply <= VOR_SCARCITY_MAX
+  // triggers the "drying up" reason line below.
+  const replByPos = {};
+  const supplyByPos = {};
+  MODELED.forEach((pos) => {
+    const repl = replacementLevel(available, weeklyById, mode, pos);
+    replByPos[pos] = repl;
+    const ranked = rankedAtPos(available, weeklyById, mode, pos);
+    supplyByPos[pos] = repl > 0
+      ? ranked.filter((r) => r.adj >= repl - EPS).length
+      : ranked.filter((r) => r.adj > EPS).length;
+  });
+
+  const scored = available
+    .filter((p) => !positionAtCap(p.position, slots, playersById)
+      && openSlots.some((s) => slotEligible(p.position, s)))
+    .map((p) => {
+      const pos = String(p.position || '').toUpperCase();
+      const adj = adjOf(p, weeklyById, mode);
+      const repl = replByPos[pos] || 0;
+      return { player: p, adj, replacement: repl, vor: Math.round((adj - repl) * 100) / 100 };
+    });
+
+  scored.sort((a, b) => b.vor - a.vor
+    || b.adj - a.adj
+    || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
+
+  return scored.slice(0, limit).map(({ player, vor, replacement }) => {
+    const pos = String(player.position || '').toUpperCase();
+    const sign = vor >= 0 ? '+' : '';
+    const reasons = [
+      `Best value over replacement: ${sign}${vor.toFixed(1)} pts vs the next-best available ${pos}`,
+    ];
+    const supply = supplyByPos[pos] || 0;
+    if (supply <= VOR_SCARCITY_MAX) {
+      reasons.push(`Only ${supply} startable ${pos}s left - position is drying up`);
+    }
+    return { player, vor, replacement, reasons };
+  });
+}

@@ -1373,3 +1373,71 @@ button { font: inherit; color: inherit; }
   /* Roster can go 3-up when there is room. */
   .roster { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* ==========================================================================
+   VOR / BEST PICK NOW strip (team reco panel) + players-tab legend.
+   New classes only, appended; text uses the audited token pairs already in
+   service above (--ink/--muted/--brand-txt/--pos-txt on surface tokens).
+   ========================================================================== */
+
+/* Sub-panel inside .reco: same surface-2 chip language as the sort controls. */
+.bestpick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+.bp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bp-label {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+}
+.bp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bp-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.bp-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  flex: none;
+}
+/* The +VOR chip: positive value token, tabular so rows align. */
+.bp-vor {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pos-txt);
+  margin-left: auto;
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Players-tab legend reuses the .legend block; this variant restores block
+   flow (the :not(.legend--team) flex rule above targets the parlays row). */
+.legend.legend--players { display: block; }
