@@ -14,6 +14,8 @@
  *   data/schedule_full.json       all 272 games, all 18 weeks (week selector)
  *   data/player_weekly.json       per-player 18-week split (may be ABSENT on
  *                                 older deploys — callers MUST catch rejection)
+ *   data/ai_insights.json         Fit Engine v2 AI layer (may be ABSENT on
+ *                                 older deploys — callers MUST catch rejection)
  *
  * Dependency-free: uses the platform `fetch` only. No build step, no framework.
  */
@@ -29,6 +31,7 @@ const PATHS = Object.freeze({
   pipelineStatus: '/data/pipeline_status.json',
   scheduleFull: '/data/schedule_full.json',
   playerWeekly: '/data/player_weekly.json',
+  aiInsights: '/data/ai_insights.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -70,6 +73,10 @@ export const getScheduleFull = (opts) => loadJson(PATHS.scheduleFull, opts);
 // rejects with a clear "HTTP 404" error and EVICTS the cached promise, so the
 // rejection is graceful (catchable, retryable) — views degrade, never blank.
 export const getPlayerWeekly = (opts) => loadJson(PATHS.playerWeekly, opts);
+// ai_insights feeds the TEAM tab's opt-in AI+ toggle (Fit Engine v2). Same
+// 404-graceful promise-cache pattern as player_weekly: on a deploy without the
+// file the getter rejects cleanly and the view simply hides the toggle.
+export const getAiInsights = (opts) => loadJson(PATHS.aiInsights, opts);
 
 /**
  * Load every contract at once. Uses allSettled so one bad feed does not blank

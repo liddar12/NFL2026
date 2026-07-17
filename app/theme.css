@@ -688,14 +688,16 @@ button { font: inherit; color: inherit; }
 .lk { color: var(--brand-txt); flex: none; }   /* link glyph */
 
 /* ---- segmented controls: parlay scope (GAME / WEEK) + player scoring
-   (PPR / HALF / STD). HIGH-CONTRAST pills — the old elev-on-surface active
+   (PPR / HALF / STD) + fit-engine mode (BASE / AI+, .aiseg on the TEAM tab).
+   HIGH-CONTRAST pills — the old elev-on-surface active
    state read as barely-on. Active = SOLID --brand fill with DARK ink:
    #0D1117 (== --bg) on #4A90C2 is 5.46:1, AA even for small bold text (the
    pair is pinned in the contrast test). Inactive = outlined + muted.
    State selectors: aria-pressed (canonical) plus each control's legacy
    active class so either attribute or class flips the pill. ---------------- */
 .scopeseg,
-.scoreseg {
+.scoreseg,
+.aiseg {
   display: flex;
   gap: 8px;
   background: transparent;
@@ -704,7 +706,8 @@ button { font: inherit; color: inherit; }
 }
 .scopeseg button,
 .scopeseg .seg-opt,
-.scoreseg button {
+.scoreseg button,
+.aiseg button {
   flex: 1 1 0;
   text-align: center;
   font-family: var(--sans);
@@ -725,7 +728,9 @@ button { font: inherit; color: inherit; }
 .scopeseg .seg-opt--active,
 .scopeseg .seg-opt[aria-selected="true"],
 .scoreseg button[aria-pressed="true"],
-.scoreseg .scoreseg--active {
+.scoreseg .scoreseg--active,
+.aiseg button[aria-pressed="true"],
+.aiseg .aiseg--active {
   color: #0D1117;                 /* dark ink (== --bg) — AA pair with --brand */
   background: var(--brand);
   border-color: var(--brand);
@@ -967,6 +972,24 @@ button { font: inherit; color: inherit; }
   font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
+}
+/* AI-provenance chip — flags a reason whose value is AI-ESTIMATED, not
+   measured (Fit Engine v2, AI+ ON only). Mirrors the .est honesty pill:
+   accent-txt ink (audited AA 4.5:1 on surface) + border, transparent fill —
+   existing token pairs only, no new colors. */
+.prov-ai {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-txt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  vertical-align: 1px;
+  white-space: nowrap;
 }
 
 /* ---- team summary ------------------------------------------------------------ */

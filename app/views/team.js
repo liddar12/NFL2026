@@ -15,6 +15,13 @@
  * scoring mode is READ from nfl2026.scoring.v1 (the Players header owns the
  * toggle — one setting, two views). All numbers are ESTIMATES and labeled so.
  *
+ * Fit Engine v2 (AI+): a .aiseg BASE/AI+ toggle (persisted nfl2026.ai.v1,
+ * default OFF) re-ranks the .reco panel via fitScoreV2 with data/ai_insights.json
+ * as ctx. AI-ESTIMATED reason lines get an inline .prov-ai "AI EST" chip;
+ * measured ones cite their span in the text. If ai_insights.json is absent
+ * (404, older deploy) the toggle is hidden and the view is byte-for-byte the
+ * v1 experience.
+ *
  * Degrades honestly: player_weekly.json missing (older deploy) -> a .state
  * message, never a blank screen. Render helpers live LOCALLY (render.js is
  * untouched — this view owns its own markup).
@@ -30,12 +37,16 @@ import {
   teamWeeklyTotals,
   neediestOpenSlot,
   recommend,
+  recommendV2,
 } from '../team-logic.js';
-import { getPlayerProjections, getPlayerWeekly, getGamePredictions } from '../data.js';
+import {
+  getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
+} from '../data.js';
 import { TEAMS } from '../teams.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
+const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
 
 /* ---- local render helpers (this view's markup is its own) ----------------- */
@@ -115,17 +126,53 @@ function saveRoster(roster) {
   }
 }
 
+/** Read the AI+ preference. Anything but the literal 'on' is OFF — the base
+ * deterministic fit engine is the default experience (contract: default off). */
+function loadAiPref() {
+  try {
+    return localStorage.getItem(AI_KEY) === 'on';
+  } catch (err) {
+    return false; // storage blocked (private mode) — session default: off
+  }
+}
+
+/** Persist the AI+ preference; failures are non-fatal (session toggle works). */
+function saveAiPref(on) {
+  try {
+    localStorage.setItem(AI_KEY, on ? 'on' : 'off');
+  } catch (err) {
+    /* storage blocked — in-memory flag still drives the render */
+  }
+}
+
+/** The BASE / AI+ segmented toggle (.aiseg — same pill pattern as .scoreseg).
+ * Only rendered when data/ai_insights.json loaded; a 404 hides it entirely. */
+function renderAiSeg(on) {
+  const btn = (label, active, val) => (
+    `<button type="button" data-ai="${val}"` +
+      `${active ? ' class="aiseg--active"' : ''} aria-pressed="${active ? 'true' : 'false'}">` +
+      `${label}</button>`
+  );
+  return (
+    '<div class="aiseg" role="group" aria-label="Fit engine mode">' +
+      `${btn('BASE', !on, 'off')}${btn('AI+', on, 'on')}` +
+    '</div>'
+  );
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountTeam(el) {
   el.innerHTML = '<div class="state state--loading">Loading team builder…</div>';
 
   // Projections + weekly are both REQUIRED here (the fit engine is weekly
-  // math); game predictions only pick the "current week" chip and are optional.
-  const [projRes, weeklyRes, predsRes] = await Promise.allSettled([
+  // math); game predictions only pick the "current week" chip and ai_insights
+  // only powers the opt-in AI+ toggle — both are optional (missing = degrade).
+  const [projRes, weeklyRes, predsRes, aiRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getGamePredictions(),
+    getAiInsights(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Team builder unavailable — the projection feed did not load.');
@@ -161,6 +208,16 @@ export default async function mountTeam(el) {
 
   const mode = loadScoring(); // read-only here; the Players header owns the toggle
 
+  // Fit Engine AI layer (v2): available only when data/ai_insights.json loaded
+  // AND actually carries players — a 404 (older deploy) or a hollow file hides
+  // the toggle entirely, so the view never offers a mode it cannot honor.
+  const aiInsights = (aiRes.status === 'fulfilled'
+    && aiRes.value && aiRes.value.players
+    && Object.keys(aiRes.value.players).length > 0)
+    ? aiRes.value
+    : null;
+  let aiOn = aiInsights ? loadAiPref() : false; // persisted nfl2026.ai.v1, default off
+
   // Per-mode derived maps, built once per mount (mode changes re-mount):
   //   adjById    id -> season points at the current scoring mode (EXACT)
   //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
@@ -192,6 +249,7 @@ export default async function mountTeam(el) {
       '<h1 class="view-title">TEAM BUILDER</h1>' +
       `<span class="view-sub">${esc(season)} · ${mode.toUpperCase()} SCORING · ESTIMATE</span>` +
     '</header>' +
+    (aiInsights ? renderAiSeg(aiOn) : '') +
     '<section class="roster" id="t-roster" role="listbox" aria-label="Roster slots"></section>' +
     '<section class="finder" aria-label="Player finder">' +
       '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
@@ -292,9 +350,14 @@ export default async function mountTeam(el) {
         '<div class="reco-why">Roster complete — tap a filled slot to remove a player and rework the build.</div>';
       return;
     }
-    const recos = recommend(roster, players, weeklyById, mode, target);
+    // AI+ ON re-ranks through fitScoreV2 (recommendV2); OFF is the untouched
+    // v1 path. The head names the active mode so the ranking is never ambiguous.
+    const ai = aiOn && aiInsights !== null;
+    const recos = ai
+      ? recommendV2(roster, players, weeklyById, mode, target, aiInsights)
+      : recommend(roster, players, weeklyById, mode, target);
     const head =
-      `<div class="reco-head"><span class="reco-slot">FIT ENGINE · ${esc(target)}</span> ` +
+      `<div class="reco-head"><span class="reco-slot">FIT ENGINE${ai ? ' · AI+' : ''} · ${esc(target)}</span> ` +
       '<span class="est">ESTIMATE</span></div>';
     if (recos.length === 0) {
       box.innerHTML = head + `<div class="reco-why">No eligible players left for ${esc(target)}.</div>`;
@@ -310,7 +373,15 @@ export default async function mountTeam(el) {
             `<span class="reco-score">${fix1(r.score)}</span> ` +
             `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}" data-slot="${esc(target)}">ADD</button>` +
           '</div>' +
-          r.reasons.map((t) => `<div class="reco-why">${esc(t)}</div>`).join('') +
+          r.reasons.map((t) => {
+            // AI-estimated reasons carry the literal "(AI estimate" marker from
+            // fitScoreV2 — chip them. Only possible when AI+ is ON (v1 reasons
+            // never contain the marker), so the chip never appears on BASE.
+            const chip = ai && t.includes('(AI estimate')
+              ? ' <span class="prov-ai">AI EST</span>'
+              : '';
+            return `<div class="reco-why">${esc(t)}${chip}</div>`;
+          }).join('') +
         '</div>'
       );
     });
@@ -422,6 +493,26 @@ export default async function mountTeam(el) {
     query = e.target.value || '';
     paintCands();
   });
+
+  // Wire the BASE / AI+ toggle (only rendered when ai_insights loaded). The
+  // choice persists in nfl2026.ai.v1; flipping it re-ranks the reco panel.
+  const aiSeg = el.querySelector('.aiseg');
+  if (aiSeg) {
+    aiSeg.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-ai]');
+      if (!btn) return;
+      const on = btn.dataset.ai === 'on';
+      if (on === aiOn) return;
+      aiOn = on;
+      saveAiPref(on);
+      aiSeg.querySelectorAll('button[data-ai]').forEach((b) => {
+        const active = (b.dataset.ai === 'on') === on;
+        b.classList.toggle('aiseg--active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      paintReco();
+    });
+  }
 
   paintAll();
 }

@@ -270,3 +270,111 @@ test.describe('team builder (#/team)', () => {
     expect(Object.values(stored.slots)).toContain(wr.gsis_id);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * Build 4 — Fit Engine v2 AI+ toggle (Agent E). Contract: default OFF (= the
+ * v1 experience byte-for-byte), ON re-ranks the reco panel via fitScoreV2 and
+ * chips AI-ESTIMATED reasons with an inline "AI EST" pill; the choice persists
+ * in nfl2026.ai.v1. Expected players are derived from the committed contracts
+ * at runtime, never hardcoded.
+ * ------------------------------------------------------------------------- */
+
+test.describe('fit engine AI+ toggle (#/team)', () => {
+  test('defaults to BASE with no AI chips anywhere', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+
+    // ai_insights.json is committed, so the toggle renders — BASE active.
+    await expect(page.locator('.aiseg')).toHaveCount(1);
+    await expect(page.locator('.aiseg button[data-ai="off"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'false');
+
+    // OFF is the v1 experience: no AI head marker, no provenance chips.
+    await expect(page.locator('.reco .reco-slot')).not.toContainText('AI+');
+    expect(await page.locator('.prov-ai').count()).toBe(0);
+  });
+
+  test('AI+ re-ranks with provenance chips ONLY on AI-estimated reasons; persists', async ({ page }) => {
+    // Same runtime pair pick as the stack test: rostering the QB guarantees
+    // the same-team top WR carries the stack-synergy reason under AI+ — and
+    // stack synergy is ai_estimated BY DEFINITION this build (no measured
+    // stack data), so at least one "AI EST" chip must render.
+    const proj = readData('player_projections.json');
+    const qbByTeam = new Map();
+    for (const p of proj.players) {
+      if (p.position === 'QB' && !qbByTeam.has(p.team)) qbByTeam.set(p.team, p);
+    }
+    const wr = proj.players.find(
+      (p) => p.position === 'WR' && qbByTeam.has(p.team),
+    );
+    expect(wr, 'no QB+WR same-team pair in the data').toBeTruthy();
+    const qb = qbByTeam.get(wr.team);
+
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+
+    await page.fill('.finder-input', qb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: qb.name }).first()
+      .locator('.cand-add').click();
+    await page.locator('.slot[data-slot="WR1"] .slot-empty').click();
+    await expect(page.locator('.reco .reco-slot')).toContainText('WR1');
+
+    // Capture the BASE reco panel (no chips, no AI+ marker) before flipping.
+    const baseText = await page.locator('.reco').innerText();
+    expect(baseText).not.toContain('AI EST');
+    expect(await page.locator('.reco .prov-ai').count()).toBe(0);
+
+    // Flip AI+ ON: pills swap, the reco head names the mode, panel re-renders.
+    await page.locator('.aiseg button[data-ai="on"]').click();
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.aiseg button[data-ai="off"]'))
+      .toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.reco .reco-slot')).toContainText('AI+');
+
+    // The reasons/ranking actually changed (fitScoreV2 added its terms).
+    const aiText = await page.locator('.reco').innerText();
+    expect(aiText).not.toBe(baseText);
+
+    // At least one AI EST chip (the ai_estimated stack-synergy reason), and
+    // chips appear ONLY on reason lines that say "(AI estimate" — measured
+    // reasons are never chipped; every estimated line IS chipped.
+    expect(await page.locator('.reco .prov-ai').count()).toBeGreaterThanOrEqual(1);
+    const lines = await page.locator('.reco .reco-why').evaluateAll(
+      (nodes) => nodes.map((n) => ({
+        text: n.textContent,
+        chipped: n.querySelector('.prov-ai') !== null,
+      })),
+    );
+    for (const line of lines) {
+      expect(
+        line.chipped,
+        `chip/provenance mismatch on: ${line.text}`,
+      ).toBe(line.text.includes('AI estimate'));
+    }
+
+    // Persists: nfl2026.ai.v1 survives a reload and AI+ stays active.
+    await page.reload();
+    await page.waitForSelector('.aiseg', { timeout: 8000 });
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.reco .reco-slot')).toContainText('AI+');
+    const stored = await page.evaluate(() => localStorage.getItem('nfl2026.ai.v1'));
+    expect(stored).toBe('on');
+
+    // Flipping back to BASE restores the v1 panel: no marker, no chips.
+    await page.locator('.aiseg button[data-ai="off"]').click();
+    await expect(page.locator('.reco .reco-slot')).not.toContainText('AI+');
+    expect(await page.locator('.reco .prov-ai').count()).toBe(0);
+    expect(await page.evaluate(() => localStorage.getItem('nfl2026.ai.v1'))).toBe('off');
+
+    // The toggle + chips add no horizontal overflow at 402pt.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+});

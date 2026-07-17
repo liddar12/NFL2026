@@ -23,6 +23,8 @@ import {
   teamWeeklyTotals,
   fitScore,
   recommend,
+  fitScoreV2,
+  recommendV2,
 } from '../../app/team-logic.js';
 
 const WEEKS = 18;
@@ -288,4 +290,175 @@ test('recommend respects the scoring mode (std demotes a reception-heavy WR)', (
   const std = recommend(empty, [heavy, light], weeklyById, 'std', 'WR1');
   assert.equal(idOf(ppr[0]), 'wr-heavy', 'ppr must rank the reception-heavy WR first');
   assert.equal(idOf(std[0]), 'wr-light', 'std must rank the low-reception WR first');
+});
+
+/* ---------------------------------------------------------------------------
+ * Build 4 — Fit Engine v2 (the opt-in AI layer). Contract: the OFF path is
+ * BYTE-IDENTICAL to v1; ON adds bounded terms from ai_insights with honest
+ * provenance strings ("(measured 2021–2025)" vs "(AI estimate …)").
+ * ------------------------------------------------------------------------- */
+
+/** Synthetic ai_insights fixture (shape of data/ai_insights.json). */
+const AI_FIXTURE = {
+  default: 'off',
+  players: {
+    'wr-kc': {
+      trajectory_adj: {
+        value: 0.12, source: 'measured', slope_pts_per_yr: 24.0,
+        seasons_observed: 4, why: 'OLS slope +24.0 pts/yr over 4 seasons',
+      },
+      stack_synergy: {
+        value: 0.06, source: 'ai_estimated', pair: 'QB+WR',
+        why: 'position-pair default',
+      },
+      cold_adj: {
+        value: -0.1, source: 'measured', weeks: [12, 14],
+        why: 'won 35% of sub-32F games vs 45% overall',
+      },
+    },
+    'wr-dal': {
+      trajectory_adj: {
+        value: -0.08, source: 'ai_estimated', slope_pts_per_yr: -13.6,
+        seasons_observed: 2, why: 'fewer than 3 seasons observed',
+      },
+      cold_adj: { value: 0, source: 'ai_estimated', weeks: [], why: 'no sample' },
+    },
+  },
+};
+
+/** ctx for the fixed stack fixture (wr-kc against a rostered same-team QB). */
+function v2ctx(extra = {}) {
+  return {
+    playersById: lookup(stackPool),
+    weeklyById: stackWeekly,
+    mode: 'ppr',
+    slot: 'WR1',
+    ...extra,
+  };
+}
+
+// The LOCKED v1 output for the fixed stack fixture. Any change to the v1 math,
+// rounding, or reason wording changes these bytes and must fail here — the OFF
+// path is the product default and is frozen by contract.
+const V1_FIXTURE_JSON = '{"score":270,"reasons":["Projects 250.0 season points (PPR) — raw points drive the fit score","Stacks with Test Quarterback (KC) — QB+receiver points compound in good weeks","Raises your floor: worst week improves W7 0.0 → 14.7"]}';
+
+test('v1 fitScore is byte-for-byte frozen on the fixed fixture', () => {
+  assert.equal(JSON.stringify(fitScore(wrKC, stackRoster, v2ctx())), V1_FIXTURE_JSON);
+});
+
+test('fitScoreV2 OFF path (ai absent / false / truthy-not-true) is byte-identical to v1', () => {
+  const v1 = JSON.stringify(fitScore(wrKC, stackRoster, v2ctx()));
+  assert.equal(v1, V1_FIXTURE_JSON);
+  // No ai flag at all.
+  assert.equal(JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx())), v1);
+  // Explicitly off.
+  assert.equal(JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx({ ai: false }))), v1);
+  // ONLY the literal true turns the layer on — truthy strings do not (and the
+  // insights being present must not leak in).
+  assert.equal(
+    JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx({ ai: 'on', insights: AI_FIXTURE }))),
+    v1,
+  );
+  // ON but no insight for the candidate: degrades to the v1 result.
+  assert.equal(
+    JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx({ ai: true, insights: { players: {} } }))),
+    v1,
+  );
+});
+
+test('fitScoreV2 ON: bounded AI terms with measured-up trajectory reason string', () => {
+  const on = fitScoreV2(wrKC, stackRoster, v2ctx({ ai: true, insights: AI_FIXTURE }));
+  // Terms: trajectory 0.12×40 = +4.8; cold −0.1×5×2 = −1.0; synergy 0.06×12 = +0.72.
+  assert.ok(Math.abs(on.score - (270 + 4.8 - 1.0 + 0.72)) < 1e-6, `score ${on.score}`);
+  const joined = on.reasons.join(' | ');
+  assert.match(
+    joined,
+    /Trending up: \+24\.0 pts\/yr over 4 seasons \(measured 2021–2025\)/,
+    `measured trajectory reason missing: ${joined}`,
+  );
+  // Cold term names the actual cold-venue weeks and its measured provenance.
+  assert.match(joined, /below 32°F in Weeks 12, 14 \(measured 2021–2025\)/);
+  // Stack synergy is ai_estimated by definition this build — it must say so.
+  assert.match(joined, /Stack synergy with Test Quarterback: QB\+WR .*\(AI estimate — position-pair default\)/);
+  // v1's own reasons all survive (v2 = v1 + extras, capped at 6).
+  for (const r of JSON.parse(V1_FIXTURE_JSON).reasons) {
+    assert.ok(on.reasons.includes(r), `v1 reason dropped: ${r}`);
+  }
+  assert.ok(on.reasons.length <= 6, 'reason cap is 6');
+});
+
+test('fitScoreV2 ON: declining <3-season player carries the AI-estimate provenance', () => {
+  const on = fitScoreV2(wrDAL, stackRoster, v2ctx({ ai: true, insights: AI_FIXTURE }));
+  const joined = on.reasons.join(' | ');
+  assert.match(
+    joined,
+    /Declining faster than the WR age curve \(AI estimate — fewer than 3 seasons observed\)/,
+    `estimated decline reason missing: ${joined}`,
+  );
+  // trajectory −0.08 × 40 = −3.2 off the v1 score (wr-dal has no stack/cold terms).
+  const v1 = fitScore(wrDAL, stackRoster, v2ctx());
+  assert.ok(Math.abs(on.score - (v1.score - 3.2)) < 1e-6, `score ${on.score} vs v1 ${v1.score}`);
+});
+
+test('fitScoreV2 ON: a measured decline cites its measured source, not an AI estimate', () => {
+  const insights = {
+    players: {
+      'wr-kc': {
+        trajectory_adj: {
+          value: -0.15, source: 'measured', slope_pts_per_yr: -30.0,
+          seasons_observed: 5, why: 'measured decline',
+        },
+      },
+    },
+  };
+  const on = fitScoreV2(wrKC, stackRoster, v2ctx({ ai: true, insights }));
+  const joined = on.reasons.join(' | ');
+  assert.match(joined, /Declining faster than the WR age curve \(source: measured 2021–2025\)/);
+  assert.doesNotMatch(joined, /AI estimate — fewer than 3 seasons/);
+});
+
+test('fitScoreV2 / recommendV2 are deterministic (two runs, identical bytes)', () => {
+  const a = JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx({ ai: true, insights: AI_FIXTURE })));
+  const b = JSON.stringify(fitScoreV2(wrKC, stackRoster, v2ctx({ ai: true, insights: AI_FIXTURE })));
+  assert.equal(a, b);
+  const r1 = recommendV2(stackRoster, stackPool, stackWeekly, 'ppr', 'WR1', AI_FIXTURE);
+  const r2 = recommendV2(stackRoster, stackPool, stackWeekly, 'ppr', 'WR1', AI_FIXTURE);
+  assert.equal(JSON.stringify(r1), JSON.stringify(r2));
+});
+
+test('recommendV2 re-ranks on AI trajectory where v1 ties (and v1 stays v1)', () => {
+  // Two WRs identical in every v1 term (same points, weeks, bye, no stacks);
+  // the AI layer gives A a decline and B an ascent — only v2 separates them.
+  const wrA = mkPlayer('wr-aaa', 'Test Receiver AA', 'MIA', 'WR', 250);
+  const wrB = mkPlayer('wr-bbb', 'Test Receiver BB', 'DEN', 'WR', 250);
+  const weeklyById = lookup([
+    mkWeekly('wr-aaa', 9, 250 / 17, 80),
+    mkWeekly('wr-bbb', 9, 250 / 17, 80),
+  ]);
+  const insights = {
+    players: {
+      'wr-aaa': {
+        trajectory_adj: {
+          value: -0.2, source: 'measured', slope_pts_per_yr: -40.0,
+          seasons_observed: 4, why: 'w',
+        },
+      },
+      'wr-bbb': {
+        trajectory_adj: {
+          value: 0.2, source: 'measured', slope_pts_per_yr: 40.0,
+          seasons_observed: 4, why: 'w',
+        },
+      },
+    },
+  };
+  const empty = roster();
+  // v1: identical scores -> deterministic id tie-break puts wr-aaa first.
+  const v1 = recommend(empty, [wrA, wrB], weeklyById, 'ppr', 'WR1');
+  assert.deepEqual(v1.map(idOf), ['wr-aaa', 'wr-bbb']);
+  assert.equal(v1[0].score, v1[1].score, 'v1 must tie — the pair differs only in AI terms');
+  // v2: the ascending player outranks the declining one; the delta is exactly
+  // (0.2 − (−0.2)) × TRAJECTORY_SCALE(40) = 16 fit points.
+  const v2 = recommendV2(empty, [wrA, wrB], weeklyById, 'ppr', 'WR1', insights);
+  assert.deepEqual(v2.map(idOf), ['wr-bbb', 'wr-aaa']);
+  assert.ok(Math.abs((v2[0].score - v2[1].score) - 16) < 1e-6);
 });

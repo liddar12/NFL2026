@@ -38,13 +38,19 @@ def _mov_multiplier(point_diff, elo_diff_winner):
     return math.log(abs(point_diff) + 1.0) * (2.2 / ((elo_diff_winner * 0.001) + 2.2))
 
 
-def rate_season(final_games, init=INIT, k=K, hfa=HFA_ELO):
+def rate_season(final_games, init=INIT, k=K, hfa=HFA_ELO, initial_ratings=None):
     """Run Elo over one season's FINAL games (in kickoff order). Returns {team: rating}.
 
     Each game dict needs: home, away, home_score, away_score. Ties (equal scores) update
     toward 0.5. Unknown teams start at `init`.
+
+    `initial_ratings` (optional {team: rating}) seeds the run so a season can CHAIN onto
+    an earlier one — e.g. rate the 2026 finals-to-date starting FROM the reverted 2025
+    priors, moving in-season ratings game-by-game. Default None keeps the historical
+    behavior (every team starts at `init`); the mapping is copied, never mutated, and
+    teams absent from it still start at `init`.
     """
-    ratings = {}
+    ratings = dict(initial_ratings) if initial_ratings else {}
     ordered = sorted(final_games, key=lambda g: g.get("kickoff_utc") or "")
     for g in ordered:
         h, a = g["home"], g["away"]

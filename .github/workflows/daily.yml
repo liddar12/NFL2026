@@ -41,6 +41,12 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install --upgrade requests
 
+      # Step 0 — LEARNING LOOP resolve. Grade yesterday's locks BEFORE rebuilding,
+      # so the day's build sees a fully resolved record (and any adopted params).
+      # STATUS-gated + idempotent; clean no-op when no locked game has gone FINAL.
+      - name: Resolve locks against FINAL scores
+        run: python -m scripts.resolve_locks
+
       # Step 1 — deterministic offline outputs from committed fixtures: player
       # projections + parlays. Stdlib only, no network; safe on any runner.
       - name: Build fixture-based players + parlays

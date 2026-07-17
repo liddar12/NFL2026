@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_history.schema.json",
+  "title": "5-year player history (2021-2025) with trajectory detection",
+  "description": "Per-player season lines (ESPN kona actuals, PPR) and a measured-or-estimated trajectory for the CURRENT projected 300. Produced by scripts/build_history.py, validated by scripts/validate_data.py. source 'measured' = OLS slope + age-curve residual over >=3 observed seasons; 'ai_estimated' = scripts/ai_estimates.py documented rules for <3 seasons; 'pending' = estimation module not yet available (nulls, honest gap).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season_range", "updated_utc", "players"],
+  "properties": {
+    "season_range": {
+      "type": "array",
+      "description": "[first, last] season covered, inclusive.",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "integer", "minimum": 2021, "maximum": 2025 }
+    },
+    "updated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of the last regeneration."
+    },
+    "players": {
+      "type": "object",
+      "description": "Map of projection key ('espn-<id>') -> history record.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "position", "seasons", "trajectory"],
+        "properties": {
+          "name": { "type": "string" },
+          "position": {
+            "type": "string",
+            "enum": ["QB", "RB", "WR", "TE"]
+          },
+          "seasons": {
+            "type": "array",
+            "description": "Observed season lines, ascending by yr. A missing year means the player had no positive real total that season (or was outside the per-season pool) — never zero-filled.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["yr", "pts", "receptions", "targets"],
+              "properties": {
+                "yr": { "type": "integer", "minimum": 2021, "maximum": 2025 },
+                "pts": {
+                  "type": "number",
+                  "description": "Real full-season PPR total (kona statSourceId 0, splitType 0)."
+                },
+                "receptions": {
+                  "type": "number",
+                  "description": "Raw receptions, kona statId '53'. 0 for QBs."
+                },
+                "targets": {
+                  "type": "number",
+                  "description": "Raw targets, kona statId '58'. 0 for QBs."
+                },
+                "games": {
+                  "type": "integer",
+                  "description": "Games played, kona statId '210'; omitted when absent or implausible.",
+                  "minimum": 1,
+                  "maximum": 18
+                }
+              }
+            }
+          },
+          "trajectory": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slope_pts_per_yr", "curve_residual_per_yr", "seasons_observed", "source"],
+            "properties": {
+              "slope_pts_per_yr": {
+                "type": ["number", "null"],
+                "description": "OLS slope of pts on season year (measured) or the documented estimate; null only while pending."
+              },
+              "curve_residual_per_yr": {
+                "type": ["number", "null"],
+                "description": "Mean per-year delta between observed season-over-season pts ratio and the position age-curve expectation (scripts/signals/aging.py). Negative = declining faster than the curve; null only while pending."
+              },
+              "seasons_observed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "source": {
+                "type": "string",
+                "description": "'measured' requires seasons_observed >= 3; 'pending' is the honest placeholder until scripts/ai_estimates.py lands.",
+                "enum": ["measured", "ai_estimated", "pending"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

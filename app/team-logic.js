@@ -421,3 +421,169 @@ export function recommend(roster, pool, weeklyById, mode, slot) {
 
   return scored.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
 }
+
+/* --------------------------------------------------------------------------
+ * FIT ENGINE v2 — the opt-in AI layer (ctx.ai === true)
+ *
+ * v2 = v1 EXACTLY (fitScore above is untouched — the OFF path is byte-
+ * identical) plus bounded terms read from data/ai_insights.json (built by
+ * scripts/ai_estimates.py — documented deterministic rules; every value
+ * carries source "measured" | "ai_estimated" and the reasons below say which).
+ * AI-estimated reasons always carry the literal "(AI estimate" marker so the
+ * view can chip them; measured reasons cite their span. Insight values are
+ * contract-bounded to |0.25|, so each term below is bounded too.
+ * ------------------------------------------------------------------------ */
+
+export const TRAJECTORY_SCALE = 40;  // fit pts per unit trajectory_adj (±0.25 -> ±10)
+export const COLD_SCALE = 5;         // fit pts per cold-venue week per unit cold_adj
+export const COLD_WEEKS_CAP = 4;     // cold weeks beyond 4 add no score (±0.25 -> ±5)
+export const V2_REASON_CAP = 6;      // v1's 4 + up to 2 highest-impact AI reasons
+
+/** Provenance suffixes (the contract strings — tests match on these). */
+const PROV_MEASURED = '(measured 2021–2025)';
+const PROV_ESTIMATED = '(AI estimate — fewer than 3 seasons observed)';
+
+/** Accept the whole ai_insights.json doc ({players:{...}}) or a bare map. */
+function insightFor(insights, id) {
+  const map = insights && insights.players ? insights.players : insights;
+  return lookup(map, id) || null;
+}
+
+/** Same-team QB+receiver stack partner (v2's copy — v1's inline scan stays
+ * untouched). Returns the best-points partner or null. */
+function stackPartner(candidate, slots, playersById, weeklyById, mode) {
+  const candPos = String(candidate.position || '').toUpperCase();
+  const rostered = Object.values(slots)
+    .filter(Boolean)
+    .map((id) => lookup(playersById, id))
+    .filter(Boolean);
+  let partners = [];
+  if (candPos === 'WR' || candPos === 'TE') {
+    partners = rostered.filter((p) => String(p.position).toUpperCase() === 'QB' && p.team === candidate.team);
+  } else if (candPos === 'QB') {
+    partners = rostered.filter((p) => ['WR', 'TE'].includes(String(p.position).toUpperCase()) && p.team === candidate.team);
+  }
+  return bestOf(partners, weeklyById, mode);
+}
+
+/**
+ * Score `candidate` with the AI layer ON. Same ctx as fitScore plus:
+ *   ai        MUST be exactly true to add anything (else v1 passthrough)
+ *   insights  data/ai_insights.json doc or its players map
+ * Returns { score, reasons } in the SAME shape as fitScore. Missing insight
+ * data for the candidate degrades to the v1 result — never throws.
+ */
+export function fitScoreV2(candidate, roster, ctx) {
+  const base = fitScore(candidate, roster, ctx);
+  const c = ctx || {};
+  if (c.ai !== true) return base;
+  const ins = insightFor(c.insights, candidate.gsis_id);
+  if (!ins) return base;
+
+  const candPos = String(candidate.position || '').toUpperCase();
+  const extra = []; // {impact, text} — merged after v1's reasons, |impact| desc
+
+  // TRAJECTORY_TERM — 5-yr trend (measured OLS) or age-curve prior (estimated).
+  const t = ins.trajectory_adj;
+  if (t && Number.isFinite(Number(t.value)) && Number(t.value) !== 0) {
+    const v = Number(t.value);
+    const impact = v * TRAJECTORY_SCALE;
+    const prov = t.source === 'measured' ? PROV_MEASURED : PROV_ESTIMATED;
+    let text;
+    if (v > 0) {
+      // Cite the real pts/yr when the insight carries it (the emitted file
+      // always does); a minimal fixture falls back to the builder's norm.
+      const slope = Number.isFinite(Number(t.slope_pts_per_yr))
+        ? Number(t.slope_pts_per_yr)
+        : v * 200;
+      const n = Number(t.seasons_observed);
+      const span = Number.isFinite(n) && n > 0 ? ` over ${n} season${n === 1 ? '' : 's'}` : '';
+      text = `Trending up: +${slope.toFixed(1)} pts/yr${span} ${prov}`;
+    } else {
+      const provDown = t.source === 'measured' ? '(source: measured 2021–2025)' : prov;
+      text = `Declining faster than the ${candPos} age curve ${provDown}`;
+    }
+    extra.push({ impact, text });
+  }
+
+  // STACK SYNERGY — scales the flat v1 stack bonus, only when a stack exists.
+  const s = ins.stack_synergy;
+  if (s && Number.isFinite(Number(s.value)) && Number(s.value) !== 0) {
+    const partner = stackPartner(candidate, (roster && roster.slots) || {}, c.playersById, c.weeklyById,
+      c.mode === 'half' || c.mode === 'std' ? c.mode : 'ppr');
+    if (partner) {
+      const impact = Number(s.value) * STACK_BONUS;
+      const pair = s.pair || (candPos === 'QB' ? 'QB+WR' : `QB+${candPos}`);
+      const prov = s.source === 'measured'
+        ? PROV_MEASURED
+        : '(AI estimate — position-pair default)';
+      extra.push({
+        impact,
+        text: `Stack synergy with ${partner.name}: ${pair} pairs compound beyond the base stack bonus ${prov}`,
+      });
+    }
+  }
+
+  // COLD_TERM — the team's sub-32F delta applied to its cold-venue weeks.
+  const cold = ins.cold_adj;
+  const coldWeeks = cold && Array.isArray(cold.weeks)
+    ? cold.weeks.map(Number).filter((w) => Number.isFinite(w))
+    : [];
+  if (cold && Number.isFinite(Number(cold.value)) && Number(cold.value) !== 0
+      && coldWeeks.length > 0) {
+    const v = Number(cold.value);
+    const impact = v * COLD_SCALE * Math.min(coldWeeks.length, COLD_WEEKS_CAP);
+    const pct = Math.abs(v * 100).toFixed(0);
+    const prov = cold.source === 'measured'
+      ? PROV_MEASURED
+      : '(AI estimate — no team-specific cold sample)';
+    const word = v > 0 ? 'edge' : 'risk';
+    const sign = v > 0 ? '+' : '−';
+    const wkWord = coldWeeks.length === 1 ? 'Week' : 'Weeks';
+    extra.push({
+      impact,
+      text: `Cold-weather ${word}: ${sign}${pct}% win rate below 32°F in ${wkWord} ${coldWeeks.join(', ')} ${prov}`,
+    });
+  }
+
+  extra.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+  const score = Math.round((base.score + extra.reduce((sum, r) => sum + r.impact, 0)) * 100) / 100;
+  return {
+    score,
+    reasons: base.reasons.concat(extra.map((r) => r.text)).slice(0, V2_REASON_CAP),
+  };
+}
+
+/**
+ * recommend() with the AI layer ON: same candidate filter, same deterministic
+ * tie-breaks (score desc, adjusted points desc, gsis_id asc), scored by
+ * fitScoreV2 with `insights`. The OFF path keeps using recommend() — this
+ * function exists so the v1 ranking code stays byte-identical.
+ */
+export function recommendV2(roster, pool, weeklyById, mode, slot, insights) {
+  const players = Array.isArray(pool) ? pool : [];
+  const slots = (roster && roster.slots) || {};
+  const target = slot || neediestOpenSlot(roster, players, weeklyById, mode);
+  if (!target) return [];
+
+  const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
+  const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
+
+  const scored = players
+    .filter((p) => !rostered.has(String(p.gsis_id)) && slotEligible(p.position, target))
+    .map((p) => {
+      const e = lookup(weeklyById, p.gsis_id);
+      return {
+        player: p,
+        adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode),
+        ...fitScoreV2(p, roster, { playersById, weeklyById, mode, slot: target, ai: true, insights }),
+      };
+    });
+
+  scored.sort((a, b) =>
+    b.score - a.score
+    || b.adj - a.adj
+    || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
+
+  return scored.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
+}
