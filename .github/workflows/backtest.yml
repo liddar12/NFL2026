@@ -56,7 +56,7 @@ jobs:
             echo "No tuning changes to commit."
             exit 0
           fi
-          git commit -m "data: weekly backtest refit [skip ci]"
+          git commit -m "data: weekly backtest refit [skip actions]"
           for i in 1 2 3 4 5; do
             git pull --ff-only origin main && git push origin HEAD:main && exit 0
             echo "push race, retrying ($i)..."
