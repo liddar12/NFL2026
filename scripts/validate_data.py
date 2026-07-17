@@ -36,6 +36,19 @@ ROOT = os.path.dirname(_HERE)
 CONTRACTS = os.path.join(ROOT, "data", "contracts")
 DATA = os.path.join(ROOT, "data")
 
+
+def snapshot_schema_for(filename):
+    """Route a data/snapshots/ file to the contract that matches its SHAPE.
+
+    Two families coexist under data/snapshots/: point-in-time LOCK arrays
+    (e.g. 2026_wk01_games_open.json) and the archived game_predictions.<ts>.json
+    copies the gameday cron drops there (byte copies of game_predictions.json —
+    a dict, not the lock array). A single blanket schema failed the gameday cron
+    with "expected type array, got dict"; route each family to its own schema."""
+    if filename.startswith("game_predictions."):
+        return "game_predictions.schema.json"
+    return "snapshot.schema.json"
+
 # Which schema validates which data file. snapshot.schema.json validates every
 # array file dropped into data/snapshots/ (there are none at scaffold time, and
 # that is fine — we simply skip an empty directory).
@@ -253,18 +266,26 @@ def main():
         except ValidationError as exc:
             failures.append(str(exc))
 
-    # 1b) Any snapshot files present must validate against the snapshot schema.
-    snap_schema_path = os.path.join(CONTRACTS, "snapshot.schema.json")
+    # 1b) Snapshot files. Two families live under data/snapshots/, each with its
+    # own shape — route each to the RIGHT schema (a single blanket schema fails the
+    # gameday cron, which archives game_predictions copies alongside the locks):
+    #   * point-in-time LOCKS (e.g. 2026_wk01_games_open.json) -> snapshot.schema.json
+    #     (an array of locked prediction rows the harness grades against FINAL).
+    #   * archived game_predictions.<ts>.json -> game_predictions.schema.json
+    #     (byte copies of data/game_predictions.json, a dict — NOT the lock array).
     snap_dir = os.path.join(DATA, "snapshots")
+    _schema_cache = {}
     if os.path.isdir(snap_dir):
         snap_files = [f for f in sorted(os.listdir(snap_dir)) if f.endswith(".json")]
         if snap_files:
             try:
-                snap_schema = _load(snap_schema_path)
                 for f in snap_files:
+                    schema_name = snapshot_schema_for(f)
+                    if schema_name not in _schema_cache:
+                        _schema_cache[schema_name] = _load(os.path.join(CONTRACTS, schema_name))
                     data = _load(os.path.join(snap_dir, f))
-                    validate_against_schema(data, snap_schema, "snapshots/" + f)
-                    print("ok    snapshots/%-18s vs snapshot.schema.json" % f)
+                    validate_against_schema(data, _schema_cache[schema_name], "snapshots/" + f)
+                    print("ok    snapshots/%-30s vs %s" % (f, schema_name))
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
         else:
