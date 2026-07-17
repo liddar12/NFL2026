@@ -504,3 +504,100 @@ test.describe('team finder filter/sort, reco sort, named byes, QB cap (#/team)',
     await expect(add).toContainText('FULL');
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL3 — parlay leg selector, roster slot enrichment, draft TAKEN, legend,
+ * and the iPad (wide) responsive layout.
+ * ------------------------------------------------------------------------- */
+
+test.describe('parlay leg-count selector (#/parlays)', () => {
+  test('WEEK scope exposes 2..7 leg chips and filters to the chosen count', async ({ page }) => {
+    await page.goto('/#/parlays');
+    await waitForCards(page, '.card.parlay');
+    // Switch to WEEK scope (where 2..7-leg buckets live).
+    await page.locator('.scopeseg .seg-btn[data-seg="week"]').click();
+    await page.waitForTimeout(50);
+    // Leg chips for every bucket present in the data plus ALL.
+    for (const k of [2, 3, 4, 5, 6, 7]) {
+      await expect(page.locator(`.legseg .leg-chip[data-leg="${k}"]`)).toHaveCount(1);
+    }
+    // Selecting "5 LEG" shows only 5-leg parlays (each card's .legs holds 5).
+    await page.locator('.legseg .leg-chip[data-leg="5"]').click();
+    await page.waitForTimeout(50);
+    await expect(page.locator('.legseg .leg-chip[data-leg="5"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    const perCard = await page.locator('.card.parlay').evaluateAll(
+      (cards) => cards.map((c) => c.querySelectorAll('.legs > *').length));
+    expect(perCard.length).toBeGreaterThanOrEqual(1);
+    for (const n of perCard) expect(n).toBe(5);
+  });
+});
+
+test.describe('team builder REL3 — enriched slot, draft board, legend (#/team)', () => {
+  test('a legend explains the acronyms and sort arrows', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    const legend = page.locator('.legend--team');
+    await expect(legend).toHaveCount(1);
+    await legend.locator('summary').click();
+    await expect(legend).toContainText('SoS');
+    await expect(legend).toContainText('descending');
+    await expect(legend).toContainText('TAKEN');
+  });
+
+  test('added player shows SoS / trend / bye on the slot line, not just points', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const rb = proj.players.find((p) => p.position === 'RB');
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    await page.fill('.finder-input', rb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: rb.name }).first().locator('.cand-add').click();
+    const slot = page.locator('.slot', { hasText: rb.name }).first();
+    // The enriched meta line carries SoS and the bye week.
+    await expect(slot.locator('.sp-meta')).toContainText('SoS');
+    await expect(slot.locator('.sp-meta')).toContainText('BYE');
+  });
+
+  test('TAKEN removes a player from recommendations; HIDE TAKEN drops them from the finder', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.cand', { timeout: 8000 });
+    // Mark the first candidate TAKEN.
+    const firstCand = page.locator('.cand').first();
+    const gsis = await firstCand.getAttribute('data-gsis');
+    await firstCand.locator('.cand-taken').click();
+    // It is now greyed + its ADD disabled.
+    const takenCand = page.locator(`.cand[data-gsis="${gsis}"]`);
+    await expect(takenCand).toHaveClass(/cand--taken/);
+    await expect(takenCand.locator('.cand-add')).toBeDisabled();
+    // HIDE TAKEN removes it from the finder entirely.
+    await page.locator('.taken-toggle').click();
+    await expect(page.locator(`.cand[data-gsis="${gsis}"]`)).toHaveCount(0);
+    // Persists across reload (localStorage nfl2026.taken.v1).
+    await page.reload();
+    await page.waitForSelector('.cand', { timeout: 8000 });
+    const stored = await page.evaluate(() => localStorage.getItem('nfl2026.taken.v1'));
+    expect(stored).toContain(gsis);
+  });
+});
+
+test.describe('iPad / wide responsive layout', () => {
+  test('at 1024px the team builder uses a two-column grid', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1180 });
+    await page.goto('/#/team');
+    await page.waitForSelector('.team-grid', { timeout: 8000 });
+    const cols = await page.locator('.team-grid').evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns);
+    // Two tracks => two space-separated pixel values.
+    expect(cols.trim().split(/\s+/).length).toBe(2);
+  });
+
+  test('at 1024px the players list is a multi-column grid', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1180 });
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    const cols = await page.locator('#players-list').evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns);
+    expect(cols.trim().split(/\s+/).length).toBeGreaterThanOrEqual(2);
+  });
+});

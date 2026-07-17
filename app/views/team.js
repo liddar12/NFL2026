@@ -52,6 +52,7 @@ import { TEAMS } from '../teams.js';
 const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
+const TAKEN_KEY = 'nfl2026.taken.v1'; // draft board: ids taken by other managers
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
 
 /* ---- local render helpers (this view's markup is its own) ----------------- */
@@ -148,6 +149,46 @@ function saveAiPref(on) {
   } catch (err) {
     /* storage blocked — in-memory flag still drives the render */
   }
+}
+
+/** Load the DRAFT BOARD taken-set (ids other managers have drafted). Corrupt or
+ * absent storage -> empty set. Only ids still in the pool matter (stale ids are
+ * harmless — they just never match a candidate). */
+function loadTaken() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TAKEN_KEY) || '[]');
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch (err) {
+    return new Set();
+  }
+}
+
+/** Persist the taken-set; failures are non-fatal (in-memory set still drives). */
+function saveTaken(taken) {
+  try {
+    localStorage.setItem(TAKEN_KEY, JSON.stringify([...taken]));
+  } catch (err) {
+    /* storage blocked — in-memory set still drives the render */
+  }
+}
+
+/** A compact glossary so no acronym or arrow is ever unexplained. Static markup,
+ * placed once under the header on the TEAM tab. */
+function renderLegend() {
+  return (
+    '<details class="legend legend--team">' +
+      '<summary>WHAT DO THESE MEAN?</summary>' +
+      '<div class="legend-body">' +
+        '<span class="legend-item"><b>PROJ</b> projected season points (your scoring mode)</span>' +
+        '<span class="legend-item"><b>TREND</b> 5-yr trajectory — <span class="cd-trend--up">▲</span> improving, <span class="cd-trend--down">▼</span> declining</span>' +
+        '<span class="legend-item"><b>SoS</b> strength of schedule, 1.0 easiest to 5.0 hardest</span>' +
+        '<span class="legend-item"><b>BYE</b> the week this player has no game (scores 0)</span>' +
+        '<span class="legend-item"><b>AI+</b> AI re-rank by trajectory/cold/stack (bounded ±25%, labeled ESTIMATE)</span>' +
+        '<span class="legend-item"><b>TAKEN</b> mark a player drafted by someone else — the fit engine drops them instantly</span>' +
+        '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
+      '</div>' +
+    '</details>'
+  );
 }
 
 /** The BASE / AI+ segmented toggle (.aiseg — same pill pattern as .scoreseg).
@@ -297,6 +338,17 @@ export default async function mountTeam(el) {
   let finderDir = 'desc';
   let recoSort = 'fit';       // fit (Best AI Pick / Best fit) | available (Best available)
 
+  // Draft board (REL3): ids other managers have taken. Live-excluded from the
+  // fit engine so recommendations always come from the REMAINING pool.
+  const taken = loadTaken();
+  let hideTaken = false;      // finder view: greyed (false) vs removed (true)
+
+  /** The pool the fit engine sees: every projection MINUS the drafted-by-others
+   * set. Rebuilt on demand so a TAKEN toggle re-optimizes immediately. */
+  function availablePool() {
+    return taken.size === 0 ? players : players.filter((p) => !taken.has(String(p.gsis_id)));
+  }
+
   // Per-mode derived maps, built once per mount (mode changes re-mount):
   //   adjById    id -> season points at the current scoring mode (EXACT)
   //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
@@ -328,16 +380,28 @@ export default async function mountTeam(el) {
       '<h1 class="view-title">TEAM BUILDER</h1>' +
       `<span class="view-sub">${esc(season)} · ${mode.toUpperCase()} SCORING · ESTIMATE</span>` +
     '</header>' +
+    renderLegend() +
     (aiInsights ? renderAiSeg(aiOn) : '') +
-    '<section class="roster" id="t-roster" role="listbox" aria-label="Roster slots"></section>' +
-    '<section class="finder" aria-label="Player finder">' +
-      '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
-        'placeholder="SEARCH NAME · TEAM · POS" aria-label="Search player pool">' +
-      `<div class="finder-controls">${finderPosRow(finderPos)}${finderSortRow(finderSort, finderDir)}</div>` +
-      '<div id="t-cands"></div>' +
-    '</section>' +
-    '<section class="reco" id="t-reco" aria-label="Fit engine recommendations"></section>' +
-    '<section class="team-summary" id="t-summary" aria-label="Team summary"></section>';
+    // Two-column grid on wide screens (iPad 13"): builder column (roster +
+    // finder + reco) beside the summary. On phones it is a single column.
+    '<div class="team-grid">' +
+      '<div class="team-col team-col--build">' +
+        '<section class="roster" id="t-roster" role="listbox" aria-label="Roster slots"></section>' +
+        '<section class="finder" aria-label="Player finder">' +
+          '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
+            'placeholder="SEARCH NAME · TEAM · POS" aria-label="Search player pool">' +
+          '<div class="finder-controls">' +
+            `${finderPosRow(finderPos)}${finderSortRow(finderSort, finderDir)}` +
+            `<button type="button" class="sort-chip taken-toggle" data-act="taken-filter" aria-pressed="false">${hideTaken ? 'SHOW TAKEN' : 'HIDE TAKEN'}</button>` +
+          '</div>' +
+          '<div id="t-cands"></div>' +
+        '</section>' +
+      '</div>' +
+      '<div class="team-col team-col--side">' +
+        '<section class="reco" id="t-reco" aria-label="Fit engine recommendations"></section>' +
+        '<section class="team-summary" id="t-summary" aria-label="Team summary"></section>' +
+      '</div>' +
+    '</div>';
 
   /* ---- section painters ----------------------------------------------------- */
 
@@ -368,11 +432,28 @@ export default async function mountTeam(el) {
           : arr
             ? `${fix1(arr[currentWk - 1])} · W${currentWk}`
             : `${fix1(adjById.get(id))} · SZN`;
+        // REL3: the slot line now carries the SAME context the finder shows —
+        // trend arrow, strength-of-schedule, and the player's bye week — so an
+        // added player is never just a bare "W1" number.
+        const tl = trendLabel(trajFor(id));
+        const trendTxt = tl && tl.dir !== 'flat'
+          ? `<span class="sp-trend cd-trend--${tl.dir}" title="5-yr ${tl.dir === 'up' ? 'up' : 'down'} trend">${tl.dir === 'up' ? '▲' : '▼'}</span>`
+          : '';
+        const sos = teamStrength ? strengthOfSchedule(e, teamStrength) : null;
+        const sosTxt = sos != null ? `<span class="sp-sos" title="Strength of schedule 1-5">SoS ${fix1(sos)}</span>` : '';
+        const bw = byeOf(id);
+        const byeTxt = bw != null ? `<span class="sp-bye" title="Bye week">BYE W${bw}</span>` : '';
+        const meta = (trendTxt || sosTxt || byeTxt)
+          ? `<span class="sp-meta">${trendTxt}${sosTxt}${byeTxt}</span>`
+          : '';
         body =
           `<div class="slot-player" role="button" tabindex="0" data-act="remove" data-slot="${slot}" ` +
             `aria-label="Remove ${esc(p.name)} from ${slot}">` +
-            `<span class="sp-name"><span class="sp-ab" style="color:${tint(p.team)}">${esc(p.team)}</span> ${esc(p.name)}</span>` +
-            `<span class="sp-pts">${esc(ptsTxt)}</span>` +
+            '<span class="sp-main">' +
+              `<span class="sp-name"><span class="sp-ab" style="color:${tint(p.team)}">${esc(p.team)}</span> ${esc(p.name)}</span>` +
+              `<span class="sp-pts">${esc(ptsTxt)}</span>` +
+            '</span>' +
+            meta +
           '</div>';
       }
       const sel = selectedSlot === slot && !id;
@@ -397,7 +478,9 @@ export default async function mountTeam(el) {
     const q = query.trim().toLowerCase();
     const rostered = new Set(Object.values(roster.slots).filter(Boolean));
     let hits = sortedPlayers.filter((p) => {
-      if (rostered.has(String(p.gsis_id))) return false;
+      const pid = String(p.gsis_id);
+      if (rostered.has(pid)) return false;
+      if (hideTaken && taken.has(pid)) return false; // hide-taken view removes them
       if (finderPos !== 'ALL' && String(p.position).toUpperCase() !== finderPos) return false;
       if (!q) return true;
       return `${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q);
@@ -443,14 +526,21 @@ export default async function mountTeam(el) {
         : '';
       const sos = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
       const sosTxt = sos != null ? ` <span class="cd-sos">SoS ${fix1(sos)}</span>` : '';
-      // A capped position (2 QBs already) can't be added — disable + say why.
-      const canAdd = open && !capped;
+      const isTaken = taken.has(id);
+      // A capped position (2 QBs already) or a TAKEN player can't be added.
+      const canAdd = open && !capped && !isTaken;
       const addLabel = capped ? `${p.position} FULL` : 'ADD';
+      // TAKEN toggle: mark/unmark drafted-by-others; the fit engine re-optimizes.
+      const takenBtn =
+        `<button type="button" class="cand-taken${isTaken ? ' cand-taken--on' : ''}" ` +
+          `data-act="taken" data-gsis="${esc(id)}" aria-pressed="${isTaken ? 'true' : 'false'}" ` +
+          `title="Mark drafted by another manager">${isTaken ? 'TAKEN' : 'TAKE'}</button>`;
       return (
-        `<div class="cand" data-gsis="${esc(id)}">` +
+        `<div class="cand${isTaken ? ' cand--taken' : ''}" data-gsis="${esc(id)}">` +
           `<span class="cd-name">${esc(p.name)}${trendTxt}</span>` +
           `<span class="cd-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span>${sosTxt}</span>` +
           `<span class="cd-pts">${fix1(adjById.get(id))}</span>` +
+          takenBtn +
           `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}"${canAdd ? '' : ' disabled'}>${esc(addLabel)}</button>` +
         '</div>'
       );
@@ -465,9 +555,12 @@ export default async function mountTeam(el) {
     const box = el.querySelector('#t-reco');
     // Target = the user-selected empty slot, else the engine's neediest open
     // slot (the SAME resolution recommend() applies — panel label never lies).
+    // The engine sees the AVAILABLE pool: projections minus drafted-by-others.
+    // Marking a player TAKEN re-optimizes the recommendations immediately.
+    const pool = availablePool();
     const target = (selectedSlot && !roster.slots[selectedSlot])
       ? selectedSlot
-      : neediestOpenSlot(roster, players, weeklyById, mode);
+      : neediestOpenSlot(roster, pool, weeklyById, mode);
     if (!target) {
       box.innerHTML =
         '<div class="reco-head"><span class="reco-slot">FIT ENGINE</span> <span class="est">ESTIMATE</span></div>' +
@@ -480,8 +573,8 @@ export default async function mountTeam(el) {
     // active mode so the ranking is never ambiguous.
     const ai = aiOn && aiInsights !== null;
     const recos = ai
-      ? recommendV2(roster, players, weeklyById, mode, target, aiInsights, { sort: recoSort })
-      : recommend(roster, players, weeklyById, mode, target, { sort: recoSort });
+      ? recommendV2(roster, pool, weeklyById, mode, target, aiInsights, { sort: recoSort })
+      : recommend(roster, pool, weeklyById, mode, target, { sort: recoSort });
     const sortLabel = recoSort === 'available' ? 'BEST AVAIL' : 'BEST FIT';
     const head =
       '<div class="reco-head">' +
@@ -616,6 +709,28 @@ export default async function mountTeam(el) {
       roster.slots[t.dataset.slot] = null;
       saveRoster(roster);
       paintAll();
+      return;
+    }
+
+    if (act === 'taken') {
+      // Draft board: mark/unmark a player drafted by another manager. The fit
+      // engine re-optimizes from the remaining pool immediately (paintReco).
+      const id = String(t.dataset.gsis);
+      if (taken.has(id)) taken.delete(id);
+      else taken.add(id);
+      saveTaken(taken);
+      paintCands();
+      paintReco();
+      paintSummary();
+      return;
+    }
+
+    if (act === 'taken-filter') {
+      // Toggle the finder view between greying taken players and hiding them.
+      hideTaken = !hideTaken;
+      t.textContent = hideTaken ? 'SHOW TAKEN' : 'HIDE TAKEN';
+      t.setAttribute('aria-pressed', hideTaken ? 'true' : 'false');
+      paintCands();
       return;
     }
 
