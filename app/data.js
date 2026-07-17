@@ -34,6 +34,9 @@ const PATHS = Object.freeze({
   aiInsights: '/data/ai_insights.json',
   playerHistory: '/data/player_history.json',
   teamStrength: '/data/team_strength.json',
+  marketPrices: '/data/market_prices.json',
+  playoffOdds: '/data/playoff_odds.json',
+  modelTuning: '/data/model_tuning.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -85,6 +88,13 @@ export const getAiInsights = (opts) => loadJson(PATHS.aiInsights, opts);
 // SoS adornments simply don't render — the views never blank.
 export const getPlayerHistory = (opts) => loadJson(PATHS.playerHistory, opts);
 export const getTeamStrength = (opts) => loadJson(PATHS.teamStrength, opts);
+// REL5: market prices (DISPLAY ONLY — never a model input), simulated playoff
+// odds, and the model-tuning record (adopted params + backtest history) for
+// the MODEL tab. Same 404-graceful promise-cache pattern: absent on an older
+// deploy -> the surfaces that read them simply don't render.
+export const getMarketPrices = (opts) => loadJson(PATHS.marketPrices, opts);
+export const getPlayoffOdds = (opts) => loadJson(PATHS.playoffOdds, opts);
+export const getModelTuning = (opts) => loadJson(PATHS.modelTuning, opts);
 
 /**
  * Load every contract at once. Uses allSettled so one bad feed does not blank

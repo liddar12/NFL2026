@@ -64,6 +64,12 @@ OL_POSITIONS = frozenset(["C", "G", "OG", "T", "OT", "OL"])
 
 # Documented composite blend (see module docstring). Must sum to 1.0.
 BLEND = {"avg_weight_lb": 0.4, "avg_experience_yrs": 0.4, "continuity": 0.2}
+# When combine bench-press reps are available (nflverse aggregates on the
+# runner), strength joins the blend — the composite's original design.
+BLEND_BENCH = {"avg_weight_lb": 0.3, "avg_experience_yrs": 0.3,
+               "continuity": 0.2, "avg_bench_press": 0.2}
+AGGREGATES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "data", "nflverse_aggregates.json")
 
 # A lineman with >= 2 seasons of experience counts toward roster continuity.
 CONTINUITY_EXP_YEARS = 2
@@ -225,16 +231,39 @@ def _zscores(values_by_team):
     return {ab: (v - mean) / sd for ab, v in values_by_team.items()}
 
 
-def compute_composites(teams):
+def compute_composites(teams, blend=BLEND):
     """Attach the documented z-score blend to every team (mean 0 by construction)."""
     z_by_metric = {
         metric: _zscores({ab: teams[ab][metric] for ab in teams})
-        for metric in BLEND
+        for metric in blend
     }
     for ab in teams:
         teams[ab]["composite"] = round(
-            sum(w * z_by_metric[metric][ab] for metric, w in BLEND.items()), 4
+            sum(w * z_by_metric[metric][ab] for metric, w in blend.items()), 4
         )
+
+
+def apply_bench_press(teams):
+    """Fold combine bench-press reps (data/nflverse_aggregates.json) into the
+    metrics. Returns the blend to use: BLEND_BENCH when >= 30 teams carry a real
+    bench average (a team with no tested linemen gets the league mean, z 0 —
+    neutral, documented), else the unchanged 3-term BLEND (aggregate absent ->
+    byte-identical composite path)."""
+    try:
+        with open(AGGREGATES_PATH, encoding="utf-8") as fh:
+            agg = json.load(fh).get("combine_oline") or {}
+    except (OSError, ValueError):
+        return BLEND
+    benches = {ab: v.get("avg_bench_press") for ab, v in agg.items()
+               if isinstance(v.get("avg_bench_press"), (int, float))}
+    if len(benches) < 30:
+        return BLEND
+    league_mean = sum(benches.values()) / len(benches)
+    for ab, m in teams.items():
+        b = benches.get(ab)
+        m["avg_bench_press"] = round(b if b is not None else league_mean, 2)
+        m["bench_n"] = int((agg.get(ab) or {}).get("n_tested") or 0)
+    return BLEND_BENCH
 
 
 def main():
@@ -267,7 +296,10 @@ def main():
         source = "espn_roster only (nflverse snap counts unreachable; continuity = share of linemen with >= 2 yrs experience)"
         print(f"nflverse snap counts unavailable, ESPN-only continuity: {exc}")
 
-    compute_composites(teams)
+    blend = apply_bench_press(teams)
+    if blend is BLEND_BENCH:
+        source += " + nflverse_combine_bench"
+    compute_composites(teams, blend)
 
     # rounding pass for a stable, readable diff
     for m in teams.values():

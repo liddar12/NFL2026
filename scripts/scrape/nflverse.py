@@ -217,3 +217,42 @@ def fetch_snap_counts_release(season, min_rows=500):
     few weeks of a season is thousands of rows; under `min_rows` is a partial pull."""
     url = f"{_RELEASE_BASE}/snap_counts/snap_counts_{int(season)}.csv"
     return fetch_release_csv(url, f"snap_counts_release_{season}", min_rows=min_rows)
+
+
+def fetch_combine_release(min_rows=2000):
+    """NFL combine results (all draft classes) from the release CSV. Carries
+    bench_press reps per athlete — the strength input the O-line composite was
+    designed around. Under `min_rows` (decades of data) is a partial pull."""
+    url = f"{_RELEASE_BASE}/combine/combine.csv"
+    return fetch_release_csv(url, "combine_release", min_rows=min_rows)
+
+
+def iter_pbp_release(season):
+    """STREAM play-by-play rows for a season (play_by_play_{season}.csv.gz).
+
+    Yields dict rows without ever holding the full file (a season is ~50k plays
+    and the CSV decompresses large). LOUD on transport/non-200 like every other
+    release fetcher; callers aggregate on the fly."""
+    import csv
+    import gzip
+    import io
+
+    requests = _require_requests()
+    url = f"{_RELEASE_BASE}/pbp/play_by_play_{int(season)}.csv.gz"
+    try:
+        resp = requests.get(url, timeout=_HTTP_TIMEOUT * 6, stream=True)
+    except Exception as exc:
+        raise FeedError(f"nflverse pbp GET {url} failed in transport: {exc}") from exc
+    if resp.status_code != 200:
+        raise FeedError(
+            f"nflverse pbp GET {url} returned HTTP {resp.status_code}. Refusing to "
+            f"treat a non-200 as empty data (the silent-404 lesson)."
+        )
+    resp.raw.decode_content = True
+    text = io.TextIOWrapper(gzip.GzipFile(fileobj=resp.raw), encoding="utf-8", newline="")
+    n = 0
+    for row in csv.DictReader(text):
+        n += 1
+        yield row
+    if n < 30000:
+        raise FeedError(f"nflverse pbp {season}: only {n} plays streamed — partial season.")

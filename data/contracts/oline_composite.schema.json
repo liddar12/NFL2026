@@ -5,10 +5,23 @@
   "description": "Produced by scripts/build_oline.py from the keyless ESPN roster endpoint, optionally refined with nflverse 2025 OL snap shares (source says which). Composite = z-score blend 0.4*weight + 0.4*experience + 0.2*continuity, mean 0 across the league. CONTEXT for the registered weight-0 ol_composite_vs_dl signal: params.applied is false and weight is 0.0 until the walk-forward optimizer says otherwise; game probabilities are unchanged by this file.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["season", "updated_utc", "source", "teams", "params", "estimate"],
+  "required": [
+    "season",
+    "updated_utc",
+    "source",
+    "teams",
+    "params",
+    "estimate"
+  ],
   "properties": {
-    "season": { "type": "integer", "minimum": 2026, "maximum": 2026 },
-    "updated_utc": { "type": "string" },
+    "season": {
+      "type": "integer",
+      "minimum": 2026,
+      "maximum": 2026
+    },
+    "updated_utc": {
+      "type": "string"
+    },
     "source": {
       "type": "string",
       "description": "Honest provenance: 'espn_roster + nflverse_snap_counts_2025' when continuity uses real snap shares, or an 'espn_roster only ...' string naming the experience proxy."
@@ -35,9 +48,21 @@
             "minimum": 5,
             "maximum": 30
           },
-          "avg_weight_lb": { "type": "number", "minimum": 250, "maximum": 380 },
-          "avg_age": { "type": "number", "minimum": 20, "maximum": 40 },
-          "avg_experience_yrs": { "type": "number", "minimum": 0, "maximum": 15 },
+          "avg_weight_lb": {
+            "type": "number",
+            "minimum": 250,
+            "maximum": 380
+          },
+          "avg_age": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 40
+          },
+          "avg_experience_yrs": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 15
+          },
           "continuity": {
             "type": "number",
             "description": "Share in [0,1]: returning-OL 2025 snap share when refined, else share of linemen with >= 2 seasons.",
@@ -49,6 +74,17 @@
             "description": "Z-score blend, league mean 0; positive = better than average line.",
             "minimum": -5,
             "maximum": 5
+          },
+          "avg_bench_press": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Avg combine bench-press reps of rostered OL (nflverse aggregate; null when the aggregate is absent or the team had no tested linemen)."
+          },
+          "bench_n": {
+            "type": "integer",
+            "description": "Linemen with a combine bench row (join quality)."
           }
         }
       }
@@ -56,13 +92,33 @@
     "params": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["applied", "weight", "feeds"],
+      "required": [
+        "applied",
+        "weight",
+        "feeds"
+      ],
       "properties": {
-        "applied": { "type": "boolean", "enum": [false] },
-        "weight": { "type": "number", "minimum": 0, "maximum": 0 },
-        "feeds": { "type": "string" }
+        "applied": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0
+        },
+        "feeds": {
+          "type": "string"
+        }
       }
     },
-    "estimate": { "type": "boolean", "enum": [true] }
+    "estimate": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    }
   }
 }

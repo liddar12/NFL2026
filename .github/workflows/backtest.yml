@@ -1,0 +1,66 @@
+# Weekly walk-forward backtest: the learning loop's slow heartbeat.
+#
+# Re-runs the full 45-trial parameter grid against ALL resolved real seasons
+# (2021-2025 finals + any resolved 2026 locks the season has produced) and
+# adopts only through the NEVER-REGRESS gate — most weeks this is a no-op that
+# archives its trials into data/model_tuning.json history. CRON THROTTLING
+# WARNING applies (see daily.yml): weekly cadence is best-effort, which is fine
+# for a job whose output changes slowly.
+name: weekly-backtest
+
+on:
+  schedule:
+    - cron: "0 7 * * 2"   # Tuesdays 07:00 UTC (after Monday night resolves)
+  workflow_dispatch: {}
+
+concurrency:
+  group: data-pipeline    # never race the daily/gameday commits
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pipeline dependencies
+        run: pip install --upgrade requests
+
+      # Resolve any locks first so the backtest sees the freshest graded record.
+      - name: Resolve locks against FINAL scores
+        run: python -m scripts.resolve_locks
+
+      - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
+        run: python -m scripts.backtest
+
+      - name: Validate data contracts
+        run: python scripts/validate_data.py
+
+      - name: Commit tuning record
+        run: |
+          git config user.name  "nfl2026-bot"
+          git config user.email "bot@j5lagenticstrategy.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No tuning changes to commit."
+            exit 0
+          fi
+          git commit -m "data: weekly backtest refit [skip ci]"
+          for i in 1 2 3 4 5; do
+            git pull --ff-only origin main && git push origin HEAD:main && exit 0
+            echo "push race, retrying ($i)..."
+            sleep 5
+          done
+          echo "::error::could not push backtest data after retries"
+          exit 1

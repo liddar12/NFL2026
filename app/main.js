@@ -31,12 +31,26 @@ async function mountTeam(el) {
   return mod.default(el);
 }
 
+/** Lazy MODEL mount (transparency dashboard) — same pattern as the team view. */
+async function mountModel(el) {
+  let mod;
+  try {
+    mod = await import('./views/model.js');
+  } catch (err) {
+    console.warn('[nfl2026] model view failed to load:', err);
+    el.innerHTML = '<div class="state">Model view unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
 // hash -> { mount, tab }. '#/' is the default/fallback (slate).
 const ROUTES = {
   '#/': { mount: mountSlate, tab: 'slate' },
   '#/players': { mount: mountPlayers, tab: 'players' },
   '#/parlays': { mount: mountParlays, tab: 'parlays' },
   '#/team': { mount: mountTeam, tab: 'team' },
+  '#/model': { mount: mountModel, tab: 'model' },
 };
 
 // Monotonic navigation token: guards against out-of-order async paints when the
