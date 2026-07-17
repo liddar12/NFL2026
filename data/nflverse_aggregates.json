@@ -1,0 +1,193 @@
+{
+  "updated_utc": "2026-07-17T19:56:41Z",
+  "season": 2025,
+  "source": "nflverse release CSVs (roster_2025, combine, pbp_2025)",
+  "estimate": true,
+  "combine_join_rate": 0.26,
+  "combine_oline": {
+    "ARI": {
+      "avg_bench_press": 27.5,
+      "n_tested": 4,
+      "n_linemen": 18
+    },
+    "ATL": {
+      "avg_bench_press": 27.0,
+      "n_tested": 5,
+      "n_linemen": 20
+    },
+    "BAL": {
+      "avg_bench_press": 23.0,
+      "n_tested": 3,
+      "n_linemen": 13
+    },
+    "BUF": {
+      "avg_bench_press": 27.0,
+      "n_tested": 2,
+      "n_linemen": 15
+    },
+    "CAR": {
+      "avg_bench_press": 23.5,
+      "n_tested": 6,
+      "n_linemen": 18
+    },
+    "CHI": {
+      "avg_bench_press": 29.25,
+      "n_tested": 4,
+      "n_linemen": 15
+    },
+    "CIN": {
+      "avg_bench_press": 20.25,
+      "n_tested": 4,
+      "n_linemen": 16
+    },
+    "CLE": {
+      "avg_bench_press": 26.38,
+      "n_tested": 8,
+      "n_linemen": 25
+    },
+    "DAL": {
+      "avg_bench_press": 25.75,
+      "n_tested": 4,
+      "n_linemen": 16
+    },
+    "DEN": {
+      "avg_bench_press": 22.33,
+      "n_tested": 6,
+      "n_linemen": 16
+    },
+    "DET": {
+      "avg_bench_press": 28.29,
+      "n_tested": 7,
+      "n_linemen": 21
+    },
+    "GB": {
+      "avg_bench_press": 24.25,
+      "n_tested": 4,
+      "n_linemen": 17
+    },
+    "HOU": {
+      "avg_bench_press": 21.0,
+      "n_tested": 1,
+      "n_linemen": 13
+    },
+    "IND": {
+      "avg_bench_press": 28.5,
+      "n_tested": 6,
+      "n_linemen": 19
+    },
+    "JAX": {
+      "avg_bench_press": 25.0,
+      "n_tested": 7,
+      "n_linemen": 16
+    },
+    "KC": {
+      "avg_bench_press": 26.67,
+      "n_tested": 3,
+      "n_linemen": 15
+    },
+    "LAC": {
+      "avg_bench_press": 26.5,
+      "n_tested": 8,
+      "n_linemen": 19
+    },
+    "LAR": {
+      "avg_bench_press": 22.5,
+      "n_tested": 4,
+      "n_linemen": 17
+    },
+    "LV": {
+      "avg_bench_press": 24.5,
+      "n_tested": 4,
+      "n_linemen": 19
+    },
+    "MIA": {
+      "avg_bench_press": 26.0,
+      "n_tested": 9,
+      "n_linemen": 24
+    },
+    "MIN": {
+      "avg_bench_press": 24.0,
+      "n_tested": 4,
+      "n_linemen": 18
+    },
+    "NE": {
+      "avg_bench_press": 26.2,
+      "n_tested": 5,
+      "n_linemen": 19
+    },
+    "NO": {
+      "avg_bench_press": 27.5,
+      "n_tested": 6,
+      "n_linemen": 20
+    },
+    "NYG": {
+      "avg_bench_press": 25.25,
+      "n_tested": 4,
+      "n_linemen": 15
+    },
+    "NYJ": {
+      "avg_bench_press": 29.5,
+      "n_tested": 4,
+      "n_linemen": 15
+    },
+    "PHI": {
+      "avg_bench_press": 28.0,
+      "n_tested": 1,
+      "n_linemen": 17
+    },
+    "PIT": {
+      "avg_bench_press": 23.0,
+      "n_tested": 3,
+      "n_linemen": 17
+    },
+    "SEA": {
+      "avg_bench_press": 24.0,
+      "n_tested": 1,
+      "n_linemen": 15
+    },
+    "SF": {
+      "avg_bench_press": 23.57,
+      "n_tested": 7,
+      "n_linemen": 15
+    },
+    "TB": {
+      "avg_bench_press": 24.25,
+      "n_tested": 4,
+      "n_linemen": 14
+    },
+    "TEN": {
+      "avg_bench_press": 27.67,
+      "n_tested": 3,
+      "n_linemen": 17
+    },
+    "WAS": {
+      "avg_bench_press": 24.5,
+      "n_tested": 2,
+      "n_linemen": 16
+    }
+  },
+  "score_state_rush": {
+    "leading_by_7plus": {
+      "rush_share": 0.5253,
+      "n_plays": 6728
+    },
+    "within_7": {
+      "rush_share": 0.4401,
+      "n_plays": 17442
+    },
+    "trailing_by_7plus": {
+      "rush_share": 0.3521,
+      "n_plays": 10458
+    },
+    "q4_trailing_14plus": {
+      "pass_share": 0.7471,
+      "n_plays": 1953
+    }
+  },
+  "notes": [
+    "combine_oline: avg combine bench-press reps of CURRENT rostered OL (join by normalized name + OL position; n_tested/n_linemen is the per-team join quality \u2014 thin joins are visible, never hidden).",
+    "score_state_rush: situational rush share AT THE SNAP from play-by-play \u2014 the causal follow-up to game_script.json's full-game splits (which conflate winning-by-running with kneel-downs).",
+    "Depth-chart continuity deferred to a later release (documented).",
+    "Weight-0: context only \u2014 no game probability reads this file."
+  ]
+}
