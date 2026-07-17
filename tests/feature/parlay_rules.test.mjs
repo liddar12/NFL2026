@@ -59,6 +59,31 @@ test(">= 3 parlays scope='week'", () => {
   assert.ok(weekParlays.length >= 3, `expected >=3 week parlays, got ${weekParlays.length}`);
 });
 
+// REL3 — the 2..7-leg selector needs week parlays bucketed by leg count.
+test("week parlays cover leg counts 2..7 (the leg-count selector buckets)", () => {
+  const counts = new Set(
+    parlays.filter((p) => p.scope === "week").map((p) => p.legs.length),
+  );
+  // A full 16-game slate supports every bucket; assert each is present.
+  for (const k of [2, 3, 4, 5, 6, 7]) {
+    assert.ok(counts.has(k), `expected at least one ${k}-leg week parlay`);
+  }
+});
+
+test("each week parlay's legs are from DISTINCT games (unique selections)", () => {
+  for (const p of parlays.filter((x) => x.scope === "week")) {
+    const sels = p.legs.map((l) => l.selection);
+    assert.equal(new Set(sels).size, sels.length,
+      `week parlay ${p.parlay_id} repeats a selection (should combine distinct games)`);
+  }
+});
+
+test("same-game parlays never exceed 3 legs (single game fields ~3 markets)", () => {
+  for (const p of parlays.filter((x) => x.scope === "game")) {
+    assert.ok(p.legs.length <= 3, `game parlay ${p.parlay_id} has ${p.legs.length} legs`);
+  }
+});
+
 test("same-game multi-leg parlays carry a non-empty correlation_note", () => {
   const sameGameMultiLeg = parlays.filter(
     (p) => p.scope === "game" && p.legs.length > 1,

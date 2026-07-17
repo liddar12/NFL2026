@@ -1235,3 +1235,141 @@ button { font: inherit; color: inherit; }
   border-radius: 999px;
   padding: 3px 9px;
 }
+
+/* ==========================================================================
+   REL3 — glossary/legend, draft-board (TAKEN), enriched roster slot, parlay
+   leg selector, and the iPad 13" responsive multi-column layout.
+   All text uses AA-audited tokens on surface/surface-2 (contrast_aa.test.mjs).
+   ========================================================================== */
+
+/* ---- legend / glossary (team = <details>, parlays = inline row) ---- */
+.legend {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.legend > summary {
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+}
+.legend-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.legend-item { line-height: 1.5; }
+.legend-item b { color: var(--ink); font-weight: 800; }
+.legend:not(.legend--team) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+
+/* ---- enriched roster slot: main line + meta (trend / SoS / bye) ---- */
+.slot-player { flex-direction: column; align-items: stretch; gap: 3px; }
+.sp-main { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.sp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.sp-trend { font-weight: 800; }
+.sp-sos { color: var(--brand-txt); }
+.sp-bye { color: var(--muted); }
+
+/* ---- draft board: TAKE / TAKEN toggle + greyed taken candidate ---- */
+.cand-taken {
+  flex: none;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.cand-taken--on { color: var(--accent-txt); border-color: var(--accent-txt); }
+.cand--taken { opacity: 0.5; }
+.cand--taken .cd-name { text-decoration: line-through; }
+.taken-toggle { margin-left: auto; }
+
+/* ---- parlay leg-count selector ---- */
+.legseg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.leg-chip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.leg-chip[aria-pressed="true"], .leg-chip--active {
+  color: var(--ink);
+  border-color: var(--brand);
+  background: var(--elev);
+}
+
+/* ---- team builder two-column scaffold (single column on phones) ---- */
+.team-grid { display: flex; flex-direction: column; gap: 12px; }
+.team-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* ==========================================================================
+   iPad 13" and wider — progressive enhancement, phones untouched below 820px.
+   Content is centered and capped; the team builder and card lists use columns
+   so there is far less vertical scrolling on a big screen.
+   ========================================================================== */
+@media (min-width: 820px) {
+  /* Center + cap the content column on tablet/desktop. */
+  .view > * { width: 100%; max-width: 1180px; margin-inline: auto; }
+
+  /* Player / parlay lists become a responsive card grid (auto-fill columns). */
+  .card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+
+  /* Team builder: build column (roster + finder) beside the reco + summary. */
+  .team-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  /* Roster becomes a 2-up slot grid so all 13 slots fit with less scrolling. */
+  .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* The reco + summary column stays visible while you scroll the finder. */
+  .team-col--side { position: sticky; top: 8px; }
+}
+
+@media (min-width: 1200px) {
+  .view > * { max-width: 1320px; }
+  /* Three-up player/parlay grid on a full 13" landscape canvas. */
+  .card-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  /* Roster can go 3-up when there is room. */
+  .roster { grid-template-columns: 1fr 1fr 1fr; }
+}

@@ -197,3 +197,27 @@ new weight for unproven signals. SoS reuses measured Elo so it can never disagre
 Also fixed a latent red on main: tests/feature/real_data.test.mjs now routes the gameday cron's
 archived game_predictions.<ts>.json snapshots out of the lock-honesty scan (same two-family split as
 the Rel1 validator fix; the archive is a dict, not a lock array).
+
+## 2026-07-17 — REL3: enriched roster line, draft board, glossary, iPad layout, 2-7 leg parlays
+**Decision:** Third feature release from prod review. (1) ROSTER LINE ENRICHMENT: an added
+player's slot now shows the same context as the finder — trend arrow, strength-of-schedule, and
+bye week — on a `.sp-meta` line, not just the current-week points. (2) GLOSSARY: a `<details>`
+legend on the TEAM tab (and an inline one on PARLAYS) defines PROJ / TREND / SoS / BYE / AI+ / TAKEN
+and states what the sort arrows mean (▼ descending high→low, ▲ ascending low→high). (3) DRAFT BOARD:
+a per-player TAKE/TAKEN toggle (persisted localStorage nfl2026.taken.v1) marks players drafted by
+other managers; the fit engine reads an availablePool() = projections minus taken, so recommendations
+re-optimize instantly from the remaining players. A HIDE/SHOW TAKEN finder control switches between
+greying taken players and removing them. (4) iPad 13" RESPONSIVE: a >=820px breakpoint (progressive
+enhancement — phones untouched) centers + caps the content, turns the team builder into a two-column
+grid (build column beside a sticky reco+summary), lays the roster out 2-up (3-up >=1200px), and turns
+the players/parlays lists into an auto-fill card grid — far less vertical scrolling on a big screen.
+(5) PARLAY LEG SELECTOR: parlay_builder gains build_week_parlays_multi — cross-game week parlays
+bucketed by leg count 2..7 (a few per count, ranked most-likely-to-hit; distinct games per parlay),
+and the PARLAYS view gains a 2..7-leg selector built from the counts present in the active scope.
+Same-game parlays stay <=3 legs (one game fields ~3 markets); the >=3/game and >=3/week invariants
+hold (the 2-leg week bucket covers the week floor, with a fallback to the old builder on tiny slates).
+**Rationale:** Direct prod-review feedback. Draft support makes the fit engine usable in a live draft
+(its headline purpose); the enriched line + glossary close the "what does this mean / where's the
+context" gap; the iPad layout matches how it will actually be used on a 13" screen; the leg selector
+turns the parlay engine into the 2-7 leg tool requested. No new unproven weight enters the model.
+**Status:** adopted. Gate at 109 unit + 33 e2e (web + standalone PWA), validate + smoke green.

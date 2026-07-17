@@ -46,6 +46,7 @@ out of thin air; a positive edge requires a real, beatable line.
 Deterministic, stdlib only, reads fixtures.
 """
 
+import itertools
 import math
 
 # Standard two-way sportsbook hold applied to derive a placeholder implied probability
@@ -392,12 +393,65 @@ def build_week_parlays(game_preds, markets_by_game=None, max_parlays=6):
     return parlays
 
 
+# Week ("cross-game") parlays are offered at these leg counts, a few per count, so
+# the UI can present a 2..7-leg selector. Same-game parlays stay 2-leg (a single
+# game only fields ~3 correlated markets); reaching 4..7 legs REQUIRES combining
+# one leg from that many DIFFERENT games — which is exactly what these buckets do.
+WEEK_LEG_COUNTS = (2, 3, 4, 5, 6, 7)
+WEEK_PER_COUNT = 3
+
+
+def build_week_parlays_multi(game_preds, markets_by_game=None,
+                             leg_counts=WEEK_LEG_COUNTS, per_count=WEEK_PER_COUNT):
+    """Cross-game week parlays bucketed by LEG COUNT (2..7), a few per count.
+
+    For each k in `leg_counts`, build up to `per_count` distinct k-leg parlays, each
+    combining the favorite-moneyline leg from k DIFFERENT games (independent, rho=0).
+    Games are ranked by model win probability (strongest favorites first); the
+    candidate pool for each k is the top (k + per_count - 1) games so a few distinct
+    combinations exist. Parlays are ranked by combined model probability desc (the
+    most-likely-to-hit build first). Deterministic. A slate with fewer than k games
+    simply yields no k-leg parlays (the client hides that leg count).
+    """
+    markets_by_game = markets_by_game or {}
+    game_legs = []
+    for gp in game_preds:
+        gid = gp.get("game_id", "GAME")
+        legs = derive_candidate_legs(gp, market=markets_by_game.get(gid))
+        fav = legs[0]  # favorite moneyline by construction
+        game_legs.append((str(gid), fav, float(fav["model_prob"])))
+    # Rank games by favorite model prob desc; deterministic tie-break on game_id.
+    game_legs.sort(key=lambda t: (-t[2], t[0]))
+
+    out = []
+    n = len(game_legs)
+    for k in leg_counts:
+        if n < k:
+            continue  # not enough distinct games for a k-leg cross-game parlay
+        pool = game_legs[: min(n, k + per_count - 1)]
+        scored = []
+        for combo in itertools.combinations(range(len(pool)), k):
+            legs = [pool[i][1] for i in combo]
+            model_p, implied_p = _combined_probs(legs, correlated=False)
+            ev = (model_p / implied_p - 1.0) if implied_p > 0 else -1.0
+            # Rank most-likely-to-hit first; EV + combo index are stable tie-breaks.
+            scored.append((-model_p, -ev, combo, legs))
+        scored.sort(key=lambda t: (t[0], t[1], t[2]))
+        for rank, (_, _, _combo, legs) in enumerate(scored[:per_count]):
+            out.append(_make_parlay("week-%dleg-%d" % (k, rank + 1), "week", legs))
+    return out
+
+
 def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
     """Build the full parlay list for a slate: >=3 per game AND >=3 for the week.
 
     game_preds      : list of records from game_model.predict_game.
     markets_by_game : optional {game_id: market dict} of real lines.
     props_by_game   : optional {game_id: [prop leg dicts]} of real prop candidates.
+
+    Week parlays are bucketed by leg count (2..7) via build_week_parlays_multi so the
+    UI can offer a leg-count selector. If a (tiny) slate cannot yield >=3 week parlays
+    that way, fall back to the 2-leg week builder so the >=3/week invariant still holds.
 
     Returns a flat list of schema-valid parlays. Deterministic.
     """
@@ -412,7 +466,10 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
             market=markets_by_game.get(gid),
             props=props_by_game.get(gid),
         ))
-    parlays.extend(build_week_parlays(game_preds, markets_by_game=markets_by_game))
+    week = build_week_parlays_multi(game_preds, markets_by_game=markets_by_game)
+    if sum(1 for p in week if p.get("scope") == "week") < 3:
+        week = build_week_parlays(game_preds, markets_by_game=markets_by_game)
+    parlays.extend(week)
     return parlays
 
 
