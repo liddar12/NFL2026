@@ -1043,3 +1043,195 @@ button { font: inherit; color: inherit; }
   border-radius: 999px;
   padding: 3px 9px;
 }
+
+/* ==========================================================================
+   REL2 — trend chips, strength-of-schedule, AI delta, finder/reco controls,
+   named bye chips. All text colors use AA-audited -txt / muted / ink tokens on
+   surface / surface-2 (proven by tests/feature/contrast_aa.test.mjs); the SoS
+   meter + arrow glyphs are graphics, never the sole carrier of meaning.
+   ========================================================================== */
+
+/* ---- player-card adornment row (trend + SoS) ---- */
+.p-adorn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.p-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.p-trend--up .pt-glyph, .cd-trend--up { color: var(--pos-txt); }
+.p-trend--down .pt-glyph, .cd-trend--down { color: var(--accent-txt); }
+.p-trend--up .pt-txt { color: var(--pos-txt); }
+.p-trend--down .pt-txt { color: var(--accent-txt); }
+.p-trend--flat .pt-glyph, .p-trend--flat .pt-txt { color: var(--muted); }
+.pt-glyph { font-size: 10px; }
+/* measured-provenance chip ("5-YR") — brand-txt, mirrors .prov-ai geometry */
+.prov-src {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+/* strength-of-schedule pill: SOS label + 1.0-5.0 number + 5-seg meter */
+.p-sos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.sos-num { color: var(--ink); font-variant-numeric: tabular-nums; }
+.sos-meter { display: inline-flex; gap: 2px; align-items: center; }
+.sos-seg {
+  width: 6px; height: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.sos-seg--on { background: var(--brand); border-color: var(--brand); }
+
+/* AI-adjusted projection delta on the player card number */
+.p-aidelta {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.p-aidelta--up { color: var(--pos-txt); }
+.p-aidelta--down { color: var(--accent-txt); }
+
+/* ---- finder in-row trend/SoS + capped-position ADD ---- */
+.cd-trend { font-weight: 800; }
+.cd-sos { color: var(--brand-txt); font-weight: 700; }
+.cand-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- shared sort chips + finder control rows ---- */
+.finder-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.finder-posfilter, .finder-sortseg, .sortseg, .reco-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.sort-chip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sort-chip[aria-pressed="true"], .sort-chip--active {
+  color: var(--ink);
+  border-color: var(--brand);
+  background: var(--elev);
+}
+/* finder position chips reuse the audited .pf-chip look (players.js + team.js) */
+.pf-chip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.pf-chip[aria-pressed="true"], .pf-chip--active {
+  color: var(--ink);
+  border-color: var(--brand);
+  background: var(--elev);
+}
+
+/* ---- reco panel: explainer, sublabel, base->AI delta ---- */
+.reco-controls { margin-left: auto; }
+.reco-explain {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--brand);
+  padding-left: 8px;
+}
+.reco-sublabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+}
+.reco-delta {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+}
+.reco-delta--up { color: var(--pos-txt); }
+.reco-delta--down { color: var(--accent-txt); }
+
+/* ---- players AI+ explainer note ---- */
+.ai-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--brand);
+  padding-left: 8px;
+}
+
+/* ---- named bye chips (single-starter bye = info, >=2 = warn above) ---- */
+.ts-byes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ts-byes-lbl {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+}
+.bye-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+}

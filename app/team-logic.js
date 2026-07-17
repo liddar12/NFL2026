@@ -394,7 +394,7 @@ export function neediestOpenSlot(roster, pool, weeklyById, mode) {
  * players. Deterministic: score desc, then adjusted season points desc, then
  * gsis_id asc. Full roster with no slot given -> [].
  */
-export function recommend(roster, pool, weeklyById, mode, slot) {
+export function recommend(roster, pool, weeklyById, mode, slot, opts) {
   const players = Array.isArray(pool) ? pool : [];
   const slots = (roster && roster.slots) || {};
   const target = slot || neediestOpenSlot(roster, players, weeklyById, mode);
@@ -402,9 +402,15 @@ export function recommend(roster, pool, weeklyById, mode, slot) {
 
   const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
   const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
+  const sortMode = opts && opts.sort === 'available' ? 'available' : 'fit';
 
   const scored = players
-    .filter((p) => !rostered.has(String(p.gsis_id)) && slotEligible(p.position, target))
+    // Exclude rostered ids, slot-ineligible positions, AND positions already at
+    // their roster cap (POSITION_CAPS) — no 3rd QB / 2nd DEF / 2nd K is ever
+    // proposed for a bench slot.
+    .filter((p) => !rostered.has(String(p.gsis_id))
+      && slotEligible(p.position, target)
+      && !positionAtCap(p.position, slots, playersById))
     .map((p) => {
       const e = lookup(weeklyById, p.gsis_id);
       return {
@@ -414,12 +420,28 @@ export function recommend(roster, pool, weeklyById, mode, slot) {
       };
     });
 
-  scored.sort((a, b) =>
-    b.score - a.score
-    || b.adj - a.adj
-    || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
-
+  sortScored(scored, sortMode);
   return scored.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
+}
+
+/**
+ * Deterministic in-place sort of scored reco rows.
+ *   'fit'       (default) — fit score desc, then adjusted points, then id
+ *   'available' — raw adjusted points desc, then fit score, then id
+ * Both fully break ties on gsis_id so the order is reproducible byte-for-byte.
+ */
+function sortScored(scored, sortMode) {
+  if (sortMode === 'available') {
+    scored.sort((a, b) =>
+      b.adj - a.adj
+      || b.score - a.score
+      || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
+  } else {
+    scored.sort((a, b) =>
+      b.score - a.score
+      || b.adj - a.adj
+      || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -560,7 +582,7 @@ export function fitScoreV2(candidate, roster, ctx) {
  * fitScoreV2 with `insights`. The OFF path keeps using recommend() — this
  * function exists so the v1 ranking code stays byte-identical.
  */
-export function recommendV2(roster, pool, weeklyById, mode, slot, insights) {
+export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts) {
   const players = Array.isArray(pool) ? pool : [];
   const slots = (roster && roster.slots) || {};
   const target = slot || neediestOpenSlot(roster, players, weeklyById, mode);
@@ -568,22 +590,122 @@ export function recommendV2(roster, pool, weeklyById, mode, slot, insights) {
 
   const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
   const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
+  const sortMode = opts && opts.sort === 'available' ? 'available' : 'fit';
 
   const scored = players
-    .filter((p) => !rostered.has(String(p.gsis_id)) && slotEligible(p.position, target))
+    .filter((p) => !rostered.has(String(p.gsis_id))
+      && slotEligible(p.position, target)
+      && !positionAtCap(p.position, slots, playersById))
     .map((p) => {
       const e = lookup(weeklyById, p.gsis_id);
+      const ctx = { playersById, weeklyById, mode, slot: target };
+      // base = the v1 fit score (AI OFF); v2 adds the bounded AI terms. Carrying
+      // both lets the view show a visible base -> AI+ delta on every pick.
+      const base = fitScore(p, roster, ctx).score;
       return {
         player: p,
         adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode),
-        ...fitScoreV2(p, roster, { playersById, weeklyById, mode, slot: target, ai: true, insights }),
+        base,
+        ...fitScoreV2(p, roster, { ...ctx, ai: true, insights }),
       };
     });
 
-  scored.sort((a, b) =>
-    b.score - a.score
-    || b.adj - a.adj
-    || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
+  sortScored(scored, sortMode);
+  return scored.slice(0, 5).map(({ player, score, reasons, base }) => ({
+    player, score, reasons, base,
+  }));
+}
 
-  return scored.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
+/* --------------------------------------------------------------------------
+ * REL2 — roster position caps, reco sort, strength-of-schedule, trend labels
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Roster caps by position — a fantasy roster never needs a 3rd QB, a 2nd
+ * defense, or a 2nd kicker, so the fit engine stops recommending a position
+ * once its cap is reached (the "why does it keep pushing QBs?" fix). Positions
+ * NOT listed here are uncapped: RB/WR/TE are bounded by roster geometry (the
+ * FLEX + bench), not by a hard count. DEF/DST/K are listed and ready even
+ * though the projection model does not cover them yet (no slots, no fabricated
+ * numbers) — the cap holds the moment they are ever added to the pool.
+ */
+export const POSITION_CAPS = Object.freeze({ QB: 2, DEF: 1, DST: 1, K: 1 });
+
+/** Count rostered players by uppercased position. */
+export function rosteredCountByPos(slots, playersById) {
+  const counts = {};
+  Object.values(slots || {}).filter(Boolean).forEach((id) => {
+    const p = lookup(playersById, id);
+    if (!p) return;
+    const pos = String(p.position || '').toUpperCase();
+    counts[pos] = (counts[pos] || 0) + 1;
+  });
+  return counts;
+}
+
+/**
+ * Has `position` already reached its roster cap? Uncapped positions never do.
+ * Used to drop capped-position candidates from recommend()/recommendV2 so the
+ * engine never proposes an over-cap add (e.g. a 3rd QB for a bench slot).
+ */
+export function positionAtCap(position, slots, playersById) {
+  const pos = String(position || '').toUpperCase();
+  const cap = POSITION_CAPS[pos];
+  if (cap == null) return false;
+  return (rosteredCountByPos(slots, playersById)[pos] || 0) >= cap;
+}
+
+/**
+ * Per-player STRENGTH OF SCHEDULE on a 1.0 (easiest) .. 5.0 (hardest) scale,
+ * one decimal. `weeks` is a player_weekly entry ({weeks:[...]}) or a bare weeks
+ * array; `teamStrength` is data/team_strength.json ({ratings:{team:elo}, ...}).
+ *
+ * Difficulty = the mean Elo of the player's real (non-bye) opponents, mapped
+ * around the 1500 league mean at a transparent, fixed sensitivity: every
+ * SOS_ELO_PER_POINT Elo of average-opponent strength above/below 1500 moves the
+ * rating one full step, clamped to [1,5]. A fixed sensitivity (not a per-slate
+ * re-normalization) keeps a player's SoS stable as the pool filters. Returns
+ * null when weekly opponents or ratings are unavailable (caller shows nothing).
+ */
+export const SOS_ELO_PER_POINT = 25;
+
+export function strengthOfSchedule(weeks, teamStrength) {
+  const arr = weeksOf(weeks);
+  const ratings = teamStrength && teamStrength.ratings ? teamStrength.ratings : null;
+  if (!arr || !ratings) return null;
+  const opps = [];
+  arr.forEach((w) => {
+    if (!w || w.bye === true) return;
+    const key = String(w.opp == null ? '' : w.opp).toUpperCase();
+    const r = ratings[key] != null ? ratings[key] : ratings[w.opp];
+    if (Number.isFinite(Number(r))) opps.push(Number(r));
+  });
+  if (opps.length === 0) return null;
+  const meanOpp = opps.reduce((a, b) => a + b, 0) / opps.length;
+  const raw = 3.0 + (meanOpp - 1500) / SOS_ELO_PER_POINT;
+  return Math.round(Math.max(1, Math.min(5, raw)) * 10) / 10;
+}
+
+/**
+ * Normalize a trajectory insight (ai_insights trajectory_adj, or a
+ * player_history trajectory) into a display-ready trend:
+ *   { dir: 'up'|'down'|'flat', slope_pts_per_yr|null, seasons|null,
+ *     source: 'measured'|'ai_estimated' }
+ * `dir` comes from the signed adjustment when present (ai_insights carries
+ * `value`), else from the raw OLS slope (player_history carries
+ * `slope_pts_per_yr`). Missing/zero -> 'flat'. Never throws. Pure.
+ */
+export function trendLabel(traj) {
+  if (!traj || typeof traj !== 'object') return null;
+  const source = traj.source === 'measured' ? 'measured' : 'ai_estimated';
+  const slope = Number.isFinite(Number(traj.slope_pts_per_yr))
+    ? Number(traj.slope_pts_per_yr) : null;
+  const seasons = Number.isFinite(Number(traj.seasons_observed))
+    ? Number(traj.seasons_observed) : null;
+  // Direction: prefer the signed adjustment (value); fall back to raw slope.
+  let signal = null;
+  if (Number.isFinite(Number(traj.value))) signal = Number(traj.value);
+  else if (slope != null) signal = slope;
+  const dir = signal == null || signal === 0 ? 'flat' : (signal > 0 ? 'up' : 'down');
+  return { dir, slope_pts_per_yr: slope, seasons, source };
 }

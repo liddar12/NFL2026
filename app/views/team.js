@@ -38,9 +38,14 @@ import {
   neediestOpenSlot,
   recommend,
   recommendV2,
+  strengthOfSchedule,
+  trendLabel,
+  positionAtCap,
+  POSITION_CAPS,
 } from '../team-logic.js';
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
+  getPlayerHistory, getTeamStrength,
 } from '../data.js';
 import { TEAMS } from '../teams.js';
 
@@ -160,6 +165,48 @@ function renderAiSeg(on) {
   );
 }
 
+/* ---- REL2 control rows (finder + reco) ------------------------------------ */
+
+const FINDER_POS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
+const FINDER_SORTS = [
+  { key: 'pts', label: 'PTS' },
+  { key: 'trend', label: 'TREND' },
+  { key: 'bye', label: 'BYE' },
+];
+
+/** Finder position filter chips. */
+function finderPosRow(active) {
+  const chips = FINDER_POS.map((pos) => (
+    `<button type="button" class="pf-chip${pos === active ? ' pf-chip--active' : ''}" ` +
+      `data-fpos="${pos}" aria-pressed="${pos === active ? 'true' : 'false'}">${pos}</button>`
+  )).join('');
+  return `<div class="finder-posfilter" role="group" aria-label="Filter finder by position">${chips}</div>`;
+}
+
+/** Finder sort buttons (active one shows a ▼/▲ direction arrow). */
+function finderSortInner(activeKey, dir) {
+  return FINDER_SORTS.map((s) => {
+    const on = s.key === activeKey;
+    const arrow = on ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return (
+      `<button type="button" class="sort-chip${on ? ' sort-chip--active' : ''}" ` +
+        `data-fsort="${s.key}" aria-pressed="${on ? 'true' : 'false'}">${s.label}${arrow}</button>`
+    );
+  }).join('');
+}
+function finderSortRow(activeKey, dir) {
+  return `<div class="finder-sortseg" role="group" aria-label="Sort finder">${finderSortInner(activeKey, dir)}</div>`;
+}
+
+/** Reco sort control: Best AI Pick (fit) vs Best available (raw points). */
+function recoSortInner(activeKey) {
+  const opt = (key, label) => (
+    `<button type="button" class="sort-chip${key === activeKey ? ' sort-chip--active' : ''}" ` +
+      `data-rsort="${key}" aria-pressed="${key === activeKey ? 'true' : 'false'}">${label}</button>`
+  );
+  return opt('fit', 'BEST FIT') + opt('available', 'BEST AVAIL');
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountTeam(el) {
@@ -168,11 +215,13 @@ export default async function mountTeam(el) {
   // Projections + weekly are both REQUIRED here (the fit engine is weekly
   // math); game predictions only pick the "current week" chip and ai_insights
   // only powers the opt-in AI+ toggle — both are optional (missing = degrade).
-  const [projRes, weeklyRes, predsRes, aiRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, predsRes, aiRes, histRes, strRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getGamePredictions(),
     getAiInsights(),
+    getPlayerHistory(),
+    getTeamStrength(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Team builder unavailable — the projection feed did not load.');
@@ -218,6 +267,36 @@ export default async function mountTeam(el) {
     : null;
   let aiOn = aiInsights ? loadAiPref() : false; // persisted nfl2026.ai.v1, default off
 
+  // REL2 finder adornments: player_history (trend fallback) + team_strength (SoS).
+  const aiPlayersMap = aiInsights && aiInsights.players ? aiInsights.players : null;
+  const historyMap = (histRes.status === 'fulfilled' && histRes.value && histRes.value.players)
+    ? histRes.value.players : null;
+  const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings)
+    ? strRes.value : null;
+
+  /** trajectory_adj insight for an id (ai_insights first, else history). */
+  function trajFor(id) {
+    if (aiPlayersMap && aiPlayersMap[id] && aiPlayersMap[id].trajectory_adj) {
+      return aiPlayersMap[id].trajectory_adj;
+    }
+    if (historyMap && historyMap[id] && historyMap[id].trajectory) return historyMap[id].trajectory;
+    return null;
+  }
+  /** Signed trend magnitude for sorting (ai value, else slope, else 0). */
+  function trendVal(id) {
+    const t = trajFor(id);
+    if (!t) return 0;
+    if (Number.isFinite(Number(t.value))) return Number(t.value);
+    if (Number.isFinite(Number(t.slope_pts_per_yr))) return Number(t.slope_pts_per_yr);
+    return 0;
+  }
+
+  // Finder + reco control state (REL2).
+  let finderPos = 'ALL';      // ALL/QB/RB/WR/TE
+  let finderSort = 'pts';     // pts | trend | bye
+  let finderDir = 'desc';
+  let recoSort = 'fit';       // fit (Best AI Pick / Best fit) | available (Best available)
+
   // Per-mode derived maps, built once per mount (mode changes re-mount):
   //   adjById    id -> season points at the current scoring mode (EXACT)
   //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
@@ -254,6 +333,7 @@ export default async function mountTeam(el) {
     '<section class="finder" aria-label="Player finder">' +
       '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
         'placeholder="SEARCH NAME · TEAM · POS" aria-label="Search player pool">' +
+      `<div class="finder-controls">${finderPosRow(finderPos)}${finderSortRow(finderSort, finderDir)}</div>` +
       '<div id="t-cands"></div>' +
     '</section>' +
     '<section class="reco" id="t-reco" aria-label="Fit engine recommendations"></section>' +
@@ -306,15 +386,49 @@ export default async function mountTeam(el) {
     el.querySelector('#t-roster').innerHTML = rows.join('');
   }
 
+  /** Bye week for an id (from weekly data), or null. */
+  function byeOf(id) {
+    const e = weeklyById.get(id);
+    return e ? byeWeek(e) : null;
+  }
+
   function paintCands() {
     const box = el.querySelector('#t-cands');
     const q = query.trim().toLowerCase();
     const rostered = new Set(Object.values(roster.slots).filter(Boolean));
-    const hits = sortedPlayers.filter((p) => {
+    let hits = sortedPlayers.filter((p) => {
       if (rostered.has(String(p.gsis_id))) return false;
+      if (finderPos !== 'ALL' && String(p.position).toUpperCase() !== finderPos) return false;
       if (!q) return true;
       return `${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q);
     });
+
+    // Sort by the active finder key + direction. Default 'pts' matches the
+    // pre-sorted best-available order; 'trend' and 'bye' re-order in place.
+    // Every comparator fully breaks ties on gsis_id so paints are reproducible.
+    const dirMul = finderDir === 'asc' ? -1 : 1;
+    hits = hits.slice().sort((a, b) => {
+      const ida = String(a.gsis_id);
+      const idb = String(b.gsis_id);
+      let d;
+      if (finderSort === 'trend') {
+        d = trendVal(idb) - trendVal(ida);
+      } else if (finderSort === 'bye') {
+        // Sort by bye week number; players without a bye sink to the end.
+        const ba = byeOf(ida);
+        const bb = byeOf(idb);
+        const va = ba == null ? Infinity : ba;
+        const vb = bb == null ? Infinity : bb;
+        // 'desc' shows latest bye first; asc shows earliest. Infinity stays last
+        // on desc by special-casing so "no bye" never floats to the top.
+        d = (vb === va) ? 0 : (finderDir === 'asc' ? (va - vb) : (vb - va));
+        return (d) || (ida < idb ? -1 : 1); // dir already applied here
+      } else {
+        d = adjById.get(idb) - adjById.get(ida);
+      }
+      return (d * dirMul) || (ida < idb ? -1 : 1);
+    });
+
     if (hits.length === 0) {
       box.innerHTML = '<div class="state">No players match.</div>';
       return;
@@ -322,12 +436,22 @@ export default async function mountTeam(el) {
     const rows = hits.slice(0, FINDER_CAP).map((p) => {
       const id = String(p.gsis_id);
       const open = firstEligibleOpenSlot(p.position);
+      const capped = positionAtCap(p.position, roster.slots, playersById);
+      const tl = trendLabel(trajFor(id));
+      const trendTxt = tl && tl.dir !== 'flat'
+        ? ` <span class="cd-trend cd-trend--${tl.dir}">${tl.dir === 'up' ? '▲' : '▼'}</span>`
+        : '';
+      const sos = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
+      const sosTxt = sos != null ? ` <span class="cd-sos">SoS ${fix1(sos)}</span>` : '';
+      // A capped position (2 QBs already) can't be added — disable + say why.
+      const canAdd = open && !capped;
+      const addLabel = capped ? `${p.position} FULL` : 'ADD';
       return (
         `<div class="cand" data-gsis="${esc(id)}">` +
-          `<span class="cd-name">${esc(p.name)}</span>` +
-          `<span class="cd-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span></span>` +
+          `<span class="cd-name">${esc(p.name)}${trendTxt}</span>` +
+          `<span class="cd-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span>${sosTxt}</span>` +
           `<span class="cd-pts">${fix1(adjById.get(id))}</span>` +
-          `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}"${open ? '' : ' disabled'}>ADD</button>` +
+          `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}"${canAdd ? '' : ' disabled'}>${esc(addLabel)}</button>` +
         '</div>'
       );
     });
@@ -351,14 +475,27 @@ export default async function mountTeam(el) {
       return;
     }
     // AI+ ON re-ranks through fitScoreV2 (recommendV2); OFF is the untouched
-    // v1 path. The head names the active mode so the ranking is never ambiguous.
+    // v1 path. recoSort picks the ordering: 'fit' (Best fit — the full score) or
+    // 'available' (Best available — raw projected points). The head names the
+    // active mode so the ranking is never ambiguous.
     const ai = aiOn && aiInsights !== null;
     const recos = ai
-      ? recommendV2(roster, players, weeklyById, mode, target, aiInsights)
-      : recommend(roster, players, weeklyById, mode, target);
+      ? recommendV2(roster, players, weeklyById, mode, target, aiInsights, { sort: recoSort })
+      : recommend(roster, players, weeklyById, mode, target, { sort: recoSort });
+    const sortLabel = recoSort === 'available' ? 'BEST AVAIL' : 'BEST FIT';
     const head =
-      `<div class="reco-head"><span class="reco-slot">FIT ENGINE${ai ? ' · AI+' : ''} · ${esc(target)}</span> ` +
-      '<span class="est">ESTIMATE</span></div>';
+      '<div class="reco-head">' +
+        `<span class="reco-slot">FIT ENGINE${ai ? ' · AI+' : ''} · ${esc(target)}</span> ` +
+        `<span class="reco-controls">${recoSortInner(recoSort)}</span> ` +
+        '<span class="est">ESTIMATE</span>' +
+      '</div>' +
+      // What AI+ optimizes for — the answer to "what is the AI doing?". Only
+      // shown when AI+ is on, so BASE stays byte-identical to before.
+      (ai
+        ? '<div class="reco-explain">AI+ re-ranks by 5-yr trajectory, cold-weather edge, and stack synergy '
+          + '— tuned to raise your weekly ceiling and playoff odds. Δ vs BASE shown per pick.</div>'
+        : '') +
+      `<div class="reco-sublabel">Ranked by ${sortLabel}${ai ? ' · AI+' : ''}</div>`;
     if (recos.length === 0) {
       box.innerHTML = head + `<div class="reco-why">No eligible players left for ${esc(target)}.</div>`;
       return;
@@ -366,11 +503,18 @@ export default async function mountTeam(el) {
     const items = recos.map((r) => {
       const p = r.player;
       const id = String(p.gsis_id);
+      // base->AI delta (only when AI+ on and recommendV2 carried the base score).
+      const delta = ai && Number.isFinite(Number(r.base))
+        ? Math.round((r.score - r.base) * 10) / 10
+        : null;
+      const deltaChip = delta != null && delta !== 0
+        ? ` <span class="reco-delta reco-delta--${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '+' : ''}${fix1(delta)} AI</span>`
+        : '';
       return (
         `<div class="reco-item" data-gsis="${esc(id)}">` +
           '<div class="reco-row">' +
             `<span class="reco-name">${esc(p.name)} <span class="reco-meta">${esc(p.position)} · ${esc(p.team)}</span></span> ` +
-            `<span class="reco-score">${fix1(r.score)}</span> ` +
+            `<span class="reco-score">${fix1(r.score)}${deltaChip}</span> ` +
             `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}" data-slot="${esc(target)}">ADD</button>` +
           '</div>' +
           r.reasons.map((t) => {
@@ -409,16 +553,26 @@ export default async function mountTeam(el) {
       ? `Starter points by week; worst week W${worst + 1} at ${fix1(totals[worst])}`
       : 'Starter points by week; no starters yet';
 
-    // Bye clash chips: any week where >=2 starters are simultaneously out.
-    const byeCounts = new Map();
+    // Bye schedule by week — NAMES, not just counts. Group every starter by
+    // their bye week; a week with >=2 starters out is a clash (⚠ warn styling),
+    // a single bye is an informational chip. Both list who is out.
+    const byeNames = new Map(); // wk -> [name,...]
     starterIds.forEach((id) => {
       const wk = byeWeek(weeklyById.get(id));
-      if (wk != null) byeCounts.set(wk, (byeCounts.get(wk) || 0) + 1);
+      if (wk == null) return;
+      const p = playersById.get(id);
+      const nm = p ? `${p.team} ${p.name}` : id;
+      if (!byeNames.has(wk)) byeNames.set(wk, []);
+      byeNames.get(wk).push(nm);
     });
-    const chips = [...byeCounts.entries()]
-      .filter(([, n]) => n >= 2)
+    const chips = [...byeNames.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([wk, n]) => `<span class="bye-warn">⚠ WK ${wk} · ${n} STARTERS ON BYE</span>`)
+      .map(([wk, names]) => {
+        const clash = names.length >= 2;
+        const cls = clash ? 'bye-warn' : 'bye-info';
+        const mark = clash ? '⚠ ' : '';
+        return `<span class="${cls}">${mark}WK ${wk} BYE · ${esc(names.join(', '))}</span>`;
+      })
       .join(' ');
 
     box.innerHTML =
@@ -428,7 +582,9 @@ export default async function mountTeam(el) {
         '<span class="est">ESTIMATE</span>' +
       '</div>' +
       `<div class="team-weeks" role="img" aria-label="${esc(gridLabel)}">${cells}</div>` +
-      (chips ? `<div class="ts-byes">${chips}</div>` : '') +
+      (chips
+        ? `<div class="ts-byes"><div class="ts-byes-lbl">BYE WEEKS BY STARTER</div>${chips}</div>`
+        : '') +
       (starterIds.length === 0
         ? '<div class="ts-note">Add starters to project weekly totals.</div>'
         : '');
@@ -492,6 +648,46 @@ export default async function mountTeam(el) {
   el.querySelector('#t-find').addEventListener('input', (e) => {
     query = e.target.value || '';
     paintCands();
+  });
+
+  // Finder + reco controls (delegated on el so they survive every repaint).
+  el.addEventListener('click', (e) => {
+    const posBtn = e.target.closest('button[data-fpos]');
+    if (posBtn) {
+      finderPos = posBtn.dataset.fpos;
+      const row = el.querySelector('.finder-posfilter');
+      if (row) {
+        row.querySelectorAll('.pf-chip').forEach((c) => {
+          const on = c === posBtn;
+          c.classList.toggle('pf-chip--active', on);
+          c.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      paintCands();
+      return;
+    }
+    const sortBtn = e.target.closest('button[data-fsort]');
+    if (sortBtn) {
+      const key = sortBtn.dataset.fsort;
+      if (key === finderSort) {
+        finderDir = finderDir === 'desc' ? 'asc' : 'desc';
+      } else {
+        finderSort = key;
+        finderDir = 'desc';
+      }
+      const row = el.querySelector('.finder-sortseg');
+      if (row) row.innerHTML = finderSortInner(finderSort, finderDir);
+      paintCands();
+      return;
+    }
+    const recoBtn = e.target.closest('button[data-rsort]');
+    if (recoBtn) {
+      const key = recoBtn.dataset.rsort;
+      if (key !== recoSort) {
+        recoSort = key;
+        paintReco();
+      }
+    }
   });
 
   // Wire the BASE / AI+ toggle (only rendered when ai_insights loaded). The

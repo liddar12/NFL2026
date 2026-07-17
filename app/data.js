@@ -32,6 +32,8 @@ const PATHS = Object.freeze({
   scheduleFull: '/data/schedule_full.json',
   playerWeekly: '/data/player_weekly.json',
   aiInsights: '/data/ai_insights.json',
+  playerHistory: '/data/player_history.json',
+  teamStrength: '/data/team_strength.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -77,6 +79,12 @@ export const getPlayerWeekly = (opts) => loadJson(PATHS.playerWeekly, opts);
 // 404-graceful promise-cache pattern as player_weekly: on a deploy without the
 // file the getter rejects cleanly and the view simply hides the toggle.
 export const getAiInsights = (opts) => loadJson(PATHS.aiInsights, opts);
+// player_history (5-yr per-season lines + trajectory) and team_strength (per-
+// team Elo for strength-of-schedule) are both REL2 additions. Same 404-graceful
+// promise-cache pattern: a deploy predating them rejects cleanly and the trend /
+// SoS adornments simply don't render — the views never blank.
+export const getPlayerHistory = (opts) => loadJson(PATHS.playerHistory, opts);
+export const getTeamStrength = (opts) => loadJson(PATHS.teamStrength, opts);
 
 /**
  * Load every contract at once. Uses allSettled so one bad feed does not blank

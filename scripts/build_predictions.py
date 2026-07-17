@@ -152,6 +152,22 @@ def main():
         "season": SEASON, "week": wk, "updated_utc": now, "games": week_games,
     })
 
+    # TEAM STRENGTH — per-team Elo (the SAME ratings that drove every game prob
+    # above), published so the client can compute a per-player strength-of-
+    # schedule (mean opponent Elo -> a 1.0=easiest .. 5.0=hardest scale). This is
+    # the measured 2025-reverted prior (plus any in-season chaining), NOT a new
+    # model: it is exactly `ratings`, so SoS can never disagree with the game
+    # predictions. min/max are emitted so the client's 1-5 normalization is stable
+    # across deploys (it maps the observed rating span, not a hard-coded range).
+    rating_vals = sorted(ratings.values())
+    _write(os.path.join(DATA, "team_strength.json"), {
+        "season": SEASON, "updated_utc": now,
+        "source": "elo_prior_2025_reverted", "estimate": True,
+        "elo_min": round(rating_vals[0], 2) if rating_vals else elo_mod.INIT,
+        "elo_max": round(rating_vals[-1], 2) if rating_vals else elo_mod.INIT,
+        "ratings": {t: round(r, 2) for t, r in sorted(ratings.items())},
+    })
+
     # P1 — POINT-IN-TIME SNAPSHOT LOCK. The week's predictions are archived as
     # measurable (estimate=False) snapshot rows the harness later resolves against
     # FINAL scores. A lock is immutable: if this week's opening lock already exists

@@ -274,6 +274,13 @@ export function renderPlayerCard(player, opts) {
     ? '<button type="button" class="p-expand" aria-expanded="false">WEEKS</button>'
     : '';
 
+  // REL2 adornments (all optional — a card rendered without them is unchanged):
+  //   o.trend  { dir, slope_pts_per_yr, seasons, source }  (team-logic trendLabel)
+  //   o.sos    number 1.0..5.0 (strengthOfSchedule; 1 easiest, 5 hardest)
+  const trend = renderTrendChip(o.trend);
+  const sos = renderSos(o.sos);
+  const adorn = (trend || sos) ? `<div class="p-adorn">${trend}${sos}</div>` : '';
+
   return (
     `<article class="card player" data-gsis="${esc(player.gsis_id)}">` +
       '<div class="p-top">' +
@@ -283,9 +290,14 @@ export function renderPlayerCard(player, opts) {
         '</div>' +
         '<div class="p-proj">' +
           `<div class="p-num">${esc(fix1(proj))}</div>` +
-          '<div class="p-unit">PROJ PTS</div>' +
+          `<div class="p-unit">${o.aiDelta != null ? 'AI PROJ PTS' : 'PROJ PTS'}</div>` +
+          (o.aiDelta != null && Number.isFinite(Number(o.aiDelta))
+            ? `<div class="p-aidelta p-aidelta--${Number(o.aiDelta) >= 0 ? 'up' : 'down'}">` +
+                `${Number(o.aiDelta) >= 0 ? '+' : ''}${esc(fix1(Number(o.aiDelta)))} AI</div>`
+            : '') +
         '</div>' +
       '</div>' +
+      adorn +
       '<div class="interval">' +
         '<div class="lbl">80% conformal range</div>' +
         '<div class="iv-scale">' +
@@ -302,6 +314,58 @@ export function renderPlayerCard(player, opts) {
       '</div>' +
       expand +
     '</article>'
+  );
+}
+
+/**
+ * AI trend chip from team-logic trendLabel() output. Up/down/flat with the real
+ * pts/yr when the trend is MEASURED (>=3 seasons of OLS); an "AI EST" chip when
+ * it is an age-curve estimate. Empty string for null/absent trend (older deploy
+ * without player_history/ai_insights). Provenance is never hidden.
+ */
+export function renderTrendChip(trend) {
+  if (!trend || !trend.dir) return '';
+  const glyph = trend.dir === 'up' ? '▲' : trend.dir === 'down' ? '▼' : '▬';
+  const word = trend.dir === 'up' ? 'Trending up' : trend.dir === 'down' ? 'Declining' : 'Steady';
+  const measured = trend.source === 'measured';
+  const slope = Number(trend.slope_pts_per_yr);
+  // Measured up-trends cite +pts/yr; declines say so; flats just read "steady".
+  let detail = '';
+  if (trend.dir !== 'flat' && Number.isFinite(slope)) {
+    const sign = slope > 0 ? '+' : '';
+    detail = ` ${sign}${fix1(slope)}/yr`;
+  }
+  const prov = measured
+    ? '<span class="prov-src">5-YR</span>'
+    : '<span class="prov-ai">AI EST</span>';
+  return (
+    `<span class="p-trend p-trend--${esc(trend.dir)}" ` +
+      `title="${measured ? 'Measured 5-year trajectory' : 'AI age-curve estimate (fewer than 3 seasons)'}">` +
+      `<span class="pt-glyph" aria-hidden="true">${glyph}</span>` +
+      `<span class="pt-txt">${word}${esc(detail)}</span>${prov}` +
+    '</span>'
+  );
+}
+
+/**
+ * Strength-of-schedule pill: a 1.0..5.0 number (1 easiest, 5 hardest) plus a
+ * 5-segment meter. Empty string when sos is null/undefined (no team_strength or
+ * weekly opponents). The number is the accessible source of truth; the meter is
+ * a redundant visual, never color-only.
+ */
+export function renderSos(sos) {
+  const v = Number(sos);
+  if (!Number.isFinite(v)) return '';
+  const filled = clamp(Math.round(v), 1, 5);
+  const segs = [1, 2, 3, 4, 5]
+    .map((i) => `<span class="sos-seg${i <= filled ? ' sos-seg--on' : ''}"></span>`)
+    .join('');
+  return (
+    `<span class="p-sos" title="Strength of schedule: 1.0 easiest, 5.0 hardest (mean opponent Elo)">` +
+      '<span class="sos-lbl">SOS</span>' +
+      `<span class="sos-num">${esc(fix1(v))}</span>` +
+      `<span class="sos-meter" aria-hidden="true">${segs}</span>` +
+    '</span>'
   );
 }
 
