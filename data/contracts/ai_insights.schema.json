@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ai_insights.schema.json",
+  "title": "AI insights for the Fit Engine v2 opt-in AI+ toggle (default off)",
+  "description": "Produced by scripts/ai_estimates.py — DOCUMENTED, deterministic estimation rules authored by generative AI (this build), regenerable via the quarantined P10 workflow; the runtime never calls a model. EVERY field carries {value, source, why}: source 'measured' is a passthrough of measured 2021-2025 history (player_history OLS trajectory, environment_model cold splits); 'ai_estimated' is a documented rule filling a gap (fewer than 3 seasons, no team cold sample, no measured stack data). Values are hard-bounded to +/-0.25. This file only feeds the TEAM tab's opt-in toggle — game probabilities and meta.json weights are untouched by it. Validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["updated_utc", "default", "players", "method_notes"],
+  "properties": {
+    "updated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of the last regeneration."
+    },
+    "default": {
+      "type": "string",
+      "description": "The UI default for the AI layer. Always 'off' — the base deterministic fit engine is the default experience.",
+      "enum": ["off"]
+    },
+    "players": {
+      "type": "object",
+      "description": "Map of projection key ('espn-<id>') -> insight record.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trajectory_adj", "cold_adj"],
+        "properties": {
+          "trajectory_adj": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "source", "why"],
+            "properties": {
+              "value": {
+                "type": "number",
+                "description": "Per-year points-trend fraction. Measured: slope/200 PPR plus any negative age-curve residual. Estimated: the position age-curve slope prior. Clamped.",
+                "minimum": -0.25,
+                "maximum": 0.25
+              },
+              "source": { "type": "string", "enum": ["measured", "ai_estimated"] },
+              "why": { "type": "string" },
+              "slope_pts_per_yr": {
+                "type": ["number", "null"],
+                "description": "The pts/yr the client cites in its reason line (measured OLS slope, or the estimated prior); null only when no usable trajectory existed."
+              },
+              "seasons_observed": { "type": "integer", "minimum": 0, "maximum": 5 }
+            }
+          },
+          "stack_synergy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "source", "why"],
+            "properties": {
+              "value": {
+                "type": "number",
+                "description": "Extra fraction of the flat v1 STACK_BONUS a stack with this player is worth. Position-pair default — always ai_estimated this build (no measured stack data).",
+                "minimum": -0.25,
+                "maximum": 0.25
+              },
+              "source": { "type": "string", "enum": ["measured", "ai_estimated"] },
+              "why": { "type": "string" },
+              "pair": {
+                "type": "string",
+                "description": "The position pair the default comes from.",
+                "enum": ["QB+WR", "QB+TE"]
+              }
+            }
+          },
+          "cold_adj": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "source", "why", "weeks"],
+            "properties": {
+              "value": {
+                "type": "number",
+                "description": "Sub-32F win-pct delta for the player's team: measured per-team passthrough (clamped), the measured dome-team group delta as an ai_estimated fill, or 0 neutral.",
+                "minimum": -0.25,
+                "maximum": 0.25
+              },
+              "source": { "type": "string", "enum": ["measured", "ai_estimated"] },
+              "why": { "type": "string" },
+              "n": {
+                "type": "integer",
+                "description": "Sample size behind the delta (team cold games, or group games for the dome fill).",
+                "minimum": 0
+              },
+              "weeks": {
+                "type": "array",
+                "description": "2026 weeks the team plays at an open-air cold-region venue in Nov-Jan — the weeks the Fit Engine names in its reason.",
+                "items": { "type": "integer", "minimum": 1, "maximum": 18 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "method_notes": {
+      "type": "string",
+      "description": "One-paragraph statement of the rules, their AI authorship, and the P10 regeneration path."
+    }
+  }
+}

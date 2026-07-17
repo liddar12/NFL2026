@@ -1,0 +1,210 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "environment_model.schema.json",
+  "title": "Environment model (measured 2021-2025 venue/weather/international history)",
+  "description": "Produced by scripts/build_environment.py from ESPN finals + Open-Meteo archive weather. Every split carries its sample size n and a low_n flag when n < 8. params are RECORDED for the optimizer (weight-0 discipline), never silently applied — game probabilities are unchanged by this file. Validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "updated_utc",
+    "season_range",
+    "games_analyzed",
+    "weather_joined_games",
+    "stadiums",
+    "venue_hfa",
+    "cold",
+    "surface",
+    "international",
+    "params",
+    "estimate",
+    "notes"
+  ],
+  "properties": {
+    "updated_utc": { "type": "string" },
+    "season_range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "integer", "minimum": 2021, "maximum": 2025 }
+    },
+    "games_analyzed": {
+      "type": "integer",
+      "description": "FINAL regular-season games in the window (~272 x 5).",
+      "minimum": 1250
+    },
+    "weather_joined_games": {
+      "type": "integer",
+      "description": "Oct-Jan open-air true-home games with kickoff-hour weather joined.",
+      "minimum": 1
+    },
+    "stadiums": {
+      "type": "object",
+      "description": "Curated per-team stadium facts (scripts/scrape/stadiums.py). Exactly the 32 canonical abbrevs.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["venue", "city", "surface", "roof", "lat", "lon", "cold_region"],
+        "properties": {
+          "venue": { "type": "string" },
+          "city": { "type": "string" },
+          "surface": { "type": "string", "enum": ["grass", "turf"] },
+          "roof": { "type": "string", "enum": ["dome", "open", "retractable"] },
+          "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+          "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+          "cold_region": { "type": "boolean" },
+          "altitude_ft": {
+            "type": "integer",
+            "description": "Recorded only where competitively notable (DEN 5280).",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "venue_hfa": {
+      "type": "object",
+      "description": "Per-team 5-yr HFA at their OWN venue (true home games only).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "games", "home_win_pct", "avg_home_margin", "low_n"],
+        "properties": {
+          "n": { "type": "integer", "minimum": 0 },
+          "games": { "type": "integer", "minimum": 0 },
+          "home_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+          "avg_home_margin": { "type": "number" },
+          "low_n": { "type": "boolean" }
+        }
+      }
+    },
+    "cold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_f", "per_team", "dome_teams_outdoor_cold"],
+      "properties": {
+        "threshold_f": { "type": "number" },
+        "per_team": {
+          "type": "object",
+          "description": "Teams with >=1 appearance in a <32F kickoff game.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["n", "cold_games", "cold_win_pct", "base_win_pct", "delta", "low_n"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 1 },
+              "cold_games": { "type": "integer", "minimum": 1 },
+              "cold_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "base_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "delta": { "type": "number", "minimum": -1, "maximum": 1 },
+              "low_n": { "type": "boolean" }
+            }
+          }
+        },
+        "dome_teams_outdoor_cold": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["n", "games", "win_pct", "expected_pct", "delta", "low_n"],
+          "properties": {
+            "n": { "type": "integer", "minimum": 0 },
+            "games": { "type": "integer", "minimum": 0 },
+            "win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+            "expected_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+            "delta": { "type": "number", "minimum": -1, "maximum": 1 },
+            "low_n": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_team_home", "by_surface"],
+      "properties": {
+        "per_team_home": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["surface", "n", "games", "home_win_pct", "avg_home_margin", "low_n"],
+            "properties": {
+              "surface": { "type": "string", "enum": ["grass", "turf"] },
+              "n": { "type": "integer", "minimum": 0 },
+              "games": { "type": "integer", "minimum": 0 },
+              "home_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "avg_home_margin": { "type": "number" },
+              "low_n": { "type": "boolean" }
+            }
+          }
+        },
+        "by_surface": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["n", "home_win_pct", "avg_home_margin", "low_n"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 0 },
+              "home_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+              "avg_home_margin": { "type": "number" },
+              "low_n": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "international": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["games", "designated_home_win_pct", "avg_margin", "n", "low_n"],
+      "properties": {
+        "games": {
+          "type": "array",
+          "minItems": 15,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["yr", "venue", "city", "country", "home", "away", "home_score", "away_score", "designated_home_won"],
+            "properties": {
+              "yr": { "type": "integer", "minimum": 2021, "maximum": 2025 },
+              "venue": { "type": ["string", "null"] },
+              "city": { "type": ["string", "null"] },
+              "country": { "type": "string" },
+              "home": { "type": "string" },
+              "away": { "type": "string" },
+              "home_score": { "type": "integer", "minimum": 0 },
+              "away_score": { "type": "integer", "minimum": 0 },
+              "designated_home_won": { "type": "boolean" }
+            }
+          }
+        },
+        "designated_home_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+        "avg_margin": { "type": "number" },
+        "n": { "type": "integer", "minimum": 15 },
+        "low_n": { "type": "boolean" }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intl_hfa_elo_delta", "base_home_win_pct", "cold_team_coefs_registered", "applied"],
+      "properties": {
+        "intl_hfa_elo_delta": { "type": "number" },
+        "base_home_win_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cold_team_coefs_registered": { "type": "boolean", "enum": [true] },
+        "applied": {
+          "type": "boolean",
+          "description": "MUST stay false until the optimizer adopts via NEVER-REGRESS.",
+          "enum": [false]
+        }
+      }
+    },
+    "estimate": {
+      "type": "boolean",
+      "description": "true at document level = not yet a validated predictor; the splits themselves are measured history with per-split n/low_n."
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  }
+}

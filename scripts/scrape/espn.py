@@ -194,6 +194,11 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
     Loud if the schedule query itself returns zero games. A week with real games but
     none yet final legitimately returns [] under final_only=True — that is not an error
     (the games simply haven't happened), so we only assert on the raw event count.
+
+    Rows also carry OPTIONAL venue identity (venue / venue_city / venue_country, each
+    possibly None) — added backward-compatibly for the environment model, which needs
+    `venue_country != 'USA'` to spot international games and the city to confirm a
+    "home" game was really played at the home stadium. Existing consumers ignore them.
     """
     params = {"seasontype": seasontype, "dates": int(season)}
     if week is not None:
@@ -213,6 +218,8 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
             # Display-only / not-yet-played: excluded from the actuals-eligible set.
             continue
         home, away = _competitors(ev)
+        venue = (ev.get("competitions") or [{}])[0].get("venue") or {}
+        address = venue.get("address") or {}
         row = {
             "game_id": str(ev.get("id")),
             "home": _team_abbrev(home),
@@ -220,6 +227,10 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
             "kickoff_utc": ev.get("date"),
             "status": status,
             "final": is_final,
+            # Optional venue identity (None-safe): see docstring.
+            "venue": venue.get("fullName"),
+            "venue_city": address.get("city"),
+            "venue_country": address.get("country"),
         }
         # Scores are only trustworthy on final games; parse them for final rows.
         if is_final:

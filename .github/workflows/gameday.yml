@@ -54,6 +54,19 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install --upgrade requests   # scores/odds only; nflverse not needed here
 
+      # LEARNING LOOP step 1 — RESOLVE. Grade the point-in-time record first: any
+      # locked row whose game is now FINAL gets actual/brier/log_loss filled in
+      # place (STATUS-gated; idempotent; clean no-op when nothing is FINAL yet).
+      - name: Resolve locks against FINAL scores
+        run: python -m scripts.resolve_locks
+
+      # LEARNING LOOP step 2 — REFIT. Grid-search game params on the resolved
+      # locks; adoption is NEVER-REGRESS gated, every outcome (adopted or not) is
+      # archived in data/model_tuning.json history. Clean no-op with zero resolved
+      # rows, so most runs change nothing.
+      - name: Refit game params from resolved locks (NEVER REGRESS)
+        run: python -m scripts.refit
+
       # PRE-KICKOFF PROBABILITY LOCK. Regenerate predictions from current inputs and
       # write an immutable point-in-time snapshot under data/snapshots/. The harness
       # (scripts/harness/snapshot.py, another agent) owns the snapshot format; here we

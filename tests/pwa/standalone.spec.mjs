@@ -291,6 +291,47 @@ test.describe('installed (standalone) PWA experience', () => {
     expect(stored && stored.slots && stored.slots.QB1).toBe(qb.gsis_id);
   });
 
+  test('AI+ toggle works standalone: chips only when ON, choice persists', async ({ page }) => {
+    await page.goto(url('/#/team'));
+    await page.waitForSelector('.aiseg', { timeout: 8000 });
+
+    // Default OFF (BASE) — the v1 experience, no provenance chips anywhere.
+    await expect(page.locator('.aiseg button[data-ai="off"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    expect(await page.locator('.prov-ai').count()).toBe(0);
+
+    // Flip ON inside the standalone window: the reco head names the mode and
+    // any chip that renders sits ONLY on a reason that says "(AI estimate".
+    await page.locator('.aiseg button[data-ai="on"]').click();
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.reco .reco-slot')).toContainText('AI+');
+    const lines = await page.locator('.reco .reco-why').evaluateAll(
+      (nodes) => nodes.map((n) => ({
+        text: n.textContent,
+        chipped: n.querySelector('.prov-ai') !== null,
+      })),
+    );
+    for (const line of lines) {
+      expect(
+        line.chipped,
+        `chip/provenance mismatch on: ${line.text}`,
+      ).toBe(line.text.includes('AI estimate'));
+    }
+
+    // Persists across reload INSIDE the app window (stays standalone).
+    await page.reload();
+    await page.waitForSelector('.aiseg', { timeout: 8000 });
+    await expect(page.locator('.aiseg button[data-ai="on"]'))
+      .toHaveAttribute('aria-pressed', 'true');
+    const stored = await page.evaluate(() => localStorage.getItem('nfl2026.ai.v1'));
+    expect(stored).toBe('on');
+    const standalone = await page.evaluate(
+      () => window.matchMedia('(display-mode: standalone)').matches,
+    );
+    expect(standalone).toBe(true);
+  });
+
   test('service worker registers (cache-purger)', async ({ page }) => {
     await page.goto(url('/'));
     // navigator.serviceWorker.ready resolves once the SW is active.

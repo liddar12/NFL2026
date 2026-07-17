@@ -75,6 +75,45 @@ def main():
         "status": "ok" if priors_src else "down",
     }
 
+    # === LEARNING LOOP (scripts/resolve_locks.py + scripts/refit.py) — two hooks ==
+    # 1) ADOPTED GAME PARAMS. refit.py writes model_tuning.json:"game_params" ONLY
+    #    when a candidate clears the NEVER-REGRESS margin on resolved locks. Absent
+    #    (day zero, today) => the incumbent elo.py defaults and every prob below is
+    #    byte-identical. This is the single read-point of the live game params.
+    try:
+        with open(os.path.join(DATA, "model_tuning.json"), encoding="utf-8") as fh:
+            _adopted = json.load(fh).get("game_params") or {}
+    except (OSError, ValueError):
+        _adopted = {}
+    hfa_live = float(_adopted.get("hfa_elo", elo_mod.HFA_ELO))
+    revert_live = float(_adopted.get("revert", elo_mod.REVERT))
+    if _adopted and priors_src:
+        # Re-derive the priors under the adopted params (rate at the adopted hfa,
+        # revert by the adopted fraction) — the only path that moves game probs,
+        # and it is NEVER-REGRESS gated upstream in refit.py.
+        ratings = elo_mod.revert_to_mean(
+            elo_mod.rate_season(priors_src, hfa=hfa_live), revert=revert_live)
+        print(f"adopted game params in effect: hfa_elo={hfa_live} revert={revert_live}")
+
+    # 2) IN-SEASON ELO CHAINING. FINAL 2026 games to date move the ratings
+    #    game-by-game, STARTING FROM the 2025 priors (rate_season's initial_ratings).
+    #    STATUS-gated by the scraper, so a live/0-0 stub can never move a rating.
+    #    Zero finals (preseason, today) => ratings unchanged, output identical.
+    finals_cur = espn.fetch_final_results(SEASON)
+    if finals_cur:
+        ratings = elo_mod.rate_season(finals_cur, hfa=hfa_live, initial_ratings=ratings)
+        print(f"in-season Elo chain: {len(finals_cur)} FINAL {SEASON} games applied "
+              f"on top of the {PRIOR_SEASON} priors")
+    else:
+        print(f"in-season Elo chain: no FINAL {SEASON} games yet -> "
+              f"ratings = {PRIOR_SEASON} priors (no-op)")
+    feeds[f"espn_results_{SEASON}"] = {
+        # rows=0 before kickoff is reality, not an outage (outages raise upstream).
+        "rows": len(finals_cur), "age_hours": 0.0, "last_success_utc": now,
+        "status": "ok",
+    }
+    # === end LEARNING LOOP hooks ==================================================
+
     schedule = espn.fetch_season_schedule(SEASON)
     feeds["espn_schedule"] = {"rows": len(schedule), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
 
@@ -84,6 +123,9 @@ def main():
         row = dict(g)
         row["home_elo"] = ratings.get(g["home"], elo_mod.INIT)
         row["away_elo"] = ratings.get(g["away"], elo_mod.INIT)
+        # Learning-loop hook: prediction-time HFA. hfa_live == the game_model
+        # default (65.0) until refit adopts, so this line changes nothing today.
+        row["hfa_elo"] = hfa_live
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]
         pred["venue"] = g.get("venue")
@@ -158,6 +200,21 @@ def main():
         "season": SEASON, "updated_utc": now, "players": projected[:300],
     })
 
+    # 5-year history (2021-2025) -> player_history.json (trajectory / regression
+    # detection for the Fit Engine and future signals). GUARDED: a history failure
+    # degrades loudly — stderr + a degraded feed row — but must never kill the core
+    # pipeline; games/players/parlays above are already written by this point.
+    try:
+        from scripts import build_history  # noqa: PLC0415 (guarded feature import)
+        hist_summary = build_history.run(projected[:300], players_in, now)
+        feeds["espn_history"] = {"rows": hist_summary["players"], "age_hours": 0.0,
+                                 "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["espn_history"] = {"rows": 0, "age_hours": 999.0,
+                                 "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] player history build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+
     # Refresh the teams fixture with real ESPN identity (name/location/colors).
     teams_fixture = {
         ab: {
@@ -178,6 +235,50 @@ def main():
     except Exception as exc:  # noqa: BLE001
         feeds["injuries"] = {"rows": 0, "age_hours": None, "last_success_utc": None, "status": "down"}
         print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
+
+    # === ENVIRONMENT MODEL (separate block from the history one above) ===========
+    # Measured 2021-2025 venue/cold/international splits -> environment_model.json.
+    # GUARDED: an environment build failure must never kill the core pipeline — loud
+    # stderr, feed marked degraded, core contracts already written by this point.
+    # refresh=False reuses the committed file when it already covers the CLOSED
+    # 2021-2025 window (a rebuild is ~190 identical API calls for identical history);
+    # a missing/invalid file triggers a real build.
+    try:
+        from scripts import build_environment  # noqa: PLC0415 (guarded feature import)
+        env = build_environment.build(refresh=False)
+        env_age = _hours_since(env.get("updated_utc")) if env.get("reused") else 0.0
+        feeds["environment"] = {
+            "rows": env["rows"],
+            "age_hours": env_age if env_age is not None else 0.0,
+            "last_success_utc": env.get("updated_utc") or now,
+            "status": "ok",
+        }
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["environment"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] environment model build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end ENVIRONMENT MODEL block ==============================================
+
+    # === AI INSIGHTS (Fit Engine v2 estimation layer — scripts/ai_estimates.py) ==
+    # Deterministic, DOCUMENTED estimation rules (authored by generative AI this
+    # build; regenerable via the quarantined P10 workflow — see the module
+    # docstring) join the fresh history + environment outputs above into
+    # data/ai_insights.json for the TEAM tab's opt-in AI+ toggle (default off;
+    # game probabilities and meta.json weights untouched). Runs AFTER both blocks
+    # on purpose: it reads player_history.json and environment_model.json from
+    # disk. GUARDED like them: a failure degrades loudly, never kills the core.
+    try:
+        from scripts import ai_estimates  # noqa: PLC0415 (guarded feature import)
+        ai_summary = ai_estimates.run(now)
+        feeds["ai_insights"] = {"rows": ai_summary["players"], "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["ai_insights"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] ai insights build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end AI INSIGHTS block ====================================================
 
     # Feeds that need a key (odds/kalshi) or are proxy-blocked in this sandbox
     # (nflverse) are DEGRADED, not down — unconfigured/unavailable, not broken. The

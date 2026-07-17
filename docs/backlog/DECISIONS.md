@@ -137,3 +137,34 @@ parlay GAME/WEEK toggle restyled to a solid-brand active pill (AA pair added to 
 split of a real season prior, not fabricated per-week skill), and the builder recommends by LOGIC,
 not just points — the explicit ask.
 **Status:** adopted. Gate at 66 unit + 16 e2e, all green.
+
+## 2026-07-17 — 5-yr history + trajectory, learning-loop wiring, environment model, Fit Engine v2 (AI toggle)
+**Decision:** (1) 5-year player history (`scripts/scrape/espn_history.py` -> `scripts/build_history.py`
+-> `data/player_history.json`, 300 players): per-season lines plus an OLS trajectory slope and an
+age-curve residual, so a player's raw trend is separated from expected age decline. `trajectory.source`
+is `measured` only with >=3 real seasons, else `ai_estimated`; the history contract stays LOUD if the
+measured count drops below the floor. (2) LEARNING LOOP now wired end-to-end: `scripts/resolve_locks.py`
+grades any locked snapshot whose game is FINAL (STATUS-gated, idempotent no-op otherwise) and
+`scripts/refit.py` grid-searches game params against the resolved locks, adoption NEVER-REGRESS gated
+(margin 0.0015) with every trial archived in `data/model_tuning.json`. Both run as the first two steps of
+daily.yml and gameday.yml. `build_predictions` reads adopted `game_params` (defaults are byte-identical to
+elo.py incumbents today) and chains 2026 FINAL results onto the reverted 2025 priors via
+`rate_season(..., initial_ratings=priors)` (no-op with zero 2026 finals). (3) Environment model
+(`scripts/scrape/stadiums.py` + `scripts/build_environment.py` -> `data/environment_model.json`): HFA,
+turf-vs-grass, dome-vs-open, cold-weather, and international-bias effects MEASURED from 1,359 FINAL games
+(2021-2025) joined to 698 Open-Meteo kickoff-hour weather rows. EVERY effect enters at weight 0 /
+`params.applied=false` — recorded, not yet trusted; the optimizer must earn each weight. (4) Fit Engine v2
+(`fitScoreV2` in `app/team-logic.js`) adds trajectory + cold-context terms with provenance in every reason
+string, gated behind a per-device AI on/off toggle (`app/views/team.js`, localStorage `nfl2026.ai.v1`,
+default OFF; BASE path is byte-identical to v1). AI estimates (`scripts/ai_estimates.py` ->
+`data/ai_insights.json`) are default-off, each field `{value, source, why}` with |value|<=0.25, always
+labeled `AI EST` in the UI.
+**Findings (recorded at weight 0, predictive only once earned):** international designated-home won
+58.3% of 24 games (avg margin +0.58 -> +31 Elo tilt, thin n); cold (<32F open-air) tilts cold-home teams
+positive (BUF +0.195, NE +0.154, CHI +0.068); 5-yr venue HFA spreads wide (BUF 82.9%/+12.4, KC 73.8%,
+GB 70.7% vs ARI 31.7%, NYJ 35.7%); grass homes 56.6% vs turf 51.5% (confounded with team quality);
+dome teams in outdoor cold negligible (+0.067, n=11).
+**Rationale:** User asked to improve the Fit Engine with agentic/generative estimates behind a toggle, and
+to look at HFA / turf-grass / dome-open / cold-weather / international bias. Everything measured is admitted
+at zero weight so no unproven signal moves a prediction until it beats the incumbent under NEVER-REGRESS.
+**Status:** adopted. Gate at 92 unit + 19 e2e, all green.
