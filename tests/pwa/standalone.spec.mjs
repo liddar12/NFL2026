@@ -97,7 +97,19 @@ const test = base.extend({
     } finally {
       if (browser) await browser.close().catch(() => {});
       child.kill('SIGKILL');
-      rmSync(userDataDir, { recursive: true, force: true });
+      // Removing the temp profile dir must NEVER fail the test. On CI the
+      // just-SIGKILLed Chromium can still hold the profile open for a moment,
+      // so `force:true` (which ignores ENOENT) still throws ENOTEMPTY on a dir
+      // whose files are mid-flush. Retry briefly, then give up silently — the
+      // OS reaps /tmp regardless, and a cleanup race is not a test failure.
+      for (let i = 0; i < 10; i += 1) {
+        try {
+          rmSync(userDataDir, { recursive: true, force: true });
+          break;
+        } catch (err) {
+          await new Promise((r) => { setTimeout(r, 100); });
+        }
+      }
     }
   },
 });
