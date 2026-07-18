@@ -43,6 +43,283 @@
   },
   "history": [
     {
+      "generated_utc": "2026-07-18T12:42:34Z",
+      "kind": "signal_promotion",
+      "format": 2,
+      "source": "scripts/promote_signals.py walk-forward 2022-2025 (environment + rest + epa families)",
+      "objective": "log_loss",
+      "margin": 0.0015,
+      "incumbent_loss": 0.6369,
+      "incumbent_families": [],
+      "families": [
+        {
+          "family": "environment",
+          "trials": [
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63694,
+              "n": 1084
+            },
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63698,
+              "n": 1084
+            },
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63703,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63719,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63722,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63726,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63732,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63767,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.6377,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63774,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63779,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63838,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63841,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63845,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.6385,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "venue_scale": 0.0,
+            "cold_scale": 150.0,
+            "log_loss": 0.63694,
+            "n": 1084
+          },
+          "improvement": -4e-05
+        },
+        {
+          "family": "rest",
+          "trials": [
+            {
+              "scale_per_day": 1.5,
+              "log_loss": 0.63671,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 3.0,
+              "log_loss": 0.63661,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 4.5,
+              "log_loss": 0.6366,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 6.0,
+              "log_loss": 0.63667,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale_per_day": 4.5,
+            "log_loss": 0.6366,
+            "n": 1084
+          },
+          "improvement": 0.0003
+        },
+        {
+          "family": "epa_total",
+          "trials": [
+            {
+              "scale": 200.0,
+              "log_loss": 0.63991,
+              "n": 1084
+            },
+            {
+              "scale": 350.0,
+              "log_loss": 0.64542,
+              "n": 1084
+            },
+            {
+              "scale": 500.0,
+              "log_loss": 0.65343,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": 200.0,
+            "log_loss": 0.63991,
+            "n": 1084
+          },
+          "improvement": -0.00301
+        },
+        {
+          "family": "epa_pass",
+          "trials": [
+            {
+              "scale": 200.0,
+              "log_loss": 0.64408,
+              "n": 1084
+            },
+            {
+              "scale": 350.0,
+              "log_loss": 0.65581,
+              "n": 1084
+            },
+            {
+              "scale": 500.0,
+              "log_loss": 0.6722,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": 200.0,
+            "log_loss": 0.64408,
+            "n": 1084
+          },
+          "improvement": -0.00718
+        }
+      ],
+      "adopted": false,
+      "adopted_family": null,
+      "auto_adopt": true,
+      "reason": "incumbent retained: no family cleared the margin",
+      "calibration": {
+        "seasons": "2022-2025",
+        "n": 1084,
+        "bins": [
+          {
+            "p_lo": 0.0,
+            "p_hi": 0.1,
+            "n": 1,
+            "expected": 0.0913,
+            "actual": 1.0
+          },
+          {
+            "p_lo": 0.1,
+            "p_hi": 0.2,
+            "n": 21,
+            "expected": 0.159,
+            "actual": 0.1905
+          },
+          {
+            "p_lo": 0.2,
+            "p_hi": 0.3,
+            "n": 61,
+            "expected": 0.2585,
+            "actual": 0.3607
+          },
+          {
+            "p_lo": 0.3,
+            "p_hi": 0.4,
+            "n": 117,
+            "expected": 0.3569,
+            "actual": 0.3504
+          },
+          {
+            "p_lo": 0.4,
+            "p_hi": 0.5,
+            "n": 208,
+            "expected": 0.4526,
+            "actual": 0.4183
+          },
+          {
+            "p_lo": 0.5,
+            "p_hi": 0.6,
+            "n": 223,
+            "expected": 0.5534,
+            "actual": 0.5022
+          },
+          {
+            "p_lo": 0.6,
+            "p_hi": 0.7,
+            "n": 197,
+            "expected": 0.6479,
+            "actual": 0.6701
+          },
+          {
+            "p_lo": 0.7,
+            "p_hi": 0.8,
+            "n": 170,
+            "expected": 0.7449,
+            "actual": 0.7235
+          },
+          {
+            "p_lo": 0.8,
+            "p_hi": 0.9,
+            "n": 73,
+            "expected": 0.8348,
+            "actual": 0.7945
+          },
+          {
+            "p_lo": 0.9,
+            "p_hi": 1.0,
+            "n": 13,
+            "expected": 0.9159,
+            "actual": 1.0
+          }
+        ]
+      }
+    },
+    {
       "generated_utc": "2026-07-18T12:26:53Z",
       "kind": "signal_promotion",
       "format": 2,
@@ -421,6 +698,399 @@
       "improvement": 0.003979,
       "adopted": true,
       "reason": "ADOPTED: walk-forward backtest candidate hfa_elo=45 revert=0.45 k=25 improves mean log-loss over seasons 2022-2023-2024-2025 from 0.6409 to 0.6369 (n=1084 real FINAL games), clearing the 0.0015 margin. should_adopt == true.",
+      "trials": [
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.64168,
+          "brier": 0.450321,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.638877,
+          "brier": 0.447829,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.638314,
+          "brier": 0.447346,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.639938,
+          "brier": 0.44903,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.637473,
+          "brier": 0.446918,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.637176,
+          "brier": 0.446743,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.639362,
+          "brier": 0.44866,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.637064,
+          "brier": 0.44678,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 45.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.636901,
+          "brier": 0.446794,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.642917,
+          "brier": 0.451539,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.640133,
+          "brier": 0.44905,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.639585,
+          "brier": 0.448551,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.64122,
+          "brier": 0.450349,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.638766,
+          "brier": 0.448225,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.638476,
+          "brier": 0.44802,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.640681,
+          "brier": 0.45006,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.638387,
+          "brier": 0.448152,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 55.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.638226,
+          "brier": 0.448126,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.64495,
+          "brier": 0.453455,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.642201,
+          "brier": 0.45097,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.64168,
+          "brier": 0.450448,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.643309,
+          "brier": 0.452394,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.64088,
+          "brier": 0.450252,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.640611,
+          "brier": 0.45001,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.642816,
+          "brier": 0.452208,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.640539,
+          "brier": 0.450265,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 65.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.640394,
+          "brier": 0.45019,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.647771,
+          "brier": 0.456047,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.645069,
+          "brier": 0.453564,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.644591,
+          "brier": 0.453016,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.646196,
+          "brier": 0.455141,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.643803,
+          "brier": 0.452977,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.64357,
+          "brier": 0.452691,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.645756,
+          "brier": 0.455079,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.643508,
+          "brier": 0.453094,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 75.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.643393,
+          "brier": 0.452959,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 15.0,
+          "log_loss": 0.651369,
+          "brier": 0.459291,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 20.0,
+          "log_loss": 0.648728,
+          "brier": 0.456807,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.2,
+          "k": 25.0,
+          "log_loss": 0.648305,
+          "brier": 0.456225,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 15.0,
+          "log_loss": 0.649869,
+          "brier": 0.458564,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 20.0,
+          "log_loss": 0.647525,
+          "brier": 0.456371,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.33,
+          "k": 25.0,
+          "log_loss": 0.64734,
+          "brier": 0.456031,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 15.0,
+          "log_loss": 0.649492,
+          "brier": 0.458646,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 20.0,
+          "log_loss": 0.647283,
+          "brier": 0.456607,
+          "n": 1084
+        },
+        {
+          "hfa_elo": 85.0,
+          "revert": 0.45,
+          "k": 25.0,
+          "log_loss": 0.647209,
+          "brier": 0.456403,
+          "n": 1084
+        }
+      ]
+    },
+    {
+      "generated_utc": "2026-07-18T12:42:33Z",
+      "kind": "game_params",
+      "source": "backtest_2022_2025",
+      "objective": "log_loss",
+      "margin": 0.0015,
+      "eval_seasons": [
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_resolved": 1084,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45,
+        "k": 20.0
+      },
+      "candidate": {
+        "hfa_elo": 45.0,
+        "revert": 0.45,
+        "k": 25.0
+      },
+      "current_loss": 0.637064,
+      "candidate_loss": 0.636901,
+      "current_brier": 0.44678,
+      "candidate_brier": 0.446794,
+      "improvement": 0.000163,
+      "adopted": false,
+      "reason": "NEVER REGRESS: best backtest grid candidate hfa_elo=45 revert=0.45 k=25 scores 0.6369 vs incumbent (hfa_elo=45 revert=0.45 k=20) at 0.6371 over 1084 real FINAL games (seasons 2022-2023-2024-2025); the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
       "trials": [
         {
           "hfa_elo": 45.0,
