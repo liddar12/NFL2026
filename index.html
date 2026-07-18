@@ -25,8 +25,10 @@
   <link rel="icon" type="image/png" href="/icons/icon-192.png" />
 
   <!-- theme.css owns ALL styling (dark-only Broadcast Gameday design system).
-       No inline styles, no CDN, no build step. -->
-  <link rel="stylesheet" href="/app/theme.css" />
+       No inline styles, no CDN, no build step. The ?v= tag is stamped with the
+       commit SHA at Netlify build time (write-runtime-config.mjs) so a fresh
+       index.html can never pair with a stale-while-revalidate cached CSS. -->
+  <link rel="stylesheet" href="/app/theme.css?v=dev" />
 </head>
 <body>
   <!-- App shell. .topbar clears the Dynamic Island, .tabbar clears the home

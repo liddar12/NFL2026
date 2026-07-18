@@ -10,7 +10,7 @@
  * is a public endpoint URL and `env` is a plain label. Anything sensitive stays
  * in server-side function env, never shipped to the client.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,3 +36,21 @@ const body = `${banner}export const RUNTIME_CONFIG = ${JSON.stringify(config, nu
 
 writeFileSync(outPath, body, 'utf8');
 console.log(`Wrote app/runtime-config.js (env=${env || 'dev'}, liveApi=${liveApi ? 'set' : 'empty'})`);
+
+// Cache-bust the stylesheet: /app/* ships with stale-while-revalidate, so right
+// after a deploy a fresh index.html (max-age=0) could pair with a stale cached
+// theme.css — new markup, old styles. Stamping the commit SHA into the ?v= tag
+// makes the CSS URL unique per deploy. Netlify-only (COMMIT_REF): local runs
+// never touch index.html, so the working tree stays clean in dev.
+const sha = String(process.env.COMMIT_REF || '').trim().slice(0, 12);
+if (sha) {
+  const indexPath = join(repoRoot, 'index.html');
+  const html = readFileSync(indexPath, 'utf8');
+  const stamped = html.replace(/\/app\/theme\.css\?v=[^"']*/, `/app/theme.css?v=${sha}`);
+  if (stamped === html) {
+    console.warn('WARNING: theme.css ?v= tag not found in index.html - CSS not cache-busted');
+  } else {
+    writeFileSync(indexPath, stamped, 'utf8');
+    console.log(`Stamped index.html theme.css ?v=${sha}`);
+  }
+}

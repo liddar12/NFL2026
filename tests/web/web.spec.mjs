@@ -728,6 +728,27 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     await expect(page.locator('.ds-start')).toContainText('START DRAFT');
   });
 
+  test('setup is grouped LEAGUE/ROSTER, counts stay live, start spans the card', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-sub', { timeout: 8000 });
+    // Two labeled groups, each with its own field grid.
+    await expect(page.locator('.draftsim .ds-sub').nth(0)).toContainText('LEAGUE');
+    await expect(page.locator('.draftsim .ds-sub').nth(1)).toContainText('ROSTER');
+    expect(await page.locator('.ds-grid--league .ds-field').count()).toBe(3);
+    expect(await page.locator('.ds-grid--roster .ds-field').count()).toBe(6);
+    // Default shape QB+2RB+2WR+TE+FLEX+6 = 13 rounds, echoed live in the note
+    // and on the start button; bumping BENCH to 7 re-counts both to 14.
+    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('13 ROUNDS');
+    await expect(page.locator('.ds-start')).toContainText('13 ROUNDS');
+    await page.locator('.ds-select[data-dcfg="bench"]').selectOption('7');
+    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('14 ROUNDS');
+    await expect(page.locator('.ds-start')).toContainText('14 ROUNDS');
+    // The primary action uses the full card width (not a floating chip).
+    const card = await page.locator('.draftsim').boundingBox();
+    const btn = await page.locator('.ds-start').boundingBox();
+    expect(btn.width).toBeGreaterThan(card.width * 0.9);
+  });
+
   test('a draft runs: sim to my pick -> recommendations with survival -> pick works', async ({ page }) => {
     await page.goto('/#/team');
     await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
