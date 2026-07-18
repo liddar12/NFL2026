@@ -1001,3 +1001,38 @@ test.describe('draft room <-> page sync (REL9.1, #/team)', () => {
     expect(await page.locator('#t-reco [data-act="add"]').count()).toBe(0);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL11 — UI/UX audit locks: players render cap, slate hierarchy, no jargon.
+ * ------------------------------------------------------------------------- */
+
+test.describe('UI/UX audit pass (REL11)', () => {
+  test('players list caps at 60 and SHOW MORE extends it', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    const first = await page.locator('.card.player').count();
+    expect(first).toBeLessThanOrEqual(60);
+    const btn = page.locator('[data-act="show-more"]');
+    if (await btn.count()) {
+      await btn.click();
+      const after = await page.locator('.card.player').count();
+      expect(after).toBeGreaterThan(first);
+    }
+  });
+
+  test('slate cards: humanized model label, single-line meta, one favored side', async ({ page }) => {
+    await page.goto('/#/');
+    await waitForCards(page, '.card.game');
+    const foot = await page.locator('.card.game').first().innerText();
+    expect(foot).not.toContain('ELO_PRIOR');           // no snake_case leak
+    // Exactly one emphasized (favored) probability head per card.
+    const cards = await page.locator('.card.game').count();
+    const favs = await page.locator('.card.game .ph--fav').count();
+    expect(favs).toBe(cards);
+    // Kickoff meta stays on one line at phone width (no orphan wrap).
+    await page.setViewportSize({ width: 402, height: 874 });
+    const meta = page.locator('.card.game .game-meta').first();
+    const box = await meta.boundingBox();
+    expect(box.height).toBeLessThan(40);
+  });
+});

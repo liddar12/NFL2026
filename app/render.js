@@ -217,7 +217,8 @@ export function renderGameCard(game) {
   const stadium = TEAMS[home] && TEAMS[home].stadium;
   const venue = stadium ? `${stadium.toUpperCase()} · ${roof}` : roof;
 
-  const model = String(game.model || '').toUpperCase();
+  // Human label, never internal snake_case ("ELO_PRIOR" -> "ELO PRIOR").
+  const model = String(game.model || '').replace(/_/g, ' ').toUpperCase();
   const est = game.estimate === true
     ? '<span class="est">ESTIMATE</span>'
     : '';
@@ -243,8 +244,8 @@ export function renderGameCard(game) {
       '</div>' +
       '<div class="prob">' +
         '<div class="prob-heads">' +
-          `<span class="ph ph--away">${esc(away)} ${awayPct}%</span>` +
-          `<span class="ph ph--home">${esc(home)} ${homePct}%</span>` +
+          `<span class="ph ph--away${awayPct > homePct ? ' ph--fav' : ''}">${esc(away)} ${awayPct}%</span>` +
+          `<span class="ph ph--home${homePct >= awayPct ? ' ph--fav' : ''}">${esc(home)} ${homePct}%</span>` +
         '</div>' +
         `<div class="track" role="img" aria-label="${esc(trackLabel)}">` +
           `<div class="seg seg--away" style="width:${awayPct}%"></div>` +
