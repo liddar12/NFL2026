@@ -1035,4 +1035,39 @@ test.describe('UI/UX audit pass (REL11)', () => {
     const box = await meta.boundingBox();
     expect(box.height).toBeLessThan(40);
   });
+
+  test('phone finder rows stack: full names, actions on their own line (REL11.1)', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await page.goto('/#/team');
+    await waitForCards(page, '#t-cands .cand');
+    const row = page.locator('#t-cands .cand').first();
+    // The name is no longer crushed to "Christian Mc..." — it renders untruncated.
+    const clipped = await row.locator('.cd-name').evaluate(
+      (el) => el.scrollWidth > el.clientWidth + 1);
+    expect(clipped).toBe(false);
+    // Two-line layout: the ADD button sits below the name, not beside it.
+    const nameBox = await row.locator('.cd-name').boundingBox();
+    const addBox = await row.locator('.cand-add').boundingBox();
+    expect(addBox.y).toBeGreaterThan(nameBox.y + nameBox.height - 1);
+  });
+
+  test('parlay leg names wrap at phone width instead of clipping (REL11.1)', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await page.goto('/#/parlays');
+    await waitForCards(page, '.leg-nm');
+    const clippedCount = await page.locator('.leg-nm').evaluateAll(
+      (els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+    expect(clippedCount).toBe(0);
+  });
+
+  test('no tab scrolls horizontally at phone width (REL11.1 sweep lock)', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    for (const route of ['/#/', '/#/players', '/#/parlays', '/#/team', '/#/model']) {
+      await page.goto(route);
+      await page.waitForTimeout(400);
+      const over = await page.evaluate(
+        () => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth);
+      expect(over, `${route} overflows horizontally by ${over}px`).toBeLessThanOrEqual(1);
+    }
+  });
 });
