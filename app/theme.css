@@ -2027,3 +2027,60 @@ button { font: inherit; color: inherit; }
 .cd-onblock--idle { color: var(--muted); font-weight: 400; }
 .auc-mini { min-height: 26px; padding: 2px 10px; font-size: 9px; }
 .cand-took { border-color: var(--accent-txt); color: var(--accent-txt); }
+
+/* ==========================================================================
+   REL11 — UI/UX audit pass: hierarchy, wrap discipline, affordances, a11y.
+   ========================================================================== */
+
+/* Slate: kickoff never orphan-wraps; long venues truncate with ellipsis. */
+.game-meta { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
+.g-time { white-space: nowrap; flex-shrink: 0; }
+.g-venue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  text-align: right;
+}
+
+/* Favored team reads at a glance: the winning side of the probability heads. */
+.ph { color: var(--muted); }
+.ph--fav { color: var(--ink); font-weight: 800; }
+
+/* Week chip rail: right-edge fade signals horizontal scroll. */
+.wkbar { position: relative; }
+.wkbar::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--bg, #0b0e14));
+}
+
+/* SHOW MORE: full-width quiet action at the list tail. */
+.load-more {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--brand-txt);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.load-more:hover { border-style: solid; }
+
+/* A11y: visible keyboard focus everywhere interactive, without mouse noise. */
+button:focus-visible, select:focus-visible, input:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--brand-txt);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

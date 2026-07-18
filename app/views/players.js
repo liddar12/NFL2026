@@ -210,6 +210,8 @@ export default async function mountPlayers(el) {
   const hasAi = aiInsights !== null || history !== null; // trend feed present?
 
   let scoring = hasWeekly ? loadScoring() : 'ppr';
+  const PAGE = 60;              // initial cards + SHOW MORE step (phone perf)
+  let shownCap = 60;
   let active = 'ALL';
   let aiOn = hasAi ? loadAiPref() : false;
   let sortKey = 'proj';
@@ -298,15 +300,29 @@ export default async function mountPlayers(el) {
     });
     const listEl = el.querySelector('#players-list');
     if (!listEl) return;
-    listEl.innerHTML = filtered.length
-      ? filtered.map((p) => {
+    // Render cap: an unbounded list painted a ~90k-px page on phones. Show the
+    // top slice and let SHOW MORE extend it; filters/sorts reset the cap.
+    const capped = filtered.slice(0, shownCap);
+    const more = filtered.length - capped.length;
+    listEl.innerHTML = capped.length
+      ? capped.map((p) => {
           const m = model(p);
           return renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta,
           });
         }).join('')
+        + (more > 0
+          ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
+          : '')
       : '<div class="state">No players at that position.</div>';
   }
+
+  el.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act="show-more"]');
+    if (!btn) return;
+    shownCap += PAGE;
+    paintList();
+  });
 
   el.innerHTML =
     head +
@@ -328,6 +344,7 @@ export default async function mountPlayers(el) {
       const btn = e.target.closest('.pf-chip');
       if (!btn) return;
       active = btn.dataset.pos;
+      shownCap = PAGE;
       pf.querySelectorAll('.pf-chip').forEach((c) => {
         const on = c === btn;
         c.classList.toggle('pf-chip--active', on);
