@@ -18,3 +18,21 @@ regression lock.
 | 9 | Team (phone) | Idle draft card pushes roster below the fold | P2 | DEFERRED — collapsed idle state must not break ds-start locks; Rel11.1 |
 | 10 | Model | Card order: calibration sits below locks; intro line missing | P3 | DEFERRED — Rel11.1 |
 | 11 | Parlays | Leg rows readable but per-card ESTIMATE repetition heavy | P3 | DEFERRED — shared legend treatment with #2 follow-up |
+
+## REL11.1 addendum (2026-07-18, user-reported)
+
+The REL11 phone pass covered slate/players deeply but audited TEAM primarily at
+iPad width (its declared target form factor) — the finder's phone rendering
+slipped through. Root cause recorded so the split-audit gap doesn't recur:
+every future audit sweeps EVERY page at BOTH widths, plus an automated
+clipped-text scan (scrollWidth > clientWidth) per tab.
+
+| # | Page | Finding | Priority | Status |
+|---|------|---------|----------|--------|
+| 12 | Team (phone) | Finder rows crammed name/meta/pts/TAKE/ADD into one line — names clipped to ~10 chars ("Christian Mc...") while roster slots above breathe | P1 | DONE — under 720px rows stack: name+pts line, meta+actions line; best-pick rows same. AC: .cd-name untruncated at 402px, ADD below name; e2e-locked |
+| 13 | Parlays | Leg names ellipsized under the odds cluster ("J. Smith-Njigba 60+ rec yd...") — primary content lost | P1 | DONE — leg names wrap to a second line at phone width. AC: zero clipped .leg-nm at 402px; e2e-locked |
+| 14 | All | No automated guard against horizontal page overflow | P2 | DONE — per-tab overflow sweep lock at 402px (all five routes) |
+
+Sweep result after fixes: zero clipped text on players/parlays/team/model; the
+only remaining ellipsis is the slate venue name (#3's intentional design —
+tertiary info truncates so kickoff time never wraps).
