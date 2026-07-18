@@ -1115,10 +1115,11 @@ export default async function mountTeam(el) {
       const threats = g.threats.length
         ? `<div class="cd-meta">${g.threats.length} team${g.threats.length > 1 ? 's' : ''} can fight you: ${g.threats.map((t) => `T${t.team}(${dollar(t.estWill)})`).join(' ')}</div>`
         : '<div class="cd-meta">no credible threats at that number</div>';
+      const soldBase = Math.max(1, g.adjusted + bidAdj); // buyer cap applies at record time
       const soldControls = live
         ? '<div class="auc-soldrow">SOLD TO ' +
           `<select class="ds-select auc-soldteam">${auction.teams.map((_, i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
-          ' FOR <span class="auc-bidnum auc-soldprice" data-price="' + myMax + '">' + dollar(Math.max(1, myMax)) + '</span>' +
+          ' FOR <span class="auc-bidnum auc-soldprice" data-price="' + soldBase + '">' + dollar(soldBase) + '</span>' +
           '<button type="button" class="sort-chip" data-act="auc-price-minus">−</button>' +
           '<button type="button" class="sort-chip" data-act="auc-price-plus">+</button>' +
           '<button type="button" class="cand-add" data-act="auc-sold">RECORD SALE</button></div>'
@@ -1523,7 +1524,11 @@ export default async function mountTeam(el) {
       const priceEl = el.querySelector('.auc-soldprice');
       const teamIdx = sel ? Number(sel.value) : 0;
       const base = priceEl ? Number(priceEl.dataset.price) : 1;
-      const price = Math.max(1, base + 0); // bidAdj already folded into display
+      // Clamp to what the BUYER can legally pay ($1 reserved per other open
+      // slot); sellTo's budget clamp backstops even this.
+      const buyer = auction.teams[teamIdx];
+      const price = Math.max(0, Math.min(base,
+        maxBid(buyer.budget, auction.shape.size - buyer.players.length)));
       sellTo(auction, teamIdx, price, auction.block.boardIdx);
       bidAdj = 0;
       if (auction.done) finishAuction();
