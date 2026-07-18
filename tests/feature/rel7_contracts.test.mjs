@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const dataPath = (rel) => fileURLToPath(new URL(`../../data/${rel}`, import.meta.url));
 const read = (rel) => JSON.parse(readFileSync(dataPath(rel), 'utf8'));
 
-const FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass'];
+const FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa', 'weather_wind', 'qb_out'];
 
 function latestV2() {
   const doc = read('model_tuning.json');

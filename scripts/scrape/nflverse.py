@@ -205,6 +205,14 @@ def fetch_release_csv(url, name, min_rows=1):
     return rows
 
 
+def fetch_injuries_release(season, min_rows=2000):
+    """Weekly injury reports (injuries_{season}.csv): report statuses per player
+    per week — the pregame availability signal the qb_out promotion family
+    walks forward on. A season is ~5-8k rows; under min_rows is a partial pull."""
+    url = f"{_RELEASE_BASE}/injuries/injuries_{int(season)}.csv"
+    return fetch_release_csv(url, f"injuries_release_{season}", min_rows=min_rows)
+
+
 def fetch_roster_release(season, min_rows=1500):
     """Season roster from the release CSV (roster_{season}.csv). ~32 teams * ~53
     players, so under `min_rows` (1500) signals a partial pull."""

@@ -72,8 +72,102 @@ REST_BASELINE = 7                  # first game of a season counts as normal res
 EPA_SCALES = [0.0, 200.0, 350.0, 500.0]     # Elo per unit EPA-margin differential
 EPA_N0 = 600                       # plays at which current season outweighs prior
 
+WEATHER_PATH = os.path.join(DATA, "weather_history.json")
+BASELINE_PATH = os.path.join(DATA, "market_baseline.json")
+INJURY_PATH = os.path.join(DATA, "injury_history.json")
+
+# elo_epa: a PARALLEL rating track driven by per-play EPA margins instead of
+# scores (the Rel7 finding: EPA *added onto* score-Elo double-counts; rating
+# FROM EPA is the honest experiment). Priced as a blend weight over the
+# rating-difference: delta = w * ((Eh - Ea) - (Rh - Ra)).
+EPA_BLEND_WEIGHTS = [0.05, 0.10, 0.15, 0.30, 0.50]
+EPA_SIGMA = 0.15                   # per-play margin -> pseudo-outcome logistic scale
+
+WIND_KPH = 30.0                    # 'windy game' threshold (open roofs only)
+WIND_SCALES = [-60.0, -45.0, -30.0, -15.0, 15.0, 30.0, 45.0]  # sign unknown a priori
+
+QB_OUT_SCALES = [25.0, 50.0, 75.0]  # Elo penalty when the primary passer is Out/Doubtful
+
 CAL_BINS = 10
 _EPS = 1e-12
+
+
+def _load_json(path, key):
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return (json.load(fh)).get(key) or None
+
+
+def load_weather_map():
+    """{season|week|home|away: wind_kph} or None (builder not run yet)."""
+    games = _load_json(WEATHER_PATH, "games")
+    if not games:
+        return None
+    return {k: v.get("wind_kph") for k, v in games.items()}
+
+
+def load_baseline_map():
+    """{season|week|home|away: de-vigged home prob} or None. MEASUREMENT ONLY."""
+    return _load_json(BASELINE_PATH, "games")
+
+
+def epa_week_margins():
+    """{(season, week, team): per-play epa margin} from epa_history, or None."""
+    seasons = _load_json(EPA_PATH, "seasons")
+    if not seasons or not all(str(y) in seasons for y in SEASONS):
+        return None
+    out = {}
+    for yr_s, teams in seasons.items():
+        for team, weeks in teams.items():
+            for wk, c in weeks.items():
+                if not isinstance(c, dict) or not c.get("off_plays") or not c.get("def_plays"):
+                    continue
+                m = c["off_epa"] / c["off_plays"] - c["def_epa"] / c["def_plays"]
+                out[(int(yr_s), int(wk), team)] = m
+    return out
+
+
+def qb_out_inputs():
+    """(primaries, outs) for the qb_out family, or None until the runner has
+    built BOTH passer aggregates (epa_history) and injury_history.
+
+    primaries[(season, team, week)] -> the expected starter's passer id for that
+    week: the passer with the most cumulative dropbacks in weeks < week (weeks
+    from the PRIOR season when week 1) — pregame information only.
+    outs[(season, week, team)] -> set of Out/Doubtful player ids.
+    """
+    seasons = _load_json(EPA_PATH, "seasons")
+    injuries = _load_json(INJURY_PATH, "seasons")
+    if not seasons or not injuries:
+        return None
+    if not any("passers" in c for t in seasons.get(str(SEASONS[0]), {}).values()
+               for c in t.values()):
+        return None                      # pre-passer-format file: runner refresh pending
+    primaries = {}
+    for yr in SEASONS:
+        teams = seasons.get(str(yr)) or {}
+        prev = seasons.get(str(yr - 1)) or {}
+        for team, weeks in teams.items():
+            cum = {}
+            # Week-1 expectation: last season's dropback leader.
+            for c in (prev.get(team) or {}).values():
+                for pid, rec in (c.get("passers") or {}).items():
+                    cum[pid] = cum.get(pid, 0) + rec["db"]
+            for wk in sorted((int(w) for w in weeks), key=int):
+                if cum:
+                    primaries[(yr, team, wk)] = max(cum.items(), key=lambda kv: kv[1])[0]
+                for pid, rec in (weeks[str(wk)].get("passers") or {}).items():
+                    cum[pid] = cum.get(pid, 0) + rec["db"]
+    outs = {}
+    for yr_s, teams in injuries.items():
+        for team, weeks in teams.items():
+            for wk, rows in weeks.items():
+                outs[(int(yr_s), int(wk), team)] = {
+                    r["id"] for r in rows
+                    if r.get("position") == "QB" and r.get("status") in ("Out", "Doubtful")
+                    and r.get("id")}
+    return primaries, outs
 
 
 def load_finals(year):
@@ -210,7 +304,7 @@ def load_epa_features(kind):
 # --------------------------------------------------------------------------- #
 
 def walk_season(games, priors, hfa, k, delta_fn=None, collect_residuals=False,
-                calibration=None):
+                calibration=None, probs=None):
     """Predict-then-update one season. Returns (log_loss_sum, n, residuals).
 
     delta_fn(game, idx) -> Elo added to hfa for pricing THAT game.
@@ -241,6 +335,8 @@ def walk_season(games, priors, hfa, k, delta_fn=None, collect_residuals=False,
                 calibration[b][0] += 1
                 calibration[b][1] += p_c
                 calibration[b][2] += actual
+            if probs is not None:
+                probs.append((g, p_c, actual))
         exp_h = elo_mod.expected_home(rh, ra, hfa)
         if hs > as_:
             actual_h, margin, dw = 1.0, hs - as_, (rh + hfa) - ra
@@ -294,6 +390,21 @@ def _incumbent_family_fns(tuning):
         feats = load_epa_features(eh.get("kind") or "total")
         if feats is not None:
             fns.append(lambda: epa_builder(float(eh["scale"]), feats))
+    eb = gp.get("epa_blend") or {}
+    if eb.get("applied"):
+        margins = epa_week_margins()
+        if margins is not None:
+            fns.append(lambda: ("__elo_epa__", float(eb["weight"]), margins))
+    wh = gp.get("wind_hfa") or {}
+    if wh.get("applied"):
+        wind = load_weather_map()
+        if wind is not None:
+            fns.append(lambda: weather_wind_builder(float(wh["scale"]), wind))
+    qo = gp.get("qb_out") or {}
+    if qo.get("applied"):
+        inputs = qb_out_inputs()
+        if inputs is not None:
+            fns.append(lambda: qb_out_builder(float(qo["scale"]), *inputs))
     return fns
 
 
@@ -328,7 +439,109 @@ def epa_builder(scale, feats):
     return setup, factory
 
 
-def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None):
+def elo_epa_builder(weight, finals_by_year, margins, hfa, k, revert):
+    """Blend-weight family over a parallel EPA-driven rating track.
+
+    Maintains its OWN score-rating replica (identical update rule to
+    walk_season, so it tracks the real trajectory exactly) plus an EPA rating
+    updated from a logistic pseudo-outcome of the game's per-play EPA margin.
+    delta(game) = weight x ((Eh - Ea) - (Rh - Ra)), computed PREGAME; both
+    tracks then update with that game's result. On each setup(season) the
+    state replays all prior seasons from scratch — leak-free and idempotent.
+    """
+    state = {"r": {}, "e": {}}
+
+    def _step(g, season):
+        h, a = g["home"], g["away"]
+        rh = state["r"].setdefault(h, elo_mod.INIT)
+        ra = state["r"].setdefault(a, elo_mod.INIT)
+        eh = state["e"].setdefault(h, elo_mod.INIT)
+        ea = state["e"].setdefault(a, elo_mod.INIT)
+        hs, as_ = g["home_score"], g["away_score"]
+        # Score-track update (mirror of walk_season's flat-hfa rater).
+        exp_h = elo_mod.expected_home(rh, ra, hfa)
+        if hs > as_:
+            actual_h, margin, dw = 1.0, hs - as_, (rh + hfa) - ra
+        elif hs < as_:
+            actual_h, margin, dw = 0.0, as_ - hs, ra - (rh + hfa)
+        else:
+            actual_h, margin, dw = 0.5, 1, 0.0
+        mult = elo_mod._mov_multiplier(margin, dw)
+        d = k * mult * (actual_h - exp_h)
+        state["r"][h] = rh + d
+        state["r"][a] = ra - d
+        # EPA-track update from the game's per-play margin (skip if missing).
+        mh = margins.get((season, int(g.get("week") or 0), h))
+        if mh is not None:
+            pseudo = 1.0 / (1.0 + math.exp(-mh / EPA_SIGMA))
+            exp_e = elo_mod.expected_home(eh, ea, hfa)
+            de = k * (pseudo - exp_e)
+            state["e"][h] = eh + de
+            state["e"][a] = ea - de
+
+    def _revert_all():
+        for key in ("r", "e"):
+            state[key] = {t: elo_mod.INIT + (v - elo_mod.INIT) * (1 - revert)
+                          for t, v in state[key].items()}
+
+    def setup(season, games, training_residuals):
+        state["r"] = {}
+        state["e"] = {}
+        for yr in SEASONS:
+            if yr >= season:
+                break
+            for g in finals_by_year[yr]:
+                _step(g, yr)
+            _revert_all()
+        return season
+
+    def factory(season):
+        def fn(g, i):
+            h, a = g["home"], g["away"]
+            rh = state["r"].get(h, elo_mod.INIT)
+            ra = state["r"].get(a, elo_mod.INIT)
+            eh = state["e"].get(h, elo_mod.INIT)
+            ea = state["e"].get(a, elo_mod.INIT)
+            delta = weight * ((eh - ea) - (rh - ra))
+            _step(g, season)          # post-pricing: consume this game's result
+            return delta
+        return fn
+    return setup, factory
+
+
+def weather_wind_builder(scale, wind_map):
+    def setup(season, games, training_residuals):
+        return season
+
+    def factory(season):
+        def fn(g, i):
+            w = wind_map.get(f"{season}|{g.get('week')}|{g['home']}|{g['away']}")
+            return scale if (w is not None and w >= WIND_KPH) else 0.0
+        return fn
+    return setup, factory
+
+
+def qb_out_builder(scale, primaries, outs):
+    def setup(season, games, training_residuals):
+        return season
+
+    def factory(season):
+        def fn(g, i):
+            wk = int(g.get("week") or 0)
+            delta = 0.0
+            hp = primaries.get((season, g["home"], wk))
+            if hp and hp in outs.get((season, wk, g["home"]), ()):  # home QB out
+                delta -= scale
+            ap = primaries.get((season, g["away"], wk))
+            if ap and ap in outs.get((season, wk, g["away"]), ()):  # away QB out
+                delta += scale
+            return delta
+        return fn
+    return setup, factory
+
+
+def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
+             probs_out=None):
     """Walk-forward mean log-loss with the given family builders combined
     (their per-game deltas add). Leak-free per the module docstring."""
     total_ll = 0.0
@@ -342,8 +555,13 @@ def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None):
             for setup, factory in builders:
                 fns.append(factory(setup(yr, games, training_residuals)))
             delta_fn = (lambda g, i: sum(fn(g, i) for fn in fns)) if fns else None
+            season_probs = [] if probs_out is not None else None
             ll, n, res = walk_season(games, priors, hfa, k, delta_fn,
-                                     collect_residuals=True, calibration=calibration)
+                                     collect_residuals=True, calibration=calibration,
+                                     probs=season_probs)
+            if probs_out is not None:
+                for g, p, actual in season_probs:
+                    probs_out.append((yr, g, p, actual))
             total_ll += ll
             total_n += n
         else:
@@ -361,12 +579,20 @@ def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None):
 def run(auto_adopt=False):
     hfa, revert, k, tuning = game_params()
     finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
-    incumbent_builders = [mk() for mk in _incumbent_family_fns(tuning)]
+    incumbent_builders = []
+    for mk in _incumbent_family_fns(tuning):
+        built = mk()
+        if isinstance(built, tuple) and built and built[0] == "__elo_epa__":
+            _, w, margins = built
+            built = elo_epa_builder(w, finals_by_year, margins, hfa, k, revert)
+        incumbent_builders.append(built)
 
     # Incumbent walk also produces the calibration record for the MODEL tab.
     cal = [[0, 0.0, 0.0] for _ in range(CAL_BINS)]
+    inc_probs = []
     inc_loss, inc_n = evaluate(incumbent_builders, hfa, revert, k,
-                               finals_by_year, calibration=cal)
+                               finals_by_year, calibration=cal,
+                               probs_out=inc_probs)
     calibration = {
         "seasons": f"{EVAL_SEASONS[0]}-{EVAL_SEASONS[-1]}",
         "n": inc_n,
@@ -421,6 +647,45 @@ def run(auto_adopt=False):
                       for s in EPA_SCALES if s]
         families.append({"family": fam, "trials": fam_trials})
 
+    # elo_epa (blend over an EPA-driven rating track — the replace-not-add test)
+    margins = epa_week_margins()
+    if margins is None:
+        print("  elo_epa      SKIPPED: epa_history.json absent/incomplete")
+        families.append({"family": "elo_epa", "skipped": True,
+                         "reason": "epa_history.json absent or incomplete"})
+    else:
+        fam_trials = [try_candidate("elo_epa", f"w={w}", {"weight": w},
+                                    elo_epa_builder(w, finals_by_year, margins,
+                                                    hfa, k, revert))
+                      for w in EPA_BLEND_WEIGHTS]
+        families.append({"family": "elo_epa", "trials": fam_trials})
+
+    # weather_wind (open-roof windy games; sign grid — direction unknown a priori)
+    wind_map = load_weather_map()
+    if wind_map is None:
+        print("  weather_wind SKIPPED: weather_history.json not built yet")
+        families.append({"family": "weather_wind", "skipped": True,
+                         "reason": "weather_history.json not built yet"})
+    else:
+        fam_trials = [try_candidate("weather_wind", f"scale={sc:+.0f}", {"scale": sc},
+                                    weather_wind_builder(sc, wind_map))
+                      for sc in WIND_SCALES]
+        families.append({"family": "weather_wind", "trials": fam_trials})
+
+    # qb_out (primary passer listed Out/Doubtful — needs runner passer+injury data)
+    qb_inputs = qb_out_inputs()
+    if qb_inputs is None:
+        print("  qb_out       SKIPPED: needs passer aggregates + injury_history "
+              "(runner-built)")
+        families.append({"family": "qb_out", "skipped": True,
+                         "reason": "passer aggregates + injury_history pending "
+                                   "(built by the weekly backtest workflow)"})
+    else:
+        fam_trials = [try_candidate("qb_out", f"scale={sc:.0f}", {"scale": sc},
+                                    qb_out_builder(sc, *qb_inputs))
+                      for sc in QB_OUT_SCALES]
+        families.append({"family": "qb_out", "trials": fam_trials})
+
     # Verdict: best scale per family; adopt at most the single best family.
     best_overall = None
     for fam in families:
@@ -431,8 +696,18 @@ def run(auto_adopt=False):
         fam["improvement"] = round(inc_loss - best["log_loss"], 5)
         if best_overall is None or best["log_loss"] < best_overall[1]["log_loss"]:
             best_overall = (fam["family"], best)
+    # Families whose prediction-time application is wired in build_predictions.
+    # A family NOT in this set can clear the margin but records would_adopt —
+    # the gate must never claim a signal is applied when the pipeline cannot
+    # actually apply it.
+    APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa"}
     adopt = (best_overall is not None
              and inc_loss - best_overall[1]["log_loss"] > MARGIN)
+    if adopt and best_overall[0] not in APPLIABLE:
+        adopt = False
+        pending = best_overall
+    else:
+        pending = None
 
     import datetime as dt
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -457,8 +732,39 @@ def run(auto_adopt=False):
                    "incumbent retained: no family cleared the margin"),
         "calibration": calibration,
     }
+    baseline = load_baseline_map()
+    if baseline:
+        ours_ll = 0.0
+        mkt_ll = 0.0
+        bn = 0
+        for yr, g, p, actual in inc_probs:
+            bp = baseline.get(f"{yr}|{g.get('week')}|{g['home']}|{g['away']}")
+            if bp is None:
+                continue
+            bp = min(max(float(bp), _EPS), 1.0 - _EPS)
+            ours_ll += -(actual * math.log(p) + (1 - actual) * math.log(1 - p))
+            mkt_ll += -(actual * math.log(bp) + (1 - actual) * math.log(1 - bp))
+            bn += 1
+        if bn:
+            entry["market_baseline"] = {
+                "policy": "measurement only - never an input (owner rule)",
+                "games": bn,
+                "our_log_loss": round(ours_ll / bn, 5),
+                "market_log_loss": round(mkt_ll / bn, 5),
+                "gap": round((ours_ll - mkt_ll) / bn, 5),
+            }
+            print(f"market baseline: ours {ours_ll/bn:.5f} vs close {mkt_ll/bn:.5f} "
+                  f"over {bn} games (gap {(ours_ll-mkt_ll)/bn:+.5f})")
     tuning.setdefault("history", []).insert(0, entry)
 
+    if pending is not None:
+        entry["reason"] = (f"{pending[0]} cleared the margin but its application "
+                           "path is not wired yet - recorded, not adopted")
+        entry["would_adopt"] = {"family": pending[0], **pending[1]}
+        entry["adopted"] = False
+        entry["adopted_family"] = None
+        print(f"PENDING: {pending[0]} cleared the margin but has no application "
+              f"path yet ({inc_loss:.5f} -> {pending[1]['log_loss']:.5f})")
     if adopt and auto_adopt:
         _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now)
     elif adopt:
@@ -514,6 +820,15 @@ def _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now):
                          "kind": "pass" if family == "epa_pass" else "total",
                          "scale": best["scale"], "n0_plays": EPA_N0,
                          "adopted_utc": now}
+    elif family == "elo_epa":
+        gp["epa_blend"] = {"applied": True, "weight": best["weight"],
+                           "sigma": EPA_SIGMA, "adopted_utc": now}
+    elif family == "weather_wind":
+        gp["wind_hfa"] = {"applied": True, "scale": best["scale"],
+                          "threshold_kph": WIND_KPH, "adopted_utc": now}
+    elif family == "qb_out":
+        gp["qb_out"] = {"applied": True, "scale": best["scale"],
+                        "adopted_utc": now}
     print(f"ADOPTED {family} {best} into game_params")
 
 
@@ -557,6 +872,49 @@ def selftest():
     m_leaky_would_be = feats.margin(2025, "KC", 4)
     assert m_leaky_would_be < m, (m_leaky_would_be, m)
     print("selftest OK: rest clamp + EPA leak-free blending exact")
+
+
+def epa_blend_deltas(weight):
+    """PRODUCTION application for an adopted epa_blend: replay ALL resolved
+    seasons through both rating tracks (identical math to the walk-forward
+    builder) and return {team: weight x (E - R)} — the additive Elo delta per
+    team for pricing upcoming games. None if EPA data is unavailable."""
+    margins = epa_week_margins()
+    if margins is None:
+        return None
+    hfa, revert, k, _ = game_params()
+    finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
+    st = {"r": {}, "e": {}}
+    for yr in SEASONS:
+        for g in finals_by_year[yr]:
+            h, a = g["home"], g["away"]
+            rh = st["r"].setdefault(h, elo_mod.INIT)
+            ra = st["r"].setdefault(a, elo_mod.INIT)
+            eh = st["e"].setdefault(h, elo_mod.INIT)
+            ea = st["e"].setdefault(a, elo_mod.INIT)
+            hs, as_ = g["home_score"], g["away_score"]
+            exp_h = elo_mod.expected_home(rh, ra, hfa)
+            if hs > as_:
+                actual_h, margin, dw = 1.0, hs - as_, (rh + hfa) - ra
+            elif hs < as_:
+                actual_h, margin, dw = 0.0, as_ - hs, ra - (rh + hfa)
+            else:
+                actual_h, margin, dw = 0.5, 1, 0.0
+            mult = elo_mod._mov_multiplier(margin, dw)
+            d = k * mult * (actual_h - exp_h)
+            st["r"][h] = rh + d
+            st["r"][a] = ra - d
+            mh = margins.get((yr, int(g.get("week") or 0), h))
+            if mh is not None:
+                pseudo = 1.0 / (1.0 + math.exp(-mh / EPA_SIGMA))
+                de = k * (pseudo - elo_mod.expected_home(eh, ea, hfa))
+                st["e"][h] = eh + de
+                st["e"][a] = ea - de
+        for key in ("r", "e"):
+            st[key] = {t: elo_mod.INIT + (v - elo_mod.INIT) * (1 - revert)
+                       for t, v in st[key].items()}
+    return {t: round(weight * (st["e"].get(t, elo_mod.INIT) - st["r"][t]), 2)
+            for t in st["r"]}
 
 
 def main():

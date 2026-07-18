@@ -422,3 +422,31 @@ undoLastSale (auction) restores budget/roster/tendency/inflation byte-for-byte f
 during an auction every list row shows PTS plus "$ours v $market" with the 🎯/🎣 value-gap flag —
 one visual language across finder, reco and the block. **Status:** adopted. Gate 217 unit (+2) /
 56 e2e (+3), validate + smoke green.
+
+---
+
+## REL10 — Learning feeds: five new datasets, three new gate families, the market yardstick (2026-07-18)
+
+**Decision (owner-selected: "Learning feeds only, no Sleeper"):** (1) ELO_EPA family — the Rel7
+finding's honest experiment: a PARALLEL rating track driven by per-play EPA margins (logistic
+pseudo-outcomes, sigma .15), priced as a blend weight over the rating difference (replace-not-add).
+FIRST RUN CONFIRMED THE HYPOTHESIS: additive EPA hurt (+.003); blended EPA-rated ratings HELP —
+w=.15 scored 0.63618 vs incumbent 0.63690, the best candidate the gate has ever seen, with a clean
+interior optimum (.05/.10/.15/.30/.50 grid brackets the peak). Still under the .0015 margin —
+honestly retained; as 2026 finals join the walk-forward set a real effect clears on its own.
+(2) WEATHER_WIND family from a new Open-Meteo archive dataset (893 open-roof kickoff-hours,
+2021-2025, keyless, sandbox-buildable): NEGATIVE scales improve (wind REDUCES home edge; -60 Elo
+scored 0.63632) — retained, monotone toward grid edge, cron keeps testing. (3) QB_OUT family:
+expected primary passer (cumulative dropbacks through W-1, pregame info only) listed Out/Doubtful
+on the final report — needs the new runner-built injury_history.json + passer aggregates now added
+to epa_history (top-2 passers per team-week; format-upgrade guard refetches pre-passer history).
+SKIPPED until the bootstrap dispatch lands data. (4) MARKET YARDSTICK (measurement ONLY - owner
+policy): nfldata moneylines de-vigged (1,359 games) -> the gate now scores the incumbent against
+the close every run: ours 0.63690 vs close 0.60819 (gap +0.0287) — the number the learning loop
+exists to shrink, shown on the MODEL gate card with a MEASUREMENT ONLY badge. (5) APPLIABLE guard:
+families whose prediction-time application is not wired (weather_wind, qb_out) can clear the margin
+but record would_adopt — the gate never claims a signal it cannot apply. epa_blend application IS
+wired (per-team deltas replayed over all seasons, span ±13 Elo at w=.15). (6) PLAYER_USAGE dataset
+(targets/target share/air yards/RZ touches/rushes, runner-built): candidate refit FEATURES at
+weight 0 for the in-season player gate. (7) ADP TIME-SERIES: one bounded daily snapshot (150 kept).
+Weekly cron now builds all five datasets. **Status:** adopted. Gate 220 unit / 56 e2e green.

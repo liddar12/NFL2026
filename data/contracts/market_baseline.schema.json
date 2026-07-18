@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "market_baseline.schema.json",
+  "title": "Historical de-vigged moneyline home probabilities - MEASUREMENT ONLY",
+  "description": "POLICY BOUNDARY (owner rule): market prices are NEVER an input to predictions. This file only scores the model against the market on resolved games - the honest yardstick for whether self-learning is working.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "policy",
+    "games"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string",
+      "pattern": "MEASUREMENT ONLY"
+    },
+    "games": {
+      "type": "object",
+      "minProperties": 1000,
+      "additionalProperties": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "exclusiveMaximum": 1
+      }
+    }
+  }
+}
