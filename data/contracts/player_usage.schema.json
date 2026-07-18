@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_usage.schema.json",
+  "title": "Per-player opportunity metrics (targets/air yards/red zone/rushes)",
+  "description": "Candidate refit FEATURES for the player projection model - weight 0 until the in-season player gate earns them weight. Runner-built from pbp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "season",
+    "source",
+    "policy",
+    "players"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "season": {
+      "type": "integer"
+    },
+    "source": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string"
+    },
+    "players": {
+      "type": "array",
+      "minItems": 250,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "team",
+          "targets",
+          "target_share",
+          "air_yards",
+          "rz_touches",
+          "rush_att"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target_share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "air_yards": {
+            "type": "number"
+          },
+          "rz_touches": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rush_att": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

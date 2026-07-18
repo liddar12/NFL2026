@@ -142,6 +142,18 @@ def main():
         for _g, _d in zip(_sched_sorted, rest_diffs(_sched_sorted)):
             _rest_diff_by_gid[_g["game_id"]] = _d
         print(f"promoted rest signal in effect: {_rest_scale} Elo/day")
+    # epa_blend (adopted elo_epa family): per-team additive deltas from the
+    # EPA-driven parallel rating track, replayed over all resolved seasons.
+    _epa_blend = _adopted.get("epa_blend") or {}
+    _blend_deltas = {}
+    if _epa_blend.get("applied"):
+        from scripts.promote_signals import epa_blend_deltas  # noqa: PLC0415 (guarded)
+        _blend_deltas = epa_blend_deltas(float(_epa_blend["weight"])) or {}
+        if _blend_deltas:
+            print(f"promoted epa_blend in effect: w={_epa_blend['weight']} "
+                  f"({len(_blend_deltas)} team deltas)")
+        else:
+            print("WARNING: epa_blend adopted but epa_history unavailable — not applied")
     # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
     # runner-built epa_history.json; absent data means no delta, loudly.
     _epa_hfa = _adopted.get("epa_hfa") or {}
@@ -171,6 +183,8 @@ def main():
             hfa_eff += _rest_scale * _rest_diff_by_gid.get(g["game_id"], 0.0)
         if _epa_feats is not None:
             hfa_eff += float(_epa_hfa["scale"]) * _epa_feats.diff(g, SEASON)
+        if _blend_deltas:
+            hfa_eff += _blend_deltas.get(g["home"], 0.0) - _blend_deltas.get(g["away"], 0.0)
         row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]
@@ -421,6 +435,24 @@ def main():
         feeds["adp"] = {"rows": len(adp_rows), "age_hours": 0.0,
                         "last_success_utc": now, "status": "ok"}
         print(f"adp: {len(adp_rows)} players, join rate {adp_join}")
+        # ADP TIME-SERIES: one bounded snapshot per calendar day — market
+        # movement (risers/fallers) + a moving benchmark for beat-ADP grading.
+        _hist_path = os.path.join(DATA, "adp_history.json")
+        _today = now[:10]
+        _hist = {"snapshots": []}
+        if os.path.exists(_hist_path):
+            with open(_hist_path, encoding="utf-8") as fh:
+                _hist = json.load(fh)
+        _snaps = _hist.get("snapshots") or []
+        if not _snaps or _snaps[-1].get("date") != _today:
+            _snaps.append({"date": _today,
+                           "players": [{"gsis_id": r.get("gsis_id"),
+                                        "name": r["name"], "adp": r["adp"]}
+                                       for r in adp_rows[:200]]})
+            _write(_hist_path, {"updated_utc": now,
+                                "source": "daily FFC ADP snapshots",
+                                "snapshots": _snaps[-150:]})
+            print(f"adp_history: snapshot {_today} appended ({len(_snaps[-150:])} kept)")
     except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
         feeds["adp"] = {"rows": 0, "age_hours": 999.0,
                         "last_success_utc": None, "status": "degraded"}

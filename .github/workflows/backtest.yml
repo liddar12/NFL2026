@@ -49,6 +49,18 @@ jobs:
       - name: Build EPA history (nflverse play-by-play)
         run: python scripts/build_epa_history.py
 
+      - name: Build injury history (nflverse injuries)
+        run: python scripts/build_injury_history.py
+
+      - name: Build weather history (Open-Meteo archive)
+        run: python scripts/build_weather_history.py
+
+      - name: Build market baseline (measurement only - never an input)
+        run: python scripts/build_market_baseline.py
+
+      - name: Build player usage (opportunity metrics)
+        run: python scripts/build_player_usage.py
+
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
 

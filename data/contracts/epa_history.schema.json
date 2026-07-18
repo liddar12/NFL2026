@@ -5,10 +5,18 @@
   "description": "Sums (not means) of EPA over run/pass plays, split by side of ball and pass/rush, so any rolling window recomposes exactly. Built on the GitHub runner (sandbox proxy blocks nflverse releases); past seasons are immutable and never refetched. Raw material for the promotion gate's EPA-blend candidate families - a candidate earns pricing weight ONLY through the walk-forward NEVER-REGRESS gate.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["generated_utc", "source", "seasons"],
+  "required": [
+    "generated_utc",
+    "source",
+    "seasons"
+  ],
   "properties": {
-    "generated_utc": { "type": "string" },
-    "source": { "type": "string" },
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
     "seasons": {
       "type": "object",
       "minProperties": 1,
@@ -22,24 +30,87 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-              "off_plays", "off_epa", "off_pass_plays", "off_pass_epa",
-              "off_rush_plays", "off_rush_epa",
-              "def_plays", "def_epa", "def_pass_plays", "def_pass_epa",
-              "def_rush_plays", "def_rush_epa"
+              "off_plays",
+              "off_epa",
+              "off_pass_plays",
+              "off_pass_epa",
+              "off_rush_plays",
+              "off_rush_epa",
+              "def_plays",
+              "def_epa",
+              "def_pass_plays",
+              "def_pass_epa",
+              "def_rush_plays",
+              "def_rush_epa"
             ],
             "properties": {
-              "off_plays": { "type": "integer", "minimum": 0 },
-              "off_epa": { "type": "number" },
-              "off_pass_plays": { "type": "integer", "minimum": 0 },
-              "off_pass_epa": { "type": "number" },
-              "off_rush_plays": { "type": "integer", "minimum": 0 },
-              "off_rush_epa": { "type": "number" },
-              "def_plays": { "type": "integer", "minimum": 0 },
-              "def_epa": { "type": "number" },
-              "def_pass_plays": { "type": "integer", "minimum": 0 },
-              "def_pass_epa": { "type": "number" },
-              "def_rush_plays": { "type": "integer", "minimum": 0 },
-              "def_rush_epa": { "type": "number" }
+              "off_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "off_epa": {
+                "type": "number"
+              },
+              "off_pass_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "off_pass_epa": {
+                "type": "number"
+              },
+              "off_rush_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "off_rush_epa": {
+                "type": "number"
+              },
+              "def_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "def_epa": {
+                "type": "number"
+              },
+              "def_pass_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "def_pass_epa": {
+                "type": "number"
+              },
+              "def_rush_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "def_rush_epa": {
+                "type": "number"
+              },
+              "passers": {
+                "type": "object",
+                "maxProperties": 2,
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "db",
+                    "epa"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "db": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "epa": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
             }
           }
         }

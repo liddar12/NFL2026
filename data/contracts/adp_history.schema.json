@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "adp_history.schema.json",
+  "title": "Daily ADP snapshots (bounded time-series)",
+  "description": "One snapshot per day, max 150 kept - market movement + a moving beat-ADP benchmark. Same policy boundary as adp.json: opponent model only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "updated_utc",
+    "source",
+    "snapshots"
+  ],
+  "properties": {
+    "updated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "snapshots": {
+      "type": "array",
+      "maxItems": 150,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date",
+          "players"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "players": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "gsis_id",
+                "name",
+                "adp"
+              ],
+              "properties": {
+                "gsis_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "adp": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

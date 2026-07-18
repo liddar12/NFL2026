@@ -821,15 +821,18 @@ test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
     await page.goto('/#/model');
     await page.waitForSelector('.m-gate .gate-row', { timeout: 8000 });
     const txt = await page.locator('.m-gate').innerText();
-    for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass']) {
+    for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass',
+      'elo_epa', 'weather_wind', 'qb_out']) {
       expect(txt).toContain(fam);
     }
     expect(txt).toContain('NEVER-REGRESS');
-    // Every family row (not the header) carries exactly one verdict chip.
+    // Every family row (not the header) carries exactly one verdict chip, and
+    // the market yardstick renders as measurement-only (Rel10).
     const rows = await page.locator('.m-gate .gate-row:not(.gate-row--head)').count();
     const chips = await page.locator('.m-gate .gate-chip').count();
-    expect(rows).toBe(4);
-    expect(chips).toBe(4);
+    expect(rows).toBe(7);
+    expect(chips).toBe(7);
+    await expect(page.locator('.m-gate .gate-bench')).toContainText('MEASUREMENT ONLY');
   });
 
   test('calibration card draws predicted-vs-actual bars over 1000+ games', async ({ page }) => {

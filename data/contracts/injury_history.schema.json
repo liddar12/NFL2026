@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "injury_history.schema.json",
+  "title": "Weekly pregame injury-report statuses (skill positions)",
+  "description": "nflverse injuries releases; pregame information by construction - the qb_out promotion family's availability signal. Runner-built.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "seasons"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "seasons": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "position",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "position": {
+                  "type": "string",
+                  "enum": [
+                    "QB",
+                    "RB",
+                    "WR",
+                    "TE"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "Out",
+                    "Doubtful",
+                    "Questionable"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

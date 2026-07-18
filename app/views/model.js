@@ -200,6 +200,9 @@ function gateCard(tuning) {
       '<span class="gate-name">FAMILY</span><span class="gate-loss">BEST LOSS</span>' +
       '<span class="gate-imp">Δ LOSS</span><span>VERDICT</span></div>' +
     rows +
+    (entry.market_baseline
+      ? `<div class="gate-bench">MARKET YARDSTICK: our log-loss ${esc(Number(entry.market_baseline.our_log_loss).toFixed(5))} vs closing line ${esc(Number(entry.market_baseline.market_log_loss).toFixed(5))} over ${esc(entry.market_baseline.games)} games <span class="ms-badge">MEASUREMENT ONLY</span></div>`
+      : '') +
     `<div class="mp-src">Last run ${esc(String(entry.generated_utc || '').slice(0, 10))} · ${esc(entry.reason || '')}</div>`
   );
 }

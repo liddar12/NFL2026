@@ -83,12 +83,29 @@ def aggregate(rows):
             else:
                 cell[f"{side}_rush_plays"] += 1
                 cell[f"{side}_rush_epa"] += epa
+        # Per-passer dropback aggregates (offense side only) — identifies each
+        # team-week's primary QB for the qb_out promotion family.
+        if pt == "pass":
+            pid = (r.get("passer_player_id") or "").strip()
+            pname = (r.get("passer_player_name") or "").strip()
+            if pid:
+                cell = teams[off][wk]
+                pas = cell.setdefault("passers", {})
+                rec = pas.setdefault(pid, {"name": pname, "db": 0, "epa": 0.0})
+                rec["db"] += 1
+                rec["epa"] += epa
     # Round the float sums once, at the end (stable output, exact recomposition
-    # to 4dp is plenty next to per-play EPA noise).
+    # to 4dp is plenty next to per-play EPA noise). Passers: keep only the top
+    # two by dropbacks per team-week (primary-QB identification needs no more).
     for weeks in teams.values():
         for cell in weeks.values():
-            for k in cell:
-                if k.endswith("_epa"):
+            for k in list(cell):
+                if k == "passers":
+                    top = sorted(cell[k].items(), key=lambda kv: -kv[1]["db"])[:2]
+                    cell[k] = {pid: {"name": rec["name"], "db": rec["db"],
+                                     "epa": round(rec["epa"], 4)}
+                               for pid, rec in top}
+                elif k.endswith("_epa"):
                     cell[k] = round(cell[k], 4)
     return teams, kept
 
@@ -112,6 +129,9 @@ def selftest():
     assert abs(teams["KC"]["2"]["off_epa"] - (-0.3)) < 1e-9
     # LAR rename: the fixture's 'LA' defense rows land under LAR.
     assert "LAR" in teams and "LA" not in teams
+    # Passer aggregation: KC week 1 passes credited to the fixture passer.
+    kc_pass = teams["KC"]["1"].get("passers") or {}
+    assert kc_pass.get("00-QB1", {}).get("db") == 2, kc_pass
     sf1 = teams["SF"]["1"]
     assert sf1["off_plays"] == 2 and abs(sf1["off_epa"] - 0.5) < 1e-9
     # Defense mirrors offense: KC's week-1 defense saw SF's 2 passes.
@@ -126,11 +146,14 @@ def main():
         with open(OUT_PATH, encoding="utf-8") as fh:
             existing = (json.load(fh)).get("seasons") or {}
 
+    def _has_passers(teams):
+        return any("passers" in cell for weeks in teams.values() for cell in weeks.values())
+
     seasons_out = {}
     fetched = []
     for season in HISTORY_SEASONS + [CURRENT_SEASON]:
         key = str(season)
-        if key in existing and season in HISTORY_SEASONS:
+        if key in existing and season in HISTORY_SEASONS and _has_passers(existing[key]):
             seasons_out[key] = existing[key]   # immutable history: no refetch
             continue
         try:
