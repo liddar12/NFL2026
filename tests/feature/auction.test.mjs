@@ -237,3 +237,54 @@ test('undoLastSale reverses a sale EXACTLY - budget, roster, tendency, inflation
   assert.equal(snapshot(), before, 'undo restored the room byte-for-byte');
   assert.equal(undoLastSale(a), null, 'nothing left to undo');
 });
+
+/* ---- Rel9.2 bug-hunt regressions: money can never be minted ------------------ */
+
+test('sellTo clamps an over-budget LIVE entry - conservation is inviolable', () => {
+  const a = newAuction();
+  nominate(a, 0);
+  sellTo(a, 0, 250, 0);                     // recorded above the $200 budget
+  assert.equal(a.teams[0].budget, 0, 'buyer drained, never negative');
+  assert.equal(a.log[0].price, 200, 'logged price is the clamped price');
+  const spent = a.log.reduce((s, l) => s + l.price, 0);
+  const remaining = a.teams.reduce((s, t) => s + t.budget, 0);
+  assert.equal(spent + remaining, 4 * 200, 'no phantom dollars minted');
+  // And undo still restores exactly (uses the clamped price).
+  undoLastSale(a);
+  assert.equal(a.teams[0].budget, 200);
+});
+
+test('resolveBids no-bidder fallback never sells to a team that cannot pay', () => {
+  const a = newAuction();
+  a.teams[0].budget = 0;                    // nominating team is broke
+  nominate(a, 50);                          // deep player nobody wants
+  const r = resolveBids(a, 0);
+  if (r.price > 0) {
+    assert.ok(a.teams[r.winnerIdx].budget >= r.price,
+      'fallback winner can afford the minimum bid');
+  }
+  // Fully drained room: resolves at $0, still no phantom money.
+  const b = newAuction();
+  b.teams.forEach((t) => { t.budget = 0; });
+  nominate(b, 50);
+  const rb = resolveBids(b, 0);
+  sellTo(b, rb.winnerIdx, rb.price, 50);
+  const spent = b.log.reduce((s, l) => s + l.price, 0);
+  const remaining = b.teams.reduce((s, t) => s + t.budget, 0);
+  assert.equal(spent + remaining, 0, 'drained room stays at zero dollars');
+});
+
+test('nominationAdvice never classifies unprojected players (unknown != bait)', () => {
+  const rows = board(40).concat([{ name: 'Famous Rookie', position: 'RB', adp: 5.5, gsis_id: null }])
+    .sort((x, y) => x.adp - y.adp);
+  const a = createAuction({
+    leagueSize: 4, mySlot: 1, budget: 200,
+    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 },
+    boardRows: rows, adjPointsById: adjMap(rows), seed: 3,
+  });
+  const adv = nominationAdvice(a, {}, 10);
+  for (const list of [adv.bait, adv.targets]) {
+    assert.ok(!list.some((x) => x.name === 'Famous Rookie'),
+      'players without projections stay out of the advisor');
+  }
+});

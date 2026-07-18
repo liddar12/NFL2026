@@ -310,7 +310,19 @@ export function resolveBids(a, myMaxBid) {
       second = bids[t];
     }
   }
-  if (top < MIN_BID) return { winnerIdx: onTheNomination(a), price: MIN_BID };
+  if (top < MIN_BID) {
+    // Nobody bid: the player goes to the first rotation team that can still
+    // afford the minimum AND has roster room; a fully drained room resolves
+    // at $0 (sellTo clamps) so no phantom dollar is ever minted.
+    for (let hop = 0; hop < a.leagueSize; hop += 1) {
+      const t = (a.nomIdx + hop) % a.leagueSize;
+      if (a.teams[t].budget >= MIN_BID
+          && a.teams[t].players.length < a.shape.size) {
+        return { winnerIdx: t, price: MIN_BID };
+      }
+    }
+    return { winnerIdx: onTheNomination(a), price: 0 };
+  }
   return { winnerIdx: winner, price: Math.max(MIN_BID, Math.min(top, second + 1)) };
 }
 
@@ -321,7 +333,12 @@ export function sellTo(a, teamIdx, price, boardIdx) {
   const key = String(row.gsis_id || `name:${row.name}`);
   a.taken.add(boardIdx);
   const team = a.teams[teamIdx];
-  team.budget = Math.max(0, team.budget - price);
+  // Money conservation is inviolable: a recorded price can never exceed the
+  // buyer's remaining budget (bad LIVE entry clamps rather than minting
+  // phantom dollars). The clamped price is what lands in the log, so undo
+  // and the spent/remaining invariant stay exact.
+  price = Math.max(0, Math.min(Math.round(price), team.budget));
+  team.budget = team.budget - price;
   team.players.push(row);
   const market = a.market.get(key) || MIN_BID;
   const prevTendency = team.tendencies[row.position];
@@ -400,8 +417,11 @@ export function nominationAdvice(a, strategy = {}, topN = 3) {
   for (let i = 0; i < a.board.length; i += 1) {
     if (a.taken.has(i)) continue;
     const row = a.board[i];
-    const key = String(row.gsis_id || `name:${row.name}`);
-    const fair = row.gsis_id ? (a.fair.get(key) || MIN_BID) : MIN_BID;
+    // No projection -> no honest value gap. Unprojected players are neither
+    // BAIT nor TARGET; they are unknowns and stay out of the advisor.
+    if (!row.gsis_id) continue;
+    const key = String(row.gsis_id);
+    const fair = a.fair.get(key) || MIN_BID;
     const market = a.market.get(key) || MIN_BID;
     const cls = classifyNomination(fair, market);
     const entry = { boardIdx: i, name: row.name, position: row.position,
