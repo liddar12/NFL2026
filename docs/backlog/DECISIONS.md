@@ -311,3 +311,36 @@ the older board). Fixed by switching the three cron workflows to "[skip actions]
 skip token: the CI gate still skips data commits (no runner burn), Netlify now builds them, so prod
 data is as fresh as the crons.
 **Status:** adopted.
+
+## 2026-07-18 — REL6: promotion gate verdict, draft simulator (beat-ADP benchmark), defense composite, depth continuity, RESET, UI polish
+**Decision:** (1) SIGNAL PROMOTION RAN — AND THE GATE SAID NO. scripts/promote_signals.py wired
+venue-specific HFA + cold-weather deltas into the Elo win probability and walk-forward backtested a
+4x4 scale grid on 2022-2025 (leak-free: each season's features fit only on prior seasons; rating
+updates stay flat-HFA so candidates shift pricing, never trajectories). EVERY candidate scale scored
+worse than the incumbent out-of-sample (best 0.63690 = the zero-scale row); NEVER-REGRESS retained
+the incumbent, all 16 trials archived in model_tuning history, and the signals stay at weight 0. The
+application path (game_params.venue_hfa/cold_hfa -> per-game hfa_eff in build_predictions) is wired
+and dormant, so any future adoption flows into probabilities automatically. Locked by test: the gate
+must never adopt on a tie, and applied must stay false. (2) DRAFT SIMULATOR (app/draft-sim.js, pure
++ seeded): snake drafts vs a room of ADP-drafting opponents (FantasyFootballCalculator keyless feed,
+89.9% joined to our pool; per-round noise sigma 2+1.25/round, need-aware incl one backup per
+position, hard caps enforced) with our picks advised by adjusted points + a 150-sim survival
+lookahead ("N% survives to your next pick"); result = starters-total margin vs the room average (the
+BEAT-ADP score) with rank. ADP-room mocks lock to localStorage nfl2026.mocklocks.v1 as learning
+records (graded when real points resolve -> fit-engine coefficient refits through NEVER-REGRESS);
+the opt-in SHARK room (opponents = our engine) is a stress test excluded from the learning record.
+League size 8/10/12 + slot + roster composition configurable (bounded: QB 1-2, RB/WR 2-3, TE 1-2,
+FLEX 0-2, bench 4-8). ADP POLICY BOUNDARY: opponent model + value flags only, never blended into
+projections. (3) DEFENSE COMPOSITE (scripts/build_defense.py): 32 teams from live ESPN rosters,
+front size/experience + secondary experience z-blend (WAS/NYG/NO strongest, LV/KC/MIA weakest this
+run) — the OL-vs-DL signal's other half, weight-0 pinned until in-season player-level grading can
+promote a matchup term. (4) DEPTH-CHART CONTINUITY: build_oline records returning_starters_ol (last
+season's week-max depth-chart OL starters still on the current roster; runner-only feed, context
+metric). (5) RESET: one button, two-step confirm (arm -> wipe roster + TAKEN + draft; any other
+action disarms). (6) UI POLISH: aligned candidate/best-pick grids, uniform chip heights + tap
+targets, toolbar row (AI toggle + RESET), scrollable MODEL playoff table on phones, market-strip
+attachment fix, draft-sim card styling. New feeds: adp + defense in pipeline_status.
+**Rationale:** Rel6 items 1-4 as approved + reset + the owner's overnight directive (UI cleanup,
+gate to 100%, ship unattended). The promotion "no" is the system's honesty working in public: tested
+properly, recorded, not adopted.
+**Status:** adopted. Gate at 194 unit + 45 e2e, validate + smoke green.

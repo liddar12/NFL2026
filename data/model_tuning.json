@@ -43,6 +43,120 @@
   },
   "history": [
     {
+      "generated_utc": "2026-07-18T02:47:47Z",
+      "kind": "signal_promotion",
+      "source": "scripts/promote_signals.py walk-forward 2022-2025 (venue_hfa + cold_hfa)",
+      "objective": "log_loss",
+      "margin": 0.0015,
+      "incumbent_loss": 0.6369,
+      "candidate": {
+        "venue_scale": 0.0,
+        "cold_scale": 0.0
+      },
+      "candidate_loss": 0.6369,
+      "improvement": 0.0,
+      "adopted": false,
+      "reason": "incumbent retained: no candidate cleared the margin \u2014 signals stay at weight 0",
+      "trials": [
+        {
+          "venue_scale": 0.0,
+          "cold_scale": 0.0,
+          "log_loss": 0.6369,
+          "n": 1084
+        },
+        {
+          "venue_scale": 0.0,
+          "cold_scale": 150.0,
+          "log_loss": 0.63694,
+          "n": 1084
+        },
+        {
+          "venue_scale": 0.0,
+          "cold_scale": 250.0,
+          "log_loss": 0.63698,
+          "n": 1084
+        },
+        {
+          "venue_scale": 0.0,
+          "cold_scale": 350.0,
+          "log_loss": 0.63703,
+          "n": 1084
+        },
+        {
+          "venue_scale": 150.0,
+          "cold_scale": 0.0,
+          "log_loss": 0.63719,
+          "n": 1084
+        },
+        {
+          "venue_scale": 150.0,
+          "cold_scale": 150.0,
+          "log_loss": 0.63722,
+          "n": 1084
+        },
+        {
+          "venue_scale": 150.0,
+          "cold_scale": 250.0,
+          "log_loss": 0.63726,
+          "n": 1084
+        },
+        {
+          "venue_scale": 150.0,
+          "cold_scale": 350.0,
+          "log_loss": 0.63732,
+          "n": 1084
+        },
+        {
+          "venue_scale": 250.0,
+          "cold_scale": 0.0,
+          "log_loss": 0.63767,
+          "n": 1084
+        },
+        {
+          "venue_scale": 250.0,
+          "cold_scale": 150.0,
+          "log_loss": 0.6377,
+          "n": 1084
+        },
+        {
+          "venue_scale": 250.0,
+          "cold_scale": 250.0,
+          "log_loss": 0.63774,
+          "n": 1084
+        },
+        {
+          "venue_scale": 250.0,
+          "cold_scale": 350.0,
+          "log_loss": 0.63779,
+          "n": 1084
+        },
+        {
+          "venue_scale": 350.0,
+          "cold_scale": 0.0,
+          "log_loss": 0.63838,
+          "n": 1084
+        },
+        {
+          "venue_scale": 350.0,
+          "cold_scale": 150.0,
+          "log_loss": 0.63841,
+          "n": 1084
+        },
+        {
+          "venue_scale": 350.0,
+          "cold_scale": 250.0,
+          "log_loss": 0.63845,
+          "n": 1084
+        },
+        {
+          "venue_scale": 350.0,
+          "cold_scale": 350.0,
+          "log_loss": 0.6385,
+          "n": 1084
+        }
+      ]
+    },
+    {
       "generated_utc": "2026-07-17T17:16:18Z",
       "kind": "game_params",
       "source": "backtest_2022_2025",

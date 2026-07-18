@@ -256,3 +256,11 @@ def iter_pbp_release(season):
         yield row
     if n < 30000:
         raise FeedError(f"nflverse pbp {season}: only {n} plays streamed — partial season.")
+
+
+def fetch_depth_charts_release(season, min_rows=500):
+    """Weekly depth charts from the release CSV (depth_charts_{season}.csv).
+    Carries club_code/position/depth_team/full_name per week; under `min_rows`
+    signals a partial pull."""
+    url = f"{_RELEASE_BASE}/depth_charts/depth_charts_{int(season)}.csv"
+    return fetch_release_csv(url, f"depth_charts_release_{season}", min_rows=min_rows)

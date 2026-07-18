@@ -62,6 +62,8 @@ SCHEMA_TO_DATA = {
     "oline_composite.schema.json": "oline_composite.json",
     "market_prices.schema.json": "market_prices.json",
     "playoff_odds.schema.json": "playoff_odds.json",
+    "defense_composite.schema.json": "defense_composite.json",
+    "adp.schema.json": "adp.json",
     "parlays.schema.json": "parlays.json",
     "pipeline_status.schema.json": "pipeline_status.json",
     "meta.schema.json": "meta.json",

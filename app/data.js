@@ -37,6 +37,7 @@ const PATHS = Object.freeze({
   marketPrices: '/data/market_prices.json',
   playoffOdds: '/data/playoff_odds.json',
   modelTuning: '/data/model_tuning.json',
+  adp: '/data/adp.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -95,6 +96,9 @@ export const getTeamStrength = (opts) => loadJson(PATHS.teamStrength, opts);
 export const getMarketPrices = (opts) => loadJson(PATHS.marketPrices, opts);
 export const getPlayoffOdds = (opts) => loadJson(PATHS.playoffOdds, opts);
 export const getModelTuning = (opts) => loadJson(PATHS.modelTuning, opts);
+// ADP (drafter consensus): draft-simulator opponent board + value flags ONLY —
+// never blended into projections. Same 404-graceful pattern.
+export const getAdp = (opts) => loadJson(PATHS.adp, opts);
 
 /**
  * Load every contract at once. Uses allSettled so one bad feed does not blank

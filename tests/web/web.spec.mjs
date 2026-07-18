@@ -712,3 +712,80 @@ test.describe('MODEL tab + market policy + health config note (REL5)', () => {
     }
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL6 — draft simulator, RESET (two-step), UI alignment.
+ * ------------------------------------------------------------------------- */
+
+test.describe('draft simulator + RESET (REL6, #/team)', () => {
+  test('draft setup renders with league/slot/room/roster controls', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-head', { timeout: 8000 });
+    await expect(page.locator('.draftsim .ds-title')).toContainText('DRAFT SIMULATOR');
+    for (const key of ['leagueSize', 'mySlot', 'roomType', 'qb', 'rb', 'wr', 'te', 'flex', 'bench']) {
+      await expect(page.locator(`.ds-select[data-dcfg="${key}"]`)).toHaveCount(1);
+    }
+    await expect(page.locator('.ds-start')).toContainText('START DRAFT');
+  });
+
+  test('a draft runs: sim to my pick -> recommendations with survival -> pick works', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
+    // Slot 5 of 12: four opponent picks precede mine.
+    await page.locator('.ds-select[data-dcfg="mySlot"]').selectOption('5');
+    await page.locator('.ds-start').click();
+    await page.waitForSelector('[data-act="draft-sim"]', { timeout: 8000 });
+    await page.locator('[data-act="draft-sim"]').click();
+    // My turn: candidate rows with survival forecasts and PICK buttons.
+    await page.waitForSelector('.ds-cand', { timeout: 8000 });
+    expect(await page.locator('.ds-cand').count()).toBeGreaterThanOrEqual(3);
+    await expect(page.locator('.ds-cand .ds-surv').first()).toContainText('survives');
+    const before = await page.locator('.ds-log').count();
+    await page.locator('.ds-cand [data-act="draft-pick"]').first().click();
+    // After my pick the sim advances to my next turn (log grows past my pick).
+    await page.waitForSelector('.ds-cand, .state', { timeout: 8000 });
+    expect(await page.locator('.ds-log').count()).toBeGreaterThanOrEqual(before);
+    // Exit cleanly back to setup.
+    await page.locator('[data-act="draft-close"]').click();
+    await expect(page.locator('.ds-start')).toHaveCount(1);
+  });
+
+  test('RESET requires a second confirming tap and clears roster + taken', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const rb = proj.players.find((p) => p.position === 'RB');
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    // Add a player + mark another TAKEN so there is state to clear.
+    await page.fill('.finder-input', rb.name);
+    await page.waitForSelector('.cand .cand-add', { timeout: 8000 });
+    await page.locator('.cand', { hasText: rb.name }).first().locator('.cand-add').click();
+    await page.fill('.finder-input', '');
+    await page.waitForSelector('.cand .cand-taken', { timeout: 8000 });
+    await page.locator('.cand .cand-taken').first().click();
+
+    // First tap arms; state is untouched.
+    await page.locator('.reset-btn').click();
+    await expect(page.locator('.reset-btn')).toContainText('CONFIRM');
+    await expect(page.locator('.slot-player').first()).toBeVisible();
+    // Second tap wipes roster, taken set, and persisted storage.
+    await page.locator('.reset-btn').click();
+    await expect(page.locator('.reset-btn')).toContainText('RESET');
+    expect(await page.locator('.slot-player').count()).toBe(0);
+    expect(await page.locator('.cand--taken').count()).toBe(0);
+    const stored = await page.evaluate(() => ({
+      team: localStorage.getItem('nfl2026.team.v1'),
+      taken: localStorage.getItem('nfl2026.taken.v1'),
+    }));
+    expect(JSON.parse(stored.taken)).toEqual([]);
+    expect(Object.values(JSON.parse(stored.team).slots).every((v) => v === null)).toBe(true);
+  });
+
+  test('team page has no horizontal overflow with the new sections (402px)', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-head', { timeout: 8000 });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+});
