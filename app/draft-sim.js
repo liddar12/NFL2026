@@ -318,9 +318,23 @@ function _take(state, boardIdx, teamIdx) {
   roster.players.push(row);
   roster.counts[row.position] = (roster.counts[row.position] || 0) + 1;
   state.log.push({ pick: state.pick + 1, team: teamIdx + 1, name: row.name,
-                   position: row.position, adp: row.adp });
+                   position: row.position, adp: row.adp, boardIdx });
   state.pick += 1;
   if (state.pick >= state.totalPicks) state.done = true;
+}
+
+/** Undo the most recent pick (mis-tap forgiveness in LIVE mode). Exact
+ * reversal of _take; returns the undone log entry or null. */
+export function undoLastPick(state) {
+  const last = state.log.pop();
+  if (!last) return null;
+  state.taken.delete(last.boardIdx);
+  const roster = state.rosters[last.team - 1];
+  roster.players.pop();
+  roster.counts[last.position] -= 1;
+  state.pick -= 1;
+  state.done = false;
+  return last;
 }
 
 /** Advance ONE opponent pick (view calls repeatedly until it's my turn). */

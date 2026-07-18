@@ -13,7 +13,8 @@ import {
   rosterShape, DEFAULT_ROSTER, ROSTER_BOUNDS, mulberry32, snakeTeam,
   myPickNumbers, opponentNeeds, adpOpponentPick, sharkOpponentPick,
   createDraft, onTheClock, takeOpponentPick, takeMyPick, takeOpponentPickAt,
-  picksUntilMyNext, survivalProbabilities, startersTotal, scoreVsRoom,
+  undoLastPick, picksUntilMyNext, survivalProbabilities, startersTotal,
+  scoreVsRoom,
 } from '../../app/draft-sim.js';
 
 /* ---- fixtures --------------------------------------------------------------- */
@@ -224,4 +225,20 @@ test('takeOpponentPickAt records the OBSERVED live pick for the team on the cloc
   takeOpponentPickAt(draft, 0);                 // team 2 takes board #1
   assert.equal(takeOpponentPickAt(draft, 5), null, 'my turn: manual entry refused');
   assert.equal(draft.rosters[2].players.length, 0, 'my roster untouched');
+});
+
+test('undoLastPick restores the snake draft exactly', () => {
+  const rows = board60();
+  const draft = createDraft({
+    leagueSize: 4, mySlot: 3, roomType: 'adp',
+    boardRows: rows, adjPointsById: adjMap(rows), seed: 9,
+  });
+  takeOpponentPickAt(draft, 3);
+  const snap = JSON.stringify({ pick: draft.pick, taken: [...draft.taken],
+    r: draft.rosters.map((r) => r.players.length) });
+  takeOpponentPickAt(draft, 8);
+  undoLastPick(draft);
+  const now = JSON.stringify({ pick: draft.pick, taken: [...draft.taken],
+    r: draft.rosters.map((r) => r.players.length) });
+  assert.equal(now, snap);
 });

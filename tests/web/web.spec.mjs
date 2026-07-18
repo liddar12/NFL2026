@@ -933,3 +933,68 @@ test.describe('auction draft room (REL9, #/team)', () => {
     await expect(page.locator('.ds-turn')).toContainText('TEAM 2');
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL9.1 — the draft room and the page lists are ONE system: finder-powered
+ * nomination, live two-way sync, swap/cancel + exact undo.
+ * ------------------------------------------------------------------------- */
+
+test.describe('draft room <-> page sync (REL9.1, #/team)', () => {
+  async function startLiveAuction(page) {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
+    await page.locator('.ds-select[data-dcfg="mode"]').selectOption('auction');
+    await page.locator('.ds-select[data-dcfg="play"]').selectOption('live');
+    await page.locator('[data-act="auc-start"]').click();
+    await page.waitForSelector('.auc-room', { timeout: 8000 });
+  }
+
+  test('finder rows become the nomination surface with unified $ strength', async ({ page }) => {
+    await startLiveAuction(page);
+    // Finder rows now carry our-$ vs market-$ and a NOM action.
+    await page.waitForSelector('.cand .cd-cash', { timeout: 8000 });
+    expect(await page.locator('.cand [data-act="auc-nom"]').count()).toBeGreaterThan(0);
+    const raw = (await page.locator('.cand .cd-name').first().innerText()).trim();
+    const name = raw.split('\n')[0].replace(/[\u25b2\u25bc]/g, '').trim(); // strip trend arrows
+    await page.locator('.cand [data-act="auc-nom"]').first().click();
+    // That player is on the block; his finder row shows BLOCK, not a button.
+    await expect(page.locator('.auc-player .cd-name')).toContainText(name);
+    await expect(page.locator('.cand .cd-onblock').first()).toContainText('BLOCK');
+    // SWAP returns to the nomination phase.
+    await page.locator('[data-act="auc-cancel"]').click();
+    await expect(page.locator('.auc-player')).toHaveCount(0);
+  });
+
+  test('LIVE sale syncs TAKEN into the finder and UNDO reverses it exactly', async ({ page }) => {
+    await startLiveAuction(page);
+    await page.waitForSelector('.cand [data-act="auc-nom"]', { timeout: 8000 });
+    const row = page.locator('.cand').first();
+    const gsis = await row.getAttribute('data-gsis');
+    await row.locator('[data-act="auc-nom"]').click();
+    await page.waitForSelector('[data-act="auc-sold"]', { timeout: 8000 });
+    // Sold to T1 (an opponent) at the shown price.
+    await page.locator('[data-act="auc-sold"]').click();
+    await expect(page.locator(`.cand[data-gsis="${gsis}"]`)).toHaveClass(/cand--taken/);
+    // Exact undo: the room AND the page state roll back.
+    await page.locator('[data-act="auc-undo"]').click();
+    await expect(page.locator(`.cand[data-gsis="${gsis}"]`)).not.toHaveClass(/cand--taken/);
+  });
+
+  test('winning a LIVE player fills my roster and the fit engine re-ranks', async ({ page }) => {
+    await startLiveAuction(page);
+    await page.waitForSelector('.cand [data-act="auc-nom"]', { timeout: 8000 });
+    const row = page.locator('.cand').first();
+    const raw = (await row.locator('.cd-name').innerText()).trim();
+    const name = raw.split('\n')[0].replace(/[\u25b2\u25bc]/g, '').trim();
+    await row.locator('[data-act="auc-nom"]').click();
+    await page.waitForSelector('.auc-soldteam', { timeout: 8000 });
+    // Record the sale to ME.
+    const myIdx = await page.locator('.auc-soldteam option', { hasText: 'YOU' }).getAttribute('value');
+    await page.locator('.auc-soldteam').selectOption(myIdx);
+    await page.locator('[data-act="auc-sold"]').click();
+    // My roster now holds him: a filled slot renders his name.
+    await expect(page.locator('.roster .slot-player', { hasText: name }).first()).toBeVisible();
+    // And the reco panel shows room actions instead of ADD while drafting.
+    expect(await page.locator('#t-reco [data-act="add"]').count()).toBe(0);
+  });
+});
