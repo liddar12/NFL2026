@@ -373,3 +373,31 @@ rest diffs) and epa_hfa (rolling margins) per game — dormant until adoption, l
 missing. **Rationale:** the top public models (nfelo, PFF, Sumer) price off EPA and rest; ours now
 tests the same families through a stricter adoption discipline than any of them publish.
 **Status:** adopted. Invariant tests (rel7_contracts) stay true before AND after any future adoption.
+
+---
+
+## REL9 — Auction + snake live draft room (2026-07-18)
+
+**Decision:** One draft room, four modes (owner-approved: "Auction + snake live room" + AAV feed +
+live tendencies): FORMAT (SNAKE/AUCTION) x PLAY (SIM/LIVE). (1) AUCTION ENGINE (app/auction.js,
+pure+seeded): fairDollars = VOR->$ over the league budget ($1 floor, budget-adjustable 100/200/300);
+marketDollars = ADP-consensus exponential price curve calibrated so the draftable pool absorbs
+EXACTLY teams x budget (FFC publishes no AAV — this is a documented transform of real ADP, corrected
+live by observed sales; policy boundary: market $ model opponents only). Live INFLATION = remaining
+room dollars / remaining fair value after every sale. Nomination classifier: BAIT (market >=15%
+over ours — nominate early, drain budgets), TARGET (ours >=15% over market — hold late, buy the
+discount), NEUTRAL. ROOM LEARNING: every opponent starts at the market prior and EW-updates a
+positional overpay tendency (alpha .3, clamped .6-1.6) from observed sales — my own buys never
+update my profile. Opponent bid model: market x tendency x inflation x noise, capped by max bid
+(budget - $1 per open slot) and need. English-auction resolution: winner = top willingness, price =
+second + 1. (2) STRATEGY DIALS, live-flippable mid-draft: STARS&SCRUBS <-> BALANCED (per-slot budget
+plan re-solves), PATIENT <-> AGGRESSIVE (bid ceiling +8%), ENFORCE ON/OFF (bid up players we do not
+want to 85% of adjusted value so nobody steals discounts). (3) THREE-ZONE ROOM (ROOM | THE BLOCK |
+MY BUILD) side-by-side >=1024px — the owner's standing directive: TEAM page optimized for 13"
+iPadOS/laptops — stacked on phones. ROOM: inflation gauge, per-team budget/max-bid/needs/learned
+tendencies. BLOCK: our $ / inflation-adjusted $ / market $, BAIT/TARGET chip, bid-to verdict with
+credible-threat list, +/- bid steppers; LIVE mode records real sales (team + price). BUILD: budget
+bar + plan vs bought. (4) SNAKE LIVE: takeOpponentPickAt records the real room's observed picks
+(tap who they took); my turns keep VOR + survival advice. (5) Auction results lock to the learning
+record (kind auction, sim/live tagged). **Status:** adopted. Gate 215 unit (+15) / 53 e2e (+5),
+validate + smoke green. REL6 league-grid design lock updated 3 -> 5 fields (FORMAT + PLAY added).

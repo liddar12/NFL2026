@@ -348,6 +348,15 @@ export function takeMyPick(state, boardIdx) {
   return state.log[state.log.length - 1];
 }
 
+/** LIVE mode: record the OBSERVED pick of the team on the clock (the user taps
+ * what actually happened in their real draft — no opponent model involved). */
+export function takeOpponentPickAt(state, boardIdx) {
+  const team = onTheClock(state);
+  if (team < 0 || team === state.mySlot - 1 || state.taken.has(boardIdx)) return null;
+  _take(state, boardIdx, team);
+  return state.log[state.log.length - 1];
+}
+
 /** Picks remaining until my next turn (for the survival lookahead); 0 if the
  * draft is over or it is my turn now. */
 export function picksUntilMyNext(state) {

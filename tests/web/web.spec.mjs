@@ -734,7 +734,8 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     // Two labeled groups, each with its own field grid.
     await expect(page.locator('.draftsim .ds-sub').nth(0)).toContainText('LEAGUE');
     await expect(page.locator('.draftsim .ds-sub').nth(1)).toContainText('ROSTER');
-    expect(await page.locator('.ds-grid--league .ds-field').count()).toBe(3);
+    // League grid: FORMAT + PLAY (Rel9) + TEAMS + MY SLOT + ROOM/BUDGET.
+    expect(await page.locator('.ds-grid--league .ds-field').count()).toBe(5);
     expect(await page.locator('.ds-grid--roster .ds-field').count()).toBe(6);
     // Default shape QB+2RB+2WR+TE+FLEX+6 = 13 rounds, echoed live in the note
     // and on the start button; bumping BENCH to 7 re-counts both to 14.
@@ -841,5 +842,94 @@ test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
     expect(w).toBeGreaterThan(2);
     const txt = await page.locator('.m-cal').innerText();
     expect(txt).toContain('n=');
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * REL9 — auction draft room (sim + live), strategy toggles, iPad layout.
+ * ------------------------------------------------------------------------- */
+
+test.describe('auction draft room (REL9, #/team)', () => {
+  async function startAuction(page) {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
+    await page.locator('.ds-select[data-dcfg="mode"]').selectOption('auction');
+    await page.waitForSelector('[data-act="auc-start"]', { timeout: 8000 });
+    await page.locator('[data-act="auc-start"]').click();
+    await page.waitForSelector('.auc-room', { timeout: 8000 });
+  }
+
+  test('setup: AUCTION mode swaps ROOM for BUDGET and relabels the start button', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
+    await expect(page.locator('.ds-select[data-dcfg="mode"]')).toHaveCount(1);
+    await page.locator('.ds-select[data-dcfg="mode"]').selectOption('auction');
+    await expect(page.locator('.ds-select[data-dcfg="budget"]')).toHaveCount(1);
+    await expect(page.locator('.ds-select[data-dcfg="roomType"]')).toHaveCount(0);
+    await expect(page.locator('.ds-start')).toContainText('AUCTION');
+    await expect(page.locator('.ds-start')).toContainText('$200');
+  });
+
+  test('a sim auction runs: nominate -> block guidance -> sale updates the room', async ({ page }) => {
+    await startAuction(page);
+    // Three zones render.
+    await expect(page.locator('.auc-zone--room')).toHaveCount(1);
+    await expect(page.locator('.auc-zone--block')).toHaveCount(1);
+    await expect(page.locator('.auc-zone--build')).toHaveCount(1);
+    await expect(page.locator('.auc-infl')).toContainText('INFLATION');
+    // Drive to a block (team 1 nominates unless it is my nomination).
+    if (await page.locator('[data-act="auc-sim-nom"]').count()) {
+      await page.locator('[data-act="auc-sim-nom"]').click();
+    } else {
+      await page.locator('.auc-pool [data-act="auc-nom"]').first().click();
+    }
+    await page.waitForSelector('.auc-prices', { timeout: 8000 });
+    await expect(page.locator('.auc-prices')).toContainText('OURS');
+    await expect(page.locator('.auc-verdict')).toBeVisible();
+    const soldBefore = await page.locator('.ds-status').innerText();
+    await page.locator('[data-act="auc-bid"]').first().click();
+    await expect(page.locator('.ds-status')).not.toHaveText(soldBefore);
+  });
+
+  test('strategy toggles flip live and re-plan MY BUILD', async ({ page }) => {
+    await startAuction(page);
+    const firstPlanned = () => page.locator('.auc-plan span:nth-child(2)').first().innerText();
+    const balanced = await firstPlanned();
+    await page.locator('[data-act="auc-style"]').click();
+    await expect(page.locator('[data-act="auc-style"]')).toContainText('STARS');
+    const stars = await firstPlanned();
+    expect(stars).not.toBe(balanced);          // top slot re-budgeted immediately
+    await page.locator('[data-act="auc-tempo"]').click();
+    await expect(page.locator('[data-act="auc-tempo"]')).toContainText('AGGRESSIVE');
+  });
+
+  test('13in iPad landscape: the three zones sit side by side, no overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 1024 });
+    await startAuction(page);
+    const boxes = [];
+    for (const z of ['room', 'block', 'build']) {
+      boxes.push(await page.locator(`.auc-zone--${z}`).boundingBox());
+    }
+    // Same row: their vertical positions match; horizontal positions ascend.
+    expect(Math.abs(boxes[0].y - boxes[1].y)).toBeLessThan(4);
+    expect(boxes[0].x).toBeLessThan(boxes[1].x);
+    expect(boxes[1].x).toBeLessThan(boxes[2].x);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('snake LIVE mode asks for observed picks instead of simulating', async ({ page }) => {
+    await page.goto('/#/team');
+    await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
+    await page.locator('.ds-select[data-dcfg="play"]').selectOption('live');
+    await page.locator('.ds-select[data-dcfg="mySlot"]').selectOption('5');
+    await page.locator('[data-act="draft-start"]').click();
+    await page.waitForSelector('.auc-pool', { timeout: 8000 });
+    await expect(page.locator('.ds-turn')).toContainText('ON THE CLOCK');
+    await expect(page.locator('[data-act="draft-sim"]')).toHaveCount(0);
+    // Record an observed pick; the clock advances to the next team.
+    await page.locator('[data-act="draft-live-take"]').first().click();
+    await expect(page.locator('.ds-turn')).toContainText('TEAM 2');
   });
 });

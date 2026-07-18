@@ -50,9 +50,14 @@ import {
 } from '../data.js';
 import {
   rosterShape, createDraft, onTheClock, takeOpponentPick, takeMyPick,
-  picksUntilMyNext, survivalProbabilities, scoreVsRoom, ROSTER_BOUNDS,
-  DEFAULT_ROSTER,
+  takeOpponentPickAt, picksUntilMyNext, survivalProbabilities, scoreVsRoom,
+  ROSTER_BOUNDS, DEFAULT_ROSTER,
 } from '../draft-sim.js';
+import {
+  BUDGET_CHOICES, DEFAULT_BUDGET, createAuction, myTeam as aucMyTeam,
+  onTheNomination, autoNominate, nominate, resolveBids, sellTo, liveInflation,
+  myGuidance, nominationAdvice, planBudget, scoreAuction, maxBid, MIN_BID,
+} from '../auction.js';
 import { TEAMS } from '../teams.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';
@@ -364,9 +369,17 @@ export default async function mountTeam(el) {
   const adpDoc = (adpRes.status === 'fulfilled' && adpRes.value
     && Array.isArray(adpRes.value.players) && adpRes.value.players.length > 50)
     ? adpRes.value : null;
-  let draft = null;          // live draft state (createDraft) or null
-  let draftResult = null;    // scoreVsRoom sheet after a finished draft
-  let draftCfg = { leagueSize: 12, mySlot: 5, roomType: 'adp', ...DEFAULT_ROSTER };
+  let draft = null;          // snake draft state (createDraft) or null
+  let draftResult = null;    // scoreVsRoom sheet after a finished snake draft
+  let auction = null;        // auction room state (createAuction) or null
+  let auctionResult = null;  // scoreAuction sheet after a finished auction
+  let bidAdj = 0;            // my +/- adjustment to the advised bid, per block
+  const draftCfg = {
+    leagueSize: 12, mySlot: 5, roomType: 'adp', mode: 'snake', play: 'sim',
+    budget: DEFAULT_BUDGET, ...DEFAULT_ROSTER,
+  };
+  // Live strategy dials (auction) — flipping any re-plans the room in place.
+  const strategy = { style: 'balanced', tempo: 'patient', enforce: true };
   let resetArmed = false;    // two-step RESET confirm
 
   /** id -> adjusted season points at the CURRENT scoring mode (draft pricing). */
@@ -776,21 +789,32 @@ export default async function mountTeam(el) {
         'survival forecast for your next turn. Beat-the-room margin is the score. ' +
         'SHARK room (everyone drafts like our engine) is a stress test and is never ' +
         'recorded as market evidence.</div>' +
-      '<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">SNAKE DRAFT</span></div>' +
+      `<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">${draftCfg.mode === 'auction' ? `AUCTION · $${draftCfg.budget} BUDGET` : 'SNAKE DRAFT'}</span></div>` +
       '<div class="ds-grid ds-grid--league">' +
+        field('mode', 'FORMAT',
+          `<option value="snake"${draftCfg.mode === 'snake' ? ' selected' : ''}>SNAKE</option>` +
+          `<option value="auction"${draftCfg.mode === 'auction' ? ' selected' : ''}>AUCTION</option>`) +
+        field('play', 'PLAY',
+          `<option value="sim"${draftCfg.play === 'sim' ? ' selected' : ''}>SIM (practice)</option>` +
+          `<option value="live"${draftCfg.play === 'live' ? ' selected' : ''}>LIVE (my real draft)</option>`) +
         field('leagueSize', 'TEAMS',
           opt(8, draftCfg.leagueSize) + opt(10, draftCfg.leagueSize) + opt(12, draftCfg.leagueSize)) +
         field('mySlot', 'MY SLOT', slots.join('')) +
-        field('roomType', 'ROOM',
-          `<option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP</option>` +
-          `<option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK</option>`) +
+        (draftCfg.mode === 'auction'
+          ? field('budget', 'BUDGET',
+              BUDGET_CHOICES.map((b) => opt(b, draftCfg.budget, `$${b}`)).join(''))
+          : field('roomType', 'ROOM',
+              `<option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP</option>` +
+              `<option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK</option>`)) +
       '</div>' +
       `<div class="ds-sub"><span>ROSTER</span><span class="ds-sub-note">${starters} STARTERS + ${draftCfg.bench} BENCH · ${rounds} ROUNDS</span></div>` +
       '<div class="ds-grid ds-grid--roster">' +
         stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
         stepper('te', 'TE') + stepper('flex', 'FLEX') + stepper('bench', 'BENCH') +
       '</div>' +
-      `<button type="button" class="cand-add ds-start" data-act="draft-start">START DRAFT · ${rounds} ROUNDS</button>`
+      (draftCfg.mode === 'auction'
+        ? `<button type="button" class="cand-add ds-start" data-act="auc-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}AUCTION · $${draftCfg.budget} · ${rounds} SLOTS</button>`
+        : `<button type="button" class="cand-add ds-start" data-act="draft-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}DRAFT · ${rounds} ROUNDS</button>`)
     );
   }
 
@@ -804,6 +828,19 @@ export default async function mountTeam(el) {
     let body = '';
     if (draft.done) {
       body = '<div class="state">Draft complete — see the results below.</div>';
+    } else if (!myTurn && draft.play === 'live') {
+      // LIVE: the real room is picking — tap what actually happened.
+      const avail = [];
+      for (let i = 0; i < draft.board.length && avail.length < 15; i += 1) {
+        if (!draft.taken.has(i)) avail.push({ i, row: draft.board[i] });
+      }
+      body =
+        `<div class="ds-turn">TEAM ${clock + 1} IS ON THE CLOCK — tap the player they took</div>` +
+        '<div class="auc-pool">' +
+        avail.map((c) => (
+          `<button type="button" class="sort-chip auc-poolchip" data-act="draft-live-take" data-bi="${c.i}">` +
+            `${esc(c.row.name)} <span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp}</span></button>`
+        )).join('') + '</div>';
     } else if (!myTurn) {
       body = `<button type="button" class="cand-add" data-act="draft-sim">SIM TO MY PICK</button>`;
     } else {
@@ -844,7 +881,8 @@ export default async function mountTeam(el) {
         }).join('');
     }
     return (
-      '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR · ' +
+      '<div class="ds-head"><span class="ds-title">' +
+        `${draft.play === 'live' ? 'LIVE DRAFT' : 'DRAFT SIMULATOR'} · ` +
         `${draft.roomType === 'shark' ? 'SHARK' : 'ADP'} ROOM</span> ` +
         `<span class="ds-status">PICK ${Math.min(draft.pick + 1, draft.totalPicks)}/${draft.totalPicks}</span> ` +
         '<button type="button" class="sort-chip" data-act="draft-close">EXIT</button></div>' +
@@ -872,6 +910,184 @@ export default async function mountTeam(el) {
     );
   }
 
+  /* ---- AUCTION room painters ------------------------------------------------ */
+
+  const dollar = (n) => `$${Math.round(n)}`;
+
+  function aucToggles() {
+    const b = (act, on, lbl) => (
+      `<button type="button" class="sort-chip auc-toggle${on ? ' auc-toggle--on' : ''}" data-act="${act}" aria-pressed="${on}">${lbl}</button>`
+    );
+    return (
+      '<div class="auc-togglebar">' +
+        b('auc-style', strategy.style === 'stars', strategy.style === 'stars' ? 'STARS & SCRUBS' : 'BALANCED') +
+        b('auc-tempo', strategy.tempo === 'aggressive', strategy.tempo === 'aggressive' ? 'AGGRESSIVE' : 'PATIENT') +
+        b('auc-enforce', strategy.enforce, `ENFORCE ${strategy.enforce ? 'ON' : 'OFF'}`) +
+      '</div>'
+    );
+  }
+
+  function aucRoomZone() {
+    const infl = liveInflation(auction);
+    const pct = Math.round((infl - 1) * 100);
+    const gauge =
+      `<div class="auc-infl${pct > 3 ? ' auc-infl--hot' : pct < -3 ? ' auc-infl--cold' : ''}">` +
+        `INFLATION ${pct >= 0 ? '+' : ''}${pct}% <span class="cd-meta">${pct > 3 ? 'players selling rich — patience pays' : pct < -3 ? 'bargains ahead — money is scarce' : 'prices near fair'}</span></div>`;
+    const rows = auction.teams.map((t, i) => {
+      const open = auction.shape.size - t.players.length;
+      const cap = maxBid(t.budget, open);
+      const counts = {};
+      t.players.forEach((pp) => { counts[pp.position] = (counts[pp.position] || 0) + 1; });
+      const needs = ['QB', 'RB', 'WR', 'TE']
+        .filter((pos) => (counts[pos] || 0) < (auction.shape.starterDemand[pos] || 0))
+        .slice(0, 2).join(' ') || '—';
+      const tend = Object.entries(t.tendencies)
+        .filter(([, v]) => v >= 1.15).map(([pos]) => pos);
+      const me = i === auction.mySlot - 1;
+      return (
+        `<div class="auc-team${me ? ' auc-team--me' : ''}${cap <= MIN_BID ? ' auc-team--broke' : ''}">` +
+          `<span class="auc-tname">${me ? 'YOU' : `T${i + 1}`}</span>` +
+          `<span>${dollar(t.budget)}</span>` +
+          `<span class="cd-meta">max ${dollar(cap)}</span>` +
+          `<span class="cd-meta">${esc(needs)}</span>` +
+          (tend.length ? `<span class="auc-tend" title="learned from observed sales">overpays ${esc(tend.join('/'))}</span>` : '<span></span>') +
+        '</div>'
+      );
+    }).join('');
+    return `<div class="auc-zone auc-zone--room"><div class="auc-zhead">ROOM</div>${gauge}${rows}</div>`;
+  }
+
+  function aucBlockZone() {
+    const live = draftCfg.play === 'live' && auction.play === 'live';
+    if (auction.block) {
+      const bi = auction.block.boardIdx;
+      const row = auction.board[bi];
+      const g = myGuidance(auction, bi, strategy);
+      const advised = g.needIt ? g.bidTo
+        : (strategy.enforce ? Math.max(0, Math.round(g.adjusted * 0.85)) : 0);
+      const myMax = Math.max(0, Math.min(g.cap, advised + bidAdj));
+      const chip = g.class === 'BAIT'
+        ? '<span class="auc-cls auc-cls--bait">MARKET OVERPRICES · LET THEM SPEND</span>'
+        : g.class === 'TARGET'
+          ? '<span class="auc-cls auc-cls--target">UNDERVALUED · OUR GUY</span>'
+          : '<span class="auc-cls">FAIRLY PRICED</span>';
+      const verdict = g.needIt
+        ? `BID TO ${dollar(myMax)}, THEN OUT`
+        : (strategy.enforce && myMax > 0 ? `ENFORCE TO ${dollar(myMax)} — don't win cheap for them` : 'NOT MY PLAYER — PASS');
+      const threats = g.threats.length
+        ? `<div class="cd-meta">${g.threats.length} team${g.threats.length > 1 ? 's' : ''} can fight you: ${g.threats.map((t) => `T${t.team}(${dollar(t.estWill)})`).join(' ')}</div>`
+        : '<div class="cd-meta">no credible threats at that number</div>';
+      const soldControls = live
+        ? '<div class="auc-soldrow">SOLD TO ' +
+          `<select class="ds-select auc-soldteam">${auction.teams.map((_, i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
+          ' FOR <span class="auc-bidnum auc-soldprice" data-price="' + myMax + '">' + dollar(Math.max(1, myMax)) + '</span>' +
+          '<button type="button" class="sort-chip" data-act="auc-price-minus">−</button>' +
+          '<button type="button" class="sort-chip" data-act="auc-price-plus">+</button>' +
+          '<button type="button" class="cand-add" data-act="auc-sold">RECORD SALE</button></div>'
+        : '<div class="auc-bidrow">' +
+          '<button type="button" class="sort-chip" data-act="auc-bid-minus">−</button>' +
+          `<span class="auc-bidnum">${dollar(myMax)}</span>` +
+          '<button type="button" class="sort-chip" data-act="auc-bid-plus">+</button>' +
+          `<button type="button" class="cand-add" data-act="auc-bid" data-max="${myMax}">BID TO ${dollar(myMax)}</button>` +
+          '<button type="button" class="sort-chip" data-act="auc-bid" data-max="0">PASS</button></div>';
+      return (
+        '<div class="auc-zone auc-zone--block"><div class="auc-zhead">THE BLOCK</div>' +
+          `<div class="auc-player"><span class="cd-name">${esc(row.name)}</span> <span class="cd-meta">${esc(row.position)} · ADP ${row.adp}</span></div>` +
+          `<div class="auc-prices">OURS ${dollar(g.fair)} · INFL-ADJ ${dollar(g.adjusted)} · MARKET ${dollar(g.market)}</div>` +
+          chip +
+          `<div class="auc-verdict">⚡ ${verdict}</div>` +
+          threats + soldControls +
+        '</div>'
+      );
+    }
+    // No player on the block: nomination phase.
+    const nomTeam = onTheNomination(auction);
+    const mine = nomTeam === auction.mySlot - 1;
+    const adv = nominationAdvice(auction, strategy);
+    const advHtml =
+      (adv.suggestion
+        ? `<div class="auc-nomadv">🎣 BAIT: <b>${esc(adv.suggestion.name)}</b> (mkt ${dollar(adv.suggestion.market)}, ours ${dollar(adv.suggestion.fair)}) — ${esc(adv.suggestion.why)} <button type="button" class="cand-add" data-act="auc-nom" data-bi="${adv.suggestion.boardIdx}">NOMINATE</button></div>`
+        : '') +
+      (adv.targets.length
+        ? `<div class="auc-nomadv">🎯 HOLD (our value, buy late): ${adv.targets.map((t) => `<b>${esc(t.name)}</b> ${dollar(t.fair)}v${dollar(t.market)}`).join(' · ')}</div>`
+        : '');
+    const pool = [];
+    for (let i = 0; i < auction.board.length && pool.length < 12; i += 1) {
+      if (!auction.taken.has(i)) pool.push({ i, row: auction.board[i] });
+    }
+    const poolHtml = '<div class="auc-pool">' + pool.map((c) => (
+      `<button type="button" class="sort-chip auc-poolchip" data-act="auc-nom" data-bi="${c.i}">${esc(c.row.name)} <span class="cd-meta">${esc(c.row.position)}</span></button>`
+    )).join('') + '</div>';
+    if (mine || live) {
+      return (
+        '<div class="auc-zone auc-zone--block"><div class="auc-zhead">THE BLOCK</div>' +
+          `<div class="ds-turn">${mine ? 'YOUR NOMINATION' : `TEAM ${nomTeam + 1} NOMINATES — tap who they put up`}</div>` +
+          (mine ? advHtml : '') + poolHtml +
+        '</div>'
+      );
+    }
+    return (
+      '<div class="auc-zone auc-zone--block"><div class="auc-zhead">THE BLOCK</div>' +
+        `<div class="ds-turn">TEAM ${nomTeam + 1} TO NOMINATE</div>` +
+        '<button type="button" class="cand-add" data-act="auc-sim-nom">SIM NOMINATION</button>' +
+      '</div>'
+    );
+  }
+
+  function aucBuildZone() {
+    const me = aucMyTeam(auction);
+    const plan = planBudget(auction.shape, auction.budget, strategy.style);
+    const spent = auction.budget - me.budget;
+    // Greedy: match my buys to plan slots by descending price for the display.
+    const buys = auction.log.filter((l) => l.team === auction.mySlot)
+      .sort((a, b) => b.price - a.price);
+    const rows = plan.slots.map((slot, i) => {
+      const buy = buys[i];
+      return (
+        '<div class="auc-plan">' +
+          `<span class="cd-meta">${esc(slot.slot)}</span>` +
+          `<span>${dollar(slot.planned)} planned</span>` +
+          (buy ? `<span class="auc-bought">${esc(buy.name)} ${dollar(buy.price)}</span>` : '<span class="cd-meta">—</span>') +
+        '</div>'
+      );
+    }).join('');
+    return (
+      '<div class="auc-zone auc-zone--build"><div class="auc-zhead">MY BUILD</div>' +
+        `<div class="auc-budget">${dollar(me.budget)} LEFT <span class="cd-meta">of $${auction.budget} · max bid ${dollar(maxBid(me.budget, auction.shape.size - me.players.length))} · $1 bench x ${plan.benchDollars}</span></div>` +
+        `<div class="auc-budgetbar"><span style="width:${Math.min(100, (spent / auction.budget) * 100).toFixed(0)}%"></span></div>` +
+        rows +
+      '</div>'
+    );
+  }
+
+  function auctionRoomHtml() {
+    return (
+      '<div class="ds-head"><span class="ds-title">' +
+        `${auction.play === 'live' ? 'LIVE AUCTION' : 'AUCTION SIMULATOR'} · $${auction.budget}</span> ` +
+        `<span class="ds-status">${auction.log.length}/${auction.leagueSize * auction.shape.size} SOLD</span> ` +
+        '<button type="button" class="sort-chip" data-act="auc-close">EXIT</button></div>' +
+      aucToggles() +
+      '<div class="auc-room">' + aucRoomZone() + aucBlockZone() + aucBuildZone() + '</div>'
+    );
+  }
+
+  function auctionResultHtml() {
+    const r = auctionResult;
+    const beat = r.margin >= 0;
+    const my = aucMyTeam(auction).players
+      .map((pp) => `<span class="ds-pick">${esc(pp.position)} ${esc(pp.name)}</span>`).join(' ');
+    return (
+      '<div class="ds-head"><span class="ds-title">AUCTION RESULT</span> ' +
+        '<button type="button" class="sort-chip" data-act="auc-close">NEW AUCTION</button></div>' +
+      `<div class="ds-score ${beat ? 'ds-score--win' : 'ds-score--loss'}">` +
+        `${beat ? 'BEAT' : 'LOST TO'} THE ROOM BY ${fix1(Math.abs(r.margin))} PTS</div>` +
+      `<div class="ds-sheet">You ${fix1(r.mine)} · room avg ${fix1(r.roomAvg)} · rank ${r.rank}/${r.teams} · ` +
+        `spent ${dollar(r.spent)} · ${r.ptsPerDollar} pts/$ <span class="est">ESTIMATE</span></div>` +
+      `<div class="ds-roster">${my}</div>` +
+      '<div class="m-explain">Locked as a learning record: when real season points resolve, the bid advice grades against outcomes through NEVER-REGRESS.</div>'
+    );
+  }
+
   function paintDraft() {
     const box = el.querySelector('#t-draft');
     if (!box) return;
@@ -879,7 +1095,9 @@ export default async function mountTeam(el) {
       box.innerHTML = '';
       return;
     }
-    if (draft && draftResult) box.innerHTML = draftResultHtml();
+    if (auction && auctionResult) box.innerHTML = auctionResultHtml();
+    else if (auction) box.innerHTML = auctionRoomHtml();
+    else if (draft && draftResult) box.innerHTML = draftResultHtml();
     else if (draft) box.innerHTML = draftLiveHtml();
     else box.innerHTML = draftSetupHtml();
   }
@@ -917,6 +1135,28 @@ export default async function mountTeam(el) {
       } catch (err) {
         /* storage blocked — the result still displays */
       }
+    }
+  }
+
+  /** Auction finished: score vs the room; lock as a learning record. */
+  function finishAuction() {
+    auctionResult = scoreAuction(auction);
+    try {
+      const locks = JSON.parse(localStorage.getItem(MOCKS_KEY) || '[]');
+      locks.push({
+        created_utc: new Date().toISOString(),
+        kind: 'auction',
+        play: auction.play || 'sim',
+        league_size: auction.leagueSize,
+        budget: auction.budget,
+        roster_config: auction.shape.config,
+        result: auctionResult,
+        my_players: aucMyTeam(auction).players
+          .map((pp) => ({ gsis_id: pp.gsis_id, name: pp.name, position: pp.position })),
+      });
+      localStorage.setItem(MOCKS_KEY, JSON.stringify(locks.slice(-50)));
+    } catch (err) {
+      /* storage blocked — the result still displays */
     }
   }
 
@@ -962,6 +1202,8 @@ export default async function mountTeam(el) {
       taken.clear();
       draft = null;
       draftResult = null;
+      auction = null;
+      auctionResult = null;
       saveRoster(roster);
       saveTaken(taken);
       t.textContent = 'RESET';
@@ -982,6 +1224,7 @@ export default async function mountTeam(el) {
         seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
         excludedIds: [...taken],
       });
+      draft.play = draftCfg.play;
       paintDraft();
       return;
     }
@@ -1010,6 +1253,104 @@ export default async function mountTeam(el) {
     if (act === 'draft-close') {
       draft = null;
       draftResult = null;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'draft-live-take') {
+      takeOpponentPickAt(draft, Number(t.dataset.bi));
+      if (draft.done) finishDraft();
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-start') {
+      auctionResult = null;
+      bidAdj = 0;
+      auction = createAuction({
+        leagueSize: draftCfg.leagueSize,
+        mySlot: Math.min(draftCfg.mySlot, draftCfg.leagueSize),
+        budget: draftCfg.budget,
+        rosterConfig: draftCfg,
+        boardRows: adpDoc.players.filter((pp) => !taken.has(String(pp.gsis_id))),
+        adjPointsById: adjPointsMap(),
+        seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
+      });
+      auction.play = draftCfg.play;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-close') {
+      auction = null;
+      auctionResult = null;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-style') {
+      strategy.style = strategy.style === 'stars' ? 'balanced' : 'stars';
+      paintDraft();
+      return;
+    }
+    if (act === 'auc-tempo') {
+      strategy.tempo = strategy.tempo === 'aggressive' ? 'patient' : 'aggressive';
+      paintDraft();
+      return;
+    }
+    if (act === 'auc-enforce') {
+      strategy.enforce = !strategy.enforce;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-nom') {
+      nominate(auction, Number(t.dataset.bi));
+      bidAdj = 0;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-sim-nom') {
+      const bi = autoNominate(auction);
+      if (bi >= 0) { nominate(auction, bi); bidAdj = 0; }
+      else { auction.done = true; }
+      if (auction.done) finishAuction();
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-bid-minus' || act === 'auc-price-minus') {
+      bidAdj -= 1;
+      paintDraft();
+      return;
+    }
+    if (act === 'auc-bid-plus' || act === 'auc-price-plus') {
+      bidAdj += 1;
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-bid') {
+      // Resolve the block against the room with my ceiling (0 = pass/enforce off).
+      const { winnerIdx, price } = resolveBids(auction, Number(t.dataset.max) || 0);
+      sellTo(auction, winnerIdx, price, auction.block.boardIdx);
+      bidAdj = 0;
+      if (auction.done) finishAuction();
+      paintDraft();
+      return;
+    }
+
+    if (act === 'auc-sold') {
+      // LIVE: record the observed sale exactly as it happened in the real room.
+      const sel = el.querySelector('.auc-soldteam');
+      const priceEl = el.querySelector('.auc-soldprice');
+      const teamIdx = sel ? Number(sel.value) : 0;
+      const base = priceEl ? Number(priceEl.dataset.price) : 1;
+      const price = Math.max(1, base + 0); // bidAdj already folded into display
+      sellTo(auction, teamIdx, price, auction.block.boardIdx);
+      bidAdj = 0;
+      if (auction.done) finishAuction();
       paintDraft();
       return;
     }
@@ -1072,9 +1413,10 @@ export default async function mountTeam(el) {
     const sel = e.target.closest('select[data-dcfg]');
     if (!sel) return;
     const key = sel.dataset.dcfg;
-    draftCfg[key] = key === 'roomType' ? sel.value : Number(sel.value);
+    draftCfg[key] = (key === 'roomType' || key === 'mode' || key === 'play')
+      ? sel.value : Number(sel.value);
     if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
-    if (!draft) paintDraft(); // setup card reflects clamped values
+    if (!draft && !auction) paintDraft(); // setup card reflects clamped values
   });
 
   // Finder + reco controls (delegated on el so they survive every repaint).

@@ -1854,4 +1854,149 @@ button { font: inherit; color: inherit; }
    on one line while the league row keeps its three wider tiles. */
 @media (min-width: 820px) {
   .ds-grid--roster { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ds-grid--league { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* ==========================================================================
+   REL9 — auction draft room. Three zones (ROOM | THE BLOCK | MY BUILD),
+   optimized for 13" iPadOS / laptops: side-by-side >=1024px, stacked below.
+   ========================================================================== */
+
+.auc-togglebar { display: flex; gap: 8px; flex-wrap: wrap; }
+.auc-toggle--on {
+  color: var(--brand-txt);
+  border-color: var(--brand-txt);
+  font-weight: 800;
+}
+.auc-room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+@media (min-width: 1024px) {
+  .auc-room { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
+}
+.auc-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.auc-zone--block { border-left: 3px solid var(--accent); }
+.auc-zhead {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--brand-txt);
+}
+.auc-infl {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.auc-infl--hot { color: var(--accent-txt); }
+.auc-infl--cold { color: var(--brand-txt); }
+.auc-team {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 6px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.auc-tname { font-weight: 800; }
+.auc-team--me .auc-tname { color: var(--brand-txt); }
+.auc-team--broke { opacity: 0.55; }
+.auc-tend {
+  font-size: 9px;
+  color: var(--accent-txt);
+  letter-spacing: 0.03em;
+}
+.auc-player .cd-name { font-size: 16px; }
+.auc-prices {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.auc-cls {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+}
+.auc-cls--bait { color: var(--accent-txt); border-color: var(--accent-txt); }
+.auc-cls--target { color: var(--brand-txt); border-color: var(--brand-txt); }
+.auc-verdict {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.auc-bidrow, .auc-soldrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.auc-bidnum {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.auc-soldrow .ds-select { min-height: 34px; width: auto; padding-right: 22px; }
+.auc-nomadv {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.auc-pool { display: flex; flex-wrap: wrap; gap: 6px; }
+.auc-poolchip { min-height: 32px; }
+.auc-budget {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.auc-budgetbar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.auc-budgetbar span { display: block; height: 100%; background: var(--brand); }
+.auc-plan {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 6px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.auc-bought { color: var(--ink); font-weight: 700; }
