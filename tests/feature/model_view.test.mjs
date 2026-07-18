@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 import {
-  topTrials, fmtPct, marketBadge, MARKET_SIGNALS,
+  topTrials, fmtPct, marketBadge, MARKET_SIGNALS, latestPromotion, familyRows,
 } from '../../app/views/model.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -62,4 +62,32 @@ test('MARKET_SIGNALS mirrors the validator MARKET_DISPLAY_ONLY set exactly', () 
       + 'print(json.dumps(sorted(MARKET_DISPLAY_ONLY)))\n',
   });
   assert.deepEqual([...MARKET_SIGNALS].sort(), JSON.parse(out));
+});
+
+test('latestPromotion picks the newest format-2 entry only', () => {
+  const history = [
+    { kind: 'signal_promotion', format: 2, generated_utc: 'B' },
+    { kind: 'signal_promotion', generated_utc: 'A' },          // legacy: skipped
+    { kind: 'signal_promotion', format: 2, generated_utc: 'older' },
+  ];
+  assert.equal(latestPromotion(history).generated_utc, 'B');
+  assert.equal(latestPromotion([{ kind: 'signal_promotion' }]), null);
+  assert.equal(latestPromotion(null), null);
+});
+
+test('familyRows: adopted/retained/skipped statuses with best losses', () => {
+  const entry = {
+    adopted_family: { family: 'rest', scale_per_day: 4.5, log_loss: 0.6 },
+    families: [
+      { family: 'environment', best: { log_loss: 0.64 }, improvement: -0.001, trials: [{}] },
+      { family: 'rest', best: { log_loss: 0.6 }, improvement: 0.03, trials: [{}] },
+      { family: 'epa_total', skipped: true, reason: 'awaiting runner data' },
+    ],
+  };
+  const rows = familyRows(entry);
+  assert.deepEqual(rows.map((r) => r.status), ['retained', 'adopted', 'skipped']);
+  assert.equal(rows[0].bestLoss, 0.64);
+  assert.equal(rows[2].bestLoss, null);
+  assert.equal(rows[2].reason, 'awaiting runner data');
+  assert.deepEqual(familyRows(null), []);
 });

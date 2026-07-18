@@ -810,3 +810,36 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL7 — self-learning gate transparency: family verdicts + calibration.
+ * ------------------------------------------------------------------------- */
+
+test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
+  test('gate card lists all four candidate families with verdict chips', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-gate .gate-row', { timeout: 8000 });
+    const txt = await page.locator('.m-gate').innerText();
+    for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass']) {
+      expect(txt).toContain(fam);
+    }
+    expect(txt).toContain('NEVER-REGRESS');
+    // Every family row (not the header) carries exactly one verdict chip.
+    const rows = await page.locator('.m-gate .gate-row:not(.gate-row--head)').count();
+    const chips = await page.locator('.m-gate .gate-chip').count();
+    expect(rows).toBe(4);
+    expect(chips).toBe(4);
+  });
+
+  test('calibration card draws predicted-vs-actual bars over 1000+ games', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-cal .cal-row', { timeout: 8000 });
+    expect(await page.locator('.m-cal .cal-row').count()).toBeGreaterThanOrEqual(5);
+    // Bars render with real widths (a zero-width bar row would mean fake data).
+    const w = await page.locator('.m-cal .cal-bar--act').first().evaluate(
+      (el) => el.getBoundingClientRect().width);
+    expect(w).toBeGreaterThan(2);
+    const txt = await page.locator('.m-cal').innerText();
+    expect(txt).toContain('n=');
+  });
+});

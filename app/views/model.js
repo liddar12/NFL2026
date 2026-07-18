@@ -90,6 +90,31 @@ export function marketBadge(signal) {
 
 const state = (text) => `<div class="state">${text}</div>`;
 
+/**
+ * Newest format-2 signal_promotion entry from model_tuning history, or null.
+ * Pure — unit-tested directly.
+ */
+export function latestPromotion(history) {
+  const rows = Array.isArray(history) ? history : [];
+  return rows.find((h) => h && h.kind === 'signal_promotion' && h.format === 2) || null;
+}
+
+/**
+ * Per-family verdict rows for the gate card: {family, status, bestLoss,
+ * improvement, reason}. status: 'adopted' | 'retained' | 'skipped'. Pure.
+ */
+export function familyRows(entry) {
+  if (!entry || !Array.isArray(entry.families)) return [];
+  const adopted = entry.adopted_family && entry.adopted_family.family;
+  return entry.families.map((f) => ({
+    family: f.family,
+    status: f.skipped ? 'skipped' : (f.family === adopted ? 'adopted' : 'retained'),
+    bestLoss: f.best ? f.best.log_loss : null,
+    improvement: Number.isFinite(Number(f.improvement)) ? Number(f.improvement) : null,
+    reason: f.reason || '',
+  }));
+}
+
 /* ---- card painters (pure HTML builders) ------------------------------------ */
 
 function paramsCard(tuning) {
@@ -139,6 +164,73 @@ function backtestCard(tuning) {
     '<div class="m-explain">Walk-forward log-loss on 1,000+ real FINAL games (lower is better). '
       + 'The best trial is only ADOPTED when it beats the incumbent by the NEVER-REGRESS margin.</div>' +
     bars
+  );
+}
+
+function gateCard(tuning) {
+  const entry = latestPromotion(tuning && tuning.history);
+  if (!entry) {
+    return state('No candidate-family promotion run recorded yet — the weekly '
+      + 'self-learning cron writes one every Tuesday.');
+  }
+  const rows = familyRows(entry).map((r) => {
+    const chip = r.status === 'adopted'
+      ? '<span class="gate-chip gate-chip--adopted">ADOPTED</span>'
+      : r.status === 'skipped'
+        ? '<span class="gate-chip gate-chip--skipped" title="' + esc(r.reason) + '">AWAITING DATA</span>'
+        : '<span class="gate-chip">RETAINED</span>';
+    const imp = r.improvement == null ? '—'
+      : `${r.improvement > 0 ? '−' : '+'}${Math.abs(r.improvement).toFixed(5)}`;
+    return (
+      '<div class="gate-row">' +
+        `<span class="gate-name">${esc(r.family)}</span>` +
+        `<span class="gate-loss">${r.bestLoss == null ? '—' : r.bestLoss.toFixed(5)}</span>` +
+        `<span class="gate-imp">${imp}</span>` +
+        chip +
+      '</div>'
+    );
+  }).join('');
+  return (
+    '<div class="m-explain">Every candidate signal family is walk-forward tested against the '
+      + `incumbent (log-loss ${esc(Number(entry.incumbent_loss).toFixed(5))}) each week. `
+      + 'A family earns pricing weight ONLY by clearing the NEVER-REGRESS margin '
+      + `(${esc(entry.margin)}) — losing candidates stay recorded at weight 0. `
+      + 'Lower loss is better; Δ shows the best trial\'s gap to the incumbent.</div>' +
+    '<div class="gate-row gate-row--head">' +
+      '<span class="gate-name">FAMILY</span><span class="gate-loss">BEST LOSS</span>' +
+      '<span class="gate-imp">Δ LOSS</span><span>VERDICT</span></div>' +
+    rows +
+    `<div class="mp-src">Last run ${esc(String(entry.generated_utc || '').slice(0, 10))} · ${esc(entry.reason || '')}</div>`
+  );
+}
+
+function calibrationCard(tuning) {
+  const entry = latestPromotion(tuning && tuning.history);
+  const cal = entry && entry.calibration;
+  const bins = (cal && Array.isArray(cal.bins) ? cal.bins : []).filter((b) => b && b.n > 0);
+  if (bins.length === 0) {
+    return state('Calibration record not available yet — produced by the weekly promotion run.');
+  }
+  const rows = bins.map((b) => {
+    const exp = Number(b.expected);
+    const act = Number(b.actual);
+    return (
+      '<div class="cal-row">' +
+        `<span class="cal-rng">${esc((b.p_lo * 100).toFixed(0))}–${esc((b.p_hi * 100).toFixed(0))}%</span>` +
+        '<span class="cal-bars">' +
+          `<span class="cal-bar cal-bar--exp" style="width:${(exp * 100).toFixed(1)}%"></span>` +
+          `<span class="cal-bar cal-bar--act" style="width:${(act * 100).toFixed(1)}%"></span>` +
+        '</span>' +
+        `<span class="cal-val">${fmtPct(act)} <span class="cal-n">n=${esc(b.n)}</span></span>` +
+      '</div>'
+    );
+  }).join('');
+  return (
+    `<div class="m-explain">${esc(`Do our probabilities mean what they say? Each row buckets ${cal.n} real games (${cal.seasons}, walk-forward) by predicted home-win chance: `)}` +
+      '<span class="cal-key cal-key--exp">predicted</span> vs ' +
+      '<span class="cal-key cal-key--act">actual</span> win rate. ' +
+      'Matched bars = honest probabilities.</div>' +
+    rows
   );
 }
 
@@ -229,6 +321,8 @@ export default async function mountModel(el) {
     '</header>' +
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params') +
     card('BACKTEST · WALK-FORWARD', backtestCard(tuning), 'm-backtest') +
+    card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate') +
+    card('CALIBRATION · PREDICTED vs ACTUAL', calibrationCard(tuning), 'm-cal') +
     card('SEASON LOCKS', locksCard(tuning), 'm-locks') +
     card('PLAYOFF ODDS — OURS vs THE MARKETS', playoffsCard(odds, markets), 'm-playoffs') +
     card('SIGNAL REGISTRY', signalsCard(meta), 'm-signals');

@@ -131,6 +131,30 @@ def main():
         from scripts.promote_signals import is_cold_game  # noqa: PLC0415 (guarded)
         print(f"promoted signals in effect: venue deltas for {len(_venue_deltas)} teams, "
               f"cold delta {_cold_delta:+.1f}")
+    # rest_hfa (Elo per day of clamped rest advantage) — schedule order gives
+    # each team's previous kickoff, exactly like the promotion walk.
+    _rest_hfa = _adopted.get("rest_hfa") or {}
+    _rest_scale = float(_rest_hfa.get("scale_per_day", 0.0)) if _rest_hfa.get("applied") else 0.0
+    _rest_diff_by_gid = {}
+    if _rest_scale:
+        from scripts.promote_signals import rest_diffs  # noqa: PLC0415 (guarded)
+        _sched_sorted = sorted(schedule, key=lambda g: g.get("kickoff_utc") or "")
+        for _g, _d in zip(_sched_sorted, rest_diffs(_sched_sorted)):
+            _rest_diff_by_gid[_g["game_id"]] = _d
+        print(f"promoted rest signal in effect: {_rest_scale} Elo/day")
+    # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
+    # runner-built epa_history.json; absent data means no delta, loudly.
+    _epa_hfa = _adopted.get("epa_hfa") or {}
+    _epa_feats = None
+    if _epa_hfa.get("applied"):
+        from scripts.promote_signals import load_epa_features  # noqa: PLC0415 (guarded)
+        _epa_feats = load_epa_features(_epa_hfa.get("kind") or "total")
+        if _epa_feats is None:
+            print("WARNING: epa_hfa adopted but epa_history.json absent/incomplete — "
+                  "EPA delta not applied this run")
+        else:
+            print(f"promoted EPA signal in effect: kind={_epa_hfa.get('kind')} "
+                  f"scale={_epa_hfa.get('scale')}")
 
     # Attach Elo priors and predict every game with the full-vector game model.
     predicted = []
@@ -139,10 +163,14 @@ def main():
         row["home_elo"] = ratings.get(g["home"], elo_mod.INIT)
         row["away_elo"] = ratings.get(g["away"], elo_mod.INIT)
         # Learning-loop hook: prediction-time HFA = adopted flat params plus any
-        # PROMOTED per-venue/cold deltas (both no-ops until adoption).
+        # PROMOTED family deltas (all no-ops until the gate adopts them).
         hfa_eff = hfa_live + float(_venue_deltas.get(g["home"], 0.0))
         if _cold_delta and is_cold_game(g):
             hfa_eff += _cold_delta
+        if _rest_scale:
+            hfa_eff += _rest_scale * _rest_diff_by_gid.get(g["game_id"], 0.0)
+        if _epa_feats is not None:
+            hfa_eff += float(_epa_hfa["scale"]) * _epa_feats.diff(g, SEASON)
         row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]

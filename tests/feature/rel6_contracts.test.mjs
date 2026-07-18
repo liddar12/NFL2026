@@ -43,20 +43,17 @@ test('adp: sorted market board, join rate recorded, no fabricated ids', () => {
   }
 });
 
-test('signal promotion: 16 trials archived and the incumbent honestly retained', () => {
+test('signal promotion: the original Rel6 run stays archived, honestly retained', () => {
   const doc = read('model_tuning.json');
-  const entry = (doc.history || []).find((h) => h.kind === 'signal_promotion');
-  assert.ok(entry, 'promotion entry recorded in history');
+  // The Rel6 (format-1) entry: 16-trial venue x cold grid, retained. Rel7's
+  // family-gate invariants live in rel7_contracts.test.mjs.
+  const entry = (doc.history || []).find((h) => h.kind === 'signal_promotion' && !h.format);
+  assert.ok(entry, 'legacy promotion entry still in history');
   assert.equal(entry.trials.length, 16, '4x4 scale grid fully archived');
   assert.equal(entry.adopted, false, 'no candidate cleared the margin — retained');
-  // The zero-scale row IS the incumbent; every non-zero candidate scored >= it.
   const incumbent = entry.trials.find((t) => t.venue_scale === 0 && t.cold_scale === 0);
   for (const t of entry.trials) {
     assert.ok(t.log_loss >= incumbent.log_loss - 1e-9,
       `candidate v${t.venue_scale}/c${t.cold_scale} (${t.log_loss}) beat the incumbent yet was retained?`);
   }
-  // And the application path stayed OFF: no applied venue/cold params.
-  const gp = doc.game_params || {};
-  assert.ok(!(gp.venue_hfa && gp.venue_hfa.applied), 'venue_hfa must not be applied');
-  assert.ok(!(gp.cold_hfa && gp.cold_hfa.applied), 'cold_hfa must not be applied');
 });

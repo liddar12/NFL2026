@@ -32,6 +32,10 @@ for f in "${required_files[@]}"; do
   [ -f "$f" ] || fail "missing required file: $f"
 done
 
+echo "smoke: pipeline math selftests (fixture-driven, never write data/)"
+python3 scripts/build_epa_history.py --selftest || fail "epa_history selftest"
+python3 -m scripts.promote_signals --selftest || fail "promote_signals selftest"
+
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.
 while IFS= read -r -d '' json; do
