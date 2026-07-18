@@ -12,8 +12,8 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_BUDGET, MIN_BID, maxBid, marketDollars, fairDollars, inflation,
   classifyNomination, tendencyUpdate, planBudget, createAuction, myTeam,
-  onTheNomination, autoNominate, nominate, resolveBids, sellTo, liveInflation,
-  myGuidance, nominationAdvice, scoreAuction,
+  onTheNomination, autoNominate, nominate, resolveBids, sellTo, undoLastSale,
+  liveInflation, myGuidance, nominationAdvice, scoreAuction,
 } from '../../app/auction.js';
 import { rosterShape } from '../../app/draft-sim.js';
 
@@ -215,4 +215,25 @@ test('scoreAuction reports margin, spend, and efficiency', () => {
   assert.ok(Number.isFinite(s.mine) && Number.isFinite(s.roomAvg));
   assert.ok(s.spent >= 0 && s.spent <= 200);
   assert.ok(s.rank >= 1 && s.rank <= 4);
+});
+
+test('undoLastSale reverses a sale EXACTLY - budget, roster, tendency, inflation', () => {
+  const a = newAuction();
+  const snapshot = () => JSON.stringify({
+    budgets: a.teams.map((t) => t.budget),
+    rosters: a.teams.map((t) => t.players.length),
+    tendencies: a.teams.map((t) => t.tendencies),
+    remainingFair: a.remainingFair,
+    nomIdx: a.nomIdx,
+    taken: [...a.taken].sort(),
+  });
+  const before = snapshot();
+  nominate(a, 0);
+  const key = String(a.board[0].gsis_id);
+  sellTo(a, 0, Math.round(a.market.get(key) * 1.4), 0);   // overpay -> tendency moved
+  assert.notEqual(snapshot(), before, 'sale changed the room');
+  const undone = undoLastSale(a);
+  assert.equal(undone.boardIdx, 0);
+  assert.equal(snapshot(), before, 'undo restored the room byte-for-byte');
+  assert.equal(undoLastSale(a), null, 'nothing left to undo');
 });

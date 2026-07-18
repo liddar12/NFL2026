@@ -324,17 +324,41 @@ export function sellTo(a, teamIdx, price, boardIdx) {
   team.budget = Math.max(0, team.budget - price);
   team.players.push(row);
   const market = a.market.get(key) || MIN_BID;
+  const prevTendency = team.tendencies[row.position];
   if (teamIdx !== a.mySlot - 1) {
     team.tendencies[row.position] =
       tendencyUpdate(team.tendencies[row.position], price, market);
   }
   if (row.gsis_id) a.remainingFair -= (a.fair.get(String(row.gsis_id)) || 0);
-  a.log.push({ name: row.name, position: row.position, team: teamIdx + 1, price });
+  a.log.push({ name: row.name, position: row.position, team: teamIdx + 1, price,
+               boardIdx, prevTendency });
   a.block = null;
   a.nomIdx += 1;
   a.done = a.teams.every((t) => t.players.length >= a.shape.size)
     || a.board.length - a.taken.size === 0;
   return a;
+}
+
+/** Undo the most recent sale (mis-entry forgiveness, esp. LIVE mode). Exact
+ * reversal of sellTo — including the learned tendency, restored from the log
+ * entry's snapshot. Returns the undone entry or null. */
+export function undoLastSale(a) {
+  const last = a.log.pop();
+  if (!last) return null;
+  const row = a.board[last.boardIdx];
+  const team = a.teams[last.team - 1];
+  a.taken.delete(last.boardIdx);
+  team.budget += last.price;
+  team.players.pop();
+  if (last.team - 1 !== a.mySlot - 1) {
+    if (last.prevTendency == null) delete team.tendencies[row.position];
+    else team.tendencies[row.position] = last.prevTendency;
+  }
+  if (row.gsis_id) a.remainingFair += (a.fair.get(String(row.gsis_id)) || 0);
+  a.nomIdx -= 1;
+  a.block = null;
+  a.done = false;
+  return last;
 }
 
 /** Bid guidance for the player on the block: our price, inflation-adjusted

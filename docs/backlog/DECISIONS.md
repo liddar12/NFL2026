@@ -401,3 +401,24 @@ bar + plan vs bought. (4) SNAKE LIVE: takeOpponentPickAt records the real room's
 (tap who they took); my turns keep VOR + survival advice. (5) Auction results lock to the learning
 record (kind auction, sim/live tagged). **Status:** adopted. Gate 215 unit (+15) / 53 e2e (+5),
 validate + smoke green. REL6 league-grid design lock updated 3 -> 5 fields (FORMAT + PLAY added).
+
+---
+
+## REL9.1 — The draft room and the page are ONE system (2026-07-18)
+
+**Decision (owner feedback: nomination was clumsy, lists felt disconnected, wanted multiple strength
+lenses + on-the-fly changes; all four Q&A recommendations accepted):** (1) FULL TWO-WAY SYNC: the
+fit-engine pool now excludes everyone consumed by the active draft room, so the finder, reco panel,
+BEST PICK strip and team summary re-rank after EVERY pick/sale. In LIVE play the sync PERSISTS
+(diff-based, idempotent): opponents' players auto-mark TAKEN, players I win auto-fill my roster
+slots; sim rooms overlay visually without touching stored state. Undo re-diffs, retracting exactly
+what the room wrote and never what the user set by hand. (2) FINDER-POWERED SELECTION: during a
+draft every finder/reco/best-pick row carries the room's contextual action — NOM (my or live
+nominations), TOOK (live snake, opponent on the clock), PICK (my snake turn), BLOCK marker for the
+nominee — replacing the manual TAKE toggle (the room drives taken-state itself). Search anyone,
+nominate anyone. (3) SWAP/CANCEL + EXACT UNDO: the block gets ✕ SWAP until a bid/sale is recorded;
+undoLastSale (auction) restores budget/roster/tendency/inflation byte-for-byte from a log snapshot
+(locked by test), undoLastPick (snake live) reverses _take exactly. (4) UNIFIED STRENGTH ROW:
+during an auction every list row shows PTS plus "$ours v $market" with the 🎯/🎣 value-gap flag —
+one visual language across finder, reco and the block. **Status:** adopted. Gate 217 unit (+2) /
+56 e2e (+3), validate + smoke green.
