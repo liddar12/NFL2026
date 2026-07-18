@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "adp.schema.json",
+  "title": "ADP consensus (drafter market) - opponent model + value flags ONLY",
+  "description": "FantasyFootballCalculator PPR ADP joined to our projection pool by name+position. POLICY BOUNDARY: ADP is the market of fantasy drafters. It models the simulated opponents in the draft simulator and flags value-vs-ADP; it is NEVER blended into projections, weights, or game probabilities. Rows without a gsis_id are real draftable players we do not project - kept for the opponent board, never given fabricated points.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["updated_utc", "source", "format", "league_size", "join_rate", "players"],
+  "properties": {
+    "updated_utc": { "type": "string" },
+    "source": { "type": "string" },
+    "format": { "type": "string", "enum": ["ppr"] },
+    "league_size": { "type": "integer", "minimum": 8, "maximum": 14 },
+    "join_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "players": {
+      "type": "array",
+      "minItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "position", "adp", "gsis_id"],
+        "properties": {
+          "name": { "type": "string" },
+          "position": { "type": "string", "enum": ["QB", "RB", "WR", "TE"] },
+          "team": { "type": ["string", "null"] },
+          "adp": { "type": "number", "minimum": 1 },
+          "gsis_id": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

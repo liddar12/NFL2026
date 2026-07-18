@@ -117,15 +117,33 @@ def main():
     schedule = espn.fetch_season_schedule(SEASON)
     feeds["espn_schedule"] = {"rows": len(schedule), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
 
+    # PROMOTED SIGNAL APPLICATION (scripts/promote_signals.py). A venue/cold
+    # signal that cleared the NEVER-REGRESS promotion backtest lands in
+    # game_params.venue_hfa / cold_hfa with applied=true and per-team Elo
+    # deltas; unadopted (today: the 2025 promotion run RETAINED the incumbent —
+    # every candidate scale was worse out-of-sample) means both blocks are
+    # absent and hfa_eff == hfa_live for every game, byte-identical output.
+    _venue_hfa = _adopted.get("venue_hfa") or {}
+    _venue_deltas = _venue_hfa.get("deltas") or {} if _venue_hfa.get("applied") else {}
+    _cold_hfa = _adopted.get("cold_hfa") or {}
+    _cold_delta = float(_cold_hfa.get("delta_elo", 0.0)) if _cold_hfa.get("applied") else 0.0
+    if _venue_deltas or _cold_delta:
+        from scripts.promote_signals import is_cold_game  # noqa: PLC0415 (guarded)
+        print(f"promoted signals in effect: venue deltas for {len(_venue_deltas)} teams, "
+              f"cold delta {_cold_delta:+.1f}")
+
     # Attach Elo priors and predict every game with the full-vector game model.
     predicted = []
     for g in schedule:
         row = dict(g)
         row["home_elo"] = ratings.get(g["home"], elo_mod.INIT)
         row["away_elo"] = ratings.get(g["away"], elo_mod.INIT)
-        # Learning-loop hook: prediction-time HFA. hfa_live == the game_model
-        # default (65.0) until refit adopts, so this line changes nothing today.
-        row["hfa_elo"] = hfa_live
+        # Learning-loop hook: prediction-time HFA = adopted flat params plus any
+        # PROMOTED per-venue/cold deltas (both no-ops until adoption).
+        hfa_eff = hfa_live + float(_venue_deltas.get(g["home"], 0.0))
+        if _cold_delta and is_cold_game(g):
+            hfa_eff += _cold_delta
+        row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]
         pred["venue"] = g.get("venue")
@@ -358,6 +376,45 @@ def main():
         feeds["nflverse"] = {"rows": 0, "age_hours": 999.0,
                              "last_success_utc": None, "status": "degraded"}
     # === end O-LINE COMPOSITE block ===============================================
+
+    # === ADP (drafter consensus — draft-simulator opponent model ONLY) ===========
+    # POLICY: models the simulated draft room + value flags; never blended into
+    # projections or probabilities. Keyless FantasyFootballCalculator API.
+    try:
+        from scripts.scrape import adp as adp_mod  # noqa: PLC0415 (guarded)
+        adp_rows, adp_join = adp_mod.join_to_pool(
+            adp_mod.fetch_adp(SEASON), projected[:300])
+        _write(os.path.join(DATA, "adp.json"), {
+            "updated_utc": now,
+            "source": "fantasyfootballcalculator ppr 12-team",
+            "format": "ppr", "league_size": 12, "join_rate": adp_join,
+            "players": adp_rows,
+        })
+        feeds["adp"] = {"rows": len(adp_rows), "age_hours": 0.0,
+                        "last_success_utc": now, "status": "ok"}
+        print(f"adp: {len(adp_rows)} players, join rate {adp_join}")
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["adp"] = {"rows": 0, "age_hours": 999.0,
+                        "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] adp feed failed (core pipeline continues): {exc}", file=sys.stderr)
+    # === end ADP block ============================================================
+
+    # === DEFENSIVE COMPOSITE (scripts/build_defense.py) ===========================
+    # The OL-vs-DL signal's defensive half — weight-0 context, weekly refresh
+    # (roster churn matters). GUARDED like the o-line block above.
+    try:
+        from scripts import build_defense  # noqa: PLC0415 (guarded feature import)
+        build_defense.main()
+        with open(os.path.join(DATA, "defense_composite.json"), encoding="utf-8") as fh:
+            def_rows = len(json.load(fh)["teams"])
+        feeds["defense"] = {"rows": def_rows, "age_hours": 0.0,
+                            "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["defense"] = {"rows": 0, "age_hours": 999.0,
+                            "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] defense composite failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end DEFENSIVE COMPOSITE block ============================================
 
     # === MARKET PRICES (Kalshi + Polymarket — DISPLAY ONLY) =======================
     # The scoreboard we measure ourselves against: keyless public prices joined

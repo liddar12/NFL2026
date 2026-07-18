@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "defense_composite.schema.json",
+  "title": "Per-team defensive composite (front + secondary, documented prior)",
+  "description": "Produced by scripts/build_defense.py from live ESPN rosters: defensive front (DL/EDGE/LB) size + experience and secondary (DB) experience, z-blended (0.35/0.35/0.30) across 32 teams. The counterpart of oline_composite for the registered weight-0 ol_composite_vs_dl signal. Weight-0 context: params.applied is pinned false until an OL-vs-DL matchup term survives promotion on in-season player-level grading.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "updated_utc", "source", "teams", "params", "estimate"],
+  "properties": {
+    "season": { "type": "integer", "minimum": 2026 },
+    "updated_utc": { "type": "string" },
+    "source": { "type": "string" },
+    "estimate": { "type": "boolean", "enum": [true] },
+    "teams": {
+      "type": "object",
+      "minProperties": 30,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n_front", "n_secondary", "front_weight_lb", "front_experience_yrs",
+                     "front_avg_age", "secondary_experience_yrs", "composite"],
+        "properties": {
+          "n_front": { "type": "integer", "minimum": 6 },
+          "n_secondary": { "type": "integer", "minimum": 6 },
+          "front_weight_lb": { "type": "number", "minimum": 220, "maximum": 340 },
+          "front_experience_yrs": { "type": "number", "minimum": 0, "maximum": 15 },
+          "front_avg_age": { "type": "number", "minimum": 20, "maximum": 35 },
+          "secondary_experience_yrs": { "type": "number", "minimum": 0, "maximum": 15 },
+          "composite": { "type": "number", "minimum": -5, "maximum": 5 }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applied", "weight", "feeds"],
+      "properties": {
+        "applied": { "type": "boolean", "enum": [false] },
+        "weight": { "type": "number", "minimum": 0, "maximum": 0 },
+        "feeds": { "type": "string" }
+      }
+    }
+  }
+}

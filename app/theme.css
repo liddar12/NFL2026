@@ -1561,3 +1561,189 @@ button { font: inherit; color: inherit; }
 .po-team { font-weight: 800; }
 .po-champ { color: var(--ink); font-weight: 700; }
 .po-mkt { color: var(--muted); }
+
+/* ==========================================================================
+   REL6 — draft simulator, RESET, and a UI polish pass (alignment, boxes,
+   tap targets, clarity). AA discipline unchanged: audited tokens only.
+   ========================================================================== */
+
+/* ---- team toolbar: AI toggle + RESET on one aligned row ---- */
+.team-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.team-toolbar .aiseg { margin: 0; }
+.reset-btn { margin-left: auto; }
+.reset-btn--armed {
+  color: var(--accent-txt);
+  border-color: var(--accent-txt);
+  font-weight: 800;
+}
+
+/* ---- draft simulator card ---- */
+.draftsim {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);   /* crimson stripe = the draft room */
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.draftsim:empty { display: none; }
+.ds-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ds-title {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.ds-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--brand-txt);
+  font-variant-numeric: tabular-nums;
+}
+.ds-head .sort-chip { margin-left: auto; }
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ds-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ds-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ds-select {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  min-height: 40px;                        /* comfortable tap target */
+}
+.ds-start { align-self: flex-start; padding: 9px 18px; }
+.ds-turn {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--accent-txt);
+}
+.ds-cand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name pick" "meta pick" "surv pick";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ds-cand .cd-name { grid-area: name; color: var(--ink); font-weight: 700; }
+.ds-cand .cd-meta { grid-area: meta; }
+.ds-cand .cand-add { grid-area: pick; }
+.ds-surv {
+  grid-area: surv;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+.ds-surv--hot { color: var(--warn); font-weight: 700; }
+.ds-log {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.ds-me { color: var(--brand-txt); }
+.ds-score {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+}
+.ds-score--win { color: var(--pos-txt); }
+.ds-score--loss { color: var(--accent-txt); }
+.ds-sheet {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ds-roster { display: flex; flex-wrap: wrap; gap: 6px; }
+.ds-pick {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+/* ---- UI POLISH PASS (alignment / boxes / clarity) ---- */
+
+/* Finder candidate rows: fixed grid so name/meta/pts/buttons align down the
+   list instead of drifting with content width. */
+.cand {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto auto;
+  align-items: center;
+}
+.cand .cd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand .cd-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand-add, .cand-taken { min-height: 32px; }
+
+/* Sort/filter chips: one consistent height + baseline so mixed rows line up. */
+.sort-chip, .pf-chip, .leg-chip, .taken-toggle { min-height: 32px; }
+.finder-controls { row-gap: 6px; }
+
+/* Reco panel: sublabel and controls breathe; delta chip never wraps oddly. */
+.reco-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.reco-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.reco-row .cand-add { margin-left: auto; }
+.reco-delta { white-space: nowrap; }
+
+/* Best-pick rows align like candidates. */
+.bestpick .bp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+/* MODEL tab: the 7-column playoff table scrolls inside its card on phones
+   instead of squeezing (page never scrolls horizontally). */
+.m-playoffs { overflow-x: auto; }
+.m-playoffs .po-row { min-width: 470px; }
+
+/* Market strip: proper card attachment without fragile negative margins. */
+.mstrip { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+
+/* Legends: consistent spacing under headers. */
+.legend { line-height: 1.55; }
+
+/* Slot rows: give the meta line air so trend/SoS/bye chips don't crowd. */
+.sp-meta { padding-top: 2px; }
+
+/* iPad: draft sim spans the build column; setup grid gets more columns. */
+@media (min-width: 820px) {
+  .ds-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}

@@ -296,6 +296,35 @@ def main():
         source = "espn_roster only (nflverse snap counts unreachable; continuity = share of linemen with >= 2 yrs experience)"
         print(f"nflverse snap counts unavailable, ESPN-only continuity: {exc}")
 
+    # DEPTH-CHART CONTINUITY (Rel6): how many of last season's week-max OL
+    # STARTERS (depth_team 1) are still on the current ESPN roster. Recorded as
+    # context (returning_starters_ol, 0-5+) alongside the snap-share continuity;
+    # not yet a composite term (weight-0 discipline: it earns its way in like
+    # everything else). Guarded: unreachable release -> metric absent, stated.
+    try:
+        depth_rows = nflverse.fetch_depth_charts_release(SNAP_SEASON)
+        latest_week = max(int(float(r.get("week") or 0)) for r in depth_rows)
+        starters = {}
+        for r in depth_rows:
+            if int(float(r.get("week") or 0)) != latest_week:
+                continue
+            if (r.get("position") or "").upper() not in OL_POSITIONS:
+                continue
+            if str(r.get("depth_team") or "") not in ("1", "1.0"):
+                continue
+            team = normalize_team(r.get("club_code") or r.get("team") or "")
+            if team is None:
+                continue
+            starters.setdefault(team, set()).add(
+                canonical_player_name(r.get("full_name") or r.get("player") or ""))
+        for ab, metrics in teams.items():
+            current = {canonical_player_name(p["name"]) for p in rosters_by_team[ab]}
+            metrics["returning_starters_ol"] = len(starters.get(ab, set()) & current)
+        source += " + nflverse_depth_charts"
+        print(f"depth-chart continuity: week {latest_week} starters checked for {len(starters)} teams")
+    except nflverse.FeedError as exc:
+        print(f"nflverse depth charts unavailable, returning_starters_ol omitted: {exc}")
+
     blend = apply_bench_press(teams)
     if blend is BLEND_BENCH:
         source += " + nflverse_combine_bench"

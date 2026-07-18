@@ -46,14 +46,20 @@ import {
 } from '../team-logic.js';
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
-  getPlayerHistory, getTeamStrength,
+  getPlayerHistory, getTeamStrength, getAdp,
 } from '../data.js';
+import {
+  rosterShape, createDraft, onTheClock, takeOpponentPick, takeMyPick,
+  picksUntilMyNext, survivalProbabilities, scoreVsRoom, ROSTER_BOUNDS,
+  DEFAULT_ROSTER,
+} from '../draft-sim.js';
 import { TEAMS } from '../teams.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
 const TAKEN_KEY = 'nfl2026.taken.v1'; // draft board: ids taken by other managers
+const MOCKS_KEY = 'nfl2026.mocklocks.v1'; // completed ADP-room mocks (learning locks)
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
 
 /* ---- local render helpers (this view's markup is its own) ----------------- */
@@ -257,13 +263,14 @@ export default async function mountTeam(el) {
   // Projections + weekly are both REQUIRED here (the fit engine is weekly
   // math); game predictions only pick the "current week" chip and ai_insights
   // only powers the opt-in AI+ toggle — both are optional (missing = degrade).
-  const [projRes, weeklyRes, predsRes, aiRes, histRes, strRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, predsRes, aiRes, histRes, strRes, adpRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getGamePredictions(),
     getAiInsights(),
     getPlayerHistory(),
     getTeamStrength(),
+    getAdp(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Team builder unavailable — the projection feed did not load.');
@@ -350,6 +357,26 @@ export default async function mountTeam(el) {
     return taken.size === 0 ? players : players.filter((p) => !taken.has(String(p.gsis_id)));
   }
 
+  // DRAFT SIMULATOR (Rel6). ADP board = the market; our picks = VOR + survival
+  // lookahead; beat-the-room margin = the benchmark. ADP-room mocks are locked
+  // to localStorage as learning records; shark room is a stress test (never
+  // locked). Absent adp.json (older deploy) hides the whole section.
+  const adpDoc = (adpRes.status === 'fulfilled' && adpRes.value
+    && Array.isArray(adpRes.value.players) && adpRes.value.players.length > 50)
+    ? adpRes.value : null;
+  let draft = null;          // live draft state (createDraft) or null
+  let draftResult = null;    // scoreVsRoom sheet after a finished draft
+  let draftCfg = { leagueSize: 12, mySlot: 5, roomType: 'adp', ...DEFAULT_ROSTER };
+  let resetArmed = false;    // two-step RESET confirm
+
+  /** id -> adjusted season points at the CURRENT scoring mode (draft pricing). */
+  function adjPointsMap() {
+    return new Map(players.map((p) => {
+      const id = String(p.gsis_id);
+      return [id, adjById.get(id) || 0];
+    }));
+  }
+
   // Per-mode derived maps, built once per mount (mode changes re-mount):
   //   adjById    id -> season points at the current scoring mode (EXACT)
   //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
@@ -382,11 +409,16 @@ export default async function mountTeam(el) {
       `<span class="view-sub">${esc(season)} · ${mode.toUpperCase()} SCORING · ESTIMATE</span>` +
     '</header>' +
     renderLegend() +
-    (aiInsights ? renderAiSeg(aiOn) : '') +
+    '<div class="team-toolbar">' +
+      (aiInsights ? renderAiSeg(aiOn) : '') +
+      '<button type="button" class="sort-chip reset-btn" data-act="reset" ' +
+        'title="Clear the roster, the TAKEN board, and any draft in progress">RESET</button>' +
+    '</div>' +
     // Two-column grid on wide screens (iPad 13"): builder column (roster +
     // finder + reco) beside the summary. On phones it is a single column.
     '<div class="team-grid">' +
       '<div class="team-col team-col--build">' +
+        '<section class="draftsim" id="t-draft" aria-label="Draft simulator"></section>' +
         '<section class="roster" id="t-roster" role="listbox" aria-label="Roster slots"></section>' +
         '<section class="finder" aria-label="Player finder">' +
           '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
@@ -715,7 +747,137 @@ export default async function mountTeam(el) {
         : '');
   }
 
+
+  /* ---- DRAFT SIMULATOR painter ---------------------------------------------- */
+
+  function draftSetupHtml() {
+    const opt = (v, cur, label) => `<option value="${v}"${Number(v) === Number(cur) ? ' selected' : ''}>${label || v}</option>`;
+    const slots = [];
+    for (let i = 1; i <= draftCfg.leagueSize; i += 1) slots.push(opt(i, draftCfg.mySlot));
+    const stepper = (key, label) => {
+      const [lo, hi] = ROSTER_BOUNDS[key];
+      const opts = [];
+      for (let v = lo; v <= hi; v += 1) opts.push(opt(v, draftCfg[key]));
+      return (
+        '<label class="ds-field">' +
+          `<span class="ds-lbl">${label}</span>` +
+          `<select class="ds-select" data-dcfg="${key}">${opts.join('')}</select>` +
+        '</label>'
+      );
+    };
+    return (
+      '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR</span> ' +
+        '<span class="est">ESTIMATE</span></div>' +
+      '<div class="m-explain">Mock a full snake draft: opponents follow real ADP ' +
+        '(the market) with need-aware noise; your picks come from the VOR engine with a ' +
+        'survival forecast for your next turn. Beat-the-room margin is the score. ' +
+        'SHARK room (everyone drafts like our engine) is a stress test and is never ' +
+        'recorded as market evidence.</div>' +
+      '<div class="ds-grid">' +
+        '<label class="ds-field"><span class="ds-lbl">TEAMS</span>' +
+          `<select class="ds-select" data-dcfg="leagueSize">${opt(8, draftCfg.leagueSize)}${opt(10, draftCfg.leagueSize)}${opt(12, draftCfg.leagueSize)}</select></label>` +
+        `<label class="ds-field"><span class="ds-lbl">MY SLOT</span><select class="ds-select" data-dcfg="mySlot">${slots.join('')}</select></label>` +
+        '<label class="ds-field"><span class="ds-lbl">ROOM</span>' +
+          `<select class="ds-select" data-dcfg="roomType"><option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP (market)</option><option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK (stress)</option></select></label>` +
+        stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
+        stepper('te', 'TE') + stepper('flex', 'FLEX') + stepper('bench', 'BENCH') +
+      '</div>' +
+      '<button type="button" class="cand-add ds-start" data-act="draft-start">START DRAFT</button>'
+    );
+  }
+
+  function draftLiveHtml() {
+    const clock = onTheClock(draft);
+    const myTurn = clock === draft.mySlot - 1;
+    const round = Math.floor(draft.pick / draft.leagueSize) + 1;
+    const logTail = draft.log.slice(-5).map((l) => (
+      `<div class="ds-log">#${l.pick} T${l.team} ${esc(l.name)} <span class="cd-meta">${esc(l.position)} · ADP ${l.adp}</span>${l.team === draft.mySlot ? ' <b class="ds-me">YOU</b>' : ''}</div>`
+    )).join('');
+    let body = '';
+    if (draft.done) {
+      body = '<div class="state">Draft complete — see the results below.</div>';
+    } else if (!myTurn) {
+      body = `<button type="button" class="cand-add" data-act="draft-sim">SIM TO MY PICK</button>`;
+    } else {
+      // MY TURN: top-5 projected + eligible candidates by VOR, with survival.
+      const counts = draft.rosters[draft.mySlot - 1].counts;
+      const cands = [];
+      for (let i = 0; i < draft.board.length && cands.length < 40; i += 1) {
+        if (draft.taken.has(i)) continue;
+        const row = draft.board[i];
+        if (!row.gsis_id) continue;                       // never recommend unprojected
+        const cap = POSITION_CAPS[row.position] != null ? POSITION_CAPS[row.position] : Infinity;
+        if ((counts[row.position] || 0) >= cap) continue; // no 3rd QB advice either
+        cands.push({ i, row, pts: draft.adjOf(row) });
+      }
+      cands.sort((a, b) => b.pts - a.pts);
+      const top = cands.slice(0, 5);
+      const until = picksUntilMyNext({ ...draft, pick: draft.pick + 1 }) + 1;
+      const surv = survivalProbabilities(
+        top.map((c) => c.i), draft.board, draft.rosters, draft.shape,
+        draft.roomType, draft.adjOf, draft.pick, until, draft.leagueSize,
+        draft.mySlot - 1, draft.seed + draft.pick, 150);
+      body =
+        `<div class="ds-turn">YOUR PICK — ROUND ${round}</div>` +
+        top.map((c) => {
+          const sp = surv.get(c.i);
+          const pct = sp != null ? Math.round(sp * 100) : null;
+          const risk = pct != null
+            ? `<span class="ds-surv${pct < 40 ? ' ds-surv--hot' : ''}">${pct}% survives to your next pick</span>`
+            : '';
+          return (
+            `<div class="ds-cand">` +
+              `<span class="cd-name">${esc(c.row.name)}</span>` +
+              `<span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp} · ${fix1(c.pts)} pts</span>` +
+              risk +
+              `<button type="button" class="cand-add" data-act="draft-pick" data-bi="${c.i}">PICK</button>` +
+            '</div>'
+          );
+        }).join('');
+    }
+    return (
+      '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR · ' +
+        `${draft.roomType === 'shark' ? 'SHARK' : 'ADP'} ROOM</span> ` +
+        `<span class="ds-status">PICK ${Math.min(draft.pick + 1, draft.totalPicks)}/${draft.totalPicks}</span> ` +
+        '<button type="button" class="sort-chip" data-act="draft-close">EXIT</button></div>' +
+      logTail + body
+    );
+  }
+
+  function draftResultHtml() {
+    const r = draftResult;
+    const my = draft.rosters[draft.mySlot - 1].players
+      .map((p) => `<span class="ds-pick">${esc(p.position)} ${esc(p.name)}</span>`).join(' ');
+    const beat = r.margin >= 0;
+    return (
+      '<div class="ds-head"><span class="ds-title">MOCK RESULT</span> ' +
+        '<button type="button" class="sort-chip" data-act="draft-close">NEW DRAFT</button></div>' +
+      `<div class="ds-score ${beat ? 'ds-score--win' : 'ds-score--loss'}">` +
+        `${beat ? 'BEAT' : 'LOST TO'} THE ${draft.roomType === 'shark' ? 'SHARK' : 'ADP'} ROOM BY ` +
+        `${fix1(Math.abs(r.margin))} PTS</div>` +
+      `<div class="ds-sheet">You ${fix1(r.mine)} · room avg ${fix1(r.roomAvg)} · ` +
+        `rank ${r.rank}/${r.teams} <span class="est">ESTIMATE</span></div>` +
+      `<div class="ds-roster">${my}</div>` +
+      (draft.roomType === 'adp'
+        ? '<div class="m-explain">Locked as a learning record: when real season points resolve, this mock grades whether beating ADP here was right — and the fit engine refits through NEVER-REGRESS.</div>'
+        : '<div class="m-explain">Shark-room drill — not recorded as market evidence.</div>')
+    );
+  }
+
+  function paintDraft() {
+    const box = el.querySelector('#t-draft');
+    if (!box) return;
+    if (!adpDoc) {
+      box.innerHTML = '';
+      return;
+    }
+    if (draft && draftResult) box.innerHTML = draftResultHtml();
+    else if (draft) box.innerHTML = draftLiveHtml();
+    else box.innerHTML = draftSetupHtml();
+  }
+
   function paintAll() {
+    paintDraft();
     paintRoster();
     paintCands();
     paintReco();
@@ -724,10 +886,43 @@ export default async function mountTeam(el) {
 
   /* ---- events ---------------------------------------------------------------- */
 
+
+  /** Draft finished: score vs the room; ADP-room mocks are locked locally. */
+  function finishDraft() {
+    const mine = draft.rosters[draft.mySlot - 1].players;
+    const opp = draft.rosters
+      .filter((_, i) => i !== draft.mySlot - 1)
+      .map((r) => r.players);
+    draftResult = scoreVsRoom(mine, opp, draft.shape, draft.adjOf);
+    if (draft.roomType === 'adp') {
+      try {
+        const locks = JSON.parse(localStorage.getItem(MOCKS_KEY) || '[]');
+        locks.push({
+          created_utc: new Date().toISOString(),
+          league_size: draft.leagueSize,
+          my_slot: draft.mySlot,
+          roster_config: draft.shape.config,
+          result: draftResult,
+          my_players: mine.map((p) => ({ gsis_id: p.gsis_id, name: p.name, position: p.position })),
+        });
+        localStorage.setItem(MOCKS_KEY, JSON.stringify(locks.slice(-50)));
+      } catch (err) {
+        /* storage blocked — the result still displays */
+      }
+    }
+  }
+
   function onAction(e) {
     const t = e.target.closest('[data-act]');
     if (!t || t.disabled || !el.contains(t)) return;
     const act = t.dataset.act;
+
+    if (act !== 'reset' && resetArmed) {
+      // Any other action disarms the pending reset (no accidental wipes).
+      resetArmed = false;
+      const rb = el.querySelector('.reset-btn');
+      if (rb) { rb.textContent = 'RESET'; rb.classList.remove('reset-btn--armed'); }
+    }
 
     if (act === 'pick') {
       // Select an empty slot: recommendations retarget to it.
@@ -741,6 +936,73 @@ export default async function mountTeam(el) {
       roster.slots[t.dataset.slot] = null;
       saveRoster(roster);
       paintAll();
+      return;
+    }
+
+
+    if (act === 'reset') {
+      // Two-step confirm: first tap arms, second tap wipes roster + taken +
+      // any draft in progress. Arm state resets on any other action.
+      if (!resetArmed) {
+        resetArmed = true;
+        t.textContent = 'TAP AGAIN TO CONFIRM';
+        t.classList.add('reset-btn--armed');
+        return;
+      }
+      resetArmed = false;
+      SLOT_ORDER.forEach((slot) => { roster.slots[slot] = null; });
+      taken.clear();
+      draft = null;
+      draftResult = null;
+      saveRoster(roster);
+      saveTaken(taken);
+      t.textContent = 'RESET';
+      t.classList.remove('reset-btn--armed');
+      paintAll();
+      return;
+    }
+
+    if (act === 'draft-start') {
+      draftResult = null;
+      draft = createDraft({
+        leagueSize: draftCfg.leagueSize,
+        mySlot: Math.min(draftCfg.mySlot, draftCfg.leagueSize),
+        roomType: draftCfg.roomType,
+        rosterConfig: draftCfg,
+        boardRows: adpDoc.players,
+        adjPointsById: adjPointsMap(),
+        seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
+        excludedIds: [...taken],
+      });
+      paintDraft();
+      return;
+    }
+
+    if (act === 'draft-sim') {
+      // Advance opponents until my turn (or the end).
+      while (draft && !draft.done && onTheClock(draft) !== draft.mySlot - 1) {
+        takeOpponentPick(draft);
+      }
+      if (draft && draft.done) finishDraft();
+      paintDraft();
+      return;
+    }
+
+    if (act === 'draft-pick') {
+      const bi = Number(t.dataset.bi);
+      takeMyPick(draft, bi);
+      while (draft && !draft.done && onTheClock(draft) !== draft.mySlot - 1) {
+        takeOpponentPick(draft);
+      }
+      if (draft && draft.done) finishDraft();
+      paintDraft();
+      return;
+    }
+
+    if (act === 'draft-close') {
+      draft = null;
+      draftResult = null;
+      paintDraft();
       return;
     }
 
@@ -795,6 +1057,16 @@ export default async function mountTeam(el) {
   el.querySelector('#t-find').addEventListener('input', (e) => {
     query = e.target.value || '';
     paintCands();
+  });
+
+  // Draft setup selects (delegated change — the section repaints often).
+  el.addEventListener('change', (e) => {
+    const sel = e.target.closest('select[data-dcfg]');
+    if (!sel) return;
+    const key = sel.dataset.dcfg;
+    draftCfg[key] = key === 'roomType' ? sel.value : Number(sel.value);
+    if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+    if (!draft) paintDraft(); // setup card reflects clamped values
   });
 
   // Finder + reco controls (delegated on el so they survive every repaint).
