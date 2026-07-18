@@ -12,8 +12,8 @@ import assert from 'node:assert/strict';
 import {
   rosterShape, DEFAULT_ROSTER, ROSTER_BOUNDS, mulberry32, snakeTeam,
   myPickNumbers, opponentNeeds, adpOpponentPick, sharkOpponentPick,
-  createDraft, onTheClock, takeOpponentPick, takeMyPick, picksUntilMyNext,
-  survivalProbabilities, startersTotal, scoreVsRoom,
+  createDraft, onTheClock, takeOpponentPick, takeMyPick, takeOpponentPickAt,
+  picksUntilMyNext, survivalProbabilities, startersTotal, scoreVsRoom,
 } from '../../app/draft-sim.js';
 
 /* ---- fixtures --------------------------------------------------------------- */
@@ -207,4 +207,21 @@ test('scoreVsRoom: margin and rank are exact', () => {
   assert.equal(sheet.margin, 0);
   assert.equal(sheet.rank, 2);            // one room team (110s) beats me
   assert.equal(sheet.teams, 3);
+});
+
+test('takeOpponentPickAt records the OBSERVED live pick for the team on the clock', () => {
+  const rows = board60();
+  const draft = createDraft({
+    leagueSize: 4, mySlot: 3, roomType: 'adp',
+    boardRows: rows, adjPointsById: adjMap(rows), seed: 5,
+  });
+  // Teams 1 and 2 pick before me; record team 1 taking board #7 (not the model's choice).
+  const rec = takeOpponentPickAt(draft, 7);
+  assert.equal(rec.team, 1);
+  assert.equal(rec.name, 'P8');
+  assert.ok(draft.taken.has(7));
+  // Cannot record onto my own turn or an already-taken player.
+  takeOpponentPickAt(draft, 0);                 // team 2 takes board #1
+  assert.equal(takeOpponentPickAt(draft, 5), null, 'my turn: manual entry refused');
+  assert.equal(draft.rosters[2].players.length, 0, 'my roster untouched');
 });
