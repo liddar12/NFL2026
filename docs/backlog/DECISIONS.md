@@ -344,3 +344,32 @@ attachment fix, draft-sim card styling. New feeds: adp + defense in pipeline_sta
 gate to 100%, ship unattended). The promotion "no" is the system's honesty working in public: tested
 properly, recorded, not adopted.
 **Status:** adopted. Gate at 194 unit + 45 e2e, validate + smoke green.
+
+---
+
+## REL7 — Predictive core: family promotion gate, EPA history, rest signal, calibration (2026-07-18)
+
+**Decision:** Deepen the self-learning predictive core (owner-approved slate: "Predictive core"
+over pages/draft-assistant). (1) FAMILY PROMOTION GATE v2 (scripts/promote_signals.py): candidate
+families — environment (venue x cold, the Rel6 grid), rest (rest-day differential from kickoff
+dates, clamped ±7, Elo/day scales 1.5-6), epa_total and epa_pass (rolling EPA-margin differential,
+shrunk n0=600 plays, prev-season blended, scales 200-500 Elo/unit) — each walk-forward tested
+2022-2025 ON TOP of the incumbent (flat params + previously adopted families, features recomputed
+leak-free). At most ONE family adopted per run, only past the 0.0015 NEVER-REGRESS margin;
+--auto-adopt writes game_params, otherwise dry-run. First live run: environment all worse (matches
+Rel6 exactly — refactor semantics preserved); REST improved at every scale (best 4.5 Elo/day:
+0.63690 -> 0.63660, Δ+0.00030) but BELOW the margin — retained, recorded. The gate saying "real
+direction, not enough evidence" is the design working. (2) EPA HISTORY (scripts/build_epa_history.py):
+per team-season-week EPA sums (off/def x pass/rush) streamed from nflverse pbp releases 2021-2026;
+runner-built (sandbox proxy 403s nflverse), past seasons cached immutable, current season refreshed
+weekly; --selftest fixture-driven; contract + validator (optional until the bootstrap dispatch).
+(3) SELF-LEARNING CRON: backtest.yml now runs resolve -> epa_history -> backtest -> promote_signals
+--auto-adopt -> validate -> commit, every Tuesday. The EPA families activate the first time the
+runner lands epa_history.json. (4) MODEL TAB: PROMOTION GATE card (per-family verdict chips:
+ADOPTED / RETAINED / AWAITING DATA, best loss + Δ vs incumbent) and CALIBRATION card (10-bin
+predicted-vs-actual walk-forward reliability, 1084 games) — the self-learning loop is now fully
+visible in the product. (5) APPLICATION PATH: build_predictions applies adopted rest_hfa (schedule
+rest diffs) and epa_hfa (rolling margins) per game — dormant until adoption, loud if EPA data
+missing. **Rationale:** the top public models (nfelo, PFF, Sumer) price off EPA and rest; ours now
+tests the same families through a stricter adoption discipline than any of them publish.
+**Status:** adopted. Invariant tests (rel7_contracts) stay true before AND after any future adoption.

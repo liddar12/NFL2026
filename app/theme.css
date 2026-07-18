@@ -1562,6 +1562,64 @@ button { font: inherit; color: inherit; }
 .po-champ { color: var(--ink); font-weight: 700; }
 .po-mkt { color: var(--muted); }
 
+/* ---- REL7: promotion-gate + calibration cards ---- */
+.gate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 0;
+}
+.gate-row--head {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--brand-txt);
+  text-transform: uppercase;
+}
+.gate-name { color: var(--ink); font-weight: 700; }
+.gate-chip {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  justify-self: end;
+}
+.gate-chip--adopted { color: var(--brand-txt); border-color: var(--brand-txt); }
+.gate-chip--skipped { color: var(--warn-txt, var(--muted)); }
+.cal-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(0, 92px);
+  gap: 8px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 0;
+}
+.cal-bars { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-bar {
+  display: block;
+  height: 5px;
+  border-radius: 2px;
+  min-width: 2px;
+  max-width: 100%;
+}
+.cal-bar--exp { background: var(--surface-3, var(--border)); }
+.cal-bar--act { background: var(--brand); }
+.cal-val { text-align: right; color: var(--ink); }
+.cal-n { color: var(--muted); font-size: 9px; }
+.cal-key { font-weight: 700; }
+.cal-key--exp { color: var(--muted); }
+.cal-key--act { color: var(--brand-txt); }
+
 /* ==========================================================================
    REL6 — draft simulator, RESET, and a UI polish pass (alignment, boxes,
    tap targets, clarity). AA discipline unchanged: audited tokens only.

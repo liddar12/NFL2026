@@ -1,8 +1,10 @@
-# Weekly walk-forward backtest: the learning loop's slow heartbeat.
+# Weekly walk-forward backtest + promotion gate: the self-learning heartbeat.
 #
 # Re-runs the full 45-trial parameter grid against ALL resolved real seasons
-# (2021-2025 finals + any resolved 2026 locks the season has produced) and
-# adopts only through the NEVER-REGRESS gate — most weeks this is a no-op that
+# (2021-2025 finals + any resolved 2026 locks), refreshes the nflverse EPA
+# aggregates, then gives every candidate signal family (environment, rest,
+# EPA total/pass) its walk-forward shot — adopting at most one family per week
+# and only through the NEVER-REGRESS gate. Most weeks this is a no-op that
 # archives its trials into data/model_tuning.json history. CRON THROTTLING
 # WARNING applies (see daily.yml): weekly cadence is best-effort, which is fine
 # for a job whose output changes slowly.
@@ -41,8 +43,21 @@ jobs:
       - name: Resolve locks against FINAL scores
         run: python -m scripts.resolve_locks
 
+      # EPA aggregates from nflverse pbp. Past seasons are cached in the
+      # committed file (never refetched); only the current season streams.
+      # The runner has the network access the sandbox proxy blocks.
+      - name: Build EPA history (nflverse play-by-play)
+        run: python scripts/build_epa_history.py
+
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
+
+      # The self-learning step: every candidate family (environment, rest,
+      # EPA total/pass) gets its walk-forward shot; at most ONE family is
+      # adopted per week and only past the never-regress margin. Most weeks
+      # this archives trials and changes nothing — that is the design.
+      - name: Promotion gate (auto-adopt past NEVER-REGRESS margin)
+        run: python -m scripts.promote_signals --auto-adopt
 
       - name: Validate data contracts
         run: python scripts/validate_data.py

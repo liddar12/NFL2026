@@ -69,7 +69,13 @@ SCHEMA_TO_DATA = {
     "meta.schema.json": "meta.json",
     "environment_model.schema.json": "environment_model.json",
     "ai_insights.schema.json": "ai_insights.json",
+    "epa_history.schema.json": "epa_history.json",
 }
+
+# Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
+# their upstream): validated strictly when present, but absence is not a
+# failure until the bootstrap workflow has run.
+OPTIONAL_DATA = frozenset(["epa_history.json"])
 
 # The signal registry, mirrored name-for-name from scripts/signals/registry.py.
 # Kept as a literal (not imported) so the validator has ZERO local imports and
@@ -286,6 +292,9 @@ def main():
     for schema_name, data_name in SCHEMA_TO_DATA.items():
         schema_path = os.path.join(CONTRACTS, schema_name)
         data_path = os.path.join(DATA, data_name)
+        if data_name in OPTIONAL_DATA and not os.path.exists(data_path):
+            print("skip  %-28s (runner-built, not present yet)" % data_name)
+            continue
         try:
             schema = _load(schema_path)
         except (OSError, ValueError) as exc:
