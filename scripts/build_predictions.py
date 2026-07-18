@@ -154,6 +154,21 @@ def main():
                   f"({len(_blend_deltas)} team deltas)")
         else:
             print("WARNING: epa_blend adopted but epa_history unavailable — not applied")
+    # qb_out (adopted family): expected primary passer listed Out/Doubtful on
+    # the current week's report — pregame availability, refreshed daily.
+    _qb_out = _adopted.get("qb_out") or {}
+    _qb_primary, _qb_outs, _qb_scale = {}, {}, 0.0
+    if _qb_out.get("applied"):
+        from scripts.promote_signals import qb_out_current  # noqa: PLC0415 (guarded)
+        _cur = qb_out_current(SEASON)
+        if _cur is None:
+            print("WARNING: qb_out adopted but passer data unavailable — not applied")
+        else:
+            _qb_primary, _qb_outs = _cur
+            _qb_scale = float(_qb_out["scale"])
+            _listed = sum(1 for k in _qb_outs)
+            print(f"promoted qb_out in effect: scale={_qb_scale} "
+                  f"({len(_qb_primary)} primaries, {_listed} team-weeks with QB listings)")
     # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
     # runner-built epa_history.json; absent data means no delta, loudly.
     _epa_hfa = _adopted.get("epa_hfa") or {}
@@ -185,6 +200,14 @@ def main():
             hfa_eff += float(_epa_hfa["scale"]) * _epa_feats.diff(g, SEASON)
         if _blend_deltas:
             hfa_eff += _blend_deltas.get(g["home"], 0.0) - _blend_deltas.get(g["away"], 0.0)
+        if _qb_scale:
+            _wk = int(g.get("week") or 0)
+            _hp = _qb_primary.get(g["home"])
+            if _hp and _hp in _qb_outs.get((g["home"], _wk), ()):
+                hfa_eff -= _qb_scale
+            _ap = _qb_primary.get(g["away"])
+            if _ap and _ap in _qb_outs.get((g["away"], _wk), ()):
+                hfa_eff += _qb_scale
         row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]

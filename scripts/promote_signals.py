@@ -700,7 +700,7 @@ def run(auto_adopt=False):
     # A family NOT in this set can clear the margin but records would_adopt —
     # the gate must never claim a signal is applied when the pipeline cannot
     # actually apply it.
-    APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa"}
+    APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa", "qb_out"}
     adopt = (best_overall is not None
              and inc_loss - best_overall[1]["log_loss"] > MARGIN)
     if adopt and best_overall[0] not in APPLIABLE:
@@ -872,6 +872,40 @@ def selftest():
     m_leaky_would_be = feats.margin(2025, "KC", 4)
     assert m_leaky_would_be < m, (m_leaky_would_be, m)
     print("selftest OK: rest clamp + EPA leak-free blending exact")
+
+
+def qb_out_current(season):
+    """(primary_by_team, out_ids_by_team_week) for PREDICTION-TIME application.
+
+    Primary passer per team for the season: cumulative dropback leader from
+    epa_history's current season if present, else last season's leader (the
+    honest preseason expectation). Outs come from injury_history's current
+    season (refreshed by the daily cron in-season; empty preseason = no
+    deltas, correctly dormant)."""
+    seasons = _load_json(EPA_PATH, "seasons")
+    injuries = _load_json(INJURY_PATH, "seasons") or {}
+    if not seasons:
+        return None
+    primary = {}
+    for team in (seasons.get(str(season - 1)) or {}):
+        cum = {}
+        for yr in (season, season - 1):
+            tw = (seasons.get(str(yr)) or {}).get(team) or {}
+            for c in tw.values():
+                for pid, rec in (c.get("passers") or {}).items():
+                    cum[pid] = cum.get(pid, 0) + rec["db"]
+            if cum:
+                break                      # current season data wins outright
+        if cum:
+            primary[team] = max(cum.items(), key=lambda kv: kv[1])[0]
+    outs = {}
+    for team, weeks in (injuries.get(str(season)) or {}).items():
+        for wk, rows in weeks.items():
+            outs[(team, int(wk))] = {
+                r["id"] for r in rows
+                if r.get("position") == "QB" and r.get("status") in ("Out", "Doubtful")
+                and r.get("id")}
+    return primary, outs
 
 
 def epa_blend_deltas(weight):

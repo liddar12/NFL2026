@@ -58,6 +58,9 @@ jobs:
       # fixture placeholder. Fails LOUDLY on a broken feed (no continue-on-error). Market
       # feeds (odds/kalshi) stay "degraded" until ODDS_API_KEY is set; nflverse joins
       # when its scraper is wired (proxy-blocked in some sandboxes, fine on GH runners).
+      - name: Refresh injury history (qb_out application freshness)
+        run: python scripts/build_injury_history.py
+
       - name: Fetch ESPN + build real predictions + feed health
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset

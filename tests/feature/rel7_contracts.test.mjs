@@ -57,7 +57,11 @@ test('family gate: verdict is consistent with the NEVER-REGRESS margin', () => {
     const best = Math.min(...fam.trials.map((t) => t.log_loss));
     assert.equal(fam.best.log_loss, best, `${fam.family} best is the min trial`);
     if (!entry.adopted) {
-      assert.ok(inc - best <= margin + 1e-12,
+      // A family may clear the margin WITHOUT adoption only when the entry
+      // records it as would_adopt (application path pending - the APPLIABLE
+      // honesty guard). Silent margin-clearing is still a failure.
+      const pending = entry.would_adopt && entry.would_adopt.family === fam.family;
+      assert.ok(pending || inc - best <= margin + 1e-12,
         `${fam.family} cleared the margin (${inc} -> ${best}) yet nothing was adopted`);
     }
   }
@@ -72,6 +76,9 @@ test('family gate: verdict is consistent with the NEVER-REGRESS margin', () => {
       rest: gp.rest_hfa,
       epa_total: gp.epa_hfa,
       epa_pass: gp.epa_hfa,
+      elo_epa: gp.epa_blend,
+      weather_wind: gp.wind_hfa,
+      qb_out: gp.qb_out,
     }[a.family];
     assert.ok(block && block.applied, `game_params carries applied ${a.family} block`);
   }
