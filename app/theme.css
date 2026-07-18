@@ -1615,29 +1615,78 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
 }
 .ds-head .sort-chip { margin-left: auto; }
+.ds-sub {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.ds-sub-note {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--brand-txt);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 .ds-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.ds-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.ds-lbl {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-.ds-select {
-  font-family: var(--mono);
-  font-size: 14px;
-  color: var(--ink);
+/* Each field is a tile: label over value, matching the app's stat-tile look.
+   The tile (not the bare select) carries the border, so focus can light the
+   whole box via :focus-within. */
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 8px;
-  min-height: 40px;                        /* comfortable tap target */
 }
-.ds-start { align-self: flex-start; padding: 9px 18px; }
+.ds-field:focus-within { border-color: var(--brand-txt); }
+.ds-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.ds-select {
+  /* Kill the native iOS mini-pill: borderless value + our own chevron. */
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238b93a7' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E")
+    right center / 10px 6px no-repeat transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 18px 4px 0;
+  min-height: 30px;                        /* tile totals a >=44px tap target */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ds-select:focus { outline: none; }        /* the tile border shows focus */
+.ds-start {
+  align-self: stretch;
+  width: 100%;
+  padding: 12px 18px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
 .ds-turn {
   font-family: var(--mono);
   font-weight: 800;
@@ -1743,7 +1792,8 @@ button { font: inherit; color: inherit; }
 /* Slot rows: give the meta line air so trend/SoS/bye chips don't crowd. */
 .sp-meta { padding-top: 2px; }
 
-/* iPad: draft sim spans the build column; setup grid gets more columns. */
+/* iPad: draft sim spans the build column; the roster row fits all six tiles
+   on one line while the league row keeps its three wider tiles. */
 @media (min-width: 820px) {
-  .ds-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ds-grid--roster { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }

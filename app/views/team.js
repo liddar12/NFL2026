@@ -754,17 +754,20 @@ export default async function mountTeam(el) {
     const opt = (v, cur, label) => `<option value="${v}"${Number(v) === Number(cur) ? ' selected' : ''}>${label || v}</option>`;
     const slots = [];
     for (let i = 1; i <= draftCfg.leagueSize; i += 1) slots.push(opt(i, draftCfg.mySlot));
+    const field = (key, label, optsHtml) => (
+      '<label class="ds-field">' +
+        `<span class="ds-lbl">${label}</span>` +
+        `<select class="ds-select" data-dcfg="${key}">${optsHtml}</select>` +
+      '</label>'
+    );
     const stepper = (key, label) => {
       const [lo, hi] = ROSTER_BOUNDS[key];
       const opts = [];
       for (let v = lo; v <= hi; v += 1) opts.push(opt(v, draftCfg[key]));
-      return (
-        '<label class="ds-field">' +
-          `<span class="ds-lbl">${label}</span>` +
-          `<select class="ds-select" data-dcfg="${key}">${opts.join('')}</select>` +
-        '</label>'
-      );
+      return field(key, label, opts.join(''));
     };
+    const starters = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te + draftCfg.flex;
+    const rounds = starters + draftCfg.bench;
     return (
       '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR</span> ' +
         '<span class="est">ESTIMATE</span></div>' +
@@ -773,16 +776,21 @@ export default async function mountTeam(el) {
         'survival forecast for your next turn. Beat-the-room margin is the score. ' +
         'SHARK room (everyone drafts like our engine) is a stress test and is never ' +
         'recorded as market evidence.</div>' +
-      '<div class="ds-grid">' +
-        '<label class="ds-field"><span class="ds-lbl">TEAMS</span>' +
-          `<select class="ds-select" data-dcfg="leagueSize">${opt(8, draftCfg.leagueSize)}${opt(10, draftCfg.leagueSize)}${opt(12, draftCfg.leagueSize)}</select></label>` +
-        `<label class="ds-field"><span class="ds-lbl">MY SLOT</span><select class="ds-select" data-dcfg="mySlot">${slots.join('')}</select></label>` +
-        '<label class="ds-field"><span class="ds-lbl">ROOM</span>' +
-          `<select class="ds-select" data-dcfg="roomType"><option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP (market)</option><option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK (stress)</option></select></label>` +
+      '<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">SNAKE DRAFT</span></div>' +
+      '<div class="ds-grid ds-grid--league">' +
+        field('leagueSize', 'TEAMS',
+          opt(8, draftCfg.leagueSize) + opt(10, draftCfg.leagueSize) + opt(12, draftCfg.leagueSize)) +
+        field('mySlot', 'MY SLOT', slots.join('')) +
+        field('roomType', 'ROOM',
+          `<option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP</option>` +
+          `<option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK</option>`) +
+      '</div>' +
+      `<div class="ds-sub"><span>ROSTER</span><span class="ds-sub-note">${starters} STARTERS + ${draftCfg.bench} BENCH · ${rounds} ROUNDS</span></div>` +
+      '<div class="ds-grid ds-grid--roster">' +
         stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
         stepper('te', 'TE') + stepper('flex', 'FLEX') + stepper('bench', 'BENCH') +
       '</div>' +
-      '<button type="button" class="cand-add ds-start" data-act="draft-start">START DRAFT</button>'
+      `<button type="button" class="cand-add ds-start" data-act="draft-start">START DRAFT · ${rounds} ROUNDS</button>`
     );
   }
 
