@@ -1096,6 +1096,23 @@ test.describe('UI/UX audit pass (REL11)', () => {
     expect(candBg).toBe(slotBg);
   });
 
+  test('finder cards never touch: 8px rhythm between rows (REL11.3)', async ({ page }) => {
+    await page.goto('/#/team');
+    await waitForCards(page, '#t-cands .cand');
+    // #t-cands had NO layout rule pre-11.3 — cards stacked flush (0px) and
+    // iOS Safari rendered the seam as an overlap. Lock the vertical rhythm.
+    const gaps = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#t-cands .cand')].slice(0, 6);
+      const out = [];
+      for (let i = 1; i < cards.length; i++) {
+        out.push(cards[i].getBoundingClientRect().top - cards[i - 1].getBoundingClientRect().bottom);
+      }
+      return out;
+    });
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const g of gaps) expect(g).toBeGreaterThanOrEqual(6);
+  });
+
   test('no tab scrolls horizontally at phone width (REL11.1 sweep lock)', async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     for (const route of ['/#/', '/#/players', '/#/parlays', '/#/team', '/#/model']) {

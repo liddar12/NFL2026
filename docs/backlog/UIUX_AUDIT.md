@@ -46,3 +46,9 @@ bye week is listed on every player row.
 |---|------|---------|----------|--------|
 | 15 | Team | Player lists (finder, best-pick, reco) each had their own density/typography - finder was mono 12px on a different surface than the slot cards | P1 | DONE - one rhythm: slot-card surface + padding, 14px bold sans names, 8px gaps, stacked two-line rows at ALL widths (the single-line iPad grid clipped the bye). AC: cand bg == slot bg, 14px/700 names; e2e-locked |
 | 16 | Team | Bye week not visible on finder/best-pick/reco rows (only on filled slots or via BYE sort) | P1 | DONE - "BYE W#" on every player row in all three lists. AC: every finder row meta matches /BYE W\d+/; e2e-locked |
+
+## REL11.3 addendum (2026-07-19, user-reported)
+
+| # | Page | Finding | Priority | Status |
+|---|------|---------|----------|--------|
+| 17 | Team | Finder cards stacked FLUSH (0px) - #t-cands had no layout rule at all; rounded borders overlapped at the seam, which iOS Safari renders as a pinched overlap (green-circle report) | P1 | DONE - #t-cands flex column gap 8px, same rhythm as .roster. Geometry sweep confirms every vertical list app-wide now >= 4px gaps. AC: consecutive .cand gap >= 6px; e2e-locked |
