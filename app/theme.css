@@ -1814,13 +1814,24 @@ button { font: inherit; color: inherit; }
 
 /* ---- UI POLISH PASS (alignment / boxes / clarity) ---- */
 
-/* Finder candidate rows: fixed grid so name/meta/pts/buttons align down the
-   list instead of drifting with content width. */
+/* Finder candidate rows: stacked two-line grid at EVERY width (REL11.2) —
+   name + season pts on top, meta + actions below. One rhythm with the
+   roster slot cards; nothing (name, bye, SoS) ever ellipsizes away. */
 .cand {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "name name pts"
+    "meta take add";
+  row-gap: 6px;
   align-items: center;
+  padding: 10px 12px;                  /* same card padding as .slot */
 }
+.cand > :nth-child(1) { grid-area: name; }
+.cand > :nth-child(2) { grid-area: meta; }
+.cand > :nth-child(3) { grid-area: pts; }
+.cand > :nth-child(4) { grid-area: take; justify-self: end; }
+.cand > :nth-child(5) { grid-area: add; }
 .cand .cd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cand .cd-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cand-add, .cand-taken { min-height: 32px; }
@@ -1835,13 +1846,21 @@ button { font: inherit; color: inherit; }
 .reco-row .cand-add { margin-left: auto; }
 .reco-delta { white-space: nowrap; }
 
-/* Best-pick rows align like candidates. */
+/* Best-pick rows: same stacked rhythm as candidates (REL11.2). */
 .bestpick .bp-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name vor"
+    "meta act";
   align-items: center;
   gap: 10px;
+  row-gap: 6px;
 }
+.bp-row > :nth-child(1) { grid-area: name; }
+.bp-row > :nth-child(2) { grid-area: meta; }
+.bp-row > :nth-child(3) { grid-area: vor; }
+.bp-row > :nth-child(4) { grid-area: act; justify-self: end; }
 
 /* MODEL tab: the 7-column playoff table scrolls inside its card on phones
    instead of squeezing (page never scrolls horizontally). */
@@ -2086,43 +2105,57 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="button"]
 }
 
 /* ==========================================================================
-   REL11.1 — phone finder rows breathe: two lines, not one crushed line.
-   The 5-column single-line .cand grid is the iPad/desktop layout; under
-   720px it left ~90px for the name ("Christian Mc...") while the roster
-   slots above wrapped roomily. Same information, stacked:
-     name ................... pts
-     pos - team - SoS   TAKE  ADD
+   REL11.1 — wrap discipline at phone width. (The stacked .cand/.bp-row
+   two-line layout introduced here was promoted to ALL widths in REL11.2 —
+   see the polish-pass grid rules — after the single-line iPad grid clipped
+   the bye week. Only the parlay-leg wrap remains width-gated.)
    ========================================================================== */
 @media (max-width: 719px) {
-  .cand:not(.cand--more) {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "name name pts"
-      "meta take add";
-    row-gap: 6px;
-    padding: 10px 12px;
-  }
-  .cand > :nth-child(1) { grid-area: name; font-size: 13px; color: var(--ink); }
-  .cand > :nth-child(2) { grid-area: meta; }
-  .cand > :nth-child(3) { grid-area: pts; }
-  .cand > :nth-child(4) { grid-area: take; justify-self: end; }
-  .cand > :nth-child(5) { grid-area: add; }
-
-  /* Best-pick rows: same stacking (name/VOR over meta/action). */
-  .bestpick .bp-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "name vor"
-      "meta act";
-    row-gap: 6px;
-  }
-  .bp-row > :nth-child(1) { grid-area: name; font-size: 13px; color: var(--ink); }
-  .bp-row > :nth-child(2) { grid-area: meta; }
-  .bp-row > :nth-child(3) { grid-area: vor; }
-  .bp-row > :nth-child(4) { grid-area: act; justify-self: end; }
-
   /* Parlay legs: the leg NAME is the primary content — wrap it to a second
      line rather than ellipsizing it away under the odds cluster. */
   .leg { align-items: flex-start; }
   .leg-nm { white-space: normal; overflow: visible; }
 }
+
+/* ==========================================================================
+   REL11.2 — one rhythm down the whole TEAM page (owner rule): every player
+   list (finder, best-pick, fit-engine recos) reads like the roster slots —
+   same card surface, same 14px bold sans names, same 8px vertical gaps —
+   and the bye week is listed on EVERY player row, not only on filled slots.
+   ========================================================================== */
+.cand { background: var(--surface); }
+.cand .cd-name {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+.bestpick { gap: 8px; }
+.bestpick .bp-name {
+  font-family: var(--sans);
+  font-size: 14px;
+}
+.reco-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.reco-item .reco-name {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  min-width: 0;
+}
+.reco-item .reco-meta {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.cd-bye, .bp-bye { white-space: nowrap; }

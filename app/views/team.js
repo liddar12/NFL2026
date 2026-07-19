@@ -700,6 +700,9 @@ export default async function mountTeam(el) {
         : '';
       const sos = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
       const sosTxt = sos != null ? ` <span class="cd-sos">SoS ${fix1(sos)}</span>` : '';
+      // Bye week on EVERY row (owner rule), mirroring the filled roster slots.
+      const bw = byeOf(id);
+      const byeTxt = bw != null ? ` <span class="cd-bye" title="Bye week">BYE W${bw}</span>` : '';
       const isTaken = taken.has(id) || roomTaken.has(id);
       // A capped position (2 QBs already) or a TAKEN player can't be added.
       const canAdd = open && !capped && !isTaken;
@@ -715,7 +718,7 @@ export default async function mountTeam(el) {
       return (
         `<div class="cand${isTaken ? ' cand--taken' : ''}" data-gsis="${esc(id)}">` +
           `<span class="cd-name">${esc(p.name)}${trendTxt}</span>` +
-          `<span class="cd-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span>${sosTxt}${strengthSuffix(id)}</span>` +
+          `<span class="cd-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span>${sosTxt}${byeTxt}${strengthSuffix(id)}</span>` +
           `<span class="cd-pts">${fix1(adjById.get(id))}</span>` +
           takenBtn +
           `<button type="button" class="cand-add" data-act="add" data-gsis="${esc(id)}"${canAdd ? '' : ' disabled'}>${esc(addLabel)}</button>` +
@@ -738,10 +741,12 @@ export default async function mountTeam(el) {
       const p = r.player;
       const id = String(p.gsis_id);
       const sign = r.vor >= 0 ? '+' : '';
+      const bw = byeOf(id);
+      const bye = bw != null ? ` · <span class="bp-bye" title="Bye week">BYE W${bw}</span>` : '';
       return (
         `<div class="bp-row" data-gsis="${esc(id)}">` +
           `<span class="bp-name">${esc(p.name)}</span>` +
-          `<span class="bp-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span></span>` +
+          `<span class="bp-meta">${esc(p.position)} · <span style="color:${tint(p.team)}">${esc(p.team)}</span>${bye}</span>` +
           `<span class="bp-vor" title="Value over replacement (adjusted pts above the replacement-level ${esc(p.position)})">${sign}${fix1(r.vor)} VOR</span>` +
           (activeRoom()
             ? (draftActionBtn(id) || '<span class="cd-onblock cd-onblock--idle">—</span>')
@@ -813,10 +818,12 @@ export default async function mountTeam(el) {
       const deltaChip = delta != null && delta !== 0
         ? ` <span class="reco-delta reco-delta--${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '+' : ''}${fix1(delta)} AI</span>`
         : '';
+      const rbw = byeOf(id);
+      const rbye = rbw != null ? ` · BYE W${rbw}` : '';
       return (
         `<div class="reco-item" data-gsis="${esc(id)}">` +
           '<div class="reco-row">' +
-            `<span class="reco-name">${esc(p.name)} <span class="reco-meta">${esc(p.position)} · ${esc(p.team)}</span></span> ` +
+            `<span class="reco-name">${esc(p.name)} <span class="reco-meta">${esc(p.position)} · ${esc(p.team)}${rbye}</span></span> ` +
             `<span class="reco-score">${fix1(r.score)}${deltaChip}</span> ` +
             (activeRoom()
               ? (draftActionBtn(id) || '<span class="cd-onblock cd-onblock--idle">—</span>')
