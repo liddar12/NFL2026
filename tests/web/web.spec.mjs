@@ -1060,6 +1060,42 @@ test.describe('UI/UX audit pass (REL11)', () => {
     expect(clippedCount).toBe(0);
   });
 
+  test('bye week listed on every team-page player row (REL11.2)', async ({ page }) => {
+    await page.goto('/#/team');
+    await waitForCards(page, '#t-cands .cand');
+    // Finder rows: every rendered row carries BYE W# in its meta.
+    const metas = await page.locator('#t-cands .cand .cd-meta').allInnerTexts();
+    expect(metas.length).toBeGreaterThan(0);
+    for (const m of metas) expect(m).toMatch(/BYE W\d+/);
+    // Fit-engine reco rows carry it too.
+    await waitForCards(page, '.reco-item');
+    const reco = await page.locator('.reco-item .reco-meta').first().innerText();
+    expect(reco).toMatch(/BYE W\d+/);
+    // Best-pick strip (when present) carries it.
+    if (await page.locator('.bp-row').count()) {
+      const bp = await page.locator('.bp-row .bp-meta').first().innerText();
+      expect(bp).toMatch(/BYE W\d+/);
+    }
+  });
+
+  test('team lists share the roster-slot rhythm (REL11.2)', async ({ page }) => {
+    await page.goto('/#/team');
+    await waitForCards(page, '#t-cands .cand');
+    // Finder names use the slot-name type: 14px bold sans ink, not 12px mono.
+    const name = await page.locator('#t-cands .cand .cd-name').first().evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { size: cs.fontSize, weight: cs.fontWeight };
+    });
+    expect(name.size).toBe('14px');
+    expect(Number(name.weight)).toBeGreaterThanOrEqual(700);
+    // Finder rows sit on the same card surface as roster slots.
+    const [candBg, slotBg] = await page.evaluate(() => [
+      getComputedStyle(document.querySelector('#t-cands .cand')).backgroundColor,
+      getComputedStyle(document.querySelector('.slot')).backgroundColor,
+    ]);
+    expect(candBg).toBe(slotBg);
+  });
+
   test('no tab scrolls horizontally at phone width (REL11.1 sweep lock)', async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     for (const route of ['/#/', '/#/players', '/#/parlays', '/#/team', '/#/model']) {
