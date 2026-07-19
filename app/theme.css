@@ -2159,3 +2159,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="button"]
   color: var(--muted);
 }
 .cd-bye, .bp-bye { white-space: nowrap; }
+
+/* The finder results container had NO vertical rhythm rule at all — cards
+   stacked flush (0px apart, rounded borders overlapping at the seam, which
+   iOS Safari renders as a pinched overlap). Same 8px gap as .roster. */
+#t-cands { display: flex; flex-direction: column; gap: 8px; }
