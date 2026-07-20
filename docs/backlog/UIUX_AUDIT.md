@@ -14,7 +14,7 @@ regression lock.
 | 5 | Slate | Week chip rail scrolls with no affordance (WK 6 cut mid-chip) | P2 | DONE — right-edge fade gradient on .wkbar |
 | 6 | All | No visible keyboard focus on chips/buttons/selects | P2 | DONE — global :focus-visible outline (brand, 2px offset) |
 | 7 | All | Motion not gated for vestibular users | P3 | DONE — prefers-reduced-motion kill switch |
-| 8 | Slate | Day-of-week repeats on every card; no day section grouping | P2 | DEFERRED — grouping headers interact with week-count e2e locks; slate view refactor scheduled Rel11.1 |
+| 8 | Slate | Day-of-week repeats on every card; no day section grouping | P2 | DONE (Rel12/D1) — games group under THU/SUN/MON `.slate-day` headers (league clock), stated once per day; spans the wide-screen card grid. Week-count e2e locks untouched (headers aren't `.card.game`). e2e-locked |
 | 9 | Team (phone) | Idle draft card pushes roster below the fold | P2 | DEFERRED — collapsed idle state must not break ds-start locks; Rel11.1 |
 | 10 | Model | Card order: calibration sits below locks; intro line missing | P3 | DEFERRED — Rel11.1 |
 | 11 | Parlays | Leg rows readable but per-card ESTIMATE repetition heavy | P3 | DEFERRED — shared legend treatment with #2 follow-up |

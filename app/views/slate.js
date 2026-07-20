@@ -12,7 +12,9 @@
  */
 
 import { getGamePredictions, getScheduleFull, getMarketPrices } from '../data.js';
-import { renderGameCard, renderMarketStrip } from '../render.js';
+import {
+  renderGameCard, renderMarketStrip, dayGroupKey, dayGroupLabel,
+} from '../render.js';
 
 const WEEKS = 18; // fixed 2026 regular season length — chips are WK 1..18
 
@@ -88,11 +90,28 @@ export default async function mountSlate(el) {
   const titleEl = el.querySelector('.view-title');
 
   function paintGames(games) {
+    if (!games.length) {
+      listEl.innerHTML = '<div class="state">No games scheduled this week.</div>';
+      return;
+    }
     // Card + its market-comparison strip (when this game has a priced market).
     const card = (g) => renderGameCard(g) + renderMarketStrip(g, marketGames[g.game_id]);
-    listEl.innerHTML = games.length
-      ? games.map(card).join('')
-      : '<div class="state">No games scheduled this week.</div>';
+    // Group by broadcast day (THU/SUN/MON…) so the day isn't repeated on every
+    // card. Preserve the incoming order; a new key opens a new .slate-day header.
+    const sorted = [...games].sort(
+      (a, b) => String(a.kickoff_utc || '').localeCompare(String(b.kickoff_utc || '')));
+    let html = '';
+    let lastKey = null;
+    for (const g of sorted) {
+      const key = dayGroupKey(g.kickoff_utc);
+      if (key !== lastKey) {
+        const label = dayGroupLabel(g.kickoff_utc) || 'SCHEDULE';
+        html += `<h2 class="slate-day">${label}</h2>`;
+        lastKey = key;
+      }
+      html += card(g);
+    }
+    listEl.innerHTML = html;
   }
 
   /** Select a week: sync chips/title/topbar, then repaint the list. */

@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_usage_history.schema.json",
+  "title": "Per-season within-team opportunity share (skill_out gate raw material)",
+  "description": "nflverse play-by-play, per season: each skill player's opportunity (targets + rush attempts) share within their team. The skill_out promotion family's pregame usage weight; prior-season share is the honest expectation for a game. Runner-built. Earns pricing weight only through NEVER-REGRESS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "policy",
+    "seasons"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string"
+    },
+    "seasons": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 200,
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "team",
+            "opp",
+            "share"
+          ],
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "opp": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "share": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

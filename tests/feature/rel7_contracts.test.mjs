@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const dataPath = (rel) => fileURLToPath(new URL(`../../data/${rel}`, import.meta.url));
 const read = (rel) => JSON.parse(readFileSync(dataPath(rel), 'utf8'));
 
-const FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa', 'weather_wind', 'qb_out'];
+const FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa', 'weather_wind', 'qb_out', 'skill_out'];
 
 function latestV2() {
   const doc = read('model_tuning.json');
@@ -79,6 +79,7 @@ test('family gate: verdict is consistent with the NEVER-REGRESS margin', () => {
       elo_epa: gp.epa_blend,
       weather_wind: gp.wind_hfa,
       qb_out: gp.qb_out,
+      skill_out: gp.skill_out,
     }[a.family];
     assert.ok(block && block.applied, `game_params carries applied ${a.family} block`);
   }

@@ -296,6 +296,29 @@ button { font: inherit; color: inherit; }
   gap: 12px;
 }
 
+/* Slate day-group header (THU/SUN/MON…): a quiet eyebrow rule so the day is
+   stated ONCE per group instead of repeated on every card. Spans all columns
+   in the wide-screen card grid and opens a fresh row. */
+.slate-day {
+  grid-column: 1 / -1;
+  margin: 6px 0 -2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slate-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.slate-day:first-child { margin-top: 0; }
+
 /* Broadcast display numerals — big italic mono for hero numbers */
 .p-num {
   font-family: var(--mono);
@@ -1600,6 +1623,45 @@ button { font: inherit; color: inherit; }
   line-height: 1.6;
 }
 .gate-chip--skipped { color: var(--warn-txt, var(--muted)); }
+
+/* Market yardstick trend chart (MODEL tab) — ours vs the closing line over
+   successive gate runs. Display-only; the market is never a model input. */
+.mt-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0 10px;
+  overflow: visible;
+}
+.mt-line { stroke-width: 2; vector-effect: non-scaling-stroke; }
+.mt-line--ours { stroke: var(--brand); }
+.mt-line--mkt { stroke: var(--muted); stroke-dasharray: 4 3; }
+.mt-dot--ours { fill: var(--brand); }
+.mt-dot--mkt { fill: var(--muted); }
+.mt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.mt-key { display: inline-flex; align-items: center; gap: 5px; }
+.mt-key::before { content: ""; width: 14px; height: 0; border-top: 2px solid currentColor; }
+.mt-key--ours { color: var(--brand-txt, var(--brand)); }
+.mt-key--mkt { color: var(--muted); }
+.mt-key--mkt::before { border-top-style: dashed; }
+.mt-gap { color: var(--ink); font-weight: 700; }
+.mt-single {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+}
+.mt-single b { color: var(--ink); }
 .cal-row {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) minmax(0, 92px);

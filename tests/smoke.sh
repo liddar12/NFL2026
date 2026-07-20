@@ -36,9 +36,11 @@ echo "smoke: pipeline math selftests (fixture-driven, never write data/)"
 python3 scripts/build_epa_history.py --selftest || fail "epa_history selftest"
 python3 -m scripts.promote_signals --selftest || fail "promote_signals selftest"
 python3 scripts/build_weather_history.py --selftest || fail "weather selftest"
+python3 scripts/build_weather_forecast.py --selftest || fail "weather forecast selftest"
 python3 scripts/build_market_baseline.py --selftest || fail "baseline selftest"
 python3 scripts/build_injury_history.py --selftest || fail "injury selftest"
 python3 scripts/build_player_usage.py --selftest || fail "usage selftest"
+python3 scripts/build_player_usage_history.py --selftest || fail "usage history selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.

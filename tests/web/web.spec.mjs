@@ -817,12 +817,12 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
  * ------------------------------------------------------------------------- */
 
 test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
-  test('gate card lists all four candidate families with verdict chips', async ({ page }) => {
+  test('gate card lists all candidate families with verdict chips', async ({ page }) => {
     await page.goto('/#/model');
     await page.waitForSelector('.m-gate .gate-row', { timeout: 8000 });
     const txt = await page.locator('.m-gate').innerText();
     for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass',
-      'elo_epa', 'weather_wind', 'qb_out']) {
+      'elo_epa', 'weather_wind', 'qb_out', 'skill_out']) {
       expect(txt).toContain(fam);
     }
     expect(txt).toContain('NEVER-REGRESS');
@@ -830,8 +830,8 @@ test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
     // the market yardstick renders as measurement-only (Rel10).
     const rows = await page.locator('.m-gate .gate-row:not(.gate-row--head)').count();
     const chips = await page.locator('.m-gate .gate-chip').count();
-    expect(rows).toBe(7);
-    expect(chips).toBe(7);
+    expect(rows).toBe(8);
+    expect(chips).toBe(8);
     await expect(page.locator('.m-gate .gate-bench')).toContainText('MEASUREMENT ONLY');
   });
 
@@ -1034,6 +1034,32 @@ test.describe('UI/UX audit pass (REL11)', () => {
     const meta = page.locator('.card.game .game-meta').first();
     const box = await meta.boundingBox();
     expect(box.height).toBeLessThan(40);
+  });
+
+  test('slate groups games under day headers, no day repeated (D1/Rel12)', async ({ page }) => {
+    await page.goto('/#/');
+    await waitForCards(page, '.card.game');
+    const headers = await page.locator('#slate-list .slate-day').allInnerTexts();
+    expect(headers.length).toBeGreaterThanOrEqual(1);           // at least one day group
+    const cards = await page.locator('.card.game').count();
+    expect(headers.length).toBeLessThanOrEqual(cards);          // never more headers than games
+    expect(new Set(headers).size).toBe(headers.length);         // each day appears once
+    // The first element in the list is a day header, not a bare card.
+    const firstClass = await page.locator('#slate-list > *').first().getAttribute('class');
+    expect(firstClass).toContain('slate-day');
+  });
+
+  test('market yardstick card renders on MODEL (A3/Rel12)', async ({ page }) => {
+    await page.goto('/#/model');
+    await page.waitForSelector('.m-mkt');
+    // Either a trend chart (>=2 runs) or the single-run summary, never blank.
+    const hasChartOrSingle = await page.locator('.m-mkt .mt-chart, .m-mkt .mt-single, .m-mkt .state').count();
+    expect(hasChartOrSingle).toBeGreaterThanOrEqual(1);
+    // Measurement-only badge present whenever a baseline exists (policy mirror).
+    const body = await page.locator('.m-mkt').innerText();
+    if (!body.includes('No market yardstick')) {
+      expect(body).toContain('MEASUREMENT ONLY');
+    }
   });
 
   test('phone finder rows stack: full names, actions on their own line (REL11.1)', async ({ page }) => {

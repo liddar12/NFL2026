@@ -61,6 +61,9 @@ jobs:
       - name: Build player usage (opportunity metrics)
         run: python scripts/build_player_usage.py
 
+      - name: Build player usage history (skill_out gate raw material)
+        run: python scripts/build_player_usage_history.py
+
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
 

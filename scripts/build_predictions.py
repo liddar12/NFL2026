@@ -169,6 +169,41 @@ def main():
             _listed = sum(1 for k in _qb_outs)
             print(f"promoted qb_out in effect: scale={_qb_scale} "
                   f"({len(_qb_primary)} primaries, {_listed} team-weeks with QB listings)")
+    # skill_out (adopted family): RB/WR/TE starters listed Out/Doubtful, weighted
+    # by their prior-season within-team opportunity share (pregame, refreshed
+    # daily via injury_history). Dormant until usage history is bootstrapped.
+    _skill = _adopted.get("skill_out") or {}
+    _skill_share, _skill_outs, _skill_scale = {}, {}, 0.0
+    if _skill.get("applied"):
+        from scripts.promote_signals import skill_out_current  # noqa: PLC0415 (guarded)
+        _sc = skill_out_current(SEASON)
+        if _sc is None:
+            print("WARNING: skill_out adopted but usage history unavailable — not applied")
+        else:
+            _skill_share, _skill_outs = _sc
+            _skill_scale = float(_skill["scale"])
+            print(f"promoted skill_out in effect: scale={_skill_scale} "
+                  f"({len(_skill_share)} usage shares, {len(_skill_outs)} team-weeks listed)")
+    # weather_wind (adopted family): windy open-roof games get an Elo nudge in
+    # the adopted direction. Prediction-time wind comes from weather_forecast.json
+    # (upcoming open-roof homes, refreshed daily) — dormant offseason, no
+    # fabricated wind for games outside the forecast horizon.
+    _wind = _adopted.get("wind_hfa") or {}
+    _wind_map, _wind_scale, _wind_thr = {}, 0.0, 30.0
+    if _wind.get("applied"):
+        from scripts.promote_signals import wind_current  # noqa: PLC0415 (guarded)
+        _wm = wind_current(SEASON)
+        if not _wm:
+            print("WARNING: weather_wind adopted but no forecast wind available — not applied"
+                  if _wm is None else
+                  "weather_wind adopted; no upcoming windy games in forecast horizon yet")
+        else:
+            _wind_map = _wm
+            _wind_scale = float(_wind["scale"])
+            _wind_thr = float(_wind.get("threshold_kph", 30.0))
+            _windy = sum(1 for v in _wind_map.values() if v >= _wind_thr)
+            print(f"promoted weather_wind in effect: scale={_wind_scale:+g} "
+                  f"threshold={_wind_thr}kph ({_windy}/{len(_wind_map)} upcoming games windy)")
     # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
     # runner-built epa_history.json; absent data means no delta, loudly.
     _epa_hfa = _adopted.get("epa_hfa") or {}
@@ -208,6 +243,17 @@ def main():
             _ap = _qb_primary.get(g["away"])
             if _ap and _ap in _qb_outs.get((g["away"], _wk), ()):
                 hfa_eff += _qb_scale
+        if _wind_scale:
+            _w = _wind_map.get(f"{SEASON}|{g.get('week')}|{g['home']}|{g['away']}")
+            if _w is not None and _w >= _wind_thr:
+                hfa_eff += _wind_scale
+        if _skill_scale:
+            _wk2 = int(g.get("week") or 0)
+            _lost_h = sum(_skill_share.get(pid, 0.0)
+                          for pid in _skill_outs.get((g["home"], _wk2), ()))
+            _lost_a = sum(_skill_share.get(pid, 0.0)
+                          for pid in _skill_outs.get((g["away"], _wk2), ()))
+            hfa_eff += _skill_scale * (_lost_a - _lost_h)
         row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]

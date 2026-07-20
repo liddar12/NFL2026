@@ -73,8 +73,11 @@ EPA_SCALES = [0.0, 200.0, 350.0, 500.0]     # Elo per unit EPA-margin differenti
 EPA_N0 = 600                       # plays at which current season outweighs prior
 
 WEATHER_PATH = os.path.join(DATA, "weather_history.json")
+FORECAST_PATH = os.path.join(DATA, "weather_forecast.json")
 BASELINE_PATH = os.path.join(DATA, "market_baseline.json")
 INJURY_PATH = os.path.join(DATA, "injury_history.json")
+USAGE_PATH = os.path.join(DATA, "player_usage.json")
+USAGE_HISTORY_PATH = os.path.join(DATA, "player_usage_history.json")
 
 # elo_epa: a PARALLEL rating track driven by per-play EPA margins instead of
 # scores (the Rel7 finding: EPA *added onto* score-Elo double-counts; rating
@@ -87,6 +90,13 @@ WIND_KPH = 30.0                    # 'windy game' threshold (open roofs only)
 WIND_SCALES = [-60.0, -45.0, -30.0, -15.0, 15.0, 30.0, 45.0]  # sign unknown a priori
 
 QB_OUT_SCALES = [25.0, 50.0, 75.0]  # Elo penalty when the primary passer is Out/Doubtful
+
+# skill_out: Elo per unit of LOST within-team opportunity share when RB/WR/TE
+# starters are Out/Doubtful. A team missing 30% of its opportunity (share 0.30
+# out) moves 0.30 * scale Elo. Scales span a plausible band; sign is fixed
+# (losing usage weakens you) but magnitude is earned by NEVER-REGRESS.
+SKILL_OUT_SCALES = [40.0, 80.0, 120.0, 160.0]
+SKILL_POSITIONS = ("RB", "WR", "TE")
 
 CAL_BINS = 10
 _EPS = 1e-12
@@ -168,6 +178,34 @@ def qb_out_inputs():
                     if r.get("position") == "QB" and r.get("status") in ("Out", "Doubtful")
                     and r.get("id")}
     return primaries, outs
+
+
+def skill_out_inputs():
+    """(shares_by_season, outs) for the skill_out family, or None until the
+    runner has built BOTH player_usage_history and injury_history.
+
+    shares_by_season[season] -> {pid: within-team opportunity share} for that
+    season. outs[(season, week, team)] -> set of RB/WR/TE Out/Doubtful pids.
+    The builder prices a game with the PRIOR season's shares (pregame-honest).
+    """
+    usage = _load_json(USAGE_HISTORY_PATH, "seasons")
+    injuries = _load_json(INJURY_PATH, "seasons")
+    if not usage or not injuries:
+        return None
+    shares_by_season = {
+        int(yr): {pid: rec["share"] for pid, rec in players.items()}
+        for yr, players in usage.items()
+    }
+    outs = {}
+    for yr_s, teams in injuries.items():
+        for team, weeks in teams.items():
+            for wk, rows in weeks.items():
+                s = {r["id"] for r in rows
+                     if r.get("position") in SKILL_POSITIONS
+                     and r.get("status") in ("Out", "Doubtful") and r.get("id")}
+                if s:
+                    outs[(int(yr_s), int(wk), team)] = s
+    return shares_by_season, outs
 
 
 def load_finals(year):
@@ -540,6 +578,31 @@ def qb_out_builder(scale, primaries, outs):
     return setup, factory
 
 
+def _skill_lost(shares_by_season, outs, season, wk, team):
+    """Sum of PRIOR-season opportunity shares of a team's Out/Doubtful skill
+    players for (season, week) — the lost usage fraction (pregame-honest)."""
+    prev = shares_by_season.get(season - 1)
+    if not prev:
+        return 0.0
+    return sum(prev.get(pid, 0.0) for pid in outs.get((season, wk, team), ()))
+
+
+def skill_out_builder(scale, shares_by_season, outs):
+    def setup(season, games, training_residuals):
+        return season
+
+    def factory(season):
+        def fn(g, i):
+            wk = int(g.get("week") or 0)
+            lost_h = _skill_lost(shares_by_season, outs, season, wk, g["home"])
+            lost_a = _skill_lost(shares_by_season, outs, season, wk, g["away"])
+            # Home losing usage weakens the home edge (subtract); away losing it
+            # strengthens the home edge (add). Magnitude = scale * lost share.
+            return scale * (lost_a - lost_h)
+        return fn
+    return setup, factory
+
+
 def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
              probs_out=None):
     """Walk-forward mean log-loss with the given family builders combined
@@ -686,6 +749,21 @@ def run(auto_adopt=False):
                       for sc in QB_OUT_SCALES]
         families.append({"family": "qb_out", "trials": fam_trials})
 
+    # skill_out (RB/WR/TE Out/Doubtful, weighted by prior-season usage share —
+    # needs player_usage_history + injury_history, both runner-built)
+    skill_inputs = skill_out_inputs()
+    if skill_inputs is None:
+        print("  skill_out    SKIPPED: needs player_usage_history + injury_history "
+              "(runner-built)")
+        families.append({"family": "skill_out", "skipped": True,
+                         "reason": "usage-share history + injury_history pending "
+                                   "(built by the weekly backtest workflow)"})
+    else:
+        fam_trials = [try_candidate("skill_out", f"scale={sc:.0f}", {"scale": sc},
+                                    skill_out_builder(sc, *skill_inputs))
+                      for sc in SKILL_OUT_SCALES]
+        families.append({"family": "skill_out", "trials": fam_trials})
+
     # Verdict: best scale per family; adopt at most the single best family.
     best_overall = None
     for fam in families:
@@ -700,7 +778,8 @@ def run(auto_adopt=False):
     # A family NOT in this set can clear the margin but records would_adopt —
     # the gate must never claim a signal is applied when the pipeline cannot
     # actually apply it.
-    APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa", "qb_out"}
+    APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa",
+                 "qb_out", "weather_wind", "skill_out"}
     adopt = (best_overall is not None
              and inc_loss - best_overall[1]["log_loss"] > MARGIN)
     if adopt and best_overall[0] not in APPLIABLE:
@@ -829,6 +908,9 @@ def _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now):
     elif family == "qb_out":
         gp["qb_out"] = {"applied": True, "scale": best["scale"],
                         "adopted_utc": now}
+    elif family == "skill_out":
+        gp["skill_out"] = {"applied": True, "scale": best["scale"],
+                           "adopted_utc": now}
     print(f"ADOPTED {family} {best} into game_params")
 
 
@@ -871,7 +953,35 @@ def selftest():
     # Leak check: week-3's own plays are EXCLUDED (else margin would drop).
     m_leaky_would_be = feats.margin(2025, "KC", 4)
     assert m_leaky_would_be < m, (m_leaky_would_be, m)
-    print("selftest OK: rest clamp + EPA leak-free blending exact")
+
+    # skill_out: home loses a 0.30-share WR (prior season), away loses nothing.
+    # delta = scale * (lost_away - lost_home) = 100 * (0 - 0.30) = -30 Elo.
+    shares = {2024: {"WR9": 0.30, "RB9": 0.20}}
+    outs = {(2025, 5, "KC"): {"WR9"}, (2025, 5, "BUF"): set()}
+    _, factory = skill_out_builder(100.0, shares, outs)
+    fn = factory(2025)
+    d = fn({"home": "KC", "away": "BUF", "week": 5}, 0)
+    assert abs(d - (-30.0)) < 1e-9, d
+    # No prior-season shares (rookie season) -> no delta, never a crash.
+    _, f2 = skill_out_builder(100.0, {}, outs)
+    assert f2(2025)({"home": "KC", "away": "BUF", "week": 5}, 0) == 0.0
+    print("selftest OK: rest clamp + EPA leak-free blending + skill_out share-weighting exact")
+
+
+def wind_current(season):
+    """{season|week|home|away: wind_kph} for PREDICTION-TIME weather_wind
+    application, from the daily-refreshed weather_forecast.json (upcoming
+    open-roof home games). None until the forecast builder has run; empty in
+    the offseason (correctly dormant — no fabricated wind for future games)."""
+    games = _load_json(FORECAST_PATH, "games")
+    if games is None:
+        return None
+    out = {}
+    for key, w in games.items():
+        wk = w.get("wind_kph") if isinstance(w, dict) else None
+        if wk is not None and str(key).startswith(f"{season}|"):
+            out[key] = wk
+    return out
 
 
 def qb_out_current(season):
@@ -906,6 +1016,30 @@ def qb_out_current(season):
                 if r.get("position") == "QB" and r.get("status") in ("Out", "Doubtful")
                 and r.get("id")}
     return primary, outs
+
+
+def skill_out_current(season):
+    """(share_by_pid, outs_by_team_week) for PREDICTION-TIME skill_out.
+
+    Shares are the PRIOR season's within-team opportunity shares (pregame
+    expectation, from player_usage_history). Outs come from injury_history's
+    current season (RB/WR/TE Out/Doubtful, refreshed daily). None until the
+    runner has built the usage history; empty preseason -> dormant."""
+    usage = _load_json(USAGE_HISTORY_PATH, "seasons")
+    injuries = _load_json(INJURY_PATH, "seasons") or {}
+    if not usage:
+        return None
+    prev = usage.get(str(season - 1)) or usage.get(str(season)) or {}
+    share_by_pid = {pid: rec["share"] for pid, rec in prev.items()}
+    outs = {}
+    for team, weeks in (injuries.get(str(season)) or {}).items():
+        for wk, rows in weeks.items():
+            s = {r["id"] for r in rows
+                 if r.get("position") in SKILL_POSITIONS
+                 and r.get("status") in ("Out", "Doubtful") and r.get("id")}
+            if s:
+                outs[(team, int(wk))] = s
+    return share_by_pid, outs
 
 
 def epa_blend_deltas(weight):
