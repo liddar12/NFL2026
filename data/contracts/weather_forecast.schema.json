@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "weather_forecast.schema.json",
+  "title": "Kickoff-hour wind FORECAST for upcoming open-roof home games (Open-Meteo forecast)",
+  "description": "Prediction-time source for the adopted weather_wind family. Keyless forecast data, rebuilt each run; open-roof venues only. Naturally small in-week and empty in the offseason (dormant). Never a model input on its own — applied only when weather_wind has cleared NEVER-REGRESS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "games"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "games": {
+      "type": "object",
+      "minProperties": 0,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "wind_kph",
+          "temp_c",
+          "precip_mm"
+        ],
+        "properties": {
+          "wind_kph": {
+            "type": "number",
+            "minimum": 0
+          },
+          "temp_c": {
+            "type": "number"
+          },
+          "precip_mm": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

@@ -16,6 +16,7 @@ import { dirname, resolve } from 'node:path';
 
 import {
   topTrials, fmtPct, marketBadge, MARKET_SIGNALS, latestPromotion, familyRows,
+  marketTrend,
 } from '../../app/views/model.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -73,6 +74,26 @@ test('latestPromotion picks the newest format-2 entry only', () => {
   assert.equal(latestPromotion(history).generated_utc, 'B');
   assert.equal(latestPromotion([{ kind: 'signal_promotion' }]), null);
   assert.equal(latestPromotion(null), null);
+});
+
+test('marketTrend: oldest-first points from format-2 entries with a baseline', () => {
+  const history = [
+    // newest-first in the file; only format-2 + market_baseline count
+    { kind: 'signal_promotion', format: 2, generated_utc: '2026-07-19T00:00:00Z',
+      market_baseline: { our_log_loss: 0.6345, market_log_loss: 0.6082, gap: 0.0263 } },
+    { kind: 'signal_promotion', format: 2, generated_utc: '2026-07-12T00:00:00Z' }, // no baseline
+    { kind: 'signal_promotion', format: 2, generated_utc: '2026-07-05T00:00:00Z',
+      market_baseline: { our_log_loss: 0.6369, market_log_loss: 0.6082, gap: 0.0287 } },
+    { kind: 'other' },
+  ];
+  const pts = marketTrend(history);
+  assert.equal(pts.length, 2);
+  assert.equal(pts[0].date, '2026-07-05');      // oldest first (chart reads L→R)
+  assert.equal(pts[1].date, '2026-07-19');
+  assert.equal(pts[0].ours, 0.6369);
+  assert.ok(pts[1].gap < pts[0].gap, 'gap shrinks over time in this fixture');
+  assert.deepEqual(marketTrend([]), []);
+  assert.deepEqual(marketTrend(null), []);
 });
 
 test('familyRows: adopted/retained/skipped statuses with best losses', () => {

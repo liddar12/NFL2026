@@ -115,6 +115,31 @@ export function familyRows(entry) {
   }));
 }
 
+/**
+ * Market-yardstick trend across gate runs: one point per format-2 entry that
+ * carries a market_baseline block, OLDEST-first (left→right on the chart).
+ * Each point: {date, ours, market, gap}. Measurement only — the market log-loss
+ * is a scoreboard the model is measured against, never an input. Pure.
+ */
+export function marketTrend(history) {
+  const rows = (Array.isArray(history) ? history : [])
+    .filter((h) => h && h.kind === 'signal_promotion' && h.format === 2 && h.market_baseline)
+    .map((h) => ({
+      date: String(h.generated_utc || '').slice(0, 10),
+      ours: Number(h.market_baseline.our_log_loss),
+      market: Number(h.market_baseline.market_log_loss),
+      gap: Number(h.market_baseline.gap),
+    }))
+    .filter((r) => Number.isFinite(r.ours) && Number.isFinite(r.market));
+  return rows.reverse(); // history is newest-first; chart reads oldest→newest
+}
+
+/** Map values in [lo,hi] to a y in [top,bottom] (SVG y grows downward). Pure. */
+function _scaleY(v, lo, hi, top, bottom) {
+  if (hi <= lo) return (top + bottom) / 2;
+  return bottom - ((v - lo) / (hi - lo)) * (bottom - top);
+}
+
 /* ---- card painters (pure HTML builders) ------------------------------------ */
 
 function paramsCard(tuning) {
@@ -204,6 +229,63 @@ function gateCard(tuning) {
       ? `<div class="gate-bench">MARKET YARDSTICK: our log-loss ${esc(Number(entry.market_baseline.our_log_loss).toFixed(5))} vs closing line ${esc(Number(entry.market_baseline.market_log_loss).toFixed(5))} over ${esc(entry.market_baseline.games)} games <span class="ms-badge">MEASUREMENT ONLY</span></div>`
       : '') +
     `<div class="mp-src">Last run ${esc(String(entry.generated_utc || '').slice(0, 10))} · ${esc(entry.reason || '')}</div>`
+  );
+}
+
+function marketTrendCard(tuning) {
+  const pts = marketTrend(tuning && tuning.history);
+  if (pts.length === 0) {
+    return state('No market yardstick recorded yet — the weekly gate benchmarks our '
+      + 'log-loss against de-vigged closing lines once the baseline is built.');
+  }
+  const last = pts[pts.length - 1];
+  const gapTxt = `${last.gap >= 0 ? '+' : '−'}${Math.abs(last.gap).toFixed(4)}`;
+  // Single run: no line to draw yet — state the latest gap plainly.
+  if (pts.length < 2) {
+    return (
+      '<div class="m-explain">How far our probabilities sit from the market\'s closing '
+        + 'line (de-vigged), in log-loss. The market is a <b>scoreboard we measure against, '
+        + 'never an input</b> — we predict independently. Lower is better; a shrinking gap '
+        + 'means we\'re closing on the market.</div>' +
+      `<div class="mt-single">Latest (${esc(last.date)}): ours <b>${last.ours.toFixed(5)}</b> · `
+        + `market <b>${last.market.toFixed(5)}</b> · gap <b>${gapTxt}</b> `
+        + '<span class="ms-badge">MEASUREMENT ONLY</span></div>'
+    );
+  }
+  const W = 320;
+  const H = 120;
+  const padX = 8;
+  const padY = 12;
+  const all = pts.flatMap((p) => [p.ours, p.market]);
+  const lo = Math.min(...all);
+  const hi = Math.max(...all);
+  const x = (i) => padX + (i / (pts.length - 1)) * (W - 2 * padX);
+  const y = (v) => _scaleY(v, lo, hi, padY, H - padY);
+  const line = (key) => pts.map((p, i) => `${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
+  const dot = (key, cls) => {
+    const p = pts[pts.length - 1];
+    return `<circle cx="${x(pts.length - 1).toFixed(1)}" cy="${y(p[key]).toFixed(1)}" r="3.5" class="${cls}" />`;
+  };
+  const svg =
+    `<svg class="mt-chart" viewBox="0 0 ${W} ${H}" role="img" ` +
+      `aria-label="Our log-loss versus the market closing line across ${pts.length} gate runs">` +
+      `<polyline class="mt-line mt-line--mkt" points="${line('market')}" fill="none" />` +
+      `<polyline class="mt-line mt-line--ours" points="${line('ours')}" fill="none" />` +
+      dot('market', 'mt-dot mt-dot--mkt') + dot('ours', 'mt-dot mt-dot--ours') +
+    '</svg>';
+  return (
+    '<div class="m-explain">How far our probabilities sit from the market\'s closing '
+      + 'line (de-vigged), in log-loss, across every gate run. The market is a '
+      + '<b>scoreboard we measure against, never an input</b> — we predict independently. '
+      + 'Lower is better; the gap shrinking over time means we\'re closing on the market.</div>' +
+    svg +
+    '<div class="mt-legend">' +
+      `<span class="mt-key mt-key--ours">OURS ${last.ours.toFixed(4)}</span>` +
+      `<span class="mt-key mt-key--mkt">MARKET ${last.market.toFixed(4)}</span>` +
+      `<span class="mt-gap">GAP ${gapTxt}</span>` +
+      '<span class="ms-badge">MEASUREMENT ONLY</span>' +
+    '</div>' +
+    `<div class="mp-src">${esc(String(pts.length))} runs · ${esc(pts[0].date)} → ${esc(last.date)}</div>`
   );
 }
 
@@ -325,6 +407,7 @@ export default async function mountModel(el) {
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params') +
     card('BACKTEST · WALK-FORWARD', backtestCard(tuning), 'm-backtest') +
     card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate') +
+    card('MARKET YARDSTICK · OURS vs CLOSING LINE', marketTrendCard(tuning), 'm-mkt') +
     card('CALIBRATION · PREDICTED vs ACTUAL', calibrationCard(tuning), 'm-cal') +
     card('SEASON LOCKS', locksCard(tuning), 'm-locks') +
     card('PLAYOFF ODDS — OURS vs THE MARKETS', playoffsCard(odds, markets), 'm-playoffs') +

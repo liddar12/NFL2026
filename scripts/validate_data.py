@@ -71,9 +71,11 @@ SCHEMA_TO_DATA = {
     "ai_insights.schema.json": "ai_insights.json",
     "epa_history.schema.json": "epa_history.json",
     "weather_history.schema.json": "weather_history.json",
+    "weather_forecast.schema.json": "weather_forecast.json",
     "market_baseline.schema.json": "market_baseline.json",
     "injury_history.schema.json": "injury_history.json",
     "player_usage.schema.json": "player_usage.json",
+    "player_usage_history.schema.json": "player_usage_history.json",
     "adp_history.schema.json": "adp_history.json",
 }
 
@@ -81,8 +83,9 @@ SCHEMA_TO_DATA = {
 # their upstream): validated strictly when present, but absence is not a
 # failure until the bootstrap workflow has run.
 OPTIONAL_DATA = frozenset([
-    "epa_history.json", "weather_history.json", "market_baseline.json",
-    "injury_history.json", "player_usage.json", "adp_history.json",
+    "epa_history.json", "weather_history.json", "weather_forecast.json",
+    "market_baseline.json", "injury_history.json", "player_usage.json",
+    "player_usage_history.json", "adp_history.json",
 ])
 
 # The signal registry, mirrored name-for-name from scripts/signals/registry.py.

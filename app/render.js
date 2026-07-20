@@ -81,6 +81,34 @@ export function formatKickoff(utc) {
 }
 
 /**
+ * Grouping key for a kickoff's day in the league clock (America/New_York):
+ * a stable "YYYY-MM-DD" string so games on the same broadcast day cluster
+ * regardless of the viewer's timezone. '' for an unparseable date.
+ */
+export function dayGroupKey(utc) {
+  const d = new Date(utc);
+  if (Number.isNaN(d.getTime())) return '';
+  // en-CA yields ISO-style YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/New_York',
+  }).format(d);
+}
+
+/**
+ * Section header for a slate day group: "SUNDAY · SEP 14". Weekday + month/day
+ * in the league clock, uppercased. '' for an unparseable date.
+ */
+export function dayGroupLabel(utc) {
+  const d = new Date(utc);
+  if (Number.isNaN(d.getTime())) return '';
+  const tz = 'America/New_York';
+  const wd = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz }).format(d);
+  const md = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: tz })
+    .format(d);
+  return `${wd} · ${md}`.toUpperCase();
+}
+
+/**
  * Turn a parlay leg's (market, selection) into a readable leg name.
  *   moneyline        -> "<sel> ML"
  *   spread / total   -> "<sel>"           (selection already carries the line)

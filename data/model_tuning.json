@@ -43,6 +43,405 @@
   },
   "history": [
     {
+      "generated_utc": "2026-07-20T21:05:46Z",
+      "kind": "signal_promotion",
+      "format": 2,
+      "source": "scripts/promote_signals.py walk-forward 2022-2025 (environment + rest + epa families)",
+      "objective": "log_loss",
+      "margin": 0.0015,
+      "incumbent_loss": 0.6345,
+      "incumbent_families": [
+        "qb_out"
+      ],
+      "families": [
+        {
+          "family": "environment",
+          "trials": [
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63453,
+              "n": 1084
+            },
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63457,
+              "n": 1084
+            },
+            {
+              "venue_scale": 0.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63463,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63483,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63486,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.6349,
+              "n": 1084
+            },
+            {
+              "venue_scale": 150.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63495,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63533,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.63537,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.6354,
+              "n": 1084
+            },
+            {
+              "venue_scale": 250.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63546,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 0.0,
+              "log_loss": 0.63607,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 150.0,
+              "log_loss": 0.6361,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 250.0,
+              "log_loss": 0.63614,
+              "n": 1084
+            },
+            {
+              "venue_scale": 350.0,
+              "cold_scale": 350.0,
+              "log_loss": 0.63619,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "venue_scale": 0.0,
+            "cold_scale": 150.0,
+            "log_loss": 0.63453,
+            "n": 1084
+          },
+          "improvement": -3e-05
+        },
+        {
+          "family": "rest",
+          "trials": [
+            {
+              "scale_per_day": 1.5,
+              "log_loss": 0.63431,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 3.0,
+              "log_loss": 0.63421,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 4.5,
+              "log_loss": 0.63419,
+              "n": 1084
+            },
+            {
+              "scale_per_day": 6.0,
+              "log_loss": 0.63426,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale_per_day": 4.5,
+            "log_loss": 0.63419,
+            "n": 1084
+          },
+          "improvement": 0.00031
+        },
+        {
+          "family": "epa_total",
+          "trials": [
+            {
+              "scale": 200.0,
+              "log_loss": 0.63745,
+              "n": 1084
+            },
+            {
+              "scale": 350.0,
+              "log_loss": 0.64291,
+              "n": 1084
+            },
+            {
+              "scale": 500.0,
+              "log_loss": 0.65086,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": 200.0,
+            "log_loss": 0.63745,
+            "n": 1084
+          },
+          "improvement": -0.00295
+        },
+        {
+          "family": "epa_pass",
+          "trials": [
+            {
+              "scale": 200.0,
+              "log_loss": 0.64157,
+              "n": 1084
+            },
+            {
+              "scale": 350.0,
+              "log_loss": 0.65319,
+              "n": 1084
+            },
+            {
+              "scale": 500.0,
+              "log_loss": 0.66946,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": 200.0,
+            "log_loss": 0.64157,
+            "n": 1084
+          },
+          "improvement": -0.00707
+        },
+        {
+          "family": "elo_epa",
+          "trials": [
+            {
+              "weight": 0.05,
+              "log_loss": 0.63413,
+              "n": 1084
+            },
+            {
+              "weight": 0.1,
+              "log_loss": 0.63388,
+              "n": 1084
+            },
+            {
+              "weight": 0.15,
+              "log_loss": 0.63374,
+              "n": 1084
+            },
+            {
+              "weight": 0.3,
+              "log_loss": 0.63404,
+              "n": 1084
+            },
+            {
+              "weight": 0.5,
+              "log_loss": 0.63621,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "weight": 0.15,
+            "log_loss": 0.63374,
+            "n": 1084
+          },
+          "improvement": 0.00076
+        },
+        {
+          "family": "weather_wind",
+          "trials": [
+            {
+              "scale": -60.0,
+              "log_loss": 0.63392,
+              "n": 1084
+            },
+            {
+              "scale": -45.0,
+              "log_loss": 0.63402,
+              "n": 1084
+            },
+            {
+              "scale": -30.0,
+              "log_loss": 0.63416,
+              "n": 1084
+            },
+            {
+              "scale": -15.0,
+              "log_loss": 0.63432,
+              "n": 1084
+            },
+            {
+              "scale": 15.0,
+              "log_loss": 0.63471,
+              "n": 1084
+            },
+            {
+              "scale": 30.0,
+              "log_loss": 0.63495,
+              "n": 1084
+            },
+            {
+              "scale": 45.0,
+              "log_loss": 0.63521,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": -60.0,
+            "log_loss": 0.63392,
+            "n": 1084
+          },
+          "improvement": 0.00058
+        },
+        {
+          "family": "qb_out",
+          "trials": [
+            {
+              "scale": 25.0,
+              "log_loss": 0.63445,
+              "n": 1084
+            },
+            {
+              "scale": 50.0,
+              "log_loss": 0.63476,
+              "n": 1084
+            },
+            {
+              "scale": 75.0,
+              "log_loss": 0.63543,
+              "n": 1084
+            }
+          ],
+          "best": {
+            "scale": 25.0,
+            "log_loss": 0.63445,
+            "n": 1084
+          },
+          "improvement": 5e-05
+        },
+        {
+          "family": "skill_out",
+          "skipped": true,
+          "reason": "usage-share history + injury_history pending (built by the weekly backtest workflow)"
+        }
+      ],
+      "adopted": false,
+      "adopted_family": null,
+      "auto_adopt": true,
+      "reason": "incumbent retained: no family cleared the margin",
+      "calibration": {
+        "seasons": "2022-2025",
+        "n": 1084,
+        "bins": [
+          {
+            "p_lo": 0.0,
+            "p_hi": 0.1,
+            "n": 1,
+            "expected": 0.0913,
+            "actual": 1.0
+          },
+          {
+            "p_lo": 0.1,
+            "p_hi": 0.2,
+            "n": 25,
+            "expected": 0.1608,
+            "actual": 0.2
+          },
+          {
+            "p_lo": 0.2,
+            "p_hi": 0.3,
+            "n": 63,
+            "expected": 0.2592,
+            "actual": 0.3492
+          },
+          {
+            "p_lo": 0.3,
+            "p_hi": 0.4,
+            "n": 115,
+            "expected": 0.359,
+            "actual": 0.3391
+          },
+          {
+            "p_lo": 0.4,
+            "p_hi": 0.5,
+            "n": 204,
+            "expected": 0.4514,
+            "actual": 0.4412
+          },
+          {
+            "p_lo": 0.5,
+            "p_hi": 0.6,
+            "n": 228,
+            "expected": 0.5531,
+            "actual": 0.4868
+          },
+          {
+            "p_lo": 0.6,
+            "p_hi": 0.7,
+            "n": 189,
+            "expected": 0.6481,
+            "actual": 0.6772
+          },
+          {
+            "p_lo": 0.7,
+            "p_hi": 0.8,
+            "n": 172,
+            "expected": 0.7447,
+            "actual": 0.7209
+          },
+          {
+            "p_lo": 0.8,
+            "p_hi": 0.9,
+            "n": 73,
+            "expected": 0.8372,
+            "actual": 0.8082
+          },
+          {
+            "p_lo": 0.9,
+            "p_hi": 1.0,
+            "n": 14,
+            "expected": 0.9162,
+            "actual": 1.0
+          }
+        ]
+      },
+      "market_baseline": {
+        "policy": "measurement only - never an input (owner rule)",
+        "games": 1084,
+        "our_log_loss": 0.6345,
+        "market_log_loss": 0.60819,
+        "gap": 0.02631
+      }
+    },
+    {
       "generated_utc": "2026-07-18T20:37:11Z",
       "kind": "signal_promotion",
       "format": 2,
