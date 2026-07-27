@@ -337,13 +337,19 @@ export default async function mountTeam(el) {
     if (historyMap && historyMap[id] && historyMap[id].trajectory) return historyMap[id].trajectory;
     return null;
   }
-  /** Signed trend magnitude for sorting (ai value, else slope, else 0). */
+  /** Signed trend magnitude for sorting (ai value, else slope, else 0).
+   * Memoized: the sort comparator calls this O(n log n) times per paint. */
+  const _trendValCache = new Map();
   function trendVal(id) {
+    if (_trendValCache.has(id)) return _trendValCache.get(id);
     const t = trajFor(id);
-    if (!t) return 0;
-    if (Number.isFinite(Number(t.value))) return Number(t.value);
-    if (Number.isFinite(Number(t.slope_pts_per_yr))) return Number(t.slope_pts_per_yr);
-    return 0;
+    let v = 0;
+    if (t) {
+      if (Number.isFinite(Number(t.value))) v = Number(t.value);
+      else if (Number.isFinite(Number(t.slope_pts_per_yr))) v = Number(t.slope_pts_per_yr);
+    }
+    _trendValCache.set(id, v);
+    return v;
   }
 
   // Finder + reco control state (REL2).
@@ -640,10 +646,28 @@ export default async function mountTeam(el) {
     el.querySelector('#t-roster').innerHTML = rows.join('');
   }
 
-  /** Bye week for an id (from weekly data), or null. */
+  // Per-id derived-value memo caches. weekly / teamStrength / history are static
+  // for the life of the mount, so these values never change once computed —
+  // caching removes the repeated work paintCands does every paint (and, for the
+  // sort comparators, O(n log n) recomputations per paint of the SAME value).
+  const _byeCache = new Map();
+  const _sosCache = new Map();
+
+  /** Bye week for an id (from weekly data), or null. Memoized. */
   function byeOf(id) {
+    if (_byeCache.has(id)) return _byeCache.get(id);
     const e = weeklyById.get(id);
-    return e ? byeWeek(e) : null;
+    const v = e ? byeWeek(e) : null;
+    _byeCache.set(id, v);
+    return v;
+  }
+
+  /** Strength-of-schedule for an id, or null. Memoized. */
+  function sosOf(id) {
+    if (_sosCache.has(id)) return _sosCache.get(id);
+    const v = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
+    _sosCache.set(id, v);
+    return v;
   }
 
   function paintCands() {
@@ -698,7 +722,7 @@ export default async function mountTeam(el) {
       const trendTxt = tl && tl.dir !== 'flat'
         ? ` <span class="cd-trend cd-trend--${tl.dir}">${tl.dir === 'up' ? '▲' : '▼'}</span>`
         : '';
-      const sos = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
+      const sos = sosOf(id);
       const sosTxt = sos != null ? ` <span class="cd-sos">SoS ${fix1(sos)}</span>` : '';
       // Bye week on EVERY row (owner rule), mirroring the filled roster slots.
       const bw = byeOf(id);
@@ -1592,9 +1616,14 @@ export default async function mountTeam(el) {
       onAction(e);
     }
   });
+  // Debounced search: repaint the candidate list at most once per ~140ms of
+  // typing instead of on every keystroke — the list rebuild (filter + sort +
+  // up-to-FINDER_CAP rows) is wasted work between characters.
+  let _findTimer = null;
   el.querySelector('#t-find').addEventListener('input', (e) => {
     query = e.target.value || '';
-    paintCands();
+    if (_findTimer) clearTimeout(_findTimer);
+    _findTimer = setTimeout(() => { _findTimer = null; paintCands(); }, 140);
   });
 
   // Draft setup selects (delegated change — the section repaints often).

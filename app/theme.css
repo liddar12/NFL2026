@@ -2226,3 +2226,75 @@ button:focus-visible, select:focus-visible, input:focus-visible, [role="button"]
    stacked flush (0px apart, rounded borders overlapping at the seam, which
    iOS Safari renders as a pinched overlap). Same 8px gap as .roster. */
 #t-cands { display: flex; flex-direction: column; gap: 8px; }
+
+/* ==========================================================================
+   REL13 — front-of-site password gate (soft access control).
+   ========================================================================== */
+body.gate-locked { overflow: hidden; }
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.gate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 340px;
+  padding: 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 14px);
+}
+.gate-brand {
+  font-family: var(--sans, system-ui);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-align: center;
+}
+.gate-brand span { color: var(--accent); }
+.gate-label {
+  font-family: var(--mono, ui-monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.gate-input {
+  font-size: 16px;                     /* >=16px: iOS won't zoom on focus */
+  padding: 12px 14px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 10px);
+}
+.gate-input:focus-visible { outline: 2px solid var(--brand-txt); outline-offset: 2px; }
+.gate-btn {
+  font-family: var(--mono, ui-monospace);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 12px;
+  color: #0D1117;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.gate-btn:hover { filter: brightness(1.06); }
+.gate-msg {
+  min-height: 16px;
+  font-family: var(--mono, ui-monospace);
+  font-size: 12px;
+  color: var(--accent-txt);
+  text-align: center;
+}

@@ -12,6 +12,7 @@
 
 import { getPipelineStatus, getGamePredictions } from './data.js';
 import { renderHealth, healthMod } from './render.js';
+import { ensureUnlocked } from './gate.js';
 import mountSlate from './views/slate.js';
 import mountPlayers from './views/players.js';
 import mountParlays from './views/parlays.js';
@@ -134,10 +135,14 @@ let booted = false;
 function boot() {
   if (booted) return;
   booted = true;
-  renderHealthChip();
-  renderWeekChip();
-  renderRoute();
-  registerServiceWorker();
+  // Gate first: paint nothing behind the password screen until this browser is
+  // unlocked. Already-unlocked visitors resolve synchronously (no fl[icker]).
+  ensureUnlocked().then(() => {
+    renderHealthChip();
+    renderWeekChip();
+    renderRoute();
+    registerServiceWorker();
+  });
 }
 
 // Router wiring: re-render on every hash change; bootstrap once on load.

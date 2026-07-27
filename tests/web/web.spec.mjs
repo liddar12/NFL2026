@@ -1150,3 +1150,39 @@ test.describe('UI/UX audit pass (REL11)', () => {
     }
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL13 — front-of-site password gate. This describe CLEARS the pre-seeded
+ * unlock storageState so the gate actually renders, then proves it blocks the
+ * app until the correct password is entered and remembers the unlock.
+ * ------------------------------------------------------------------------- */
+
+test.describe('password gate (REL13)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('gate blocks the app until the correct password unlocks it', async ({ page }) => {
+    await page.goto('/#/');
+    // The gate overlay is shown and the app content is not reachable behind it.
+    await page.waitForSelector('.gate .gate-input', { timeout: 8000 });
+    expect(await page.locator('.gate').count()).toBe(1);
+    expect(await page.evaluate(() => document.body.classList.contains('gate-locked'))).toBe(true);
+
+    // Wrong password: stays gated with an error, app still not booted.
+    await page.locator('.gate-input').fill('nope');
+    await page.locator('.gate-btn').click();
+    await expect(page.locator('.gate-msg')).toContainText('Incorrect');
+    expect(await page.locator('.gate').count()).toBe(1);
+
+    // Correct password: overlay clears, the app boots and paints the slate.
+    await page.locator('.gate-input').fill('amazeamazeamaze');
+    await page.locator('.gate-btn').click();
+    await waitForCards(page, '.card.game');
+    expect(await page.locator('.gate').count()).toBe(0);
+    expect(await page.evaluate(() => document.body.classList.contains('gate-locked'))).toBe(false);
+
+    // Unlock persists: a reload skips the gate entirely.
+    await page.reload();
+    await waitForCards(page, '.card.game');
+    expect(await page.locator('.gate').count()).toBe(0);
+  });
+});

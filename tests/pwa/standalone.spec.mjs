@@ -93,6 +93,14 @@ const test = base.extend({
       });
       // Apply iPhone 16 Pro metrics without disturbing app mode.
       await page.setViewportSize(IPHONE_16_PRO);
+      // Front-of-site password gate: seed the unlock so these standalone tests
+      // drive the app, not the entry screen (the gate has its own web spec).
+      // The --app window opened at the origin, so localStorage is writable here;
+      // reload so main.js boots already-unlocked.
+      await page.evaluate(() => {
+        try { localStorage.setItem('nfl2026.unlock.v1', '1'); } catch (_) { /* ignore */ }
+      });
+      await page.reload();
       await use(page);
     } finally {
       if (browser) await browser.close().catch(() => {});
