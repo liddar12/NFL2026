@@ -262,9 +262,20 @@ export default async function mountPlayers(el) {
       high: Number(p.high) * scoreRatio * r,
     };
     const trend = trendLabel(trajFor(id));
-    const sos = teamStrength ? strengthOfSchedule(w, teamStrength) : null;
+    const sos = sosOf(id);
     const aiDelta = aiOn ? (proj - scoreAdj) : null;
     return { player, weekly: !!w, trend, sos, aiDelta };
+  }
+
+  // Strength-of-schedule never changes for the life of the mount (weekly +
+  // teamStrength are static), so memoize it: the SoS sort otherwise recomputes
+  // the same value O(n log n) times per paint across ~450 players.
+  const _sosCache = new Map();
+  function sosOf(id) {
+    if (_sosCache.has(id)) return _sosCache.get(id);
+    const v = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
+    _sosCache.set(id, v);
+    return v;
   }
 
   /** Sort key value for a player under the active sort. */
@@ -280,8 +291,7 @@ export default async function mountPlayers(el) {
       return 0;
     }
     if (sortKey === 'sos') {
-      const w = weeklyById.get(id);
-      const s = teamStrength ? strengthOfSchedule(w, teamStrength) : null;
+      const s = sosOf(id);
       return s == null ? -Infinity : s; // players without SoS sink on desc
     }
     // proj: honor the AI-adjusted number when AI+ is on (matches the display).
@@ -290,14 +300,20 @@ export default async function mountPlayers(el) {
 
   // Render the card list for the active filter + sort into #players-list.
   function paintList() {
-    const filtered = (active === 'ALL'
-      ? players.slice()
+    const base = (active === 'ALL'
+      ? players
       : players.filter((p) => String(p.position).toUpperCase() === active));
-    filtered.sort((a, b) => {
-      const d = sortVal(b) - sortVal(a);
-      const signed = sortDir === 'asc' ? -d : d;
-      return signed || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1);
-    });
+    // Decorate–sort–undecorate: compute each player's sort key ONCE (n calls),
+    // then sort by the cached number — instead of recomputing sortVal (which can
+    // do SoS/trend/model work) O(n log n) times inside the comparator.
+    const filtered = base
+      .map((p) => ({ p, sv: sortVal(p) }))
+      .sort((a, b) => {
+        const d = b.sv - a.sv;
+        const signed = sortDir === 'asc' ? -d : d;
+        return signed || (String(a.p.gsis_id) < String(b.p.gsis_id) ? -1 : 1);
+      })
+      .map((x) => x.p);
     const listEl = el.querySelector('#players-list');
     if (!listEl) return;
     // Render cap: an unbounded list painted a ~90k-px page on phones. Show the

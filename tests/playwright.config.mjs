@@ -56,6 +56,10 @@ export default defineConfig({
     launchOptions: {
       executablePath: process.env.PW_CHROMIUM || undefined,
     },
+    // Pre-seed the front-of-site password gate as unlocked so the suite drives
+    // the app itself, not the entry screen. (The gate's own behavior is covered
+    // by a dedicated spec that clears this state.)
+    storageState: resolve(TESTS_DIR, 'gate-unlocked.storage.json'),
   },
 
   projects: [
