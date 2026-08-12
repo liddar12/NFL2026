@@ -45,13 +45,42 @@ async function mountModel(el) {
   return mod.default(el);
 }
 
+/** Lazy LINEUP mount (weekly start/sit optimizer) — same lazy pattern. */
+async function mountLineup(el) {
+  let mod;
+  try {
+    mod = await import('./views/lineup.js');
+  } catch (err) {
+    console.warn('[nfl2026] lineup view failed to load:', err);
+    el.innerHTML = '<div class="state">Lineup view unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
+/** Lazy COMPARE mount (head-to-head). Reads its two picks from the hash query. */
+async function mountCompare(el) {
+  let mod;
+  try {
+    mod = await import('./views/compare.js');
+  } catch (err) {
+    console.warn('[nfl2026] compare view failed to load:', err);
+    el.innerHTML = '<div class="state">Compare view unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
 // hash -> { mount, tab }. '#/' is the default/fallback (slate).
 const ROUTES = {
   '#/': { mount: mountSlate, tab: 'slate' },
   '#/players': { mount: mountPlayers, tab: 'players' },
   '#/parlays': { mount: mountParlays, tab: 'parlays' },
   '#/team': { mount: mountTeam, tab: 'team' },
+  '#/lineup': { mount: mountLineup, tab: 'lineup' },
   '#/model': { mount: mountModel, tab: 'model' },
+  // No tab: reached by action + deep link; reads its picks from the hash query.
+  '#/compare': { mount: mountCompare, tab: null },
 };
 
 // Monotonic navigation token: guards against out-of-order async paints when the
@@ -72,7 +101,9 @@ async function renderRoute() {
   const el = document.getElementById('view');
   if (!el) return;
 
-  const hash = window.location.hash || '#/';
+  // Strip any query string (#/compare?a=..&b=..) before the route lookup; the
+  // view reads the query off the live hash itself.
+  const hash = (window.location.hash || '#/').split('?')[0];
   const route = ROUTES[hash] || ROUTES['#/'];
   const seq = ++navSeq;
 
