@@ -11,7 +11,7 @@
  * bucket. A short .legend explains leg / EV / tier. Filtering is client-side.
  */
 
-import { getParlays } from '../data.js';
+import { getParlays, getScheduleFull } from '../data.js';
 import { renderParlayCard } from '../render.js';
 
 /** Paint a plain .state message (empty / error). */
@@ -86,6 +86,19 @@ export default async function mountParlays(el) {
     return;
   }
 
+  // Resolve the numeric game_id on each GAME parlay to an "AWAY @ HOME" label
+  // (the built parlays carry only the id). Optional adornment: if the schedule
+  // feed is absent, cards simply show "GAME PARLAY" with no matchup.
+  const matchupById = new Map();
+  try {
+    const sched = await getScheduleFull();
+    if (sched && Array.isArray(sched.games)) {
+      sched.games.forEach((g) => matchupById.set(String(g.game_id), `${g.away} @ ${g.home}`));
+    }
+  } catch (err) {
+    /* schedule unavailable — matchup label just omitted, never blank the view */
+  }
+
   const head =
     '<header class="view-head">' +
       '<h1 class="view-title">PARLAYS</h1>' +
@@ -119,7 +132,7 @@ export default async function mountParlays(el) {
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
     listEl.innerHTML = filtered.length
-      ? filtered.map(renderParlayCard).join('')
+      ? filtered.map((p) => renderParlayCard(p, matchupById)).join('')
       : '<div class="state">No parlays at this leg count.</div>';
   }
 

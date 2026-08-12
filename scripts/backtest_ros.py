@@ -10,8 +10,11 @@ Method (per target season S in 2022..2025):
   * Projection under test (ros_proj): games-weighted recent-form projection —
     a blend of the last two prior seasons' per-game scoring, reprojected to a
     full 17-game season, nudged by the player's OWN trajectory slope recomputed
-    from priors only. This mirrors what feeds the RoS engine (multi-season,
-    trajectory-aware) without touching future data.
+    from priors only. NOTE: this is a season-total PROXY for directional
+    validation, NOT the deployed projection — the app's RoS engine (app/ros.js)
+    sums per-WEEK player_weekly points, which no committed weekly-actuals dataset
+    lets us backtest. So the rho below measures whether the recent-form +
+    trajectory APPROACH ranks players right, not the exact numbers the app shows.
   * Baseline to beat (last_year): the naive "last year's finish" — prior season
     points alone. RoS earns its keep only by out-ranking this.
   * Score vs season-S ACTUAL points, within position (QB/RB/WR/TE): Spearman rho

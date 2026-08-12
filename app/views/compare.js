@@ -13,6 +13,7 @@
 
 import {
   getPlayerProjections, getPlayerWeekly, getTeamStrength, getPlayerHistory,
+  getGamePredictions,
 } from '../data.js';
 import { teamTint, renderTrendChip } from '../render.js';
 import { strengthOfSchedule, trendLabel } from '../team-logic.js';
@@ -44,8 +45,9 @@ function setPick(side, id, picks) {
 
 export default async function mountCompare(el) {
   el.innerHTML = '<div class="state state--loading">Loading compare…</div>';
-  const [projRes, weeklyRes, strRes, histRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, strRes, histRes, predsRes] = await Promise.allSettled([
     getPlayerProjections(), getPlayerWeekly(), getTeamStrength(), getPlayerHistory(),
+    getGamePredictions(),
   ]);
   if (projRes.status !== 'fulfilled') {
     el.innerHTML = '<div class="state">Compare unavailable — the projection feed did not load.</div>';
@@ -59,8 +61,20 @@ export default async function mountCompare(el) {
   const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings) ? strRes.value : null;
   const historyMap = (histRes.status === 'fulfilled' && histRes.value && histRes.value.players)
     ? histRes.value.players : null;
+  // Current week: RoS value and the "next bye" must be measured from HERE, not
+  // week 1, or mid-season they overstate remaining value and show past byes.
+  let currentWk = 1;
+  if (predsRes.status === 'fulfilled' && predsRes.value && predsRes.value.week != null) {
+    const w = Number(predsRes.value.week);
+    if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
+  }
 
   const picks = parsePicks();
+  // Same player on both sides is not a comparison — it diffs to all-"even" and
+  // fires a bogus "same bye" warning. Drop the duplicate so the B column shows
+  // a finder, and prompt for a different second player.
+  const samePlayer = !!(picks.a && picks.b && picks.a === picks.b);
+  if (samePlayer) picks.b = '';
 
   function metricsFor(id) {
     const p = byId.get(id);
@@ -73,9 +87,9 @@ export default async function mountCompare(el) {
       pos: String(p.position || '').toUpperCase(),
       team: p.team || '',
       proj: Number(p.proj_points) || 0,
-      ros: (w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, 1) : null,
+      ros: (w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
-      bye: (w && Array.isArray(w.weeks)) ? nextBye(w.weeks, 1) : null,
+      bye: (w && Array.isArray(w.weeks)) ? nextBye(w.weeks, currentWk) : null,
       trend: traj ? trendLabel(traj) : null,
       trendVal: traj && Number.isFinite(Number(traj.slope_pts_per_yr)) ? Number(traj.slope_pts_per_yr) : null,
     };
@@ -94,7 +108,9 @@ export default async function mountCompare(el) {
       + '<div class="cmp-mid" id="cmp-mid"></div>'
       + colHtml('b', B)
     + '</div>'
-    + (A && B ? '' : '<div class="state">Pick two players to see the head-to-head.</div>');
+    + (samePlayer
+      ? '<div class="state">That’s the same player on both sides — pick a different second player to compare.</div>'
+      : (A && B ? '' : '<div class="state">Pick two players to see the head-to-head.</div>'));
 
   // Edge chips down the centre when both sides are chosen.
   if (A && B) {

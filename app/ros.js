@@ -4,11 +4,11 @@
  * the REMAINING weeks of the season (bye excluded), optionally adjusted by
  * remaining strength-of-schedule and availability — with those two adjustments
  * defaulting to weight 0 so the engine ships byte-identical to raw remaining
- * sums. Each adjustment earns weight ONLY through the never-regress promotion
- * gate (scripts/promote_signals.py families ros_sos / ros_avail), exactly like
- * every other learned signal in this app. This engine is independent of any
- * betting line by construction — it takes only projections, schedule, and
- * availability.
+ * sums. Those weights are PLACEHOLDERS for a future never-regress gate family
+ * (ros_sos / ros_avail) that is NOT yet implemented in scripts/promote_signals.py
+ * — until it is, the adjustments stay pinned at weight 0 and change nothing, so
+ * today RoS is exactly the raw remaining projection. This engine is independent
+ * of any betting line by construction — projections, schedule, availability only.
  *
  * Everything is pure and unit-tested (tests/feature/ros.test.mjs). The app layer
  * feeds these functions the committed contracts (player_weekly, team_strength,

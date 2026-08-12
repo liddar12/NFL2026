@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ros_backtest.schema.json",
+  "title": "Rest-of-Season projection directional backtest (season rank-correlation)",
+  "description": "Walk-forward, leak-free directional proof for the RoS APPROACH (a season-total proxy, not the deployed per-week projection). Honest labels: measured true only when scored against real actuals; __meta__ discloses method + granularity. Runner/one-shot built.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["__meta__", "per_season", "pooled", "summary"],
+  "properties": {
+    "__meta__": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated_utc", "method", "granularity", "baseline", "note"],
+      "properties": {
+        "generated_utc": { "type": "string" },
+        "method": { "type": "string" },
+        "granularity": { "type": "string" },
+        "baseline": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "per_season": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["season", "positions"],
+        "properties": {
+          "season": { "type": "integer" },
+          "positions": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/$defs/posScore" }
+          }
+        }
+      }
+    },
+    "pooled": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/posScore" }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positions_beating_baseline", "positions_scored"],
+      "properties": {
+        "positions_beating_baseline": { "type": "integer", "minimum": 0 },
+        "positions_scored": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "posScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n", "rho_ros", "rho_lastyear", "beats_baseline", "measured"],
+      "properties": {
+        "n": { "type": "integer", "minimum": 0 },
+        "rho_ros": { "type": "number" },
+        "rho_lastyear": { "type": "number" },
+        "delta": { "type": "number" },
+        "ndcg_ros": { "type": "number" },
+        "ndcg_lastyear": { "type": "number" },
+        "beats_baseline": { "type": "boolean" },
+        "measured": { "type": "boolean" }
+      }
+    }
+  }
+}
