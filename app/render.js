@@ -498,7 +498,9 @@ export function renderWeekStrip(weeks, ratio) {
  * Parlay card
  * ------------------------------------------------------------------------ */
 
-/** Build the "KC/BAL" matchup label from a game_id "2026_01_BAL_KC". */
+/** Legacy fallback: build "HOME/AWAY" from a game_id like "2026_01_BAL_KC".
+ * Modern game_ids are numeric (e.g. 401872656) — those resolve through the
+ * matchupById map passed to renderParlayCard, and this returns '' for them. */
 function matchupFromGameId(gameId) {
   const parts = String(gameId || '').split('_');
   if (parts.length >= 4) {
@@ -527,11 +529,16 @@ function renderLeg(leg) {
   );
 }
 
-/** One .card.parlay article from a parlays[] entry. */
-export function renderParlayCard(parlay) {
+/** One .card.parlay article from a parlays[] entry. `matchupById` (optional)
+ * maps a numeric game_id to an "AWAY @ HOME" label; falls back to the legacy
+ * underscore parse, and drops the trailing separator when nothing resolves. */
+export function renderParlayCard(parlay, matchupById) {
   const scope = parlay.scope === 'week' ? 'week' : 'game';
+  const matchup = scope === 'game'
+    ? ((matchupById && matchupById.get(String(parlay.game_id))) || matchupFromGameId(parlay.game_id))
+    : '';
   const label = scope === 'game'
-    ? `GAME PARLAY · ${matchupFromGameId(parlay.game_id)}`
+    ? (matchup ? `GAME PARLAY · ${matchup}` : 'GAME PARLAY')
     : 'WEEK PARLAY';
 
   const tier = String(parlay.confidence_tier || '').toLowerCase() || 'low';

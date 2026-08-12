@@ -76,6 +76,7 @@ SCHEMA_TO_DATA = {
     "injury_history.schema.json": "injury_history.json",
     "player_usage.schema.json": "player_usage.json",
     "player_usage_history.schema.json": "player_usage_history.json",
+    "ros_backtest.schema.json": "ros_backtest.json",
     "adp_history.schema.json": "adp_history.json",
 }
 
@@ -85,7 +86,7 @@ SCHEMA_TO_DATA = {
 OPTIONAL_DATA = frozenset([
     "epa_history.json", "weather_history.json", "weather_forecast.json",
     "market_baseline.json", "injury_history.json", "player_usage.json",
-    "player_usage_history.json", "adp_history.json",
+    "player_usage_history.json", "ros_backtest.json", "adp_history.json",
 ])
 
 # The signal registry, mirrored name-for-name from scripts/signals/registry.py.

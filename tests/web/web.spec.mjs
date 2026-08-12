@@ -1261,3 +1261,46 @@ test.describe('weekly lineup + compare (REL15)', () => {
     expect(await page.locator('.cmp-find').count()).toBe(2);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL16 — bug-fix batch: parlay matchup, lineup phantom-id, compare guards.
+ * ------------------------------------------------------------------------- */
+
+test.describe('Rel16 bug fixes', () => {
+  test('game parlay cards resolve the real matchup, no dangling separator', async ({ page }) => {
+    await page.goto('/#/parlays');
+    await waitForCards(page, '.card.parlay');
+    const labels = await page.locator('.card.parlay[data-scope="game"] .lbl').allInnerTexts();
+    expect(labels.length).toBeGreaterThan(0);
+    for (const t of labels) {
+      expect(t).not.toMatch(/·\s*$/);            // never "GAME PARLAY · " with nothing after
+    }
+    // At least one resolves to an "AWAY @ HOME" matchup (ids join the schedule).
+    expect(labels.some((t) => t.includes(' @ '))).toBe(true);
+  });
+
+  test('lineup drops a stale roster id instead of rendering a phantom row', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const ps = proj.players;
+    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos)
+      .slice(0, n).map((p) => String(p.gsis_id));
+    const qb = pick('QB', 1); const rb = pick('RB', 2); const wr = pick('WR', 2); const te = pick('TE', 1);
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0],
+      FLEX: 'espn-PHANTOM-9999', BN1: null, BN2: null, BN3: null, BN4: null, BN5: null, BN6: null,
+    };
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+    const body = await page.locator('#lineup-body').innerText();
+    expect(body).not.toContain('PHANTOM');       // the junk id never renders
+  });
+
+  test('compare guards against comparing a player to himself', async ({ page }) => {
+    const proj = readData('player_projections.json');
+    const id = String(proj.players[0].gsis_id);
+    await page.goto(`/#/compare?a=${id}&b=${id}`);
+    await page.waitForSelector('.cmp-grid', { timeout: 8000 });
+    await expect(page.locator('.state')).toContainText('same player');
+  });
+});

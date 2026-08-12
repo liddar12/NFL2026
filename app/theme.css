@@ -2363,7 +2363,9 @@ body.gate-locked { overflow: hidden; }
 }
 .cmp-col--empty { display: flex; flex-direction: column; gap: 8px; }
 .cmp-id { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-.cmp-name { font-family: var(--sans); font-weight: 800; font-size: 16px; }
+/* >=18.66px bold qualifies as WCAG "large text", so the 3:1 team tint on the
+   player name meets AA (a 16px tinted name did not). */
+.cmp-name { font-family: var(--sans); font-weight: 800; font-size: 19px; }
 .cmp-pos { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
 .cmp-swap { align-self: flex-start; margin-top: 4px; font-family: var(--mono); font-size: 10px; color: var(--brand-txt); background: none; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; cursor: pointer; }
 .cmp-metric { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }

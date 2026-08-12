@@ -63,9 +63,13 @@ export default async function mountLineup(el) {
   }
 
   const slots = loadRosterSlots();
+  // Sanitize against the live pool exactly like the Team builder's loadRoster:
+  // a player dropped/traded/retired out of projections must NOT render as a
+  // phantom row named after his raw id — drop any id we can't resolve.
   const rosterIds = slots
     ? [...STARTER_SLOTS, 'BN1', 'BN2', 'BN3', 'BN4', 'BN5', 'BN6']
         .map((s) => slots[s]).filter(Boolean).map(String)
+        .filter((id) => byId.has(id))
     : [];
 
   el.innerHTML =
@@ -102,7 +106,8 @@ export default async function mountLineup(el) {
     const rows = rosterIds.map((id) => playerRow(id, wk));
     const optimal = bestLineup(rows.map((r) => ({ id: r.id, pos: r.pos, pts: r.pts })));
     const rowById = new Map(rows.map((r) => [r.id, r]));
-    const currentStarters = STARTER_SLOTS.map((s) => slots[s]).filter(Boolean).map(String);
+    const currentStarters = STARTER_SLOTS.map((s) => slots[s])
+      .filter(Boolean).map(String).filter((id) => byId.has(id));
     const moves = startSitSwaps(currentStarters, rows.map((r) => ({ id: r.id, pos: r.pos, pts: r.pts })), wk);
 
     // Optimal starting lineup by slot.
