@@ -1204,3 +1204,60 @@ test.describe('password gate (REL13)', () => {
     expect(await page.locator('.gate').count()).toBe(0);
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL15 — Weekly Lineup (start/sit optimizer) + Head-to-head Compare.
+ * ------------------------------------------------------------------------- */
+
+test.describe('weekly lineup + compare (REL15)', () => {
+  // Build a legal roster from the committed projections so the optimizer has
+  // real players to place (seeded before the app reads localStorage).
+  function seedRoster() {
+    const proj = readData('player_projections.json');
+    const ps = proj.players;
+    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos)
+      .slice(0, n).map((p) => String(p.gsis_id));
+    const qb = pick('QB', 1); const rb = pick('RB', 4); const wr = pick('WR', 4); const te = pick('TE', 2);
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: rb[2],
+      BN1: wr[2], BN2: rb[3], BN3: te[1], BN4: wr[3], BN5: null, BN6: null,
+    };
+    return { slots, compareA: wr[0], compareB: rb[0] };
+  }
+
+  test('LINEUP tab exists and optimizes the saved roster', async ({ page }) => {
+    const { slots } = seedRoster();
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+    await expect(page.locator('.tabbar .tab[data-tab="lineup"]')).toHaveCount(1);
+    // Exactly 7 starter rows (QB/RB/RB/WR/WR/TE/FLEX) in the optimal-lineup card.
+    const starters = await page.locator('.lu-card').first().locator('.lu-row').count();
+    expect(starters).toBe(7);
+    // A projected total renders, and the start/sit section is present.
+    await expect(page.locator('.lu-total').first()).toContainText('pts');
+    expect(await page.locator('.lu-move, .lu-optimal').count()).toBeGreaterThanOrEqual(1);
+  });
+
+  test('lineup shows a helpful empty state with no roster', async ({ page }) => {
+    await page.addInitScript(() => localStorage.removeItem('nfl2026.team.v1'));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('#lineup-body .state', { timeout: 8000 });
+    await expect(page.locator('#lineup-body')).toContainText('No roster yet');
+  });
+
+  test('compare is deep-linkable and shows edge chips for two players', async ({ page }) => {
+    const { compareA, compareB } = seedRoster();
+    await page.goto(`/#/compare?a=${compareA}&b=${compareB}`);
+    await page.waitForSelector('.cmp-grid', { timeout: 8000 });
+    // Two populated columns and centre edge chips.
+    expect(await page.locator('.cmp-col .cmp-id').count()).toBe(2);
+    expect(await page.locator('.cmp-edge').count()).toBeGreaterThanOrEqual(4);
+  });
+
+  test('compare offers an inline finder when a side is empty', async ({ page }) => {
+    await page.goto('/#/compare');
+    await page.waitForSelector('.cmp-find', { timeout: 8000 });
+    expect(await page.locator('.cmp-find').count()).toBe(2);
+  });
+});

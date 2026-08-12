@@ -2311,3 +2311,84 @@ body.gate-locked { overflow: hidden; }
   color: var(--brand-txt);
   font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   REL15 — Weekly Lineup (start/sit) + Head-to-head Compare surfaces.
+   ========================================================================== */
+
+/* ---- Weekly Lineup (#/lineup) ---- */
+.lu-wkbar { margin-bottom: 12px; }
+.lu-card { margin-bottom: 12px; padding: 0; overflow: hidden; }
+.lu-card .m-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.lu-total { font-family: var(--mono); font-weight: 800; color: var(--brand-txt); font-variant-numeric: tabular-nums; }
+.lu-row {
+  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.lu-row:last-child { border-bottom: 0; }
+.lu-row--bench { background: var(--surface-2); }
+.lu-row--bye { opacity: 0.72; }
+.lu-slot {
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--brand-txt);
+}
+.lu-name { font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--ink); min-width: 0; }
+.lu-meta { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+.lu-pts { font-family: var(--mono); font-weight: 800; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.lu-bye {
+  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--accent-txt); border: 1px solid var(--accent-txt); border-radius: 4px; padding: 1px 4px;
+}
+.lu-optimal { padding: 14px; color: var(--pos-txt, var(--muted)); font-size: 14px; }
+.lu-move {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.lu-move:last-child { border-bottom: 0; }
+.lu-move-in b { color: var(--ink); }
+.lu-move-in { color: var(--muted); }
+.lu-move-gain { font-family: var(--mono); font-weight: 800; color: var(--pos-txt, var(--brand-txt)); font-variant-numeric: tabular-nums; }
+.lu-move-out { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.lu-foot { padding: 4px 2px 8px; }
+.lu-compare { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+
+/* ---- Head-to-head Compare (#/compare) ---- */
+.cmp-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: start; }
+.cmp-col {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; min-width: 0;
+}
+.cmp-col--empty { display: flex; flex-direction: column; gap: 8px; }
+.cmp-id { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.cmp-name { font-family: var(--sans); font-weight: 800; font-size: 16px; }
+.cmp-pos { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+.cmp-swap { align-self: flex-start; margin-top: 4px; font-family: var(--mono); font-size: 10px; color: var(--brand-txt); background: none; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; cursor: pointer; }
+.cmp-metric { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.cmp-metric:last-child { border-bottom: 0; }
+.cmp-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--muted); }
+.cmp-v { font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cmp-hint { font-weight: 400; font-size: 9px; color: var(--muted); }
+.cmp-mid { display: flex; flex-direction: column; gap: 0; padding-top: 62px; }
+.cmp-edge {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; color: var(--muted);
+  text-align: center; padding: 7px 4px; border-bottom: 1px solid transparent; min-width: 58px; line-height: 1.5;
+}
+.cmp-win { font-weight: 800; font-size: 11px; }
+.cmp-win--a, .cmp-win--b { color: var(--pos-txt, var(--brand-txt)); }
+.cmp-even { color: var(--muted); font-weight: 400; }
+.cmp-edge--warn .cmp-even { color: var(--accent-txt); }
+.cmp-find { font-size: 16px; padding: 10px 12px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.cmp-results { display: flex; flex-direction: column; gap: 4px; }
+.cmp-hit { text-align: left; font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; cursor: pointer; }
+.cmp-hit-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.cmp-none { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 6px 2px; }
+
+@media (max-width: 560px) {
+  /* Stack the two columns with the edge rail between them on phones. */
+  .cmp-grid { grid-template-columns: 1fr; }
+  .cmp-mid { flex-direction: row; flex-wrap: wrap; gap: 6px; padding-top: 8px; justify-content: center; }
+  .cmp-edge { border: 1px solid var(--border); border-radius: 999px; min-width: 0; padding: 4px 8px; }
+}
