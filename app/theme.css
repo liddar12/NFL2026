@@ -2298,3 +2298,16 @@ body.gate-locked { overflow: hidden; }
   color: var(--accent-txt);
   text-align: center;
 }
+
+/* RoS value chip (Players view, rest-of-season sort) — matches the adorn chips;
+   brand-tinted so the sorted-on number reads at a glance. */
+.p-ros {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--brand-txt);
+  font-variant-numeric: tabular-nums;
+}

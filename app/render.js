@@ -349,7 +349,12 @@ export function renderPlayerCard(player, opts) {
   //   o.sos    number 1.0..5.0 (strengthOfSchedule; 1 easiest, 5 hardest)
   const trend = renderTrendChip(o.trend);
   const sos = renderSos(o.sos);
-  const adorn = (trend || sos) ? `<div class="p-adorn">${trend}${sos}</div>` : '';
+  // o.ros { points, gamesLeft } — rest-of-season value chip (optional; only the
+  // RoS sort passes it, so every other caller renders the card unchanged).
+  const ros = (o.ros && Number.isFinite(Number(o.ros.points)))
+    ? `<span class="p-ros" title="Projected points over the remaining ${esc(o.ros.gamesLeft)} games (bye excluded)">RoS ${esc(fix1(Number(o.ros.points)))} · ${esc(o.ros.gamesLeft)}g</span>`
+    : '';
+  const adorn = (trend || sos || ros) ? `<div class="p-adorn">${trend}${sos}${ros}</div>` : '';
 
   return (
     `<article class="card player" data-gsis="${esc(player.gsis_id)}">` +

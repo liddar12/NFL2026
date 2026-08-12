@@ -1,0 +1,213 @@
+{
+ "__meta__": {
+  "generated_utc": "2026-08-12T17:49:29Z",
+  "method": "season_rank_correlation",
+  "granularity": "season",
+  "baseline": "prior_season_points (last year's finish)",
+  "note": "Walk-forward: season S projected from seasons <= S-1 only. No per-player weekly actuals are committed, so this is the honest season-level directional check, not a weekly backtest."
+ },
+ "per_season": [
+  {
+   "season": 2022,
+   "positions": {
+    "QB": {
+     "n": 26,
+     "rho_ros": 0.4243,
+     "rho_lastyear": 0.3504,
+     "ndcg_ros": 0.8657,
+     "ndcg_lastyear": 0.8487,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "RB": {
+     "n": 20,
+     "rho_ros": 0.6331,
+     "rho_lastyear": 0.418,
+     "ndcg_ros": 0.9284,
+     "ndcg_lastyear": 0.8639,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "WR": {
+     "n": 44,
+     "rho_ros": 0.6637,
+     "rho_lastyear": 0.6741,
+     "ndcg_ros": 0.9063,
+     "ndcg_lastyear": 0.9036,
+     "beats_baseline": false,
+     "measured": true
+    },
+    "TE": {
+     "n": 27,
+     "rho_ros": 0.641,
+     "rho_lastyear": 0.5715,
+     "ndcg_ros": 0.8625,
+     "ndcg_lastyear": 0.8291,
+     "beats_baseline": true,
+     "measured": true
+    }
+   }
+  },
+  {
+   "season": 2023,
+   "positions": {
+    "QB": {
+     "n": 26,
+     "rho_ros": 0.2807,
+     "rho_lastyear": 0.3607,
+     "ndcg_ros": 0.8053,
+     "ndcg_lastyear": 0.8067,
+     "beats_baseline": false,
+     "measured": true
+    },
+    "RB": {
+     "n": 33,
+     "rho_ros": 0.4435,
+     "rho_lastyear": 0.3597,
+     "ndcg_ros": 0.9126,
+     "ndcg_lastyear": 0.9021,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "WR": {
+     "n": 59,
+     "rho_ros": 0.7633,
+     "rho_lastyear": 0.7401,
+     "ndcg_ros": 0.8713,
+     "ndcg_lastyear": 0.8912,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "TE": {
+     "n": 35,
+     "rho_ros": 0.5259,
+     "rho_lastyear": 0.5436,
+     "ndcg_ros": 0.8894,
+     "ndcg_lastyear": 0.9202,
+     "beats_baseline": false,
+     "measured": true
+    }
+   }
+  },
+  {
+   "season": 2024,
+   "positions": {
+    "QB": {
+     "n": 28,
+     "rho_ros": 0.405,
+     "rho_lastyear": 0.5298,
+     "ndcg_ros": 0.7961,
+     "ndcg_lastyear": 0.8324,
+     "beats_baseline": false,
+     "measured": true
+    },
+    "RB": {
+     "n": 45,
+     "rho_ros": 0.694,
+     "rho_lastyear": 0.605,
+     "ndcg_ros": 0.8728,
+     "ndcg_lastyear": 0.8375,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "WR": {
+     "n": 79,
+     "rho_ros": 0.6135,
+     "rho_lastyear": 0.6279,
+     "ndcg_ros": 0.8779,
+     "ndcg_lastyear": 0.857,
+     "beats_baseline": false,
+     "measured": true
+    },
+    "TE": {
+     "n": 43,
+     "rho_ros": 0.5882,
+     "rho_lastyear": 0.5906,
+     "ndcg_ros": 0.7757,
+     "ndcg_lastyear": 0.7436,
+     "beats_baseline": false,
+     "measured": true
+    }
+   }
+  },
+  {
+   "season": 2025,
+   "positions": {
+    "QB": {
+     "n": 35,
+     "rho_ros": 0.3653,
+     "rho_lastyear": 0.4515,
+     "ndcg_ros": 0.7612,
+     "ndcg_lastyear": 0.7553,
+     "beats_baseline": false,
+     "measured": true
+    },
+    "RB": {
+     "n": 57,
+     "rho_ros": 0.7204,
+     "rho_lastyear": 0.6644,
+     "ndcg_ros": 0.8682,
+     "ndcg_lastyear": 0.8606,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "WR": {
+     "n": 100,
+     "rho_ros": 0.6132,
+     "rho_lastyear": 0.5661,
+     "ndcg_ros": 0.83,
+     "ndcg_lastyear": 0.8113,
+     "beats_baseline": true,
+     "measured": true
+    },
+    "TE": {
+     "n": 48,
+     "rho_ros": 0.5669,
+     "rho_lastyear": 0.5838,
+     "ndcg_ros": 0.7562,
+     "ndcg_lastyear": 0.7881,
+     "beats_baseline": false,
+     "measured": true
+    }
+   }
+  }
+ ],
+ "pooled": {
+  "QB": {
+   "n": 115,
+   "rho_ros": 0.4008,
+   "rho_lastyear": 0.4206,
+   "delta": -0.0198,
+   "beats_baseline": false,
+   "measured": true
+  },
+  "RB": {
+   "n": 155,
+   "rho_ros": 0.6557,
+   "rho_lastyear": 0.5686,
+   "delta": 0.0871,
+   "beats_baseline": true,
+   "measured": true
+  },
+  "WR": {
+   "n": 282,
+   "rho_ros": 0.6639,
+   "rho_lastyear": 0.6468,
+   "delta": 0.0172,
+   "beats_baseline": true,
+   "measured": true
+  },
+  "TE": {
+   "n": 153,
+   "rho_ros": 0.5947,
+   "rho_lastyear": 0.6101,
+   "delta": -0.0155,
+   "beats_baseline": false,
+   "measured": true
+  }
+ },
+ "summary": {
+  "positions_beating_baseline": 2,
+  "positions_scored": 4
+ }
+}

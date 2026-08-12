@@ -26,10 +26,11 @@
 
 import {
   getPlayerProjections, getPlayerWeekly, getAiInsights,
-  getPlayerHistory, getTeamStrength,
+  getPlayerHistory, getTeamStrength, getGamePredictions,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel } from '../team-logic.js';
+import { rosPoints, gamesLeft } from '../ros.js';
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
 
@@ -40,6 +41,7 @@ const AI_KEY = 'nfl2026.ai.v1'; // shared with the TEAM tab — one AI+ preferen
 // Sort modes: which value orders the list. Direction toggles per click.
 const SORTS = [
   { key: 'proj', label: 'PROJ' },
+  { key: 'ros', label: 'ROS' },
   { key: 'trend', label: 'TREND' },
   { key: 'sos', label: 'SOS' },
 ];
@@ -170,12 +172,13 @@ export default async function mountPlayers(el) {
 
   // Projections required; everything else optional (allSettled) so a missing
   // weekly/insight/history/strength file never blanks the view.
-  const [projRes, weeklyRes, aiRes, histRes, strRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
     getPlayerHistory(),
     getTeamStrength(),
+    getGamePredictions(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
@@ -208,6 +211,14 @@ export default async function mountPlayers(el) {
   const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings)
     ? strRes.value : null;
   const hasAi = aiInsights !== null || history !== null; // trend feed present?
+
+  // Current week for rest-of-season math: the pipeline's week from
+  // game_predictions (defaults to 1 preseason -> RoS == full-season remaining).
+  let currentWk = 1;
+  if (predRes.status === 'fulfilled' && predRes.value && predRes.value.week != null) {
+    const w = Number(predRes.value.week);
+    if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
+  }
 
   let scoring = hasWeekly ? loadScoring() : 'ppr';
   const PAGE = 60;              // initial cards + SHOW MORE step (phone perf)
@@ -278,6 +289,19 @@ export default async function mountPlayers(el) {
     return v;
   }
 
+  // Rest-of-season value (remaining-week projection sum) — static per mount, so
+  // memoized like SoS. null when this player has no weekly data. Bye excluded.
+  const _rosCache = new Map();
+  function rosOf(id) {
+    if (_rosCache.has(id)) return _rosCache.get(id);
+    const w = weeklyById.get(id);
+    const v = (w && Array.isArray(w.weeks))
+      ? { points: rosPoints(w.weeks, currentWk), gamesLeft: gamesLeft(w.weeks, currentWk) }
+      : null;
+    _rosCache.set(id, v);
+    return v;
+  }
+
   /** Sort key value for a player under the active sort. */
   function sortVal(p) {
     const id = String(p.gsis_id);
@@ -293,6 +317,10 @@ export default async function mountPlayers(el) {
     if (sortKey === 'sos') {
       const s = sosOf(id);
       return s == null ? -Infinity : s; // players without SoS sink on desc
+    }
+    if (sortKey === 'ros') {
+      const r = rosOf(id);
+      return r == null ? -Infinity : r.points; // no weekly data sinks on desc
     }
     // proj: honor the AI-adjusted number when AI+ is on (matches the display).
     return model(p).player.proj_points;
@@ -323,8 +351,11 @@ export default async function mountPlayers(el) {
     listEl.innerHTML = capped.length
       ? capped.map((p) => {
           const m = model(p);
+          // Show the RoS value chip when ranking by rest-of-season, so the sort
+          // is legible (you see the number you sorted on), not just re-ordered.
+          const ros = sortKey === 'ros' ? rosOf(String(p.gsis_id)) : null;
           return renderPlayerCard(m.player, {
-            weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta,
+            weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta, ros,
           });
         }).join('')
         + (more > 0
