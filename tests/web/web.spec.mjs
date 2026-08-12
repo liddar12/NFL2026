@@ -398,6 +398,24 @@ test.describe('players trend + strength-of-schedule + AI+ projection (#/players)
     expect(sosTxt).toMatch(/^\d\.\d$/); // exactly one decimal
   });
 
+  test('RoS sort re-ranks players and shows the rest-of-season chip (Phase 0)', async ({ page }) => {
+    await page.goto('/#/players');
+    await waitForCards(page, '.card.player');
+    // A RoS sort chip exists; no RoS chips render under the default (PROJ) sort.
+    expect(await page.locator('.sort-chip[data-sort="ros"]').count()).toBe(1);
+    expect(await page.locator('.p-ros').count()).toBe(0);
+    // Switch to RoS: the value chip appears and reads "RoS <n> · <g>g".
+    await page.locator('.sort-chip[data-sort="ros"]').click();
+    await expect(page.locator('.sort-chip[data-sort="ros"]')).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.locator('.p-ros').count()).toBeGreaterThanOrEqual(1);
+    const txt = await page.locator('.p-ros').first().innerText();
+    expect(txt).toMatch(/RoS\s+[\d.]+\s+·\s+\d+g/);
+    // The list is ordered by RoS desc: first card's RoS >= second card's RoS.
+    const nums = await page.locator('.p-ros').evaluateAll(
+      (els) => els.slice(0, 6).map((e) => parseFloat(e.textContent.replace(/RoS\s+/, ''))));
+    for (let i = 1; i < nums.length; i++) expect(nums[i]).toBeLessThanOrEqual(nums[i - 1] + 1e-6);
+  });
+
   test('AI+ toggle changes the projection number (AI PROJ PTS + delta)', async ({ page }) => {
     await page.goto('/#/players');
     await waitForCards(page, '.card.player');

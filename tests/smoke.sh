@@ -41,6 +41,7 @@ python3 scripts/build_market_baseline.py --selftest || fail "baseline selftest"
 python3 scripts/build_injury_history.py --selftest || fail "injury selftest"
 python3 scripts/build_player_usage.py --selftest || fail "usage selftest"
 python3 scripts/build_player_usage_history.py --selftest || fail "usage history selftest"
+python3 scripts/backtest_ros.py --selftest || fail "ros backtest selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.
