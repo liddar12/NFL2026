@@ -87,6 +87,15 @@ const ROUTES = {
 // user switches tabs faster than a view resolves — only the latest wins.
 let navSeq = 0;
 
+// Mount queue. Every view paints into the SAME #view element, so two mounts must
+// never be in flight at once: whichever resolves LAST wins the element,
+// regardless of which route the user actually asked for. That is not
+// theoretical — booting at "/" and tapping a tab before the slate's feeds
+// resolve left the tab bar on TEAM while SLATE content sat in the view. Chaining
+// serializes mounts, and the navSeq check below runs at DEQUEUE time so a
+// superseded route is dropped before it ever paints.
+let mountQueue = Promise.resolve();
+
 /** Sync .tab--active + aria-selected on the tab bar for the active section. */
 function setActiveTab(tab) {
   document.querySelectorAll('.tabbar .tab').forEach((a) => {
@@ -112,11 +121,16 @@ async function renderRoute() {
   // await so keyboard focus lands immediately, not after the fetch resolves.
   try { el.focus({ preventScroll: true }); } catch (_) { el.focus(); }
 
-  await route.mount(el);
-
-  // If another navigation started while we were awaiting, we may have painted
-  // stale content — repaint with the now-current route. (Cheap: JSON is cached.)
-  if (seq !== navSeq) return;
+  const run = () => {
+    // Superseded while we waited our turn: never paint a route the user has
+    // already navigated away from.
+    if (seq !== navSeq) return undefined;
+    return route.mount(el);
+  };
+  // `then(run, run)` on both settlements so one view's failure cannot wedge the
+  // queue and freeze every later navigation.
+  mountQueue = mountQueue.then(run, run);
+  await mountQueue;
 }
 
 /** Fetch pipeline status and paint the #health chip (state color + note). */

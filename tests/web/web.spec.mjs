@@ -1569,3 +1569,32 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     await expect(page.locator('.av-chip')).toHaveCount(0);
   });
 });
+
+test.describe('router: concurrent mounts', () => {
+  test('a slow boot route never paints over the tab the user navigated to', async ({ page }) => {
+    // Every view paints into the same #view element. Booting at "/" starts the
+    // SLATE mount; tapping a tab before its feeds resolve used to leave the
+    // slower mount to finish LAST and overwrite the requested view — the tab bar
+    // said TEAM while SLATE content sat underneath. Caught by CI as a 13 -> 0
+    // roster-slot count.
+    //
+    // Force that order deterministically: hold back a feed only SLATE reads, so
+    // the boot mount is guaranteed to resolve after the team mount has painted.
+    await page.route('**/market_prices.json', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+
+    await page.goto('/');
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    expect(await page.locator('.roster .slot').count()).toBe(13);
+
+    // Well past the held feed: the late boot mount must have been dropped, not
+    // painted. Assert BOTH directions — team still there, slate never arrived.
+    await page.waitForTimeout(2500);
+    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.wkbar').count()).toBe(0);
+    expect(await page.locator('.tabbar .tab--active').getAttribute('data-tab')).toBe('team');
+  });
+});
