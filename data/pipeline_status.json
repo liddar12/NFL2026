@@ -1,107 +1,107 @@
 {
-  "generated_utc": "2026-08-13T07:25:44Z",
-  "health": "degraded",
+  "generated_utc": "2026-08-13T21:25:47Z",
+  "health": "ok",
   "feeds": {
     "espn_teams": {
       "rows": 32,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "espn_results_2025": {
       "rows": 272,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "espn_results_2026": {
       "rows": 0,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "espn_schedule": {
       "rows": 272,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "espn_fantasy": {
       "rows": 394,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "espn_history": {
       "rows": 300,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "injuries": {
       "rows": 800,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "environment": {
       "rows": 1359,
-      "age_hours": 658.9,
+      "age_hours": 673.0,
       "last_success_utc": "2026-07-16T20:30:46Z",
       "status": "ok"
     },
     "ai_insights": {
       "rows": 300,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "game_script": {
       "rows": 272,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "oline": {
       "rows": 32,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "nflverse": {
       "rows": 32,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "adp": {
-      "rows": 212,
+      "rows": 211,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "defense": {
       "rows": 32,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "kalshi": {
       "rows": 0,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "polymarket": {
-      "rows": 0,
-      "age_hours": 999.0,
-      "last_success_utc": null,
-      "status": "degraded"
+      "rows": 32,
+      "age_hours": 0.0,
+      "last_success_utc": "2026-08-13T21:25:47Z",
+      "status": "ok"
     },
     "playoff_sim": {
       "rows": 32,
       "age_hours": 0.0,
-      "last_success_utc": "2026-08-13T07:25:44Z",
+      "last_success_utc": "2026-08-13T21:25:47Z",
       "status": "ok"
     },
     "odds_api": {
@@ -110,5 +110,31 @@
       "last_success_utc": null,
       "status": "unconfigured"
     }
-  }
+  },
+  "schedules": [
+    {
+      "workflow": "backtest.yml",
+      "name": "weekly-backtest",
+      "crons": [
+        "0 7 * * 2"
+      ]
+    },
+    {
+      "workflow": "daily.yml",
+      "name": "daily-pipeline",
+      "crons": [
+        "0 6 * * *"
+      ]
+    },
+    {
+      "workflow": "gameday.yml",
+      "name": "gameday",
+      "crons": [
+        "0 */2 * * 0",
+        "0 0,2 * * 1",
+        "0 0,2 * * 2",
+        "0 0,2 * * 5"
+      ]
+    }
+  ]
 }

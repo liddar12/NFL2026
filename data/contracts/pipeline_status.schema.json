@@ -5,7 +5,11 @@
   "description": "Per-feed health, written by scripts/pipeline_status.py with loud assertions. The silent-scraper-404 lesson: every feed asserts row-count and staleness and fails loudly instead of masking a 0-row write.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["generated_utc", "health", "feeds"],
+  "required": [
+    "generated_utc",
+    "health",
+    "feeds"
+  ],
   "properties": {
     "generated_utc": {
       "type": "string",
@@ -14,7 +18,13 @@
     "health": {
       "type": "string",
       "description": "Overall roll-up across all feeds.",
-      "enum": ["ok", "stale", "degraded", "down", "unconfigured"]
+      "enum": [
+        "ok",
+        "stale",
+        "degraded",
+        "down",
+        "unconfigured"
+      ]
     },
     "feeds": {
       "type": "object",
@@ -22,7 +32,12 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["rows", "age_hours", "last_success_utc", "status"],
+        "required": [
+          "rows",
+          "age_hours",
+          "last_success_utc",
+          "status"
+        ],
         "properties": {
           "rows": {
             "type": "integer",
@@ -35,12 +50,52 @@
             "minimum": 0
           },
           "last_success_utc": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Timestamp of last successful non-empty write, or null if never."
           },
           "status": {
             "type": "string",
-            "enum": ["ok", "stale", "degraded", "down", "unconfigured"]
+            "enum": [
+              "ok",
+              "stale",
+              "degraded",
+              "down",
+              "unconfigured"
+            ]
+          }
+        }
+      }
+    },
+    "schedules": {
+      "type": "array",
+      "description": "Cron cadence of every scheduled workflow, PARSED FROM .github/workflows/*.yml by scripts/pipeline_status.read_schedules(). Shipped so the MODEL tab's 'how often does this run' claim is read from the real cron and cannot drift from the YAML. Optional: absent on older writes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workflow",
+          "name",
+          "crons"
+        ],
+        "properties": {
+          "workflow": {
+            "type": "string",
+            "description": "Workflow filename, e.g. daily.yml."
+          },
+          "name": {
+            "type": "string",
+            "description": "The workflow's `name:` field."
+          },
+          "crons": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "Raw 5-field cron expressions, UTC."
           }
         }
       }

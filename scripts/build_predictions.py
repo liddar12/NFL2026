@@ -28,6 +28,7 @@ from scripts.models import game_model  # noqa: E402
 from scripts.models import parlay_builder  # noqa: E402
 from scripts.models.player_projection import project_players  # noqa: E402
 from scripts.harness import snapshot as snap  # noqa: E402
+from scripts.pipeline_status import read_schedules  # noqa: E402
 
 SEASON = 2026
 PRIOR_SEASON = 2025
@@ -704,8 +705,11 @@ def main():
     order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
     configured = [f["status"] for f in feeds.values() if f["status"] != "unconfigured"]
     health = max(configured, key=lambda s: order[s]) if configured else "degraded"
+    # `schedules` is parsed from .github/workflows/*.yml so the cadence the MODEL
+    # tab shows is the cadence that actually runs — it cannot drift from the YAML.
     _write(os.path.join(DATA, "pipeline_status.json"), {
         "generated_utc": now, "health": health, "feeds": feeds,
+        "schedules": read_schedules(),
     })
 
     print(f"OK  teams={len(teams)} elo_teams={len(ratings)} schedule={len(schedule)} "

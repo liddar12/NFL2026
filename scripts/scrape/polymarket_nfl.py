@@ -3,7 +3,7 @@
 Ported from the wc2026-tracker Polymarket scraper pattern (safe-by-default,
 de-vig, canonical name mapping). Two surfaces:
 
-  fetch_champion_futures()  The "NFL Champion 2027" Gamma event (= the 2026
+  fetch_champion_futures()  The 2027 champion Gamma event (= the 2026
                             season's Super Bowl winner; Polymarket titles by
                             the February it resolves): 32+ per-team markets,
                             each groupItemTitle a full team name and
@@ -18,13 +18,31 @@ weights, or parlay probabilities (validate_data.py MARKET_DISPLAY_ONLY).
 """
 
 import json
+import re
 import urllib.parse
 import urllib.request
 
 BASE = "https://gamma-api.polymarket.com"
 USER_AGENT = "nfl2026-tracker/1.0 (personal-project)"
 _HTTP_TIMEOUT = 20
-CHAMPION_TITLE = "NFL Champion 2027"
+
+CHAMPION_YEAR = "2027"  # the February the 2026 season's title resolves
+
+# Polymarket RENAMES its events. This feed sat degraded for weeks because the
+# lookup was pinned to the exact string "NFL Champion 2027" while Polymarket had
+# relisted it as "Pro Football: 2027 Champion". Match instead on the two things
+# that actually identify the market — the resolution year and the word
+# "champion" — and EXCLUDE the conference / division / award variants that also
+# carry both ("Pro Football: 2027 AFC Champion", "NFC East Champion", "2026 MVP
+# Winner").
+#
+# This stays honest: it is a narrower net, not a guess. Zero matches still
+# raises, and so does an AMBIGUOUS match — silently picking one of two plausible
+# events is precisely the failure this refuses to make.
+_CHAMPION_EXCLUDE = re.compile(
+    r"\b(afc|nfc|east|north|south|west|mvp|division|conference|coach|rookie)\b",
+    re.IGNORECASE,
+)
 
 
 class PolymarketError(RuntimeError):
@@ -78,14 +96,27 @@ def fetch_champion_futures():
     """De-vigged champion prices: list[{name, prob, slug}] sorted prob desc.
     `name` is Polymarket's full team name ("Buffalo Bills") — build_markets maps
     it to a canonical abbrev; unmappable rows are dropped there, loudly."""
-    champ = None
+    hits = []
     for ev in _nfl_events():
-        if (ev.get("title") or "").strip() == CHAMPION_TITLE:
-            champ = ev
-            break
-    if champ is None:
-        raise PolymarketError(f"Polymarket event '{CHAMPION_TITLE}' not found under "
-                              f"tag nfl — renamed or delisted, refusing to guess.")
+        title = (ev.get("title") or "").strip()
+        if CHAMPION_YEAR not in title:
+            continue
+        if "champion" not in title.lower():
+            continue
+        if _CHAMPION_EXCLUDE.search(title):
+            continue
+        hits.append(ev)
+    if not hits:
+        raise PolymarketError(
+            f"no Polymarket event under tag nfl whose title carries "
+            f"{CHAMPION_YEAR!r} and 'champion' without a conference/division "
+            f"qualifier — delisted or renamed beyond recognition, refusing to guess.")
+    if len(hits) > 1:
+        titles = sorted((e.get("title") or "").strip() for e in hits)
+        raise PolymarketError(
+            f"{len(hits)} Polymarket events match the {CHAMPION_YEAR} champion "
+            f"pattern ({titles}) — ambiguous, refusing to guess.")
+    champ = hits[0]
     rows = []
     for m in champ.get("markets") or []:
         p = yes_price(m)

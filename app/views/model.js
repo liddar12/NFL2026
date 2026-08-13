@@ -15,7 +15,7 @@
  */
 
 import {
-  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices,
+  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus,
 } from '../data.js';
 import { teamTint } from '../render.js';
 
@@ -89,6 +89,101 @@ export function marketBadge(signal) {
 }
 
 const state = (text) => `<div class="state">${text}</div>`;
+
+/* ---- data freshness + schedules ---------------------------------------------
+ * The health chip in the topbar says DEGRADED or OK and nothing else. This card
+ * answers the actual question behind that chip: WHICH feed, HOW STALE, and HOW
+ * OFTEN is it supposed to run. Cadence is read from `schedules` in the
+ * contract, which the pipeline parses out of .github/workflows/*.yml — so what
+ * is displayed here is the cron that really runs, not a hand-typed claim that
+ * can drift.
+ */
+
+/** "3h ago" / "2d ago" / "—". Age is measured from the feed's last SUCCESS. */
+function ago(iso, nowMs) {
+  if (!iso) return '—';
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
+  const mins = Math.max(0, Math.round((nowMs - t) / 60000));
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Plain-English gloss of the 5-field cron shapes this repo actually uses.
+ *  Anything unrecognised falls back to the raw expression rather than a guess. */
+export function cronLabel(expr) {
+  const p = String(expr || '').trim().split(/\s+/);
+  if (p.length !== 5) return String(expr || '');
+  const [min, hr, , , dow] = p;
+  const at = (h) => `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')} UTC`;
+  const days = dow === '*'
+    ? null
+    : dow.split(',').map((d) => DOW[Number(d)]).filter(Boolean).join('/');
+  if (hr.startsWith('*/')) {
+    const every = `every ${hr.slice(2)}h`;
+    return days ? `${days}, ${every}` : every;
+  }
+  const hours = hr.split(',');
+  const times = hours.map(at).join(' & ');
+  return days ? `${days} ${times}` : `daily ${times}`;
+}
+
+function freshnessCard(status, nowMs) {
+  if (!status || !status.feeds) {
+    return state('Feed status unavailable — the pipeline_status contract did not load.');
+  }
+  const entries = Object.entries(status.feeds);
+  const rank = { down: 0, degraded: 1, stale: 2, unconfigured: 3, ok: 4 };
+  // Worst first: the reason the health chip is not green should be the first row.
+  entries.sort((a, b) => (rank[a[1].status] ?? 9) - (rank[b[1].status] ?? 9)
+    || a[0].localeCompare(b[0]));
+
+  const rows = entries.map(([name, f]) => {
+    const cls = `pf-${esc(f.status)}`;
+    const last = f.status === 'unconfigured'
+      ? 'awaiting config'
+      : ago(f.last_success_utc, nowMs);
+    return (
+      '<tr>'
+      + `<td class="pf-name">${esc(name)}</td>`
+      + `<td><span class="pf-dot ${cls}"></span>${esc(String(f.status).toUpperCase())}</td>`
+      + `<td class="pf-age">${esc(last)}</td>`
+      + `<td class="pf-rows">${Number.isFinite(Number(f.rows)) ? esc(f.rows) : '—'}</td>`
+      + '</tr>'
+    );
+  }).join('');
+
+  const scheds = Array.isArray(status.schedules) ? status.schedules : [];
+  const schedHtml = scheds.length
+    ? '<table class="pf-sched"><thead><tr><th>PIPELINE</th><th>RUNS</th></tr></thead><tbody>'
+      + scheds.map((s) => (
+        '<tr>'
+        + `<td class="pf-name">${esc(s.name)}</td>`
+        + `<td>${(s.crons || []).map((c) => `<span class="pf-cron" title="${esc(c)}">${esc(cronLabel(c))}</span>`).join('')}</td>`
+        + '</tr>'
+      )).join('')
+      + '</tbody></table>'
+    : state('Schedules not published by this pipeline run.');
+
+  const n = entries.length;
+  const okN = entries.filter(([, f]) => f.status === 'ok').length;
+  const unconf = entries.filter(([, f]) => f.status === 'unconfigured').length;
+
+  return (
+    `<div class="pf-sum">Overall <b>${esc(String(status.health).toUpperCase())}</b> · `
+    + `${okN}/${n} feeds ok${unconf ? ` · ${unconf} awaiting config` : ''} · `
+    + `status written ${esc(ago(status.generated_utc, nowMs))}</div>`
+    + '<table class="pf-tbl"><thead><tr><th>FEED</th><th>STATUS</th>'
+    + '<th>LAST OK</th><th>ROWS</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table>`
+    + '<div class="pf-subhead">UPDATE SCHEDULE · parsed from the live workflow crons</div>'
+    + schedHtml
+  );
+}
 
 /**
  * Newest format-2 signal_promotion entry from model_tuning history, or null.
@@ -384,13 +479,14 @@ function playoffsCard(odds, markets) {
 
 export default async function mountModel(el) {
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
-  const [metaRes, tuningRes, oddsRes, mktRes] = await Promise.allSettled([
-    getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(),
+  const [metaRes, tuningRes, oddsRes, mktRes, statusRes] = await Promise.allSettled([
+    getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
   ]);
   const meta = metaRes.status === 'fulfilled' ? metaRes.value : null;
   const tuning = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
   const odds = oddsRes.status === 'fulfilled' ? oddsRes.value : null;
   const markets = mktRes.status === 'fulfilled' ? mktRes.value : null;
+  const status = statusRes.status === 'fulfilled' ? statusRes.value : null;
 
   const card = (title, body, extra) => (
     `<section class="card mcard ${extra || ''}">` +
@@ -404,6 +500,8 @@ export default async function mountModel(el) {
       '<h1 class="view-title">MODEL</h1>' +
       '<span class="view-sub">WHAT THE AI HAS LEARNED · FULL TRANSPARENCY</span>' +
     '</header>' +
+    card('DATA FRESHNESS · FEEDS & UPDATE SCHEDULE',
+      freshnessCard(status, Date.now()), 'm-fresh') +
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params') +
     card('BACKTEST · WALK-FORWARD', backtestCard(tuning), 'm-backtest') +
     card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate') +
