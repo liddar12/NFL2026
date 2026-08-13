@@ -148,6 +148,47 @@ def compute_status(observations, as_of=None):
     }
 
 
+_WORKFLOWS = os.path.join(_REPO_ROOT, ".github", "workflows")
+_CRON_RE = __import__("re").compile(r"^\s*-\s*cron:\s*[\"']([^\"']+)[\"']")
+_WFNAME_RE = __import__("re").compile(r"^name:\s*(.+?)\s*$")
+
+
+def read_schedules(workflows_dir=_WORKFLOWS):
+    """Cron schedules for every scheduled workflow, READ FROM THE WORKFLOW FILES.
+
+    The MODEL tab tells the user how often each pipeline runs. Hardcoding that
+    text in the app would let the claim drift away from the real cron the moment
+    someone edits the YAML — a display that lies quietly is worse than none. So
+    the schedules are parsed from `.github/workflows/*.yml` at build time and
+    shipped in the contract: if the cron changes, the UI changes with it.
+
+    Returns [{workflow, name, crons: [...]}] sorted by file, scheduled only.
+    Stdlib only — this reads the two line shapes we actually use rather than
+    pulling in a YAML parser.
+    """
+    out = []
+    if not os.path.isdir(workflows_dir):
+        return out
+    for fn in sorted(os.listdir(workflows_dir)):
+        if not fn.endswith((".yml", ".yaml")):
+            continue
+        path = os.path.join(workflows_dir, fn)
+        crons, name = [], None
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                m = _CRON_RE.match(line)
+                if m:
+                    crons.append(m.group(1).strip())
+                    continue
+                if name is None:
+                    n = _WFNAME_RE.match(line)
+                    if n:
+                        name = n.group(1).strip().strip("\"'")
+        if crons:  # a workflow with no `schedule:` is not a pipeline cadence
+            out.append({"workflow": fn, "name": name or fn, "crons": crons})
+    return out
+
+
 def write_status(status, out_path=_DEFAULT_OUT):
     """Write the status doc to disk in the repo's canonical JSON style
     (UTF-8, ensure_ascii, indent=2, trailing newline)."""

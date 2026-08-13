@@ -173,9 +173,17 @@ def main():
         print(f"[warn] kalshi markets failed: {exc}", file=sys.stderr)
 
     # --- Polymarket (champion futures + any listed game markets).
+    # The two sub-sources get SEPARATE try blocks on purpose. They shared one,
+    # and when Polymarket renamed the champion event the futures call threw
+    # before the game-market loop ever ran — taking down 15 perfectly good game
+    # markets and reporting the whole feed as down. One sub-source failing must
+    # cost exactly that sub-source.
+    poly_notes = []
+    dropped = 0
+    n_games = 0
+    poly_ok = 0
     try:
         rows = polymarket_nfl.fetch_champion_futures()
-        dropped = 0
         for r in rows:
             ab = to_abbrev(r["name"], names)
             if ab is None:
@@ -183,7 +191,12 @@ def main():
                 print(f"[warn] polymarket futures team unmapped: {r['name']}", file=sys.stderr)
                 continue
             futures["polymarket"].append({"team": ab, "prob": r["prob"], "slug": r["slug"]})
-        n_games = 0
+        poly_ok += 1
+    except Exception as exc:  # noqa: BLE001 — loud, isolated
+        poly_notes.append(f"futures: {exc}")
+        print(f"[warn] polymarket champion futures failed: {exc}", file=sys.stderr)
+
+    try:
         for gm in polymarket_nfl.fetch_game_markets():
             mapped = {}
             for nm, p in gm["prices"].items():
@@ -198,13 +211,26 @@ def main():
                     }
                     n_games += 1
                     break
+        poly_ok += 1
+    except Exception as exc:  # noqa: BLE001 — loud, isolated
+        poly_notes.append(f"games: {exc}")
+        print(f"[warn] polymarket game markets failed: {exc}", file=sys.stderr)
+
+    # Honest three-state roll-up: both halves up = ok, one up = degraded (and it
+    # says which half broke), neither = down and it counts as a source failure.
+    if poly_ok == 2:
         sources["polymarket"] = {"status": "ok",
                                  "rows": len(futures["polymarket"]) + n_games,
                                  "dropped_unmapped": dropped}
-    except Exception as exc:  # noqa: BLE001 — loud, isolated
-        failures.append(f"polymarket: {exc}")
-        sources["polymarket"] = {"status": "down", "rows": 0}
-        print(f"[warn] polymarket markets failed: {exc}", file=sys.stderr)
+    elif poly_ok == 1:
+        sources["polymarket"] = {"status": "degraded",
+                                 "rows": len(futures["polymarket"]) + n_games,
+                                 "dropped_unmapped": dropped,
+                                 "note": "; ".join(poly_notes)}
+    else:
+        failures.append(f"polymarket: {'; '.join(poly_notes)}")
+        sources["polymarket"] = {"status": "down", "rows": 0,
+                                 "note": "; ".join(poly_notes)}
 
     if len(failures) == 2:
         raise RuntimeError(f"both market sources failed: {failures}")

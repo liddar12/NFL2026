@@ -2477,3 +2477,25 @@ body.gate-locked { overflow: hidden; }
   display: block; font-family: var(--mono); font-size: 9px;
   letter-spacing: 0.08em; color: var(--brand-txt);
 }
+
+/* ---- MODEL · data freshness + update schedule (feeds card) ------------------
+ * Answers the question the topbar health chip raises but cannot: which feed,
+ * how stale, and how often it is meant to run. Same broadcast table idiom as
+ * the other MODEL cards; dot colors reuse the health tokens so a DEGRADED row
+ * here reads identically to the chip that sent the user looking.
+ */
+.pf-sum { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.pf-sum b { color: var(--ink); }
+.pf-tbl, .pf-sched { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+.pf-tbl th, .pf-sched th { text-align: left; font-size: 10px; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 0 8px 6px 0; border-bottom: 1px solid var(--border); }
+.pf-tbl td, .pf-sched td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.pf-tbl tr:last-child td, .pf-sched tr:last-child td { border-bottom: 0; }
+.pf-name { color: var(--ink); }
+.pf-age, .pf-rows { color: var(--muted); text-align: right; }
+.pf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.pf-ok { background: var(--pos); }
+.pf-stale, .pf-degraded { background: var(--warn); }
+.pf-down { background: var(--neg); }
+.pf-unconfigured { background: var(--border); }
+.pf-subhead { font-size: 10px; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
+.pf-cron { display: inline-block; margin-right: 8px; color: var(--ink); }
