@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "preseason_form.schema.json",
+  "title": "Preseason form — a capped, sample-scaled, decaying multiplier (Rel17 F7)",
+  "description": "Built by scripts/build_preseason.py from ESPN seasontype=1 (preseason) FINAL box scores. Preseason snaps are NOT true performance: starters sit or play a series and everyone is avoiding contact. So `adj` is clamped to 1 +/- constants.preseason_cap, scaled by a sample weight built from OPPORTUNITIES (ESPN publishes no snap counts), and multiplied by a decay that is EXACTLY 0.0 once a player's team has constants.decay_games FINAL regular-season games. Ships at registry weight 0.0. An unreachable feed, an unplayed preseason window, or a missing decay basis produces available:false with a reason and an EMPTY players map — never a fabricated or silently stale number.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "season",
+    "available",
+    "reason",
+    "estimate",
+    "caveat",
+    "sample_basis",
+    "constants",
+    "preseason_games_seen",
+    "max_rank_move",
+    "rank_guard_ok",
+    "players"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "season": {
+      "type": "integer",
+      "minimum": 2020
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "reason": {
+      "description": "Null when available; otherwise the honest reason the document is empty.",
+      "type": ["string", "null"]
+    },
+    "estimate": {
+      "description": "Always true. Preseason form is an estimate, never a measurement of real football.",
+      "type": "boolean",
+      "enum": [true]
+    },
+    "caveat": {
+      "description": "MANDATORY label. No surface may render an adj without this sentence.",
+      "type": "string",
+      "minLength": 40
+    },
+    "sample_basis": {
+      "description": "What the sample weight is actually measured in. ESPN's boxscore carries no participation data, so it is opportunities (pass attempts + rush attempts + targets), not snaps — and it must say so.",
+      "type": "string",
+      "enum": ["opportunities"]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preseason_cap",
+        "min_opportunities",
+        "decay_games",
+        "max_rank_move"
+      ],
+      "properties": {
+        "preseason_cap": {
+          "description": "Hard bound on |adj - 1|. Conservative by design; may not be raised without an owner decision.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.03
+        },
+        "min_opportunities": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "decay_games": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 17
+        },
+        "max_rank_move": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "preseason_games_seen": {
+      "description": "FINAL preseason games ingested. 0 with available:false.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_rank_move": {
+      "description": "MEASURED: the largest within-position rank move any top-100 projected player would suffer if every adj were applied at FULL strength (ignoring the registry weight). The owner rule 'must never flip a ranking on its own', made a number instead of an assumption.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "rank_guard_ok": {
+      "description": "max_rank_move <= constants.max_rank_move. The promotion gate must not grant this signal weight while it is false.",
+      "type": "boolean"
+    },
+    "players": {
+      "description": "Keyed by ESPN player id ('espn-<id>'). Empty when available is false.",
+      "type": "object",
+      "minProperties": 0,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "team",
+          "preseason_team",
+          "preseason_games",
+          "preseason_ppr",
+          "opportunities",
+          "prior_season_points",
+          "team_regular_finals",
+          "ratio",
+          "signal",
+          "sample",
+          "decay",
+          "adj",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "description": "The team whose FINAL regular-season game count drives this row's decay: the player's current projected team when known, else the team he suited up for in the preseason.",
+            "type": ["string", "null"]
+          },
+          "preseason_team": {
+            "type": ["string", "null"]
+          },
+          "preseason_games": {
+            "description": "FINAL preseason games in which THIS player has a box-score line — his games played, not his team's.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "preseason_ppr": {
+            "type": "number"
+          },
+          "opportunities": {
+            "description": "pass attempts + rush attempts + targets. NOT snaps.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "prior_season_points": {
+            "description": "Prior-season PPR points from data/player_history.json, or null when the player has no prior season — in which case adj is exactly 1.0 with reason 'no_baseline'.",
+            "type": ["number", "null"]
+          },
+          "team_regular_finals": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18
+          },
+          "ratio": {
+            "description": "Unclamped (preseason ppr/game) / (prior season points / 17). Null when no signal was computed. Kept visible so the clamp is auditable, never used directly.",
+            "type": ["number", "null"],
+            "minimum": 0
+          },
+          "signal": {
+            "description": "ratio clamped into [1 - cap, 1 + cap]. Null when no signal was computed.",
+            "type": ["number", "null"],
+            "minimum": 0.97,
+            "maximum": 1.03
+          },
+          "sample": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "decay": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "adj": {
+            "description": "1 + (signal - 1) * sample * decay. Hard-bounded by the cap; exactly 1.0 whenever reason is non-null or the decay has run out.",
+            "type": "number",
+            "minimum": 0.97,
+            "maximum": 1.03
+          },
+          "reason": {
+            "description": "Null when a real signal was computed; otherwise names why adj is exactly 1.0 ('no_baseline', 'no_preseason_opportunities').",
+            "type": ["string", "null"],
+            "enum": [null, "no_baseline", "no_preseason_opportunities"]
+          }
+        }
+      }
+    }
+  }
+}

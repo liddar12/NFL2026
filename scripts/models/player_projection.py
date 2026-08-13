@@ -49,6 +49,7 @@ _REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from scripts import availability                           # noqa: E402
 from scripts.signals.registry import SIGNALS               # noqa: E402
 from scripts.signals.aging import age_multiplier           # noqa: E402
 from scripts.signals.ol_dl import ol_dl_adjustment         # noqa: E402
@@ -64,16 +65,37 @@ _DEFAULT_GAMES = 17
 _POSITION_BAND = {"QB": 0.14, "RB": 0.22, "WR": 0.20, "TE": 0.24}
 
 # Injury-status -> (availability, effectiveness) discount. Availability scales games
-# played; effectiveness scales per-game output when they do play. healthy == neutral.
+# played; effectiveness scales per-game output when they do play. ACTIVE == neutral.
+#
+# REL17 (F4/F6): keyed on the CANONICAL vocabulary (scripts/availability.CODES), not on
+# whatever spelling a feed happened to hand us. The old table was keyed on lower-cased
+# free text — "ir" and "pup" were dead keys no feed has ever emitted, while the real
+# strings ("injury_reserve" from ESPN's fantasy API, "Injured Reserve" from its site
+# API) fell through .get() to the neutral default. That is F6: bands that could never
+# fire. Every lookup now goes through normalize_status, so a feed spelling is mapped
+# once, in one module, and a spelling nobody mapped stays None.
+#
+# NFI and SUSPENDED complete the table — they were simply missing before.
+#
+# This is a RAW adjustment; its influence is gated by the registry weight like every
+# other signal (0.0 today), so nothing here moves proj_points until the walk-forward
+# optimizer awards weight. How long a player is actually out is a FACT from a feed and
+# must not sit behind that gate — it lives in build_weekly's week zeroing instead.
 _INJURY_STATUS = {
-    "healthy": (1.00, 1.00),
-    "probable": (0.98, 1.00),
-    "questionable": (0.85, 0.95),
-    "doubtful": (0.35, 0.90),
-    "out": (0.00, 1.00),
-    "ir": (0.00, 1.00),
-    "pup": (0.50, 0.95),
+    availability.ACTIVE: (1.00, 1.00),
+    availability.QUESTIONABLE: (0.85, 0.95),
+    availability.DOUBTFUL: (0.35, 0.90),
+    availability.OUT: (0.00, 1.00),
+    availability.IR: (0.00, 1.00),
+    availability.PUP: (0.00, 1.00),
+    availability.NFI: (0.00, 1.00),
+    availability.SUSPENDED: (0.00, 1.00),
 }
+
+# Codes whose uncertainty widens the projection interval: a short-term tag nobody has
+# resolved yet, and every long-term absence (a return date is a guess until it happens).
+_BAND_WIDENING = frozenset({availability.QUESTIONABLE, availability.DOUBTFUL}
+                           | availability.SEASON_CLASS)
 
 # indoor_outdoor: season-long production nudge from the player's home environment. Dome
 # teams pass in controlled conditions all year; a small passing-game premium for
@@ -147,9 +169,12 @@ def compute_raw_signals(player, ctx=None):
             adjustments["target_competition"] = tc["multiplier"]
 
     # injury_status -------------------------------------------------------
-    status = player.get("injury_status")
-    if status:
-        avail, effect = _INJURY_STATUS.get(str(status).lower(), (1.0, 1.0))
+    # Normalize first: UNKNOWN IS NOT HEALTHY, but it is not a discount either — an
+    # unmapped spelling leaves the signal unset (no claim), and the loud complaint
+    # about the drift belongs at the scraper boundary and at the gate.
+    code = availability.normalize_status(player.get("injury_status"))
+    if code:
+        avail, effect = _INJURY_STATUS.get(code, (1.0, 1.0))
         # Season projection scales by BOTH availability (games) and effectiveness.
         adjustments["injury_status"] = avail * effect
 
@@ -180,9 +205,10 @@ def _interval_band(player, applied_signals):
     pos = str(player.get("position", "")).upper()
     band = _POSITION_BAND.get(pos, 0.20)
 
-    # Injury uncertainty widens the interval.
-    status = str(player.get("injury_status", "healthy")).lower()
-    if status in ("questionable", "doubtful", "pup"):
+    # Injury uncertainty widens the interval. Canonical codes only (Rel17): an
+    # unmapped or absent status is NEUTRAL — we do not widen on ignorance, and we
+    # certainly do not narrow on it.
+    if availability.normalize_status(player.get("injury_status")) in _BAND_WIDENING:
         band += 0.06
     if player.get("games_missed_rate", 0) and float(player["games_missed_rate"]) > 0.25:
         band += 0.04

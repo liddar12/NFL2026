@@ -19,6 +19,7 @@ TWO inherited invariants encoded here:
 
 import datetime as _dt
 
+from .. import availability
 from .renames import normalize_team
 
 # ESPN status.type.name values that mean "this game is over and the score is real".
@@ -241,11 +242,24 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
 
 
 def fetch_injuries(min_rows=1):
-    """Per-team injury reports. Returns list[dict]:
-    {team, player, status, detail}. Loud if the payload is structurally empty.
+    """Per-team injury reports, enriched with the canonical availability reading.
 
-    `status` is ESPN's designation (Out/Doubtful/Questionable/...) consumed by the
-    `injury_status` signal; the mapping to a discount lives in the signal, not here.
+    Returns list[dict]: {team, player, status, availability, availability_class,
+    weeks_out, out_for_season, confidence, evidence, detail}. Loud if the payload
+    is structurally empty.
+
+    `status` is ESPN's designation carried through VERBATIM — it is what the report
+    said, and build_weekly.INJURY_MULT's three keys are that exact spelling.
+    `availability` is the canonical code from scripts/availability.py, and the
+    duration fields are scripts/injury_duration.py's conservative parse of `detail`
+    (null whenever the text does not state a duration unambiguously — never a guess).
+
+    LOUD ON AN UNMAPPED STATUS, exactly as `_team_abbrev` is loud on an unmapped team.
+    A drifted availability string mis-attributes a fact the same way a drifted
+    abbreviation does: before Rel17 an unrecognised status silently multiplied by 1.0,
+    which is how players on injured reserve projected as fully healthy. The injuries
+    feed is already best-effort at the call site, so a refusal here degrades the run
+    visibly instead of poisoning it.
     """
     data = _get_json(_INJURIES_URL)
     groups = data.get("injuries") or []
@@ -258,16 +272,25 @@ def fetch_injuries(min_rows=1):
         team = normalize_team((grp.get("team") or {}).get("abbreviation") or grp.get("displayName"))
         for item in grp.get("injuries") or []:
             athlete = item.get("athlete") or {}
-            out.append(
-                {
-                    "team": team,
-                    "player": athlete.get("displayName"),
-                    "status": (item.get("status") or item.get("type") or {}).get("name")
-                    if isinstance(item.get("status"), dict)
-                    else item.get("status"),
-                    "detail": item.get("longComment") or item.get("shortComment"),
-                }
+            status = (
+                (item.get("status") or item.get("type") or {}).get("name")
+                if isinstance(item.get("status"), dict)
+                else item.get("status")
             )
+            if availability.normalize_status(status) is None:
+                raise FeedError(
+                    f"ESPN injury status {status!r} (for {team} "
+                    f"{athlete.get('displayName')!r}) did not map to a canonical "
+                    f"availability code. Add the spelling to scripts/availability.py "
+                    f"(and re-run the gate) before trusting this run — an unmapped "
+                    f"status is NOT 'active'."
+                )
+            out.append(availability.enrich({
+                "team": team,
+                "player": athlete.get("displayName"),
+                "status": status,
+                "detail": item.get("longComment") or item.get("shortComment"),
+            }))
     if len(out) < min_rows:
         raise FeedError(
             f"ESPN injuries produced {len(out)} rows (< {min_rows}); treating as an "

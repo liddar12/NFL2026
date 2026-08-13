@@ -12,7 +12,7 @@ scope on purpose (a validator you can read top-to-bottom is worth more here than
 a general one you can't audit). The keywords $schema/$id/title/description are
 metadata and ignored.
 
-Beyond per-file schema validation we assert two CROSS-FILE invariants that no
+Beyond per-file schema validation we assert three CROSS-FILE invariants that no
 single schema can express:
 
   1. meta.json's `weights` map contains EVERY registry signal name, each at
@@ -20,6 +20,12 @@ single schema can express:
   2. pipeline_status.json is HONEST: the overall `health` equals the worst
      per-feed status (ok < stale < degraded < down). You may not claim "ok"
      while a feed is broken — the silent-scraper-404 lesson, enforced.
+  3. player_weekly.json's AVAILABILITY story agrees with itself and with its two
+     sources (Rel17): the weekly points really are reduced by the blocked weeks,
+     a stated duration equals the applied one, and no player is flagged
+     unavailable without a matching row in data/injuries.json. See
+     check_weekly_availability — that last rule is the honest-data rule made
+     mechanical: the app may never show an IR badge no feed backs.
 
 Exit code 0 iff everything passes; non-zero with a clear, single-line-per-error
 message otherwise. The gate (tests/run_gate.sh) keys on this exit code.
@@ -74,6 +80,7 @@ SCHEMA_TO_DATA = {
     "weather_forecast.schema.json": "weather_forecast.json",
     "market_baseline.schema.json": "market_baseline.json",
     "injury_history.schema.json": "injury_history.json",
+    "injuries.schema.json": "injuries.json",
     "player_usage.schema.json": "player_usage.json",
     "player_usage_history.schema.json": "player_usage_history.json",
     "ros_backtest.schema.json": "ros_backtest.json",
@@ -288,6 +295,324 @@ def check_pipeline_health(status):
             "cannot report 'ok' while a feed is broken)" % (health, worst_label))
 
 
+# Mirrors scripts/availability.norm_name ("A.J. Brown" == "AJ Brown"). Duplicated
+# rather than imported ON PURPOSE: this validator keeps ZERO local imports so it
+# still runs while the scripts/ package is mid-edit, and — more importantly — a
+# cross-file checker that imported the producer's own helpers would be grading the
+# pipeline with the pipeline's own marking scheme. Two independent spellings of
+# the join key is the point.
+def _norm_name(name):
+    return " ".join(str(name or "").replace(".", "").lower().split())
+
+
+# The eight canonical availability codes (scripts/availability.CODES), mirrored as
+# a literal for the same reason as EXPECTED_SIGNALS above.
+_AVAIL_CODES = frozenset([
+    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED",
+])
+
+
+def check_weekly_availability(weekly, projections, injuries):
+    """Rel17: player_weekly.json's availability story must agree with itself.
+
+    Five rules, each one a bug this release fixed:
+
+      1. sum(non-bye pts) == proj_points * available_non_bye / total_non_bye
+         (+/-0.1) for EVERY player. This is F2: before Rel17 the weekly split
+         renormalized the blocked weeks away, so an injury only RESHAPED the
+         curve and the season total never moved. A player who will not take a
+         snap must not carry 100% of his season points — and equally, a merely
+         QUESTIONABLE player's total must still be preserved exactly.
+      2. out_for_season => every non-bye pts is exactly 0.0.
+      3. count(weeks with avail:false) == weeks_out, or every non-bye week when
+         out_for_season. `weeks_out` is a DURATION STATEMENT and `avail:false` is
+         its APPLIED CONSEQUENCE; this is what lets weeks[].avail stay the single
+         carrier for blocked weeks instead of a second, driftable array.
+      4. NO ORPHAN FLAGS: every player carrying an `availability` block has a
+         matching (team, normalized name) row in data/injuries.json whose
+         canonical code equals the flagged status. The honest-data rule made
+         mechanical — the app can never show an IR badge that no feed backs.
+      5. model.availability.unavailable == the count of class "season" players,
+         and season_points_removed == sum(season_points_lost) (+/-0.05).
+
+    `injuries` may be None (feed never fetched). That is not a failure in itself —
+    but it makes ANY availability flag an orphan, which rule 4 then reports.
+    """
+    problems = []
+    proj = {p["gsis_id"]: p for p in projections.get("players", [])}
+
+    # (team, normalized name) -> {canonical codes on that player's report rows}
+    report = {}
+    for row in (injuries or {}).get("injuries", []):
+        code = row.get("availability")
+        if not code:
+            continue  # unmapped rows are the smoke check's business, not ours
+        report.setdefault((row.get("team"), _norm_name(row.get("player"))),
+                          set()).add(code)
+
+    season_players = 0
+    season_ending = 0
+    points_lost = 0.0
+
+    for pl in weekly.get("players", []):
+        pid = pl.get("gsis_id")
+        weeks = pl.get("weeks", [])
+        non_bye = [w for w in weeks if not w.get("bye")]
+        blocked = [w for w in non_bye if w.get("avail") is False]
+        avail = pl.get("availability")
+
+        # A blocked week with no availability block is a flag with no story.
+        if blocked and not avail:
+            problems.append("%s: %d week(s) marked avail:false with no availability "
+                            "block" % (pid, len(blocked)))
+        if any(w.get("avail") is False for w in weeks if w.get("bye")):
+            problems.append("%s: a bye week is marked avail:false (bye and "
+                            "unavailable are deliberately distinguishable)" % pid)
+        for w in blocked:
+            if w.get("pts") != 0.0:
+                problems.append("%s: wk%s is avail:false but scores %r"
+                                % (pid, w.get("wk"), w.get("pts")))
+
+        # --- rule 1 -----------------------------------------------------------
+        record = proj.get(pid)
+        if record is None:
+            problems.append("%s: in player_weekly.json but not in "
+                            "player_projections.json" % pid)
+        elif non_bye:
+            target = record["proj_points"] * (len(non_bye) - len(blocked)) / len(non_bye)
+            total = sum(w.get("pts", 0.0) for w in non_bye)
+            if abs(total - target) > 0.1:
+                problems.append(
+                    "%s: non-bye weeks sum to %.2f, expected %.2f (proj %.2f * %d "
+                    "playable / %d non-bye)"
+                    % (pid, total, target, record["proj_points"],
+                       len(non_bye) - len(blocked), len(non_bye)))
+
+        if not avail:
+            continue
+
+        # --- rule 4 -----------------------------------------------------------
+        if record is not None:
+            key = (record.get("team"), _norm_name(record.get("name")))
+            codes = report.get(key)
+            if codes is None:
+                problems.append(
+                    "%s (%s %s): flagged %s with NO matching row in "
+                    "data/injuries.json — you may not mark a player unavailable "
+                    "without a source row"
+                    % (pid, record.get("team"), record.get("name"),
+                       avail.get("status")))
+            elif avail.get("status") not in codes:
+                problems.append(
+                    "%s (%s %s): flagged %s but data/injuries.json says %s"
+                    % (pid, record.get("team"), record.get("name"),
+                       avail.get("status"), sorted(codes)))
+        if avail.get("status") not in _AVAIL_CODES:
+            problems.append("%s: availability.status %r is not a canonical code"
+                            % (pid, avail.get("status")))
+
+        if avail.get("class") != "season":
+            if blocked:
+                problems.append("%s: class %r blocked %d week(s) — only the season "
+                                "class may zero weeks" % (pid, avail.get("class"),
+                                                          len(blocked)))
+            continue
+
+        # --- season class: rules 2, 3, 5 --------------------------------------
+        # FLAG-ONLY ROW. build_weekly emits exactly {status, class} — and NONE of
+        # the five season keys — for a season-class status that blocked nothing:
+        # a suspension whose length was never announced. It states no duration, so
+        # there is nothing to reconcile against `avail:false` and nothing for the
+        # model summary to count. Enforcing rules 3 and 5 on it reds the gate on a
+        # document the producer emits by design (and the schema allows: only
+        # `status` and `class` are required). Deliberately tight — the two-key
+        # shape with zero blocked weeks and nothing else.
+        if set(avail) == {"status", "class"} and not blocked:
+            continue
+
+        season_players += 1
+        points_lost += float(avail.get("season_points_lost") or 0.0)
+        if avail.get("out_for_season"):
+            season_ending += 1
+            if any(w.get("pts") != 0.0 for w in non_bye):
+                problems.append("%s: out_for_season but some non-bye week still "
+                                "scores" % pid)
+            if len(blocked) != len(non_bye):
+                problems.append("%s: out_for_season but only %d of %d non-bye weeks "
+                                "are avail:false" % (pid, len(blocked), len(non_bye)))
+            if avail.get("weeks_out") is not None:
+                problems.append("%s: out_for_season must not also state weeks_out "
+                                "(%r)" % (pid, avail.get("weeks_out")))
+        else:
+            if avail.get("weeks_out") != len(blocked):
+                problems.append(
+                    "%s: weeks_out %r != %d week(s) actually marked avail:false — a "
+                    "duration statement and its applied consequence must agree"
+                    % (pid, avail.get("weeks_out"), len(blocked)))
+        if avail.get("confidence") == "explicit" and not avail.get("evidence"):
+            problems.append("%s: confidence 'explicit' with no evidence sentence to "
+                            "quote" % pid)
+        if avail.get("confidence") == "rule" and avail.get("evidence"):
+            problems.append("%s: confidence 'rule' means nothing was stated, so it "
+                            "may not carry evidence" % pid)
+
+    # --- rule 5 ---------------------------------------------------------------
+    model = (weekly.get("model") or {}).get("availability")
+    if season_players and not model:
+        problems.append("%d season-class player(s) but model.availability is absent"
+                        % season_players)
+    elif model and not season_players:
+        problems.append("model.availability claims %r unavailable but no player "
+                        "carries a season-class block" % model.get("unavailable"))
+    elif model:
+        if model.get("unavailable") != season_players:
+            problems.append("model.availability.unavailable %r != %d season-class "
+                            "player(s)" % (model.get("unavailable"), season_players))
+        if model.get("season_ending") != season_ending:
+            problems.append("model.availability.season_ending %r != %d"
+                            % (model.get("season_ending"), season_ending))
+        removed = float(model.get("season_points_removed") or 0.0)
+        if abs(removed - points_lost) > 0.05:
+            problems.append("model.availability.season_points_removed %.2f != "
+                            "%.2f summed over players" % (removed, points_lost))
+
+    if problems:
+        raise ValidationError("player_weekly.json availability invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+# ---------------------------------------------------------------------------
+# Selftest — a check nobody has watched fail is a check that might do nothing.
+# ---------------------------------------------------------------------------
+
+def _fixture(blocked=0, weeks_out=None, out_for_season=False, klass="season"):
+    """A one-player weekly/projections/injuries triple, valid by construction.
+
+    Season 100.0 over 17 non-bye weeks (wk18 is the bye), `blocked` of them zeroed,
+    the rest carrying an equal share of the availability-adjusted target.
+    """
+    non_bye, share = 17, 0.0
+    playable = non_bye - blocked
+    if playable:
+        share = round(100.0 * playable / non_bye / playable, 2)
+    weeks = []
+    for wk in range(1, 19):
+        if wk == 18:
+            weeks.append({"wk": wk, "opp": None, "home": False, "bye": True, "pts": 0.0})
+        elif wk <= blocked:
+            weeks.append({"wk": wk, "opp": "SEA", "home": True, "bye": False,
+                          "pts": 0.0, "avail": False})
+        else:
+            weeks.append({"wk": wk, "opp": "SEA", "home": True, "bye": False,
+                          "pts": share})
+    avail = {"status": "IR" if klass == "season" else "QUESTIONABLE", "class": klass}
+    if klass == "season":
+        avail.update({"weeks_out": weeks_out, "out_for_season": out_for_season,
+                      "confidence": "rule", "evidence": None,
+                      "season_points_lost": round(100.0 * blocked / non_bye, 2)})
+    model = {"name": "weekly_split_v1"}
+    if klass == "season" and blocked:
+        model["availability"] = {
+            "applied": True, "vocab_version": 1, "unavailable": 1,
+            "season_ending": 1 if out_for_season else 0, "min_weeks_rule": 4,
+            "season_points_removed": avail["season_points_lost"]}
+    weekly = {"model": model,
+              "players": [{"gsis_id": "espn-1", "availability": avail, "weeks": weeks}]}
+    projections = {"players": [{"gsis_id": "espn-1", "name": "A.J. Hurt",
+                                "team": "SF", "proj_points": 100.0}]}
+    injuries = {"injuries": [{"team": "SF", "player": "AJ Hurt",
+                              "status": "Injured Reserve" if klass == "season"
+                              else "Questionable",
+                              "availability": "IR" if klass == "season"
+                              else "QUESTIONABLE"}]}
+    return weekly, projections, injuries
+
+
+def _selftest():
+    def ok(w, p, i, why):
+        check_weekly_availability(w, p, i)  # must not raise
+
+    def red(w, p, i, why):
+        try:
+            check_weekly_availability(w, p, i)
+        except ValidationError:
+            return
+        raise AssertionError("check_weekly_availability did NOT catch: " + why)
+
+    # Healthy baselines pass: a season-class block with the rule floor, a week-class
+    # ding that blocks nothing, and a full season-ending absence.
+    ok(*_fixture(blocked=4, weeks_out=4), why="rule-floor IR")
+    ok(*_fixture(blocked=0, klass="week"), why="questionable, nothing blocked")
+    ok(*_fixture(blocked=17, out_for_season=True), why="out for the year")
+
+    # F2 — the defect this release exists to kill: an unavailable player whose weeks
+    # were renormalized back up to the full season total.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    for wk in w["players"][0]["weeks"]:
+        if not wk["bye"] and wk["pts"]:
+            wk["pts"] = round(100.0 / 13, 2)
+    red(w, p, i, "blocked weeks renormalized away (season total never dropped)")
+
+    # Rule 2 — out_for_season while still scoring.
+    w, p, i = _fixture(blocked=17, out_for_season=True)
+    w["players"][0]["weeks"][0]["pts"] = 5.0
+    red(w, p, i, "out_for_season with a scoring week")
+
+    # Rule 3 — the duration statement and its applied consequence disagree.
+    w, p, i = _fixture(blocked=4, weeks_out=6)
+    red(w, p, i, "weeks_out 6 but only 4 weeks blocked")
+
+    # Rule 4 — an IR badge no feed backs, and one the feed contradicts.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    red(w, p, {"injuries": []}, "availability flag with no source row")
+    red(w, p, None, "availability flag with no injuries feed at all")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    i["injuries"][0]["availability"] = "QUESTIONABLE"
+    red(w, p, i, "flagged IR while the report says QUESTIONABLE")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    i["injuries"][0]["player"] = "Someone Else"
+    red(w, p, i, "join on the wrong player")
+
+    # Rule 5 — the headline must equal what happened.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    w["model"]["availability"]["season_points_removed"] = 0.0
+    red(w, p, i, "model claims 0.0 points removed while a player lost 23.53")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    del w["model"]["availability"]
+    red(w, p, i, "season-class player with no model.availability summary")
+
+    # A week-class ding may shape, never block.
+    w, p, i = _fixture(blocked=4, weeks_out=4, klass="week")
+    i["injuries"][0]["availability"] = "QUESTIONABLE"
+    red(w, p, i, "week-class status zeroing weeks")
+
+    # A blocked week with no story at all.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    del w["players"][0]["availability"]
+    red(w, p, i, "avail:false week with no availability block")
+
+    # FLAG-ONLY: a suspension of unannounced length blocks nothing and claims
+    # nothing. build_weekly emits exactly {status, class} here, so the validator
+    # must accept it — and must still red the moment it blocks a week or half-
+    # states a duration.
+    w, p, i = _fixture(blocked=0, weeks_out=None)
+    w["players"][0]["availability"] = {"status": "SUSPENDED", "class": "season"}
+    w["model"].pop("availability", None)
+    i["injuries"][0]["availability"] = "SUSPENDED"
+    i["injuries"][0]["status"] = "Suspension"
+    ok(w, p, i, why="season-class flag that blocked nothing")
+    w["players"][0]["availability"]["weeks_out"] = 3
+    red(w, p, i, "a duration stated while nothing was blocked")
+
+    # The join must survive punctuation ("A.J." vs "AJ") — it did above, in every
+    # passing case; assert the negative so a no-op _norm_name cannot hide.
+    assert _norm_name("A.J. Brown") == _norm_name("AJ  brown") == "aj brown"
+
+    print("selftest OK: availability cross-file invariant catches renormalized "
+          "blocked weeks, duration/consequence drift, orphan flags and a dishonest "
+          "model summary")
+
+
 # ---------------------------------------------------------------------------
 # Driver.
 # ---------------------------------------------------------------------------
@@ -359,6 +684,16 @@ def main():
         print("ok    pipeline_status.json health honesty invariant")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
+    try:
+        inj_path = os.path.join(DATA, "injuries.json")
+        check_weekly_availability(
+            _load(os.path.join(DATA, "player_weekly.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+            _load(inj_path) if os.path.exists(inj_path) else None,
+        )
+        print("ok    player_weekly.json availability cross-file invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
 
     if failures:
         print("\nVALIDATION FAILED (%d):" % len(failures), file=sys.stderr)
@@ -370,4 +705,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        _selftest()
+        sys.exit(0)
     sys.exit(main())

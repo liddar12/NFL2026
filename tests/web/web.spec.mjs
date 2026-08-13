@@ -1304,3 +1304,268 @@ test.describe('Rel16 bug fixes', () => {
     await expect(page.locator('.state')).toContainText('same player');
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * REL17 — PLAYER AVAILABILITY on the app surfaces (F3 + the visible half of
+ * F1/F2/F5). BUILD-B.
+ *
+ * These drive the UI against an INJECTED data/player_weekly.json so they prove
+ * the behaviour both BEFORE and AFTER the pipeline lands the availability block
+ * in the committed data — the view must work either way, and the last case
+ * asserts the honest degrade explicitly.
+ * ------------------------------------------------------------------------- */
+
+test.describe('availability on Lineup + Compare (REL17)', () => {
+  /** Roster + the ids the availability fixtures are attached to. */
+  function seedAvail() {
+    const proj = readData('player_projections.json');
+    const ps = proj.players;
+    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos)
+      .slice(0, n).map((p) => String(p.gsis_id));
+    const nameOf = (id) => String(ps.find((p) => String(p.gsis_id) === id).name);
+    const qb = pick('QB', 1); const rb = pick('RB', 4); const wr = pick('WR', 4); const te = pick('TE', 2);
+    return { qb, rb, wr, te, nameOf };
+  }
+
+  /**
+   * Serve data/player_weekly.json with `mutate(doc)` applied. `mutate` receives
+   * the REAL committed document, so the rest of the app keeps working on real
+   * numbers and only availability is under test.
+   */
+  async function withWeekly(page, mutate) {
+    const doc = readData('player_weekly.json');
+    mutate(doc);
+    await page.route('**/data/player_weekly.json', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(doc),
+    }));
+  }
+
+  /** Attach an availability block + blocked weeks to one player, in-place. */
+  function flag(doc, id, availability, blockedWeeks) {
+    const row = doc.players.find((p) => String(p.gsis_id) === String(id));
+    if (!row) throw new Error(`fixture player ${id} missing from player_weekly.json`);
+    row.availability = availability;
+    for (const w of row.weeks) {
+      if (!w.bye && (blockedWeeks === 'all' || blockedWeeks.includes(Number(w.wk)))) {
+        w.pts = 0.0;
+        w.avail = false;
+      }
+    }
+    return row;
+  }
+
+  const SEASON_IR = {
+    status: 'IR',
+    class: 'season',
+    weeks_out: null,
+    out_for_season: true,
+    confidence: 'explicit',
+    evidence: 'He will officially miss his entire season due to the LCL tear suffered in practice.',
+    season_points_lost: 88.6,
+  };
+  const RULE_IR = {
+    status: 'IR',
+    class: 'season',
+    weeks_out: 4,
+    out_for_season: false,
+    confidence: 'rule',
+    evidence: null,
+    season_points_lost: 20.87,
+  };
+
+  test('an IR player is DEMOTED to the bench, never silently auto-started', async ({ page }) => {
+    const { qb, rb, wr, te, nameOf } = seedAvail();
+    // The manager's WR1 — his highest-projected WR — lands on IR for the season.
+    await withWeekly(page, (doc) => flag(doc, wr[0], SEASON_IR, 'all'));
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: rb[2],
+      BN1: wr[2], BN2: rb[3], BN3: te[1], BN4: wr[3], BN5: null, BN6: null,
+    };
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+
+    // The 7-starter lock is PRESERVED — demotion fills the slot from elsewhere.
+    const optimalCard = page.locator('.lu-card').first();
+    expect(await optimalCard.locator('.lu-row').count()).toBe(7);
+    // ...and the IR receiver is not one of them.
+    expect(await optimalCard.innerText()).not.toContain(nameOf(wr[0]));
+
+    // He is on the bench, receded, carrying an OUT-tone chip that says IR.
+    const bench = page.locator('.lu-card').last();
+    expect(await bench.innerText()).toContain(nameOf(wr[0]));
+    const chip = bench.locator('.av-chip--out').first();
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toContainText('IR');
+    await expect(chip).toContainText('SEASON');          // SEASON beats a number
+    await expect(chip).toHaveAttribute('title', /Injured Reserve/);
+    expect(await bench.locator('.lu-row--unavail').count()).toBeGreaterThanOrEqual(1);
+    // Display and the card total can never disagree: he scores 0.0, like a bye.
+    const unavailRow = bench.locator('.lu-row--unavail').first();
+    await expect(unavailRow.locator('.lu-pts')).toHaveText('0.0');
+
+    // START/SIT explains WHY, above the points: reason first.
+    const notes = page.locator('.lu-swapnote');
+    expect(await notes.count()).toBeGreaterThanOrEqual(1);
+    const noteText = await notes.first().innerText();
+    expect(noteText).toContain(nameOf(wr[0]));
+    expect(noteText).toContain('is on IR for the season');
+    expect(noteText).toContain('starts at WR1 instead');
+    // The optimizer must never RECOMMEND starting him — the literal F3 defect.
+    const movesCard = page.locator('.lu-card').nth(1);
+    const startRows = await movesCard.locator('.lu-move-in').allInnerTexts();
+    for (const t of startRows) expect(t).not.toContain(nameOf(wr[0]));
+  });
+
+  test('a league-rule floor reads "4+ WKS" with LEAGUE MIN provenance, never a bare 4', async ({ page }) => {
+    const { qb, rb, wr, te, nameOf } = seedAvail();
+    await withWeekly(page, (doc) => flag(doc, wr[0], RULE_IR, [1, 2, 3, 4]));
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: rb[2],
+      BN1: wr[2], BN2: rb[3], BN3: te[1], BN4: wr[3], BN5: null, BN6: null,
+    };
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+    // Week 1 is inside the blocked window regardless of the live week.
+    await page.locator('.wk-chip[data-wk="1"]').click();
+    await page.waitForSelector('.av-chip--out', { timeout: 8000 });
+
+    const chip = page.locator('.av-chip--out').first();
+    await expect(chip).toContainText('4+ WKS');   // the "+" is load-bearing
+    await expect(chip).not.toContainText('SEASON');
+    await expect(chip).toHaveAttribute('title', /league minimum 4 games; no return date reported/);
+    // Provenance is present in the DOM (the phone hides the tag via CSS; the
+    // prose and the title carry it there) and it is the MIN tag, not REPORT.
+    await expect(page.locator('.av-prov--min')).toHaveCount(1);
+    await expect(page.locator('.av-prov--report')).toHaveCount(0);
+    // The prose carries the provenance too: "at least" only ever means the floor.
+    const note = await page.locator('.lu-swapnote').first().innerText();
+    expect(note).toContain('out at least 4 more weeks');
+    expect(note).toContain(nameOf(wr[0]));
+
+    // Week 9 is outside the window — he is startable again with no chip.
+    await page.locator('.wk-chip[data-wk="9"]').click();
+    await page.waitForTimeout(150);
+    expect(await page.locator('.av-chip').count()).toBe(0);
+    expect(await page.locator('.lu-card').first().innerText()).toContain(nameOf(wr[0]));
+  });
+
+  test('a FORCED start is filled, flagged, and never called "optimal"', async ({ page }) => {
+    const { qb, rb, wr, te, nameOf } = seedAvail();
+    // Both rostered RBs are on IR in the same week and there is no RB behind them.
+    await withWeekly(page, (doc) => {
+      flag(doc, rb[0], SEASON_IR, 'all');
+      flag(doc, rb[1], SEASON_IR, 'all');
+    });
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: wr[2],
+      BN1: null, BN2: null, BN3: null, BN4: null, BN5: null, BN6: null,
+    };
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+
+    const optimalCard = page.locator('.lu-card').first();
+    // Still exactly 7 starter rows — the slot is FILLED, not emptied.
+    expect(await optimalCard.locator('.lu-row').count()).toBe(7);
+    // One shouting banner per forced slot, and the row does NOT recede.
+    expect(await page.locator('.lu-forced').count()).toBe(2);
+    expect(await optimalCard.locator('.lu-row--forced').count()).toBe(2);
+    const banner = await page.locator('.lu-forced').first().innerText();
+    expect(banner).toContain('No available RB on your bench');
+    expect(banner).toContain('Check the waiver wire');
+    expect(banner).toContain(nameOf(rb[0]));
+
+    // "Already optimal" would be a lie over a lineup containing a player who
+    // cannot take a snap. It is suppressed, and replaced honestly.
+    const body = await page.locator('#lineup-body').innerText();
+    expect(body).not.toContain('already optimal');
+    await expect(page.locator('.lu-optimal.lu-gap')).toHaveCount(1);
+    expect(await page.locator('.lu-optimal.lu-gap').innerText())
+      .toContain('best your roster allows');
+    // The REL15 lock (`.lu-move, .lu-optimal` >= 1) is preserved by the class pair.
+    expect(await page.locator('.lu-move, .lu-optimal').count()).toBeGreaterThanOrEqual(1);
+  });
+
+  test('compare puts AVAILABILITY above PROJ and quotes the team report', async ({ page }) => {
+    const { rb, wr } = seedAvail();
+    await withWeekly(page, (doc) => flag(doc, wr[0], SEASON_IR, 'all'));
+    await page.goto(`/#/compare?a=${wr[0]}&b=${rb[0]}`);
+    await page.waitForSelector('.cmp-grid', { timeout: 8000 });
+
+    // Both columns render the row, so the centre rail stays aligned...
+    await expect(page.locator('.cmp-metric--avail')).toHaveCount(2);
+    // ...and AVAILABILITY is the FIRST metric row, above PROJ PTS.
+    const firstLabel = await page.locator('.cmp-col').first().locator('.cmp-lbl').first().innerText();
+    expect(firstLabel).toBe('AVAILABILITY');
+    // The healthy side is plain muted ACTIVE text — no chip, no green badge.
+    await expect(page.locator('.cmp-avail-ok')).toHaveCount(1);
+    await expect(page.locator('.cmp-avail-ok')).toHaveText('ACTIVE');
+    // The IR side carries the full-density chip WITH its provenance tag visible.
+    await expect(page.locator('.cmp-metric--avail .av-chip--out')).toHaveCount(1);
+    await expect(page.locator('.av-prov--report')).toHaveCount(1);
+    await expect(page.locator('.av-prov--report')).toHaveText('REPORT');
+    // PROJ stays the healthy prior, and the app SAYS so rather than looking buggy.
+    expect(await page.locator('.cmp-metric--avail').first().innerText())
+      .toContain('RoS VALUE is the availability-adjusted number');
+
+    // The payoff for a scraped detail that used to be thrown away: the sentence.
+    await expect(page.locator('.cmp-evid')).toHaveCount(1);
+    await expect(page.locator('.cmp-evid-lbl')).toHaveText('WHY · TEAM REPORT');
+    expect(await page.locator('.cmp-evid').innerText()).toContain('miss his entire season');
+
+    // Centre rail gains an AVAIL edge naming the side that can actually play.
+    const mid = page.locator('.cmp-mid');
+    expect(await mid.locator('.cmp-edge').count()).toBeGreaterThanOrEqual(5);
+    const availEdge = mid.locator('.cmp-edge').first();
+    await expect(availEdge).toContainText('AVAIL');
+    await expect(availEdge.locator('.cmp-win--b')).toContainText('plays');
+  });
+
+  test('a league-rule IR gets NO evidence quote — there is no report to quote', async ({ page }) => {
+    const { rb, wr } = seedAvail();
+    await withWeekly(page, (doc) => flag(doc, wr[0], RULE_IR, [1, 2, 3, 4]));
+    await page.goto(`/#/compare?a=${wr[0]}&b=${rb[0]}`);
+    await page.waitForSelector('.cmp-grid', { timeout: 8000 });
+    await expect(page.locator('.cmp-metric--avail')).toHaveCount(2);
+    // LEAGUE MIN says "we applied the league's floor"; a generic sentence under
+    // WHY · TEAM REPORT would be fabrication.
+    await expect(page.locator('.cmp-evid')).toHaveCount(0);
+    await expect(page.locator('.av-prov--report')).toHaveCount(0);
+  });
+
+  test('a feed with NO availability degrades honestly — no chips, nothing blank', async ({ page }) => {
+    const { qb, rb, wr, te } = seedAvail();
+    // Simulate a deploy that predates the availability pipeline: strip every
+    // availability block and every avail flag from the document.
+    await withWeekly(page, (doc) => {
+      if (doc.model) delete doc.model.availability;
+      for (const p of doc.players) {
+        delete p.availability;
+        for (const w of p.weeks) delete w.avail;
+      }
+    });
+    const slots = {
+      QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: rb[2],
+      BN1: wr[2], BN2: rb[3], BN3: te[1], BN4: wr[3], BN5: null, BN6: null,
+    };
+    await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+    expect(await page.locator('.lu-card').first().locator('.lu-row').count()).toBe(7);
+    expect(await page.locator('.av-chip').count()).toBe(0);
+    expect(await page.locator('.lu-forced, .lu-swapnote, .lu-gap').count()).toBe(0);
+    await expect(page.locator('.lu-total').first()).toContainText('pts');
+
+    // Compare still renders both columns, with ACTIVE on each side.
+    await page.goto(`/#/compare?a=${wr[0]}&b=${rb[0]}`);
+    await page.waitForSelector('.cmp-grid', { timeout: 8000 });
+    await expect(page.locator('.cmp-metric--avail')).toHaveCount(2);
+    await expect(page.locator('.cmp-avail-ok')).toHaveCount(2);
+    await expect(page.locator('.cmp-evid')).toHaveCount(0);
+    await expect(page.locator('.av-chip')).toHaveCount(0);
+  });
+});

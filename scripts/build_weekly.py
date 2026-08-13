@@ -10,22 +10,42 @@ The model — a transparent prior, NOT fitted:
   base  = season_proj / games_scheduled (the team's non-bye week count, usually 17)
   tilt  = 1 + TILT_COEF * (team_elo - opp_elo) / 400, clamped to [0.75, 1.25]
   venue = 1 +/- HOME_COEF (home 1.02, away 0.98)
-  then every player's non-bye weeks are renormalized to sum EXACTLY to the season
-  projection — the tilt REDISTRIBUTES points across weeks, it never inflates them.
+  then the weeks the player CAN PLAY are renormalized to sum exactly to his
+  availability-adjusted season target — the tilt REDISTRIBUTES points across
+  those weeks, it never inflates them.
 
 TILT_COEF is recorded in the output meta on purpose: it is the parameter the P2
 optimizer refits in-season against resolved weekly snapshot locks (NEVER-REGRESS
 gated). Every row stays estimate=true until the harness proves otherwise.
 
-INJURY SHAPING (documented prior, NOT fitted): data/injuries.json statuses map
-to a multiplier on the FIRST 3 non-bye weeks only (Out 0.55, Doubtful 0.7,
-Questionable 0.9, anything else 1.0 — an injury report is near-term news, so it
-shapes the near-term weeks and nothing beyond them). The split is then
-renormalized so the 18-week total still equals the season projection EXACTLY:
-the season projection is the honest prior; injuries shift shape, never total.
+TWO DISTINCT INJURY MECHANICS, and conflating them was the Rel17 defect.
+scripts/availability.py owns the vocabulary that tells them apart.
+
+  (a) WEEK-SHAPING — short-term news (Questionable / Doubtful / Out this week).
+      data/injuries.json statuses map to a multiplier on the FIRST 3 weeks the
+      player can play (Out 0.55, Doubtful 0.7, Questionable 0.9). The split is
+      then renormalized so the season total is preserved EXACTLY: a questionable
+      player is still going to play a full season, so the injury shifts the SHAPE
+      toward the healthy back weeks and nothing else. This is unchanged, and it is
+      correct for its case.
+
+  (b) UNAVAILABILITY — long-term absence (IR / PUP / NFI / suspension, or any
+      status whose report text states an unambiguous duration). The blocked weeks
+      are zeroed and EXCLUDED from the renormalization, so the season total
+      ACTUALLY DROPS, pro-rata to the games the player can play. Before Rel17
+      mechanic (a) was the only one that existed, which meant an injury merely
+      RESHAPED the curve and a player who will not take a snap all year still
+      carried 100% of his season points.
+
+  A season-class player with no parsed duration falls to the documented four-game
+  league floor (availability.MIN_WEEKS_OUT), stamped confidence="rule" so no
+  surface can present a floor as a measurement. A suspension of unstated length
+  blocks NOTHING and is flagged only — we do not know how long, and honest data
+  beats a convenient guess.
+
 When injuries.json is absent or empty the output is byte-identical to the
-injury-free build, and the model meta records injury_shape only when at least
-one player's split was actually shaped.
+injury-free build, and the model meta records injury_shape / availability only
+when at least one player was actually shaped / actually blocked.
 
 INVARIANT: output player order mirrors data/player_projections.json exactly
 (same ids, same order) — the app zips the two files by index.
@@ -33,16 +53,39 @@ INVARIANT: output player order mirrors data/player_projections.json exactly
 
 import json
 import os
+import sys
 
 _THIS = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from scripts import availability  # noqa: E402
+
 INJURIES_PATH = os.path.join(_ROOT, "data", "injuries.json")
 
 WEEKS = 18
-INJURY_WEEKS = 3    # injury shaping horizon: the FIRST 3 non-bye weeks only
+INJURY_WEEKS = 3    # injury shaping horizon: the FIRST 3 PLAYABLE non-bye weeks
 # status -> near-term availability multiplier (documented prior, NOT fitted).
-# Statuses outside this map (Active, Injured Reserve, ...) multiply by 1.0.
+# Verbatim ESPN spellings, deliberately unchanged: the canonical reading is derived
+# from this table below, never the other way round.
 INJURY_MULT = {"Out": 0.55, "Doubtful": 0.7, "Questionable": 0.9}
+# The same prior re-keyed onto the canonical vocabulary, DERIVED so the two can
+# never drift. Anything outside it (ACTIVE, and every season-class code — those are
+# handled by mechanic (b), not by a multiplier) multiplies by 1.0 and is dropped.
+INJURY_MULT_CANON = {availability.normalize_status(k): v
+                     for k, v in INJURY_MULT.items()}
+# A None key here would be catastrophic and silent: injury_multipliers looks up an
+# unrecognised status as None, so an unmappable INJURY_MULT key would hand EVERY
+# unknown status that key's discount. Refuse to import instead.
+assert None not in INJURY_MULT_CANON, (
+    f"INJURY_MULT has a status scripts/availability.py cannot read: "
+    f"{sorted(k for k in INJURY_MULT if availability.normalize_status(k) is None)}"
+)
+assert set(INJURY_MULT_CANON) <= availability.WEEK_CLASS, (
+    "INJURY_MULT is mechanic (a) only — a season-class code must reduce the total "
+    "via unavailability(), not merely reshape the curve via a multiplier."
+)
 TILT_COEF = 0.5     # Elo-tilt strength; the optimizer-refit parameter (see above)
 HOME_COEF = 0.02    # home 1.02 / away 0.98
 TILT_MIN = 0.75     # clamp so one lopsided matchup can't swallow the season
@@ -72,8 +115,11 @@ def load_injuries(path=INJURIES_PATH):
 
 
 def _norm_name(name):
-    """Casefold + strip periods so 'A.J. Brown' joins 'AJ Brown'."""
-    return " ".join(str(name or "").replace(".", "").lower().split())
+    """Casefold + strip periods so 'A.J. Brown' joins 'AJ Brown'.
+
+    Delegates to scripts.availability so the join key has ONE definition.
+    """
+    return availability.norm_name(name)
 
 
 def injury_multipliers(projections, injuries):
@@ -83,10 +129,15 @@ def injury_multipliers(projections, injuries):
     keeps the WORST (lowest) multiplier. Statuses outside INJURY_MULT map to
     1.0 and are dropped, so an all-Active report is a clean no-op and only the
     players actually shaped are returned (their count is statuses_used).
+
+    Lookup runs through the canonical vocabulary, so an unrecognised spelling and
+    a season-class status alike fall to 1.0 exactly as before — mechanic (b), not
+    a multiplier, is what handles a long-term absence.
     """
     by_key = {}
     for row in injuries or []:
-        mult = INJURY_MULT.get(row.get("status"), 1.0)
+        code = availability.normalize_status(row.get("status"))
+        mult = INJURY_MULT_CANON.get(code, 1.0)
         if mult >= 1.0:
             continue
         key = (row.get("team"), _norm_name(row.get("player")))
@@ -97,6 +148,60 @@ def injury_multipliers(projections, injuries):
         if mult is not None:
             out[p["gsis_id"]] = mult
     return out
+
+
+def unavailability(projections, injuries):
+    """{gsis_id: availability view} for projected players who are NOT active.
+
+    Sibling to injury_multipliers and joined the same way (team + normalized name,
+    worst report row wins). The view carries the canonical status, its mechanic
+    class, and — for a season-class absence — the parsed duration and the sentence
+    that stated it:
+
+        {"status", "class", "weeks_out", "out_for_season", "confidence", "evidence"}
+
+    Rows whose status does not normalize are dropped by index_report: unknown is
+    not a discount, and the loud complaint about the drift belongs at the scraper
+    and at the gate, never in a silent consumer.
+    """
+    index = availability.index_report(injuries)
+    out = {}
+    for p in projections:
+        view = index.get((p.get("team"), _norm_name(p.get("name"))))
+        if not view or view["availability"] == availability.ACTIVE:
+            continue
+        cls = view.get("availability_class")
+        if cls is None:
+            continue
+        out[p["gsis_id"]] = {
+            "status": view["availability"],
+            "class": cls,
+            "weeks_out": view.get("weeks_out"),
+            "out_for_season": bool(view.get("out_for_season")),
+            "confidence": view.get("confidence"),
+            "evidence": view.get("evidence"),
+        }
+    return out
+
+
+def blocked_week_count(view):
+    """(weeks_to_block, confidence) for one availability view. Never a guess.
+
+    out_for_season          -> every remaining non-bye week      ("explicit")
+    weeks_out: N            -> N                                 ("explicit")
+    IR / PUP / NFI, no text -> availability.MIN_WEEKS_OUT        ("rule")
+    SUSPENDED, no text      -> 0, flagged only                   (None)
+    class "week"            -> 0 (shaping only)                  (None)
+    """
+    if view is None or view.get("class") != "season":
+        return 0, None
+    if view.get("out_for_season"):
+        return WEEKS, "explicit"          # truncated to the real non-bye count
+    if view.get("weeks_out"):
+        return int(view["weeks_out"]), "explicit"
+    if view.get("status") in (availability.IR, availability.PUP, availability.NFI):
+        return availability.MIN_WEEKS_OUT, "rule"
+    return 0, None                        # SUSPENDED of unstated length
 
 
 def team_schedule(schedule_games):
@@ -114,23 +219,35 @@ def team_schedule(schedule_games):
 
 
 def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
-                 round_dp=2):
+                 unavailable_weeks=0, first_week=1, round_dp=2):
     """18 week rows {wk, opp, home, bye, pts} for one player.
 
-    Non-bye pts sum to season_proj exactly before 2dp rounding (so within
-    18*0.005 = 0.09 after), which is the tolerance the contract test enforces.
     Pass round_dp=None to skip the final rounding (the injury test asserts the
     exact-preservation invariant to 1e-6 on the unrounded split).
 
-    injury_mult (< 1.0 for an injured player) discounts the FIRST INJURY_WEEKS
-    non-bye weeks only, before the renormalization — so the injury shifts the
-    SHAPE toward the healthy back weeks while the season total stays law.
+    injury_mult (< 1.0) is mechanic (a): it discounts the first INJURY_WEEKS weeks
+    the player CAN PLAY, before the renormalization, so the injury shifts the SHAPE
+    toward the later weeks while the season target stays law.
+
+    unavailable_weeks (> 0) is mechanic (b): the first `unavailable_weeks` non-bye
+    weeks with wk >= first_week are BLOCKED — set to pts 0.0, marked
+    "avail": False, and excluded from the renormalization entirely. The remaining
+    weeks are renormalized to a PRO-RATA target, so the season total actually
+    drops. A player out four of seventeen games carries 13/17 of his projection,
+    not all of it.
+
+    Step order matters: the partition happens BEFORE the week-shaping, so a player
+    out four weeks and questionable after does not have his ding applied to weeks
+    he was never going to play.
+
+    At unavailable_weeks=0 this is numerically identical to the pre-Rel17 split,
+    path for path, and emits no `avail` key at all.
     """
     sched = sched_by_team.get(team, {})
     team_elo = elos.get(team, ELO_INIT)
     base = season_proj / len(sched) if sched else 0.0
 
-    raw = []  # (index, unnormalized pts) for non-bye weeks
+    raw = []  # indices of non-bye weeks, in week order
     rows = []
     for wk in range(1, WEEKS + 1):
         game = sched.get(wk)
@@ -141,26 +258,40 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
         tilt = 1.0 + TILT_COEF * (team_elo - elos.get(opp, ELO_INIT)) / 400.0
         tilt = min(TILT_MAX, max(TILT_MIN, tilt))
         venue = 1.0 + HOME_COEF if home else 1.0 - HOME_COEF
-        pts = base * tilt * venue
-        if len(raw) < INJURY_WEEKS:  # this is the 1st/2nd/3rd non-bye week
-            pts *= injury_mult
         rows.append({"wk": wk, "opp": opp, "home": home, "bye": False,
-                     "pts": pts})
+                     "pts": base * tilt * venue})
         raw.append(len(rows) - 1)
 
-    # Renormalize: tilt (and any injury discount) redistributes, never
-    # deflates or inflates — the season total is law.
-    total = sum(rows[i]["pts"] for i in raw)
-    scale = (season_proj / total) if total > 0 else 0.0
-    for i in raw:
+    # PARTITION — blocked weeks are the player's absence; available weeks are the
+    # only ones that carry points or get renormalized.
+    n_total = len(raw)
+    n_block = max(0, int(unavailable_weeks or 0))
+    blocked = [i for i in raw if rows[i]["wk"] >= first_week][:n_block]
+    blocked_set = set(blocked)
+    available = [i for i in raw if i not in blocked_set]
+
+    # Mechanic (a): shape the first INJURY_WEEKS PLAYABLE weeks only.
+    if injury_mult != 1.0:
+        for i in available[:INJURY_WEEKS]:
+            rows[i]["pts"] *= injury_mult
+
+    # Renormalize the playable weeks to the availability-adjusted target. With no
+    # blocked weeks the target IS the season projection and this is the old law.
+    target = (season_proj * len(available) / n_total) if n_total else 0.0
+    total = sum(rows[i]["pts"] for i in available)
+    scale = (target / total) if total > 0 else 0.0
+    for i in available:
         pts = rows[i]["pts"] * scale
         rows[i]["pts"] = round(pts, round_dp) if round_dp is not None else pts
+    for i in blocked:
+        rows[i]["pts"] = 0.0
+        rows[i]["avail"] = False   # emitted ONLY when false; absent means available
     return rows
 
 
 def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           season, updated_utc, injuries=None,
-                          injuries_path=INJURIES_PATH):
+                          injuries_path=INJURIES_PATH, first_week=1):
     """The full player_weekly.json document. Pure given its inputs.
 
     projections: player_projections.json's `players` list (order is preserved).
@@ -170,28 +301,227 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     injuries: injury rows (see load_injuries); None -> read injuries_path from
     disk (absent/empty file -> no shaping, byte-identical output). Tests pass
     the list directly so the function stays pure under test.
+    first_week: the first week an absence can block (1 preseason; the current
+    week in-season, so a player's past weeks are never retro-zeroed).
+
+    Every availability shape is emitted ONLY when non-empty, so an all-healthy
+    build is byte-identical to the pre-Rel17 document.
     """
     if injuries is None:
         injuries = load_injuries(injuries_path)
     mults = injury_multipliers(projections, injuries)
+    unavail = unavailability(projections, injuries)
     sched_by_team = team_schedule(schedule_games)
-    players = [
-        {
-            "gsis_id": p["gsis_id"],
-            "receptions_prior": round(float(receptions_by_id.get(p["gsis_id"], 0.0) or 0.0), 1),
-            "weeks": player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
-                                  injury_mult=mults.get(p["gsis_id"], 1.0)),
+
+    players = []
+    n_blocked_players = 0
+    n_season_ending = 0
+    points_removed = 0.0
+    for p in projections:
+        pid = p["gsis_id"]
+        view = unavail.get(pid)
+        n_block, confidence = blocked_week_count(view)
+        weeks = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
+                             injury_mult=mults.get(pid, 1.0),
+                             unavailable_weeks=n_block, first_week=first_week)
+        row = {
+            "gsis_id": pid,
+            "receptions_prior": round(float(receptions_by_id.get(pid, 0.0) or 0.0), 1),
         }
-        for p in projections
-    ]
+        if view is not None:
+            block = {"status": view["status"], "class": view["class"]}
+            actually_blocked = sum(1 for w in weeks if w.get("avail") is False)
+            if actually_blocked:
+                # The five season keys ride ONLY on a player whose weeks really were
+                # zeroed. A flagged-but-unblocked row (a suspension of unstated
+                # length) states nothing about duration, so it claims nothing.
+                lost = round(p["proj_points"] - sum(w["pts"] for w in weeks), 2)
+                # weeks_out here is what we DID (the count of weeks actually
+                # zeroed), not what the report said — injuries.json records the
+                # report. That keeps the duration statement and its applied
+                # consequence in agreement by construction, which is what lets
+                # weeks[].avail stay the single carrier for blocked weeks. It is
+                # also what truncates a stated duration that runs past week 18.
+                block["weeks_out"] = None if view["out_for_season"] else actually_blocked
+                block["out_for_season"] = view["out_for_season"]
+                block["confidence"] = confidence
+                block["evidence"] = view["evidence"]
+                block["season_points_lost"] = lost
+                n_blocked_players += 1
+                n_season_ending += 1 if view["out_for_season"] else 0
+                points_removed += lost
+            row["availability"] = block
+        row["weeks"] = weeks
+        players.append(row)
+
     model = {"name": MODEL_NAME, "tilt_coef": TILT_COEF, "home_coef": HOME_COEF,
              "estimate": True, "notes": MODEL_NOTES}
     if mults:
         # statuses_used = projected players whose split was actually shaped.
         model["injury_shape"] = {"applied": True, "statuses_used": len(mults)}
+    if n_blocked_players:
+        model["availability"] = {
+            "applied": True,
+            "vocab_version": availability.VOCAB_VERSION,
+            "unavailable": n_blocked_players,
+            "season_ending": n_season_ending,
+            "min_weeks_rule": availability.MIN_WEEKS_OUT,
+            "season_points_removed": round(points_removed, 2),
+        }
     return {
         "season": season,
         "updated_utc": updated_utc,
         "model": model,
         "players": players,
     }
+
+
+# ----------------------------------------------------------------------------------
+# selftest — the two mechanics, their separation, and the no-op guarantee.
+# ----------------------------------------------------------------------------------
+
+def _fixture():
+    def g(wk, home, away):
+        return {"week": wk, "home": home, "away": away}
+    # SFX plays weeks 1, 3, 4, 5, 6 — week 2 is a bye, so the "first 3 playable
+    # weeks" window has to skip it.
+    sched = [g(1, "SFX", "DAL"), g(2, "DAL", "GBX"), g(3, "DAL", "SFX"),
+             g(4, "SFX", "GBX"), g(5, "GBX", "SFX"), g(6, "SFX", "DAL")]
+    elos = {"SFX": 1580.0, "DAL": 1470.0, "GBX": 1500.0}
+    return team_schedule(sched), elos, sched
+
+
+def selftest():
+    sched_by_team, elos, sched = _fixture()
+    base = player_weeks(200.0, "SFX", sched_by_team, elos, round_dp=None)
+    non_bye = [w for w in base if not w["bye"]]
+    assert len(non_bye) == 5, len(non_bye)
+    assert abs(sum(w["pts"] for w in non_bye) - 200.0) < 1e-9
+
+    # --- unavailable_weeks=0 is the OLD path, exactly -----------------------------
+    same = player_weeks(200.0, "SFX", sched_by_team, elos, unavailable_weeks=0,
+                        round_dp=None)
+    assert same == base, "unavailable_weeks=0 must be numerically identical"
+    assert all("avail" not in w for w in same), "no avail key on a healthy player"
+
+    # --- mechanic (a): shape preserved, total preserved ---------------------------
+    shaped = player_weeks(200.0, "SFX", sched_by_team, elos, injury_mult=0.55,
+                          round_dp=None)
+    assert abs(sum(w["pts"] for w in shaped if not w["bye"]) - 200.0) < 1e-9, \
+        "week-shaping must PRESERVE the season total"
+
+    # --- mechanic (b): total REALLY drops, pro-rata -------------------------------
+    blocked = player_weeks(200.0, "SFX", sched_by_team, elos, unavailable_weeks=2,
+                           round_dp=None)
+    got = sum(w["pts"] for w in blocked if not w["bye"])
+    assert abs(got - 200.0 * 3 / 5) < 1e-9, f"pro-rata target missed: {got}"
+    assert [w["wk"] for w in blocked if w.get("avail") is False] == [1, 3], \
+        "the bye must not absorb a blocked week"
+    assert blocked[0]["pts"] == 0.0 and blocked[2]["pts"] == 0.0
+    assert blocked[1]["bye"] is True and "avail" not in blocked[1], \
+        "a bye is NOT an availability block — the app must tell them apart"
+
+    # --- first_week: an absence never retro-zeroes a week already played ----------
+    late = player_weeks(200.0, "SFX", sched_by_team, elos, unavailable_weeks=2,
+                        first_week=4, round_dp=None)
+    assert [w["wk"] for w in late if w.get("avail") is False] == [4, 5], \
+        "blocked weeks must start at first_week"
+
+    # --- out for the season -------------------------------------------------------
+    gone = player_weeks(200.0, "SFX", sched_by_team, elos, unavailable_weeks=WEEKS,
+                        round_dp=None)
+    assert sum(w["pts"] for w in gone) == 0.0, "an out-for-season player scores 0"
+    assert sum(1 for w in gone if w.get("avail") is False) == 5
+
+    # --- the partition happens BEFORE the shaping ---------------------------------
+    both = player_weeks(200.0, "SFX", sched_by_team, elos, injury_mult=0.55,
+                        unavailable_weeks=2, round_dp=None)
+    # Playable weeks are 4, 5, 6; all three are inside the INJURY_WEEKS window, so
+    # a uniform multiplier cancels in the renormalization and the shape matches the
+    # pro-rata baseline exactly. The ding was NOT spent on weeks 1 and 3.
+    plain = player_weeks(200.0, "SFX", sched_by_team, elos, unavailable_weeks=2,
+                         round_dp=None)
+    assert all(abs(a["pts"] - b["pts"]) < 1e-9 for a, b in zip(both, plain)), \
+        "the injury multiplier must not be spent on weeks the player cannot play"
+
+    # --- blocked_week_count -------------------------------------------------------
+    assert blocked_week_count(None) == (0, None)
+    assert blocked_week_count({"class": "week", "status": "OUT"}) == (0, None)
+    assert blocked_week_count({"class": "season", "status": "IR",
+                               "out_for_season": True, "weeks_out": None}) \
+        == (WEEKS, "explicit")
+    assert blocked_week_count({"class": "season", "status": "SUSPENDED",
+                               "out_for_season": False, "weeks_out": 3}) \
+        == (3, "explicit")
+    assert blocked_week_count({"class": "season", "status": "IR",
+                               "out_for_season": False, "weeks_out": None}) \
+        == (availability.MIN_WEEKS_OUT, "rule"), "IR with no text falls to the floor"
+    assert blocked_week_count({"class": "season", "status": "SUSPENDED",
+                               "out_for_season": False, "weeks_out": None}) \
+        == (0, None), "a suspension of unknown length must block NOTHING"
+
+    # --- document: emitted only when non-empty ------------------------------------
+    proj = [{"gsis_id": "p1", "name": "Hurt Guy", "team": "SFX", "proj_points": 200.0},
+            {"gsis_id": "p2", "name": "Fine Guy", "team": "DAL", "proj_points": 150.0}]
+    kw = dict(receptions_by_id={}, season=2026, updated_utc="2026-07-17T00:00:00Z")
+    clean = build_weekly_document(proj, sched, elos, injuries=[], **kw)
+    assert "availability" not in clean["model"]
+    assert all("availability" not in p for p in clean["players"])
+
+    ir_doc = build_weekly_document(
+        proj, sched, elos,
+        injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Injured Reserve",
+                   "detail": "No timetable has been set."}], **kw)
+    a = ir_doc["players"][0]["availability"]
+    assert a["status"] == "IR" and a["class"] == "season"
+    assert a["confidence"] == "rule" and a["evidence"] is None
+    assert a["weeks_out"] == availability.MIN_WEEKS_OUT
+    assert a["out_for_season"] is False
+    assert ir_doc["model"]["availability"] == {
+        "applied": True, "vocab_version": availability.VOCAB_VERSION,
+        "unavailable": 1, "season_ending": 0,
+        "min_weeks_rule": availability.MIN_WEEKS_OUT,
+        "season_points_removed": a["season_points_lost"]}
+    assert "injury_shape" not in ir_doc["model"], "IR is not a multiplier status"
+    assert ir_doc["players"][1] == clean["players"][1], "healthy player untouched"
+
+    wk_doc = build_weekly_document(
+        proj, sched, elos,
+        injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Questionable",
+                   "detail": None}], **kw)
+    a = wk_doc["players"][0]["availability"]
+    assert a == {"status": "QUESTIONABLE", "class": "week"}, a
+    assert "availability" not in wk_doc["model"], "week shaping blocks nothing"
+    assert wk_doc["model"]["injury_shape"] == {"applied": True, "statuses_used": 1}
+
+    susp = build_weekly_document(
+        proj, sched, elos,
+        injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Suspension",
+                   "detail": "No length was announced."}], **kw)
+    a = susp["players"][0]["availability"]
+    assert a == {"status": "SUSPENDED", "class": "season"}, a
+    assert "availability" not in susp["model"], "unknown length must claim nothing"
+    assert all("avail" not in w for w in susp["players"][0]["weeks"])
+
+    gone_doc = build_weekly_document(
+        proj, sched, elos,
+        injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Out",
+                   "detail": "He will miss the rest of the season."}], **kw)
+    a = gone_doc["players"][0]["availability"]
+    assert a["status"] == "OUT" and a["class"] == "season", "text promotes the mechanic"
+    assert a["out_for_season"] is True and a["weeks_out"] is None
+    assert a["confidence"] == "explicit" and a["evidence"]
+    assert a["season_points_lost"] == 200.0
+    assert sum(w["pts"] for w in gone_doc["players"][0]["weeks"]) == 0.0
+    assert gone_doc["model"]["availability"]["season_ending"] == 1
+
+    print("selftest OK: week-shaping preserves the season total, unavailability "
+          "reduces it pro-rata, the two never mix, and a healthy build is unchanged")
+
+
+if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        selftest()
+        sys.exit(0)
+    print(__doc__)
+    sys.exit(0)

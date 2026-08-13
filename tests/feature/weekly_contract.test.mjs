@@ -8,8 +8,10 @@
  *   - every weeks array is length 18 (wk 1..18, in order, pts at 2dp),
  *   - a bye row is a zero-week: pts 0, opp null, bye true — and byes/opponents
  *     agree with schedule_full.json (bye == the team has NO game that week),
- *   - non-bye pts sum to the player's season projection within 0.1 (the tilt
- *     redistributes, never inflates),
+ *   - non-bye pts sum to the player's AVAILABILITY-ADJUSTED season projection
+ *     within 0.1 — proj_points * playable_non_bye / non_bye (the tilt
+ *     redistributes across the weeks he can play, never inflates); a player with
+ *     no long-term absence keeps the original proj_points target exactly,
  *   - model meta is honest: estimate === true, with the optimizer-refit
  *     coefficients (tilt_coef, home_coef) recorded.
  */
@@ -80,15 +82,47 @@ test('bye rows are zero-weeks (pts 0, opp null, bye true) — exactly one per pl
   }
 });
 
-test('non-bye weekly points sum to the season projection within 0.1', () => {
-  // The tilt REDISTRIBUTES points across weeks; it must never inflate or leak.
+test('non-bye weekly points sum to the AVAILABILITY-ADJUSTED season projection', () => {
+  // The tilt REDISTRIBUTES points across the weeks a player can play; it must never
+  // inflate or leak. Rel17 changes WHICH weeks those are, not that law.
+  //
+  // A player with no long-term absence keeps the original assertion verbatim. A
+  // player whose weeks were blocked (IR / PUP / NFI / suspension / a parsed
+  // duration) is pinned to a target that is a function of the games he can play —
+  // and, critically, is asserted to have ACTUALLY DROPPED. The pre-Rel17 form of
+  // this test asserted that a player who will not take a snap in 2026 still carries
+  // 100% of his season points, which is the F2 defect written down as a lock.
   weekly.players.forEach((p, i) => {
     const season = proj.players[i].proj_points;
     const sum = p.weeks.reduce((a, w) => a + (w.bye ? 0 : w.pts), 0);
+    const nonBye = p.weeks.filter((w) => !w.bye).length;
+    const blocked = p.weeks.filter((w) => !w.bye && w.avail === false).length;
+    const a = p.availability || null;
+
+    if (!a || a.class !== 'season') {
+      // Healthy or week-shaped only: the original law, character for character.
+      assert.equal(blocked, 0,
+        `${p.gsis_id}: weeks blocked without a season-class availability block`);
+      assert.ok(
+        Math.abs(sum - season) <= 0.1,
+        `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != season ${season} (>0.1 off)`,
+      );
+      return;
+    }
+    if (a.out_for_season) {
+      assert.equal(sum, 0, `${p.gsis_id}: out for season must carry 0 points`);
+      return;
+    }
+    const avail = nonBye - blocked;
     assert.ok(
-      Math.abs(sum - season) <= 0.1,
-      `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != season ${season} (>0.1 off)`,
+      Math.abs(sum - season * (avail / nonBye)) <= 0.1,
+      `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != availability-adjusted target ` +
+      `${(season * (avail / nonBye)).toFixed(2)} (${avail}/${nonBye} weeks playable)`,
     );
+    // The reduction REALLY happened — this test cannot silently pass on a no-op,
+    // which is the exact failure mode that let F1/F2 ship.
+    assert.ok(sum < season - 0.1,
+      `${p.gsis_id}: flagged unavailable but the season total did not drop`);
   });
 });
 
