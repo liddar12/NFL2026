@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "injuries.schema.json",
+  "title": "ESPN injury report, read through the canonical availability vocabulary",
+  "description": "data/injuries.json. Rel17 gave this file its first contract. It records WHAT THE REPORT SAID: `status` is ESPN's raw string, carried byte-identically, and the canonical reading rides alongside it. What we DID about it lives in player_weekly.json (availability blocks + weeks[].avail) - two files, one fact each, cross-checked by validate_data.check_weekly_availability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "updated_utc",
+    "source",
+    "vocab_version",
+    "counts",
+    "injuries"
+  ],
+  "properties": {
+    "updated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "vocab_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "scripts/availability.py VOCAB_VERSION the rows below were enriched with. Bumping it is how a vocabulary change announces itself to every consumer."
+    },
+    "counts": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Census by canonical code, in CODES order. An unmapped status is counted under the literal key UNMAPPED so feed drift is visible in the document itself and can never be silently folded into ACTIVE - tests/smoke.sh fails the gate on a non-zero UNMAPPED.",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "injuries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "team",
+          "player",
+          "status",
+          "availability",
+          "availability_class",
+          "weeks_out",
+          "out_for_season",
+          "confidence",
+          "evidence",
+          "detail"
+        ],
+        "properties": {
+          "team": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "ESPN's raw string, VERBATIM and unchanged on purpose - build_weekly.INJURY_MULT's three literal keys and the test that locks that table exactly both read it."
+          },
+          "availability": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ACTIVE",
+              "QUESTIONABLE",
+              "DOUBTFUL",
+              "OUT",
+              "IR",
+              "PUP",
+              "NFI",
+              "SUSPENDED",
+              null
+            ],
+            "description": "Canonical code (scripts/availability.normalize_status). null means the spelling is UNKNOWN - never 'healthy'. A null here is a drift alarm, not a default."
+          },
+          "availability_class": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "week",
+              "season",
+              null
+            ],
+            "description": "week = near-term shaping (season total preserved); season = long-term absence (season total reduced). Not derivable from `availability` alone: an OUT whose own detail text states an unambiguous season-ending absence is PROMOTED to season."
+          },
+          "weeks_out": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 17,
+            "description": "Duration STATED by the report, parsed conservatively (scripts/injury_duration.py). null when the text says nothing unambiguous - never guessed, never floored here. The MIN_WEEKS_OUT floor is build_weekly's business because it depends on the schedule."
+          },
+          "out_for_season": {
+            "type": "boolean"
+          },
+          "confidence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "explicit",
+              null
+            ],
+            "description": "explicit = the duration was stated and `evidence` quotes it; null = nothing was stated. The 'rule' floor value exists only on player_weekly.json, because it is something we did, not something the report said."
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The verbatim report sentence a duration was parsed from. Non-null iff confidence is 'explicit' - a claim must be able to quote its source."
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ESPN's free-text longComment/shortComment. Rel17 finally reads it (F5); it is still carried whole so a future parser can be re-run offline."
+          }
+        }
+      }
+    }
+  }
+}

@@ -9,6 +9,16 @@
  *
  * Each side is either a chosen player or an inline finder. Choosing a player
  * rewrites the hash, which the router replays — no local paint state to drift.
+ *
+ * REL17 — AVAILABILITY is the FIRST metric row, above PROJ PTS: a manager
+ * comparing two WRs for a flex spot needs "one of them is on IR" before he needs
+ * a 0.4-point projection edge. Both columns always render the row so the centre
+ * rail stays aligned; an available player is plain muted ACTIVE text, not a chip.
+ * PROJ PTS remains the full-season HEALTHY prior by design — so an unavailable
+ * player carries a one-line hint saying exactly that, and RoS VALUE is named as
+ * the availability-adjusted number. Where a duration was parsed from a real team
+ * report, the sentence itself is quoted; where it is only the league's rule floor
+ * there is deliberately NO quote, because there is nothing to quote.
  */
 
 import {
@@ -17,6 +27,7 @@ import {
 } from '../data.js';
 import { teamTint, renderTrendChip } from '../render.js';
 import { strengthOfSchedule, trendLabel } from '../team-logic.js';
+import { availabilityOf, renderAvailChip } from '../availability.js';
 import { rosPoints, nextBye } from '../ros.js';
 
 function esc(v) {
@@ -87,6 +98,7 @@ export default async function mountCompare(el) {
       pos: String(p.position || '').toUpperCase(),
       team: p.team || '',
       proj: Number(p.proj_points) || 0,
+      avail: availabilityOf(w, currentWk, currentWk),
       ros: (w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
       bye: (w && Array.isArray(w.weeks)) ? nextBye(w.weeks, currentWk) : null,
@@ -116,7 +128,8 @@ export default async function mountCompare(el) {
   if (A && B) {
     const mid = el.querySelector('#cmp-mid');
     mid.innerHTML =
-      edge('PROJ', A.proj, B.proj, 'high')
+      availEdge(A.avail, B.avail)
+      + edge('PROJ', A.proj, B.proj, 'high')
       + edge('RoS', A.ros, B.ros, 'high')
       + edge('TREND', A.trendVal, B.trendVal, 'high')
       + edge('SoS', A.sos, B.sos, 'low')
@@ -143,13 +156,56 @@ function colHtml(side, m) {
     + `<div class="cmp-id"><span class="cmp-name" style="color:${teamTint(m.team)}">${esc(m.name)}</span>`
       + `<span class="cmp-pos">${esc(m.pos)} · ${esc(m.team)}</span>`
       + `<button type="button" class="cmp-swap" data-side="${side}" data-act="cmp-clear">change</button></div>`
+    + availRow(m.avail)
     + row('PROJ PTS', fix1(m.proj))
     + row('RoS VALUE', m.ros == null ? '—' : fix1(m.ros))
     + row('TREND', m.trend ? renderTrendChip(m.trend) : '—')
     + row('SoS', m.sos == null ? '—' : `${fix1(m.sos)} <span class="cmp-hint">1 easy · 5 hard</span>`)
     + row('BYE', m.bye == null ? '—' : `W${m.bye}`)
+    + evidenceHtml(m.avail)
     + '</div>'
   );
+}
+
+/**
+ * AVAILABILITY row — always rendered on both sides so the centre rail stays
+ * row-aligned. Available = plain muted ACTIVE text (no chip, no green: a badge on
+ * every healthy player is noise). Unavailable = the shared .av-chip plus the hint
+ * that resolves the PROJ-next-to-IR question before it reads as a bug.
+ */
+function availRow(a) {
+  const chip = renderAvailChip(a);
+  if (!chip) {
+    return '<div class="cmp-metric cmp-metric--avail"><span class="cmp-lbl">AVAILABILITY</span>'
+      + '<span class="cmp-v cmp-avail-ok">ACTIVE</span></div>';
+  }
+  const hint = a.playable === false
+    ? ' <span class="cmp-hint">PROJ is a full-season healthy prior — RoS VALUE is the availability-adjusted number.</span>'
+    : '';
+  return '<div class="cmp-metric cmp-metric--avail"><span class="cmp-lbl">AVAILABILITY</span>'
+    + `<span class="cmp-v">${chip}${hint}</span></div>`;
+}
+
+/**
+ * The report sentence that produced the duration — the payoff for a scraped
+ * detail that used to be thrown away. Quoted, never paraphrased, clamped to 3
+ * lines by CSS. Rendered ONLY for confidence "explicit": a league-rule floor has
+ * no report behind it, and inventing a sentence there would be fabrication.
+ */
+function evidenceHtml(a) {
+  if (!a || !a.applies || a.confidence !== 'explicit' || !a.evidence) return '';
+  return '<div class="cmp-evid"><span class="cmp-evid-lbl">WHY · TEAM REPORT</span>'
+    + `“${esc(a.evidence)}”</div>`;
+}
+
+/** Centre edge chip for availability — who can actually play this week. */
+function availEdge(a, b) {
+  const ap = !(a && a.playable === false);
+  const bp = !(b && b.playable === false);
+  if (ap && bp) return '<div class="cmp-edge cmp-edge--even">AVAIL<br><span class="cmp-even">even</span></div>';
+  if (!ap && !bp) return '<div class="cmp-edge cmp-edge--warn">AVAIL<br><span class="cmp-even">⚠ neither</span></div>';
+  return `<div class="cmp-edge">AVAIL<br><span class="cmp-win cmp-win--${ap ? 'a' : 'b'}">`
+    + `${ap ? '◀' : '▶'} plays</span></div>`;
 }
 
 /** Centre edge chip for a numeric metric. dir 'high' = higher wins, 'low' = lower is easier/cheaper. */

@@ -21,6 +21,7 @@ if _ROOT not in sys.path:
 
 from scripts.scrape import espn  # noqa: E402
 from scripts.scrape import espn_players  # noqa: E402
+from scripts import availability  # noqa: E402
 from scripts import build_weekly  # noqa: E402
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.models import game_model  # noqa: E402
@@ -370,11 +371,68 @@ def main():
         "season": SEASON, "updated_utc": now, "source": "espn", "teams": teams_fixture,
     })
 
-    # Injuries (display + future signal). Best-effort — don't fail the whole run.
+    # Injuries (display + availability + future signal). Best-effort — don't fail the
+    # whole run. NOT HOISTED, deliberately (Rel17 C1): this is a guarded feed, and
+    # build_weekly already runs after it (see the WEEKLY block below), so the weekly
+    # split — where the season-total reduction actually happens — has always seen the
+    # fresh file. Hoisting the fetch above the N2 block would buy only the projection
+    # band below and would cost the whole run's degrade-don't-die semantics.
     try:
         inj = espn.fetch_injuries()
         feeds["injuries"] = {"rows": len(inj), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
-        _write(os.path.join(DATA, "injuries.json"), {"updated_utc": now, "source": "espn", "injuries": inj})
+        _write(os.path.join(DATA, "injuries.json"),
+               availability.enrich_document({"updated_utc": now, "source": "espn",
+                                             "injuries": inj}))
+
+        # REL17 (F6) — SECOND, BAND-ONLY PROJECTION PASS. The first pass at the N2
+        # block above ran before this feed existed, so `injury_status` was whatever
+        # ESPN's FANTASY api said (a different vocabulary with different coverage) and
+        # the site-API injury REPORT — the only feed carrying free-text duration — had
+        # no say at all. Re-stamp the canonical status from the report and re-project.
+        #
+        # Nothing here can move proj_points while every signal weight is 0.0; what
+        # changes is `low`/`high` widening for genuinely uncertain players. That is the
+        # honest, weight-0-safe half of the fix, and exactly why the season-total
+        # reduction lives in build_weekly instead: how many weeks a player misses is a
+        # FACT from a feed, not a learned effect, so it must not sit behind the
+        # promotion gate.
+        #
+        # Guarded separately from the fetch ON PURPOSE: by this line the feed has
+        # already succeeded and been written, so a fault in OUR re-projection is a
+        # code bug, not an outage. Rolling it into the outer handler would stamp
+        # feeds["injuries"] = "down" for a feed that is demonstrably up — a false
+        # statement about a feed, which is the one thing pipeline_status may never be.
+        try:
+            n_overridden = availability.apply_to_records(
+                players_in, availability.index_report(inj))
+            if n_overridden:
+                reprojected = [p for p in project_players(players_in,
+                                                          ctx={"teams": teams_fixture})
+                               if p["proj_points"] > 0]
+                reprojected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
+                # ORDER GUARD, mandatory. weekly_contract.test.mjs locks that
+                # player_weekly.json mirrors player_projections.json id-for-id AND in
+                # order, and build_weekly runs later off projected[:300]. At weight 0
+                # the order CANNOT change (proj_points is untouched; only low/high
+                # move), so this guard should never fire — and if it ever does, that
+                # is a real regression and refusing the rewrite is the honest response.
+                if [p["gsis_id"] for p in reprojected[:300]] == \
+                        [p["gsis_id"] for p in projected[:300]]:
+                    projected = reprojected
+                    _write(os.path.join(DATA, "player_projections.json"), {
+                        "season": SEASON, "updated_utc": now,
+                        "players": projected[:300],
+                    })
+                    print(f"injury re-projection (interval bands only): "
+                          f"{n_overridden} records overridden")
+                else:
+                    print("[warn] injury re-projection changed the top-300 ordering "
+                          "— skipped (player_projections.json left as first-pass)",
+                          file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 — degrade, never mask
+            print(f"[warn] injury re-projection failed (projections left as "
+                  f"first-pass; the injuries feed itself is fine): {exc}",
+                  file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
         feeds["injuries"] = {"rows": 0, "age_hours": None, "last_success_utc": None, "status": "down"}
         print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
@@ -590,9 +648,17 @@ def main():
     # priors the game model used, receptions ride the N2 feed (kona statId 53).
     # Injury-aware since Rel4: build_weekly reads data/injuries.json (written
     # fresh above) and shapes the first weeks of injured players' splits.
+    # first_week=wk is MANDATORY, not cosmetic (Rel17): an absence blocks weeks
+    # forward from the current week. Left at its default of 1, an in-season IR
+    # placement would zero weeks 1-4 — games already played, which no surface
+    # reads — and leave the weeks he will actually miss fully projected, so the
+    # season-total reduction and the Lineup demotion would both silently no-op
+    # from Week 2 onward. In preseason current_week() is 1, so this is a no-op
+    # today and correct the moment real football starts.
     receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
     weekly_doc = build_weekly.build_weekly_document(
-        projected[:300], predicted, ratings, receptions_by_id, SEASON, now)
+        projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
+        first_week=wk)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
 
     # === PARLAYS (moved from the early slot — needs weekly + projections) ========

@@ -17,6 +17,7 @@ _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+from scripts import availability  # noqa: E402
 from scripts.scrape.nflverse import FeedError, fetch_injuries_release  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
@@ -29,9 +30,31 @@ STATUSES = frozenset(["Out", "Doubtful", "Questionable"])
 MIN_KEPT_PER_SEASON = 500
 
 
+def _assert_canonical_vocab():
+    """nflverse's three report statuses must be readable by the ONE vocabulary.
+
+    Rel17 makes scripts/availability.py the single source of availability truth, and
+    this file is the second feed that speaks about availability — so it has to agree.
+    An ASSERTION ONLY: the emitted rows keep nflverse's verbatim spellings and the
+    output stays byte-identical, because data/injury_history.json is a 553 KB
+    committed artifact whose upstream (nflverse release CSVs) 403s through the
+    sandbox proxy and therefore cannot be regenerated to match a re-keying. What this
+    catches is the real risk — someone widening STATUSES with a spelling the shared
+    vocabulary does not know.
+    """
+    for status in sorted(STATUSES):
+        code = availability.normalize_status(status)
+        assert code in availability.WEEK_CLASS, (
+            f"nflverse report status {status!r} maps to {code!r}, which is not a "
+            f"week-class code. Reconcile scripts/availability.py before shipping: an "
+            f"unmapped status silently becomes 'healthy' downstream."
+        )
+
+
 def shape(rows):
     """seasons[team][week] = [{id, name, position, status}] for skill players
     carrying a real report status. Returns (teams dict, kept count)."""
+    _assert_canonical_vocab()
     teams = {}
     kept = 0
     for r in rows:
@@ -71,7 +94,13 @@ def selftest():
     assert kept == 2, kept
     assert teams["LAR"]["10"][0]["status"] == "Out"             # LA -> LAR rename
     assert teams["KC"]["11"][0]["position"] == "WR"
-    print("selftest OK: status filter + rename + shaping exact")
+    # The emitted status stays nflverse's verbatim spelling (byte-identical output),
+    # but every one of them must be readable by the shared Rel17 vocabulary.
+    _assert_canonical_vocab()
+    assert {availability.normalize_status(s) for s in STATUSES} == {
+        availability.OUT, availability.DOUBTFUL, availability.QUESTIONABLE}
+    print("selftest OK: status filter + rename + shaping exact; "
+          "nflverse statuses map to the canonical week-class vocabulary")
 
 
 def main():

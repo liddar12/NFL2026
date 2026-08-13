@@ -39,8 +39,13 @@ python3 scripts/build_weather_history.py --selftest || fail "weather selftest"
 python3 scripts/build_weather_forecast.py --selftest || fail "weather forecast selftest"
 python3 scripts/build_market_baseline.py --selftest || fail "baseline selftest"
 python3 scripts/build_injury_history.py --selftest || fail "injury selftest"
+python3 scripts/availability.py --selftest || fail "availability selftest"
+python3 scripts/injury_duration.py --selftest || fail "injury duration selftest"
+python3 scripts/build_weekly.py --selftest || fail "weekly split selftest"
+python3 scripts/validate_data.py --selftest || fail "availability invariant selftest"
 python3 scripts/build_player_usage.py --selftest || fail "usage selftest"
 python3 scripts/build_player_usage_history.py --selftest || fail "usage history selftest"
+python3 scripts/build_preseason.py --selftest || fail "preseason selftest"
 python3 scripts/backtest_ros.py --selftest || fail "ros backtest selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
@@ -108,6 +113,35 @@ if short:
 week_n = sum(1 for p in parlays if p["scope"] == "week")
 if week_n < 3:
     problems.append(f"only {week_n} week parlays (need >=3)")
+
+# REL17 — THE SINGLE CHECK THAT STOPS THIS BUG CLASS RECURRING.
+# Every `status` in data/injuries.json must normalize to a canonical availability
+# code. The whole release exists because build_weekly.INJURY_MULT silently
+# multiplied every status it did not recognise by 1.0, so "Injured Reserve" and
+# "Suspension" projected as fully healthy. A feed that invents a new spelling now
+# reds the gate here instead of quietly defaulting 11 unavailable players to fit.
+# We also assert the COMMITTED enrichment agrees with the current vocabulary, so a
+# stale injuries.json cannot outlive a vocabulary change.
+from scripts.availability import VOCAB_VERSION, counts, normalize_status  # noqa: E402
+inj_doc = load("data/injuries.json")
+if inj_doc.get("vocab_version") != VOCAB_VERSION:
+    problems.append(f"injuries.json vocab_version {inj_doc.get('vocab_version')!r} != "
+                    f"scripts/availability.VOCAB_VERSION {VOCAB_VERSION}")
+unmapped = sorted({r["status"] for r in inj_doc["injuries"]
+                   if normalize_status(r["status"]) is None})
+if unmapped:
+    problems.append(f"injuries.json statuses that do not normalize to a canonical "
+                    f"availability code: {unmapped}")
+stale = [r["player"] for r in inj_doc["injuries"]
+         if r.get("availability") != normalize_status(r["status"])]
+if stale:
+    problems.append(f"{len(stale)} injuries.json row(s) whose committed "
+                    f"`availability` disagrees with normalize_status(status), "
+                    f"e.g. {stale[:3]}")
+recount = counts(inj_doc["injuries"])
+if inj_doc.get("counts") != recount:
+    problems.append(f"injuries.json counts {inj_doc.get('counts')} != recomputed "
+                    f"{recount}")
 
 if problems:
     for p in problems:

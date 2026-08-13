@@ -9,12 +9,25 @@
  * Honest by construction: byes are excluded (a bye-week player can never start);
  * a missing weekly feed degrades to a clear state message, never a blank or a
  * fabricated projection. Projections only — no betting line anywhere.
+ *
+ * REL17 — AVAILABILITY. An unavailable player (IR/PUP/NFI/suspended/ruled out) is
+ * never SILENTLY auto-started. Three coordinated behaviours:
+ *   1. his week's points are zeroed at the display boundary, exactly like a bye,
+ *      so the row and the card total can never disagree;
+ *   2. bestLineup demotes him below every available candidate, so in the normal
+ *      case he simply is not in a slot — the quiet, correct outcome;
+ *   3. when the roster has nobody else for that slot he IS started, and the card
+ *      shouts about it (`.lu-forced` banner + a non-receding row), and the
+ *      "already optimal" line is suppressed because it would be a lie.
+ * The availability block is optional on data/player_weekly.json: a deploy that
+ * predates the pipeline renders exactly as it does today.
  */
 
 import { getPlayerProjections, getPlayerWeekly, getGamePredictions } from '../data.js';
 import { teamTint, teamName } from '../render.js';
 import { STARTER_SLOTS } from '../team-logic.js';
 import { bestLineup, startSitSwaps, LINEUP_SLOTS } from '../lineup.js';
+import { availabilityOf, renderAvailChip } from '../availability.js';
 import { rosPoints } from '../ros.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';   // mirror of the Team builder's roster key
@@ -97,18 +110,41 @@ export default async function mountLineup(el) {
     const team = (p && p.team) || '';
     const wkEntry = (w && Array.isArray(w.weeks)) ? w.weeks.find((x) => Number(x.wk) === wk) : null;
     const onBye = !!(wkEntry && wkEntry.bye);
-    const pts = onBye ? 0 : Number(wkEntry && wkEntry.pts) || 0;
+    // Mirrors the bye line: a player who cannot play scores 0 for display. Showing
+    // 12.4 beside a "⊘ IR" chip is the same lie the un-haircut projection shipped.
+    const avail = availabilityOf(w, wk, currentWk);
+    const pts = (onBye || avail.playable === false) ? 0 : Number(wkEntry && wkEntry.pts) || 0;
     const ros = w && Array.isArray(w.weeks) ? rosPoints(w.weeks, wk) : 0;
-    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros };
+    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail };
   }
 
   function paint(wk) {
     const rows = rosterIds.map((id) => playerRow(id, wk));
-    const optimal = bestLineup(rows.map((r) => ({ id: r.id, pos: r.pos, pts: r.pts })));
+    // `playable` MUST ride into both pure helpers — mapping down to {id,pos,pts}
+    // is what silently dropped availability before Rel17.
+    const optIn = rows.map((r) => ({
+      id: r.id, pos: r.pos, pts: r.pts, playable: r.avail.playable,
+    }));
+    const optimal = bestLineup(optIn);
     const rowById = new Map(rows.map((r) => [r.id, r]));
     const currentStarters = STARTER_SLOTS.map((s) => slots[s])
       .filter(Boolean).map(String).filter((id) => byId.has(id));
-    const moves = startSitSwaps(currentStarters, rows.map((r) => ({ id: r.id, pos: r.pos, pts: r.pts })), wk);
+    const moves = startSitSwaps(currentStarters, optIn, wk);
+    const warnings = Array.isArray(optimal.warnings) ? optimal.warnings : [];
+    const forcedSlots = new Set(warnings.map((wn) => wn.slot));
+
+    // A forced start is a to-do, not a footnote: one banner per warning, at the
+    // top of the card, naming the slot, the player and why he can't play.
+    const forcedHtml = warnings.map((wn) => {
+      const r = rowById.get(wn.id);
+      if (!r) return '';
+      return (
+        '<div class="lu-forced"><span class="av-glyph" aria-hidden="true">⊘</span>'
+        + `<span>No available ${esc(r.pos)} on your bench — <b>${esc(wn.slot)}</b> is filled by `
+        + `<b>${esc(r.name)}</b>, who ${esc(r.avail.phrase || 'cannot play')}. `
+        + 'Nothing on your roster can start there. Check the waiver wire.</span></div>'
+      );
+    }).join('');
 
     // Optimal starting lineup by slot.
     const starterHtml = LINEUP_SLOTS.map((slot) => {
@@ -119,10 +155,12 @@ export default async function mountLineup(el) {
           + '<span class="lu-name">— no eligible player —</span><span class="lu-pts">0.0</span></div>';
       }
       const byeTag = r.onBye ? ' <span class="lu-bye" title="On bye this week">BYE</span>' : '';
+      const chip = renderAvailChip(r.avail, { sm: true });
+      const forced = forcedSlots.has(slot);
       return (
-        `<div class="lu-row${r.onBye ? ' lu-row--bye' : ''}">`
+        `<div class="lu-row${r.onBye ? ' lu-row--bye' : ''}${forced ? ' lu-row--forced' : ''}">`
         + `<span class="lu-slot">${SLOT_LABEL[slot]}</span>`
-        + `<span class="lu-name">${esc(r.name)}${byeTag} `
+        + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''} `
           + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
         + `<span class="lu-pts">${fix1(r.pts)}</span>`
         + '</div>'
@@ -133,9 +171,40 @@ export default async function mountLineup(el) {
     // (each into the slot it fills) and the SIT set. No misleading 1:1 pairing:
     // an incoming WR and an outgoing RB don't compete, only the net matters.
     const slotOf = (id) => LINEUP_SLOTS.find((s) => optimal.slots[s] === id) || 'FLEX';
+
+    // "This player is unavailable — X starts instead." Availability is WHY, points
+    // are HOW MUCH, so the reason is rendered above the net-gain line. One note per
+    // sit caused by unavailability, mapped through the manager's own slot.
+    const mgrSlotOf = new Map();
+    for (const s of STARTER_SLOTS) {
+      const sid = slots[s]; if (sid) mgrSlotOf.set(String(sid), s);
+    }
+    const swapNotes = moves.sit
+      .map((outId) => {
+        const out = rowById.get(outId);
+        if (!out || out.avail.playable !== false || !out.avail.phrase) return '';
+        const mgrSlot = mgrSlotOf.get(String(outId));
+        const inId = mgrSlot ? optimal.slots[mgrSlot] : null;
+        if (!inId || inId === outId) return '';
+        const inRow = rowById.get(inId);
+        return (
+          '<div class="lu-swapnote"><span class="av-glyph" aria-hidden="true">⊘</span>'
+          + `<b>${esc(out.name)}</b> ${esc(out.avail.phrase)} — `
+          + `<b>${esc(inRow ? inRow.name : inId)}</b> starts at ${esc(mgrSlot)} instead.</div>`
+        );
+      }).join('');
+
     let movesHtml;
-    if (moves.start.length === 0) {
+    if (moves.start.length === 0 && warnings.length === 0) {
       movesHtml = '<div class="lu-optimal">✓ Your starting lineup is already optimal for Week ' + wk + '.</div>';
+    } else if (moves.start.length === 0) {
+      // There is nothing better to do, but "optimal" would be a lie over a lineup
+      // containing a player who cannot take a snap. Say what is actually true.
+      const n = warnings.length;
+      movesHtml = swapNotes
+        + `<div class="lu-optimal lu-gap">Your lineup is the best your roster allows this week, but `
+        + `${n} slot${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} filled by `
+        + `${n === 1 ? 'a player' : 'players'} who can’t play.</div>`;
     } else {
       const startRows = moves.start.map((id) => {
         const r = rowById.get(id);
@@ -147,7 +216,8 @@ export default async function mountLineup(el) {
         return `<div class="lu-move lu-move--sit"><span class="lu-move-out">SIT ${esc(r ? r.name : id)} `
           + `<span class="lu-meta">${fix1(r ? r.pts : 0)}</span></span></div>`;
       }).join('');
-      movesHtml = `<div class="lu-move lu-move--net">Switching to the optimal lineup adds `
+      movesHtml = swapNotes
+        + `<div class="lu-move lu-move--net">Switching to the optimal lineup adds `
         + `<b class="lu-move-gain">+${fix1(moves.netGain)} pts</b> this week.</div>`
         + startRows + sitRows;
     }
@@ -157,18 +227,24 @@ export default async function mountLineup(el) {
       .map((id) => rowById.get(id))
       .filter(Boolean)
       .sort((a, b) => b.pts - a.pts)
-      .map((r) => (
-        `<div class="lu-row lu-row--bench">`
-        + `<span class="lu-slot">BN</span>`
-        + `<span class="lu-name">${esc(r.name)}${r.onBye ? ' <span class="lu-bye">BYE</span>' : ''} `
-          + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
-        + `<span class="lu-pts">${fix1(r.pts)}</span>`
-        + '</div>'
-      )).join('');
+      .map((r) => {
+        // An unavailable bench player is a fact, not a task — same recede as a bye.
+        const chip = renderAvailChip(r.avail, { sm: true });
+        const un = r.avail.playable === false ? ' lu-row--unavail' : '';
+        return (
+          `<div class="lu-row lu-row--bench${un}">`
+          + `<span class="lu-slot">BN</span>`
+          + `<span class="lu-name">${esc(r.name)}${r.onBye ? ' <span class="lu-bye">BYE</span>' : ''}${chip ? ` ${chip}` : ''} `
+            + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
+          + `<span class="lu-pts">${fix1(r.pts)}</span>`
+          + '</div>'
+        );
+      }).join('');
 
     body.innerHTML =
       '<section class="card lu-card">'
         + `<div class="m-head">OPTIMAL LINEUP · WEEK ${wk} <span class="lu-total">${fix1(optimal.total)} pts</span></div>`
+        + forcedHtml
         + starterHtml
       + '</section>'
       + '<section class="card lu-card">'

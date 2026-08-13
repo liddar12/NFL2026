@@ -2394,3 +2394,86 @@ body.gate-locked { overflow: hidden; }
   .cmp-mid { flex-direction: row; flex-wrap: wrap; gap: 6px; padding-top: 8px; justify-content: center; }
   .cmp-edge { border: 1px solid var(--border); border-radius: 999px; min-width: 0; padding: 4px 8px; }
 }
+
+/* ==========================================================================
+   REL17 — AVAILABILITY chip (OUT / IR / PUP / NFI / SUSP / Q / D).
+   ONE component, every surface (Lineup, Compare). Meaning is carried by the
+   CODE TEXT; the glyph is redundant reinforcement; color is the third carrier
+   and never the sole one. Geometry mirrors .lu-bye / .prov-src so the chip reads
+   as native to the existing chip family. No new tokens, fonts or breakpoints.
+   --accent is FORBIDDEN as chip text (4.28:1 on --surface-2 — fails AA); it
+   appears here only as a >=3:1 border graphic on the forced-start row/banner.
+   ========================================================================== */
+.av-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 8px; color: var(--muted);
+}
+/* NOT playable — OUT / IR / PUP / NFI / SUSPENDED */
+.av-chip--out   { color: var(--accent-txt); border-color: var(--accent-txt); }
+/* Playable, but the manager's judgement — QUESTIONABLE / DOUBTFUL */
+.av-chip--watch { color: var(--warn); border-color: var(--warn); }
+/* Dense rows — size parity with the existing .lu-bye chip */
+.av-chip--sm { font-size: 9px; gap: 4px; padding: 1px 6px; letter-spacing: 0.08em; }
+.av-glyph { font-weight: 400; }
+.av-dur   { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Provenance micro-tag — geometry copied from .prov-src/.prov-ai so "where did
+   this number come from" reads the same everywhere in the app. A duration NEVER
+   renders without one. */
+.av-prov {
+  display: inline-block; font-family: var(--mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; border: 1px solid var(--border); border-radius: 999px;
+  padding: 0 5px; margin-left: 2px; white-space: nowrap;
+}
+.av-prov--report { color: var(--brand-txt); }  /* parsed from the team report */
+.av-prov--min    { color: var(--muted); }      /* league-rule floor, NOT a report */
+
+/* Phone sheds the provenance tag (it survives in title= AND in the swap-note
+   prose "out at least N more weeks"); the tablet canvas shows it inline.
+   Reuses the EXISTING 820px breakpoint. */
+.av-chip--sm .av-prov { display: none; }
+@media (min-width: 820px) { .av-chip--sm .av-prov { display: inline-block; } }
+
+/* ---- Lineup availability states ---- */
+/* An unavailable bench player is a fact, not a task — same recede as a bye. */
+.lu-row--unavail { opacity: 0.72; }
+/* A FORCED start is a to-do: it must NOT recede. */
+.lu-row--forced { opacity: 1; border-left: 3px solid var(--accent); }
+.lu-row--forced .lu-pts { color: var(--muted); }
+.lu-forced {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--accent); background: var(--surface-2);
+  font-family: var(--sans); font-size: 13px; line-height: 1.45; color: var(--ink);
+}
+.lu-forced .av-glyph { color: var(--accent-txt); font-size: 14px; line-height: 1.25; }
+.lu-forced b { font-weight: 700; }
+/* "This player is unavailable — X starts instead." Availability is WHY, points
+   are HOW MUCH, so this sits ABOVE the net-gain line. */
+.lu-swapnote {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  font-family: var(--sans); font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+.lu-swapnote b { color: var(--ink); font-weight: 700; }
+.lu-swapnote .av-glyph { color: var(--accent-txt); margin-right: 6px; }
+/* Replaces the "already optimal" line when the lineup is the best the roster
+   allows but a slot is filled by someone who can't play. Keeps .lu-optimal
+   geometry (and its class, so the existing e2e lock holds) at --warn. */
+.lu-gap { color: var(--warn); }
+
+/* ---- Compare availability ---- */
+.cmp-metric--avail .cmp-v { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.cmp-avail-ok { color: var(--muted); font-weight: 400; }
+/* The quoted team report that produced a parsed duration. Never paraphrased. */
+.cmp-evid {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-family: var(--sans); font-size: 11px; line-height: 1.45; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cmp-evid-lbl {
+  display: block; font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.08em; color: var(--brand-txt);
+}

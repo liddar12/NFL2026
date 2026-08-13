@@ -25,8 +25,10 @@ records are keyed `espn-<id>` until the nflverse cron path lands the mapping.
 """
 
 import json
+import sys
 import urllib.request
 
+from ..availability import normalize_status
 from .espn import FeedError, _get_json
 from .renames import normalize_team
 
@@ -94,7 +96,15 @@ def fetch_fantasy_pool(season, min_rows=150):
 
     Returns list of {espn_id, name, position, pro_team_id, injury_status,
     prior_season_points}. Loud if the pool is implausibly small.
+
+    REL17 — NORMALIZATION BOUNDARY. `injury_status` leaves this function as a
+    CANONICAL code (scripts/availability.CODES) or None, never as ESPN's own
+    fantasy-API spelling. That spelling ("injury_reserve", "day_to_day") matched
+    nothing downstream, so every consumer's lookup fell through to neutral — F6.
+    One vocabulary, mapped once, at the edge. None means WE DO NOT KNOW: it is not
+    ACTIVE, it is not a discount, and it is reported on stderr rather than absorbed.
     """
+    unmapped = {}
     pool, offset = [], 0
     while offset < _MAX_PLAYERS:
         payload = _kona_page(season, offset)
@@ -111,18 +121,32 @@ def fetch_fantasy_pool(season, min_rows=150):
             # Raw receptions ride the SAME actuals entry under statId "53" —
             # exact PPR<->Half<->Standard conversion downstream, never a guess.
             receptions = float((entry.get("stats") or {}).get("53") or 0.0)
+            raw_status = (p.get("injuryStatus") or "").strip() or None
+            code = normalize_status(raw_status)
+            if raw_status and code is None:
+                unmapped[raw_status] = unmapped.get(raw_status, 0) + 1
             pool.append({
                 "espn_id": str(p.get("id")),
                 "name": p.get("fullName") or str(p.get("id")),
                 "position": pos,
                 "pro_team_id": p.get("proTeamId"),
-                "injury_status": (p.get("injuryStatus") or "").lower() or None,
+                "injury_status": code,
                 "prior_season_points": round(total, 2),
                 "receptions": round(receptions, 1),
             })
         if len(rows) < _PAGE:
             break
         offset += _PAGE
+    if unmapped:
+        # Visible, not fatal. Unlike the injury REPORT (espn.fetch_injuries raises —
+        # that feed is the one carrying long-term absence), an unrecognised fantasy
+        # tag costs a band, not a season, and killing the whole player feed over one
+        # new ESPN string would be a worse outage than the drift. Loud on stderr, and
+        # tests/smoke.sh fails the gate on any unmapped status in committed data.
+        print("[warn] unmapped ESPN fantasy injuryStatus (left as unknown, NOT "
+              "treated as healthy): "
+              + ", ".join(f"{k!r} x{v}" for k, v in sorted(unmapped.items())),
+              file=sys.stderr)
     if len(pool) < min_rows:
         raise FeedError(
             f"fantasy pool for {season} has {len(pool)} players (< {min_rows}) — "

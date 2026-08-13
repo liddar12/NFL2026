@@ -151,6 +151,35 @@ test('warn (stale/degraded health text) meets 4.5:1 on surface', () => {
   assertContrast('warn', 'surface', AA_TEXT);
 });
 
+/* ---- REL17 availability chip (.av-chip / .av-prov) ------------------------ */
+test('availability chip text meets 4.5:1 on every surface it sits on', () => {
+  // .av-chip has background: var(--surface-2) and also renders inside .card
+  // (--surface) and on elevated rows. All of it is small mono text, so the 4.5:1
+  // body threshold applies — there is no "large text" escape hatch here.
+  assertContrast('accent-txt', 'surface-2', AA_TEXT); // .av-chip--out
+  assertContrast('accent-txt', 'surface', AA_TEXT);   // chip inside .card
+  assertContrast('accent-txt', 'elev', AA_TEXT);      // chip on an elevated row
+  assertContrast('warn', 'surface-2', AA_TEXT);       // .av-chip--watch (Q / D)
+  assertContrast('brand-txt', 'surface-2', AA_TEXT);  // .av-prov--report ("REPORT")
+  assertContrast('muted', 'surface-2', AA_TEXT);      // .av-prov--min ("LEAGUE MIN")
+});
+
+test('--accent is FORBIDDEN as availability chip text, legal only as a border', () => {
+  // The design bans the base --accent as chip TEXT because it measures below AA.
+  // This pins the reason: if someone reaches for it as text, this is the proof it
+  // fails; it IS legal as the 3px .lu-row--forced / .lu-forced left border, which
+  // is a graphic held to 3.0:1.
+  assert.ok(
+    contrast(T.accent, T['surface-2']) < AA_TEXT,
+    '--accent unexpectedly clears 4.5:1 on --surface-2; revisit the chip-text ban',
+  );
+  assert.ok(
+    contrast(T.accent, T.elev) < AA_TEXT,
+    '--accent unexpectedly clears 4.5:1 on --elev; revisit the chip-text ban',
+  );
+  assertContrast('accent', 'surface-2', AA_LARGE); // border graphic: >= 3:1
+});
+
 /* ---- Large text: >= 3.0:1 ------------------------------------------------- */
 test('brand/accent as LARGE text meet 3.0:1 on bg', () => {
   // --brand and --accent are display/heading-only (large). 3:1 suffices.
