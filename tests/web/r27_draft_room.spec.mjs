@@ -175,6 +175,21 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await expect(page.locator('.draftsim')).toContainText('9 STARTERS + 4 BENCH · 13 ROUNDS');
   });
 
+  test('the card never claims a limit it no longer has', async ({ page }) => {
+    // "the 13-slot roster panel on this page is still fixed" stopped being true
+    // when R19 built the panel from the profile's own slots, and R27 made it
+    // visibly false — a K/DEF league renders K and DEF slots. A stale
+    // confession is still the app stating something untrue.
+    await page.addInitScript((p) => {
+      localStorage.setItem('nfl2026.league.v1', JSON.stringify(p));
+    }, KDEF_PROFILE);
+    await page.goto('/#/team');
+    await page.waitForSelector('.ds-head', { timeout: 20000 });
+    await expect(page.locator('.draftsim')).not.toContainText('13-slot roster panel');
+    // The limit that IS real is still stated.
+    await expect(page.locator('.draftsim')).toContainText('QB/RB/WR/TE/FLEX/BENCH');
+  });
+
   test('the RECO panel states the ceiling it is applying', async ({ page }) => {
     await auctionSetup(page, { live: true });
     await page.click('[data-act="auc-start"]');

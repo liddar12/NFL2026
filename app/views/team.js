@@ -2344,9 +2344,19 @@ export default async function mountTeam(el) {
         + 'board: league size and roster shape feed replacement level, VOR and beat-the-room '
         + 'draft value straight away, and the reception value sets the scoring mode the whole '
         + 'app projects at. None of it is ever an input to the learned-signal gate — nothing is '
-        + 'retrained. Two limits, said plainly: the 13-slot roster panel on this page is still '
-        + 'fixed, and the opponent model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league '
-        + 'is priced as if its flex were WR/RB/TE.</div>'
+        // R27 — THE OLD FIRST LIMIT WAS NO LONGER TRUE. This said "the 13-slot
+        // roster panel on this page is still fixed", which stopped being the
+        // case when R19 built the panel from rosterSlots(profile).all, and is
+        // now visibly false: a league that seats a K and a DEF renders a K and
+        // a DEF slot. A stale confession is still the app stating something
+        // untrue, and it understated what the page could actually do. Replaced
+        // with the limit that IS still real — the roster steppers only cover
+        // the offensive slots, so a K/DEF league has to arrive by import.
+        + 'retrained. Two limits, said plainly: the roster counters above cover only QB/RB/WR/'
+        + 'TE/FLEX/BENCH, so a league that seats a K or a DEF has to come in through the Sleeper '
+        + 'import (the slots themselves render, and the room drafts them); and the opponent '
+        + 'model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league is priced as if its flex '
+        + 'were WR/RB/TE.</div>'
       + '<div class="ds-sub"><span>SLEEPER</span>'
         + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
       + '<div class="lp-sync">'
@@ -3454,9 +3464,22 @@ export default async function mountTeam(el) {
       const remapped = cfgFromProfile(next);
       carriedTokens = remapped.carried;
       clampedNotes = remapped.clamped;
+      // R27 — SAY WHOSE ROUNDS THESE ARE. This line printed a bare "3 rounds"
+      // straight from the league's own draft_rounds while the card above it
+      // said "13 ROUNDS" (one per roster slot, which is what the room actually
+      // runs). Both numbers were right and nothing on screen said they meant
+      // different things, so the card read as self-contradicting — and a user
+      // who cannot reconcile two numbers stops trusting the rest of them. Only
+      // qualify it when the two genuinely differ; on a league where Sleeper's
+      // rounds match the roster there is nothing to disambiguate.
+      const slotRounds = next.shape.roster_positions.length;
+      const roundsTxt = next.shape.draft_rounds === slotRounds
+        ? `${slotRounds} rounds`
+        : `${slotRounds} roster slots (your league sets ${next.shape.draft_rounds} `
+          + 'draft rounds in Sleeper; the room drafts one round per slot)';
       const lines = [wrote
         ? `Saved: ${next.name} · ${next.shape.teams} teams · ${next.shape.starters} starters `
-          + `+ ${next.shape.bench} bench · ${next.shape.draft_rounds} rounds`
+          + `+ ${next.shape.bench} bench · ${roundsTxt}`
           + `${next.shape.keepers_enabled
             ? ` · ${next.shape.max_keepers} keeper${next.shape.max_keepers === 1 ? '' : 's'}`
             : ''}.`
