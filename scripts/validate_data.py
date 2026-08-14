@@ -298,18 +298,52 @@ def check_meta_weights(meta):
                               % "\n  - ".join(problems))
 
 
-def check_market_price_fields(meta, projections, proj_schema):
+def market_price_keys_deep(node, _parent_key=None):
+    """Every MARKET_PRICE_FIELDS name used as a KEY anywhere inside `node`.
+
+    Recursive because the surfaces this guards are nested: a parlay leg is a
+    dict inside a list inside a dict, and a JSON-Schema declares its fields two
+    or three `properties` levels down. A top-level `set(doc)` check would miss
+    both, which is exactly how a price field would get in unnoticed.
+
+    JSON-Schema `required` arrays are string LISTS, not keys, so they are read
+    too — but only under `required`, so an ordinary data value that happens to
+    read "adp" is not mistaken for a field name.
+    """
+    found = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in MARKET_PRICE_FIELDS:
+                found.add(key)
+            found |= market_price_keys_deep(value, key)
+    elif isinstance(node, list):
+        for item in node:
+            if _parent_key == "required" and item in MARKET_PRICE_FIELDS:
+                found.add(item)
+            found |= market_price_keys_deep(item, _parent_key)
+    return found
+
+
+def check_market_price_fields(meta, projections, proj_schema, extra_docs=()):
     """No market PRICE FIELD may become an input (permanent user policy).
 
     A market price is allowed to be displayed and to flag value; it is never
-    allowed to move a number we produce. The three doors it could walk through:
+    allowed to move a number we produce. The doors it could walk through:
 
       1. data/meta.json `weights` — a fitted weight on a price field;
       2. EXPECTED_SIGNALS — a price field registered as a signal at all;
       3. a player_projections record (or its contract) carrying the field,
-         which is how a price would ride into the engine as a covariate.
+         which is how a price would ride into the engine as a covariate;
+      4. any OTHER produced artifact carrying the field — `extra_docs` is
+         `[(label, document), ...]`, deep-scanned by market_price_keys_deep().
 
-    All three are shut here so the boundary is mechanical, not conventional.
+    Door 4 exists because the policy names parlay probability explicitly, and
+    doors 1-3 covered neither data/parlays.json nor data/game_predictions.json:
+    a price landing on a parlay leg or a game prediction is a price that has
+    reached an output, and nothing red. The call site passes both files AND
+    their contracts, so declaring the field is caught as well as carrying it.
+
+    All of it is shut here so the boundary is mechanical, not conventional.
     ADP shipped protected by contract prose alone; auction_value joins it with
     this check, and ADP is retro-fitted into it by the same pass.
     """
@@ -339,6 +373,13 @@ def check_market_price_fields(meta, projections, proj_schema):
                 "projection record %s carries market price field(s): %s"
                 % (row.get("gsis_id"), ", ".join(sorted(leaked))))
             break  # one example is enough; the whole build is wrong
+    for label, doc in extra_docs or ():
+        leaked = market_price_keys_deep(doc)
+        if leaked:
+            problems.append(
+                "%s carries market price field(s) at some depth: %s — a market "
+                "price may be DISPLAYED, never carried on a produced artifact"
+                % (label, ", ".join(sorted(leaked))))
     if problems:
         raise ValidationError("market price fields must stay DISPLAY ONLY:\n  - %s"
                               % "\n  - ".join(problems))
@@ -993,10 +1034,23 @@ def main():
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:
+        # The policy names parlay probability explicitly, so the two produced
+        # artifacts a price would most plausibly ride on are scanned too — the
+        # data AND its contract, so declaring the field reds as well as
+        # carrying it. Absent files are skipped, not faked green.
+        _extra = []
+        for _name in ("parlays.json", "game_predictions.json"):
+            _dp = os.path.join(DATA, _name)
+            if os.path.exists(_dp):
+                _extra.append((_name, _load(_dp)))
+            _sp = os.path.join(CONTRACTS, _name.replace(".json", ".schema.json"))
+            if os.path.exists(_sp):
+                _extra.append((os.path.basename(_sp), _load(_sp)))
         check_market_price_fields(
             _load(os.path.join(DATA, "meta.json")),
             _load(os.path.join(DATA, "player_projections.json")),
             _load(os.path.join(CONTRACTS, "player_projections.schema.json")),
+            extra_docs=_extra,
         )
         print("ok    market price fields display-only invariant (%s)"
               % ", ".join(sorted(MARKET_PRICE_FIELDS)))

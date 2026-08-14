@@ -247,8 +247,11 @@ test('sellTo clamps an over-budget LIVE entry - conservation is inviolable', () 
   const a = newAuction();
   nominate(a, 0);
   sellTo(a, 0, 250, 0);                     // recorded above the $200 budget
-  assert.equal(a.teams[0].budget, 0, 'buyer drained, never negative');
-  assert.equal(a.log[0].price, 200, 'logged price is the clamped price');
+  // R24-D moved this clamp from "the whole budget" to maxBid(): $1 stays
+  // reserved for every OTHER open slot, because a team at $0 with ten empty
+  // slots is a room no legal auction reaches. 11 slots, so the cap is $190.
+  assert.equal(a.log[0].price, maxBid(200, 11), 'logged price is the LEGAL clamp');
+  assert.equal(a.teams[0].budget, 10, 'buyer keeps $1 per remaining open slot');
   const spent = a.log.reduce((s, l) => s + l.price, 0);
   const remaining = a.teams.reduce((s, t) => s + t.budget, 0);
   assert.equal(spent + remaining, 4 * 200, 'no phantom dollars minted');

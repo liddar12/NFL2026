@@ -42,6 +42,24 @@
  * arrow pointed at nothing. Both glyph pairs are emitted and the media query
  * picks one; no resize listener, no JS layout guess, and `display:none` keeps the
  * hidden pair out of innerText and out of the accessibility tree.
+ *
+ * R24-B — three carried findings, all of them about the SHELL rather than the
+ * numbers (every value on this page is byte-for-byte what it was):
+ *   1. THE CENTRE RAIL SHARES THE ROWS IT ANNOTATES. It used to be a separate
+ *      column offset by a fixed `padding-top: 62px`, so a 45px chip beside a 35px
+ *      metric row drifted ~10px per row: measured at 1366px the top chip sat 34px
+ *      ABOVE its row's centre and the bottom chip 26px BELOW it — nearer the NEXT
+ *      row than its own — and PLAYOFF SoS (R21-B3) made it one row worse. The
+ *      columns and the rail are subgrids of ONE grid now (wide layout only), and
+ *      the row count is READ OFF the rendered column into --cmp-rows, so adding a
+ *      metric row cannot silently un-align the rail again.
+ *   2. THE FINDERS HAVE NAMES. Two search boxes shared one placeholder, which is
+ *      not an accessible name at all; each carries a visible <label for> now.
+ *   3. THE "change" CONTROL IS A 44px TARGET. The pill is the inner span; the
+ *      button around it is the target.
+ * NOT changed, deliberately: the winner glyph already emits both orientations
+ * (R21-B3) and .cmp-name is already 19px/800 large text, so those two carried
+ * findings were re-checked against this source and did not reproduce.
  */
 
 import {
@@ -152,15 +170,30 @@ export default async function mountCompare(el) {
   const A = picks.a ? metricsFor(picks.a) : null;
   const B = picks.b ? metricsFor(picks.b) : null;
 
+  const colA = colHtml('a', A);
+  const colB = colHtml('b', B);
+  // R24 — THE RAIL SHARES THE ROWS IT ANNOTATES. The centre column used to be
+  // pushed down by a fixed `padding-top: 62px` and then run its own box model, so
+  // every chip that was taller than the metric row beside it pushed the next one
+  // further out of true: measured at 1366px the top chip sat 34px ABOVE its row's
+  // centre and the bottom chip 26px BELOW it — closer to the next row than to its
+  // own — and each metric row added since made it worse. The columns and the rail
+  // now share ONE grid (CSS subgrid, wide layout only), so chip N is IN row N by
+  // construction. The row count is read off the rendered column rather than
+  // hardcoded in CSS, so adding a metric row cannot silently un-align the rail.
+  const metricRows = (colA.match(/class="cmp-metric/g) || []).length;
+  const aligned = !!(A && B) && metricRows > 0;
+
   el.innerHTML =
     '<header class="view-head">'
       + '<h1 class="view-title">COMPARE</h1>'
       + '<span class="view-sub">HEAD-TO-HEAD · <span class="est">ESTIMATE</span></span>'
     + '</header>'
-    + '<div class="cmp-grid">'
-      + colHtml('a', A)
+    + `<div class="cmp-grid${aligned ? ' cmp-grid--aligned' : ''}"`
+      + `${aligned ? ` style="--cmp-rows:${metricRows}"` : ''}>`
+      + colA
       + '<div class="cmp-mid" id="cmp-mid"></div>'
-      + colHtml('b', B)
+      + colB
     + '</div>'
     + (samePlayer
       ? '<div class="state">That’s the same player on both sides — pick a different second player to compare.</div>'
@@ -196,9 +229,20 @@ export function midHtml(A, B) {
 /** One player column: identity + metric values, or an inline finder. */
 export function colHtml(side, m) {
   if (!m) {
+    // R24 — A REAL ACCESSIBLE NAME PER SIDE. Both finders carried the SAME
+    // placeholder and nothing else, so a screen reader announced "search edit"
+    // twice with no way to tell the A slot from the B slot — and a placeholder is
+    // not an accessible name at all (it disappears the moment you type). The
+    // label is a visible <label> tied to the input by id, so the name is the same
+    // string a sighted user reads, and it names the side the way the layout does:
+    // FIRST / SECOND, which is true both side-by-side and stacked.
+    const ord = side === 'a' ? 'FIRST' : 'SECOND';
+    const id = `cmp-find-${esc(side)}`;
     return (
       `<div class="cmp-col cmp-col--empty" data-side="${side}">`
-      + `<input class="cmp-find" data-side="${side}" type="search" placeholder="Search player…" autocomplete="off" />`
+      + `<label class="cmp-find-lbl" for="${id}">${ord} PLAYER</label>`
+      + `<input class="cmp-find" id="${id}" data-side="${side}" type="search" `
+        + `placeholder="Search player…" autocomplete="off" />`
       + `<div class="cmp-results" data-side="${side}"></div>`
       + '</div>'
     );
@@ -206,12 +250,23 @@ export function colHtml(side, m) {
   const row = (label, val) => `<div class="cmp-metric"><span class="cmp-lbl">${label}</span><span class="cmp-v">${val}</span></div>`;
   // A position with no feed says so, in words, once — never a dash that reads as
   // "zero" and never a number nobody computed.
+  //
+  // R24-B, ON THE RECORD: this branch is UNREACHABLE with the shipped data.
+  // data/player_projections.json contains QB/RB/WR/TE only (0 K, 0 DEF, 0 DST),
+  // so isProjectedPosition() is true for every player the finder can offer. It is
+  // a guard for the day a K/DST feed reaches THIS contract — not a capability.
+  // Compare does not "handle kickers" today and release copy must not say it does.
   const noFeed = `<span class="cmp-noproj" style="font-weight:600;color:var(--muted)">not projected yet</span>`;
   return (
     `<div class="cmp-col" data-side="${side}">`
     + `<div class="cmp-id"><span class="cmp-name" style="color:${teamTint(m.team)}">${esc(m.name)}</span>`
       + `<span class="cmp-pos">${esc(m.pos)} · ${esc(m.team)}</span>`
-      + `<button type="button" class="cmp-swap" data-side="${side}" data-act="cmp-clear">change</button></div>`
+      // R24 — the 44px minimum touch target. The control was an ~18px pill; the
+      // pill is now the INNER span (unchanged to look at) and the button around
+      // it is the full-height target, so the thing you can hit is the thing the
+      // project's own rule measures.
+      + `<button type="button" class="cmp-swap" data-side="${side}" data-act="cmp-clear">`
+        + '<span class="cmp-swap-pill">change</span></button></div>'
     + availRow(m.avail)
     + row('PROJ PTS', m.projected ? fix1(m.proj) : noFeed)
     + row('RoS VALUE', m.projected ? (m.ros == null ? '—' : fix1(m.ros)) : noFeed)

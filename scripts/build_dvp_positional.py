@@ -55,6 +55,19 @@ silently dropped.
 Team codes are renamed to the corpus convention: LA->LAR, OAK->LV, SD->LAC,
 STL->LAR. Byte-identical to scripts/build_backtest_corpus.py's map.
 
+CORPUS JOIN
+-----------
+The build reconciles itself against data/fixtures/backtest_corpus: every REG
+team-week the corpus knows about must have a row here, and `diagnostics.
+corpus_reconcile` records how many did. It is a LOUD DIAGNOSTIC, not a hard
+failure, because a miss means the upstream player feed has no row for a game
+that certainly happened (3 games in 1999-2000 do). That is unlike
+build_game_context.py, which builds from the same source the corpus came from
+and therefore raises on a single miss. The count is required by the contract
+because dvp_mismatch prices a game from these rows, and a missing team-week
+prices at 0.0 — a tie that dilutes the family exactly as an uncovered season
+would, so it must never be invisible.
+
 MARKET BOUNDARY: this builder reads a player-statistics feed. No betting column
 exists in that source, none is read, and none is written. The family that
 consumes this artifact operates independently of the sportsbooks by policy, and
@@ -84,6 +97,10 @@ FIXTURE = os.path.join(DATA, "fixtures", "nflverse_sample",
 
 RELEASE_BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 RELEASE_URL = RELEASE_BASE + "/stats_player/stats_player_week_{season}.csv"
+
+# The committed backtest corpus, read ONLY to reconcile the join (see
+# reconcile_corpus). Never a source of production numbers.
+CORPUS_DIR = os.path.join(DATA, "fixtures", "backtest_corpus")
 
 FIRST_SEASON = 1999
 LAST_SEASON = 2025
@@ -251,6 +268,77 @@ def accumulate(rows, seasons=None):
         "postseason_rows_dropped": post_rows,
     }
     return out, diagnostics
+
+
+def corpus_team_weeks(corpus_dir=CORPUS_DIR):
+    """`{season: [(team, week), ...]}` for every REG game in the committed corpus.
+
+    Both sides of every game, because this artifact carries one row per TEAM per
+    week, not one per game.
+    """
+    out = {}
+    if not os.path.isdir(corpus_dir):
+        return out
+    for name in sorted(os.listdir(corpus_dir)):
+        if not (name.startswith("finals_") and name.endswith(".json")):
+            continue
+        with open(os.path.join(corpus_dir, name), encoding="utf-8") as fh:
+            doc = json.load(fh)
+        season = int(doc["season"])
+        bucket = out.setdefault(season, [])
+        for g in doc.get("games", ()):
+            if (g.get("game_type") or "REG").strip().upper() != "REG":
+                continue
+            week = int(g["week"])
+            for team in (norm_team(g.get("home")), norm_team(g.get("away"))):
+                bucket.append((team, week, g.get("game_id")))
+    return out
+
+
+def reconcile_corpus(seasons_dict, corpus_dir=CORPUS_DIR):
+    """Count corpus REG team-weeks this artifact has NO row for.
+
+    A LOUD DIAGNOSTIC, not a hard failure — and that asymmetry with
+    scripts/build_game_context.py (which raises on a single miss) is deliberate.
+    game_context builds FROM the same games.csv the corpus was built from, so a
+    miss there is a normalisation bug in this repo. This builder joins a
+    different feed (stats_player_week) against the corpus, so a miss means the
+    upstream player feed has no row for a game that certainly happened. That is
+    an upstream gap we cannot fix by raising, and hard-failing the build over it
+    would leave 27 seasons of DvP unbuilt over three 1999-2000 games.
+
+    What is NOT acceptable is the gap being invisible: `dvp_mismatch` prices a
+    game from these rows, and a team-week with no row prices at 0.0 — a tie that
+    dilutes the family's measured improvement exactly the way an uncovered
+    season would. So the count and up to ten example game_ids are written into
+    the artifact's diagnostics and printed.
+
+    Only seasons the artifact actually covers are compared, so a fixture build
+    reports "no overlap" instead of failing spuriously.
+    """
+    return _reconcile_against(seasons_dict, corpus_team_weeks(corpus_dir))
+
+
+def _reconcile_against(seasons_dict, by_season):
+    """reconcile_corpus() with the corpus already loaded (selftest seam)."""
+    covered = {int(y) for y in seasons_dict}
+    overlap = sorted(s for s in by_season if s in covered)
+    if not overlap:
+        return {"seasons": 0, "compared": 0, "joined": 0, "missing": 0,
+                "examples": []}
+    compared = joined = 0
+    examples = []
+    for season in overlap:
+        rows = seasons_dict.get(season) or seasons_dict.get(str(season)) or {}
+        for team, week, game_id in by_season[season]:
+            compared += 1
+            weeks = rows.get(team) or {}
+            if week in weeks or str(week) in weeks:
+                joined += 1
+            elif len(examples) < 10:
+                examples.append(f"{game_id}|{team}")
+    return {"seasons": len(overlap), "compared": compared, "joined": joined,
+            "missing": compared - joined, "examples": examples}
 
 
 def league_balance(season_rows):
@@ -437,10 +525,30 @@ def selftest():
     # zero-row build), so the guard must not fire on `rows == []`.
     assert accumulate([])[0] == {}
 
+    # --- reconcile_corpus counts misses instead of hiding or raising --------
+    # A synthetic corpus, so this runs offline and does not depend on which
+    # seasons the committed fixture happens to carry.
+    _probe = {
+        2099: [("KC", 1, "2099_01_SF_KC"), ("SF", 1, "2099_01_SF_KC"),
+               ("KC", 2, "2099_02_KC_LAR"), ("LAR", 2, "2099_02_KC_LAR")],
+    }
+    _full = {2099: {"KC": {1: {}, 2: {}}, "SF": {1: {}}, "LAR": {2: {}}}}
+    _rec = _reconcile_against(_full, _probe)
+    assert _rec["compared"] == 4 and _rec["missing"] == 0, _rec
+    # Drop one team-week: the miss is COUNTED and NAMED, and nothing raises.
+    _gap = {2099: {"KC": {1: {}, 2: {}}, "SF": {1: {}}}}
+    _rec = _reconcile_against(_gap, _probe)
+    assert _rec["missing"] == 1 and _rec["joined"] == 3, _rec
+    assert _rec["examples"] == ["2099_02_KC_LAR|LAR"], _rec
+    # A season the artifact does not cover is "no overlap", never a miss.
+    _rec = _reconcile_against({2098: {"KC": {1: {}}}}, _probe)
+    assert _rec == {"seasons": 0, "compared": 0, "joined": 0, "missing": 0,
+                    "examples": []}, _rec
+
     print("selftest OK: ppr_scrimmage exact on hand-computed QB/WR/blank rows, "
           "team+position normalisation, off/def mirror identity, per-position "
           "league balance, REG-only filter, multi-game weeks, missing-opponent "
-          "drop counted")
+          "drop counted, corpus reconcile counts misses without raising")
     return True
 
 
@@ -471,6 +579,17 @@ def main(argv=None):
         raise BuildError("unmapped-position PPR share "
                          f"{diag['unk_position_ppr_share']:.4f} exceeds "
                          f"{MAX_UNK_SHARE} — roster/position feed regression")
+
+    rec = reconcile_corpus(rows)
+    diag["corpus_reconcile"] = rec
+    if rec["compared"]:
+        print("  corpus join: %d/%d corpus REG team-weeks have a row across "
+              "%d season(s), %d missing%s"
+              % (rec["joined"], rec["compared"], rec["seasons"], rec["missing"],
+                 (" (e.g. " + ", ".join(rec["examples"]) + ")")
+                 if rec["examples"] else ""))
+    else:
+        print("  corpus join: no overlapping seasons — nothing to reconcile")
 
     doc = document(rows, diag, seasons)
     path = write(doc, args.out)

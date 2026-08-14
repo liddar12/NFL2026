@@ -212,13 +212,74 @@ them honestly if they will not.
 
 Everything still open after R19 absorbs #4 and #5:
 
-- **Functional:** auction over-roster guard (#6). *(#9/#10/#11 close in R18.)*
+- **Functional:** auction over-roster guard (#6). **Closed in R23 (`c3ffb53`),
+  not here** — `canBuy()` / `buyerOptions()` / the `sellTo()` refusal all predate
+  R24. This plan was written before R23 shipped. See the resolution log in
+  `docs/qa/REL15_BUG_LIST.md`. *(#9/#10/#11 close in R18.)*
 - **UI/UX — 10 open findings**, led by the two that hit every screen:
   `.view-title` / `.view-sub` have **zero CSS** (#11), and the tab bar clips its
   6th tab at 320px (#2). Then `.cmp-name` WCAG AA (#1, the only P2), gate focus
   trap (#3), compare a11y labels (#4), tab-less compare route (#5), 18px touch
   target (#7), stacked-layout winner glyph (#8), edge-rail alignment (#9), 11px
   tinted abbreviations (#10).
+
+#### R24 scope additions — carried in, NOT on the original finding list
+
+Recorded because a bug-fix release must not change model governance or a
+user-visible recorded number silently. Each is real work with a real rationale;
+each is listed here so the owner can accept or reject it as its own decision
+rather than discovering it in a diff. **R24-a needs explicit owner sign-off
+before merge** — it is the only one that moves a bar rather than fixing a defect.
+
+- **R24-a — Bonferroni multiplicity unit: grid points → candidate families.**
+  ⚠️ **AWAITING OWNER SIGN-OFF. This LOWERS the self-learning adoption bar.**
+  `scripts/promote_signals.py` now divides α by the number of *runnable candidate
+  families* (13) instead of the number of *grid points* (89). On the shipped run
+  `t_crit` falls 12.4244 → 6.4102 and the applied threshold 0.01254 → ~0.00647,
+  so signals that the old gate would have rejected can now be adopted. The
+  statistical argument is sound — a family's grid is one hypothesis measured at
+  several amplitudes, and counting grid points let a losing family's fat grid tax
+  every other family — but it is a **model-governance decision, not a bug fix**,
+  and it changes what the weekly cron will adopt without a human in the loop.
+  Both counts are archived (`significance.tests` = the divisor used,
+  `significance.trials` = the grid-point count, plus `trials_by_family`), so any
+  archived decision can be re-derived under either rule. If the owner rejects it,
+  revert the `alpha_bonferroni` block and the `never_regress.test.mjs` R24
+  divisor locks together. The assertion that pins the divisor was briefly
+  softened to `alpha / (s.tests ?? s.trials)`; it is exact again against
+  `s.tests` on the shipped entry.
+- **R24-b — `sellTo()` price clamp: whole budget → `maxBid()`.** Changes a
+  **recorded, user-visible price**: an over-budget LIVE entry now clamps to
+  `maxBid(budget, openSlots)` — $1 reserved per other open slot — instead of the
+  buyer's entire remaining budget. Rationale: the old clamp conserved money but
+  produced a team at $0 with a dozen empty slots, a room no legal auction
+  reaches, which then skewed `liveInflation` and every `maxBid`-derived threat
+  list. Conservation is still exact. **This is not REL15 #6** (see above); it is
+  its own change and rides here only because it was written alongside it.
+- **R24-c — explicit `position_caps` and REL15 #4.** R24-D made a stated cap a
+  hard ceiling; that re-broke REL15 #4 for every Sleeper-imported league, since
+  `app/sleeper.js` writes `position_caps` from the league's real
+  `position_limit_*` settings. Resolved in the R24 sweep by splitting on the
+  startable demand: a stated cap **at or above** what the league starts is raised
+  to `demand + 1` (REL15 #4 preserved), a stated cap **below** it is left as the
+  league's deliberate rule (the R24-D gain kept). Affected shapes and the
+  boundary either side of it are locked in `tests/feature/r24_sweep.test.mjs`.
+- **R24-d — `replacementLevel()` throws on a shape with no league size.** An
+  exported API turned a silent "assume 12 teams" into a `TypeError`. Kept: the
+  silent default priced an 8- and a 16-team draft identically while the module
+  claimed league size moves VOR, which is the HONEST-DATA rule. No live call site
+  can reach it — `app/views/team.js` passes `draftCfg`, `app/views/players.js`
+  passes `cfgFromProfile(profile).cfg`, and both state `leagueSize` — and that
+  guarantee is now asserted rather than assumed (`tests/feature/r24_sweep.test.mjs`).
+- **R24-e — `is_cold_game()` reads the corpus `gameday` fallback.** A data-honesty
+  fix, not a governance change: `load_finals()` already sorts by
+  `kickoff_utc or gameday`, but `is_cold_game()` read `kickoff_utc` only, so all
+  259 games of the 1999 corpus season were classified not-cold — 61 of them are
+  cold-venue Nov–Feb dates. Reading `gameday` is not inventing a date. The
+  shipped 2021–2025 fixtures all carry `kickoff_utc`, so the **default gate is
+  byte-for-byte unchanged**; only `--corpus` runs see a different cold count.
+  This is why `tests/feature/backtest_corpus.test.mjs` changed a shipped
+  assertion (0 → 61), stated in a comment at the assertion.
 
 ### R25 — Performance & latency RCA *(autonomous)*
 

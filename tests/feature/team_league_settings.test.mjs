@@ -32,6 +32,7 @@ import { dirname, resolve } from 'node:path';
 import {
   DRAFTABLE_TOKENS,
   cfgFromProfile,
+  draftRoundsOverride,
   flexLabel,
   importSummaryRows,
   profileFromCfg,
@@ -456,4 +457,104 @@ test('the panel writes exactly two storage keys: the league profile and scoring'
   assert.ok(TEAM_SRC.includes('localStorage.setItem(SCORING_KEY, nextMode)'));
   assert.ok(!TEAM_SRC.includes("localStorage.setItem('nfl2026.league"),
     'the profile must be written through app/league.js saveProfile, not by hand');
+});
+
+/* ==========================================================================
+ * 6. DRAFT ROUNDS ARE THE LEAGUE'S, NOT THE ROSTER'S (R24 regression)
+ *
+ * The panel has no rounds field. profileFromCfg() used to write
+ * roster_positions.length over shape.draft_rounds unconditionally, which
+ * erased the draft_rounds the Sleeper import read from the real league — and
+ * the SAVE status then printed the fabricated number as fact ("… · 17
+ * rounds" for a league that drafts 15). An explicit value now survives every
+ * edit that leaves the roster size alone, and an override the panel cannot
+ * avoid is REPORTED, exactly the way a ROSTER_BOUNDS clamp is.
+ * ======================================================================== */
+
+test('an imported draft_rounds survives a round trip through the panel', () => {
+  const raw = readFileSync(resolve(REPO_ROOT, 'tests/fixtures/sleeper_league.json'), 'utf8');
+  const res = importFromPastedJson(raw);
+  assert.equal(res.ok, true);
+  const imported = res.profile;
+  assert.equal(imported.shape.draft_rounds, 15);
+  assert.equal(imported.shape.roster_positions.length, 17);
+
+  const { cfg, carried } = cfgFromProfile(imported);
+  const back = profileFromCfg(cfg, imported, carried);
+  assert.equal(back.shape.draft_rounds, 15,
+    'the real league drafts 15 rounds — the roster size is not the rounds count');
+  assert.equal(back.shape.roster_positions.length, 17);
+  // And nothing was overridden, so there is nothing to report.
+  assert.equal(draftRoundsOverride(cfg, imported, carried), null);
+});
+
+test('a draft_rounds that was tracking the roster keeps tracking it', () => {
+  // DEFAULT_PROFILE: 13 rounds, 13 slots — the value is not an explicit league
+  // setting, so growing the bench moves it, and that is not an override.
+  const { cfg, carried } = cfgFromProfile(DEFAULT_PROFILE);
+  assert.equal(DEFAULT_PROFILE.shape.draft_rounds, 13);
+  const back = profileFromCfg({ ...cfg, bench: 7 }, DEFAULT_PROFILE, carried);
+  assert.equal(back.shape.roster_positions.length, 14);
+  assert.equal(back.shape.draft_rounds, 14);
+  assert.equal(draftRoundsOverride({ ...cfg, bench: 7 }, DEFAULT_PROFILE, carried), null);
+});
+
+test('an explicit draft_rounds the panel CANNOT keep is reported, not swapped in', () => {
+  const raw = readFileSync(resolve(REPO_ROOT, 'tests/fixtures/sleeper_league.json'), 'utf8');
+  const imported = importFromPastedJson(raw).profile;
+  const { cfg, carried } = cfgFromProfile(imported);
+  const grown = { ...cfg, bench: cfg.bench + 2 };            // the roster size moves
+  const back = profileFromCfg(grown, imported, carried);
+  assert.equal(back.shape.roster_positions.length, 19);
+  assert.equal(back.shape.draft_rounds, 19);
+  assert.deepEqual(draftRoundsOverride(grown, imported, carried), { wanted: 15, used: 19 });
+});
+
+test('the SAVE status prints the rounds override it just made', () => {
+  const block = TEAM_SRC.slice(TEAM_SRC.indexOf("if (act === 'league-save')"));
+  assert.ok(block.includes('draftRoundsOverride(draftCfg, stagedProfile, carriedTokens)'),
+    'the save handler must ask whether it overrode an explicit draft_rounds');
+  const line = block.slice(block.indexOf('if (roundsMoved) lines.push'));
+  assert.ok(line.includes('roundsMoved.wanted') && line.includes('roundsMoved.used'),
+    'the status line must name both the league value and the value written');
+});
+
+/* ==========================================================================
+ * 7. THE SLEEPER FIELD MUST NOT LOOK PRE-FILLED (R24 regression)
+ *
+ * The placeholder was a plausible 19-digit league id, which reads as a value
+ * already entered; pressing SYNC NOW then errored "Enter your Sleeper league
+ * id or league URL first." — contradicting what the user could see.
+ * ======================================================================== */
+
+test('the Sleeper league-id placeholder cannot be mistaken for a value', () => {
+  const attr = /placeholder="([^"]*)"/g;
+  const placeholders = [...TEAM_SRC.matchAll(attr)].map((m) => m[1]);
+  assert.ok(placeholders.length > 0, 'no placeholder found in the view');
+  placeholders.forEach((ph) => {
+    assert.ok(!/^\d{6,}$/.test(ph),
+      `placeholder "${ph}" is a bare long number and reads as an entered value`);
+  });
+  assert.ok(TEAM_SRC.includes('placeholder="paste your league id or URL"'),
+    'the league-id field must tell the user what to do, not show a fake id');
+  assert.ok(!TEAM_SRC.includes('placeholder="1051234567890123456"'));
+});
+
+/* ==========================================================================
+ * 8. THE CALIBRATION HEADLINE CARRIES ITS OWN CAVEAT (R24 regression)
+ *
+ * app/mocks.js documents that roomCalibration()'s mean is taken over players
+ * the room actually DRAFTED — undrafted consensus players contribute nothing.
+ * That caveat never reached the UI, so "players go 5.0 picks EARLIER than
+ * consensus on average" read as an unqualified fact about every player.
+ * ======================================================================== */
+
+test('the measured-calibration headline is followed by the survivorship caveat', () => {
+  const on = TEAM_SRC.indexOf('ds-hcal ds-hcal--on');
+  assert.ok(on > -1, 'the measured calibration headline is gone');
+  const after = TEAM_SRC.slice(on, TEAM_SRC.indexOf('const drifts = positionDrift'));
+  assert.ok(after.includes('ds-hnote'), 'no note follows the calibration headline');
+  assert.ok(/actually DRAFTED/.test(after));
+  assert.ok(/undrafted/i.test(after) && /contribute nothing/.test(after),
+    'the caveat must say undrafted consensus players contribute nothing');
 });

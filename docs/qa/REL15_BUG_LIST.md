@@ -40,3 +40,31 @@ standing-rule violations surfaced in this batch.
   edge cases (#4, #5).
 - **P3** = narrower functional edge cases requiring a mis-tap or deep-link (#6, #7) and
   honesty/pipeline-integrity gaps that are developer-facing or currently inert (#8–#11).
+
+## Resolution log
+
+Added during the R24 sweep. The table above is the finding as filed and is not
+rewritten; this section records where each one was actually closed, because two
+of them were being re-closed in a later release than the one that fixed them.
+
+- **#6 — LIVE auction RECORD SALE can push a team past its roster size.**
+  **ALREADY FIXED in R23** (`c3ffb53`), *not* in R24. `canBuy()` refuses a buyer
+  already at `shape.size`, `sellTo()` returns `null` on that refusal, and
+  `buyerOptions()` filters the SOLD TO select so a full team is not offered in
+  the first place — all three landed in R23 and are covered by
+  `tests/feature/auction.test.mjs`. Verified by `git log -1 -S canBuy --
+  app/auction.js`. R24 scoped #6 as open (RELEASE_PLAN.md R24 "Functional")
+  because the release plan was written before R23 shipped; nothing about the
+  over-roster guard changed in R24 and no R24 work should be credited to it.
+
+- **#4 — Backup QB impossible in 2-QB leagues.** Fixed in **R19** by deriving
+  caps from the roster shape (`derivedCaps()` raising each cap to
+  `startableDemand + 1`). **Partially reintroduced and re-fixed in R24:** the
+  R24-D change that made an *explicit* `position_caps` set a hard ceiling
+  re-broke this for every Sleeper-imported league, because `app/sleeper.js`
+  writes `position_caps` from the league's real `position_limit_*` settings, so
+  a 2-QB league importing a QB limit of 2 was again refused a third QB. The rule
+  now splits on the startable demand — a stated cap **at or above** what the
+  league starts is raised to `demand + 1` (REL15 #4 preserved), a stated cap
+  **below** it is left as the league's deliberate rule. Locked by
+  `tests/feature/r24_sweep.test.mjs`.

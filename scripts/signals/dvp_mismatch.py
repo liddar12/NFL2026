@@ -290,11 +290,20 @@ def load_features(seasons, path=DVP_PATH):
     """`(features, diagnostics)`, or None when the artifact is unusable.
 
     Returns None when the file is absent, or when its seasons do not span the
-    walk INCLUDING the prior-season seed. Partial coverage is not a smaller
-    measurement, it is a corrupted one: uncovered folds score exact ties
-    against the incumbent, ties are counted in n and in the cluster-robust
-    variance, and the recorded improvement is diluted toward zero. "No data
-    here" would be archived as "no help here". Skip loudly instead.
+    EVALUATED walk. Partial coverage of the walk is not a smaller measurement,
+    it is a corrupted one: uncovered folds score exact ties against the
+    incumbent, ties are counted in n and in the cluster-robust variance, and
+    the recorded improvement is diluted toward zero. "No data here" would be
+    archived as "no help here". Skip loudly instead.
+
+    The prior-season SEED (`min(seasons) - 1`) is deliberately NOT required —
+    the check is `all(y in covered for y in seasons)` and nothing more. Under
+    --corpus the walk starts at 1999, which is also the artifact's first
+    season, so requiring 1998 would skip the family outright on the only walk
+    that matters. The seed's absence is not silent either: a team with no prior
+    season and no plays in hand has an UNDEFINED rate, contributes nothing to
+    the delta, and is counted in `team_side_rates_undefined`. The seed is
+    best-effort and REPORTED; the walk itself is mandatory and GATED.
     """
     if not os.path.exists(path):
         return None

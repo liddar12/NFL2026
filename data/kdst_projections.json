@@ -68,7 +68,7 @@
       "key": "def_st_fum_rec",
       "label": "Special-teams fumble recovery",
       "position": "DEF",
-      "reason": "stats_team_week reports fumble_recovery_opp for the whole team; special-teams recoveries are not separable from defensive ones at weekly granularity."
+      "reason": "stats_team_week reports fumble_recovery_opp for the whole team; special-teams recoveries are not separable from defensive ones at weekly granularity. The modelled DEF `fum_rec` IS that whole-team column, so special-teams recoveries are already counted inside fum_rec: a league scoring both keys is mis-attributed, not under-counted."
     }
   ],
   "partial_scoring": {

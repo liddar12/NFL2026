@@ -72,11 +72,30 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "corpus_reconcile",
         "postseason_rows_dropped",
         "rows_without_team",
         "unk_position_ppr_share"
       ],
       "properties": {
+        "corpus_reconcile": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How many backtest-corpus REG team-weeks this artifact actually has a row for. REQUIRED because dvp_mismatch prices a game from these rows and a missing team-week prices at 0.0 - a tie that dilutes the family's measured improvement exactly the way an uncovered season would. A miss is an upstream gap in stats_player_week, so the builder records it loudly rather than hard-failing (unlike build_game_context, which builds from the same feed the corpus came from and therefore raises).",
+          "required": ["seasons", "compared", "joined", "missing", "examples"],
+          "properties": {
+            "seasons": { "type": "integer", "minimum": 0 },
+            "compared": { "type": "integer", "minimum": 0 },
+            "joined": { "type": "integer", "minimum": 0 },
+            "missing": { "type": "integer", "minimum": 0 },
+            "examples": {
+              "type": "array",
+              "maxItems": 10,
+              "items": { "type": "string" },
+              "description": "Up to ten `game_id|team` misses, so the gap is diagnosable without re-running the join."
+            }
+          }
+        },
         "postseason_rows_dropped": {
           "type": "integer",
           "minimum": 0

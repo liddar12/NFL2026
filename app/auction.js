@@ -469,11 +469,18 @@ export function sellTo(a, teamIdx, price, boardIdx) {
   if (!canBuy(a, teamIdx)) return null;
   a.taken.add(boardIdx);
   const team = a.teams[teamIdx];
-  // Money conservation is inviolable: a recorded price can never exceed the
-  // buyer's remaining budget (bad LIVE entry clamps rather than minting
-  // phantom dollars). The clamped price is what lands in the log, so undo
-  // and the spent/remaining invariant stay exact.
-  price = Math.max(0, Math.min(Math.round(price), team.budget));
+  // Money conservation is inviolable, and the clamp is the LEGAL one: a
+  // recorded price can never exceed maxBid(), which reserves $1 for every
+  // OTHER slot this team still has to fill (a bad LIVE entry clamps rather
+  // than minting phantom dollars). Clamping to the whole budget — what this
+  // did before R24-D — conserved money but produced a room no legal auction
+  // can reach: a team at $0 with a dozen empty slots, which then skewed
+  // liveInflation and every threat list built from maxBid. openSlots is read
+  // BEFORE the push, so it counts the slot this sale fills. The clamped price
+  // is what lands in the log, so undo and the spent/remaining invariant stay
+  // exact.
+  price = Math.max(0, Math.min(Math.round(price),
+    maxBid(team.budget, a.shape.size - team.players.length)));
   team.budget = team.budget - price;
   team.players.push(row);
   const market = a.market.get(key) || MIN_BID;

@@ -512,7 +512,10 @@ def main():
             "generated_utc": dt.datetime.now(dt.timezone.utc)
                                .strftime("%Y-%m-%dT%H:%M:%SZ"),
             "source": "nflverse stats_player_week release CSV (per-player-per-week)",
-            "source_url_template": RELEASE_URL % 0,
+            # A TEMPLATE, left UNSUBSTITUTED. Substituting season zero here
+            # produced the literal ".../stats_player_week_0.csv" — a dead URL
+            # that a consumer reading the artifact's declared source 404s on.
+            "source_url_template": RELEASE_URL.replace("%d", "{season}"),
             "grain": "through_week_cumulative",
             "season_type": "REG",
             "positions": list(POSITIONS),
