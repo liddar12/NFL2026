@@ -835,21 +835,41 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
  * ------------------------------------------------------------------------- */
 
 test.describe('promotion gate + calibration cards (REL7, #/model)', () => {
+  /* The gate card renders ONE row per families[] entry (app/views/model.js
+   * familyRows), and families[] grows with the model: 8 before Rel18, 13 after.
+   * Pinning the count at 8 made this spec a time bomb — .github/workflows/
+   * backtest.yml runs the promotion gate and COMMITS data/model_tuning.json, so
+   * the first scheduled run after a family is added turned this red for no
+   * product reason. Derive the expectation from the same committed entry the
+   * app reads, and keep the assertion about what must not drift: the pre-Rel18
+   * core is always present, referee is never a family, and the rendered row and
+   * chip counts match the entry exactly. */
   test('gate card lists all candidate families with verdict chips', async ({ page }) => {
+    const tuning = readData('model_tuning.json');
+    const entry = (tuning.history || []).find(
+      (h) => h && h.kind === 'signal_promotion' && h.format === 2);
+    expect(entry, 'a format-2 promotion entry is committed').toBeTruthy();
+    const families = entry.families.map((f) => f.family);
+    for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass',
+      'elo_epa', 'weather_wind', 'qb_out', 'skill_out']) {
+      expect(families).toContain(fam);
+    }
+    // `referee` is a game-context FIELD and a separate diagnostic, never a
+    // family (Rel18 SOLUTION_DESIGN R1) — it may never reach the MODEL tab.
+    expect(families).not.toContain('referee');
+
     await page.goto('/#/model');
     await page.waitForSelector('.m-gate .gate-row', { timeout: 8000 });
     const txt = await page.locator('.m-gate').innerText();
-    for (const fam of ['environment', 'rest', 'epa_total', 'epa_pass',
-      'elo_epa', 'weather_wind', 'qb_out', 'skill_out']) {
-      expect(txt).toContain(fam);
-    }
+    for (const fam of families) expect(txt).toContain(fam);
     expect(txt).toContain('NEVER-REGRESS');
-    // Every family row (not the header) carries exactly one verdict chip, and
-    // the market yardstick renders as measurement-only (Rel10).
+    // Every family in the entry gets exactly one row (excluding the header) and
+    // exactly one verdict chip — none rendered twice, none dropped. The market
+    // yardstick still renders as measurement-only (Rel10).
     const rows = await page.locator('.m-gate .gate-row:not(.gate-row--head)').count();
     const chips = await page.locator('.m-gate .gate-chip').count();
-    expect(rows).toBe(8);
-    expect(chips).toBe(8);
+    expect(rows).toBe(families.length);
+    expect(chips).toBe(families.length);
     await expect(page.locator('.m-gate .gate-bench')).toContainText('MEASUREMENT ONLY');
   });
 

@@ -1,0 +1,262 @@
+{
+  "note": "Hand-derivable fixture for scripts/signals/coach_quality.py. Season 2001 is built so EVERY team plays exactly once, which means every team is still at elo.INIT (1500) when its only game is priced. The pre-game home probability is therefore the same constant for all five games: p0 = 1/(1+10^(-hfa/400)) = 1/(1+10^(-45/400)) = 0.5644004902404213. So every home win contributes a residual of exactly (1-p0) and every home loss exactly -p0, and the season-2002 coach map is exact arithmetic in p0 with no Elo trajectory to reproduce. The two identities the tests lean on are (1-p0)+p0 == 1 and shrink(1) == 1/(1+16) == 1/17, which make a home-winner-minus-home-loser delta exactly scale/17 -- 17.647058823529413 at scale 300 -- with p0 cancelling out entirely.",
+  "params": {
+    "hfa": 45.0,
+    "k": 25.0,
+    "revert": 0.45
+  },
+  "seasons": [
+    2001,
+    2002
+  ],
+  "scale": 300.0,
+  "p0": 0.5644004902404213,
+  "shrink_n": 16,
+  "finals": {
+    "2001": [
+      {
+        "home": "HOU",
+        "away": "IND",
+        "home_score": 24,
+        "away_score": 10,
+        "week": 1,
+        "kickoff_utc": "2001-09-09T17:00:00Z"
+      },
+      {
+        "home": "JAX",
+        "away": "TEN",
+        "home_score": 13,
+        "away_score": 20,
+        "week": 1,
+        "kickoff_utc": "2001-09-09T17:00:00Z"
+      },
+      {
+        "home": "KC",
+        "away": "LV",
+        "home_score": 27,
+        "away_score": 3,
+        "week": 1,
+        "kickoff_utc": "2001-09-09T17:00:00Z"
+      },
+      {
+        "home": "DEN",
+        "away": "LAC",
+        "home_score": 10,
+        "away_score": 21,
+        "week": 1,
+        "kickoff_utc": "2001-09-09T17:00:00Z"
+      },
+      {
+        "home": "SEA",
+        "away": "SF",
+        "home_score": 20,
+        "away_score": 20,
+        "week": 1,
+        "kickoff_utc": "2001-09-09T17:00:00Z"
+      }
+    ],
+    "2002": [
+      {
+        "home": "HOU",
+        "away": "JAX",
+        "home_score": 21,
+        "away_score": 17,
+        "week": 1,
+        "kickoff_utc": "2002-09-08T17:00:00Z"
+      },
+      {
+        "home": "KC",
+        "away": "HOU",
+        "home_score": 24,
+        "away_score": 20,
+        "week": 2,
+        "kickoff_utc": "2002-09-15T17:00:00Z"
+      },
+      {
+        "home": "IND",
+        "away": "TEN",
+        "home_score": 14,
+        "away_score": 27,
+        "week": 3,
+        "kickoff_utc": "2002-09-22T17:00:00Z"
+      },
+      {
+        "home": "SEA",
+        "away": "SF",
+        "home_score": 13,
+        "away_score": 10,
+        "week": 4,
+        "kickoff_utc": "2002-09-29T17:00:00Z"
+      },
+      {
+        "home": "TEN",
+        "away": "LAC",
+        "home_score": 30,
+        "away_score": 24,
+        "week": 5,
+        "kickoff_utc": "2002-10-06T17:00:00Z"
+      },
+      {
+        "home": "NE",
+        "away": "HOU",
+        "home_score": 17,
+        "away_score": 16,
+        "week": 6,
+        "kickoff_utc": "2002-10-13T17:00:00Z"
+      },
+      {
+        "home": "HOU",
+        "away": "NE",
+        "home_score": 28,
+        "away_score": 7,
+        "week": 7,
+        "kickoff_utc": "2002-10-20T17:00:00Z"
+      },
+      {
+        "home": "BUF",
+        "away": "MIA",
+        "home_score": 20,
+        "away_score": 19,
+        "week": 8,
+        "kickoff_utc": "2002-10-27T17:00:00Z"
+      },
+      {
+        "home": "NYJ",
+        "away": "NYG",
+        "home_score": 23,
+        "away_score": 3,
+        "week": 9,
+        "kickoff_utc": "2002-11-03T17:00:00Z"
+      }
+    ]
+  },
+  "context": {
+    "2001|1|HOU|IND": {
+      "home_coach": "Ada Homerwin",
+      "away_coach": "Ben Roadloss"
+    },
+    "2001|1|JAX|TEN": {
+      "home_coach": "Cara Homerloss",
+      "away_coach": "Dane Roadwin"
+    },
+    "2001|1|KC|LV": {
+      "home_coach": "Elle Homerwin",
+      "away_coach": "Finn Roadloss"
+    },
+    "2001|1|DEN|LAC": {
+      "home_coach": "Gus Homerloss",
+      "away_coach": "Hana Roadwin"
+    },
+    "2001|1|SEA|SF": {
+      "home_coach": "Iris Tiehome",
+      "away_coach": "Jed Tieaway"
+    },
+    "2002|1|HOU|JAX": {
+      "home_coach": "Ada Homerwin",
+      "away_coach": "Cara Homerloss"
+    },
+    "2002|2|KC|HOU": {
+      "home_coach": "Elle Homerwin",
+      "away_coach": "Ada Homerwin"
+    },
+    "2002|3|IND|TEN": {
+      "home_coach": "Ben Roadloss",
+      "away_coach": "Dane Roadwin"
+    },
+    "2002|4|SEA|SF": {
+      "home_coach": "Iris Tiehome",
+      "away_coach": "Jed Tieaway"
+    },
+    "2002|5|TEN|LAC": {
+      "home_coach": "Dane Roadwin",
+      "away_coach": "Hana Roadwin"
+    },
+    "2002|6|NE|HOU": {
+      "home_coach": "Kip Rookie",
+      "away_coach": "Ada Homerwin"
+    },
+    "2002|7|HOU|NE": {
+      "home_coach": "Ada Homerwin",
+      "away_coach": "Kip Rookie"
+    },
+    "2002|8|BUF|MIA": {
+      "home_coach": "Kip Rookie",
+      "away_coach": "Lou Rookie"
+    }
+  },
+  "probes": [
+    {
+      "index": 0,
+      "label": "home-winner minus home-loser == scale/17 exactly (p0 cancels)",
+      "expect": 17.647058823529413
+    },
+    {
+      "index": 1,
+      "label": "two coaches with identical 2001 situations difference to exactly 0",
+      "expect": 0.0
+    },
+    {
+      "index": 2,
+      "label": "road-loser at home vs road-winner == -scale/17 exactly",
+      "expect": -17.647058823529413
+    },
+    {
+      "index": 3,
+      "label": "the 2001 TIE contributed no residual and no count, so both coaches are unrated -> 0",
+      "expect": 0.0
+    },
+    {
+      "index": 4,
+      "label": "two road-winners difference to exactly 0",
+      "expect": 0.0
+    },
+    {
+      "index": 5,
+      "label": "an unseen coach is SILENT (q=0), never a guess: -scale*(1-p0)/17",
+      "expect": -7.687050172227861
+    },
+    {
+      "index": 6,
+      "label": "same pair with venues swapped is the exact negative (antisymmetry)",
+      "expect": 7.687050172227861
+    },
+    {
+      "index": 7,
+      "label": "two unseen coaches -> 0",
+      "expect": 0.0
+    },
+    {
+      "index": 8,
+      "label": "no context record at all -> 0, never a crash",
+      "expect": 0.0
+    }
+  ],
+  "expect": {
+    "by_season_2001": {},
+    "coaches_rated_2002": 8,
+    "tie_coaches_absent_2002": [
+      "Iris Tiehome",
+      "Jed Tieaway"
+    ],
+    "antisymmetric_pairs": [
+      [
+        "Ada Homerwin",
+        "Ben Roadloss"
+      ],
+      [
+        "Cara Homerloss",
+        "Dane Roadwin"
+      ],
+      [
+        "Elle Homerwin",
+        "Finn Roadloss"
+      ],
+      [
+        "Gus Homerloss",
+        "Hana Roadwin"
+      ]
+    ],
+    "inputs_refused": true,
+    "inputs_refused_because": "the 2002 NYJ|NYG game carries no context record, so join coverage is 8/9 < MIN_JOIN_RATE"
+  }
+}

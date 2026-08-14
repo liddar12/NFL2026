@@ -1623,6 +1623,19 @@ button { font: inherit; color: inherit; }
   line-height: 1.6;
 }
 .gate-chip--skipped { color: var(--warn-txt, var(--muted)); }
+/* A family with no prediction-time reader: measured, never applied. Dashed so
+   it can never be mistaken for a slightly weaker RETAINED. */
+.gate-chip--nopath {
+  color: var(--warn-txt, var(--muted));
+  border-style: dashed;
+}
+.gate-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 6px;
+}
 
 /* Market yardstick trend chart (MODEL tab) — ours vs the closing line over
    successive gate runs. Display-only; the market is never a model input. */

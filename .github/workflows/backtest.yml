@@ -75,6 +75,26 @@ jobs:
       - name: Build K/DST projections (separate contract from player_projections)
         run: python scripts/build_kdst.py
 
+      # Rel18 family inputs. These three feed the five new candidate families
+      # (divisional, coach_quality, coach_regime, dvp_mismatch, scheme_matchup)
+      # and read the same nflverse release CSVs as the builders above, so they
+      # need the same runner network. Unwired they would freeze at whatever
+      # snapshot happened to be committed: every family would either measure a
+      # stale artifact forever or sit in its SKIPPED branch forever, and
+      # build_scheme_history's re-probe of the FTN release for the live season
+      # (the thing that flips application.dark to false the season FTN appears)
+      # would never run again. They must stay ABOVE the promotion gate, which
+      # reads their output, and their artifacts are picked up by `git add data/`
+      # in the commit step below.
+      - name: Build game context (divisional / coach / referee fields)
+        run: python scripts/build_game_context.py
+
+      - name: Build DvP positional history (defense-vs-position)
+        run: python scripts/build_dvp_positional.py
+
+      - name: Build scheme history (FTN charting; re-probes the live season)
+        run: python scripts/build_scheme_history.py
+
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
 

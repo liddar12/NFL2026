@@ -196,18 +196,33 @@ export function latestPromotion(history) {
 
 /**
  * Per-family verdict rows for the gate card: {family, status, bestLoss,
- * improvement, reason}. status: 'adopted' | 'retained' | 'skipped'. Pure.
+ * improvement, reason, appliable, appNote}. status: 'adopted' | 'retained' |
+ * 'skipped'.
+ *
+ * `appliable` mirrors the gate's own APPLIABLE set, recorded per family on the
+ * entry. FALSE means the family can be measured but cannot receive pricing
+ * weight at any log-loss, because nothing in the prediction pipeline reads it —
+ * rendering it identically to a family that can is how the card ends up telling
+ * the user the opposite of the truth. Entries written before the flag existed
+ * carry no opinion (null), which renders as it always did. `appNote` carries
+ * coverage.application.reason for a family whose application path is DARK
+ * (scheme_matchup: no FTN charting release for the live season). Pure.
  */
 export function familyRows(entry) {
   if (!entry || !Array.isArray(entry.families)) return [];
   const adopted = entry.adopted_family && entry.adopted_family.family;
-  return entry.families.map((f) => ({
-    family: f.family,
-    status: f.skipped ? 'skipped' : (f.family === adopted ? 'adopted' : 'retained'),
-    bestLoss: f.best ? f.best.log_loss : null,
-    improvement: Number.isFinite(Number(f.improvement)) ? Number(f.improvement) : null,
-    reason: f.reason || '',
-  }));
+  return entry.families.map((f) => {
+    const app = (f.coverage && f.coverage.application) || null;
+    return {
+      family: f.family,
+      status: f.skipped ? 'skipped' : (f.family === adopted ? 'adopted' : 'retained'),
+      bestLoss: f.best ? f.best.log_loss : null,
+      improvement: Number.isFinite(Number(f.improvement)) ? Number(f.improvement) : null,
+      reason: f.reason || '',
+      appliable: typeof f.appliable === 'boolean' ? f.appliable : null,
+      appNote: (app && app.dark && app.reason) ? String(app.reason) : '',
+    };
+  });
 }
 
 /**
@@ -293,12 +308,21 @@ function gateCard(tuning) {
     return state('No candidate-family promotion run recorded yet — the weekly '
       + 'self-learning cron writes one every Tuesday.');
   }
-  const rows = familyRows(entry).map((r) => {
+  const fams = familyRows(entry);
+  const rows = fams.map((r) => {
+    // Exactly ONE chip per row. A family with no application path gets its own
+    // verdict rather than borrowing RETAINED, which would read as "measured,
+    // kept at weight 0 for now" when the truth is "cannot receive weight at all".
     const chip = r.status === 'adopted'
       ? '<span class="gate-chip gate-chip--adopted">ADOPTED</span>'
-      : r.status === 'skipped'
-        ? '<span class="gate-chip gate-chip--skipped" title="' + esc(r.reason) + '">AWAITING DATA</span>'
-        : '<span class="gate-chip">RETAINED</span>';
+      : r.appliable === false
+        ? '<span class="gate-chip gate-chip--nopath" title="'
+          + esc(r.appNote || r.reason
+            || 'measured by the gate, but no prediction-time reader applies it')
+          + '">NO PATH</span>'
+        : r.status === 'skipped'
+          ? '<span class="gate-chip gate-chip--skipped" title="' + esc(r.reason) + '">AWAITING DATA</span>'
+          : '<span class="gate-chip">RETAINED</span>';
     const imp = r.improvement == null ? '—'
       : `${r.improvement > 0 ? '−' : '+'}${Math.abs(r.improvement).toFixed(5)}`;
     return (
@@ -310,16 +334,29 @@ function gateCard(tuning) {
       '</div>'
     );
   }).join('');
+  const noPath = fams.filter((r) => r.appliable === false);
+  const dark = fams.filter((r) => r.appNote);
+  const noPathNote = noPath.length
+    ? '<div class="gate-note">NO PATH — measured every week, but nothing in the '
+      + 'prediction pipeline reads them, so they cannot earn weight at any '
+      + `log-loss until their reader is wired: ${esc(noPath.map((r) => r.family).join(', '))}. `
+      + 'When one of them posts the best loss the gate records it and falls '
+      + 'through to the best family it can actually apply.'
+      + dark.map((r) => `<br>${esc(r.family)}: ${esc(r.appNote)}`).join('')
+      + '</div>'
+    : '';
   return (
     '<div class="m-explain">Every candidate signal family is walk-forward tested against the '
       + `incumbent (log-loss ${esc(Number(entry.incumbent_loss).toFixed(5))}) each week. `
-      + 'A family earns pricing weight ONLY by clearing the NEVER-REGRESS margin '
-      + `(${esc(entry.margin)}) — losing candidates stay recorded at weight 0. `
+      + 'A family with an application path earns pricing weight ONLY by clearing the '
+      + `NEVER-REGRESS margin (${esc(entry.margin)}) — losing candidates stay recorded `
+      + 'at weight 0, and families marked NO PATH are measured but cannot be applied. '
       + 'Lower loss is better; Δ shows the best trial\'s gap to the incumbent.</div>' +
     '<div class="gate-row gate-row--head">' +
       '<span class="gate-name">FAMILY</span><span class="gate-loss">BEST LOSS</span>' +
       '<span class="gate-imp">Δ LOSS</span><span>VERDICT</span></div>' +
     rows +
+    noPathNote +
     (entry.market_baseline
       ? `<div class="gate-bench">MARKET YARDSTICK: our log-loss ${esc(Number(entry.market_baseline.our_log_loss).toFixed(5))} vs closing line ${esc(Number(entry.market_baseline.market_log_loss).toFixed(5))} over ${esc(entry.market_baseline.games)} games <span class="ms-badge">MEASUREMENT ONLY</span></div>`
       : '') +

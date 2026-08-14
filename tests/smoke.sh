@@ -49,6 +49,9 @@ python3 scripts/build_player_usage_weekly.py --selftest || fail "usage weekly se
 python3 scripts/build_preseason.py --selftest || fail "preseason selftest"
 python3 scripts/backtest_player.py --selftest || fail "player backtest selftest"
 python3 scripts/build_backtest_corpus.py --selftest || fail "backtest corpus selftest"
+python3 scripts/build_game_context.py --selftest || fail "game context selftest"
+python3 scripts/build_dvp_positional.py --selftest || fail "dvp positional selftest"
+python3 scripts/build_scheme_history.py --selftest || fail "scheme history selftest"
 python3 scripts/build_kdst.py --selftest || fail "kdst projection selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"

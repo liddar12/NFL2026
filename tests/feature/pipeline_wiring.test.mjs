@@ -38,13 +38,20 @@ function workflowText() {
 }
 
 // Every nflverse-fed builder that writes a committed data/ artifact. The three
-// at the top were already wired; the two at the bottom are the R20 orphans.
+// at the top were already wired; the two after them are the R20 orphans; the
+// last three are the Rel18 family inputs, which shipped unwired — same defect,
+// third time. build_scheme_history.py is the sharpest case: it claims a rebuild
+// re-probes the FTN release and flips application.dark on its own, which is only
+// true while a cron actually re-runs it.
 const WIRED_BUILDERS = [
   'build_epa_history.py',
   'build_player_usage.py',
   'build_player_usage_history.py',
   'build_player_usage_weekly.py',
   'build_kdst.py',
+  'build_game_context.py',
+  'build_dvp_positional.py',
+  'build_scheme_history.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {
