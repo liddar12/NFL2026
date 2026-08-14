@@ -396,6 +396,18 @@ export function normalizeProfile(raw) {
     out.shape.position_caps = caps;
   }
 
+  /* ---- position-cap PROVENANCE (R26) ----
+   * Whether the caps above are a league's ENFORCED roster limit or somebody's
+   * best guess. Only 'sleeper' carries authority: it means the numbers came
+   * from a real league's position_limit_* settings, which Sleeper enforces at
+   * the roster, so team-logic honours them exactly instead of adding the
+   * bye/injury allowance it gives a hand-typed cap. Any other value — and
+   * every profile saved before R26 — is dropped, which lands on the lenient
+   * pre-R26 behaviour. An unrecognised string must never be treated as
+   * authority: that would let a bad import silently tighten a roster. */
+  const capsSource = String(rawShape.position_caps_source || '').toLowerCase();
+  if (capsSource === 'sleeper') out.shape.position_caps_source = 'sleeper';
+
   /* ---- scalars ---- */
   out.shape.teams = clampInt(
     rawShape.teams, LEAGUE_BOUNDS.teams[0], LEAGUE_BOUNDS.teams[1], out.shape.teams,

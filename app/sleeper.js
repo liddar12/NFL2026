@@ -677,6 +677,12 @@ export function sleeperToProfile(payload, opts) {
       ...settings.shape,
       roster_positions: roster.roster_positions,
       position_caps: settings.position_caps,
+      // R26 — these caps came from the league's real position_limit_* settings,
+      // which Sleeper ENFORCES at the roster. Marking them lets team-logic
+      // honour them exactly instead of adding the +1 bye/injury allowance it
+      // gives a hand-typed cap; without the mark the app could recommend a
+      // third QB this league will not let you roster.
+      position_caps_source: 'sleeper',
     },
   };
 

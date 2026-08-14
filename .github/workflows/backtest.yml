@@ -101,13 +101,23 @@ jobs:
         run: python -m scripts.backtest
 
       # The self-learning step: every REGISTERED candidate family gets its
-      # walk-forward shot; at most ONE family is adopted per week and only past
-      # the never-regress margin. The archived entry names the families and
-      # counts them — do not re-list them here, that is how the previous
-      # comment ended up ten families out of date. Most weeks this archives
-      # trials and changes nothing — that is the design.
-      - name: Promotion gate (auto-adopt past NEVER-REGRESS margin)
-        run: python -m scripts.promote_signals --auto-adopt
+      # walk-forward shot. The archived entry names the families and counts
+      # them — do not re-list them here, that is how the previous comment ended
+      # up ten families out of date. Most weeks this archives trials and
+      # changes nothing — that is the design.
+      #
+      # --propose, NOT --auto-adopt (R26, owner decision 2026-08-14). R24
+      # corrected the Bonferroni divisor from grid points to candidate families
+      # and in doing so lowered t_crit from 12.42 to 6.41. The correction is
+      # statistically right and stays; what stops is this cron applying a
+      # lowered bar to the shipped model with nobody watching. So the weekly run
+      # still measures, still archives history and calibration (the MODEL tab
+      # depends on that — a plain dry run would freeze it), and records a
+      # clearing family as `would_adopt`. Applying it is a deliberate human act:
+      #     python -m scripts.promote_signals --auto-adopt
+      # Do not "fix" this back to --auto-adopt without the owner saying so.
+      - name: Promotion gate (measure + archive + PROPOSE; adoption is manual)
+        run: python -m scripts.promote_signals --propose
 
       # Player-level walk-forward. Without this step the harness is an orphan —
       # measured once, committed, then frozen while the seasons move on, which
