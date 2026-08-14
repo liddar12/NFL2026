@@ -136,6 +136,45 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await expect(block).not.toContainText('ADP undefined');
   });
 
+  /* ------------------------------------------------------------------------
+     Caught by the owner reviewing the PR #38 preview, not by the suite. Both
+     are the same failure of nerve: the release changed the behaviour and left
+     the places that DESCRIBE the behaviour saying the old thing. A user who
+     reads "the draft simulator does not draft them" stops looking for the
+     kicker that is now right there, so the app being wrong out loud is worse
+     than the gap it replaced.
+     ------------------------------------------------------------------------ */
+  test('a league that seats K/DEF is never told they are not drafted', async ({ page }) => {
+    await page.addInitScript((p) => {
+      localStorage.setItem('nfl2026.league.v1', JSON.stringify(p));
+    }, KDEF_PROFILE);
+    await page.goto('/#/team');
+    await page.waitForSelector('.ds-head', { timeout: 20000 });
+    await expect(page.locator('.draftsim')).not.toContainText('does not draft them');
+  });
+
+  test('the roster summary counts the K and DEF seats the room will actually run', async ({ page }) => {
+    // Omilia-US: 9 starters + 4 bench. The summary used to hand-roll
+    // qb+rb+wr+te+flex and report "7 STARTERS ... 11 ROUNDS" while the room it
+    // launched ran 13 — the card describing a league the app was not simulating.
+    await page.addInitScript((p) => {
+      localStorage.setItem('nfl2026.league.v1', JSON.stringify(p));
+    }, {
+      version: 1,
+      name: 'Omilia-US',
+      shape: {
+        teams: 10,
+        roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
+          'BN', 'BN', 'BN', 'BN'],
+        position_caps: { QB: 2, K: 1, DEF: 1 },
+      },
+      scoring: { rec: 1 },
+    });
+    await page.goto('/#/team');
+    await page.waitForSelector('.ds-head', { timeout: 20000 });
+    await expect(page.locator('.draftsim')).toContainText('9 STARTERS + 4 BENCH · 13 ROUNDS');
+  });
+
   test('the RECO panel states the ceiling it is applying', async ({ page }) => {
     await auctionSetup(page, { live: true });
     await page.click('[data-act="auc-start"]');

@@ -343,8 +343,21 @@ function recoSortInner(activeKey) {
  *   - counts outside ROSTER_BOUNDS are clamped and the clamp is reported.
  * ------------------------------------------------------------------------- */
 
-/** Roster tokens the draft simulator prices directly (its shape knows no K/DEF). */
-export const DRAFTABLE_TOKENS = Object.freeze(['QB', 'RB', 'WR', 'TE']);
+/**
+ * Roster tokens the draft simulator prices directly.
+ *
+ * R27 — K and DEF join the list. This constant is exported and asserted, and
+ * its old comment ("its shape knows no K/DEF") is exactly the claim the release
+ * retires: rosterShape seats a K1 and a DEF1 for a league that asks for them,
+ * and the room's board carries this league's kickers and defences. Leaving the
+ * four-token list here would have kept one authoritative-looking statement of
+ * the old behaviour in the codebase after the behaviour changed.
+ *
+ * DST is deliberately absent: it is the same slot as DEF under a second
+ * spelling, folded into one count on the way in and written back in the
+ * league's own spelling on the way out (see cfgFromProfile / profileFromCfg).
+ */
+export const DRAFTABLE_TOKENS = Object.freeze(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
 
 function clampCount(v, lo, hi) {
   const n = Math.round(Number(v));
@@ -384,6 +397,7 @@ export function cfgFromProfile(profile) {
   let flexType = null;
   let kCount = 0;
   let defCount = 0;
+  let defToken = null;   // 'DEF' or 'DST' — whichever spelling this league uses
   p.shape.roster_positions.forEach((token) => {
     if (token === 'BN') { bench += 1; return; }
     if (FLEX_ELIGIBILITY[token]) {
@@ -393,14 +407,27 @@ export function cfgFromProfile(profile) {
       return;
     }
     if (counts[token] != null) { counts[token] += 1; return; }
-    // R27 — K / DEF / DST are now DRAFTABLE, so a league that seats one gets a
-    // real slot in the sim shape instead of only a "carried" note. They are
-    // still recorded in `carried` because the settings card names them there,
-    // and because DST and DEF are the same slot under two spellings: both fold
-    // into one `def` count, since the room cannot seat a team defence twice.
-    if (token === 'K') { kCount += 1; carried.push(token); return; }
-    if (token === 'DEF' || token === 'DST') { defCount += 1; carried.push(token); return; }
-    carried.push(token); // anything else — kept, and said out loud
+    // R27 — K / DEF / DST are DRAFTABLE now, so they get a real slot in the sim
+    // shape and must NOT go into `carried`.
+    //
+    // `carried` means "kept on your profile but the simulator does not draft
+    // it", and the settings card and the import report both say exactly that
+    // about every token in it. Leaving K/DEF there while making them draftable
+    // made the app state something false — which is worse than the original
+    // gap, because a user who reads it stops looking for the kicker that is
+    // now right there. (Caught in review of PR #38, 2026-08-14.)
+    //
+    // defToken preserves the league's own spelling: DEF and DST are the same
+    // slot and fold into one count (the room cannot seat a team defence
+    // twice), but writing DEF back into a profile that said DST would silently
+    // rewrite the user's league.
+    if (token === 'K') { kCount += 1; return; }
+    if (token === 'DEF' || token === 'DST') {
+      defCount += 1;
+      if (!defToken) defToken = token;
+      return;
+    }
+    carried.push(token); // anything else — kept, undrafted, and said out loud
   });
   const wanted = {
     qb: counts.QB, rb: counts.RB, wr: counts.WR, te: counts.TE, flex, bench,
@@ -423,6 +450,9 @@ export function cfgFromProfile(profile) {
   cfg.flexType = flexType || 'FLEX';
   cfg.keepers = p.shape.keepers_enabled === true;
   cfg.maxKeepers = p.shape.max_keepers;
+  // Only when this league actually seats a defence, and only the spelling it
+  // used — so SAVE writes back DST to a DST league and DEF to a DEF one.
+  if (defToken) cfg.defToken = defToken;
   return { cfg, carried, clamped };
 }
 
@@ -444,6 +474,13 @@ export function profileFromCfg(cfg, base, carried) {
   const push = (t, n) => { for (let i = 0; i < clampCount(n, 0, 40); i += 1) positions.push(t); };
   push('QB', c.qb); push('RB', c.rb); push('WR', c.wr); push('TE', c.te);
   push(token, c.flex);
+  // R27 — K and DEF are written back from the CONFIG now, not from `carried`.
+  // They used to ride along as carried tokens (the only way an undraftable slot
+  // could survive a SAVE); making them draftable moved them into the shape, so
+  // this is where they have to be rebuilt or SAVE would silently delete the
+  // kicker slot off an imported league. c.defToken preserves DST vs DEF.
+  push('K', c.k);
+  push(c.defToken === 'DST' ? 'DST' : 'DEF', c.def);
   (carried || []).forEach((t) => positions.push(t));
   push('BN', c.bench);
   const flexEligibility = {};
@@ -1067,6 +1104,22 @@ export default async function mountTeam(el) {
     ...seeded.cfg,
   };
   if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+
+  /* R27 — the roster totals the settings card reports.
+   *
+   * These were hand-rolled sums of qb+rb+wr+te+flex(+bench) in two places, and
+   * both silently excluded K and DEF. Once those became real seats, an
+   * Omilia-shaped league (9 starters + 4 bench) reported "7 STARTERS + 4 BENCH
+   * · 11 ROUNDS" while the room it launched actually ran the correct 13 — the
+   * card was describing a league the app was not simulating. Both numbers now
+   * come from the SAME shape builder the room itself uses, which is what keeps
+   * the two from drifting apart again. */
+  function starterSlotCount() {
+    return rosterShape(draftCfg).starters.length;
+  }
+  function rosterSlotCount() {
+    return rosterShape(draftCfg).size;
+  }
 
   /* The per-team starting budgets as exactly leagueSize numbers, whether or not
    * the manager ever opened the editor. `null` (nobody touched it) and a stale
@@ -2219,8 +2272,7 @@ export default async function mountTeam(el) {
   }
 
   function leaguePanelHtml() {
-    const rounds = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te
-      + draftCfg.flex + draftCfg.bench;
+    const rounds = rosterSlotCount();
     const keeperCap = Math.min(LEAGUE_BOUNDS.max_keepers[1], rounds);
     if (draftCfg.maxKeepers > keeperCap) draftCfg.maxKeepers = keeperCap;
     const lopt = (v, cur, label) => (
@@ -2784,7 +2836,7 @@ export default async function mountTeam(el) {
         `<button type="button" class="lp-btn" data-act="tb-level">LEVEL ALL TO $${draftCfg.budget}</button>` +
       '</details>';
     };
-    const starters = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te + draftCfg.flex;
+    const starters = starterSlotCount();
     const rounds = starters + draftCfg.bench;
     // 8/10/12 are the offered sizes; an imported league of any other size keeps
     // its own number in the menu rather than being silently shown as 8.

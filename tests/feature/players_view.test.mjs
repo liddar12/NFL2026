@@ -467,8 +467,14 @@ test('a K/DEF league prices identically on both tabs (the R21 shape-argument bug
     },
   });
   const seeded = cfgFromProfile(profile);
-  assert.deepEqual(seeded.carried, ['K', 'DEF'],
-    'the fixture must actually carry the slots the draft simulator cannot price');
+  // R27 — the fixture must still be a K/DEF league, but "K/DEF" is no longer
+  // spelled as `carried`: the simulator drafts them now, so they are seats in
+  // the shape. Asserting the seats keeps this guard honest instead of pinning
+  // a mechanism the release deliberately retired.
+  assert.equal(seeded.cfg.k, 1, 'the fixture must actually seat a kicker');
+  assert.equal(seeded.cfg.def, 1, 'and a defence');
+  assert.deepEqual(seeded.carried, [],
+    'nothing in this league is undraftable any more');
 
   // PLAYERS tab and TEAM tab, each through its own entry point.
   const players = fairDollars(pool, adjOf, profile.shape.teams,
