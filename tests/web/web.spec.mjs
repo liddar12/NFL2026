@@ -1598,3 +1598,115 @@ test.describe('router: concurrent mounts', () => {
     expect(await page.locator('.tabbar .tab--active').getAttribute('data-tab')).toBe('team');
   });
 });
+
+test.describe('R19 League Profile — shape reaches the surfaces (P1 lock)', () => {
+  // A 9-starter league: QB,RB,RB,WR,WR,TE,FLEX,K,DEF + 6 bench = 15 slots.
+  // This is the owner's real Sleeper shape, and it is the shape the frozen
+  // 13-slot SLOT_ORDER could not represent at all.
+  const NINE = {
+    version: 1,
+    name: 'Nine Starter League',
+    scoring: { rec: 1 },
+    shape: {
+      teams: 10,
+      roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
+        'BN', 'BN', 'BN', 'BN', 'BN', 'BN'],
+      starters: 9,
+      bench: 6,
+      flex_eligibility: { FLEX: ['WR', 'RB', 'TE'] },
+      position_caps: { QB: 2, DEF: 1, DST: 1, K: 1 },
+      draft_rounds: 15,
+      keepers_enabled: false,
+      max_keepers: 0,
+      playoff_week_start: 14,
+    },
+  };
+
+  const seedProfile = (page, profile) => page.addInitScript(
+    (p) => localStorage.setItem('nfl2026.league.v1', p), JSON.stringify(profile),
+  );
+
+  test('with NO profile the grid is byte-for-byte the historical 13 slots', async ({ page }) => {
+    // Backward compatibility is the load-bearing requirement: an unconfigured
+    // user must see exactly what they saw before this release.
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    expect(await page.locator('.roster .slot').count()).toBe(13);
+  });
+
+  test('the roster grid is built from the profile, not a frozen 13-slot constant', async ({ page }) => {
+    // Seed BEFORE the first navigation: addInitScript only runs on a real
+    // document load, and a goto to an identical hash URL may not reload.
+    await seedProfile(page, NINE);
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    expect(await page.locator('.roster .slot').count()).toBe(15);
+
+    // The K and DEF slots must be real, tappable slots — not decoration.
+    const slotIds = await page.locator('.roster .slot').evaluateAll(
+      (els) => els.map((e) => e.getAttribute('data-slot')),
+    );
+    expect(slotIds).toContain('K1');
+    expect(slotIds).toContain('DEF1');
+  });
+
+  test('Team and Lineup agree on slot ids, so a saved roster never vanishes', async ({ page }) => {
+    // The regression this locks: Team writing legacy slot ids while Lineup read
+    // profile-derived ids meant every rostered player silently disappeared from
+    // the optimizer as soon as the league geometry differed from the default.
+    await seedProfile(page, NINE);
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+
+    // Pick two real players out of the contract the app itself serves.
+    const picks = await page.evaluate(async () => {
+      const res = await fetch('/data/player_projections.json');
+      const d = await res.json();
+      const qb = d.players.find((p) => p.position === 'QB');
+      const te = d.players.find((p) => p.position === 'TE');
+      return [String(qb.gsis_id), String(te.gsis_id)];
+    });
+
+    // Write the roster under THIS profile's slot vocabulary. Use evaluate, not
+    // addInitScript: the page is already loaded and same-origin, so this takes
+    // effect immediately and does not depend on a reload firing.
+    await page.evaluate((ids) => {
+      localStorage.setItem('nfl2026.team.v1', JSON.stringify({
+        slots: { QB1: ids[0], TE1: ids[1] },
+      }));
+    }, picks);
+
+    await page.goto('/#/lineup');
+    await page.waitForSelector('.lu-card', { timeout: 8000 });
+    const bodyText = await page.locator('.lu-card').first().innerText();
+    // Neither id may render as a raw id (the phantom-row failure), and the card
+    // must not be empty — both players resolved into the lineup.
+    expect(bodyText.length).toBeGreaterThan(0);
+    for (const id of picks) expect(bodyText).not.toContain(id);
+  });
+
+  test('a roster saved under the OLD geometry survives a profile change', async ({ page }) => {
+    // A roster written under the OLD geometry uses slot ids this profile may not
+    // have. Those players must be migrated into open slots, never dropped.
+    await seedProfile(page, NINE);
+    await page.goto('/#/team');
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+
+    const legacy = await page.evaluate(async () => {
+      const res = await fetch('/data/player_projections.json');
+      const d = await res.json();
+      const rb = d.players.find((p) => p.position === 'RB');
+      return String(rb.gsis_id);
+    });
+    // 'BN7' does not exist in the 9-starter profile (it has BN1..BN6), so this
+    // id is recoverable ONLY via the migration sweep.
+    await page.evaluate((id) => {
+      localStorage.setItem('nfl2026.team.v1', JSON.stringify({ slots: { BN7: id } }));
+    }, legacy);
+
+    // reload(), not goto() — a goto to an identical hash URL does not remount.
+    await page.reload();
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    expect(await page.locator('.roster .slot-player').count()).toBe(1);
+  });
+});

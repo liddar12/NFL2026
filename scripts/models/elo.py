@@ -22,6 +22,25 @@ K = 20.0             # update speed
 HFA_ELO = 65.0       # home-field advantage in Elo points (~2.0-2.5 pts of spread)
 REVERT = 0.33        # fraction reverted toward the mean between seasons
 
+# --- Parameter SEARCH BOUNDS (not defaults) --------------------------------
+# The outer limits of what each parameter can physically mean, deliberately far
+# wider than any plausible fitted value so a fit is free to find an INTERIOR
+# optimum. They are the model's statement of "beyond here is nonsense", not a
+# guess at the answer:
+#   hfa   0 Elo   = no home edge at all (the empty-stadium floor)
+#         120 Elo = ~4 points of spread, roughly double the largest home edge
+#                   ever measured in the modern NFL
+#   revert 0.0    = last season carries over untouched
+#          0.90   = last season is all but forgotten
+#   k      5      = ratings barely move   /  60 = ratings chase every result
+#
+# A fit that lands ON one of these bounds is CLAMPED, not converged: the search
+# box, and not the data, chose the value, and scripts/refit.py says so loudly
+# instead of reporting it as an optimum.
+HFA_BOUNDS = (0.0, 120.0)
+REVERT_BOUNDS = (0.0, 0.90)
+K_BOUNDS = (5.0, 60.0)
+
 
 def expected_home(elo_home, elo_away, hfa=HFA_ELO):
     """Logistic expected home score in [0,1] given ratings + home-field advantage."""

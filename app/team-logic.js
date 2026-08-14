@@ -19,7 +19,17 @@
  *
  * Determinism invariant: no randomness, stable sorts, ties broken by season
  * points then gsis_id — recommend() output is reproducible byte-for-byte.
+ *
+ * ROSTER SHAPE IS DATA (R19-B4): every geometry constant below is the DEFAULT,
+ * not the law. Each public function takes an OPTIONAL trailing `shape`
+ * (fitScore/fitScoreV2 read it from ctx.shape); omit it and the arithmetic is
+ * byte-for-byte what it has always been.
  */
+
+import {
+  normalizeProfile, rosterSlots, slotEligiblePositions, rosterPositionsInPlay,
+  FLEX_ELIGIBILITY, BENCH_TOKEN,
+} from './league.js';
 
 /* --------------------------------------------------------------------------
  * Roster geometry
@@ -87,6 +97,264 @@ function argmin(arr) {
 }
 
 /* --------------------------------------------------------------------------
+ * ROSTER SHAPE AS DATA — the one geometry normaliser both engines read
+ *
+ * WHY: STARTER_SLOTS / SLOT_ORDER / POSITION_CAPS were frozen at the classic
+ * 13-slot, one-QB roster, so a 2-QB league never got a third QB anywhere in the
+ * reco panel, BEST PICK NOW or the simulated room, and a LIVE draft for any
+ * other shape silently dropped won players. Everything below derives that
+ * geometry from a shape instead.
+ *
+ * ACCEPTED SHAPES (pass any; pass nothing for the legacy path):
+ *   * a LeagueProfile from app/league.js   { version, scoring, shape:{...} }
+ *   * a bare profile shape                 { roster_positions:[...], teams, ... }
+ *   * a draft-sim rosterShape              { config, starters:[...], bench:[...] }
+ *
+ * The returned geometry is READ-ONLY (cached per shape object) — treat it as
+ * frozen; never mutate it.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * FLEX WIN SHARE — how often each eligible position actually WINS a flex slot.
+ * A DOCUMENTED PRIOR (like MATCHUP_SCALE), not a measurement: the FLEX row is
+ * literally the {RB .45, WR .45, TE .10} spread app/auction.js has always used,
+ * extended to the other flex tokens so one definition covers both engines.
+ * A slot whose eligibility the league overrode keeps only its eligible
+ * positions and the shares are renormalised; an eligibility list this table
+ * does not cover at all splits evenly.
+ */
+export const FLEX_WIN_SHARE = Object.freeze({
+  FLEX: Object.freeze({ RB: 0.45, WR: 0.45, TE: 0.10 }),
+  WRRB_FLEX: Object.freeze({ RB: 0.50, WR: 0.50 }),
+  REC_FLEX: Object.freeze({ WR: 0.80, TE: 0.20 }),
+  RB_TE_FLEX: Object.freeze({ RB: 0.80, TE: 0.20 }),
+  SUPER_FLEX: Object.freeze({ QB: 0.90, RB: 0.04, WR: 0.04, TE: 0.02 }),
+});
+
+const _geoCache = new WeakMap();
+let _legacyGeo = null;
+
+function isLeagueProfile(s) {
+  return Boolean(s) && typeof s === 'object' && Boolean(s.shape)
+    && typeof s.shape === 'object' && Array.isArray(s.shape.roster_positions);
+}
+
+function isProfileShape(s) {
+  return Boolean(s) && typeof s === 'object' && Array.isArray(s.roster_positions);
+}
+
+function isDraftShape(s) {
+  return Boolean(s) && typeof s === 'object' && Array.isArray(s.starters)
+    && Boolean(s.config) && typeof s.config === 'object';
+}
+
+/**
+ * Starting slots a position can legally fill: its own fixed slots plus every
+ * flex slot that accepts it (a SUPER_FLEX is a QB slot whenever a QB wins it).
+ */
+function startableDemand(pos, demand, flexSlots) {
+  let n = demand[pos] || 0;
+  flexSlots.forEach((f) => { if (f.positions.includes(pos)) n += 1; });
+  return n;
+}
+
+/**
+ * Effective roster caps. Base caps come from the shape (a profile's
+ * position_caps, else POSITION_CAPS); each is then raised to
+ * startableDemand + 1 — a league that STARTS two QBs must be allowed a third
+ * for byes and injuries, which the frozen {QB:2} silently forbade. Positions
+ * with no base cap stay uncapped: RB/WR/TE are bounded by roster geometry
+ * (the FLEX + bench), not by a hard count.
+ */
+function derivedCaps(baseCaps, demand, flexSlots) {
+  const out = {};
+  Object.keys(baseCaps || {}).forEach((k) => {
+    const pos = String(k).toUpperCase();
+    const base = Number(baseCaps[k]);
+    if (!Number.isFinite(base)) return;
+    out[pos] = Math.max(base, startableDemand(pos, demand, flexSlots) + 1);
+  });
+  return out;
+}
+
+/** The legacy geometry: exactly the frozen constants above, as data. */
+function legacyGeometry() {
+  if (_legacyGeo) return _legacyGeo;
+  const eligibility = {};
+  SLOT_ORDER.forEach((slot) => {
+    if (slot === 'FLEX') eligibility[slot] = [...FLEX_TAKES];
+    else if (BENCH_SLOTS.includes(slot)) eligibility[slot] = [...MODELED];
+    else eligibility[slot] = [slot.replace(/\d+$/, '')];
+  });
+  _legacyGeo = {
+    legacy: true,
+    teams: 12,
+    starters: [...STARTER_SLOTS],
+    bench: [...BENCH_SLOTS],
+    all: [...SLOT_ORDER],
+    eligibility,
+    positions: [...MODELED],
+    demand: { ...STARTER_DEMAND },
+    flexSlots: [{ slot: 'FLEX', token: 'FLEX', positions: [...FLEX_TAKES] }],
+    caps: { ...POSITION_CAPS },
+  };
+  return _legacyGeo;
+}
+
+/** Geometry from a LeagueProfile (or a bare profile shape). */
+function profileGeometry(profile) {
+  const p = normalizeProfile(profile);
+  const slots = rosterSlots(p);
+  const eligibility = {};
+  slots.all.forEach((slot) => { eligibility[slot] = slotEligiblePositions(slot, p); });
+  const starterTokens = p.shape.roster_positions.filter((t) => t !== BENCH_TOKEN);
+  const demand = {};
+  const flexSlots = [];
+  starterTokens.forEach((token, i) => {
+    const slot = slots.starters[i];
+    if (FLEX_ELIGIBILITY[token]) {
+      flexSlots.push({ slot, token, positions: eligibility[slot] || [] });
+    } else {
+      demand[token] = (demand[token] || 0) + 1;
+    }
+  });
+  return {
+    legacy: false,
+    teams: p.shape.teams,
+    starters: slots.starters,
+    bench: slots.bench,
+    all: slots.all,
+    eligibility,
+    positions: rosterPositionsInPlay(p),
+    demand,
+    flexSlots,
+    caps: derivedCaps(p.shape.position_caps, demand, flexSlots),
+  };
+}
+
+/**
+ * Geometry from a draft-sim rosterShape. Slot IDs are already built there
+ * (QB1, RB1, FLEX / FLEX1+FLEX2), so the token is the ID minus its trailing
+ * digits. A rosterShape carries no team count — 12 is assumed, exactly as the
+ * frozen default always did.
+ */
+function draftShapeGeometry(shape) {
+  const starters = shape.starters.map(String);
+  const bench = Array.isArray(shape.bench) ? shape.bench.map(String) : [];
+  const eligibility = {};
+  const demand = {};
+  const flexSlots = [];
+  const positions = [];
+  const addPos = (pos) => { if (pos && !positions.includes(pos)) positions.push(pos); };
+  starters.forEach((slot) => {
+    const token = slot.replace(/\d+$/, '').toUpperCase();
+    if (token === 'FLEX') {
+      eligibility[slot] = [...FLEX_TAKES];
+      flexSlots.push({ slot, token: 'FLEX', positions: [...FLEX_TAKES] });
+    } else {
+      eligibility[slot] = [token];
+      demand[token] = (demand[token] || 0) + 1;
+      addPos(token);
+    }
+  });
+  flexSlots.forEach((f) => f.positions.forEach(addPos));
+  bench.forEach((slot) => { eligibility[slot] = [...positions]; });
+  return {
+    legacy: false,
+    teams: 12,
+    starters,
+    bench,
+    all: [...starters, ...bench],
+    eligibility,
+    positions,
+    demand,
+    flexSlots,
+    caps: derivedCaps(POSITION_CAPS, demand, flexSlots),
+  };
+}
+
+/**
+ * Normalise any accepted shape into the geometry every function below reads:
+ *   { legacy, teams, starters[], bench[], all[], eligibility{slot:[POS]},
+ *     positions[], demand{POS:int}, flexSlots[{slot,token,positions}],
+ *     caps{POS:int} }
+ * A null/undefined shape returns the LEGACY geometry — the frozen constants,
+ * unchanged. Cached per shape object, so hot loops pay for it once.
+ */
+export function rosterGeometry(shape) {
+  if (shape == null) return legacyGeometry();
+  if (typeof shape !== 'object') return legacyGeometry();
+  const hit = _geoCache.get(shape);
+  if (hit) return hit;
+  let geo;
+  if (isLeagueProfile(shape)) geo = profileGeometry(shape);
+  else if (isProfileShape(shape)) geo = profileGeometry({ shape });
+  else if (isDraftShape(shape)) geo = draftShapeGeometry(shape);
+  else geo = legacyGeometry();
+  _geoCache.set(shape, geo);
+  return geo;
+}
+
+/** The win-share split for ONE flex slot, restricted to what it accepts. */
+function flexShareFor(flexSlot) {
+  const table = FLEX_WIN_SHARE[flexSlot.token] || null;
+  const positions = flexSlot.positions || [];
+  const out = {};
+  let sum = 0;
+  positions.forEach((pos) => {
+    const w = table && Number.isFinite(table[pos]) ? table[pos] : 0;
+    out[pos] = w;
+    sum += w;
+  });
+  if (sum <= 0) {
+    positions.forEach((pos) => { out[pos] = positions.length ? 1 / positions.length : 0; });
+    return out;
+  }
+  // Only renormalise when the shares genuinely do not sum to 1 — a float ulp
+  // must never perturb the shares the auction engine has always used.
+  if (Math.abs(sum - 1) > EPS) {
+    positions.forEach((pos) => { out[pos] = out[pos] / sum; });
+  }
+  return out;
+}
+
+/**
+ * FULL starter demand per position: fixed starting slots plus each flex slot's
+ * win share. THE single definition of demand — app/auction.js fairDollars and
+ * replacementLevel()'s shape-aware path both read it, so a FLEX no longer means
+ * "+1 to whichever position owns the best player" in one engine and "spread
+ * over RB/WR/TE" in the other. Positions the shape cannot roster are absent.
+ */
+export function positionDemand(shape) {
+  const geo = rosterGeometry(shape);
+  // Flex shares are summed FIRST and added to the fixed count once, so two
+  // identical flex slots contribute exactly 2 x share — bit-for-bit what
+  // app/auction.js computed as `flexCount * share`.
+  const flexAdd = {};
+  geo.flexSlots.forEach((f) => {
+    const share = flexShareFor(f);
+    Object.keys(share).forEach((pos) => { flexAdd[pos] = (flexAdd[pos] || 0) + share[pos]; });
+  });
+  const out = {};
+  Object.keys(geo.demand).forEach((pos) => { out[pos] = geo.demand[pos]; });
+  Object.keys(flexAdd).forEach((pos) => { out[pos] = (out[pos] || 0) + flexAdd[pos]; });
+  return out;
+}
+
+/**
+ * The 0-based rank of the REPLACEMENT player at a position: the last player
+ * LEAGUE-WIDE who still fills a starting slot, i.e. round(demand x teams) - 1.
+ * Shared by app/auction.js fairDollars and replacementLevel()'s shape-aware
+ * path, so "this is a 10-team league" finally moves VOR in both engines.
+ */
+export function replacementIndex(demand, leagueSize) {
+  const d = Number(demand);
+  const n = Number(leagueSize);
+  if (!Number.isFinite(d) || !Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(d * n) - 1);
+}
+
+/* --------------------------------------------------------------------------
  * Contract exports
  * ------------------------------------------------------------------------ */
 
@@ -130,11 +398,20 @@ export function byeWeek(playerWeekly) {
  * Can a player at `position` legally occupy `slot`? FLEX takes RB/WR/TE;
  * bench takes any MODELED position (QB/RB/WR/TE — never K/D-ST, not modeled).
  * Unknown slot or unmodeled position -> false.
+ *
+ * With a `shape` the answer comes from THAT roster's slots instead: a league
+ * that starts a K has a K1 slot and a bench that accepts kickers. Eligibility
+ * is geometry, not a projection — a K still scores whatever the model has for
+ * it (nothing is fabricated).
  */
-export function slotEligible(position, slot) {
+export function slotEligible(position, slot, shape) {
   const pos = String(position || '').toUpperCase();
-  if (!MODELED.includes(pos)) return false;
   const s = String(slot || '').toUpperCase();
+  if (shape != null) {
+    const allowed = rosterGeometry(shape).eligibility[s];
+    return Array.isArray(allowed) && allowed.includes(pos);
+  }
+  if (!MODELED.includes(pos)) return false;
   if (s === 'FLEX') return FLEX_TAKES.includes(pos);
   if (BENCH_SLOTS.includes(s)) return true;
   if (STARTER_SLOTS.includes(s)) return s.replace(/\d+$/, '') === pos;
@@ -169,9 +446,9 @@ export function teamWeeklyTotals(starters, weeklyById) {
  * ------------------------------------------------------------------------ */
 
 /** Resolve the starters (slot, player, weekly, scaled 18-array) for scoring. */
-function resolveStarters(slots, playersById, weeklyById, mode) {
+function resolveStarters(slots, playersById, weeklyById, mode, geo) {
   const out = [];
-  STARTER_SLOTS.forEach((slot) => {
+  (geo || legacyGeometry()).starters.forEach((slot) => {
     const id = slots[slot];
     if (!id) return;
     const player = lookup(playersById, id);
@@ -204,15 +481,17 @@ function bestOf(players, weeklyById, mode) {
  * Returns { score, reasons: [string,...] } — reasons are REAL sentences
  * computed from the data, most impactful first, max 4 (the .reco-why lines).
  *
- * ctx: { playersById, weeklyById, mode='ppr', slot=null }. With no weekly
- * data for the candidate the bye/floor/matchup terms simply contribute 0 —
- * the score degrades to season points (+stack), never throws.
+ * ctx: { playersById, weeklyById, mode='ppr', slot=null, shape=null }. With no
+ * weekly data for the candidate the bye/floor/matchup terms simply contribute
+ * 0 — the score degrades to season points (+stack), never throws. `shape` is
+ * the roster geometry (see rosterGeometry); omit it for the legacy 13-slot one.
  */
 export function fitScore(candidate, roster, ctx) {
   const c = ctx || {};
   const mode = c.mode === 'half' || c.mode === 'std' ? c.mode : 'ppr';
   const playersById = c.playersById;
   const weeklyById = c.weeklyById;
+  const geo = rosterGeometry(c.shape);
   const slots = (roster && roster.slots) || {};
 
   const candEntry = lookup(weeklyById, candidate.gsis_id);
@@ -221,7 +500,7 @@ export function fitScore(candidate, roster, ctx) {
   const candBye = candEntry ? byeWeek(candEntry) : null;
   const candPos = String(candidate.position || '').toUpperCase();
 
-  const starters = resolveStarters(slots, playersById, weeklyById, mode);
+  const starters = resolveStarters(slots, playersById, weeklyById, mode, geo);
 
   // reasons carry their score impact so "most impactful first" is computed,
   // not asserted. Base term first: raw points dominate by design (W_PTS=1.0).
@@ -294,8 +573,10 @@ export function fitScore(candidate, roster, ctx) {
 
   // FLOOR: does slotting the candidate in (replacing any incumbent in the
   // target slot) raise the worst starter week? Bench adds never move the floor.
-  const targetSlot = c.slot || STARTER_SLOTS.find((s) => !slots[s] && slotEligible(candPos, s)) || null;
-  if (candArr && anyStarterWeeks && targetSlot && STARTER_SLOTS.includes(targetSlot)) {
+  const targetSlot = c.slot
+    || geo.starters.find((s) => !slots[s] && slotEligible(candPos, s, c.shape))
+    || null;
+  if (candArr && anyStarterWeeks && targetSlot && geo.starters.includes(targetSlot)) {
     const withoutIncumbent = starters.filter((s) => s.slot !== targetSlot && s.arr);
     const base = teamWeeklyTotals(
       withoutIncumbent.map((s) => s.id),
@@ -362,20 +643,21 @@ export function fitScore(candidate, roster, ctx) {
  * roster -> null. Exported so the view labels the .reco panel with the SAME
  * slot recommend() resolves.
  */
-export function neediestOpenSlot(roster, pool, weeklyById, mode) {
+export function neediestOpenSlot(roster, pool, weeklyById, mode, shape) {
   const slots = (roster && roster.slots) || {};
   const players = Array.isArray(pool) ? pool : [];
   const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
+  const geo = rosterGeometry(shape);
 
-  const openStarters = STARTER_SLOTS.filter((s) => !slots[s]);
-  if (openStarters.length === 0) return BENCH_SLOTS.find((s) => !slots[s]) || null;
+  const openStarters = geo.starters.filter((s) => !slots[s]);
+  if (openStarters.length === 0) return geo.bench.find((s) => !slots[s]) || null;
 
   let best = openStarters[0];
   let bestAdj = -Infinity;
   openStarters.forEach((slot) => {
     let top = -Infinity;
     players.forEach((p) => {
-      if (rostered.has(String(p.gsis_id)) || !slotEligible(p.position, slot)) return;
+      if (rostered.has(String(p.gsis_id)) || !slotEligible(p.position, slot, shape)) return;
       const e = lookup(weeklyById, p.gsis_id);
       const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
       if (adj > top) top = adj;
@@ -392,12 +674,13 @@ export function neediestOpenSlot(roster, pool, weeklyById, mode) {
  * Top-5 { player, score, reasons } for `slot` (or the neediest open slot when
  * omitted), scored by fitScore against the current roster. Excludes rostered
  * players. Deterministic: score desc, then adjusted season points desc, then
- * gsis_id asc. Full roster with no slot given -> [].
+ * gsis_id asc. Full roster with no slot given -> []. Trailing `shape` (optional)
+ * swaps in that league's slots and caps — a 2-QB league proposes a third QB.
  */
-export function recommend(roster, pool, weeklyById, mode, slot, opts) {
+export function recommend(roster, pool, weeklyById, mode, slot, opts, shape) {
   const players = Array.isArray(pool) ? pool : [];
   const slots = (roster && roster.slots) || {};
-  const target = slot || neediestOpenSlot(roster, players, weeklyById, mode);
+  const target = slot || neediestOpenSlot(roster, players, weeklyById, mode, shape);
   if (!target) return [];
 
   const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
@@ -406,17 +689,17 @@ export function recommend(roster, pool, weeklyById, mode, slot, opts) {
 
   const scored = players
     // Exclude rostered ids, slot-ineligible positions, AND positions already at
-    // their roster cap (POSITION_CAPS) — no 3rd QB / 2nd DEF / 2nd K is ever
-    // proposed for a bench slot.
+    // their roster cap (the shape's caps) — no over-cap add is ever proposed
+    // for a bench slot.
     .filter((p) => !rostered.has(String(p.gsis_id))
-      && slotEligible(p.position, target)
-      && !positionAtCap(p.position, slots, playersById))
+      && slotEligible(p.position, target, shape)
+      && !positionAtCap(p.position, slots, playersById, shape))
     .map((p) => {
       const e = lookup(weeklyById, p.gsis_id);
       return {
         player: p,
         adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode),
-        ...fitScore(p, roster, { playersById, weeklyById, mode, slot: target }),
+        ...fitScore(p, roster, { playersById, weeklyById, mode, slot: target, shape }),
       };
     });
 
@@ -582,10 +865,10 @@ export function fitScoreV2(candidate, roster, ctx) {
  * fitScoreV2 with `insights`. The OFF path keeps using recommend() — this
  * function exists so the v1 ranking code stays byte-identical.
  */
-export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts) {
+export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts, shape) {
   const players = Array.isArray(pool) ? pool : [];
   const slots = (roster && roster.slots) || {};
-  const target = slot || neediestOpenSlot(roster, players, weeklyById, mode);
+  const target = slot || neediestOpenSlot(roster, players, weeklyById, mode, shape);
   if (!target) return [];
 
   const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
@@ -594,11 +877,11 @@ export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts
 
   const scored = players
     .filter((p) => !rostered.has(String(p.gsis_id))
-      && slotEligible(p.position, target)
-      && !positionAtCap(p.position, slots, playersById))
+      && slotEligible(p.position, target, shape)
+      && !positionAtCap(p.position, slots, playersById, shape))
     .map((p) => {
       const e = lookup(weeklyById, p.gsis_id);
-      const ctx = { playersById, weeklyById, mode, slot: target };
+      const ctx = { playersById, weeklyById, mode, slot: target, shape };
       // base = the v1 fit score (AI OFF); v2 adds the bounded AI terms. Carrying
       // both lets the view show a visible base -> AI+ delta on every pick.
       const base = fitScore(p, roster, ctx).score;
@@ -628,6 +911,10 @@ export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts
  * FLEX + bench), not by a hard count. DEF/DST/K are listed and ready even
  * though the projection model does not cover them yet (no slots, no fabricated
  * numbers) — the cap holds the moment they are ever added to the pool.
+ *
+ * THESE ARE THE DEFAULTS FOR THE DEFAULT SHAPE. Pass a shape and the caps are
+ * derived from it (see rosterGeometry): a league that starts two QBs caps QB at
+ * three, so it can carry a bye/injury backup for a lineup that must start two.
  */
 export const POSITION_CAPS = Object.freeze({ QB: 2, DEF: 1, DST: 1, K: 1 });
 
@@ -646,11 +933,12 @@ export function rosteredCountByPos(slots, playersById) {
 /**
  * Has `position` already reached its roster cap? Uncapped positions never do.
  * Used to drop capped-position candidates from recommend()/recommendV2 so the
- * engine never proposes an over-cap add (e.g. a 3rd QB for a bench slot).
+ * engine never proposes an over-cap add (e.g. a 3rd QB for a bench slot in a
+ * ONE-QB league). Trailing `shape` (optional) uses that league's derived caps.
  */
-export function positionAtCap(position, slots, playersById) {
+export function positionAtCap(position, slots, playersById, shape) {
   const pos = String(position || '').toUpperCase();
-  const cap = POSITION_CAPS[pos];
+  const cap = shape == null ? POSITION_CAPS[pos] : rosterGeometry(shape).caps[pos];
   if (cap == null) return false;
   return (rosteredCountByPos(slots, playersById)[pos] || 0) >= cap;
 }
@@ -721,6 +1009,10 @@ export function trendLabel(traj) {
  * of RB/WR/TE currently owns the BEST available player (highest adjusted
  * season points; tie broken RB before WR before TE), because that is the
  * position the FLEX would realistically be filled from.
+ *
+ * THAT WINNER-TAKES-ALL FLEX IS THE LEGACY (no-shape) RULE. With a shape,
+ * positionDemand() spreads each flex slot by FLEX_WIN_SHARE instead — the same
+ * spread app/auction.js uses, so the two engines agree.
  */
 export const STARTER_DEMAND = Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1 });
 
@@ -767,27 +1059,45 @@ function flexAbsorbPos(pool, weeklyById, mode) {
  * FLEX absorbed as +1 on the RB/WR/TE owning the best available player (see
  * STARTER_DEMAND). Fewer than demand+1 players available -> 0 (there is no
  * replacement; everything left is a starter). Unmodeled position -> 0.
+ *
+ * WITH A SHAPE (trailing, optional) the replacement is LEAGUE-WIDE and matches
+ * app/auction.js exactly: round(demand x teams) - 1 into the ranked list, with
+ * demand = positionDemand(shape) (fixed slots + each flex slot's win share).
+ * That is what makes "this is a 10-team league" move VOR at all, and what stops
+ * the two engines disagreeing about who the FLEX belongs to. A pool shallower
+ * than that index clamps to the worst available player — league-wide, every
+ * one of them IS replacement level.
  */
-export function replacementLevel(pool, weeklyById, mode, position) {
+export function replacementLevel(pool, weeklyById, mode, position, shape) {
   const pos = String(position || '').toUpperCase();
-  const demand = STARTER_DEMAND[pos];
+  if (shape == null) {
+    const demand = STARTER_DEMAND[pos];
+    if (demand == null) return 0;
+    const extra = FLEX_TAKES.includes(pos)
+      && flexAbsorbPos(pool, weeklyById, mode) === pos ? 1 : 0;
+    const ranked = rankedAtPos(pool, weeklyById, mode, pos);
+    const row = ranked[demand + extra]; // 0-based: index d == the (d+1)th best
+    return row ? Math.round(row.adj * 100) / 100 : 0;
+  }
+  const demand = positionDemand(shape)[pos];
   if (demand == null) return 0;
-  const extra = FLEX_TAKES.includes(pos)
-    && flexAbsorbPos(pool, weeklyById, mode) === pos ? 1 : 0;
   const ranked = rankedAtPos(pool, weeklyById, mode, pos);
-  const row = ranked[demand + extra]; // 0-based: index d == the (d+1)th best
-  return row ? Math.round(row.adj * 100) / 100 : 0;
+  if (ranked.length === 0) return 0;
+  const idx = Math.min(
+    replacementIndex(demand, rosterGeometry(shape).teams), ranked.length - 1,
+  );
+  return Math.round(ranked[idx].adj * 100) / 100;
 }
 
 /**
  * VALUE OVER REPLACEMENT for one candidate: adjusted season points minus the
  * replacement level at the candidate's own position (same pool, same mode).
  * Positive = worth drafting ahead of need; near zero = wait, a same-value
- * player will still be there.
+ * player will still be there. Trailing `shape` is optional (see above).
  */
-export function vorScore(candidate, pool, weeklyById, mode) {
+export function vorScore(candidate, pool, weeklyById, mode, shape) {
   const adj = adjOf(candidate, weeklyById, mode);
-  const repl = replacementLevel(pool, weeklyById, mode, candidate.position);
+  const repl = replacementLevel(pool, weeklyById, mode, candidate.position, shape);
   return Math.round((adj - repl) * 100) / 100;
 }
 
@@ -804,14 +1114,16 @@ export function vorScore(candidate, pool, weeklyById, mode) {
  * position's startable supply (at-or-above replacement) is at most
  * VOR_SCARCITY_MAX.
  * opts.limit overrides the row count (default 3).
+ * Trailing `shape` (optional) supplies the league's slots, caps and demand.
  */
-export function bestPickNow(roster, pool, weeklyById, mode, opts) {
+export function bestPickNow(roster, pool, weeklyById, mode, opts, shape) {
   const players = Array.isArray(pool) ? pool : [];
   const slots = (roster && roster.slots) || {};
   const limit = opts && Number.isFinite(Number(opts.limit)) ? Number(opts.limit) : 3;
+  const geo = rosterGeometry(shape);
 
   const rostered = new Set(Object.values(slots).filter(Boolean).map(String));
-  const openSlots = SLOT_ORDER.filter((s) => !slots[s]);
+  const openSlots = geo.all.filter((s) => !slots[s]);
   const playersById = new Map(players.map((p) => [String(p.gsis_id), p]));
 
   // Replacement math sees only what is actually still available.
@@ -824,8 +1136,8 @@ export function bestPickNow(roster, pool, weeklyById, mode, opts) {
   // triggers the "drying up" reason line below.
   const replByPos = {};
   const supplyByPos = {};
-  MODELED.forEach((pos) => {
-    const repl = replacementLevel(available, weeklyById, mode, pos);
+  geo.positions.forEach((pos) => {
+    const repl = replacementLevel(available, weeklyById, mode, pos, shape);
     replByPos[pos] = repl;
     const ranked = rankedAtPos(available, weeklyById, mode, pos);
     supplyByPos[pos] = repl > 0
@@ -834,8 +1146,8 @@ export function bestPickNow(roster, pool, weeklyById, mode, opts) {
   });
 
   const scored = available
-    .filter((p) => !positionAtCap(p.position, slots, playersById)
-      && openSlots.some((s) => slotEligible(p.position, s)))
+    .filter((p) => !positionAtCap(p.position, slots, playersById, shape)
+      && openSlots.some((s) => slotEligible(p.position, s, shape)))
     .map((p) => {
       const pos = String(p.position || '').toUpperCase();
       const adj = adjOf(p, weeklyById, mode);

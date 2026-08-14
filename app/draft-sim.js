@@ -26,7 +26,7 @@
  */
 
 import {
-  scoringAdjust, POSITION_CAPS,
+  scoringAdjust, rosterGeometry,
 } from './team-logic.js';
 
 /* --------------------------------------------------------------------------
@@ -121,16 +121,20 @@ export const ADP_NOISE_PER_ROUND = 1.25;
 
 /** Does `pos` still fill a need for this opponent roster (counts by position)?
  * Opponents respect starter demand + one backup each at RB/WR, plus the same
- * hard caps we use (no 3rd QB). Pure. */
+ * hard caps we use — and BOTH now come from the shape, so a 2-QB room drafts a
+ * third QB (the frozen {QB:2} cap used to forbid it for every opponent). Pure. */
 export function opponentNeeds(counts, pos, shape) {
-  const cap = POSITION_CAPS[pos] != null ? POSITION_CAPS[pos] : Infinity;
+  const geo = rosterGeometry(shape);
+  const cap = geo.caps[pos] != null ? geo.caps[pos] : Infinity;
   const have = counts[pos] || 0;
   if (have >= cap) return false;
-  const demand = shape.starterDemand[pos] || 0;
-  const flexible = pos === 'RB' || pos === 'WR' || pos === 'TE';
+  const demand = geo.demand[pos] || 0;
+  // "Flexible" = some flex slot on THIS roster accepts the position (a
+  // SUPER_FLEX makes QB flexible; the classic FLEX does not).
+  const flexible = geo.flexSlots.some((f) => f.positions.includes(pos));
   // Starter demand + FLEX share + one backup everywhere (real rooms draft a
-  // backup QB late; the hard cap above still stops a 3rd).
-  const want = demand + (flexible ? shape.config.flex + 1 : 1);
+  // backup QB late; the hard cap above still stops the over-cap one).
+  const want = demand + (flexible ? geo.flexSlots.length + 1 : 1);
   return have < want;
 }
 
@@ -228,32 +232,35 @@ export function survivalProbabilities(candidateIdxs, board, rosters, shape,
 
 /**
  * Optimal starters total for a drafted list of players under `shape`, at
- * scoring `mode`. Greedy fill: positions by demand from the best-points-first
- * list, FLEX takes the best leftover RB/WR/TE. Unprojected players (no entry
- * in adjOf) contribute 0 — honest, never fabricated.
+ * scoring `mode`. Greedy fill driven by the SHAPE'S SLOTS: every fixed slot
+ * takes the best unused player it accepts, in slot order, then every flex slot
+ * takes the best leftover it accepts. For the classic shape that is exactly
+ * QB, RB, RB, WR, WR, TE, then FLEX from the leftover RB/WR/TE — unchanged;
+ * for a SUPER_FLEX league the flex can now be won by a QB, which the hardcoded
+ * RB/WR/TE list made impossible. Unprojected players (no entry in adjOf)
+ * contribute 0 — honest, never fabricated.
  */
 export function startersTotal(players, shape, adjOf) {
+  const geo = rosterGeometry(shape);
   const sorted = players.slice().sort((a, b) => adjOf(b) - adjOf(a));
   const used = new Set();
   let total = 0;
-  const fill = (pos, n) => {
-    let left = n;
+  const fill = (accepts) => {
     for (const p of sorted) {
-      if (left === 0) break;
-      if (used.has(p) || p.position !== pos) continue;
-      used.add(p); total += adjOf(p); left -= 1;
+      if (used.has(p) || !accepts.includes(p.position)) continue;
+      used.add(p); total += adjOf(p);
+      return;
     }
   };
-  fill('QB', shape.starterDemand.QB);
-  fill('RB', shape.starterDemand.RB);
-  fill('WR', shape.starterDemand.WR);
-  fill('TE', shape.starterDemand.TE);
-  let flexLeft = shape.config.flex;
-  for (const p of sorted) {
-    if (flexLeft === 0) break;
-    if (used.has(p) || !['RB', 'WR', 'TE'].includes(p.position)) continue;
-    used.add(p); total += adjOf(p); flexLeft -= 1;
-  }
+  const flexSlots = new Set(geo.flexSlots.map((f) => f.slot));
+  // Fixed slots first — a flex slot must never steal a player its fixed
+  // neighbours still need.
+  geo.starters.forEach((slot) => {
+    if (!flexSlots.has(slot)) fill(geo.eligibility[slot] || []);
+  });
+  geo.starters.forEach((slot) => {
+    if (flexSlots.has(slot)) fill(geo.eligibility[slot] || []);
+  });
   return Math.round(total * 10) / 10;
 }
 

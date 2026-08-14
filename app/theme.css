@@ -2499,3 +2499,245 @@ body.gate-locked { overflow: hidden; }
 .pf-unconfigured { background: var(--border); }
 .pf-subhead { font-size: 10px; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
 .pf-cron { display: inline-block; margin-right: 8px; color: var(--ink); }
+
+/* ==========================================================================
+   R19-B3 — LEAGUE SETTINGS panel inside the draft simulator (#/team).
+   FLEX eligibility + keepers + SAVE + the Sleeper import, sitting directly
+   under the LEAGUE / ROSTER grids it persists. Same tile idiom as .ds-field
+   (label over control, tile carries the border so :focus-within can light it)
+   so the new block reads as one card with the settings above it, not a bolted-
+   on form. Every control clears the 44px tap target on iPhone and iPad.
+   ========================================================================== */
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .lp-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.lp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.lp-field:focus-within { border-color: var(--brand-txt); }
+.lp-field--grow { flex: 1 1 auto; }
+
+/* ---- SAVE row: the primary action for the settings above it ---- */
+.lp-save {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lp-savebtn {
+  flex: 1 1 240px;
+  min-height: 44px;
+  padding: 12px 18px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0D1117;                      /* dark ink on solid brand (AA 5.46:1) */
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  cursor: pointer;
+}
+/* Unsaved edits: the crimson stripe the rest of the app uses for "act on me". */
+.lp-savebtn--dirty {
+  color: #0D1117;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.lp-saved {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.lp-saved--dirty { color: var(--accent-txt); font-weight: 700; }
+
+/* ---- status + notes: what just happened, in plain language ---- */
+.lp-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+.lp-status-line + .lp-status-line { margin-top: 4px; }
+.lp-status--ok { border-left-color: var(--pos); color: var(--pos-txt); }
+.lp-status--warn { border-left-color: var(--warn); color: var(--warn); }
+.lp-status--err { border-left-color: var(--accent); color: var(--accent-txt); }
+.lp-notes {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--warn);
+  border-left: 2px solid var(--warn);
+  padding-left: 8px;
+}
+.lp-notes div + div { margin-top: 4px; }
+
+/* ---- Sleeper sync ---- */
+.lp-sync {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lp-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 30px;                    /* tile totals a >=44px tap target */
+  font-family: var(--mono);
+  font-size: 16px;                     /* >=16px: iOS must not zoom on focus */
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 0;
+  min-width: 0;
+}
+.lp-input:focus { outline: none; }     /* the tile border shows focus */
+.lp-input::placeholder { color: var(--muted); font-weight: 400; }
+.lp-btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 18px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0D1117;                      /* dark ink on solid brand (AA 5.46:1) */
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lp-btn--wide { width: 100%; margin-top: 8px; }
+
+/* ---- paste-JSON fallback ---- */
+.lp-paste {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 12px 12px;
+}
+.lp-summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--brand-txt);
+  cursor: pointer;
+}
+.lp-textarea {
+  width: 100%;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 16px;                     /* >=16px: iOS must not zoom on focus */
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  resize: vertical;
+}
+.lp-textarea:focus { outline: none; border-color: var(--brand-txt); }
+.lp-textarea::placeholder { color: var(--muted); }
+
+/* ---- import report: what actually landed on the profile ---- */
+.lp-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.lp-rep-head {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+  overflow-wrap: anywhere;
+}
+.lp-rep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+.lp-rep-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--elev);
+  border-radius: var(--radius-sm);
+}
+.lp-rep-val {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.lp-rep-line {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.lp-unres-head {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+}
+.lp-unres {
+  margin: 0;
+  padding-left: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.lp-unres li + li { margin-top: 4px; }
+.lp-unres b { color: var(--warn); font-weight: 700; }
+
+@media (min-width: 820px) {
+  /* 13" iPad / laptop: the settings block keeps the wide field rhythm of the
+     LEAGUE and ROSTER grids directly above it. */
+  .lp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lp-savebtn { flex: 0 0 auto; min-width: 260px; }
+}

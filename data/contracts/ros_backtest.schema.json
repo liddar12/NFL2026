@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "ros_backtest.schema.json",
-  "title": "Rest-of-Season projection directional backtest (season rank-correlation)",
-  "description": "Walk-forward, leak-free directional proof for the RoS APPROACH (a season-total proxy, not the deployed per-week projection). Honest labels: measured true only when scored against real actuals; __meta__ discloses method + granularity. Runner/one-shot built.",
+  "title": "Rest-of-Season season rank-correlation view (written by scripts/backtest_player.py)",
+  "description": "Walk-forward, leak-free season rank-correlation for the DEPLOYED projection engine (scripts.models.player_projection.project_player), whose from_week=1 total is exactly the RoS value app/ros.js renders. Superseded in detail by data/player_backtest.json, which adds error metrics, both baselines and the measured path-identity check; this file remains the compact rank view. Before R18 it was written by scripts/backtest_ros.py and scored a standalone ppg-based PROXY formula instead of the shipped engine (REL15 bug #9) - that formula now survives only as the `ppg17` baseline in player_backtest.json. Honest labels: `measured` is true only when scored against real actuals; __meta__ discloses method + granularity. Runner/one-shot built. The score block is INLINED at both use sites on purpose: scripts/validate_data.py implements a draft-07 subset with no $ref support, so the previous $ref left every score block silently unvalidated.",
   "type": "object",
   "additionalProperties": false,
   "required": ["__meta__", "per_season", "pooled", "summary"],
@@ -29,14 +29,44 @@
           "season": { "type": "integer" },
           "positions": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/$defs/posScore" }
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n", "rho_ros", "rho_lastyear", "beats_baseline", "measured"],
+              "properties": {
+                "n": { "type": "integer", "minimum": 0 },
+                "rho_ros": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "rho_lastyear": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "delta": { "type": "number" },
+                "ndcg_ros": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                "ndcg_lastyear": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                "skipped": { "type": "string" },
+                "beats_baseline": { "type": "boolean" },
+                "measured": { "type": "boolean" }
+              }
+            }
           }
         }
       }
     },
     "pooled": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/posScore" }
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "rho_ros", "rho_lastyear", "beats_baseline", "measured"],
+        "properties": {
+          "n": { "type": "integer", "minimum": 0 },
+          "rho_ros": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "rho_lastyear": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "delta": { "type": "number" },
+          "ndcg_ros": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "ndcg_lastyear": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "skipped": { "type": "string" },
+          "beats_baseline": { "type": "boolean" },
+          "measured": { "type": "boolean" }
+        }
+      }
     },
     "summary": {
       "type": "object",
@@ -45,23 +75,6 @@
       "properties": {
         "positions_beating_baseline": { "type": "integer", "minimum": 0 },
         "positions_scored": { "type": "integer", "minimum": 0 }
-      }
-    }
-  },
-  "$defs": {
-    "posScore": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["n", "rho_ros", "rho_lastyear", "beats_baseline", "measured"],
-      "properties": {
-        "n": { "type": "integer", "minimum": 0 },
-        "rho_ros": { "type": "number" },
-        "rho_lastyear": { "type": "number" },
-        "delta": { "type": "number" },
-        "ndcg_ros": { "type": "number" },
-        "ndcg_lastyear": { "type": "number" },
-        "beats_baseline": { "type": "boolean" },
-        "measured": { "type": "boolean" }
       }
     }
   }

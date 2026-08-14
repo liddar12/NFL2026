@@ -21,19 +21,44 @@
  *      "already optimal" line is suppressed because it would be a lie.
  * The availability block is optional on data/player_weekly.json: a deploy that
  * predates the pipeline renders exactly as it does today.
+ *
+ * R19-B5 — EVERY SLOT THE LEAGUE STARTS, INCLUDING K AND DEF. The card is no
+ * longer hard-wired to seven rows: geometry comes from the connected league
+ * profile, so a 9-starter league renders nine rows. K and DEF have no projection
+ * feed yet, and this view refuses the two dishonest ways of handling that:
+ *   - it does NOT omit the slot (a 7-row card for a 9-starter league is a wrong
+ *     lineup presented as a right one), and
+ *   - it does NOT print 0.0 (a manager would read that as a projection of zero).
+ * The row renders as awaiting its feed, with an em dash where the points go, and
+ * the card head states the real coverage: "7 of 9 slots projected". The START/SIT
+ * card says the same thing in words, so "already optimal" never covers slots this
+ * app never looked at.
  */
 
 import { getPlayerProjections, getPlayerWeekly, getGamePredictions } from '../data.js';
 import { teamTint, teamName } from '../render.js';
-import { STARTER_SLOTS } from '../team-logic.js';
-import { bestLineup, startSitSwaps, LINEUP_SLOTS } from '../lineup.js';
+import { loadProfile, rosterSlots } from '../league.js';
+import {
+  bestLineup, startSitSwaps, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
+} from '../lineup.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { rosPoints } from '../ros.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';   // mirror of the Team builder's roster key
 const WEEKS = 18;
-const SLOT_LABEL = {
-  QB1: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE1: 'TE', FLEX: 'FLEX',
+
+/**
+ * Row label for a slot id: the roster token without its ordinal, exactly as the
+ * seven-slot map used to spell it (QB1 -> QB, FLEX -> FLEX) and as a K/DEF league
+ * needs it (K1 -> K, DEF1 -> DEF).
+ */
+const slotLabel = (slot) => String(slot).replace(/\d+$/, '');
+
+/** What a slot with no projection feed is waiting for, in plain words. */
+const AWAITING = {
+  K: 'Kicker projections aren’t published yet',
+  DEF: 'Team-defense projections aren’t published yet',
+  DST: 'Team-defense projections aren’t published yet',
 };
 
 function esc(v) {
@@ -76,13 +101,34 @@ export default async function mountLineup(el) {
   }
 
   const slots = loadRosterSlots();
+  // The connected league's own geometry. An unconfigured user gets DEFAULT_PROFILE,
+  // which is the seven-starter / six-bench roster this view has always drawn.
+  const profile = loadProfile();
+  const leagueSlots = rosterSlots(profile);
   // Sanitize against the live pool exactly like the Team builder's loadRoster:
   // a player dropped/traded/retired out of projections must NOT render as a
   // phantom row named after his raw id — drop any id we can't resolve.
+  // Read EVERY id the saved roster holds, not just those parked under slot names
+  // this profile happens to have. The optimizer takes the roster as a BAG of
+  // players and assigns its own slots, so keying off slot names here only
+  // creates a way to lose people: a roster saved under a different geometry (an
+  // older release, or before the user changed their league) would vanish from
+  // the lineup while still showing on the Team page. Profile slots are read
+  // first so the familiar order is preserved; anything else follows.
+  const seenIds = new Set();
   const rosterIds = slots
-    ? [...STARTER_SLOTS, 'BN1', 'BN2', 'BN3', 'BN4', 'BN5', 'BN6']
-        .map((s) => slots[s]).filter(Boolean).map(String)
-        .filter((id) => byId.has(id))
+    ? Object.keys(slots)
+      .sort((a, b) => {
+        const ia = leagueSlots.all.indexOf(a);
+        const ib = leagueSlots.all.indexOf(b);
+        return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+      })
+      .map((s) => slots[s]).filter(Boolean).map(String)
+      .filter((id) => {
+        if (!byId.has(id) || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      })
     : [];
 
   el.innerHTML =
@@ -125,12 +171,17 @@ export default async function mountLineup(el) {
     const optIn = rows.map((r) => ({
       id: r.id, pos: r.pos, pts: r.pts, playable: r.avail.playable,
     }));
-    const optimal = bestLineup(optIn);
+    const optimal = bestLineup(optIn, profile);
     const rowById = new Map(rows.map((r) => [r.id, r]));
-    const currentStarters = STARTER_SLOTS.map((s) => slots[s])
+    const currentStarters = leagueSlots.starters.map((s) => slots[s])
       .filter(Boolean).map(String).filter((id) => byId.has(id));
-    const moves = startSitSwaps(currentStarters, optIn, wk);
-    const warnings = Array.isArray(optimal.warnings) ? optimal.warnings : [];
+    const moves = startSitSwaps(currentStarters, optIn, wk, profile);
+    const allWarnings = Array.isArray(optimal.warnings) ? optimal.warnings : [];
+    // ONE channel, TWO facts. A forced start is a waiver-wire to-do; an
+    // unprojected slot is a missing feed. Splitting them here is what keeps the
+    // banners, the rows and the "optimal" line each telling the truth.
+    const warnings = allWarnings.filter((wn) => wn.reason === WARN_FORCED_UNAVAILABLE);
+    const unprojected = allWarnings.filter((wn) => wn.reason === WARN_NO_PROJECTION);
     const forcedSlots = new Set(warnings.map((wn) => wn.slot));
 
     // A forced start is a to-do, not a footnote: one banner per warning, at the
@@ -146,12 +197,27 @@ export default async function mountLineup(el) {
       );
     }).join('');
 
-    // Optimal starting lineup by slot.
-    const starterHtml = LINEUP_SLOTS.map((slot) => {
+    // Optimal starting lineup, one row per slot the LEAGUE starts — including the
+    // ones we cannot project. Nothing here is ever silently dropped.
+    const starterHtml = optimal.geometry.map((g) => {
+      const slot = g.slot;
+      const label = slotLabel(slot);
+      if (!g.projected) {
+        // NOT "0.0". An em dash is the honest glyph for "no number exists"; a
+        // zero would read as a projection, and this slot has none.
+        return (
+          '<div class="lu-row lu-row--unprojected" style="opacity:0.9">'
+          + `<span class="lu-slot">${esc(label)}</span>`
+          + `<span class="lu-name" style="font-weight:600;color:var(--muted)">${esc(AWAITING[label] || `${label} projections aren’t published yet`)} `
+            + '<span class="lu-meta">AWAITING FEED · NOT IN THE TOTAL</span></span>'
+          + '<span class="lu-pts" style="color:var(--muted)">—</span>'
+          + '</div>'
+        );
+      }
       const id = optimal.slots[slot];
       const r = id ? rowById.get(id) : null;
       if (!r) {
-        return `<div class="lu-row lu-row--empty"><span class="lu-slot">${SLOT_LABEL[slot]}</span>`
+        return `<div class="lu-row lu-row--empty"><span class="lu-slot">${esc(label)}</span>`
           + '<span class="lu-name">— no eligible player —</span><span class="lu-pts">0.0</span></div>';
       }
       const byeTag = r.onBye ? ' <span class="lu-bye" title="On bye this week">BYE</span>' : '';
@@ -159,7 +225,7 @@ export default async function mountLineup(el) {
       const forced = forcedSlots.has(slot);
       return (
         `<div class="lu-row${r.onBye ? ' lu-row--bye' : ''}${forced ? ' lu-row--forced' : ''}">`
-        + `<span class="lu-slot">${SLOT_LABEL[slot]}</span>`
+        + `<span class="lu-slot">${esc(label)}</span>`
         + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''} `
           + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
         + `<span class="lu-pts">${fix1(r.pts)}</span>`
@@ -170,13 +236,13 @@ export default async function mountLineup(el) {
     // Start/sit moves — honest net gain of going optimal, with the START set
     // (each into the slot it fills) and the SIT set. No misleading 1:1 pairing:
     // an incoming WR and an outgoing RB don't compete, only the net matters.
-    const slotOf = (id) => LINEUP_SLOTS.find((s) => optimal.slots[s] === id) || 'FLEX';
+    const slotOf = (id) => optimal.slotIds.find((s) => optimal.slots[s] === id) || 'FLEX';
 
     // "This player is unavailable — X starts instead." Availability is WHY, points
     // are HOW MUCH, so the reason is rendered above the net-gain line. One note per
     // sit caused by unavailability, mapped through the manager's own slot.
     const mgrSlotOf = new Map();
-    for (const s of STARTER_SLOTS) {
+    for (const s of leagueSlots.starters) {
       const sid = slots[s]; if (sid) mgrSlotOf.set(String(sid), s);
     }
     const swapNotes = moves.sit
@@ -194,14 +260,32 @@ export default async function mountLineup(el) {
         );
       }).join('');
 
+    // The slots this app cannot speak to. Said in words, in the same card that
+    // claims a lineup is optimal, because "optimal" over seven of nine slots is
+    // only true if the other two are named out loud.
+    const unprojNames = [...new Set(unprojected.map((wn) => slotLabel(wn.slot)))];
+    const unprojNote = unprojected.length === 0 ? '' : (
+      '<div class="lu-unproj" style="padding:10px 14px;border-bottom:1px solid var(--border);'
+      + 'font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--muted)">'
+      + `<b style="color:var(--ink);font-weight:700">${esc(unprojNames.join(' · '))}</b> `
+      + `${unprojected.length === 1 ? 'is a slot' : `are ${unprojected.length} slots`} your league starts that `
+      + 'this app cannot project yet — no feed exists for '
+      + `${unprojNames.length === 1 ? 'it' : 'them'}. `
+      + `${unprojected.length === 1 ? 'That slot is' : 'Those slots are'} yours to set, and `
+      + `${unprojected.length === 1 ? 'it adds' : 'they add'} nothing to the total above.</div>`
+    );
+
     let movesHtml;
     if (moves.start.length === 0 && warnings.length === 0) {
-      movesHtml = '<div class="lu-optimal">✓ Your starting lineup is already optimal for Week ' + wk + '.</div>';
+      movesHtml = unprojNote
+        + '<div class="lu-optimal">✓ Your '
+        + (unprojected.length ? `${optimal.projectedSlots} projected slots are` : 'starting lineup is')
+        + ' already optimal for Week ' + wk + '.</div>';
     } else if (moves.start.length === 0) {
       // There is nothing better to do, but "optimal" would be a lie over a lineup
       // containing a player who cannot take a snap. Say what is actually true.
       const n = warnings.length;
-      movesHtml = swapNotes
+      movesHtml = unprojNote + swapNotes
         + `<div class="lu-optimal lu-gap">Your lineup is the best your roster allows this week, but `
         + `${n} slot${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} filled by `
         + `${n === 1 ? 'a player' : 'players'} who can’t play.</div>`;
@@ -209,14 +293,14 @@ export default async function mountLineup(el) {
       const startRows = moves.start.map((id) => {
         const r = rowById.get(id);
         return `<div class="lu-move"><span class="lu-move-in">START <b>${esc(r ? r.name : id)}</b> `
-          + `<span class="lu-meta">${esc(SLOT_LABEL[slotOf(id)])} · ${fix1(r ? r.pts : 0)}</span></span></div>`;
+          + `<span class="lu-meta">${esc(slotLabel(slotOf(id)))} · ${fix1(r ? r.pts : 0)}</span></span></div>`;
       }).join('');
       const sitRows = moves.sit.map((id) => {
         const r = rowById.get(id);
         return `<div class="lu-move lu-move--sit"><span class="lu-move-out">SIT ${esc(r ? r.name : id)} `
           + `<span class="lu-meta">${fix1(r ? r.pts : 0)}</span></span></div>`;
       }).join('');
-      movesHtml = swapNotes
+      movesHtml = unprojNote + swapNotes
         + `<div class="lu-move lu-move--net">Switching to the optimal lineup adds `
         + `<b class="lu-move-gain">+${fix1(moves.netGain)} pts</b> this week.</div>`
         + startRows + sitRows;
@@ -243,7 +327,12 @@ export default async function mountLineup(el) {
 
     body.innerHTML =
       '<section class="card lu-card">'
-        + `<div class="m-head">OPTIMAL LINEUP · WEEK ${wk} <span class="lu-total">${fix1(optimal.total)} pts</span></div>`
+        // The total is a total OF SOMETHING — say of what. "7 of 9 slots
+        // projected" is the difference between a number and a claim.
+        + `<div class="m-head">OPTIMAL LINEUP · WEEK ${wk} <span class="lu-total">${fix1(optimal.total)} pts`
+          + '<span class="lu-cover" style="display:block;font-family:var(--sans);font-weight:600;'
+            + 'font-size:11px;letter-spacing:0.02em;color:var(--muted);text-align:right">'
+          + `${optimal.projectedSlots} of ${optimal.slotCount} slots projected</span></span></div>`
         + forcedHtml
         + starterHtml
       + '</section>'
