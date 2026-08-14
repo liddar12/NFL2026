@@ -59,6 +59,7 @@ import {
   normalizeProfile,
   validateProfile,
 } from './league.js';
+import { TEAMS } from './teams.js';
 
 /* --------------------------------------------------------------------------
  * Endpoint + sync policy
@@ -739,26 +740,23 @@ function buildReport({ source, syncedAt, payload, scoring, roster, settings, not
  * ------------------------------------------------------------------------ */
 
 /**
- * GET one league from Sleeper. Returns { ok, payload, status, error } and never
- * throws — a rejected fetch, a timeout and a 500 all come back as data.
+ * The shared GET core for every Sleeper read in this module.
  *
- * opts: { fetch, timeoutMs, signal, AbortController } — all injectable so the
- * unit tests never touch the network.
+ * Extracted so the league read, the roster read, the user read and the matchup
+ * read all issue the IDENTICAL request — same simple (never preflighted) shape,
+ * same uncredentialed CORS, and ONE abort timer. A second copy of this would be
+ * a second chance to get the CORS shape wrong; a unit test asserts this file
+ * still contains exactly one setTimeout.
+ *
+ * Returns { ok, payload, status, url, error } and never throws.
+ *
+ * texts: { noFetch, missing, missingDetail, hint } — the caller supplies the
+ * user-facing wording so a roster failure does not talk about league JSON.
  */
-export async function fetchSleeperLeague(idOrUrl, opts) {
+async function sleeperGetJson(url, opts, texts) {
   const options = isPlainObject(opts) ? opts : {};
-  const leagueId = parseLeagueId(idOrUrl);
-  if (!leagueId) {
-    return {
-      ok: false,
-      payload: null,
-      status: 0,
-      url: null,
-      error: failure('bad_league_id',
-        'That is not a Sleeper league id. Paste the number from your league URL, '
-        + 'e.g. https://sleeper.com/leagues/1051234567890123456/team.', idOrUrl),
-    };
-  }
+  const t = isPlainObject(texts) ? texts : {};
+  const hint = typeof t.hint === 'string' && t.hint ? t.hint : 'paste the JSON from that URL';
 
   const fetchImpl = typeof options.fetch === 'function'
     ? options.fetch
@@ -770,10 +768,9 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
       ok: false,
       payload: null,
       status: 0,
-      url: leagueEndpoint(leagueId),
+      url,
       error: failure('no_fetch',
-        'This browser has no fetch, so the direct import cannot run. '
-        + 'Use "Paste league JSON" instead.', null),
+        t.noFetch || 'This browser has no fetch, so this read cannot run.', null),
     };
   }
 
@@ -784,7 +781,6 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
     ? options.AbortController
     : (typeof AbortController === 'function' ? AbortController : null);
 
-  const url = leagueEndpoint(leagueId);
   const controller = Ctor ? new Ctor() : null;
   let timedOut = false;
   let timer = null;
@@ -840,7 +836,8 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
       return {
         ok: false, payload: null, status: 404, url,
         error: failure('not_found',
-          `Sleeper has no league ${leagueId}. Check the id in your league URL.`, leagueId),
+          t.missing || `Sleeper has nothing at ${url}.`,
+          t.missingDetail === undefined ? null : t.missingDetail),
       };
     }
     if (res.status === 429) {
@@ -848,14 +845,14 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
         ok: false, payload: null, status: 429, url,
         error: failure('rate_limited',
           'Sleeper is rate-limiting this device. Wait a minute and press sync again, '
-          + 'or paste the league JSON.', null),
+          + `or ${hint}.`, null),
       };
     }
     if (res.status < 200 || res.status >= 300) {
       return {
         ok: false, payload: null, status: res.status, url,
         error: failure('http_error',
-          `Sleeper answered HTTP ${res.status}. Try again, or paste the league JSON.`,
+          `Sleeper answered HTTP ${res.status}. Try again, or ${hint}.`,
           res.status),
       };
     }
@@ -882,11 +879,12 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
       };
     }
     if (payload === null) {
-      // Sleeper answers 200 with a literal `null` body for an unknown league.
+      // Sleeper answers 200 with a literal `null` body for an unknown resource.
       return {
         ok: false, payload: null, status: res.status, url,
         error: failure('not_found',
-          `Sleeper has no league ${leagueId}. Check the id in your league URL.`, leagueId),
+          t.missing || `Sleeper has nothing at ${url}.`,
+          t.missingDetail === undefined ? null : t.missingDetail),
       };
     }
 
@@ -898,7 +896,7 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
         ok: false, payload: null, status: 0, url,
         error: failure('timeout',
           `Sleeper did not answer within ${Math.round(timeoutMs / 1000)}s. `
-          + 'Try again, or paste the league JSON.', timeoutMs),
+          + `Try again, or ${hint}.`, timeoutMs),
       };
     }
     if (name === 'AbortError') {
@@ -911,12 +909,51 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
       ok: false, payload: null, status: 0, url,
       error: failure('network',
         'Could not reach Sleeper. This is usually the network or a browser extension '
-        + 'blocking the request — paste the league JSON instead.',
+        + `blocking the request — ${hint} instead.`,
         String(err && err.message ? err.message : err)),
     };
   } finally {
     cleanup();
   }
+}
+
+/**
+ * Parse the league id or return the ready-made bad-id failure. Every endpoint
+ * in this module takes the same id/URL input, so they all reject it the same
+ * way and none of them reaches the network with a guess.
+ */
+function requireLeagueId(idOrUrl) {
+  const leagueId = parseLeagueId(idOrUrl);
+  if (leagueId) return { ok: true, leagueId, error: null };
+  return {
+    ok: false,
+    leagueId: null,
+    error: failure('bad_league_id',
+      'That is not a Sleeper league id. Paste the number from your league URL, '
+      + 'e.g. https://sleeper.com/leagues/1051234567890123456/team.', idOrUrl),
+  };
+}
+
+/**
+ * GET one league from Sleeper. Returns { ok, payload, status, error } and never
+ * throws — a rejected fetch, a timeout and a 500 all come back as data.
+ *
+ * opts: { fetch, timeoutMs, signal, AbortController } — all injectable so the
+ * unit tests never touch the network.
+ */
+export async function fetchSleeperLeague(idOrUrl, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const id = requireLeagueId(idOrUrl);
+  if (!id.ok) {
+    return { ok: false, payload: null, status: 0, url: null, error: id.error };
+  }
+  return sleeperGetJson(leagueEndpoint(id.leagueId), options, {
+    noFetch: 'This browser has no fetch, so the direct import cannot run. '
+      + 'Use "Paste league JSON" instead.',
+    missing: `Sleeper has no league ${id.leagueId}. Check the id in your league URL.`,
+    missingDetail: id.leagueId,
+    hint: 'paste the league JSON',
+  });
 }
 
 /** TIER 1: fetch + map, as one call. Returns an ImportResult. */
@@ -1164,4 +1201,1049 @@ export function summarizeImport(result) {
     lines.push('Some values were out of range and were clamped — check the roster and scoring.');
   }
   return lines;
+}
+
+/* ==========================================================================
+ * ROSTERS, OWNERS, MATCHUPS
+ *
+ * The league read above answers "what are the rules". These three reads answer
+ * "who is on which team, and what did they start". Same discipline: MANUAL
+ * only (every function here runs once per user click — there is still no timer
+ * in this file except the fetch abort), same simple uncredentialed request via
+ * sleeperGetJson(), and the same refusal to guess.
+ *
+ * Sleeper's shapes, for the record:
+ *   /league/{id}/rosters       array, one object per team, ALWAYS all teams
+ *   /league/{id}/users         array, one object per manager. A roster with no
+ *                              manager has owner_id: null; a manager who left
+ *                              can still appear here with no roster.
+ *   /league/{id}/matchups/{wk} array, one object per team. Two teams share a
+ *                              matchup_id. `starters` is SLOT-ORDERED and an
+ *                              EMPTY slot is the literal string "0".
+ * ======================================================================== */
+
+/** Sleeper's marker for an empty starting slot. It is NOT a player id. */
+export const SLEEPER_EMPTY_SLOT = '0';
+
+/**
+ * Weeks a matchup may be requested for. 1-18 regular season; Sleeper numbers
+ * league playoff weeks straight on from there, and a 14-team league with two
+ * byes can run to 22. Outside this range we refuse rather than build a URL.
+ */
+export const SLEEPER_WEEK_RANGE = Object.freeze([1, 22]);
+
+/** GET url for every team's roster. */
+export function rostersEndpoint(leagueId) {
+  return `${leagueEndpoint(leagueId)}/rosters`;
+}
+
+/** GET url for the league's managers. */
+export function leagueUsersEndpoint(leagueId) {
+  return `${leagueEndpoint(leagueId)}/users`;
+}
+
+/** GET url for one week's matchups. */
+export function matchupsEndpoint(leagueId, week) {
+  return `${leagueEndpoint(leagueId)}/matchups/${encodeURIComponent(String(week))}`;
+}
+
+/** A week number, or null. Never a guess — "week 1" and 1.5 are both refused. */
+export function parseWeek(input) {
+  const n = toFinite(input);
+  if (n === null || !Number.isInteger(n)) return null;
+  return n >= SLEEPER_WEEK_RANGE[0] && n <= SLEEPER_WEEK_RANGE[1] ? n : null;
+}
+
+/* --------------------------------------------------------------------------
+ * Fetchers
+ * ------------------------------------------------------------------------ */
+
+/** GET every roster in the league. { ok, payload, status, url, error }. */
+export async function fetchSleeperRosters(idOrUrl, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const id = requireLeagueId(idOrUrl);
+  if (!id.ok) return { ok: false, payload: null, status: 0, url: null, error: id.error };
+  return sleeperGetJson(rostersEndpoint(id.leagueId), options, {
+    noFetch: 'This browser has no fetch, so the roster read cannot run. '
+      + 'Open the rosters URL yourself and paste the response.',
+    missing: `Sleeper has no rosters for league ${id.leagueId}. Check the id in your league URL.`,
+    missingDetail: id.leagueId,
+    hint: 'paste the roster JSON',
+  });
+}
+
+/** GET the league's managers. { ok, payload, status, url, error }. */
+export async function fetchSleeperUsers(idOrUrl, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const id = requireLeagueId(idOrUrl);
+  if (!id.ok) return { ok: false, payload: null, status: 0, url: null, error: id.error };
+  return sleeperGetJson(leagueUsersEndpoint(id.leagueId), options, {
+    noFetch: 'This browser has no fetch, so the manager read cannot run. '
+      + 'Open the users URL yourself and paste the response.',
+    missing: `Sleeper has no managers for league ${id.leagueId}. Check the id in your league URL.`,
+    missingDetail: id.leagueId,
+    hint: 'paste the users JSON',
+  });
+}
+
+/** GET one week of matchups. A bad week never reaches the network. */
+export async function fetchSleeperMatchups(idOrUrl, week, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const id = requireLeagueId(idOrUrl);
+  if (!id.ok) return { ok: false, payload: null, status: 0, url: null, error: id.error };
+  const wk = parseWeek(week);
+  if (wk === null) {
+    return {
+      ok: false,
+      payload: null,
+      status: 0,
+      url: null,
+      error: failure('bad_week',
+        `"${String(week)}" is not a week. Ask for a whole number between `
+        + `${SLEEPER_WEEK_RANGE[0]} and ${SLEEPER_WEEK_RANGE[1]}.`, week),
+    };
+  }
+  return sleeperGetJson(matchupsEndpoint(id.leagueId, wk), options, {
+    noFetch: 'This browser has no fetch, so the matchup read cannot run. '
+      + 'Open the matchups URL yourself and paste the response.',
+    missing: `Sleeper has no week ${wk} matchups for league ${id.leagueId}.`,
+    missingDetail: { league_id: id.leagueId, week: wk },
+    hint: 'paste the matchup JSON',
+  });
+}
+
+/* --------------------------------------------------------------------------
+ * Roster mapping
+ * ------------------------------------------------------------------------ */
+
+/** A player id as Sleeper writes it: a non-empty string. Numbers are accepted
+ * (some tools re-serialise the array) and stringified; nothing else is. */
+function playerIdList(value, bucket) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  value.forEach((raw, i) => {
+    if (typeof raw === 'string' && raw.trim() !== '') { out.push(raw.trim()); return; }
+    if (typeof raw === 'number' && Number.isFinite(raw)) { out.push(String(raw)); return; }
+    if (bucket) bucket.push({ index: i, value: raw });
+  });
+  return out;
+}
+
+/**
+ * Map /rosters onto plain roster records.
+ *
+ * Sleeper ships `null` (not `[]`) for an empty reserve/taxi/keepers list, and
+ * `owner_id: null` for a team nobody manages. Both are preserved as absence,
+ * never as an empty-but-present claim.
+ *
+ * `points_for` follows Sleeper's split-decimal convention: `fpts` is the whole
+ * part and `fpts_decimal` the hundredths, so 1180 + 42 is 1180.42. The raw
+ * pair is kept alongside it so a UI never has to trust the arithmetic.
+ */
+export function mapRosters(payload) {
+  if (!Array.isArray(payload)) {
+    return {
+      ok: false,
+      rosters: [],
+      invalid: [],
+      error: failure('not_rosters',
+        'That is not a Sleeper roster list. Expected the JSON array from '
+        + 'https://api.sleeper.app/v1/league/{league_id}/rosters.',
+        payload === null ? null : typeof payload),
+    };
+  }
+
+  const rosters = [];
+  const invalid = [];
+
+  payload.forEach((raw, i) => {
+    if (!isPlainObject(raw)) {
+      invalid.push({ index: i, reason: 'Not an object.', value: raw });
+      return;
+    }
+    const rosterId = toFinite(raw.roster_id);
+    if (rosterId === null) {
+      invalid.push({
+        index: i,
+        reason: 'No roster_id, so this team cannot be identified.',
+        value: raw.roster_id,
+      });
+      return;
+    }
+    const dropped = [];
+    const players = playerIdList(raw.players, dropped);
+    const starters = playerIdList(raw.starters, dropped);
+    const s = isPlainObject(raw.settings) ? raw.settings : {};
+    const meta = isPlainObject(raw.metadata) ? raw.metadata : {};
+    const whole = toFinite(s.fpts);
+    const decimal = toFinite(s.fpts_decimal);
+    const againstWhole = toFinite(s.fpts_against);
+    const againstDecimal = toFinite(s.fpts_against_decimal);
+
+    rosters.push({
+      roster_id: rosterId,
+      owner_id: raw.owner_id == null ? null : String(raw.owner_id),
+      co_owner_ids: Array.isArray(raw.co_owners) ? raw.co_owners.map((c) => String(c)) : [],
+      players,
+      starters,
+      empty_starter_slots: starters.filter((p) => p === SLEEPER_EMPTY_SLOT).length,
+      reserve: playerIdList(raw.reserve, dropped),
+      taxi: playerIdList(raw.taxi, dropped),
+      keepers: playerIdList(raw.keepers, dropped),
+      dropped_ids: dropped,
+      record: {
+        wins: toFinite(s.wins),
+        losses: toFinite(s.losses),
+        ties: toFinite(s.ties),
+        streak: typeof meta.streak === 'string' ? meta.streak : null,
+      },
+      points_for: whole === null ? null : whole + (decimal === null ? 0 : decimal / 100),
+      points_against: againstWhole === null
+        ? null : againstWhole + (againstDecimal === null ? 0 : againstDecimal / 100),
+      points_raw: {
+        fpts: whole, fpts_decimal: decimal,
+        fpts_against: againstWhole, fpts_against_decimal: againstDecimal,
+      },
+    });
+  });
+
+  return {
+    ok: rosters.length > 0,
+    rosters,
+    invalid,
+    error: rosters.length > 0 ? null : failure('no_rosters',
+      'That roster list is empty — no team could be read from it.', invalid.length),
+  };
+}
+
+/* --------------------------------------------------------------------------
+ * User mapping
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Map /users onto manager records. `display_name` is the Sleeper handle and
+ * `team_name` the name the manager gave their team (metadata.team_name, which
+ * is absent until they set one). Both are carried; neither is invented.
+ */
+export function mapLeagueUsers(payload) {
+  if (!Array.isArray(payload)) {
+    return {
+      ok: false,
+      users: [],
+      invalid: [],
+      error: failure('not_users',
+        'That is not a Sleeper user list. Expected the JSON array from '
+        + 'https://api.sleeper.app/v1/league/{league_id}/users.',
+        payload === null ? null : typeof payload),
+    };
+  }
+
+  const users = [];
+  const invalid = [];
+
+  payload.forEach((raw, i) => {
+    if (!isPlainObject(raw)) {
+      invalid.push({ index: i, reason: 'Not an object.', value: raw });
+      return;
+    }
+    if (raw.user_id == null || String(raw.user_id).trim() === '') {
+      invalid.push({
+        index: i,
+        reason: 'No user_id, so this manager cannot be matched to a roster.',
+        value: raw.user_id,
+      });
+      return;
+    }
+    const meta = isPlainObject(raw.metadata) ? raw.metadata : {};
+    const teamName = typeof meta.team_name === 'string' && meta.team_name.trim()
+      ? meta.team_name.trim()
+      : null;
+    users.push({
+      user_id: String(raw.user_id),
+      username: typeof raw.username === 'string' ? raw.username : null,
+      display_name: typeof raw.display_name === 'string' && raw.display_name.trim()
+        ? raw.display_name.trim()
+        : null,
+      team_name: teamName,
+      avatar: raw.avatar == null ? null : String(raw.avatar),
+      is_owner: raw.is_owner === true,
+      is_bot: raw.is_bot === true,
+    });
+  });
+
+  return {
+    ok: users.length > 0,
+    users,
+    invalid,
+    error: users.length > 0 ? null : failure('no_users',
+      'That user list is empty — no manager could be read from it.', invalid.length),
+  };
+}
+
+/* --------------------------------------------------------------------------
+ * Roster + user join
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Join rosters to managers so a team can be shown with a human-readable label
+ * — which is the ONLY way a user can point at "mine". A roster whose owner is
+ * missing keeps its roster_id label and is listed in `orphan_rosters`; a
+ * manager with no roster is listed in `users_without_roster`. Nothing is
+ * silently paired.
+ */
+export function joinRosters(rosters, users) {
+  const rosterList = Array.isArray(rosters) ? rosters : [];
+  const userList = Array.isArray(users) ? users : [];
+  const byUserId = new Map(userList.map((u) => [String(u.user_id), u]));
+  const claimed = new Set();
+  const orphanRosters = [];
+
+  const teams = rosterList.map((r) => {
+    const ownerId = r.owner_id == null ? null : String(r.owner_id);
+    const user = ownerId ? byUserId.get(ownerId) || null : null;
+    if (user) claimed.add(ownerId);
+    if (!user) {
+      orphanRosters.push({
+        roster_id: r.roster_id,
+        owner_id: ownerId,
+        reason: ownerId === null
+          ? 'This team has no manager on Sleeper (an open team).'
+          : `Manager ${ownerId} is not in the league user list, so this team has no name.`,
+      });
+    }
+    const displayName = user ? user.display_name : null;
+    const teamName = user ? user.team_name : null;
+    return {
+      roster_id: r.roster_id,
+      owner_id: ownerId,
+      user_id: user ? user.user_id : null,
+      display_name: displayName,
+      username: user ? user.username : null,
+      team_name: teamName,
+      label: teamName || displayName || `Roster ${r.roster_id}`,
+      owner_known: Boolean(user),
+      players: r.players,
+      starters: r.starters,
+      reserve: r.reserve,
+      taxi: r.taxi,
+      keepers: r.keepers,
+      record: r.record,
+      points_for: r.points_for,
+      points_against: r.points_against,
+    };
+  }).sort((a, b) => a.roster_id - b.roster_id);
+
+  const usersWithoutRoster = userList
+    .filter((u) => !claimed.has(String(u.user_id)))
+    .map((u) => ({
+      user_id: u.user_id,
+      display_name: u.display_name,
+      team_name: u.team_name,
+      reason: 'This manager is in the league user list but owns no roster.',
+    }));
+
+  return { teams, orphan_rosters: orphanRosters, users_without_roster: usersWithoutRoster };
+}
+
+/**
+ * The picker the UI must show: one row per team, labelled. Identifying "which
+ * roster is mine" is a CHOICE the user makes — this module offers the list and
+ * never picks for them.
+ */
+export function ownerChoices(teams) {
+  return (Array.isArray(teams) ? teams : []).map((t) => ({
+    roster_id: t.roster_id,
+    label: t.label,
+    display_name: t.display_name,
+    team_name: t.team_name,
+    owner_known: t.owner_known,
+  }));
+}
+
+/**
+ * Find one team by roster id, Sleeper handle or team name. EXACT (trimmed,
+ * case-insensitive) only — no prefix and no fuzzy match, because picking the
+ * wrong team silently is worse than asking again. Two hits is a failure with
+ * both listed, not a coin flip.
+ */
+export function findTeam(teams, query) {
+  const list = Array.isArray(teams) ? teams : [];
+  const text = String(query == null ? '' : query).trim();
+  if (!text) {
+    return {
+      ok: false,
+      team: null,
+      matches: [],
+      error: failure('empty_query',
+        'Enter a team name, a Sleeper username or a roster number.', null),
+    };
+  }
+
+  const asNumber = toFinite(text);
+  if (asNumber !== null && Number.isInteger(asNumber)) {
+    const byId = list.filter((t) => t.roster_id === asNumber);
+    if (byId.length === 1) return { ok: true, team: byId[0], matches: byId, error: null };
+  }
+
+  const wanted = text.toLowerCase();
+  const matches = list.filter((t) => [t.display_name, t.username, t.team_name, t.label]
+    .some((v) => typeof v === 'string' && v.trim().toLowerCase() === wanted));
+
+  if (matches.length === 1) return { ok: true, team: matches[0], matches, error: null };
+  if (matches.length === 0) {
+    return {
+      ok: false,
+      team: null,
+      matches: [],
+      error: failure('no_match',
+        `No team in this league is called "${text}". Pick one from the list instead.`,
+        ownerChoices(list).map((c) => c.label)),
+    };
+  }
+  return {
+    ok: false,
+    team: null,
+    matches,
+    error: failure('ambiguous',
+      `"${text}" matches ${matches.length} teams in this league. Pick one by roster number.`,
+      matches.map((m) => ({ roster_id: m.roster_id, label: m.label }))),
+  };
+}
+
+/* --------------------------------------------------------------------------
+ * Matchup mapping
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Map one week of /matchups.
+ *
+ * `starters` is SLOT-ORDERED and pairs positionally with `starters_points`.
+ * When the two disagree in length we pair what we can and say so — we never
+ * shift points onto the wrong player to make the arrays line up. A starter of
+ * "0" is an EMPTY SLOT the manager left unfilled, not a player.
+ */
+export function mapMatchups(payload, week) {
+  const wk = parseWeek(week);
+  if (!Array.isArray(payload)) {
+    return {
+      ok: false,
+      week: wk,
+      matchups: [],
+      invalid: [],
+      warnings: [],
+      error: failure('not_matchups',
+        'That is not a Sleeper matchup list. Expected the JSON array from '
+        + 'https://api.sleeper.app/v1/league/{league_id}/matchups/{week}.',
+        payload === null ? null : typeof payload),
+    };
+  }
+
+  const matchups = [];
+  const invalid = [];
+  const warnings = [];
+
+  payload.forEach((raw, i) => {
+    if (!isPlainObject(raw)) {
+      invalid.push({ index: i, reason: 'Not an object.', value: raw });
+      return;
+    }
+    const rosterId = toFinite(raw.roster_id);
+    if (rosterId === null) {
+      invalid.push({
+        index: i,
+        reason: 'No roster_id, so this line cannot be attached to a team.',
+        value: raw.roster_id,
+      });
+      return;
+    }
+    const starters = playerIdList(raw.starters);
+    const points = Array.isArray(raw.starters_points)
+      ? raw.starters_points.map((v) => toFinite(v))
+      : [];
+    if (Array.isArray(raw.starters_points) && points.length !== starters.length) {
+      warnings.push(note('starters_points_length',
+        `Roster ${rosterId} has ${starters.length} starter(s) but `
+        + `${points.length} starter score(s). The extra values were left unpaired.`,
+        { roster_id: rosterId, starters: starters.length, points: points.length }));
+    }
+    const playersPoints = {};
+    if (isPlainObject(raw.players_points)) {
+      Object.keys(raw.players_points).forEach((k) => {
+        const v = toFinite(raw.players_points[k]);
+        if (v !== null) playersPoints[String(k)] = v;
+      });
+    }
+
+    matchups.push({
+      roster_id: rosterId,
+      matchup_id: toFinite(raw.matchup_id),
+      points: toFinite(raw.points),
+      custom_points: toFinite(raw.custom_points),
+      starters,
+      starter_rows: starters.map((sleeperId, slot) => ({
+        slot,
+        sleeper_id: sleeperId,
+        empty: sleeperId === SLEEPER_EMPTY_SLOT,
+        points: slot < points.length ? points[slot] : null,
+      })),
+      starters_points: points,
+      players: playerIdList(raw.players),
+      players_points: playersPoints,
+    });
+  });
+
+  return {
+    ok: matchups.length > 0,
+    week: wk,
+    matchups,
+    invalid,
+    warnings,
+    error: matchups.length > 0 ? null : failure('no_matchups',
+      'That matchup list is empty — Sleeper returns [] for a week that has not been played.',
+      invalid.length),
+  };
+}
+
+/** One team's line from a mapped matchup week, or null. */
+export function matchupForRoster(matchups, rosterId) {
+  const id = toFinite(rosterId);
+  if (id === null) return null;
+  return (Array.isArray(matchups) ? matchups : []).find((m) => m.roster_id === id) || null;
+}
+
+/**
+ * Group a week into head-to-head pairs. A matchup_id with one team is a BYE
+ * and is reported as such; a matchup_id with three or more is a payload we do
+ * not understand and is reported rather than truncated to two.
+ */
+function matchupKind(key, size) {
+  if (key === 'none') return 'unscheduled';
+  if (size === 2) return 'head_to_head';
+  return size === 1 ? 'bye' : 'unexpected';
+}
+
+export function matchupPairs(matchups) {
+  const groups = new Map();
+  (Array.isArray(matchups) ? matchups : []).forEach((m) => {
+    const key = m.matchup_id === null ? 'none' : String(m.matchup_id);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
+  });
+
+  const pairs = [];
+  groups.forEach((rows, key) => {
+    pairs.push({
+      matchup_id: key === 'none' ? null : Number(key),
+      roster_ids: rows.map((r) => r.roster_id),
+      points: rows.map((r) => r.points),
+      kind: matchupKind(key, rows.length),
+    });
+  });
+  return pairs.sort((a, b) => (a.matchup_id === null ? 1 : 0) - (b.matchup_id === null ? 1 : 0)
+    || (a.matchup_id || 0) - (b.matchup_id || 0));
+}
+
+/* ==========================================================================
+ * PLAYER ID CROSSWALK
+ *
+ * Sleeper's player ids and this app's player ids are two unrelated namespaces:
+ *   Sleeper  "4034"           its own id. Team defences use the team abbrev.
+ *   this app "espn-3117251"   offence, from data/player_projections.json
+ *            "00-0032726"     kickers, a gsis id, from kdst_projections.json
+ *            "DST-DEN"        team defences, ditto
+ *
+ * Nothing in this repo carries a Sleeper id, so a roster of bare Sleeper ids
+ * cannot be resolved on its own. Two things can resolve it:
+ *   1. Sleeper's own player dump (GET /v1/players/nfl — ~5MB, which is why it
+ *      is NOT fetched here; the caller supplies it). Each entry carries
+ *      `espn_id` and often `gsis_id`, which ARE this app's ids.
+ *   2. The id itself, when it is a team abbreviation — Sleeper identifies a
+ *      team defence by its abbreviation, and so does this app.
+ *
+ * THE MATCH IS IMPERFECT AND SAYS SO. Every strategy below is an EXACT match:
+ * an id equality, or a normalised name that is unique in the app's player set.
+ * There is no edit distance, no nickname table and no "closest" anything. A
+ * player who matches nothing, or matches two rows, comes back in `unresolved`
+ * with the reason — never dropped, never guessed.
+ * ======================================================================== */
+
+/** Match strategies, strongest first. `method` on a resolved row is one of these. */
+export const CROSSWALK_METHODS = Object.freeze([
+  'espn_id',            // Sleeper's espn_id == this app's espn-<id>
+  'gsis_id',            // Sleeper's gsis_id == this app's kicker id
+  'team_def',           // a team abbreviation on both sides
+  'name_team_position', // exact normalised name + team + position, unique
+  'name_position',      // exact normalised name + position, unique
+]);
+
+/**
+ * Historical / broadcast abbreviations Sleeper has shipped, mapped to the
+ * abbreviation app/teams.js uses. These are RENAMES of the same franchise, not
+ * guesses at similar spellings — the same class of fix as a team-name
+ * normalisation table, and it is the only place this module rewrites an id.
+ */
+export const SLEEPER_TEAM_ALIASES = Object.freeze({
+  ARZ: 'ARI',
+  BLT: 'BAL',
+  CLV: 'CLE',
+  HST: 'HOU',
+  JAC: 'JAX',
+  LA: 'LAR',
+  OAK: 'LV',
+  SD: 'LAC',
+  SL: 'LAR',
+  STL: 'LAR',
+  WSH: 'WAS',
+});
+
+/**
+ * Player positions this app cannot project, with the reason a user is shown.
+ * Mirrors UNSUPPORTED_SLOT_TOKENS but phrased about a PLAYER rather than a
+ * slot: the app projects offence plus team defence, so an individual defender
+ * on a Sleeper roster has nowhere to land.
+ */
+export const UNSUPPORTED_PLAYER_POSITIONS = Object.freeze({
+  DL: 'an individual defensive lineman', LB: 'a linebacker', DB: 'a defensive back',
+  DE: 'a defensive end', DT: 'a defensive tackle', CB: 'a cornerback', S: 'a safety',
+  SS: 'a strong safety', FS: 'a free safety', EDR: 'an edge rusher',
+  IDP: 'an individual defensive player', P: 'a punter', LS: 'a long snapper',
+  OL: 'an offensive lineman', OT: 'an offensive tackle', OG: 'an offensive guard',
+  G: 'a guard', T: 'a tackle', C: 'a center', NT: 'a nose tackle',
+});
+
+/**
+ * Reasons a Sleeper id did not resolve. Every unresolved row carries one.
+ *
+ * `unsupported_position` and `position_not_projected` are different failures
+ * and must stay different. The first is a player this app can never model (an
+ * individual defender). The second is a position the caller's own player set
+ * does not contain at all — data/player_projections.json is offence-only, so a
+ * kicker crosswalked against it alone is missing a DATA SET, not a modelling
+ * capability, and the fix is to pass the kicker rows in. Collapsing the two
+ * would tell a user their kicker is unsupported when it is not.
+ */
+export const CROSSWALK_CODES = Object.freeze([
+  'bad_id', 'empty_slot', 'no_player_index', 'unknown_sleeper_id',
+  'unsupported_position', 'position_not_projected', 'no_app_match', 'ambiguous',
+]);
+
+/** Team abbreviation as app/teams.js spells it, or null. */
+function canonicalTeam(value) {
+  const raw = upper(value);
+  if (!raw) return null;
+  const aliased = Object.prototype.hasOwnProperty.call(SLEEPER_TEAM_ALIASES, raw)
+    ? SLEEPER_TEAM_ALIASES[raw]
+    : raw;
+  return Object.prototype.hasOwnProperty.call(TEAMS, aliased) ? aliased : null;
+}
+
+/** DEF and DST are the same thing on both sides; everything else is itself. */
+function canonicalPosition(value) {
+  const pos = upper(value);
+  return pos === 'DST' ? 'DEF' : pos;
+}
+
+/**
+ * A name reduced to what two sources can be expected to agree on: lower case,
+ * no accents, no punctuation, no generational suffix, single-spaced.
+ *
+ * Dropping the suffix is what makes "Odell Beckham Jr." meet "Odell Beckham" —
+ * and it is also what could collide a father with a son. That is handled by
+ * refusing any name key that hits more than one app row, so a collision costs
+ * a report, never a wrong player.
+ */
+export function normalizePlayerName(name) {
+  const text = String(name == null ? '' : name);
+  const stripped = (typeof text.normalize === 'function' ? text.normalize('NFD') : text)
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[.'’`]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  if (!stripped) return '';
+  const parts = stripped.split(' ').filter(Boolean);
+  while (parts.length > 1 && /^(jr|sr|ii|iii|iv|v)$/.test(parts[parts.length - 1])) {
+    parts.pop();
+  }
+  return parts.join(' ');
+}
+
+/**
+ * Build a lookup from Sleeper's /v1/players/nfl dump (an object keyed by
+ * player id). The dump is ~5MB, so this module never fetches it — the caller
+ * hands over whatever it has (fetched, cached, or pasted) and gets back an
+ * index plus a count of entries that were unusable.
+ */
+export function buildSleeperPlayerIndex(dump) {
+  if (!isPlainObject(dump)) {
+    return {
+      ok: false,
+      index: new Map(),
+      count: 0,
+      skipped: [],
+      error: failure('not_a_player_dump',
+        'That is not Sleeper\'s player dump. Expected the JSON object from '
+        + `${SLEEPER_API_BASE}/players/nfl, keyed by player id.`,
+        dump === null ? null : typeof dump),
+    };
+  }
+
+  const index = new Map();
+  const skipped = [];
+
+  Object.keys(dump).forEach((key) => {
+    const raw = dump[key];
+    if (!isPlainObject(raw)) {
+      skipped.push({ key, reason: 'Not a player object.' });
+      return;
+    }
+    const id = String(raw.player_id == null ? key : raw.player_id);
+    const first = typeof raw.first_name === 'string' ? raw.first_name : '';
+    const last = typeof raw.last_name === 'string' ? raw.last_name : '';
+    const full = typeof raw.full_name === 'string' && raw.full_name.trim()
+      ? raw.full_name.trim()
+      : `${first} ${last}`.trim();
+    const espnId = toFinite(raw.espn_id);
+    index.set(id, {
+      sleeper_id: id,
+      name: full || null,
+      position: canonicalPosition(raw.position),
+      team: canonicalTeam(raw.team),
+      raw_team: raw.team == null ? null : String(raw.team),
+      espn_id: espnId === null ? null : String(Math.trunc(espnId)),
+      gsis_id: typeof raw.gsis_id === 'string' && raw.gsis_id.trim() ? raw.gsis_id.trim() : null,
+      fantasy_positions: Array.isArray(raw.fantasy_positions)
+        ? raw.fantasy_positions.map((p) => canonicalPosition(p))
+        : [],
+    });
+  });
+
+  return { ok: index.size > 0, index, count: index.size, skipped, error: null };
+}
+
+/** Accept an already-built index, a raw dump, or nothing at all. */
+function toPlayerIndex(value) {
+  if (value instanceof Map) return value;
+  if (isPlainObject(value) && value.index instanceof Map) return value.index;
+  if (isPlainObject(value)) return buildSleeperPlayerIndex(value).index;
+  return new Map();
+}
+
+/** This app's id for a player row. Both field names are in use in data/. */
+function appPlayerId(row) {
+  if (!isPlainObject(row)) return null;
+  const id = row.gsis_id != null ? row.gsis_id : (row.player_id != null ? row.player_id : row.id);
+  return id == null || String(id).trim() === '' ? null : String(id).trim();
+}
+
+/** Index this app's player rows every way the crosswalk can look them up. */
+function buildAppIndex(appPlayers) {
+  const byId = new Map();
+  const byNameTeamPos = new Map();
+  const byNamePos = new Map();
+  const defByTeam = new Map();
+  // Which positions the caller's player set actually covers. A position that
+  // is absent entirely is a different report from a player who is absent.
+  const positions = new Set();
+
+  (Array.isArray(appPlayers) ? appPlayers : []).forEach((row) => {
+    const id = appPlayerId(row);
+    if (!id) return;
+    const position = canonicalPosition(row.position);
+    const team = canonicalTeam(row.team);
+    const name = normalizePlayerName(row.name);
+    const entry = { player_id: id, name: row.name == null ? null : String(row.name), position, team };
+
+    if (position) positions.add(position);
+    if (!byId.has(id)) byId.set(id, entry);
+    if (name) {
+      const ntp = `${name}|${team || ''}|${position}`;
+      const np = `${name}|${position}`;
+      if (!byNameTeamPos.has(ntp)) byNameTeamPos.set(ntp, []);
+      byNameTeamPos.get(ntp).push(entry);
+      if (!byNamePos.has(np)) byNamePos.set(np, []);
+      byNamePos.get(np).push(entry);
+    }
+    if (position === 'DEF' && team) {
+      if (!defByTeam.has(team)) defByTeam.set(team, []);
+      defByTeam.get(team).push(entry);
+    }
+  });
+
+  return { byId, byNameTeamPos, byNamePos, defByTeam, positions };
+}
+
+function resolvedRow(sleeperId, entry, appEntry, method) {
+  return {
+    sleeper_id: sleeperId,
+    player_id: appEntry.player_id,
+    name: appEntry.name,
+    position: appEntry.position,
+    team: appEntry.team,
+    method,
+    sleeper_name: entry ? entry.name : null,
+    sleeper_position: entry ? entry.position : null,
+    sleeper_team: entry ? entry.team : null,
+  };
+}
+
+function unresolvedRow(sleeperId, entry, code, message, candidates) {
+  return {
+    sleeper_id: sleeperId,
+    code,
+    message,
+    sleeper_name: entry ? entry.name : null,
+    sleeper_position: entry ? entry.position : null,
+    sleeper_team: entry ? entry.team : null,
+    candidates: candidates || [],
+  };
+}
+
+/**
+ * Crosswalk a list of Sleeper player ids onto this app's player ids.
+ *
+ * Returns resolved and unresolved SEPARATELY, both in input order, and the two
+ * always account for every input id: `counts.input === resolved.length +
+ * unresolved.length`. An unresolved player is a REPORT, not a hole — the UI is
+ * expected to show it.
+ *
+ * appPlayers: rows carrying { gsis_id | player_id, name, team, position } —
+ *   data/player_projections.json players, plus the kicker and defence rows out
+ *   of data/kdst_projections.json.
+ * opts.index: Sleeper's player dump, or the Map from buildSleeperPlayerIndex().
+ *   Without it only team defences can resolve, and every other id comes back
+ *   unresolved with `no_player_index` rather than a guess.
+ */
+export function crosswalkPlayerIds(sleeperIds, appPlayers, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const index = toPlayerIndex(options.index);
+  const app = buildAppIndex(appPlayers);
+  const ids = Array.isArray(sleeperIds) ? sleeperIds : [];
+  const resolved = [];
+  const unresolved = [];
+
+  ids.forEach((raw) => {
+    const sleeperId = typeof raw === 'string' ? raw.trim()
+      : (typeof raw === 'number' && Number.isFinite(raw) ? String(raw) : '');
+    if (!sleeperId) {
+      unresolved.push(unresolvedRow(raw === undefined ? null : raw, null, 'bad_id',
+        'This is not a Sleeper player id, so nothing was looked up.'));
+      return;
+    }
+    if (sleeperId === SLEEPER_EMPTY_SLOT) {
+      unresolved.push(unresolvedRow(sleeperId, null, 'empty_slot',
+        'An empty starting slot — the manager started nobody here.'));
+      return;
+    }
+
+    const entry = index.get(sleeperId) || null;
+
+    // A team defence is self-identifying: Sleeper uses the team abbreviation
+    // as the player id, and so does this app. It resolves with no dump at all.
+    const idAsTeam = canonicalTeam(sleeperId);
+    if (!entry && idAsTeam) {
+      const defs = app.defByTeam.get(idAsTeam) || [];
+      if (defs.length === 1) {
+        resolved.push(resolvedRow(sleeperId, null, defs[0], 'team_def'));
+        return;
+      }
+      if (defs.length > 1) {
+        unresolved.push(unresolvedRow(sleeperId, null, 'ambiguous',
+          `${defs.length} team defences in this app are listed for ${idAsTeam}.`,
+          defs.map((d) => d.player_id)));
+        return;
+      }
+      unresolved.push(unresolvedRow(sleeperId, null, 'no_app_match',
+        `This app has no team defence for ${idAsTeam}.`));
+      return;
+    }
+
+    if (!entry) {
+      if (index.size === 0) {
+        unresolved.push(unresolvedRow(sleeperId, null, 'no_player_index',
+          'No Sleeper player list was supplied, so this id could not be looked up. '
+          + `Load ${SLEEPER_API_BASE}/players/nfl and pass it as the index.`));
+        return;
+      }
+      unresolved.push(unresolvedRow(sleeperId, null, 'unknown_sleeper_id',
+        'Sleeper\'s player list has no player with this id — the list is probably '
+        + 'older than the roster.'));
+      return;
+    }
+
+    const positions = [entry.position, ...entry.fantasy_positions].filter(Boolean);
+    const supported = positions.some((p) => POSITIONS.includes(p));
+    if (!supported) {
+      const known = positions.find((p) => UNSUPPORTED_PLAYER_POSITIONS[p]);
+      unresolved.push(unresolvedRow(sleeperId, entry, 'unsupported_position',
+        known
+          ? `${entry.name || 'This player'} is ${UNSUPPORTED_PLAYER_POSITIONS[known]} — this app `
+            + 'projects offence and team defence only, so there is nothing to match him to.'
+          : `${entry.name || 'This player'} plays ${entry.position || 'an unknown position'}, `
+            + 'which this app does not roster.'));
+      return;
+    }
+
+    // 1. espn_id -> this app's "espn-<id>".
+    if (entry.espn_id) {
+      const hit = app.byId.get(`espn-${entry.espn_id}`);
+      if (hit) { resolved.push(resolvedRow(sleeperId, entry, hit, 'espn_id')); return; }
+    }
+    // 2. gsis_id -> this app's kicker ids, which ARE gsis ids.
+    if (entry.gsis_id) {
+      const hit = app.byId.get(entry.gsis_id);
+      if (hit) { resolved.push(resolvedRow(sleeperId, entry, hit, 'gsis_id')); return; }
+    }
+    // 3. team defence carried in the dump rather than as a bare abbreviation.
+    if (entry.position === 'DEF' && entry.team) {
+      const defs = app.defByTeam.get(entry.team) || [];
+      if (defs.length === 1) {
+        resolved.push(resolvedRow(sleeperId, entry, defs[0], 'team_def'));
+        return;
+      }
+      if (defs.length > 1) {
+        unresolved.push(unresolvedRow(sleeperId, entry, 'ambiguous',
+          `${defs.length} team defences in this app are listed for ${entry.team}.`,
+          defs.map((d) => d.player_id)));
+        return;
+      }
+    }
+
+    const name = normalizePlayerName(entry.name);
+    if (name) {
+      // 4. name + team + position, when it is unique.
+      const ntp = app.byNameTeamPos.get(`${name}|${entry.team || ''}|${entry.position}`) || [];
+      if (ntp.length === 1) {
+        resolved.push(resolvedRow(sleeperId, entry, ntp[0], 'name_team_position'));
+        return;
+      }
+      if (ntp.length > 1) {
+        unresolved.push(unresolvedRow(sleeperId, entry, 'ambiguous',
+          `${ntp.length} players in this app are called ${entry.name} at `
+          + `${entry.position} for ${entry.team}. Nothing was matched.`,
+          ntp.map((c) => c.player_id)));
+        return;
+      }
+      // 5. name + position across every team — a player who changed team since
+      //    one of the two sources was built. Only when it is unique.
+      const np = app.byNamePos.get(`${name}|${entry.position}`) || [];
+      if (np.length === 1) {
+        resolved.push(resolvedRow(sleeperId, entry, np[0], 'name_position'));
+        return;
+      }
+      if (np.length > 1) {
+        unresolved.push(unresolvedRow(sleeperId, entry, 'ambiguous',
+          `${np.length} players in this app are called ${entry.name} at ${entry.position}. `
+          + 'Nothing was matched.', np.map((c) => c.player_id)));
+        return;
+      }
+    }
+
+    if (entry.position && !app.positions.has(entry.position)) {
+      // The player set handed in covers no one at this position at all — the
+      // honest report is "this pool has no K", not "this player is missing".
+      unresolved.push(unresolvedRow(sleeperId, entry, 'position_not_projected',
+        `${entry.name || sleeperId} is not in this app's player set: ${entry.position} is not a `
+        + 'position this app projects from the player set supplied, so no projection can be '
+        + 'shown for him.'));
+      return;
+    }
+    unresolved.push(unresolvedRow(sleeperId, entry, 'no_app_match',
+      `${entry.name || sleeperId} is on this roster but not in this app's player set, `
+      + 'so no projection can be shown for him.'));
+  });
+
+  const byMethod = {};
+  resolved.forEach((r) => { byMethod[r.method] = (byMethod[r.method] || 0) + 1; });
+  const byCode = {};
+  unresolved.forEach((u) => { byCode[u.code] = (byCode[u.code] || 0) + 1; });
+
+  return {
+    resolved,
+    unresolved,
+    counts: {
+      input: ids.length,
+      resolved: resolved.length,
+      unresolved: unresolved.length,
+      by_method: byMethod,
+      by_code: byCode,
+    },
+  };
+}
+
+/**
+ * Crosswalk one joined team. `starters` is slot-ordered (so the UI can line it
+ * up with the league's roster_positions) and `players` is the whole roster.
+ * `unresolved` is the union of both, de-duplicated by Sleeper id, so a screen
+ * can show one honest "we could not match these" list.
+ */
+export function crosswalkRoster(team, appPlayers, opts) {
+  const t = isPlainObject(team) ? team : {};
+  const starters = crosswalkPlayerIds(t.starters, appPlayers, opts);
+  const players = crosswalkPlayerIds(t.players, appPlayers, opts);
+  const reserve = crosswalkPlayerIds(t.reserve, appPlayers, opts);
+
+  const seen = new Set();
+  const unresolved = [];
+  [...starters.unresolved, ...players.unresolved, ...reserve.unresolved].forEach((u) => {
+    const key = `${u.code}|${String(u.sleeper_id)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    unresolved.push(u);
+  });
+
+  return {
+    roster_id: t.roster_id === undefined ? null : t.roster_id,
+    label: typeof t.label === 'string' ? t.label : null,
+    starters,
+    players,
+    reserve,
+    unresolved,
+    fully_resolved: unresolved.length === 0,
+  };
+}
+
+/* --------------------------------------------------------------------------
+ * Rosters + users, as one manual sync
+ * ------------------------------------------------------------------------ */
+
+/**
+ * MANUAL SYNC: read every roster and every manager and join them. Two GETs per
+ * press, no timer, nothing cached. Returns the joined teams plus the raw
+ * payloads so a caller can crosswalk without re-reading.
+ */
+const EMPTY_TEAM_IMPORT = Object.freeze({
+  ok: false, teams: [], rosters: [], users: [], orphan_rosters: [], users_without_roster: [],
+});
+
+export async function importSleeperTeams(idOrUrl, opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  const rostersRes = await fetchSleeperRosters(idOrUrl, options);
+  if (!rostersRes.ok) {
+    return { ...EMPTY_TEAM_IMPORT, error: rostersRes.error };
+  }
+  const rosters = mapRosters(rostersRes.payload);
+  if (!rosters.ok) {
+    return { ...EMPTY_TEAM_IMPORT, error: rosters.error };
+  }
+
+  // A failed user read is NOT a failed import: rosters alone are usable, the
+  // teams just have no names. That is said out loud rather than papered over.
+  const usersRes = await fetchSleeperUsers(idOrUrl, options);
+  const users = usersRes.ok
+    ? mapLeagueUsers(usersRes.payload)
+    : { ok: false, users: [], invalid: [], error: usersRes.error };
+  const joined = joinRosters(rosters.rosters, users.users);
+
+  return {
+    ok: true,
+    teams: joined.teams,
+    rosters: rosters.rosters,
+    users: users.users,
+    orphan_rosters: joined.orphan_rosters,
+    users_without_roster: joined.users_without_roster,
+    invalid: { rosters: rosters.invalid, users: users.invalid },
+    users_error: users.error,
+    error: null,
+  };
 }

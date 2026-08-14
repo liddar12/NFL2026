@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "adp.schema.json",
-  "title": "ADP consensus (drafter market) - opponent model + value flags ONLY",
-  "description": "FantasyFootballCalculator PPR ADP joined to our projection pool by name+position. POLICY BOUNDARY: ADP is the market of fantasy drafters. It models the simulated opponents in the draft simulator and flags value-vs-ADP; it is NEVER blended into projections, weights, or game probabilities. Rows without a gsis_id are real draftable players we do not project - kept for the opponent board, never given fabricated points.",
+  "title": "ADP consensus (drafter market) + ESPN auction value - opponent model + value flags ONLY",
+  "description": "FantasyFootballCalculator PPR ADP joined to our projection pool by name+position, plus ESPN's draft-room auction value (ownership.auctionValueAverage, kona) joined onto the same rows. POLICY BOUNDARY: both fields are the market of fantasy drafters. They model the simulated opponents in the draft simulator and flag value-vs-market; they are NEVER blended into projections, weights, or game probabilities - see validate_data.py MARKET_PRICE_FIELDS, which pins 'adp' and 'auction_value' mechanically. Rows without a gsis_id are real draftable players we do not project - kept for the opponent board, never given fabricated points. A row with no auction_value is one ESPN does not price: the field is absent or null, NEVER 0, because $0 is a price and 'unpriced' is not.",
   "type": "object",
   "additionalProperties": false,
   "required": ["updated_utc", "source", "format", "league_size", "join_rate", "players"],
@@ -12,6 +12,9 @@
     "format": { "type": "string", "enum": ["ppr"] },
     "league_size": { "type": "integer", "minimum": 8, "maximum": 14 },
     "join_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "auction_source": { "type": ["string", "null"] },
+    "auction_budget": { "type": ["integer", "null"], "minimum": 1 },
+    "auction_join_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
     "players": {
       "type": "array",
       "minItems": 100,
@@ -24,7 +27,8 @@
           "position": { "type": "string", "enum": ["QB", "RB", "WR", "TE"] },
           "team": { "type": ["string", "null"] },
           "adp": { "type": "number", "minimum": 1 },
-          "gsis_id": { "type": ["string", "null"] }
+          "gsis_id": { "type": ["string", "null"] },
+          "auction_value": { "type": ["number", "null"], "minimum": 0.01 }
         }
       }
     }

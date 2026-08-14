@@ -1,0 +1,222 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_usage_weekly.schema.json",
+  "title": "Within-season through-week-N usage aggregates (scripts/build_player_usage_weekly.py)",
+  "description": "Cumulative per-player usage from nflverse stats_player_week, emitted at several through-week cuts so a consumer reads 'usage through week N' by lookup and a harness can walk cuts forward. IN-SEASON ONLY by measurement: season-to-season usage adds just +0.005 R2 over points alone, while within a season (week-6 cut -> rest-of-season PPG, n=480) it adds TE +0.044, WR +0.027, RB +0.024. Honesty is structural: __meta__.applied_weight is pinned to 0 by enum so this file cannot claim to be applied; __meta__.limits cannot be emptied; and per-season `reconciliation` carries the MEASURED agreement between our recomputed shares and nflverse's own columns rather than a claim about it. Deliberately NO $ref: scripts/validate_data.py implements a draft-07 subset that silently skips $ref subschemas, so a $ref here would be an unvalidated hole. minProperties is likewise avoided — the validator does not implement it, and tests/feature/usage_weekly.test.mjs enforces the counts instead.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["__meta__", "seasons"],
+  "properties": {
+    "__meta__": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_utc", "source", "source_url_template", "grain",
+        "season_type", "positions", "metrics", "supporting_columns",
+        "applied_weight", "policy", "share_denominator",
+        "cuts_requested", "cuts_produced", "cuts_skipped",
+        "seasons_requested", "seasons_produced", "seasons_skipped",
+        "measured", "limits"
+      ],
+      "properties": {
+        "generated_utc": { "type": "string" },
+        "source": { "type": "string" },
+        "source_url_template": { "type": "string" },
+        "grain": { "type": "string", "enum": ["through_week_cumulative"] },
+        "season_type": { "type": "string", "enum": ["REG"] },
+        "positions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["RB", "WR", "TE"] }
+        },
+        "metrics": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "type": "string",
+            "enum": ["targets", "carries", "target_share", "air_yards_share",
+                     "wopr", "racr", "receiving_epa"]
+          }
+        },
+        "supporting_columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "applied_weight": {
+          "type": "integer",
+          "enum": [0],
+          "description": "PINNED. This artifact is raw material; a signal built on it ships at weight 0 behind the never-regress gate. A non-zero value here reds the gate."
+        },
+        "policy": { "type": "string" },
+        "share_denominator": { "type": "string" },
+        "cuts_requested": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "integer", "minimum": 1, "maximum": 18 }
+        },
+        "cuts_produced": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "integer", "minimum": 1, "maximum": 18 }
+          }
+        },
+        "cuts_skipped": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cut", "reason"],
+              "properties": {
+                "cut": { "type": "integer", "minimum": 1, "maximum": 18 },
+                "reason": { "type": "string" }
+              }
+            }
+          }
+        },
+        "seasons_requested": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1999 }
+        },
+        "seasons_produced": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1999 }
+        },
+        "seasons_skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["season", "reason"],
+            "properties": {
+              "season": { "type": "integer", "minimum": 1999 },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "measured": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["within_season", "season_to_season"],
+          "properties": {
+            "within_season": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["design", "n", "r2_delta_over_points_only"],
+              "properties": {
+                "design": { "type": "string" },
+                "n": { "type": "integer", "minimum": 1 },
+                "r2_delta_over_points_only": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number" }
+                }
+              }
+            },
+            "season_to_season": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["design", "r2_delta_over_points_only", "verdict"],
+              "properties": {
+                "design": { "type": "string" },
+                "r2_delta_over_points_only": { "type": "number" },
+                "verdict": { "type": "string" }
+              }
+            }
+          }
+        },
+        "limits": {
+          "type": "array",
+          "minItems": 6,
+          "items": { "type": "string" },
+          "description": "Cannot be emptied. The stated limits of the measurement behind this feature live here, in the artifact, not only in a commit message."
+        }
+      }
+    },
+    "seasons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["weeks_available", "reconciliation", "players", "cuts"],
+        "properties": {
+          "weeks_available": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "integer", "minimum": 1, "maximum": 18 }
+          },
+          "reconciliation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["checked", "max_abs_target_share",
+                         "max_abs_air_yards_share", "max_abs_wopr",
+                         "tolerance", "holds"],
+            "properties": {
+              "checked": { "type": "integer", "minimum": 1 },
+              "max_abs_target_share": { "type": "number", "minimum": 0 },
+              "max_abs_air_yards_share": { "type": "number", "minimum": 0 },
+              "max_abs_wopr": { "type": "number", "minimum": 0 },
+              "tolerance": { "type": "number", "minimum": 0 },
+              "holds": { "type": "boolean", "enum": [true] }
+            }
+          },
+          "players": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "pos"],
+              "properties": {
+                "name": { "type": "string" },
+                "pos": { "type": "string", "enum": ["RB", "WR", "TE"] }
+              }
+            }
+          },
+          "cuts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n_players", "team_games", "players"],
+              "properties": {
+                "n_players": { "type": "integer", "minimum": 200 },
+                "team_games": {
+                  "type": "object",
+                  "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 18 }
+                },
+                "players": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["team", "games", "targets", "carries",
+                                 "receiving_air_yards", "target_share",
+                                 "air_yards_share", "wopr", "racr",
+                                 "receiving_epa"],
+                    "properties": {
+                      "team": { "type": "string" },
+                      "games": { "type": "integer", "minimum": 1, "maximum": 18 },
+                      "targets": { "type": "integer", "minimum": 0 },
+                      "carries": { "type": "integer", "minimum": 0 },
+                      "receiving_air_yards": { "type": "number" },
+                      "target_share": { "type": "number", "minimum": 0, "maximum": 1 },
+                      "air_yards_share": { "type": "number", "minimum": -1, "maximum": 1 },
+                      "wopr": { "type": "number", "minimum": -0.7, "maximum": 2.2 },
+                      "racr": { "type": ["number", "null"] },
+                      "receiving_epa": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
