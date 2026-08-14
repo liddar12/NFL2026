@@ -39,6 +39,7 @@ import { normalizeProfile } from '../../app/league.js';
 import { fairDollars, createAuction, DEFAULT_BUDGET } from '../../app/auction.js';
 import { cfgFromProfile } from '../../app/views/team.js';
 import { rosterShape } from '../../app/draft-sim.js';
+import { rosterGeometry } from '../../app/team-logic.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA = join(REPO_ROOT, 'data');
@@ -486,10 +487,35 @@ test('a K/DEF league prices identically on both tabs (the R21 shape-argument bug
   // ...and the defect it replaces is real: handing fairDollars the raw
   // LeagueProfile (what players.js used to do) really does move the sheet, so
   // this test would have caught the bug rather than passing either way.
-  const rawProfileShape = fairDollars(pool, adjOf, profile.shape.teams,
-    Number(adp.auction_budget), profile);
+  //
+  // R27 — THE SELF-CHECK MOVED, AND WHY. It used to run against the K/DEF
+  // league above, because the draft-sim shape could not price K or DEF and came
+  // out at 13 slots while the raw profile's geometry counted all 15. R27 makes
+  // K and DEF draftable, so the bridge cfg is 15 too and the two now AGREE for
+  // this league. That convergence is the POINT of the release, not a
+  // regression — it is asserted directly below rather than left implicit.
+  //
+  // The defect itself is unchanged and still reachable, so the self-check moves
+  // to a league ROSTER_BOUNDS clamps: four starting RBs become three in the
+  // draft-sim shape while the raw profile's geometry still counts four.
+  assert.equal(rosterShape(seeded.cfg).size, rosterGeometry(profile).all.length,
+    'R27: a K/DEF league\'s draft-sim shape and its profile geometry must now agree');
+
+  const clampedProfile = normalizeProfile({
+    shape: {
+      teams: 12,
+      roster_positions: ['QB', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+        'BN', 'BN', 'BN', 'BN', 'BN', 'BN'],
+    },
+  });
+  const clampedCfg = cfgFromProfile(clampedProfile).cfg;
+  assert.equal(clampedCfg.rb, 3, 'the fixture must actually be clamped by ROSTER_BOUNDS');
+  const bridged = fairDollars(pool, adjOf, clampedProfile.shape.teams,
+    Number(adp.auction_budget), rosterShape(clampedCfg));
+  const rawProfileShape = fairDollars(pool, adjOf, clampedProfile.shape.teams,
+    Number(adp.auction_budget), clampedProfile);
   let moved = 0;
-  for (const [id, v] of team) if (rawProfileShape.get(id) !== v) moved += 1;
+  for (const [id, v] of bridged) if (rawProfileShape.get(id) !== v) moved += 1;
   assert.ok(moved > 0,
     'the raw-profile shape must be demonstrably different, or this test proves nothing');
 

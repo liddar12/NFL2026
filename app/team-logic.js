@@ -775,8 +775,49 @@ export function recommend(roster, pool, weeklyById, mode, slot, opts, shape) {
       };
     });
 
-  sortScored(scored, sortMode);
-  return scored.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
+  const affordable = affordableOnly(scored, opts && opts.budget, sortMode);
+  sortScored(affordable, sortMode);
+  return affordable.slice(0, 5).map(({ player, score, reasons }) => ({ player, score, reasons }));
+}
+
+/**
+ * R27 — the auction dollar constraint, applied to BEST FIT and to BEST FIT ONLY.
+ *
+ * The fit engine was budget-blind: in an auction room it would happily rank a
+ * $60 player first while the manager had $12 left, which is not a
+ * recommendation, it is a distraction at the one moment the manager cannot
+ * afford one.
+ *
+ * WHY ONLY 'fit'. BEST AVAILABLE answers "who is the best player left on the
+ * board", and that question has a correct answer that does not depend on my
+ * wallet — filtering it would make the board lie about what is out there.
+ * BEST FIT answers "what should I do next", which is exactly where a $12
+ * ceiling belongs. (Owner's call, 2026-08-14.)
+ *
+ * WHAT THIS IS NOT: it does not re-rank by value-per-dollar, and it does not
+ * touch any player's projection. It removes what cannot be bought and leaves
+ * the ordering of what remains exactly as it was — a roster-construction
+ * constraint, never a projection input.
+ *
+ * `budget` is {cap, priceById}: the most this manager may legally commit to
+ * ONE player (auction.js maxBid, which already reserves $1 per other open
+ * slot), and the price map to test against. Passing nothing is the snake case
+ * and changes nothing. Players with no known price are KEPT: an unpriced
+ * player is unknown, not unaffordable, and dropping them would silently shrink
+ * the board (HONEST DATA — skip loudly, never quietly).
+ */
+function affordableOnly(scored, budget, sortMode) {
+  if (sortMode !== 'fit' || !budget || !Number.isFinite(budget.cap)) return scored;
+  const priceById = budget.priceById instanceof Map ? budget.priceById : null;
+  if (!priceById) return scored;
+  const out = scored.filter((s) => {
+    const price = priceById.get(String(s.player.gsis_id));
+    return !Number.isFinite(price) || price <= budget.cap;
+  });
+  // Never hand back an empty panel: if the ceiling excludes everything, the
+  // honest answer is the unfiltered list with the ceiling stated in the view,
+  // not a blank card that reads as "no players exist".
+  return out.length ? out : scored;
 }
 
 /**
@@ -965,8 +1006,9 @@ export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts
       };
     });
 
-  sortScored(scored, sortMode);
-  return scored.slice(0, 5).map(({ player, score, reasons, base }) => ({
+  const affordable = affordableOnly(scored, opts && opts.budget, sortMode);
+  sortScored(affordable, sortMode);
+  return affordable.slice(0, 5).map(({ player, score, reasons, base }) => ({
     player, score, reasons, base,
   }));
 }
@@ -1241,7 +1283,15 @@ export function bestPickNow(roster, pool, weeklyById, mode, opts, shape) {
     || b.adj - a.adj
     || (String(a.player.gsis_id) < String(b.player.gsis_id) ? -1 : 1));
 
-  return scored.slice(0, limit).map(({ player, vor, replacement }) => {
+  // R27 — BEST PICK NOW answers "what should I draft", so the dollar ceiling
+  // belongs here for the same reason it belongs in BEST FIT: a pick you cannot
+  // pay for is not a pick. Reuses the fit path's helper (passing 'fit'
+  // explicitly, since this strip has no sort mode of its own) so there is ONE
+  // affordability rule in this module, not two that can drift. Snake drafts
+  // pass no budget and are untouched. Owner's call, 2026-08-14.
+  const buyable = affordableOnly(scored, opts && opts.budget, 'fit');
+
+  return buyable.slice(0, limit).map(({ player, vor, replacement }) => {
     const pos = String(player.position || '').toUpperCase();
     const sign = vor >= 0 ? '+' : '';
     const reasons = [
