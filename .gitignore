@@ -6,3 +6,10 @@ __pycache__/
 .netlify/
 playwright-report/
 test-results/
+
+# R25 measurement harness output. tests/perf/*.mjs (mount-cost, profile, micro,
+# module-graph) are run BY HAND during a performance RCA and write their raw
+# timings here. The numbers are machine- and load-specific, so committing them
+# would be committing noise that no gate reads. The harness scripts themselves
+# ARE committed - they are how a future RCA reproduces the measurement.
+tests/perf/results/

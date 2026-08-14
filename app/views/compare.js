@@ -478,7 +478,34 @@ function byeEdge(a, b) {
   return '<div class="cmp-edge cmp-edge--even">BYE<br><span class="cmp-even">differ</span></div>';
 }
 
+/* R25-F3 — MOUNT RETENTION.
+ *
+ * wireFinders delegates on `el`, which is app/main.js's PERMANENT #view node:
+ * renderRoute() resolves the same element on every navigation and never tears a
+ * view down. And this view remounts constantly BY DESIGN — setPick() above
+ * rewrites the hash and lets the router replay the view, so every player a user
+ * picks is a fresh mount. Measured on the shipped code: +2.0 live listeners per
+ * mount, forever, plus whatever each abandoned closure pins.
+ *
+ * The stale handlers are not merely idle. They all still fire, and the `input`
+ * one re-runs the whole-pool substring filter and rewrites the SAME results box
+ * (it resolves the box from `el` at call time, not from its own mount), so one
+ * keystroke costs N times the work after N picks. What it renders is unaffected
+ * — every copy computes identical HTML from the same module-cached players
+ * array — which is why this shows up as slowness rather than as a wrong screen.
+ *
+ * The listeners have to stay on `el`: the finder inputs and the result buttons
+ * live inside markup mountCompare replaces wholesale, so there is no stable
+ * inner node to delegate on the way players.js can use #players-list. So each
+ * mount's registrations are tied to an AbortController instead and the previous
+ * mount's are aborted here — a teardown, with no change to the emitted DOM.
+ */
+let _finderAbort = null;
+
 function wireFinders(el, players, picks) {
+  if (_finderAbort) _finderAbort.abort();
+  _finderAbort = new AbortController();
+  const { signal } = _finderAbort;
   el.addEventListener('input', (e) => {
     const input = e.target.closest('.cmp-find');
     if (!input) return;
@@ -492,11 +519,11 @@ function wireFinders(el, players, picks) {
       `<button type="button" class="cmp-hit" data-act="cmp-pick" data-side="${side}" data-id="${esc(String(p.gsis_id))}">`
       + `${esc(p.name)} <span class="cmp-hit-meta">${esc(String(p.position).toUpperCase())} · ${esc(p.team)}</span></button>`
     )).join('') || '<div class="cmp-none">No match.</div>';
-  });
+  }, { signal });
   el.addEventListener('click', (e) => {
     const pick = e.target.closest('[data-act="cmp-pick"]');
     if (pick) { setPick(pick.dataset.side, pick.dataset.id, picks); return; }
     const clr = e.target.closest('[data-act="cmp-clear"]');
     if (clr) { setPick(clr.dataset.side, '', picks); }
-  });
+  }, { signal });
 }
