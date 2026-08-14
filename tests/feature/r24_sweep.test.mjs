@@ -41,9 +41,16 @@ import { rosterShape } from '../../app/draft-sim.js';
    1. AN EXPLICIT CAP AT THE STARTABLE DEMAND STILL ALLOWS A BACKUP
    ========================================================================== */
 
-// A real 2-QB Sleeper league: two QB starting slots, and a position_limit_qb of
-// 2 imported as position_caps {QB: 2}. This is the shape REL15 #4 was filed
-// against, arriving through the importer instead of through the frozen default.
+// A 2-QB league: two QB starting slots and a stated position_caps {QB: 2}.
+//
+// R26 NOTE — READ BEFORE CHANGING THESE EXPECTATIONS. The shapes below carry NO
+// position_caps_source, so every case in this section is the HAND-BUILT /
+// UNKNOWN-PROVENANCE one, where "QB: 2" is ambiguous between "I start two" and
+// "I may roster two" and the app resolves it in the user's favour. When this
+// file was written that was the only case and the fixture was described as a
+// Sleeper import; it is not one, because a real import now marks its source.
+// The genuinely-imported case asserts the OPPOSITE value and lives in
+// tests/feature/r26_caps_source.test.mjs.
 const TWO_QB = ['QB', 'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
   'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
 
@@ -54,7 +61,7 @@ const SUPERFLEX = ['QB', 'SUPER_FLEX', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
 const geom = (roster_positions, position_caps, teams = 12) =>
   rosterGeometry({ shape: { teams, roster_positions: [...roster_positions], ...(position_caps ? { position_caps } : {}) } });
 
-test('REL15 #4: a Sleeper 2-QB league whose stated QB cap EQUALS its starting demand still gets a backup', () => {
+test('REL15 #4: a HAND-BUILT 2-QB league whose stated QB cap EQUALS its starting demand still gets a backup', () => {
   const g = geom(TWO_QB, { QB: 2 });
   assert.equal(g.caps.QB, 3,
     'a league that STARTS two QBs and caps QB at two is describing its starting '

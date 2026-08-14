@@ -28,6 +28,13 @@
 //     adoption_blocked for an unwired winner;
 //   * --referee-report exists and is a diagnostic, never a family.
 //
+// PART 4 — R26, who is allowed to APPLY the rule. The R24 divisor correction
+// is statistically right and stays, but it lowered t_crit 12.42 -> 6.41, and
+// the owner declined to let an unattended weekly cron apply a lowered bar to
+// the shipped model. So there is now a third mode between "adopt" and "dry
+// run": --propose archives history and calibration exactly as --auto-adopt
+// does, and never writes game_params. The cron proposes; a human adopts.
+//
 // Node built-ins only.
 
 import { test } from "node:test";
@@ -347,18 +354,19 @@ const PROMOTE_SRC = readFileSync(
  * return the entry plus what actually landed on disk. The shipped artifact is
  * never touched: TUNING_PATH is rebound before the call.
  */
-function runGate({ autoAdopt }) {
+function runGate({ autoAdopt, propose = false }) {
   return py(`
-import contextlib, io, os, shutil, tempfile
+import contextlib, io, json as _json, os, shutil, tempfile
 import scripts.promote_signals as ps
 tmp = tempfile.mkdtemp()
 path = os.path.join(tmp, "model_tuning.json")
 shutil.copyfile(ps.TUNING_PATH, path)
 before = os.path.getsize(path)
+gp_before = _json.load(open(path)).get("game_params")
 ps.TUNING_PATH = path
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
-    entry = ps.run(auto_adopt=${autoAdopt ? "True" : "False"})
+    entry = ps.run(auto_adopt=${autoAdopt ? "True" : "False"}, propose=${propose ? "True" : "False"})
 after = os.path.getsize(path)
 doc = json.load(open(path))
 print(json.dumps({
@@ -367,6 +375,7 @@ print(json.dumps({
   "history_len": len(doc.get("history") or []),
   "newest_kind": (doc.get("history") or [{}])[0].get("kind"),
   "newest_stamp": (doc.get("history") or [{}])[0].get("generated_utc"),
+  "game_params_unchanged": doc.get("game_params") == gp_before,
   "stdout": buf.getvalue(),
 }))
 `);
@@ -488,10 +497,67 @@ test("R24: a DRY RUN mutates nothing on disk", () => {
   assert.match(dry.stdout, /NOT written/);
 });
 
+test("R26: the weekly cron PROPOSES, it does not adopt", () => {
+  // OWNER DECISION 2026-08-14, and the reason this is a test and not a comment.
+  //
+  // R24 corrected the Bonferroni divisor from grid points to candidate families.
+  // That correction is right and stays — but it dropped t_crit from 12.42 to
+  // 6.41, which LOWERED the bar at which an unattended weekly job may rewrite
+  // the shipped model. The owner kept the statistics and removed the unattended
+  // application: the cron measures and archives, a human adopts.
+  //
+  // The failure mode this guards against is not a bug, it is a well-meaning
+  // future edit. `--propose` looks like a weaker `--auto-adopt` to anyone who
+  // does not know why it is there, and "the self-learning cron stopped
+  // self-learning" is exactly the kind of thing someone helpfully "fixes". So
+  // the workflow's flag is asserted, with the reason attached.
+  const WORKFLOW_SRC = readFileSync(
+    new URL("../../.github/workflows/backtest.yml", import.meta.url), "utf8",
+  );
+  const runLines = WORKFLOW_SRC.split("\n")
+    .filter((l) => l.includes("promote_signals") && !l.trim().startsWith("#"));
+  assert.ok(runLines.length > 0, "backtest.yml must still run the promotion gate");
+  for (const line of runLines) {
+    assert.ok(!/--auto-adopt/.test(line),
+      "the weekly cron must NOT run --auto-adopt: it would apply a lowered "
+      + "adoption bar to the shipped model with no human in the loop "
+      + "(owner decision 2026-08-14). Adoption is a deliberate manual run.");
+    assert.ok(/--propose/.test(line),
+      "the weekly cron must run --propose so history and calibration keep "
+      + "flowing to the MODEL tab — a plain dry run would freeze them, which "
+      + "is what makes an unadopted proposal visible in the first place");
+  }
+});
+
+test("R26: --propose archives the run but never writes game_params", () => {
+  // The whole point of the third mode. A dry run would also stop archiving —
+  // freezing the MODEL tab's calibration and gate history — so `--propose` has
+  // to write the file while leaving the adopted parameters untouched. Both
+  // halves are asserted, because either one alone is a different feature.
+  const prop = runGate({ autoAdopt: false, propose: true });
+  assert.equal(prop.wrote, true, "--propose must archive the run");
+  assert.equal(prop.newest_kind, "signal_promotion");
+  assert.equal(prop.game_params_unchanged, true,
+    "--propose wrote game_params — it must only ever archive");
+  assert.equal(prop.entry.adopted, false, "--propose must never mark an entry adopted");
+  assert.equal(prop.entry.write_mode, "propose",
+    "the archived entry must record which authority wrote it");
+  assert.equal(prop.entry.auto_adopt, false);
+  // A clearing family is RECORDED so a human can see it and act. Today nothing
+  // clears (the best family sits far below its threshold), so this only asserts
+  // the shape when it happens rather than asserting a proposal exists.
+  if (prop.entry.would_adopt) {
+    assert.ok(prop.entry.would_adopt.family, "a proposal must name its family");
+    assert.ok(prop.entry.proposed_utc, "a proposal must be stamped");
+    assert.equal(prop.entry.adopted_family, null);
+  }
+});
+
 test("R24: --auto-adopt still archives the run (the cron's durable record)", () => {
-  // The dry-run fix must not silently stop the weekly cron from recording
-  // history: .github/workflows/backtest.yml runs --auto-adopt, and that run is
-  // the archive.
+  // The dry-run fix must not silently stop the archive. NOTE (R26): the weekly
+  // cron now runs --propose, not --auto-adopt, so this no longer describes the
+  // cron — it locks the behaviour of the MANUAL adoption command a human runs
+  // to apply a proposal. The archive requirement is identical either way.
   const wet = runGate({ autoAdopt: true });
   assert.equal(wet.wrote, true, "--auto-adopt must write");
   assert.equal(wet.newest_kind, "signal_promotion");

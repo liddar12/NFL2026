@@ -188,9 +188,9 @@ function capsAreAppDefault(baseCaps) {
  * QBs must be allowed a third for byes and injuries, which the frozen {QB:2}
  * silently forbade (REL15 #4).
  *
- * AN EXPLICIT set — every Sleeper import writes one, from the league's real
- * position_limit_* settings — is raised ONLY when the league's own cap is at or
- * above what the league STARTS. The two halves settle different questions:
+ * AN EXPLICIT set is raised ONLY when the league's own cap is at or above what
+ * the league STARTS, and only when the app cannot tell that the cap is an
+ * ENFORCED roster limit. The three cases settle different questions:
  *
  *   cap <  startableDemand   The league has deliberately capped BELOW its own
  *                            starting requirement (a SUPER_FLEX league that
@@ -198,29 +198,41 @@ function capsAreAppDefault(baseCaps) {
  *                            the league's rule, and the flex slot it starves is
  *                            filled by the other eligible positions. Raising it
  *                            would be the app overruling the league it models.
- *   cap >= startableDemand   The cap is the league saying "this many at most"
- *                            about a position it can already field. A league
- *                            that STARTS two QBs and caps QB at two is not
- *                            banning a bye/injury backup — it is describing its
- *                            starting requirement — and reading it as a ban is
- *                            REL15 #4 all over again, this time for every
- *                            Sleeper-imported league rather than the frozen
- *                            default. Raised to startableDemand + 1, exactly as
- *                            the default set is.
+ *   cap >= startableDemand,  Ambiguous, and resolved in the user's favour. A
+ *   source unknown           hand-built league that STARTS two QBs and types
+ *                            "QB: 2" is probably describing its starting
+ *                            requirement, not banning a bye/injury backup, and
+ *                            reading it as a ban is REL15 #4 all over again.
+ *                            Raised to startableDemand + 1.
+ *   cap >= startableDemand,  NOT ambiguous (R26). Sleeper's position_limit_* is
+ *   source 'sleeper'         a field distinct from the starting lineup, and
+ *                            Sleeper ENFORCES it: a league with
+ *                            position_limit_QB = 2 will not let you roster a
+ *                            third QB no matter how many it starts. Honoured
+ *                            exactly. Raising it here made the app recommend
+ *                            players the league forbids — advice that fails at
+ *                            the draft, which is the worst place to find out.
  *
- * The cap >= demand branch is byte-for-byte the pre-R24 behaviour; only the
- * cap < demand branch is new, and no app-default cap set can reach it
- * (POSITION_CAPS is QB 2 / DEF 1 / DST 1 / K 1 against demands of at most that).
+ * So the disagreement that sat open after R24 — "a stated cap is a ban" vs "a
+ * stated cap describes the starting requirement" — was never one question. Both
+ * readings are right about different inputs, and provenance says which applies.
+ * Where provenance is absent (older saved profiles, paste-JSON, hand-builds)
+ * the lenient reading stands, so nothing that worked before breaks.
+ *
+ * @param {string} [capsSource] 'sleeper' when the caps came from a real
+ *   league's enforced position_limit_* settings; anything else (including
+ *   undefined) means the app cannot prove they are a roster ban.
  */
-function derivedCaps(baseCaps, demand, flexSlots) {
+function derivedCaps(baseCaps, demand, flexSlots, capsSource) {
   const appDefault = capsAreAppDefault(baseCaps);
+  const enforced = capsSource === 'sleeper' && !appDefault;
   const out = {};
   Object.keys(baseCaps || {}).forEach((k) => {
     const pos = String(k).toUpperCase();
     const base = Number(baseCaps[k]);
     if (!Number.isFinite(base)) return;
     const startable = startableDemand(pos, demand, flexSlots);
-    out[pos] = (appDefault || base >= startable)
+    out[pos] = (!enforced && (appDefault || base >= startable))
       ? Math.max(base, startable + 1)
       : base;
   });
@@ -278,7 +290,8 @@ function profileGeometry(profile) {
     positions: rosterPositionsInPlay(p),
     demand,
     flexSlots,
-    caps: derivedCaps(p.shape.position_caps, demand, flexSlots),
+    caps: derivedCaps(p.shape.position_caps, demand, flexSlots,
+                      p.shape.position_caps_source),
   };
 }
 

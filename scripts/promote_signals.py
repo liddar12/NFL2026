@@ -35,6 +35,23 @@ ADOPTION (the discipline that makes it self-learning, not self-deluding):
     the same verdict and returns the same entry, but writes NOTHING — a command
     with no side effect in its name must not dirty a committed artifact the PWA
     fetches (R24; it used to rewrite the file on every invocation).
+  * --propose (R26) is the THIRD mode, and the one the weekly cron now runs. It
+    archives history and calibration exactly as --auto-adopt does, but never
+    writes game_params: a family that clears its threshold is recorded as
+    `would_adopt` with a `proposed_utc` stamp and left unapplied.
+
+    WHY THE CRON NO LONGER ADOPTS BY ITSELF. R24 corrected the Bonferroni
+    divisor from grid points to candidate families. That correction is right —
+    a family's grid is ONE hypothesis measured at several amplitudes, and the
+    old divisor moved whenever an unrelated loop's step size changed — but it
+    also dropped t_crit from 12.42 to 6.41, i.e. it LOWERED the bar at which an
+    unattended weekly job may change the shipped model. Sound statistics and
+    unsupervised application are separable, and the owner chose to keep the
+    first and stop the second (2026-08-14). So: the cron measures, archives and
+    proposes every week; a human applies. Note this is deliberately NOT a plain
+    dry run — a dry run would also stop archiving, freezing the MODEL tab's
+    calibration and gate history, which is the thing that makes a proposal
+    visible in the first place.
   * The incumbent walk also emits CALIBRATION bins (predicted-prob buckets vs
     actual home-win rates) for the MODEL tab.
 
@@ -1092,7 +1109,7 @@ def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
 # main gate run                                                               #
 # --------------------------------------------------------------------------- #
 
-def run(auto_adopt=False):
+def run(auto_adopt=False, propose=False):
     hfa, revert, k, tuning = game_params()
     finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
     incumbent_builders = []
@@ -1613,6 +1630,12 @@ def run(auto_adopt=False):
         "adopted_family": ({"family": best_overall[0], **best_overall[1]}
                            if adopt else None),
         "auto_adopt": bool(auto_adopt),
+        # R26 — WHICH AUTHORITY WROTE THIS ENTRY. "auto" means a cron applied a
+        # param with no human in the loop; "propose" means the run was allowed
+        # to archive but not to adopt; "dry" writes nothing at all. Recorded so
+        # an archived adoption can always be traced to the rule that permitted
+        # it, including entries written before the weekly cron stopped adopting.
+        "write_mode": ("auto" if auto_adopt else "propose" if propose else "dry"),
         "reason": ("improvement is significant at the Bonferroni-corrected "
                    "one-sided level and clears the effect floor" if adopt else
                    "incumbent retained: no family's improvement was large "
@@ -1699,6 +1722,25 @@ def run(auto_adopt=False):
                      if best_overall else "; no appliable family ran"))
     if adopt and auto_adopt:
         _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now)
+    elif adopt and propose:
+        # PROPOSE MODE (R26): the family cleared its threshold, and we ARCHIVE
+        # that fact without acting on it. This is the only branch that writes
+        # history while deliberately leaving game_params alone — see the
+        # PROPOSE header note for why the weekly cron runs here instead of
+        # --auto-adopt. The entry shape matches the dry-run branch exactly so
+        # the MODEL tab needs no new case; `would_adopt` is what a human reads
+        # to decide, and `proposed_utc` is what makes an ignored proposal
+        # visible instead of silently rolling forward every week.
+        print(f"PROPOSED: {best_overall[0]} cleared its threshold "
+              f"({inc_loss:.5f} -> {best_overall[1]['log_loss']:.5f}) and was "
+              "ARCHIVED, NOT ADOPTED — game_params unchanged. A human must run "
+              "`python -m scripts.promote_signals --auto-adopt` to apply it.")
+        entry["reason"] = ("cleared threshold but proposal-only run — "
+                           "game_params unchanged, awaiting human adoption")
+        entry["adopted"] = False
+        entry["would_adopt"] = {"family": best_overall[0], **best_overall[1]}
+        entry["adopted_family"] = None
+        entry["proposed_utc"] = now
     elif adopt:
         print(f"DRY RUN: {best_overall[0]} would be adopted "
               f"({inc_loss:.5f} -> {best_overall[1]['log_loss']:.5f}) — "
@@ -1730,9 +1772,9 @@ def run(auto_adopt=False):
     # by ~48KB per invocation. The weekly cron runs --auto-adopt, which is what
     # archives history; every other invocation now reports and returns the entry
     # without touching disk.
-    if not auto_adopt:
+    if not (auto_adopt or propose):
         print("DRY RUN: data/model_tuning.json NOT written (history is archived "
-              "by --auto-adopt runs only)")
+              "by --auto-adopt and --propose runs only)")
         return entry
     _trim_history(tuning)
     with open(TUNING_PATH, "w", encoding="utf-8") as fh:
@@ -2337,7 +2379,15 @@ def main():
               f"{os.path.relpath(CORPUS_DIR, _ROOT)}")
     if "--referee-report" in sys.argv:
         return referee_report()
-    return run(auto_adopt="--auto-adopt" in sys.argv)
+    # --auto-adopt and --propose are mutually exclusive in effect, and passing
+    # both is far more likely to be a mistake than an intent: it reads as "adopt
+    # but also only propose". Refuse rather than silently letting one win.
+    if "--auto-adopt" in sys.argv and "--propose" in sys.argv:
+        print("ERROR: --auto-adopt and --propose are mutually exclusive; "
+              "--propose archives WITHOUT writing game_params.", file=sys.stderr)
+        raise SystemExit(2)
+    return run(auto_adopt="--auto-adopt" in sys.argv,
+               propose="--propose" in sys.argv)
 
 
 if __name__ == "__main__":
