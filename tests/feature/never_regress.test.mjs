@@ -13,19 +13,33 @@
 // adopted through it (qb_out) had a 95% confidence interval straddling zero.
 // The family gate now requires the improvement to beat max(effect floor,
 // t_crit x its own fold-clustered standard error), with t_crit Bonferroni-
-// corrected for every trial the run evaluated. These tests drive the real
+// corrected for the multiplicity of the search. These tests drive the real
 // Python implementation, so they fail if the rule is ever loosened, if the
 // hand-rolled t distribution drifts, or if the effect floor is dropped.
+//
+// PART 3 — the R24 corrections to that rule and to the run's side effects:
+//   * the Bonferroni divisor is the number of runnable candidate FAMILIES
+//     (distinct hypotheses), not the number of grid points — grid resolution is
+//     an implementation constant and must not set the adoption bar, and a
+//     family that loses must not tax the families that did not;
+//   * a DRY RUN (no --auto-adopt) writes nothing at all;
+//   * the archived entry states its multiplicity budget in both units, names
+//     the families it actually tested, and records a machine-readable
+//     adoption_blocked for an unwired winner;
+//   * --referee-report exists and is a diagnostic, never a family.
 //
 // Node built-ins only.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const TUNING = join(REPO_ROOT, "data", "model_tuning.json");
 
 /** Run a snippet against the repo's Python and parse its JSON stdout. */
 function py(body) {
@@ -265,14 +279,31 @@ test("the archived promotion entry records how its threshold was earned", () => 
     (h) => h && h.kind === "signal_promotion" && h.format === 2,
   );
   assert.ok(entry, "a format-2 promotion entry is recorded");
-  if (!entry.significance) return; // pre-R18 entry; the next cron run rewrites it
+  // R24: this used to be `if (!entry.significance) return;`. The SHIPPED artifact
+  // still carried a pre-R18 entry, so every assertion below it was DARK against
+  // the file the PWA actually fetches — the archive could rot indefinitely and
+  // nothing went red. The newest entry is now required to carry its statistics;
+  // if a stale artifact is committed again, this is the test that says so.
+  assert.ok(entry.significance,
+    "the newest format-2 entry must carry its significance block — a shipped "
+    + "entry with no statistics means the artifact predates the gate that "
+    + "decided it (re-run: python3 -m scripts.promote_signals --auto-adopt)");
   const s = entry.significance;
-  assert.ok(s.trials > 0, "the trial count backing the Bonferroni correction");
+  assert.ok(s.trials > 0, "the grid-point count is archived for audit");
   assert.ok(s.alpha > 0 && s.alpha < 1);
   assert.equal(s.effect_floor, 0.0015, "the effect floor is recorded, not implied");
+  // R24: the divisor is `tests` (runnable families), not `trials` (grid points).
+  // The shipped entry is decided under the CURRENT rule, so `tests` is required
+  // and the check is EXACT — no `?? s.trials` fallback to soften it. Entries
+  // archived before R24 keep their own divisor in their own block; they are not
+  // rewritten, which is the whole point of archiving both counts.
+  assert.equal(typeof s.tests, "number",
+    "the shipped entry records the family divisor it was decided under");
+  assert.equal(s.tests, entry.families_runnable,
+    "the Bonferroni divisor IS the runnable-family count, not a free parameter");
   assert.ok(
-    Math.abs(s.alpha_bonferroni - s.alpha / s.trials) < 1e-7, // recorded at 8dp
-    "alpha_bonferroni = alpha / trials",
+    Math.abs(s.alpha_bonferroni - s.alpha / s.tests) < 1e-7, // recorded at 8dp
+    "alpha_bonferroni = alpha / tests (the runnable-family divisor)",
   );
   assert.ok(s.threshold === null || s.threshold >= s.effect_floor,
     "the applied threshold can only ever be at or above the effect floor");
@@ -289,4 +320,333 @@ test("the archived promotion entry records how its threshold was earned", () => 
       assert.ok(t.folds >= 2, `${fam.family} trial must span at least two folds`);
     }
   }
+  // R24: `appliable` must be a real boolean on EVERY family of the shipped
+  // entry. The MODEL tab's NO PATH chip (app/views/model.js) renders only on
+  // `appliable === false`, so an entry carrying null/undefined renders the
+  // distinction nowhere and a reader cannot tell a family that CANNOT earn
+  // weight from one that merely did not — the exact state the artifact shipped
+  // in before this run. null is not "unknown" here; the gate knows.
+  for (const fam of entry.families || []) {
+    assert.equal(typeof fam.appliable, "boolean",
+      `${fam.family} must record whether a prediction-time reader can apply it`);
+  }
+  assert.ok((entry.families || []).some((f) => f.appliable === false),
+    "the shipped entry has at least one non-appliable family, so the MODEL "
+    + "tab's NO PATH chip is exercised by real data and not just by unit tests");
+});
+
+// --------------------------------------------------------------------------- //
+// PART 3 — R24 corrections                                                     //
+// --------------------------------------------------------------------------- //
+
+const PROMOTE_SRC = readFileSync(
+  new URL("../../scripts/promote_signals.py", import.meta.url), "utf8");
+
+/**
+ * Run promote_signals.run() against a THROWAWAY copy of model_tuning.json and
+ * return the entry plus what actually landed on disk. The shipped artifact is
+ * never touched: TUNING_PATH is rebound before the call.
+ */
+function runGate({ autoAdopt }) {
+  return py(`
+import contextlib, io, os, shutil, tempfile
+import scripts.promote_signals as ps
+tmp = tempfile.mkdtemp()
+path = os.path.join(tmp, "model_tuning.json")
+shutil.copyfile(ps.TUNING_PATH, path)
+before = os.path.getsize(path)
+ps.TUNING_PATH = path
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    entry = ps.run(auto_adopt=${autoAdopt ? "True" : "False"})
+after = os.path.getsize(path)
+doc = json.load(open(path))
+print(json.dumps({
+  "entry": entry,
+  "wrote": after != before,
+  "history_len": len(doc.get("history") or []),
+  "newest_kind": (doc.get("history") or [{}])[0].get("kind"),
+  "newest_stamp": (doc.get("history") or [{}])[0].get("generated_utc"),
+  "stdout": buf.getvalue(),
+}))
+`);
+}
+
+test("R24: the Bonferroni divisor is candidate FAMILIES, not grid points", () => {
+  // THE DEFECT. R18 divided alpha by every trial in the run. That makes the
+  // adoption bar a function of GRID RESOLUTION — divisional's signed 6x5 grid is
+  // 30 trials for ONE hypothesis — and it cross-subsidises: adding five families
+  // that all LOSE took the run from 45 to 89 trials and t_crit (df=3) from 9.85
+  // to 12.42, a 26% higher bar for every family including the ones already
+  // proposed. Merely proposing bad candidates made a good one harder to adopt.
+  const { entry } = runGate({ autoAdopt: false });
+  const s = entry.significance;
+
+  assert.equal(s.multiplicity_unit, "candidate_families",
+    "the entry names the unit its divisor was charged in");
+  assert.equal(s.tests, Math.max(entry.families_runnable, 1),
+    "the divisor IS the runnable-family count");
+  assert.equal(s.tests, Object.keys(s.trials_by_family).length,
+    "one test per family that produced trials — no more, no fewer");
+  assert.ok(s.trials > s.tests,
+    "grid points still outnumber hypotheses (89 vs 13 on the shipped run)");
+  assert.equal(
+    Object.values(s.trials_by_family).reduce((a, b) => a + b, 0), s.trials,
+    "the grid-point count is still archived and still itemised, for audit",
+  );
+  assert.ok(Math.abs(s.alpha_bonferroni - s.alpha / s.tests) < 1e-7,
+    "alpha is divided by the family count");
+
+  // The critical value is EXACTLY the one-sided t quantile at alpha/families.
+  // Pinning it here is what stops a future edit from quietly reverting the unit.
+  const t = py(`
+from scripts.promote_signals import student_t_ppf
+print(json.dumps({"t": student_t_ppf(1 - ${s.alpha} / ${s.tests}, ${s.df})}))
+`);
+  assert.ok(Math.abs(t.t - s.t_crit) < 5e-4,
+    `t_crit must be t(1 - alpha/families, df): got ${s.t_crit}, want ${t.t}`);
+
+  // GRID RESOLUTION IS NOT A SIGNIFICANCE LEVEL. Doubling any family's grid
+  // changes `trials` and must leave the divisor alone.
+  const counts = Object.values(s.trials_by_family);
+  assert.ok(counts.some((n) => n !== counts[0]),
+    "families really do spend different numbers of grid points");
+  assert.ok(!counts.includes(s.tests) || new Set(counts).size > 1,
+    "the divisor is not simply one family's grid size");
+});
+
+test("R24: the smaller divisor does NOT weaken never-regress", () => {
+  // The divisor shrank (89 -> 13), so the significance TERM shrank. Everything
+  // that made the rule a rule is unchanged: strict comparison, effect floor,
+  // one-sided t, no-uncertainty-means-no-adoption. Checked AT THE NEW DIVISOR.
+  const got = py(`
+from scripts.promote_signals import adoption_threshold, should_adopt, MIN_EFFECT
+F = 13                      # runnable families on the shipped run
+cases = {
+  "worse":             should_adopt(-0.01, 0.0005, 3, F),
+  "tied":              should_adopt(0.0, 0.0005, 3, F),
+  "on_the_floor":      should_adopt(MIN_EFFECT, 1e-9, 3, F),
+  "under_the_floor":   should_adopt(0.0014, 1e-9, 3, F),
+  "significant_tiny":  should_adopt(0.0014, 1e-9, 25, F),
+  "big_but_noisy":     should_adopt(0.02, 0.01, 3, F),
+  "no_folds":          should_adopt(999.0, None, 0, F),
+  "qb_out_2026_07_18": should_adopt(0.0024, 0.002462, 3, F),
+  "best_ever_measured": should_adopt(0.00076, 0.00101, 3, F),
+}
+print(json.dumps({
+  "cases": cases,
+  "t_crit_13": adoption_threshold(0.001, 3, F)["t_crit"],
+  "t_crit_1":  adoption_threshold(0.001, 3, 1)["t_crit"],
+  "t_crit_89": adoption_threshold(0.001, 3, 89)["t_crit"],
+  "threshold_13": adoption_threshold(0.00101, 3, F)["threshold"],
+}))
+`);
+  const c = got.cases;
+  assert.equal(c.worse, false, "a worse candidate is still never adopted");
+  assert.equal(c.tied, false, "a tie is still never adopted");
+  assert.equal(c.on_the_floor, false, "the floor comparison is still strict");
+  assert.equal(c.under_the_floor, false);
+  assert.equal(c.significant_tiny, false,
+    "significance alone still cannot buy pricing weight — the floor survives");
+  assert.equal(c.big_but_noisy, false, "t = 2.0 is still not evidence");
+  assert.equal(c.no_folds, false, "no uncertainty estimate still means no adoption");
+  assert.equal(c.qb_out_2026_07_18, false,
+    "the one family ever adopted under the old fixed margin (t = 0.98) still fails");
+  assert.equal(c.best_ever_measured, false,
+    "the best improvement the gate has ever measured (elo_epa, t = 0.75) still fails");
+  // Multiplicity is still PAID FOR: searching 13 hypotheses costs more than 1.
+  assert.ok(got.t_crit_13 > got.t_crit_1,
+    "correcting for 13 hypotheses must still be stricter than correcting for 1");
+  assert.ok(got.t_crit_13 < got.t_crit_89,
+    "the family divisor is the smaller of the two, as designed");
+  // ...and the bar is still multiples of the effect floor on the 4-fold window.
+  assert.ok(got.threshold_13 > 4 * 0.0015,
+    `the applied threshold is still ~4x the effect floor (got ${got.threshold_13})`);
+});
+
+test("R24: a DRY RUN mutates nothing on disk", () => {
+  // The defect: `python3 -m scripts.promote_signals` — a command with no side
+  // effect in its name — rewrote the shipped, committed data/model_tuning.json
+  // on every invocation, adding ~48KB of history the PWA then fetches on
+  // #/model. Locked two ways: the real CLI against the real artifact, and
+  // run(auto_adopt=False) against a throwaway copy.
+  const before = readFileSync(TUNING, "utf8");
+  const beforeStat = statSync(TUNING);
+  const out = execFileSync("python3", ["-m", "scripts.promote_signals"], {
+    cwd: REPO_ROOT, encoding: "utf8",
+    env: { ...process.env, PYTHONPATH: REPO_ROOT },
+  });
+  assert.match(out, /DRY RUN: data\/model_tuning\.json NOT written/);
+  assert.equal(readFileSync(TUNING, "utf8"), before,
+    "a dry run rewrote the shipped model_tuning.json");
+  assert.equal(statSync(TUNING).mtimeMs, beforeStat.mtimeMs,
+    "a dry run touched the shipped model_tuning.json");
+
+  const dry = runGate({ autoAdopt: false });
+  assert.equal(dry.wrote, false, "run(auto_adopt=False) wrote to disk");
+  assert.ok(dry.entry, "the dry run still RETURNS its entry — it reports, it just does not write");
+  assert.match(dry.stdout, /NOT written/);
+});
+
+test("R24: --auto-adopt still archives the run (the cron's durable record)", () => {
+  // The dry-run fix must not silently stop the weekly cron from recording
+  // history: .github/workflows/backtest.yml runs --auto-adopt, and that run is
+  // the archive.
+  const wet = runGate({ autoAdopt: true });
+  assert.equal(wet.wrote, true, "--auto-adopt must write");
+  assert.equal(wet.newest_kind, "signal_promotion");
+  assert.equal(wet.newest_stamp, wet.entry.generated_utc,
+    "the entry that was returned is the entry that was archived");
+  const shipped = JSON.parse(readFileSync(TUNING, "utf8"));
+  assert.equal(wet.history_len, (shipped.history || []).length + 1,
+    "exactly one entry is added per run");
+});
+
+test("R24: the entry names the families it tested, and cannot go stale", () => {
+  const { entry } = runGate({ autoAdopt: false });
+  const names = entry.families.map((f) => f.family);
+  assert.equal(entry.families_tested, names.length,
+    "families_tested is the registered-family count (SOLUTION_DESIGN 9.7 brake 4)");
+  assert.ok(entry.families_runnable > 0 && entry.families_runnable <= entry.families_tested,
+    "families_runnable counts the families that actually produced trials");
+  // The `source` string is GENERATED from families[], so it can never drift the
+  // way the hand-written "(environment + rest + epa families)" literal did —
+  // that text survived ten new families.
+  assert.ok(!/environment \+ rest \+ epa families/.test(entry.source),
+    "the stale hand-written family list is gone");
+  assert.ok(!/environment \+ rest \+ epa families/.test(PROMOTE_SRC),
+    "and the literal is gone from the source, so it cannot come back");
+  // R24: this assertion scanned promote_signals.py ONLY, so the SAME stale
+  // family list survived in .github/workflows/backtest.yml — the workflow that
+  // actually RUNS this gate. Two copies of the claim, one guarded; the
+  // unguarded one still told a reader the gate trials "environment, rest, EPA
+  // total/pass" while it was running thirteen families. The workflow must stay
+  // family-agnostic: the archived entry is the only place families get named.
+  const WORKFLOW_SRC = readFileSync(
+    new URL("../../.github/workflows/backtest.yml", import.meta.url), "utf8",
+  );
+  assert.ok(!/environment,\s*rest/i.test(WORKFLOW_SRC.replace(/\n\s*#/g, "")),
+    "backtest.yml must not hand-list the candidate families — that list goes stale");
+  assert.ok(!/EPA total\/pass/i.test(WORKFLOW_SRC.replace(/\n\s*#/g, "")),
+    "backtest.yml must not hand-list the candidate families — that list goes stale");
+  for (const n of names) {
+    assert.ok(entry.source.includes(n), `source must name ${n}`);
+  }
+  assert.ok(entry.source.includes(`${names.length} candidate families`),
+    "source states how many families the run put up");
+});
+
+test("R24: a blocked adoption is machine-readable in BOTH blocked cases", () => {
+  // The degraded-incumbent block already wrote adoption_blocked; the
+  // unwired-application-path (`pending`) block wrote only English prose, so a
+  // consumer could not tell "the winner has no application path" from "nothing
+  // was good enough" without parsing a sentence.
+  const rules = [...PROMOTE_SRC.matchAll(/"rule":\s*"([a-z_]+)"/g)].map((m) => m[1]);
+  assert.ok(rules.includes("degraded_incumbent"), "the degraded block is unchanged");
+  assert.ok(rules.includes("unwired_application_path"),
+    "the pending block records a machine-readable adoption_blocked too");
+  // Both live inside an entry["adoption_blocked"] assignment, not in a comment.
+  const assigns = (PROMOTE_SRC.match(/entry\["adoption_blocked"\] = \{/g) || []).length;
+  assert.equal(assigns, 2, "exactly two adoption_blocked assignments: degraded + pending");
+});
+
+test("R24: is_cold_game reads the corpus gameday fallback, and invents nothing", () => {
+  // The defect: load_finals() documents a `gameday` fallback for seasons with no
+  // kickoff clock time, but is_cold_game read kickoff_utc only. All 259 games of
+  // the 1999 corpus season were therefore classified not-cold — 61 of them are
+  // cold-venue Nov-Feb dates — so the oldest end of the corpus contributed zero
+  // cold residuals to the cold-HFA feature it is supposed to inform.
+  const got = py(`
+from scripts.promote_signals import is_cold_game, COLD_HOMES
+corpus = json.load(open("data/fixtures/backtest_corpus/finals_1999.json"))["games"]
+modern = json.load(open("data/fixtures/finals_2024.json"))["games"]
+print(json.dumps({
+  "corpus_1999_cold": sum(1 for g in corpus if is_cold_game(g)),
+  "corpus_1999_kickoffs": sum(1 for g in corpus if g.get("kickoff_utc")),
+  "modern_2024_cold": sum(1 for g in modern if is_cold_game(g)),
+  "modern_2024_missing_kickoff": sum(1 for g in modern if not g.get("kickoff_utc")),
+  "cold_home": is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": "1999-12-05"}),
+  "warm_month": is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": "1999-09-05"}),
+  "warm_venue": is_cold_game({"home": "MIA", "kickoff_utc": None, "gameday": "1999-12-05"}),
+  "no_date_at_all": is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": None}),
+  "no_keys": is_cold_game({"home": "GB"}),
+  "kickoff_wins": is_cold_game({"home": "GB", "kickoff_utc": "1999-09-05T17:00:00Z",
+                                "gameday": "1999-12-05"}),
+}))
+`);
+  assert.equal(got.corpus_1999_kickoffs, 0, "1999 really does carry no kickoff times");
+  assert.equal(got.corpus_1999_cold, 61,
+    "the 1999 corpus season contributes its cold games, read from `gameday`");
+  assert.equal(got.cold_home, true, "a cold venue on a December gameday is cold");
+  assert.equal(got.warm_month, false, "September is not cold");
+  assert.equal(got.warm_venue, false, "Miami is never a cold venue");
+  // HONEST DATA: no date at all is NOT cold. The fallback reads a date the
+  // record already carries; it never invents one.
+  assert.equal(got.no_date_at_all, false, "no date must never be treated as cold");
+  assert.equal(got.no_keys, false, "a record with neither key must never crash or guess");
+  assert.equal(got.kickoff_wins, false, "kickoff_utc wins when both are present");
+  // BACKWARD COMPATIBILITY: the shipped 2021-2025 fixtures all carry kickoff_utc,
+  // so the default (non-corpus) gate is byte-identical to before the fix.
+  assert.equal(got.modern_2024_missing_kickoff, 0);
+  assert.ok(got.modern_2024_cold > 0, "modern seasons still read their kickoffs");
+});
+
+test("R24: --referee-report exists, and is a diagnostic — never a family", () => {
+  // SOLUTION_DESIGN R1 / 9.1 cut the referee FAMILY (the crew chief is 0/272 on
+  // unplayed games, so it could never be applied) and paid for the cut with this
+  // diagnostic. The safety half shipped; the payment did not, so the design and
+  // the repo disagreed. This locks both halves.
+  const tmp = mkdtempSync(join(tmpdir(), "refrep-"));
+  const path = join(tmp, "model_tuning.json");
+  copyFileSync(TUNING, path);
+  const before = readFileSync(TUNING, "utf8");
+  try {
+    const got = py(`
+import contextlib, io
+import scripts.promote_signals as ps
+ps.TUNING_PATH = ${JSON.stringify(path)}
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    entry = ps.referee_report()
+print(json.dumps({"entry": entry, "stdout": buf.getvalue()}))
+`);
+    const e = got.entry;
+    assert.equal(e.kind, "referee_diagnostic");
+    assert.equal(e.format, 1);
+    assert.ok(!("families" in e), "the diagnostic never enters families[]");
+    assert.ok(!("adopted" in e) && !("adopted_family" in e),
+      "the diagnostic is not an adoption decision and must not look like one");
+    assert.ok(/DIAGNOSTIC ONLY/.test(e.policy) && /never/.test(e.policy),
+      "the entry states its own policy");
+    assert.ok(e.crews > 0 && e.by_crew.length === e.crews);
+    assert.ok(e.games_scored > 0);
+    assert.equal(typeof e.games_without_crew_on_file, "number",
+      "games with no crew on file are COUNTED, never imputed");
+    assert.equal(e.shrink_n, 16, "the shrinkage is the module's shared SHRINK_N");
+    for (const r of e.by_crew) {
+      assert.ok(r.games > 0 && r.crew, "every row names a crew and its sample");
+      // Shrinkage pulls toward zero, always.
+      assert.ok(Math.abs(r.shrunk_home_residual) <= Math.abs(r.mean_home_residual) + 1e-9,
+        `${r.crew}: the shrunk residual must not exceed the raw mean`);
+    }
+    // Ordered by |effect|, so the reader sees the case for a pregame feed first.
+    for (let i = 1; i < e.by_crew.length; i += 1) {
+      assert.ok(
+        Math.abs(e.by_crew[i - 1].shrunk_home_residual)
+          >= Math.abs(e.by_crew[i].shrunk_home_residual),
+        "by_crew is ordered by absolute shrunk residual",
+      );
+    }
+    // It wrote to the throwaway copy, not the shipped artifact.
+    assert.equal(readFileSync(TUNING, "utf8"), before);
+    const doc = JSON.parse(readFileSync(path, "utf8"));
+    assert.equal(doc.history[0].kind, "referee_diagnostic");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // ...and referee is STILL not a family, in the gate or in the archive.
+  const { entry } = runGate({ autoAdopt: false });
+  assert.ok(!entry.families.some((f) => f.family === "referee"),
+    "referee must never be registered as a candidate family");
 });

@@ -400,7 +400,8 @@ export function cfgFromProfile(profile) {
  * on the roster, not just the selected one.
  */
 export function profileFromCfg(cfg, base, carried) {
-  const out = cloneProfile(normalizeProfile(base));
+  const baseProfile = normalizeProfile(base);
+  const out = cloneProfile(baseProfile);
   const c = cfg || {};
   const token = FLEX_ELIGIBILITY[c.flexType] ? c.flexType : 'FLEX';
   const positions = [];
@@ -418,10 +419,40 @@ export function profileFromCfg(cfg, base, carried) {
   out.shape.roster_positions = positions;
   out.shape.teams = clampCount(c.leagueSize, LEAGUE_BOUNDS.teams[0], LEAGUE_BOUNDS.teams[1]);
   out.shape.flex_eligibility = flexEligibility;
-  out.shape.draft_rounds = positions.length;
+  /* DRAFT ROUNDS ARE NOT ROSTER SIZE (R24 fix). The grid has no rounds field,
+   * so this used to write positions.length over whatever the profile carried —
+   * erasing the draft_rounds the Sleeper import read from the real league (15
+   * rounds against a 17-slot roster) and then reporting the fabricated number
+   * in the SAVE status as fact. An EXPLICIT value (one that is not simply
+   * tracking the roster size) survives any edit that leaves the roster size
+   * alone; it is only re-derived when it was tracking the roster anyway, or
+   * when the roster size moved under it. draftRoundsOverride() reports that
+   * second case out loud, the way `clamped` entries are reported. */
+  const priorSize = baseProfile.shape.roster_positions.length;
+  const priorRounds = baseProfile.shape.draft_rounds;
+  out.shape.draft_rounds = (priorRounds !== priorSize && positions.length === priorSize)
+    ? priorRounds
+    : positions.length;
   out.shape.keepers_enabled = c.keepers === true;
   out.shape.max_keepers = c.keepers === true ? clampCount(c.maxKeepers, 0, 40) : 0;
   return normalizeProfile(out);
+}
+
+/**
+ * Did profileFromCfg() have to overwrite an EXPLICIT draft_rounds?
+ *
+ * Returns { wanted, used } when the base profile carried a draft_rounds that
+ * was not merely tracking its roster size and the write could not keep it
+ * (the roster size moved), else null. Pure — the SAVE status prints this the
+ * same way it prints a ROSTER_BOUNDS clamp, so the panel never reports a
+ * derived number as the league's own.
+ */
+export function draftRoundsOverride(cfg, base, carried) {
+  const b = normalizeProfile(base);
+  const priorRounds = b.shape.draft_rounds;
+  if (priorRounds === b.shape.roster_positions.length) return null; // was tracking the roster
+  const used = profileFromCfg(cfg, base, carried).shape.draft_rounds;
+  return used === priorRounds ? null : { wanted: priorRounds, used };
 }
 
 /** "PPR (1)" / "HALF (0.5)" / "STD (0)" / "CUSTOM (0.75)" for a profile. */
@@ -549,9 +580,24 @@ export function unmatchedRosterPlayers(crosswalk) {
  */
 export function planRosterSync({ resolved, currentSlots, profile, playersById } = {}) {
   const pool = playersById instanceof Map ? playersById : new Map();
-  const order = rosterSlots(profile).all;
+  const prof = normalizeProfile(profile);
+  const order = rosterSlots(prof).all;
   const slots = {};
   order.forEach((s) => { slots[s] = null; });
+
+  /* TWO DIFFERENT REASONS A PLAYER DOES NOT FIT (R24). "Every slot is taken"
+   * is a lie when the league has ZERO slots for the position — a K in a league
+   * with no K slot is not competing for a full slot, there is no slot at all,
+   * and the two facts call for different actions from the user. Bench slots
+   * only take positions the roster plays (rosterPositionsInPlay), so a single
+   * slotAccepts() sweep over `order` answers it exactly. Memoised per position. */
+  const rostersPos = new Map();
+  const leagueRosters = (position) => {
+    if (!rostersPos.has(position)) {
+      rostersPos.set(position, order.some((s) => slotAccepts(position, s, prof)));
+    }
+    return rostersPos.get(position);
+  };
 
   const list = Array.isArray(resolved) ? resolved : [];
   const ordered = [...list.filter((r) => r && r.starter), ...list.filter((r) => r && !r.starter)];
@@ -570,11 +616,14 @@ export function planRosterSync({ resolved, currentSlots, profile, playersById } 
       });
       return;
     }
-    const slot = firstOpenSlot(position, slots, profile);
+    const slot = firstOpenSlot(position, slots, prof);
     if (!slot) {
       unplaced.push({
         ...r,
-        reason: `Every slot this roster has for a ${position} is taken, so ${name} did not fit.`,
+        reason: leagueRosters(position)
+          ? `Every slot this roster has for a ${position} is taken, so ${name} did not fit.`
+          : `This league rosters no ${position} at all — no starting or bench slot accepts one, `
+            + `so ${name} could not be seated.`,
       });
       return;
     }
@@ -2057,7 +2106,12 @@ export default async function mountTeam(el) {
         + '<label class="lp-field lp-field--grow">'
           + '<span class="ds-lbl">LEAGUE ID OR URL</span>'
           + '<input class="lp-input" type="text" data-lin="sleeperId" autocomplete="off" '
-            + `spellcheck="false" placeholder="1051234567890123456" value="${esc(sleeperId)}" `
+            // A placeholder that LOOKS like a real 19-digit league id reads as a
+            // value already entered, and SYNC NOW then contradicts what the user
+            // sees ("Enter your Sleeper league id or league URL first."). R24:
+            // say what to do instead of showing a plausible id.
+            + 'spellcheck="false" placeholder="paste your league id or URL" '
+            + `value="${esc(sleeperId)}" `
             + 'aria-label="Sleeper league id or league URL">'
         + '</label>'
         + `<button type="button" class="lp-btn" data-act="sleeper-sync"${syncBusy ? ' disabled' : ''}>`
@@ -2412,7 +2466,14 @@ export default async function mountTeam(el) {
         + `${d.mean < 0 ? 'EARLIER' : 'LATER'} than consensus on average`
         + (d.sd != null ? `, spread ±${d.sd.toFixed(1)}` : '')
         + `<span class="cd-meta">measured from ${mockCal.picks} observed opponent picks `
-        + `across ${mockCal.drafts} live draft${mockCal.drafts === 1 ? '' : 's'}</span></div>`;
+        + `across ${mockCal.drafts} live draft${mockCal.drafts === 1 ? '' : 's'}</span></div>`
+        // The survivorship caveat app/mocks.js documents for roomCalibration()
+        // never reached the UI (R24), so the headline read as an unqualified
+        // fact about the room. It is the mean's own definition — say it here.
+        + '<div class="ds-hnote">Read that mean honestly: it is taken over players this room '
+        + 'actually DRAFTED. Consensus players who went undrafted contribute nothing, so a '
+        + 'negative room-wide mean is the signature of a room that reaches outside the '
+        + 'consensus board — not a claim about every player.</div>';
       const drifts = positionDrift(mockCal);
       const posRows = drifts.length
         ? '<div class="ds-hrow">' + drifts.map((p) => (
@@ -3053,6 +3114,9 @@ export default async function mountTeam(el) {
       // shape it writes is the shape the draft room prices against, and the
       // reception value it carries is the scoring mode the app projects at.
       const next = profileFromCfg(draftCfg, stagedProfile, carriedTokens);
+      // An explicit draft_rounds this panel could not keep is REPORTED, never
+      // swapped in silently (R24) — the "Saved:" line below prints the number.
+      const roundsMoved = draftRoundsOverride(draftCfg, stagedProfile, carriedTokens);
       const wrote = saveProfile(next);
       savedProfile = next;
       stagedProfile = cloneProfile(next);
@@ -3067,6 +3131,10 @@ export default async function mountTeam(el) {
             : ''}.`
         : 'Storage is blocked, so nothing was written to disk. These settings still drive this '
           + 'session, but they will not survive a reload.'];
+      if (roundsMoved) lines.push(
+        `Draft rounds moved from ${roundsMoved.wanted} to ${roundsMoved.used}: this panel has no `
+        + 'rounds field, so a roster-size change re-derives it. Your league\'s '
+        + `${roundsMoved.wanted} rounds could not be kept.`);
       validateProfile(next).forEach((p) => { if (p && p.message) lines.push(p.message); });
       const nextMode = scoringMode(next);
       if (nextMode !== 'custom' && nextMode !== mode) {

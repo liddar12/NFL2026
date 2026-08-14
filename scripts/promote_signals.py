@@ -30,8 +30,11 @@ ADOPTION (the discipline that makes it self-learning, not self-deluding):
     features recomputed leak-free at the adopted scales).
   * At most ONE family is adopted per run — the best scale of the best family.
     Sequential forward selection, one honest step per weekly cron run.
-  * --auto-adopt actually writes game_params; without it the run is a dry run
-    that records trials only. Every trial is archived either way.
+  * --auto-adopt actually writes game_params AND archives the run's entry into
+    data/model_tuning.json history. Without it the run is a DRY RUN: it prints
+    the same verdict and returns the same entry, but writes NOTHING — a command
+    with no side effect in its name must not dirty a committed artifact the PWA
+    fetches (R24; it used to rewrite the file on every invocation).
   * The incumbent walk also emits CALIBRATION bins (predicted-prob buckets vs
     actual home-win rates) for the MODEL tab.
 
@@ -53,10 +56,10 @@ SIGNIFICANCE GATE (R18 — replaces the fixed 0.0015 adoption margin):
        games inside one fold share fitted features and one rating trajectory,
        so they are not independent draws and an i.i.d. standard error would
        overstate the evidence by a large factor.
-    3. MULTIPLICITY   t_crit is Bonferroni-corrected for EVERY trial the run
-       evaluated, because the candidate is the argmin over all of them. The
-       selection is what inflates the apparent improvement, so the selection
-       is what must be paid for.
+    3. MULTIPLICITY   t_crit is Bonferroni-corrected for the number of
+       candidate FAMILIES the run could have picked from — one test per
+       distinct hypothesis — NOT for the number of grid points evaluated.
+       See MULTIPLICITY UNIT below; this changed in R24.
   The threshold actually applied, max(MIN_EFFECT, t_crit x se), is recorded as
   the entry's `margin` — the never-regress rule is unchanged in form (beat the
   incumbent by more than the margin), only the margin is now earned from the
@@ -69,6 +72,52 @@ SIGNIFICANCE GATE (R18 — replaces the fixed 0.0015 adoption margin):
   honest reading of 1,084 games, and it is the argument for evaluating over the
   expanded corpus (data/fixtures/backtest_corpus/, --corpus) where more folds
   buy real power.
+
+MULTIPLICITY UNIT (R24 — the divisor is HYPOTHESES, not grid points)
+  R18 shipped `alpha / (every trial in the run)`. That divisor is wrong, and
+  wrong in a way that is worse than merely conservative:
+
+    * IT IS A FUNCTION OF GRID RESOLUTION, which is a free implementation
+      constant. divisional's signed 6x5 grid is 30 trials for ONE hypothesis;
+      halving its step size would double it to 60 and raise the bar for `rest`,
+      which learned nothing new. A threshold that moves when a loop's step
+      changes is an artifact, not a significance level.
+    * IT CROSS-SUBSIDISES. Adding the five Rel22/Rel23 families took the run
+      from 45 trials to 89 and t_crit (df=3) from 9.85 to 12.42 — a 26% higher
+      bar for every family, including families that had already been proposed
+      and including the ones that lost. Merely PROPOSING bad candidates made it
+      harder to adopt a good one. That is backwards: the cost of a search
+      should track the number of distinct chances it had to find a spurious
+      winner, and a losing family is one such chance, not thirty.
+    * THE GRID POINTS ARE NOT SEPARATE CHANCES. Within a family the per-game
+      delta vector is the SAME feature at different amplitudes — for the
+      single-parameter families literally d_i(s) = s * x_i, so every trial in
+      the family is a monotone rescaling of one statistic. Under the family's
+      null (x carries no information) all of its trials are null together and
+      their maxima are near-perfectly correlated. Counting them as independent
+      tests does not buy safety, it buys an arbitrary constant.
+
+  So the divisor is `families_runnable`: the number of candidate families that
+  produced at least one trial this run (skipped families take no chance at
+  winning and are not counted). One hypothesis, one test.
+
+  WHAT THIS DOES NOT CHANGE — never-regress is untouched in form and in force:
+    * the effect floor still binds, strictly (`improvement > threshold`);
+    * significance is still required, still one-sided, still on the CR1
+      fold-clustered standard error, still Bonferroni-corrected;
+    * a worse, tied, sub-floor or noisy candidate is still never adopted, and a
+      run with no uncertainty estimate still adopts nothing.
+  The divisor is smaller, so the significance TERM is smaller: on the four-fold
+  production window t_crit falls from 12.4244 (89 trials) to 6.4102 (13
+  families), taking the applied threshold from 0.01254 to ~0.00647 — still
+  ~4.3x the 0.0015 effect floor. Both are far above anything the gate has ever
+  measured (the best improvement any family has posted is t = 0.75), so this
+  loosens an unreachable bar to a merely very demanding one; it does not open
+  the door to anything the old rule would have kept out on the evidence.
+  The entry records BOTH numbers (`significance.tests` = the divisor actually
+  used, `significance.trials` = the old grid-point count, plus
+  `trials_by_family`), so any archived decision can be re-derived under either
+  rule without rerunning the gate.
 """
 
 import functools
@@ -262,14 +311,20 @@ def student_t_ppf(p, df):
     return 0.5 * (lo + hi)
 
 
-def adoption_threshold(se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFECT):
+def adoption_threshold(se, df, n_tests, alpha=SIG_ALPHA, floor=MIN_EFFECT):
     """The improvement a candidate must EXCEED to be adopted, in log-loss units.
 
     max(floor, t_crit x se), where t_crit is the one-sided Student-t critical
-    value at alpha/n_trials with `df` degrees of freedom. The Bonferroni divisor
-    is the number of trials the run evaluated, because the candidate put to this
-    test is the argmin over all of them — the selection is what inflates the
-    apparent improvement, so the selection is what must be paid for.
+    value at alpha/n_tests with `df` degrees of freedom.
+
+    `n_tests` is the MULTIPLICITY DIVISOR — the number of distinct hypotheses
+    the run could have picked its winner from. run() passes the count of
+    RUNNABLE CANDIDATE FAMILIES, not the number of grid points: a family's grid
+    is one hypothesis measured at several amplitudes of the same per-game delta
+    vector, so counting grid points makes the bar a function of grid resolution
+    and lets a losing family's fat grid tax every other family. See MULTIPLICITY
+    UNIT in the module docstring for the full argument. The function itself is
+    agnostic: it corrects for whatever count it is handed.
 
     Returns {threshold, t_crit, alpha_bonferroni}; threshold is None when the
     uncertainty cannot be estimated (fewer than two folds), which the caller
@@ -281,18 +336,18 @@ def adoption_threshold(se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFECT):
         raise ValueError("floor must be >= 0 (a negative floor admits regressions)")
     if se is None or df is None or df < 1:
         return {"threshold": None, "t_crit": None, "alpha_bonferroni": None}
-    a = float(alpha) / max(int(n_trials), 1)
+    a = float(alpha) / max(int(n_tests), 1)
     t_crit = student_t_ppf(1.0 - a, df)
     return {"threshold": round(max(floor, t_crit * float(se)), 5),
             "t_crit": t_crit, "alpha_bonferroni": a}
 
 
-def should_adopt(improvement, se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFECT):
+def should_adopt(improvement, se, df, n_tests, alpha=SIG_ALPHA, floor=MIN_EFFECT):
     """NEVER-REGRESS, significance form. True only when `improvement` (positive
     = the candidate beats the incumbent) exceeds both the effect floor and its
     own Bonferroni-corrected significance threshold. A worse, tied, or merely
     noisy candidate can never return True."""
-    th = adoption_threshold(se, df, n_trials, alpha, floor)["threshold"]
+    th = adoption_threshold(se, df, n_tests, alpha, floor)["threshold"]
     return th is not None and improvement > th
 
 
@@ -521,11 +576,21 @@ def use_corpus():
 
 
 def is_cold_game(game):
-    """Cold-region open-air home venue with a Nov-Feb kickoff."""
+    """Cold-region open-air home venue with a Nov-Feb kickoff.
+
+    The month is read with the SAME `gameday` fallback load_finals() already
+    sorts by and documents. Reading only `kickoff_utc` classified all 259 games
+    of the 1999 corpus season not-cold — that season carries `kickoff_utc: null`
+    throughout and a `gameday` date for every game — so the oldest end of the
+    corpus contributed ZERO cold residuals to the cold-HFA feature, though 61 of
+    its 259 games are cold-venue Nov-Feb dates. Falling back to `gameday` is not
+    inventing a date: it is the date the record already carries.
+    """
     if game["home"] not in COLD_HOMES:
         return False
+    stamp = game.get("kickoff_utc") or game.get("gameday")
     try:
-        month = int(str(game["kickoff_utc"])[5:7])
+        month = int(str(stamp)[5:7])
     except (TypeError, ValueError):
         return False
     return month in COLD_MONTHS
@@ -1401,15 +1466,25 @@ def run(auto_adopt=False):
 
     # SIGNIFICANCE GATE. The threshold the best candidate must clear is earned
     # from its own uncertainty, not fixed: t_crit x the fold-clustered standard
-    # error, floored at MIN_EFFECT so the gate can only ever be stricter than
-    # the old constant margin. t_crit is Bonferroni-corrected for every trial
-    # evaluated this run, because the candidate is the argmin over all of them.
-    # Widening the run therefore RAISES the bar for everyone (adding the Rel18
-    # families took the run from 45 trials to 89, and t_crit from ~9.9 to
-    # ~12.4); that cost is the honest price of searching more, and the entry
-    # records `trials` so a reader can see which run's bar they are looking at.
+    # error, floored at MIN_EFFECT so the effect floor can never be undercut.
+    #
+    # MULTIPLICITY DIVISOR (R24): the number of RUNNABLE CANDIDATE FAMILIES —
+    # one test per distinct hypothesis the run could have picked its winner
+    # from. NOT the trial count: a family's grid is the same per-game delta
+    # vector at several amplitudes, so trial-counting made the bar a function of
+    # grid resolution (a free implementation constant) and let one family's fat
+    # grid tax every other family — divisional's signed 6x5 grid alone carried a
+    # third of the old divisor for one hypothesis, and proposing families that
+    # all LOSE raised the bar 26% for the ones that did not. See MULTIPLICITY
+    # UNIT in the module docstring. Both counts are archived on the entry, so a
+    # reader can re-derive either bar from the record.
     n_trials = sum(len(f.get("trials") or []) for f in families
                    if not f.get("skipped"))
+    families_tested = len(families)
+    families_runnable = sum(1 for f in families if not f.get("skipped"))
+    # max(..., 1) only guards the division. A run where NOTHING was runnable has
+    # no candidate to test either, so it adopts nothing whatever the divisor is.
+    n_tests = max(families_runnable, 1)
 
     def _evaluate(cand):
         """(trial, df, se, threshold_info, improvement, significant) for a
@@ -1417,12 +1492,12 @@ def run(auto_adopt=False):
         bt = cand[1] if cand else None
         c_df = (bt or {}).get("folds", 0) - 1
         c_se = (bt or {}).get("se")
-        c_info = adoption_threshold(c_se, c_df, n_trials)
+        c_info = adoption_threshold(c_se, c_df, n_tests)
         # Compare the numbers exactly as recorded (all rounded to 5dp) so the
         # archived entry is a faithful, re-checkable statement of the decision.
         c_imp = (round(inc_loss, 5) - bt["log_loss"]) if bt else 0.0
         return (bt, c_df, c_se, c_info, c_imp,
-                bt is not None and should_adopt(c_imp, c_se, c_df, n_trials))
+                bt is not None and should_adopt(c_imp, c_se, c_df, n_tests))
 
     best_trial, df, se, info, imp, adopt = _evaluate(best_overall)
     sig_ok = adopt                       # the statistical verdict, pre-veto
@@ -1456,9 +1531,9 @@ def run(auto_adopt=False):
     threshold = info["threshold"]        # None = too few folds to measure it
     # WHICH TERM ACTUALLY DECIDED. adoption_threshold is max(effect floor,
     # t_crit x se), and on the corpus the FLOOR is what binds (26 folds ->
-    # t_crit x se ~= 0.0011 < 0.0015), so the decision there is byte-identical
+    # t_crit x se well under 0.0015), so the decision there is byte-identical
     # to the old fixed-margin rule; in the 4-fold production window df=3 makes
-    # t_crit x se ~= 0.0125, roughly 8x the floor. Calling the gate
+    # t_crit x se ~= 0.0065, roughly 4x the floor. Calling the gate
     # "significance-based" without saying which half bound it would overstate
     # what changed, so the entry records it and a reader can check both terms.
     sig_term = (round(info["t_crit"] * float(se), 5)
@@ -1467,12 +1542,25 @@ def run(auto_adopt=False):
         "method": "paired per-game log-loss, CR1 cluster-robust over "
                   "walk-forward folds, one-sided Student-t",
         "alpha": SIG_ALPHA,
+        # THE DIVISOR ACTUALLY APPLIED: one test per runnable candidate family.
+        "multiplicity_unit": "candidate_families",
+        "tests": n_tests,
+        "tests_note": ("Bonferroni divisor is the number of runnable candidate "
+                       "FAMILIES (distinct hypotheses), not the number of grid "
+                       "points: a family's trials are one delta vector at "
+                       "several amplitudes, so counting them would make the bar "
+                       "a function of grid resolution and let a losing family's "
+                       "grid tax every other family"),
+        # The grid-point count is still archived, so any decision recorded here
+        # can be re-derived under the retired trial-counting rule without
+        # rerunning the gate. It is NOT the divisor.
         "trials": n_trials,
-        "trials_note": ("Bonferroni divisor is every trial this run evaluated, "
-                        "so a wider search raises the bar for all families"),
-        # The multiplicity budget, itemised. The tax a family levies on every
-        # OTHER family is exactly its trial count, and it is not evenly shared:
-        # divisional's signed 6x5 grid is 30 trials for one hypothesis.
+        "trials_note": ("total grid points evaluated this run; retained for "
+                        "audit and for the MODEL tab, NOT the Bonferroni "
+                        "divisor (see multiplicity_unit)"),
+        # The search budget, itemised: who spent how many grid points. Under the
+        # family divisor this is no longer a tax on other families, but it is
+        # still the honest picture of where the run's compute went.
         "trials_by_family": {f["family"]: len(f.get("trials") or [])
                              for f in families if not f.get("skipped")},
         "alpha_bonferroni": (round(info["alpha_bonferroni"], 8)
@@ -1496,9 +1584,13 @@ def run(auto_adopt=False):
         "generated_utc": now,
         "kind": "signal_promotion",
         "format": 2,
+        # GENERATED, never a literal. The old hand-written "(environment + rest
+        # + epa families)" had gone stale by ten families; a description of the
+        # run that cannot track the run is worse than none.
         "source": (f"scripts/promote_signals.py walk-forward {EVAL_SEASONS[0]}-"
                    f"{EVAL_SEASONS[-1]} over {os.path.basename(FIXTURE_DIR)} "
-                   "(environment + rest + epa families)"),
+                   f"({len(families)} candidate families: "
+                   + ", ".join(f["family"] for f in families) + ")"),
         "objective": "log_loss",
         # `margin` is the threshold ACTUALLY APPLIED this run: max(effect floor,
         # t_crit x the best candidate's fold-clustered standard error). It is no
@@ -1511,6 +1603,11 @@ def run(auto_adopt=False):
             name for name, blk in (tuning.get("game_params") or {}).items()
             if isinstance(blk, dict) and blk.get("applied")),
         "incumbent_unavailable": inc_unavailable,
+        # SOLUTION_DESIGN 9.7 brake (4): the two family counts alongside
+        # significance.trials. families_runnable IS the Bonferroni divisor, so
+        # the entry states the multiplicity budget in the unit it was charged.
+        "families_tested": families_tested,
+        "families_runnable": families_runnable,
         "families": families,
         "adopted": bool(adopt),
         "adopted_family": ({"family": best_overall[0], **best_overall[1]}
@@ -1587,6 +1684,15 @@ def run(auto_adopt=False):
             entry["would_adopt"] = {"family": pending[0], **pending[1]}
             entry["adopted"] = False
             entry["adopted_family"] = None
+            # MACHINE-READABLE, mirroring the degraded-incumbent block. Without
+            # it a consumer could only tell "the winner has no application path"
+            # from "nothing was good enough" by parsing English prose.
+            entry["adoption_blocked"] = {
+                "rule": "unwired_application_path",
+                "family": pending[0],
+                "detail": "the winning family has no reader in "
+                          "scripts/build_predictions.py; recorded, not adopted",
+            }
             print(f"PENDING: {pending[0]} cleared the margin but has no application "
                   f"path yet ({inc_loss:.5f} -> {pending[1]['log_loss']:.5f})"
                   + ("; no appliable family cleared its own threshold"
@@ -1614,11 +1720,183 @@ def run(auto_adopt=False):
             best_txt = "no runnable candidates"
         print(f"RETAINED incumbent ({inc_loss:.5f}); {best_txt} — needed "
               f"> {threshold} (t_crit {significance['t_crit']} x se over "
-              f"{significance['df'] + 1} folds, Bonferroni over {n_trials} trials)")
+              f"{significance['df'] + 1} folds, Bonferroni over {n_tests} "
+              f"candidate families / {n_trials} grid points)")
 
+    # A DRY RUN MUTATES NOTHING. Until R24 the run rewrote the shipped
+    # data/model_tuning.json unconditionally — so `python3 -m
+    # scripts.promote_signals`, an inspection command with no side effect in its
+    # name, dirtied a committed artifact the PWA fetches on #/model and grew it
+    # by ~48KB per invocation. The weekly cron runs --auto-adopt, which is what
+    # archives history; every other invocation now reports and returns the entry
+    # without touching disk.
+    if not auto_adopt:
+        print("DRY RUN: data/model_tuning.json NOT written (history is archived "
+              "by --auto-adopt runs only)")
+        return entry
+    _trim_history(tuning)
     with open(TUNING_PATH, "w", encoding="utf-8") as fh:
         json.dump(tuning, fh, ensure_ascii=True, indent=2, sort_keys=False)
         fh.write("\n")
+    return entry
+
+
+# The archive is unbounded by construction (history entries are only ever
+# prepended) and a format-2 entry is ~48KB indented — roughly ten times a
+# pre-Rel18 one, because every one of ~89 trials now carries its own se, t and
+# confidence interval. The PWA fetches this whole file on #/model, so unbounded
+# weekly growth is a real cost paid by every reader. Cap the promotion archive
+# at a year of weekly cron runs; game_params entries are small and never
+# trimmed. The trim is LOUD (it prints) and only ever drops the OLDEST
+# promotion entries, never the newest, and never an adoption record still
+# reachable within the cap.
+MAX_PROMOTION_HISTORY = 52
+
+
+def _trim_history(tuning):
+    """Cap archived signal_promotion entries at MAX_PROMOTION_HISTORY, newest
+    kept. Returns the number dropped (0 when under the cap — the common case)."""
+    hist = tuning.get("history")
+    if not isinstance(hist, list):
+        return 0
+    seen = 0
+    kept = []
+    dropped = 0
+    for e in hist:                      # history is newest-first
+        if isinstance(e, dict) and e.get("kind") == "signal_promotion":
+            seen += 1
+            if seen > MAX_PROMOTION_HISTORY:
+                dropped += 1
+                continue
+        kept.append(e)
+    if dropped:
+        tuning["history"] = kept
+        print(f"history trimmed: dropped {dropped} oldest signal_promotion "
+              f"entr{'y' if dropped == 1 else 'ies'} (cap "
+              f"{MAX_PROMOTION_HISTORY})")
+    return dropped
+
+
+# --------------------------------------------------------------------------- #
+# --referee-report — the diagnostic that PAYS FOR cutting the referee family   #
+# --------------------------------------------------------------------------- #
+
+GAME_CONTEXT_PATH = os.path.join(DATA, "game_context.json")
+# Elo per unit of mean home residual, used ONLY to state the diagnostic in a
+# unit a reader already has intuition for. It is the midpoint of VENUE_SCALES,
+# the grid the environment family actually searches, so "this crew is worth X
+# Elo" means "X Elo if a crew effect were priced the way venue HFA is priced".
+# Nothing reads it back; it is a presentation constant, not a fitted parameter.
+REFEREE_REF_SCALE = 250.0
+
+
+def referee_report():
+    """Crew-level shrunk home-residual bias over the walk (SOLUTION_DESIGN R1).
+
+    WHY THIS EXISTS. Rel18 CUT the referee family (SOLUTION_DESIGN 9.1): the
+    crew chief is 0/272 on unplayed games and there is no verified pregame
+    crew-assignment feed, so a referee family could never be APPLIED — zero
+    upside, and (before the fallthrough guard) a real risk of starving a genuine
+    adoption. The design paid for that cut with THIS mode, so the evidence is
+    not lost: if a crew-level effect is large enough to chase, that is the
+    argument for sourcing a pregame assignment feed. Until R24 the cut had been
+    taken and the payment had not been made; the design and the repo disagreed.
+
+    WHAT IT IS NOT. This is a DIAGNOSTIC. It is never a member of `families[]`,
+    never enters the adoption race, never writes `game_params`, and its entry
+    carries `kind: "referee_diagnostic"` so no promotion reader can mistake it
+    for a gate decision.
+
+    THE NUMBER. The walk is replayed at the FLAT incumbent hfa with no candidate
+    deltas — the same residual the environment family's venue/cold features are
+    fit from — and each game's `actual - p` is attributed to the crew chief
+    game_context.json records for it. Per crew: the mean residual, shrunk
+    n/(n+SHRINK_N) toward zero (a crew with eight games has not earned an
+    opinion), and that shrunk residual restated in Elo at REFEREE_REF_SCALE.
+    Ties are excluded exactly as the walk excludes them; games with no crew on
+    file are counted and reported, never imputed.
+
+    Appends the entry to model_tuning history and writes. This mode is an
+    explicit, named request for that record — it is not the promotion gate's
+    dry run, which writes nothing.
+    """
+    if not os.path.exists(GAME_CONTEXT_PATH):
+        raise SystemExit("--referee-report needs data/game_context.json "
+                         "(run scripts/build_game_context.py) — the crew chief "
+                         "is only recorded there")
+    with open(GAME_CONTEXT_PATH, encoding="utf-8") as fh:
+        games_ctx = json.load(fh).get("games") or {}
+    crew_by_key = {k: v["referee"] for k, v in games_ctx.items()
+                   if isinstance(v, dict) and v.get("referee")}
+    if not crew_by_key:
+        raise SystemExit("--referee-report: game_context.json records no "
+                         "referee for any game — nothing to diagnose, and a "
+                         "report over zero crews would be a fabrication")
+
+    hfa, revert, k, tuning = game_params()
+    finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
+    by_crew = {}
+    scored = 0
+    no_crew = 0
+    priors = {}
+    for yr in SEASONS:
+        probs = []
+        walk_season(finals_by_year[yr], priors, hfa, k, probs=probs)
+        for g, p, actual in probs:
+            scored += 1
+            crew = crew_by_key.get(f"{yr}|{g.get('week')}|{g['home']}|{g['away']}")
+            if not crew:
+                no_crew += 1
+                continue
+            by_crew.setdefault(crew, []).append(actual - p)
+        rated = elo_mod.rate_season(finals_by_year[yr], hfa=hfa, k=k,
+                                    initial_ratings=priors)
+        priors = elo_mod.revert_to_mean(rated, revert=revert)
+
+    rows = []
+    for crew, rs in by_crew.items():
+        n = len(rs)
+        mean = sum(rs) / n
+        shrunk = mean * n / (n + SHRINK_N)
+        rows.append({"crew": crew, "games": n,
+                     "mean_home_residual": round(mean, 5),
+                     "shrunk_home_residual": round(shrunk, 5),
+                     "elo_equivalent": round(REFEREE_REF_SCALE * shrunk, 2)})
+    rows.sort(key=lambda r: (-abs(r["shrunk_home_residual"]), r["crew"]))
+    worst = rows[0] if rows else None
+
+    import datetime as dt
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entry = {
+        "generated_utc": now,
+        "kind": "referee_diagnostic",
+        "format": 1,
+        "source": (f"scripts/promote_signals.py --referee-report over "
+                   f"{os.path.basename(FIXTURE_DIR)} {SEASONS[0]}-{SEASONS[-1]}"),
+        "policy": "DIAGNOSTIC ONLY - referee is never a candidate family, never "
+                  "enters families[], never writes game_params "
+                  "(SOLUTION_DESIGN R1 / 9.1)",
+        "seasons": [SEASONS[0], SEASONS[-1]],
+        "residual": "actual home result (1/0) minus the FLAT-hfa incumbent "
+                    "probability; ties excluded as the walk excludes them",
+        "shrink_n": SHRINK_N,
+        "reference_scale_elo": REFEREE_REF_SCALE,
+        "games_scored": scored,
+        "games_without_crew_on_file": no_crew,
+        "crews": len(rows),
+        "largest_abs_elo_equivalent": abs(worst["elo_equivalent"]) if worst else None,
+        "by_crew": rows,
+    }
+    tuning.setdefault("history", []).insert(0, entry)
+    with open(TUNING_PATH, "w", encoding="utf-8") as fh:
+        json.dump(tuning, fh, ensure_ascii=True, indent=2, sort_keys=False)
+        fh.write("\n")
+    print(f"referee diagnostic: {len(rows)} crews over {scored} scored games "
+          f"({no_crew} with no crew on file)")
+    for r in rows[:5]:
+        print(f"  {r['crew']:<20} {r['games']:>4} games  shrunk residual "
+              f"{r['shrunk_home_residual']:+.5f}  ~{r['elo_equivalent']:+.2f} Elo")
+    print("recorded as kind=referee_diagnostic — NOT a family, NOT an adoption")
     return entry
 
 
@@ -1762,11 +2040,49 @@ def selftest():
     _, f2 = skill_out_builder(100.0, {}, outs)
     assert f2(2025)({"home": "KC", "away": "BUF", "week": 5}, 0) == 0.0
 
+    # is_cold_game reads kickoff_utc, and falls back to the `gameday` date when
+    # the record carries no kickoff clock time (the 1999 corpus season). It never
+    # invents a date: no stamp at all is still not-cold.
+    assert is_cold_game({"home": "GB", "kickoff_utc": "2025-12-14T18:00:00Z"})
+    assert not is_cold_game({"home": "MIA", "kickoff_utc": "2025-12-14T18:00:00Z"})
+    assert not is_cold_game({"home": "GB", "kickoff_utc": "2025-09-14T18:00:00Z"})
+    assert is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": "1999-12-05"})
+    assert not is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": "1999-09-05"})
+    assert not is_cold_game({"home": "GB", "kickoff_utc": None, "gameday": None})
+    assert not is_cold_game({"home": "GB"})
+    # kickoff_utc WINS when both are present — the fallback is a fallback.
+    assert not is_cold_game({"home": "GB", "kickoff_utc": "2025-09-14T18:00:00Z",
+                             "gameday": "2025-12-14"})
+
+    _trim_selftest()
     _fallthrough_selftest()
     _stats_selftest()
     print("selftest OK: rest clamp + EPA leak-free blending + skill_out "
-          "share-weighting exact + non-appliable fallthrough + significance "
-          "statistics vs published values")
+          "share-weighting exact + cold-game gameday fallback + history cap + "
+          "non-appliable fallthrough + significance statistics vs published "
+          "values")
+
+
+def _trim_selftest():
+    """The history cap drops only the OLDEST promotion entries and never a
+    game_params record. Locked because the failure mode is silent data loss."""
+    def promo(i):
+        return {"kind": "signal_promotion", "generated_utc": f"p{i}"}
+    t = {"history": [promo(i) for i in range(MAX_PROMOTION_HISTORY)]}
+    assert _trim_history(t) == 0, "under the cap nothing is dropped"
+    assert len(t["history"]) == MAX_PROMOTION_HISTORY
+    t = {"history": ([promo(0)] + [{"kind": "game_params"}] * 3
+                     + [promo(i) for i in range(1, MAX_PROMOTION_HISTORY + 3)])}
+    print("  (selftest fixture — the trim line below is synthetic history, "
+          "not data/model_tuning.json)")
+    assert _trim_history(t) == 3, "exactly the overflow is dropped"
+    kinds = [e["kind"] for e in t["history"]]
+    assert kinds.count("signal_promotion") == MAX_PROMOTION_HISTORY
+    assert kinds.count("game_params") == 3, "game_params entries are never trimmed"
+    assert t["history"][0]["generated_utc"] == "p0", "the NEWEST entry survives"
+    assert all(e.get("generated_utc") != f"p{MAX_PROMOTION_HISTORY + 2}"
+               for e in t["history"]), "the oldest entry is the one dropped"
+    assert _trim_history({}) == 0 and _trim_history({"history": None}) == 0
 
 
 def _fallthrough_selftest():
@@ -2019,6 +2335,8 @@ def main():
         years = use_corpus()
         print(f"corpus mode: {len(years)} seasons {years[0]}-{years[-1]} from "
               f"{os.path.relpath(CORPUS_DIR, _ROOT)}")
+    if "--referee-report" in sys.argv:
+        return referee_report()
     return run(auto_adopt="--auto-adopt" in sys.argv)
 
 

@@ -159,20 +159,70 @@ function startableDemand(pos, demand, flexSlots) {
 }
 
 /**
+ * Is this cap set the app's OWN fallback rather than a league rule?
+ *
+ * normalizeProfile() fills shape.position_caps with POSITION_CAPS whenever the
+ * league did not supply one, and the draft-shape path passes POSITION_CAPS
+ * directly — so a cap set that is value-for-value the frozen fallback is a
+ * DEFAULT, not something a league asked for. That is the only signal available
+ * here: a normalised profile keeps no record of where its caps came from, so
+ * comparing against the fallback is the honest test, and it deliberately errs
+ * towards "default" (a league that happens to state exactly {QB:2,DEF:1,DST:1,
+ * K:1} keeps the pre-R24 behaviour byte-for-byte).
+ */
+function capsAreAppDefault(baseCaps) {
+  if (!baseCaps || typeof baseCaps !== 'object') return true;
+  const keys = Object.keys(baseCaps);
+  const defKeys = Object.keys(POSITION_CAPS);
+  if (keys.length !== defKeys.length) return false;
+  return defKeys.every((k) => Number(baseCaps[k]) === Number(POSITION_CAPS[k]));
+}
+
+/**
  * Effective roster caps. Base caps come from the shape (a profile's
- * position_caps, else POSITION_CAPS); each is then raised to
- * startableDemand + 1 — a league that STARTS two QBs must be allowed a third
- * for byes and injuries, which the frozen {QB:2} silently forbade. Positions
- * with no base cap stay uncapped: RB/WR/TE are bounded by roster geometry
- * (the FLEX + bench), not by a hard count.
+ * position_caps, else POSITION_CAPS). Positions with no base cap stay
+ * uncapped: RB/WR/TE are bounded by roster geometry (the FLEX + bench), not by
+ * a hard count.
+ *
+ * THE DEFAULT set is raised to startableDemand + 1 — a league that STARTS two
+ * QBs must be allowed a third for byes and injuries, which the frozen {QB:2}
+ * silently forbade (REL15 #4).
+ *
+ * AN EXPLICIT set — every Sleeper import writes one, from the league's real
+ * position_limit_* settings — is raised ONLY when the league's own cap is at or
+ * above what the league STARTS. The two halves settle different questions:
+ *
+ *   cap <  startableDemand   The league has deliberately capped BELOW its own
+ *                            starting requirement (a SUPER_FLEX league that
+ *                            limits QB to 1). Left exactly as stated: that is
+ *                            the league's rule, and the flex slot it starves is
+ *                            filled by the other eligible positions. Raising it
+ *                            would be the app overruling the league it models.
+ *   cap >= startableDemand   The cap is the league saying "this many at most"
+ *                            about a position it can already field. A league
+ *                            that STARTS two QBs and caps QB at two is not
+ *                            banning a bye/injury backup — it is describing its
+ *                            starting requirement — and reading it as a ban is
+ *                            REL15 #4 all over again, this time for every
+ *                            Sleeper-imported league rather than the frozen
+ *                            default. Raised to startableDemand + 1, exactly as
+ *                            the default set is.
+ *
+ * The cap >= demand branch is byte-for-byte the pre-R24 behaviour; only the
+ * cap < demand branch is new, and no app-default cap set can reach it
+ * (POSITION_CAPS is QB 2 / DEF 1 / DST 1 / K 1 against demands of at most that).
  */
 function derivedCaps(baseCaps, demand, flexSlots) {
+  const appDefault = capsAreAppDefault(baseCaps);
   const out = {};
   Object.keys(baseCaps || {}).forEach((k) => {
     const pos = String(k).toUpperCase();
     const base = Number(baseCaps[k]);
     if (!Number.isFinite(base)) return;
-    out[pos] = Math.max(base, startableDemand(pos, demand, flexSlots) + 1);
+    const startable = startableDemand(pos, demand, flexSlots);
+    out[pos] = (appDefault || base >= startable)
+      ? Math.max(base, startable + 1)
+      : base;
   });
   return out;
 }
@@ -235,10 +285,19 @@ function profileGeometry(profile) {
 /**
  * Geometry from a draft-sim rosterShape. Slot IDs are already built there
  * (QB1, RB1, FLEX / FLEX1+FLEX2), so the token is the ID minus its trailing
- * digits. A rosterShape carries no team count — 12 is assumed, exactly as the
- * frozen default always did.
+ * digits.
+ *
+ * TEAM COUNT (R24-D): a rosterShape is a ROSTER, not a league — it carries a
+ * team count only when the config it was built from did (rosterShape(draftCfg)
+ * keeps draftCfg.leagueSize). Before R24-D this returned teams:12 regardless,
+ * so replacementLevel()'s league-wide path priced an 8- and a 16-team draft
+ * identically while claiming league size moves VOR. When there is no honest
+ * count it is now null, and the one reader of it (replacementLevel) refuses
+ * rather than assuming twelve.
  */
 function draftShapeGeometry(shape) {
+  const rawTeams = Number(shape.config && shape.config.leagueSize);
+  const teams = Number.isFinite(rawTeams) && rawTeams > 0 ? Math.round(rawTeams) : null;
   const starters = shape.starters.map(String);
   const bench = Array.isArray(shape.bench) ? shape.bench.map(String) : [];
   const eligibility = {};
@@ -261,7 +320,7 @@ function draftShapeGeometry(shape) {
   bench.forEach((slot) => { eligibility[slot] = [...positions]; });
   return {
     legacy: false,
-    teams: 12,
+    teams,
     starters,
     bench,
     all: [...starters, ...bench],
@@ -1067,6 +1126,13 @@ function flexAbsorbPos(pool, weeklyById, mode) {
  * the two engines disagreeing about who the FLEX belongs to. A pool shallower
  * than that index clamps to the worst available player — league-wide, every
  * one of them IS replacement level.
+ *
+ * A shape with NO honest team count (a bare draft-sim rosterShape, whose config
+ * carries no leagueSize) THROWS rather than silently pricing the league as a
+ * 12-team one: "league size moves VOR" and "we quietly assume twelve" cannot
+ * both be true, and the wrong one of those is unreadable from the number that
+ * comes back. Pass a LeagueProfile, or build the rosterShape from a config that
+ * states leagueSize.
  */
 export function replacementLevel(pool, weeklyById, mode, position, shape) {
   const pos = String(position || '').toUpperCase();
@@ -1081,11 +1147,14 @@ export function replacementLevel(pool, weeklyById, mode, position, shape) {
   }
   const demand = positionDemand(shape)[pos];
   if (demand == null) return 0;
+  const teams = rosterGeometry(shape).teams;
+  if (!(Number.isFinite(teams) && teams > 0)) {
+    throw new TypeError('replacementLevel(): this shape carries no league size — '
+      + 'pass a LeagueProfile, or a rosterShape built from a config with leagueSize');
+  }
   const ranked = rankedAtPos(pool, weeklyById, mode, pos);
   if (ranked.length === 0) return 0;
-  const idx = Math.min(
-    replacementIndex(demand, rosterGeometry(shape).teams), ranked.length - 1,
-  );
+  const idx = Math.min(replacementIndex(demand, teams), ranked.length - 1);
   return Math.round(ranked[idx].adj * 100) / 100;
 }
 

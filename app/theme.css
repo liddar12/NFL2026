@@ -234,6 +234,48 @@ button { font: inherit; color: inherit; }
   gap: 12px;
 }
 
+/* ---- view header (the primary title of every screen) ---------------------
+   R24-D. Every view paints
+     <header class="view-head"><h1 class="view-title">…</h1>
+                               <span class="view-sub">…</span></header>
+   — slate, players, parlays, team, lineup, compare, model — and until now NONE
+   of those three classes had a single rule. The h1 therefore fell back to the
+   UA default (32px, weight 700, upright, no tracking), so the biggest type on
+   every screen was the ONE piece of type not wearing the broadcast lockup the
+   rest of the app is built from. These rules put it back in the type system:
+   the .wordmark / .p-name idiom (sans, 800, italic, uppercase, tight tracking)
+   one step up in size, over a mono eyebrow in the .k / .ds-sub idiom.
+
+   Contrast: --ink on --bg is AA at any size; --muted is the AA-4.5:1 small-text
+   token used by every other 11px label here. */
+.view-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.view-title {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.view-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.35;
+}
+/* The .est pill rides inside .view-sub on several views — keep it a pill, not a
+   second size of the same line. */
+.view-sub .est { font-size: 10px; }
+
 /* Empty / error state message (views paint this instead of a blank screen) */
 .state {
   color: var(--muted);
@@ -269,6 +311,28 @@ button { font: inherit; color: inherit; }
   color: var(--muted);
   border-top: 2px solid transparent;   /* active indicator sits here */
   transition: color 120ms ease;
+}
+/* R24-D — THE CLIPPED SIXTH TAB, on narrow phones.
+   Six tabs (Slate, Players, Parlays, Team, Lineup, Model) at 13px measure 376px
+   of content. A flex item defaults to min-width:auto, so none of them would
+   shrink below its own label, and .tabbar is fixed — it can neither wrap nor
+   scroll. At an iPhone SE's 320px viewport the row therefore ran 56px past the
+   screen and MODEL was cut in half.
+   The fix is scoped to narrow widths only: 10px labels with no extra tracking
+   and 2px side padding measure ~47px, so six of them fit inside 320 with room
+   to spare, and min-width:0 lets the six columns divide the bar evenly instead
+   of one long label pushing the rest out. Everything at 401px and up — the
+   402pt iPhone 16 Pro reference device included — is untouched and renders
+   byte-for-byte what it always has. The vertical padding grows 8px -> 10px to
+   absorb the shorter line box, so the tab keeps EXACTLY the 36px hit height it
+   has at 402 — a narrow phone loses no tap target for the fix. */
+@media (max-width: 400px) {
+  .tab {
+    min-width: 0;
+    font-size: 10px;
+    letter-spacing: 0;
+    padding: 10px 2px;
+  }
 }
 /* active tab (route match) — brand underline + brighter label */
 .tab--active,
@@ -2527,9 +2591,11 @@ body.gate-locked { overflow: hidden; }
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-@media (max-width: 480px) {
-  .lp-grid { grid-template-columns: minmax(0, 1fr); }
-}
+/* R24-D: the <=480px single-column override is GONE. It contradicted the block
+   comment above — .ds-grid (LEAGUE and ROSTER, directly overhead) is 3-across
+   at every width, so collapsing only this grid put three full-width stacked
+   tiles under two 3-up grids on a 402px iPhone. FLEX / KEEPERS / MAX KEEPERS
+   carry short values and fit 3-up exactly as QB / RB / WR do. */
 .lp-field {
   display: flex;
   flex-direction: column;
@@ -2749,9 +2815,8 @@ body.gate-locked { overflow: hidden; }
 .lp-unres b { color: var(--warn); font-weight: 700; }
 
 @media (min-width: 820px) {
-  /* 13" iPad / laptop: the settings block keeps the wide field rhythm of the
-     LEAGUE and ROSTER grids directly above it. */
-  .lp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 13" iPad / laptop: the grid is already 3-up at every width (R24-D), so only
+     the SAVE button needs the wide treatment here. */
   .lp-savebtn { flex: 0 0 auto; min-width: 260px; }
 }
 
@@ -2761,8 +2826,18 @@ body.gate-locked { overflow: hidden; }
    Three additions, all subordinate to the row they annotate: a badge that says
    what kind of number this is (SEASON AVG), a warn variant for the two claims
    that qualify a total (LOW SAMPLE, PARTIAL), and the disclosure block that
-   names what a PARTIAL total leaves out. The badges reuse .lu-bye's geometry so
-   a row with one does not change height.
+   names what a PARTIAL total leaves out.
+
+   ROW HEIGHT, stated honestly (corrected in R24-D — the old claim here was that
+   a badged row "does not change height", which is false on a phone). The badges
+   reuse .lu-bye's geometry and sit in the .lu-name flow, ahead of the .lu-meta
+   span. On iPad/desktop that flow has room and every row measures 42px, badge
+   or no badge. At 402px it does NOT: the name cell measures 240px, so "Ka'imi
+   Fairbairn SEASON AVG K · HOU" wraps to a second line and that row measures
+   60px against 42px for an unbadged one. Only K and DST rows carry a badge, so
+   the taller rows are the last two starters — the wrap is accepted, not
+   hidden, because truncating the badge would drop the one thing that says the
+   number is a season average rather than a weekly projection.
    -------------------------------------------------------------------------- */
 .lu-tag {
   display: inline-block;
@@ -3239,3 +3314,111 @@ body.gate-locked { overflow: hidden; }
   flex-basis: 100%;
   padding: 6px 0 2px;
 }
+
+/* ==========================================================================
+   R24-B — LINEUP + COMPARE layout corrections (APPENDED, nothing above edited).
+
+   Four carried findings, all of them layout bugs in rules that predate this
+   release. Each fix is paired with markup in app/views/lineup.js /
+   app/views/compare.js and locked by tests/feature/r24b_layout.test.mjs +
+   tests/web/r24b_layout.spec.mjs.
+   ========================================================================== */
+
+/* 1. THE LINEUP CARD HEAD. "OPTIMAL LINEUP · WEEK 1" was an ANONYMOUS text flex
+      item beside .lu-total, so at 402px the flex container broke it mid-phrase
+      and rendered "OPTIMAL LINEUP · WEEK" with the "1" orphaned onto the next
+      line beside the total ("...WEEK163.4 PTS"). It is one element now, it never
+      breaks, and when it cannot share the line with the total the TOTAL wraps —
+      a whole phrase above a whole number, instead of a split phrase. */
+.lu-card .m-head { flex-wrap: wrap; column-gap: 10px; }
+.lu-title { white-space: nowrap; }
+.lu-card .m-head .lu-total { margin-left: auto; }
+
+/* 2. THE START/SIT NET-GAIN SENTENCE. .lu-move is a three-column grid (name |
+      meta | pts) and the net row's three child nodes were laid out as three
+      CELLS: "Switching to the optimal   +8.8 pts   this week." with "lineup
+      adds" wrapped onto a second line under the first cell. The sentence is one
+      element in one block-flow row now, so it wraps as prose. The START and SIT
+      rows above/below keep the grid they were designed for. */
+.lu-move--net { display: block; }
+
+
+/* 3. THE COMPARE "change" CONTROL was a ~54x18 target against the project's 44px
+      minimum. The pill is now the inner span — visually unchanged — and the
+      button is the target, so what you can hit is what the rule measures. */
+.cmp-swap {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 2px; border: 0; background: none;
+}
+.cmp-swap-pill {
+  font-family: var(--mono); font-size: 10px; color: var(--brand-txt);
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px;
+}
+
+/* 3b. The finder's accessible name is a VISIBLE label, so the screen-reader name
+       and the on-screen text are the same string (a placeholder is neither). */
+.cmp-find-lbl {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* 4. THE COMPARE CENTRE RAIL. It was a separate column pushed down by a fixed
+      `padding-top: 62px`, running its own box model beside the metric rows it
+      annotates: a 45px chip beside a 35px row drifted 10px per row, so the top
+      chip sat 34px above its row's centre and the bottom chip 26px below it —
+      nearer the NEXT row than its own — and every metric row added made it
+      worse. Wide layout only: the columns and the rail become subgrids of ONE
+      grid, so chip N is IN row N. --cmp-rows is written by the view from the
+      rows it actually rendered, so a new metric row cannot un-align the rail.
+      Below 561px the grid is a single stacked column and none of this applies —
+      that layout is untouched. The @supports guard matters: without subgrid the
+      rules would half-apply (the rail would lose its offset without gaining the
+      shared rows), so a browser that cannot do this keeps EXACTLY the layout it
+      has today rather than a new, differently-wrong one. Safari 16+ / Chrome
+      117+ take the aligned path. */
+@media (min-width: 561px) {
+  @supports (grid-template-rows: subgrid) {
+    .cmp-grid--aligned {
+      align-items: stretch;
+      column-gap: 8px; row-gap: 0;
+      grid-template-rows: auto repeat(var(--cmp-rows, 7), auto) auto;
+    }
+    .cmp-grid--aligned > .cmp-col {
+      grid-row: 1 / -1;
+      display: grid; grid-template-rows: subgrid;
+    }
+    .cmp-grid--aligned > .cmp-mid {
+      grid-row: 2 / -2;
+      display: grid; grid-template-rows: subgrid;
+      padding-top: 0;
+    }
+    .cmp-grid--aligned .cmp-edge {
+      display: flex; flex-direction: column; justify-content: center;
+    }
+  }
+}
+
+/* ---- R24-C · one convention for OURS-vs-market dollars ----------------------
+ * The player card (.p-val) and the draft board (.cd-val) show the SAME two
+ * numbers and used to invert each other's emphasis: on the card the
+ * DISPLAY-ONLY market price was the brightest ink (--ink) and this app's own
+ * price the recessive one (--brand-txt), while on the board OURS was --ink at
+ * 800 and the market --muted at 700. Under the MARKET-DISPLAY-ONLY policy the
+ * app's own price is the number that matters, so the board's convention wins on
+ * both surfaces: OURS dominant, AUC recessive. Both inks are already audited on
+ * --surface at 4.5:1 by tests/feature/contrast_aa.test.mjs.
+ * Appended (never edited in place) so the earlier .pv-us/.pv-mkt rules stay
+ * where the rest of the R21-B2 block lives and this override reads as the
+ * deliberate correction it is. */
+.pv-us { color: var(--ink); font-weight: 800; }
+.pv-mkt { color: var(--muted); font-weight: 700; }
+/* The DISPLAY-ONLY badge now sits INSIDE the AUC cell so it can never wrap away
+   from the number it disclaims. .pv-cell does not wrap, which is what binds the
+   two together; the row (.p-val) still wraps the whole cell to its own line on
+   a 402px card. */
+.pv-cell--mkt { flex-wrap: nowrap; }
+/* An em dash is "we have no price", not a number, so it must not inherit the
+   dominant ink the two overrides above just installed. Restated at compound
+   specificity because those overrides sit AFTER the original .pv-none rule and
+   would otherwise win on source order. */
+.pv-us.pv-none, .pv-mkt.pv-none { color: var(--muted); font-weight: 400; }

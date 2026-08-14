@@ -254,6 +254,151 @@ test('the auction price is READ for display only — one call site, no sort/mode
   }
 });
 
+/* ---- R24-C · whose budget, and what the badge disclaims ------------------- */
+
+test('R24-C: the "your league" budget in the tooltip is OUR budget, not the board\'s', () => {
+  /* THE DEFECT: `budget` was the MARKET board's data/adp.json auction_budget,
+   * and OURS was priced in it — while the very same sentence called it "your
+   * league (N teams, $B budget)". One sentence, two different leagues. The
+   * draft-board cell in app/views/team.js has always priced OURS in the user's
+   * budget and RESTATED the market number into it; this locks the card to the
+   * same convention. */
+  const html = renderValue({
+    ours: 34, auction: 62, teams: 10, budget: 100, board: 12, boardBudget: 200,
+  });
+  // The "your league" clause carries OUR budget, never the board's.
+  assert.match(html, /allocated across your league \(10 teams, \$100 budget\)/);
+  assert.doesNotMatch(html, /your league \(10 teams, \$200 budget\)/);
+  // The market price is restated into our dollars, and the title says so with
+  // BOTH numbers — a silently rescaled market price would be its own lie.
+  assert.match(html, /<span class="pv-mkt">\$31</);
+  assert.match(html,
+    /published as \$62 on a \$200 budget and restated here in your \$100/);
+});
+
+test('R24-C: a same-budget board is not "restated", and an unpublished one is not rescaled', () => {
+  // Board budget == ours: no rescale, and the title says plainly where the
+  // market number was published rather than implying a conversion happened.
+  const same = renderValue({
+    ours: 34, auction: 62, teams: 12, budget: 200, board: 12, boardBudget: 200,
+  });
+  assert.match(same, /<span class="pv-mkt">\$62</);
+  assert.match(same, /published on a \$200 budget\./);
+  assert.doesNotMatch(same, /restated here in your/);
+
+  // ESPN publishes no budget: the price is shown AS PUBLISHED and the title
+  // says the denomination is unknown. Inventing a rescale factor here would be
+  // inventing the number it produces.
+  const unknown = renderValue({
+    ours: 34, auction: 62, teams: 12, budget: 100, board: 12, boardBudget: null,
+  });
+  assert.match(unknown, /<span class="pv-mkt">\$62</);
+  assert.match(unknown, /budget ESPN does not publish/);
+  assert.doesNotMatch(unknown, /restated here in your/);
+  // ...and OURS is still described in OUR budget, which we do know.
+  assert.match(unknown, /\(12 teams, \$100 budget\)/);
+});
+
+test('R24-C: the view prices OURS in OUR budget and only RESTATES the market from the board\'s', () => {
+  // Source-level, because the defect was a single argument at one call site.
+  assert.match(SRC, /const OUR_BUDGET = DEFAULT_BUDGET;/,
+    'OURS must be denominated in the app budget the TEAM tab draft room opens on');
+  assert.match(SRC,
+    /fairDollars\(pool, adjOf, profile\.shape\.teams, OUR_BUDGET, _ourShape\)/,
+    'the OURS price sheet must be built on OUR budget, not the market board\'s');
+  assert.match(SRC, /budget: OUR_BUDGET,/);
+  assert.match(SRC, /boardBudget: marketBoardBudget,/);
+  // The board budget must reach renderValue ONLY as boardBudget — never as the
+  // budget OURS is priced in.
+  assert.doesNotMatch(SRC, /budget: marketBoardBudget/);
+  assert.doesNotMatch(SRC, /\bmarketBudget\b/,
+    'the single "market budget doubles as our budget" variable must be gone');
+});
+
+test('R24-C: on the committed board the fix is byte-for-byte — no number moved', () => {
+  // BACKWARD COMPATIBILITY. data/adp.json is published on the same $200 the app
+  // defaults to, so the rescale is x1 and every price the card renders today is
+  // the price it rendered before the fix. If the board ever moves off $200 this
+  // test says so rather than letting the change ride in silently.
+  const adp = load('adp.json');
+  assert.equal(Number(adp.auction_budget), DEFAULT_BUDGET);
+  const before = { ours: 34, auction: 61.81, teams: 12, budget: DEFAULT_BUDGET, board: 12 };
+  const after = { ...before, boardBudget: Number(adp.auction_budget) };
+  const strip = (h) => h.replace(/ title="[^"]*"/, '');   // prose changed; prices did not
+  assert.equal(strip(renderValue(after)), strip(renderValue(before)));
+  assert.match(renderValue(after), /<span class="pv-us">\$34</);
+  assert.match(renderValue(after), /<span class="pv-mkt">\$62</);
+});
+
+test('R24-C: the DISPLAY-ONLY badge is INSIDE the AUC cell, never a sibling of OURS', () => {
+  /* THE DEFECT: the badge was a flat sibling of BOTH .pv-cell elements, so it
+   * read as a label on the whole row — disclaiming this app's own OURS price
+   * alongside the market's — and could wrap onto its own line away from the
+   * number it disclaims. It must be structurally attached to the AUC cell. */
+  for (const opts of [
+    { ours: 34, auction: 62 },
+    { ours: 34, auction: null },
+    { ours: null, auction: 62 },
+  ]) {
+    const html = renderValue({ ...VAL, ...opts });
+    const cells = html.match(/<span class="pv-cell[^"]*">.*?<\/span><\/span>/s);
+    // The badge sits after the AUC value and before that cell closes.
+    assert.match(html,
+      /<span class="pv-cell pv-cell--mkt"><span class="pv-lbl">AUC<\/span><span class="pv-mkt[^"]*">[^<]*<\/span><span class="ms-badge"/,
+      `badge not inside the AUC cell for ${JSON.stringify(opts)}`);
+    assert.ok(cells, 'the value row must still be built from .pv-cell elements');
+    // The OURS cell must close BEFORE the badge opens — the badge can never be
+    // read as labelling our own price.
+    const oursClose = html.indexOf('</span><span class="pv-cell pv-cell--mkt">');
+    assert.ok(oursClose > 0 && oursClose < html.indexOf('ms-badge'));
+    // Still exactly one badge, and still the shared verbatim one.
+    assert.equal((html.match(/ms-badge/g) || []).length, 1);
+    assert.ok(html.includes(MARKET_BADGE));
+  }
+});
+
+/* ---- R24-C · one visual convention for OURS vs the market ----------------- */
+
+/** Last-wins declaration lookup for a bare class selector in app/theme.css. */
+function cssFinal(selector, prop) {
+  const css = readFileSync(join(REPO_ROOT, 'app/theme.css'), 'utf8');
+  const rules = css.matchAll(/([^{}]+)\{([^{}]*)\}/g);
+  let out = null;
+  for (const [, sel, body] of rules) {
+    const list = sel.split(',').map((s) => s.trim().split(/\s+/).pop());
+    if (!list.includes(selector)) continue;
+    const m = [...body.matchAll(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, 'g'))];
+    if (m.length) out = m[m.length - 1][1].trim();
+  }
+  return out;
+}
+
+test('R24-C: the player card and the draft board rank OURS vs AUC the same way', () => {
+  /* THE DEFECT: the two surfaces that show these same two numbers inverted each
+   * other's hierarchy. On the card the DISPLAY-ONLY market price was the
+   * brightest ink and our own price the tinted, recessive one; on the draft
+   * board it was the other way round. Under the MARKET-DISPLAY-ONLY policy the
+   * app's own price is the one that should dominate, so the board's convention
+   * is the one both surfaces keep. */
+  assert.equal(cssFinal('.cv-us', 'color'), 'var(--ink)');
+  assert.equal(cssFinal('.cv-mkt', 'color'), 'var(--muted)');
+  assert.equal(cssFinal('.pv-us', 'color'), cssFinal('.cv-us', 'color'),
+    'OURS must be the dominant ink on the player card, as it is on the board');
+  assert.equal(cssFinal('.pv-mkt', 'color'), cssFinal('.cv-mkt', 'color'),
+    'the DISPLAY-ONLY market price must not outrank our own price');
+  // ...and the weight ordering agrees with the colour ordering on both.
+  assert.equal(cssFinal('.pv-us', 'font-weight'), cssFinal('.cv-us', 'font-weight'));
+  assert.equal(cssFinal('.pv-mkt', 'font-weight'), cssFinal('.cv-mkt', 'font-weight'));
+  // The AUC cell holds its badge on one line — that is what binds the two.
+  assert.equal(cssFinal('.pv-cell--mkt', 'flex-wrap'), 'nowrap');
+  // Promoting OURS to the dominant ink must NOT drag the "no price" em dash up
+  // with it: .pv-none is an earlier rule of equal specificity, so it loses on
+  // source order unless it is restated at compound specificity.
+  assert.equal(cssFinal('.pv-us.pv-none', 'color'), 'var(--muted)');
+  assert.equal(cssFinal('.pv-mkt.pv-none', 'color'), 'var(--muted)');
+  assert.equal(cssFinal('.pv-us.pv-none', 'font-weight'), '400');
+});
+
 /* ---- our price agrees with the TEAM tab's draft room ---------------------- */
 
 test('our auction price equals the draft room fair sheet on the committed data', () => {
@@ -268,8 +413,12 @@ test('our auction price equals the draft room fair sheet on the committed data',
     const p = projById.get(String(r.gsis_id));
     return p ? Number(p.proj_points) : 0;
   };
+  // R24-C: the budget argument is OUR budget (DEFAULT_BUDGET), the same one the
+  // draft room below opens on. It used to be the market board's auction_budget,
+  // which happens to equal it on the committed board — so this test agreed with
+  // the view either way and could not see the denomination bug.
   const mine = fairDollars(pool, adjOf, profile.shape.teams,
-    Number(adp.auction_budget), rosterShape(cfgFromProfile(profile).cfg));
+    DEFAULT_BUDGET, rosterShape(cfgFromProfile(profile).cfg));
 
   // The TEAM tab's recipe, seeded from the same profile.
   const seeded = cfgFromProfile(profile);

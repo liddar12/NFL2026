@@ -73,10 +73,14 @@ rate IS the complete prior season. With no prior season and no plays in hand the
 rate is UNDEFINED: that team contributes nothing, the game's delta is exactly
 0.0, and the count is recorded. Never imputed.
 
-Postseason games are still priced — week 19 simply reads the complete weeks-1-18
-window. Postseason PLAYS are excluded from the sums by the builder (only good
-teams play in January, so including it would make a prior-season rate a
-survivorship-biased description of a team).
+Postseason games are never EVALUATED: `promote_signals.load_finals()` filters
+the walk to `game_type == "REG"`, so no family in the gate — this one included —
+ever scores a January game. The feature function would price one correctly if it
+were ever asked (week 19 simply reads the complete weeks-1-18 window), but that
+path is unreachable from the gate and no claim about postseason accuracy rests
+on it. Postseason PLAYS are separately excluded from the sums by the builder
+(only good teams play in January, so including them would make a prior-season
+rate a survivorship-biased description of a team).
 
 ## Coverage, and why the measured improvement is diluted
 

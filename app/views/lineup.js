@@ -55,13 +55,29 @@
  *   4. BYES STILL COUNT. K/DST have no weekly rows to carry a bye flag, so the
  *      bye comes from the schedule. A kicker on his bye is worth 0, exactly like
  *      every other player, and the optimizer benches him for it.
+ *
+ * R24-B — three carried findings. No number on this page changes:
+ *   1. THE K/DST CONTRACT IS NO LONGER ON THE CRITICAL PATH FOR EVERYONE. Every
+ *      mount awaited ~59KB that a DEFAULT-profile league (7 starters, no K/DEF
+ *      slot, and no K/DEF position even in play for the bench) could never use.
+ *      It is fetched when the league fields K/DEF/DST, when the saved roster
+ *      still parks somebody in such a slot, or — lazily — when a roster id
+ *      resolves through neither feed. A K/DEF league is unchanged.
+ *   2. THE CARD HEAD TITLE IS ITS OWN ELEMENT. As a bare text node beside
+ *      .lu-total it was an anonymous flex item, and at 402px the container broke
+ *      it mid-phrase: "OPTIMAL LINEUP · WEEK" with the "1" orphaned onto the next
+ *      line beside the total.
+ *   3. THE START/SIT NET-GAIN SENTENCE IS ONE ELEMENT. .lu-move is a three-column
+ *      grid and the sentence's three child nodes were being laid out as three
+ *      CELLS ("Switching to the optimal   +8.8 pts   this week." with "lineup
+ *      adds" wrapped underneath). It is prose in a block row now.
  */
 
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getScheduleFull,
 } from '../data.js';
 import { teamTint, teamName } from '../render.js';
-import { loadProfile, rosterSlots } from '../league.js';
+import { loadProfile, rosterSlots, rosterPositionsInPlay } from '../league.js';
 import {
   bestLineup, startSitSwaps, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
 } from '../lineup.js';
@@ -123,12 +139,33 @@ function loadRosterSlots() {
 export default async function mountLineup(el) {
   el.innerHTML = '<div class="state state--loading">Loading lineup…</div>';
 
+  // The two SYNCHRONOUS inputs are read FIRST because they decide what has to be
+  // fetched at all. Both are localStorage reads that cannot throw.
+  const slots = loadRosterSlots();
+  // The connected league's own geometry. An unconfigured user gets DEFAULT_PROFILE,
+  // which is the seven-starter / six-bench roster this view has always drawn.
+  const profile = loadProfile();
+  const leagueSlots = rosterSlots(profile);
+
+  // R24 — DO NOT BLOCK FIRST PAINT ON A CONTRACT THIS LEAGUE CANNOT USE.
+  // data/kdst_projections.json is ~59KB and every Lineup mount used to await it,
+  // including the DEFAULT 7-starter league, which has no K/DEF slot and — per
+  // rosterPositionsInPlay — cannot even bench a kicker, so not one byte of it
+  // could ever reach the screen. It is fetched when the league actually fields
+  // K/DEF/DST, or when the SAVED roster still parks somebody in a K/DEF/DST slot
+  // from an earlier profile: the roster is a BAG of players here, and a stale
+  // kicker must not silently vanish merely because the fetch was skipped.
+  const KDST_TOKEN = /^(K|DEF|DST)\d*$/;
+  const wantsKdst = rosterPositionsInPlay(profile)
+    .some((pos) => KDST_TOKEN.test(String(pos).toUpperCase()))
+    || (slots ? Object.keys(slots).some((k) => KDST_TOKEN.test(String(k).toUpperCase())) : false);
+
   // The first two are REQUIRED — no offence, no lineup. The last three are
   // OPTIONAL by design: the K/DST contract and the schedule may be absent on an
   // older deploy, and the view must degrade rather than blank.
   const [projRes, weeklyRes, predsRes, kdstRes, schedRes] = await Promise.allSettled([
     getPlayerProjections(), getPlayerWeekly(), getGamePredictions(),
-    getKdstProjections(), getScheduleFull(),
+    wantsKdst ? getKdstProjections() : Promise.resolve(null), getScheduleFull(),
   ]);
   if (projRes.status !== 'fulfilled' || weeklyRes.status !== 'fulfilled') {
     stateMsg(el, 'Lineup unavailable — the projection or weekly feed did not load.');
@@ -145,16 +182,23 @@ export default async function mountLineup(el) {
     if (Number.isFinite(w)) currentWk = Math.min(WEEKS, Math.max(1, Math.round(w)));
   }
 
-  const slots = loadRosterSlots();
-  // The connected league's own geometry. An unconfigured user gets DEFAULT_PROFILE,
-  // which is the seven-starter / six-bench roster this view has always drawn.
-  const profile = loadProfile();
-  const leagueSlots = rosterSlots(profile);
+  // The one case the cheap test above cannot see: a roster id that resolves
+  // through NEITHER feed. It may be a K or a D/ST parked on a BENCH slot under a
+  // league that has since dropped the position, and dropping him unseen would be
+  // the phantom-row bug in reverse. So ask for the contract before concluding he
+  // is gone — rare by construction, and it costs the fetch only when it happens.
+  let kdstDoc = kdstRes.status === 'fulfilled' ? kdstRes.value : null;
+  if (!wantsKdst && slots) {
+    const unknown = Object.values(slots).filter(Boolean).map(String).some((id) => !byId.has(id));
+    if (unknown) {
+      try { kdstDoc = await getKdstProjections(); } catch (err) { kdstDoc = null; }
+    }
+  }
   // K/DST, scored under THIS league (applyScoring on the stat line — never the
   // contract's DEFAULT-profile convenience total). `feeds` is what tells the
   // optimizer which slots it may fill; an unfulfilled fetch leaves it empty and
   // the R19-B5 "awaiting feed" path is exactly what runs.
-  const kdst = shapeKdst(kdstRes.status === 'fulfilled' ? kdstRes.value : null, profile);
+  const kdst = shapeKdst(kdstDoc, profile);
   const feeds = fedPositions(kdst);
   const kdstById = kdst.byId;
   // Positions whose rows arrived but which this league's scoring table cannot
@@ -533,9 +577,17 @@ export default async function mountLineup(el) {
         return `<div class="lu-move lu-move--sit"><span class="lu-move-out">SIT ${esc(r ? r.name : id)} `
           + `<span class="lu-meta">${fix1(r ? r.pts : 0)}</span></span></div>`;
       }).join('');
+      // ONE sentence, ONE element. .lu-move is a three-column grid (START name |
+      // meta | pts), and this row's three child nodes — the lead-in text, the
+      // <b> gain and the trailing " this week." — were being laid out as three
+      // GRID CELLS, so the sentence read "Switching to the optimal   +8.8 pts
+      // this week. / lineup adds" across the phone width. Wrapping it makes it a
+      // single grid item, and .lu-move--net drops to block flow (theme.css), so
+      // it wraps as prose like any other sentence.
       movesHtml = unprojNote + emptyNote + swapNotes
-        + `<div class="lu-move lu-move--net">Switching to the optimal lineup adds `
-        + `<b class="lu-move-gain">+${fix1(moves.netGain)} pts</b> this week.</div>`
+        + '<div class="lu-move lu-move--net"><span class="lu-move-net-txt">'
+        + 'Switching to the optimal lineup adds '
+        + `<b class="lu-move-gain">+${fix1(moves.netGain)} pts</b> this week.</span></div>`
         + startRows + sitRows;
     }
 
@@ -580,7 +632,13 @@ export default async function mountLineup(el) {
 
     body.innerHTML =
       '<section class="card lu-card">'
-        + `<div class="m-head">OPTIMAL LINEUP · WEEK ${wk} <span class="lu-total">${fix1(optimal.total)} pts`
+        // The title is its OWN flex item. As a bare text node beside .lu-total it
+        // was an ANONYMOUS flex item the container could break mid-phrase, and at
+        // 402px it did: "OPTIMAL LINEUP · WEEK" on one line with the "1" orphaned
+        // onto the next, beside the total. One element + nowrap (theme.css) means
+        // the phrase either fits or pushes the total to its own line, whole.
+        + `<div class="m-head"><span class="lu-title">OPTIMAL LINEUP · WEEK ${wk}</span> `
+          + `<span class="lu-total">${fix1(optimal.total)} pts`
           + '<span class="lu-cover" style="display:block;font-family:var(--sans);font-weight:600;'
             + 'font-size:11px;letter-spacing:0.02em;color:var(--muted);text-align:right">'
           + `${esc(coverage)}</span></span></div>`

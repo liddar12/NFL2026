@@ -248,32 +248,62 @@ export function renderPlayoffSos(report) {
 /**
  * OUR auction price beside the MARKET's, or '' when we have neither.
  *
- *   ours     our dollars (app/auction.js fairDollars — VOR from OUR projections)
- *   auction  data/adp.json auction_value (ESPN kona ownership.auctionValueAverage)
- *   teams    our league's team count (the profile's), for the title
- *   budget   the budget both prices are denominated in
- *   board    the market board's own league size, for the title
+ *   ours         our dollars (app/auction.js fairDollars — VOR from OUR projections)
+ *   auction      data/adp.json auction_value AS PUBLISHED (ESPN kona
+ *                ownership.auctionValueAverage)
+ *   teams        our league's team count (the profile's), for the title
+ *   budget       OUR budget — the one OURS is denominated in, and the one the
+ *                market price is restated into
+ *   board        the market board's own league size, for the title
+ *   boardBudget  the budget ESPN's published board is denominated in, or null
+ *                when ESPN publishes none
+ *
+ * R24 FIX — WHOSE BUDGET IS THIS. `budget` used to be the MARKET board's
+ * auction_budget while the title called it "your league (N teams, $B budget)":
+ * one sentence, two different leagues. The draft-board cell in
+ * app/views/team.js has always done this correctly — it prices OURS in the
+ * user's budget and RESTATES the market number into it — so this cell now does
+ * the same thing, and the title says which number was restated and from what.
+ * With ESPN's board on the same $200 the app defaults to, the rescale is x1 and
+ * every rendered price is byte-for-byte what it was.
  *
  * The market number is DISPLAY ONLY and carries MARKET_BADGE whenever the cell
  * renders — including when the price is missing — so a market column can never
- * appear on this card without the policy label attached to it. An unpriced
- * player shows an em dash, never $0: ESPN publishing no price is not a price.
+ * appear on this card without the policy label attached to it. The badge lives
+ * INSIDE the AUC cell (R24): as a flat sibling of both cells it read as a label
+ * on the whole row, disclaiming this app's own OURS price along with the
+ * market's. An unpriced player shows an em dash, never $0: ESPN publishing no
+ * price is not a price.
  */
-export function renderValue({ ours, auction, teams, budget, board } = {}) {
+export function renderValue({ ours, auction, teams, budget, board, boardBudget } = {}) {
   const o = Number(ours);
-  const a = Number(auction);
+  const raw = Number(auction);
+  const ourBudget = Number(budget) > 0 ? Number(budget) : DEFAULT_BUDGET;
+  // No published budget means the market price is in unknown dollars: it is
+  // shown exactly as published and NOT restated, because a rescale we cannot
+  // justify is a number we made up.
+  const pubBudget = Number(boardBudget) > 0 ? Number(boardBudget) : null;
+  const scale = pubBudget ? ourBudget / pubBudget : 1;
+  const a = raw * scale;
   const haveOurs = Number.isFinite(o) && o > 0;
   const haveMkt = Number.isFinite(a) && a > 0;
   if (!haveOurs && !haveMkt) return '';
   const oursSentence = haveOurs
     ? `OURS ${priceLabel(o)} is this app's own auction price: value over replacement `
       + `from our projections, allocated across your league (${teams} teams, `
-      + `$${budget} budget).`
+      + `$${ourBudget} budget).`
     : 'OURS is blank: this player is not on the draft board we price, so we have '
       + 'no auction price of our own for them.';
   const mktSentence = haveMkt
     ? `AUC ${priceLabel(a)} is the MARKET's price — ESPN's average winning bid on a `
-      + `${board}-team $${budget} board.`
+      + `${board}-team board`
+      + (pubBudget
+        ? (scale === 1
+          ? `, published on a $${pubBudget} budget.`
+          : `, published as ${priceLabel(raw)} on a $${pubBudget} budget and restated `
+            + `here in your $${ourBudget}.`)
+        : ', on a board whose budget ESPN does not publish — so it is shown as '
+          + 'published, not restated in your budget.')
     : 'AUC is blank: ESPN publishes no auction value for this player. That is a '
       + 'missing price, not a price of zero.';
   const title = `${oursSentence} ${mktSentence} The market price is shown for `
@@ -287,13 +317,13 @@ export function renderValue({ ours, auction, teams, budget, board } = {}) {
           ? `<span class="pv-us">${esc(priceLabel(o))}</span>`
           : '<span class="pv-us pv-none">—</span>')
       + '</span>'
-      + '<span class="pv-cell">'
+      + '<span class="pv-cell pv-cell--mkt">'
         + '<span class="pv-lbl">AUC</span>'
         + (haveMkt
           ? `<span class="pv-mkt">${esc(priceLabel(a))}</span>`
           : '<span class="pv-mkt pv-none">—</span>')
+        + MARKET_BADGE
       + '</span>'
-      + MARKET_BADGE
     + '</span>'
   );
 }
@@ -464,8 +494,17 @@ export default async function mountPlayers(el) {
   // model(), sortVal() or any number this view computes.
   const adpDoc = (adpRes.status === 'fulfilled' && adpRes.value
     && Array.isArray(adpRes.value.players)) ? adpRes.value : null;
-  const marketBudget = adpDoc && Number.isFinite(Number(adpDoc.auction_budget))
-    ? Number(adpDoc.auction_budget) : DEFAULT_BUDGET;
+  // OUR budget: the dollars OURS is denominated in. The LeagueProfile carries no
+  // budget field, so this is the app default — the SAME default the TEAM tab's
+  // draft room opens on (app/views/team.js draftCfg.budget), which is what makes
+  // one player cost one price across the two tabs.
+  const OUR_BUDGET = DEFAULT_BUDGET;
+  // The MARKET board's own budget, or null when ESPN publishes none. This is
+  // never used to price OURS — it is only what the market number is restated
+  // FROM. (Before R24 it was used for both, so OURS was quoted in ESPN's
+  // dollars under a tooltip that called them the user's.)
+  const marketBoardBudget = adpDoc && Number(adpDoc.auction_budget) > 0
+    ? Number(adpDoc.auction_budget) : null;
   const marketBoardTeams = adpDoc && Number.isFinite(Number(adpDoc.league_size))
     ? Number(adpDoc.league_size) : 12;
   // id -> auction_value. A null/0/absent price is NOT recorded: "ESPN does not
@@ -614,7 +653,7 @@ export default async function mountPlayers(el) {
         const ppr = Number(p.proj_points);
         return (w && mode !== 'ppr') ? seasonAdjust(ppr, w.receptions_prior, mode) : ppr;
       };
-      map = fairDollars(pool, adjOf, profile.shape.teams, marketBudget, _ourShape);
+      map = fairDollars(pool, adjOf, profile.shape.teams, OUR_BUDGET, _ourShape);
     }
     _ourCache.set(mode, map);
     return map;
@@ -628,8 +667,9 @@ export default async function mountPlayers(el) {
       ours: ourDollars(scoring).get(id),
       auction: auctionById.get(id),
       teams: profile.shape.teams,
-      budget: marketBudget,
+      budget: OUR_BUDGET,
       board: marketBoardTeams,
+      boardBudget: marketBoardBudget,
     });
     return po + val;
   }

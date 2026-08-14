@@ -255,6 +255,34 @@ test('playoff-SoS + market-value chips meet AA on the player card (R21-B2)', () 
   assertContrast('warn', 'surface-2', AA_LARGE);  // .posos-bye border
 });
 
+/* ---- R19-R23 UI: the token pairings the new panels introduced -------------
+ * These all MEASURE fine today. They are locked here because until now nothing
+ * pinned them, so a future token nudge could quietly drop a shipped surface
+ * below AA with the gate still green — which is precisely how a contrast
+ * regression ships. Every pairing names the app/theme.css rule it comes from. */
+
+test('--elev panels: every ink that sits on them meets 4.5:1', () => {
+  // --elev had only ever been audited for `ink` and `accent-txt`. Three shipped
+  // rules put OTHER inks on it, all small text (9-11px), so there is no
+  // large-text escape hatch:
+  //   .lp-rep-cell { background: var(--elev) } + .ds-lbl { color: var(--muted) }
+  //     -> league-profile replacement-level cells, 9px mono label   (7.39:1)
+  //   .ds-hnoise / .ds-hpos { background: var(--elev); color: var(--muted) }
+  //     -> draft-room history pills, 11px mono                      (7.39:1)
+  //   .ds-hpos--early { color: var(--brand-txt) } on that same pill (6.30:1)
+  assertContrast('muted', 'elev', AA_TEXT);
+  assertContrast('brand-txt', 'elev', AA_TEXT);
+});
+
+test('.lp-savebtn--dirty: dark ink on solid --accent meets 4.5:1', () => {
+  // The unsaved-edits state of SAVE LEAGUE SETTINGS swaps the brand fill for
+  // --accent, keeping #0D1117 (= --bg) ink. The button is 13px/800 — bold, but
+  // WCAG large text starts at 18.66px bold, so this is held to the FULL 4.5:1
+  // body threshold, not the 3.0:1 the .scopeseg pill gets by size. It measures
+  // 5.32:1, so the stricter pin is the honest one to lock.
+  assertContrast('bg', 'accent', AA_TEXT);
+});
+
 test('team registry is non-empty and every tint is a valid hex', () => {
   const entries = Object.entries(TEAMS);
   assert.ok(entries.length > 0, 'TEAMS registry is empty');

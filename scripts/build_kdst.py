@@ -37,7 +37,10 @@ complete total:
   def_st_ff        stats_team_week reports def_fumbles_forced for the whole
                    team; special-teams forced fumbles are not separable.
   def_st_fum_rec   likewise fumble_recovery_opp — special-teams recoveries are
-                   not separable from defensive ones.
+                   not separable from defensive ones. NOTE the consequence:
+                   the modelled `fum_rec` IS that whole-team column, so ST
+                   recoveries are already COUNTED there. A league that scores
+                   both keys is mis-attributed, never under-counted.
 
 Everything else in app/league.js SCORING_FIELDS for K and DEF *is* modelled,
 plus the Sleeper `yds_allow_*` tier family (an "unknown key" to league.js,
@@ -204,7 +207,10 @@ UNMODELLED_KEYS = (
         "position": "DEF",
         "reason": "stats_team_week reports fumble_recovery_opp for the whole "
                   "team; special-teams recoveries are not separable from "
-                  "defensive ones at weekly granularity.",
+                  "defensive ones at weekly granularity. The modelled DEF "
+                  "`fum_rec` IS that whole-team column, so special-teams "
+                  "recoveries are already counted inside fum_rec: a league "
+                  "scoring both keys is mis-attributed, not under-counted.",
     },
 )
 

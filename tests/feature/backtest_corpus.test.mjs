@@ -218,11 +218,28 @@ print(json.dumps(out))
   assert.equal(r['2015'].diffs, r['2015'].n);
   assert.ok(r['2015'].nonzero > 50, 'rest differentials compute off corpus kickoffs');
   assert.ok(r['2015'].cold > 0, 'cold-weather gating reads corpus kickoffs');
-  // 1999 has no kickoff times: the features degrade to neutral, they do NOT crash
-  // and they do NOT invent dates.
+  // 1999 has no kickoff CLOCK times: the features degrade honestly, they do NOT
+  // crash and they do NOT invent dates.
   assert.equal(r['1999'].diffs, r['1999'].n);
+  // rest_diffs() reads `kickoff_utc` only, so with no kickoff stamp every rest
+  // differential is neutral. Unchanged since this test was written.
   assert.equal(r['1999'].nonzero, 0);
-  assert.equal(r['1999'].cold, 0);
+  // EXISTING ASSERTION MODIFIED IN R24 — stated reason, because a bug-fix
+  // release is changing a number this test had locked. It asserted 0 while
+  // is_cold_game() read `kickoff_utc` only. R24 gave is_cold_game() the SAME
+  // `gameday` fallback that load_finals() already sorts by and documents, so
+  // the 1999 season now contributes the 61 of its 259 games played at a
+  // cold-region open-air venue in Nov-Feb. That is not inventing a date:
+  // `gameday` is a date the corpus record already carries. A record with NO
+  // date at all is still not-cold, and `kickoff_utc` still wins when both are
+  // present — both locked in never_regress.test.mjs ("R24: is_cold_game reads
+  // the corpus gameday fallback, and invents nothing"), which is the assertion
+  // this line used to contradict.
+  //
+  // Scope: the shipped 2021-2025 fixtures all carry kickoff_utc, so the default
+  // (non-corpus) gate is byte-for-byte unchanged. Only --corpus runs reaching
+  // the pre-2000 seasons see a different cold count.
+  assert.equal(r['1999'].cold, 61);
 });
 
 test('builder selftest passes on committed fixtures and writes nothing', () => {

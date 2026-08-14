@@ -16,8 +16,12 @@ that whatever divisional familiarity does, it does more the second time.
 `meeting_no` counts meetings within one season, so a divisional playoff game is
 `meeting_no == 3` and takes `scale` alone — the rematch term is specifically
 about the in-season return fixture, and a January game between two teams that
-already played twice is not that. A game whose context row is missing scores
-0.0 and never raises.
+already played twice is not that. That branch is DEFENSIVE, not exercised:
+`promote_signals.load_finals()` filters the walk to `game_type == "REG"`, so the
+gate never evaluates a postseason game and `meeting_no == 3` never reaches this
+function from a gate run. It is kept so the function stays total over its input
+domain, not because any measured result depends on it. A game whose context row
+is missing scores 0.0 and never raises.
 
 ## Why the grid is signed, and 2-D
 

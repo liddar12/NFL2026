@@ -358,3 +358,75 @@ test('the roster sync writes the roster key and nothing else', () => {
   // And it cannot write without an armed confirm when the roster is not empty.
   assert.ok(applyBlock.includes('filledNow > 0 && !rosterArmed'));
 });
+
+/* ==========================================================================
+ * 4b. THE UNPLACED REASON MUST NAME THE RIGHT CAUSE (R24 regression)
+ *
+ * "Every slot this roster has for a K is taken" is a FALSE statement about a
+ * league with zero K slots — there is no such slot to be taken, and the two
+ * situations call for different actions from the manager (drop someone vs.
+ * this league does not roster kickers at all). planRosterSync() now checks
+ * whether ANY slot on the roster accepts the position before it says "taken".
+ * ======================================================================== */
+
+test('a position the league does not roster AT ALL says so, not "taken"', () => {
+  // DEFAULT_PROFILE has no K token — not in the starters, and the bench only
+  // takes positions the roster actually plays.
+  const plan = planRosterSync({
+    resolved: [{ player_id: 'k1', name: 'K One', position: 'K', starter: true }],
+    currentSlots: {},
+    profile: DEFAULT_PROFILE,
+    playersById: new Map(),
+  });
+  assert.equal(plan.assigned.length, 0);
+  assert.equal(plan.unplaced.length, 1);
+  assert.match(plan.unplaced[0].reason, /rosters no K at all/);
+  assert.ok(!/taken/.test(plan.unplaced[0].reason),
+    'a league with zero K slots must not claim its K slots are taken');
+  assert.ok(plan.unplaced[0].reason.includes('K One'), 'the player is named');
+});
+
+test('a position the league DOES roster still says "taken" when the slots are full', () => {
+  // One K slot, no bench, and the K cap lifted so the CAP branch cannot fire:
+  // the second kicker is unplaced because the one real K slot is occupied.
+  const oneK = normalizeProfile({
+    ...DEFAULT_PROFILE,
+    shape: { ...DEFAULT_PROFILE.shape, roster_positions: ['QB', 'K'], position_caps: { K: 5 } },
+  });
+  const plan = planRosterSync({
+    resolved: [
+      { player_id: 'k1', name: 'K One', position: 'K', starter: true },
+      { player_id: 'k2', name: 'K Two', position: 'K', starter: false },
+    ],
+    currentSlots: {},
+    profile: oneK,
+    playersById: new Map(),
+  });
+  assert.equal(plan.assigned.length, 1);
+  assert.equal(plan.assigned[0].slot, 'K1');
+  assert.equal(plan.unplaced.length, 1);
+  assert.equal(plan.unplaced[0].name, 'K Two');
+  assert.match(plan.unplaced[0].reason, /Every slot this roster has for a K is taken/);
+  assert.ok(!/rosters no K at all/.test(plan.unplaced[0].reason));
+});
+
+test('a FLEX-eligible position is judged by the flex slot, not by a fixed slot', () => {
+  // No TE token anywhere, but the FLEX takes WR/RB/TE — so this league DOES
+  // roster a TE and the honest reason is "taken", never "no TE at all".
+  const flexOnly = normalizeProfile({
+    ...DEFAULT_PROFILE,
+    shape: { ...DEFAULT_PROFILE.shape, roster_positions: ['QB', 'FLEX'] },
+  });
+  const plan = planRosterSync({
+    resolved: [
+      { player_id: 't1', name: 'TE One', position: 'TE', starter: true },
+      { player_id: 't2', name: 'TE Two', position: 'TE', starter: false },
+    ],
+    currentSlots: {},
+    profile: flexOnly,
+    playersById: new Map(),
+  });
+  assert.equal(plan.assigned.length, 1);
+  assert.equal(plan.assigned[0].slot, 'FLEX');
+  assert.match(plan.unplaced[0].reason, /Every slot this roster has for a TE is taken/);
+});

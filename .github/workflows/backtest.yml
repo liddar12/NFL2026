@@ -2,9 +2,11 @@
 #
 # Re-runs the full 45-trial parameter grid against ALL resolved real seasons
 # (2021-2025 finals + any resolved 2026 locks), refreshes the nflverse EPA
-# aggregates, then gives every candidate signal family (environment, rest,
-# EPA total/pass) its walk-forward shot — adopting at most one family per week
-# and only through the NEVER-REGRESS gate. Most weeks this is a no-op that
+# aggregates, then gives every REGISTERED candidate signal family its
+# walk-forward shot — adopting at most one family per week and only through the
+# NEVER-REGRESS gate. The archived entry names the families and counts them, so
+# this file never has to (the old hand-written list here went stale by ten
+# families before anyone noticed). Most weeks this is a no-op that
 # archives its trials into data/model_tuning.json history. CRON THROTTLING
 # WARNING applies (see daily.yml): weekly cadence is best-effort, which is fine
 # for a job whose output changes slowly.
@@ -98,10 +100,12 @@ jobs:
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
 
-      # The self-learning step: every candidate family (environment, rest,
-      # EPA total/pass) gets its walk-forward shot; at most ONE family is
-      # adopted per week and only past the never-regress margin. Most weeks
-      # this archives trials and changes nothing — that is the design.
+      # The self-learning step: every REGISTERED candidate family gets its
+      # walk-forward shot; at most ONE family is adopted per week and only past
+      # the never-regress margin. The archived entry names the families and
+      # counts them — do not re-list them here, that is how the previous
+      # comment ended up ten families out of date. Most weeks this archives
+      # trials and changes nothing — that is the design.
       - name: Promotion gate (auto-adopt past NEVER-REGRESS margin)
         run: python -m scripts.promote_signals --auto-adopt
 
