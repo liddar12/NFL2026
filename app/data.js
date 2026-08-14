@@ -46,9 +46,10 @@ const PATHS = Object.freeze({
 const cache = new Map();
 
 /**
- * Fetch + cache one JSON contract. `_headers` sets max-age=0/must-revalidate on
- * /data/*, so the browser cache handles freshness; this cache just avoids
- * redundant in-session fetches. Pass { force: true } to bypass it.
+ * Fetch + cache one JSON contract. `_headers` sets
+ * `max-age=0, stale-while-revalidate=120` on /data/*, so the browser cache
+ * handles freshness; this cache just avoids redundant in-session fetches.
+ * Pass { force: true } to bypass it.
  */
 async function loadJson(path, { force = false } = {}) {
   if (!force && cache.has(path)) return cache.get(path);
@@ -62,8 +63,16 @@ async function loadJson(path, { force = false } = {}) {
 
   // Store immediately (the promise) so concurrent callers share it. On failure,
   // evict so a later call can retry instead of caching a rejected promise.
+  //
+  // The identity guard matters: a { force: true } refresh — or a clearCache()
+  // followed by a new getter — can install a SECOND promise for this path while
+  // the first is still in flight. Without the guard, the first one's later
+  // rejection evicts whatever is cached *now*, discarding a healthy, already-
+  // resolved entry and making the next getter re-fetch a contract that was
+  // already in hand. Only evict the entry this promise actually owns. Mirrors
+  // the identical guard in app/kdst.js getKdstProjections.
   cache.set(path, p);
-  p.catch(() => cache.delete(path));
+  p.catch(() => { if (cache.get(path) === p) cache.delete(path); });
   return p;
 }
 
@@ -101,9 +110,15 @@ export const getModelTuning = (opts) => loadJson(PATHS.modelTuning, opts);
 export const getAdp = (opts) => loadJson(PATHS.adp, opts);
 
 /**
- * Load every contract at once. Uses allSettled so one bad feed does not blank
- * the others — the caller sees exactly which contracts resolved. This is what
- * main.js uses to prove the JSON contract end to end.
+ * Load the five core contracts at once. Uses allSettled so one bad feed does
+ * not blank the others — the caller sees exactly which contracts resolved.
+ *
+ * NOT ON THE BOOT PATH: main.js imports only getPipelineStatus and
+ * getGamePredictions, and every view builds its own Promise.allSettled array of
+ * exactly the contracts it needs. Nothing in app/ calls getAll today; it is a
+ * contract-probing convenience. Do not wire it into a view — it would fetch
+ * five contracts on routes that need two. (An earlier version of this comment
+ * claimed main.js used it; it never did.)
  */
 export async function getAll(opts) {
   const entries = [

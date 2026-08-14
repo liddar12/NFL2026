@@ -45,13 +45,50 @@ import { rosPoints, gamesLeft } from '../ros.js';
 import { playoffSos, playoffWindow } from '../playoffs.js';
 import { loadProfile } from '../league.js';
 import { fairDollars, DEFAULT_BUDGET } from '../auction.js';
-// The profile -> draft-simulator shape bridge, imported rather than re-derived.
-// ourDollars() below must price a player at the SAME dollars the TEAM tab's
-// draft room does, and the draft room prices through rosterShape(draftCfg). Two
-// hand-rolled translations of one league is exactly how the two tabs came to
-// disagree (see the note on ourDollars).
-import { cfgFromProfile } from './team.js';
 import { rosterShape } from '../draft-sim.js';
+/* R25-F3 — THE BOOT EDGE.
+ *
+ * ourDollars() below needs exactly one export from the TEAM view:
+ * cfgFromProfile, the profile -> draft-simulator shape bridge. It is still
+ * imported rather than re-derived — the price sheet here MUST agree with the
+ * draft room's, and two hand-rolled translations of one league is exactly how
+ * the two tabs came to disagree (see the note on ourDollars) — but it is no
+ * longer imported STATICALLY.
+ *
+ * Measured problem: `import { cfgFromProfile } from './team.js'` put
+ * views/team.js + sleeper.js + kdst.js + mocks.js (4 modules, 302,637 bytes)
+ * into the STATIC graph of this module, and app/main.js imports this module
+ * eagerly. So every route — slate, parlays, model, lineup, compare, none of
+ * which price anything — had to fetch, parse and evaluate the whole team
+ * builder before the router could mount, and main.js's deliberate lazy
+ * `await import('./views/team.js')` bought nothing.
+ *
+ * Cutting the edge alone, though, only moves the cost: with team.js gone from
+ * the boot graph, the first visit to #/team pays its own 2-wave round trip and
+ * regresses ~98 ms (measured). So the module is ALSO warmed once the boot is
+ * over — see teamModule()/the idle warm below. A module-scope `import()` was
+ * measured as the alternative and rejected: a dynamic import is not discovered
+ * at parse time like a static one, so it starts LATER than the edge it replaced
+ * — team.js still shipped on all seven routes and #/team still regressed 21%.
+ */
+let _teamMod = null;
+/** The TEAM view module, fetched at most once per session. */
+function teamModule() {
+  if (!_teamMod) _teamMod = import('./team.js');
+  return _teamMod;
+}
+// Warm it AFTER the boot, never during it: requestIdleCallback runs once the
+// first route has painted, so this costs the critical path nothing, and by the
+// time a human can tap TEAM or PLAYERS the module is already in the registry —
+// which is what keeps the edge-cut from becoming a #/team regression. The
+// timeout bounds the wait on a busy thread; setTimeout covers Safari, which has
+// no requestIdleCallback. Failures are ignored here: this is only a warm-up,
+// and the real consumer (mountPlayers) reports a genuine load failure itself.
+(() => {
+  const warm = () => { teamModule().catch(() => {}); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 2000 });
+  else setTimeout(warm, 800);
+})();
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
 
@@ -429,7 +466,7 @@ export default async function mountPlayers(el) {
 
   // Projections required; everything else optional (allSettled) so a missing
   // weekly/insight/history/strength file never blanks the view.
-  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
@@ -437,11 +474,23 @@ export default async function mountPlayers(el) {
     getTeamStrength(),
     getGamePredictions(),
     getAdp(),
+    // The TEAM module, for cfgFromProfile — see the R25-F3 note at the top of
+    // this file. Requested in the SAME allSettled as the contracts so that on a
+    // cold deep-link to this route, where the idle warm has not fired yet, its
+    // round trip overlaps the data fetches instead of serializing after them.
+    teamModule(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
     return;
   }
+  if (teamModRes.status !== 'fulfilled') {
+    // No silent fallback: the price sheet MUST come from the same bridge the
+    // draft room uses, so a missing module is reported, never approximated.
+    stateMsg(el, 'Players unavailable — the pricing module did not load.');
+    return;
+  }
+  const { cfgFromProfile } = teamModRes.value;
   const data = projRes.value;
   const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
 
@@ -695,6 +744,16 @@ export default async function mountPlayers(el) {
       return r == null ? -Infinity : r.points; // no weekly data sinks on desc
     }
     // proj: honor the AI-adjusted number when AI+ is on (matches the display).
+    //
+    // R25-F3 measured, and REJECTED, a narrower `projPoints(p)` here that
+    // returned the same double without model()'s object spread / trendLabel /
+    // sosOf — on the theory that decorating all ~300 players to render only
+    // shownCap of them was the cost. It is not: A/B over 360 repaints per arm
+    // moved the ALL+PROJ repaint 10.3 -> 10.0 ms on iPad and 9.9 -> 9.9 ms on
+    // phone, inside the run-to-run band, because paintList's own string
+    // building is 9.4 ms of the ~10 ms and the decorate pass is ~0.2 ms of it.
+    // Left as model() rather than keeping a second copy of the arithmetic in
+    // sync for no measurable gain.
     return model(p).player.proj_points;
   }
 
@@ -736,13 +795,6 @@ export default async function mountPlayers(el) {
           : '')
       : '<div class="state">No players at that position.</div>';
   }
-
-  el.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-act="show-more"]');
-    if (!btn) return;
-    shownCap += PAGE;
-    paintList();
-  });
 
   el.innerHTML =
     head +
@@ -845,8 +897,31 @@ export default async function mountPlayers(el) {
     });
   }
 
-  // Wire the per-card WEEKS toggles (delegation on the persistent list node).
+  // Wire SHOW MORE. Delegated on #players-list, NOT on `el`.
+  //
+  // R25-F3 — MOUNT RETENTION. `el` is the router's permanent #view element:
+  // app/main.js resolves the same node on every navigation and never tears a
+  // view down, so a listener registered on it outlives its mount forever. That
+  // one listener's closure captures this whole mount scope (players,
+  // weeklyById, the _sos/_ros/_po/_our caches, ...), which in turn keeps the
+  // four control-row nodes and their listeners reachable — measured at +5.0
+  // live listeners, +32 retained Nodes and +0.085 MiB per visit to this tab,
+  // perfectly linear over 10 visits and growing without bound.
+  // #players-list is created fresh by the innerHTML write above and is dropped
+  // by the next mount's write, so the same delegation costs nothing permanent.
+  // The SHOW MORE button is always inside #players-list (paintList emits it
+  // there), so the click still reaches this handler by bubbling, unchanged.
   const listEl = el.querySelector('#players-list');
+  if (listEl) {
+    listEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act="show-more"]');
+      if (!btn) return;
+      shownCap += PAGE;
+      paintList();
+    });
+  }
+
+  // Wire the per-card WEEKS toggles (delegation on the persistent list node).
   if (listEl && hasWeekly) {
     listEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.p-expand');

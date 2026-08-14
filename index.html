@@ -29,6 +29,22 @@
        commit SHA at Netlify build time (write-runtime-config.mjs) so a fresh
        index.html can never pair with a stale-while-revalidate cached CSS. -->
   <link rel="stylesheet" href="/app/theme.css?v=dev" />
+
+  <!-- R25 — TEAM is DISCOVERABLE without being EXECUTED.
+       app/views/players.js used to `import { cfgFromProfile } from './team.js'`
+       for one 35-line function, which dragged the 3,666-line TEAM view and its
+       whole subgraph (sleeper, kdst, mocks, draft-sim, auction — 451 kB) into
+       the static boot graph of EVERY route, defeating main.js's deliberate
+       lazy `await import('./views/team.js')`. Cutting that edge removed ~44 ms
+       of parse+compile+evaluate from every route — but it also cost a cold
+       deep-link straight to #/team an extra serialized round trip, measured at
+       +24 to +51 ms at a realistic 40 ms RTT (invisible on localhost, which is
+       why a localhost-shaped measurement missed it).
+       modulepreload settles both: the browser DOWNLOADS team.js in parallel
+       from parse time, so a cold #/team no longer waits on a round trip, while
+       the module is only PARSED AND EVALUATED if something actually imports it
+       — so the routes that never open TEAM keep the win. -->
+  <link rel="modulepreload" href="/app/views/team.js" />
 </head>
 <body>
   <!-- App shell. .topbar clears the Dynamic Island, .tabbar clears the home

@@ -80,6 +80,18 @@ const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
 const TAKEN_KEY = 'nfl2026.taken.v1'; // draft board: ids taken by other managers
+/* MOUNT TEARDOWN (R25). This view delegates ten listeners onto #view — the ONE
+ * permanent element app/main.js hands every route — and #view is never replaced
+ * between navigations. Without a teardown every superseded mount's handlers stay
+ * live on it forever: they keep firing on clicks meant for the CURRENT mount,
+ * each one repainting from its own dead closure, and each one pins that whole
+ * mount's derived state (playersById, scaledById, weeklyById, the memo caches)
+ * in memory. Measured: +10 live listeners and +0.15 MiB per Team visit, and a
+ * finder sort repaint growing LINEARLY at ~5.4 ms per prior mount (5.3 ms at one
+ * mount, 71.7 ms at twelve). The mount's AbortController is parked here on the
+ * element so the NEXT mount — including the scoring re-price re-mount this view
+ * triggers on itself — can abort it before wiring its own. */
+const TEARDOWN_KEY = '__nfl2026TeamTeardown';
 // Draft/auction history lives in app/mocks.js (MOCKS_KEY there, plus the
 // read-only migration off the superseded key). This view never touches either
 // key inline: a record is written through appendMock() and read back through
@@ -716,6 +728,23 @@ export function rosterPlanLines(plan, unresolved) {
 let leagueFlash = null;
 
 export default async function mountTeam(el) {
+  // Retire the previous mount's listeners BEFORE this one paints (see
+  // TEARDOWN_KEY). Aborting a signal only unbinds; a handler already running —
+  // the SAVE handler that re-mounts this view on a scoring re-price — finishes
+  // normally. Absent AbortController, every listener binds as it always did.
+  const priorTeardown = el[TEARDOWN_KEY];
+  if (priorTeardown) { try { priorTeardown.abort(); } catch (_) { /* already gone */ } }
+  const teardown = typeof AbortController === 'function' ? new AbortController() : null;
+  el[TEARDOWN_KEY] = teardown;
+  /** addEventListener scoped to THIS mount's lifetime. */
+  const listen = (target, type, fn, capture) => {
+    const opts = capture ? { capture: true } : {};
+    if (teardown) opts.signal = teardown.signal;
+    target.addEventListener(type, fn, opts);
+  };
+  /** Has this mount been superseded? Guards work queued on a timer. */
+  const retired = () => !!(teardown && teardown.signal.aborted);
+
   el.innerHTML = '<div class="state state--loading">Loading team builder…</div>';
 
   // Projections + weekly are both REQUIRED here (the fit engine is weekly
@@ -1028,7 +1057,16 @@ export default async function mountTeam(el) {
   // The K/DST positions THIS league actually fields, spelled the way its own
   // roster tokens spell them (a DST league gets 'DST', fed by the DEF rows).
   const kdstSeatTokens = rosterPositionsInPlay(savedProfile).filter(isKdstPosition);
-  const kdstIndex = shapeKdst(kdstRes.status === 'fulfilled' ? kdstRes.value : null, savedProfile);
+  /* SHAPED ONLY FOR A LEAGUE THAT SEATS THEM (R25). kdstIndex is read in
+   * exactly one place — the kdstSeatTokens loop below — so with no K/DEF/DST
+   * token on the roster (the DEFAULT profile has none) the entire shaping pass
+   * was computed and thrown away. It is not cheap: app/kdst.js shapes 74 rows
+   * and each row's applyScoring() and omittedKeys() re-runs normalizeProfile()
+   * -> cloneProfile() on an already-normalised profile, ~4.3 ms of the mount.
+   * Gating on the tokens changes no output — kdstRows stays empty either way. */
+  const kdstIndex = kdstSeatTokens.length
+    ? shapeKdst(kdstRes.status === 'fulfilled' ? kdstRes.value : null, savedProfile)
+    : null;
   /** Contract rows shaped like a projection row, so every consumer is unchanged. */
   const kdstRows = [];
   {
@@ -1543,10 +1581,33 @@ export default async function mountTeam(el) {
       return;
     }
     const roomTaken = roomTakenIds();
+    /* PER-PAINT SLOT MEMO (R25). firstEligibleOpenSlot() and positionAtCap()
+     * are pure in (position, roster.slots, savedProfile, playersById), and the
+     * last three are FIXED for the duration of one paint — only `position`
+     * varies across the rows. Both bottom out in app/league.js rosterSlots /
+     * slotEligiblePositions, each of which opens with normalizeProfile() ->
+     * cloneProfile() -> JSON.parse(JSON.stringify(profile)), so the unmemoised
+     * loop deep-cloned an identical profile object ~13 times per rendered row
+     * (~325 per repaint) and league.js owned 70% of the paint's self time.
+     * FINDER_CAP is 25 rows but the roster only fields a handful of distinct
+     * positions, so this collapses that to one lookup per position per paint.
+     * Same inputs, same function, same answer — the markup cannot move. */
+    const _openByPos = new Map();
+    const _cappedByPos = new Map();
+    const openFor = (position) => {
+      if (!_openByPos.has(position)) _openByPos.set(position, firstEligibleOpenSlot(position));
+      return _openByPos.get(position);
+    };
+    const cappedFor = (position) => {
+      if (!_cappedByPos.has(position)) {
+        _cappedByPos.set(position, positionAtCap(position, roster.slots, playersById, savedProfile));
+      }
+      return _cappedByPos.get(position);
+    };
     const rows = hits.slice(0, FINDER_CAP).map((p) => {
       const id = String(p.gsis_id);
-      const open = firstEligibleOpenSlot(p.position);
-      const capped = positionAtCap(p.position, roster.slots, playersById, savedProfile);
+      const open = openFor(p.position);
+      const capped = cappedFor(p.position);
       const tl = trendLabel(trajFor(id));
       const trendTxt = tl && tl.dir !== 'flat'
         ? ` <span class="cd-trend cd-trend--${tl.dir}">${tl.dir === 'up' ? '▲' : '▼'}</span>`
@@ -2974,18 +3035,38 @@ export default async function mountTeam(el) {
     );
   }
 
+  /* Markup the SETUP branch last wrote, so an unchanged card is not re-parsed
+   * (R25). paintAll() repaints all five panels on every ADD / REMOVE, but the
+   * setup card is built only from draftCfg, the league panel state and the
+   * mock history — it reads neither roster.slots, nor `taken`, nor playersById
+   * — so seating a player rebuilds 8.4 kB of identical HTML. Measured at
+   * 1.27 ms of a ~10 ms ADD. The guard is a STRING comparison, so a card that
+   * would render differently by even one byte still repaints; only a
+   * character-for-character identical write is skipped, and skipping it also
+   * stops the card throwing away an open <details> or a focused input it was
+   * about to restore from closure state anyway. The four live-board branches
+   * are deliberately excluded: liveTakePoolHtml() writes into that box behind
+   * paintDraft's back, so only the setup branch can trust its own cache. */
+  let _draftSetupPainted = null;
   function paintDraft() {
     const box = el.querySelector('#t-draft');
     if (!box) return;
     if (!adpDoc) {
       box.innerHTML = '';
+      _draftSetupPainted = null;
       return;
     }
-    if (auction && auctionResult) box.innerHTML = auctionResultHtml();
-    else if (auction) box.innerHTML = auctionRoomHtml();
-    else if (draft && draftResult) box.innerHTML = draftResultHtml();
-    else if (draft) box.innerHTML = draftLiveHtml();
-    else box.innerHTML = draftSetupHtml();
+    if (auction && auctionResult) { box.innerHTML = auctionResultHtml(); _draftSetupPainted = null; }
+    else if (auction) { box.innerHTML = auctionRoomHtml(); _draftSetupPainted = null; }
+    else if (draft && draftResult) { box.innerHTML = draftResultHtml(); _draftSetupPainted = null; }
+    else if (draft) { box.innerHTML = draftLiveHtml(); _draftSetupPainted = null; }
+    else {
+      const html = draftSetupHtml();
+      if (html !== _draftSetupPainted) {
+        box.innerHTML = html;
+        _draftSetupPainted = html;
+      }
+    }
   }
 
   function paintAll() {
@@ -3507,9 +3588,9 @@ export default async function mountTeam(el) {
     }
   }
 
-  el.addEventListener('click', onAction);
+  listen(el, 'click', onAction);
   // Keyboard parity for the div-based remove control (role="button").
-  el.addEventListener('keydown', (e) => {
+  listen(el, 'keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-act][role="button"]')) {
       e.preventDefault();
       onAction(e);
@@ -3519,14 +3600,16 @@ export default async function mountTeam(el) {
   // typing instead of on every keystroke — the list rebuild (filter + sort +
   // up-to-FINDER_CAP rows) is wasted work between characters.
   let _findTimer = null;
-  el.querySelector('#t-find').addEventListener('input', (e) => {
+  listen(el.querySelector('#t-find'), 'input', (e) => {
     query = e.target.value || '';
     if (_findTimer) clearTimeout(_findTimer);
-    _findTimer = setTimeout(() => { _findTimer = null; paintCands(); }, 140);
+    // A debounce still in flight when the view re-mounts would paint THIS
+    // mount's list into the new mount's DOM — retired() drops it instead.
+    _findTimer = setTimeout(() => { _findTimer = null; if (!retired()) paintCands(); }, 140);
   });
 
   // Draft setup selects (delegated change — the section repaints often).
-  el.addEventListener('change', (e) => {
+  listen(el, 'change', (e) => {
     const sel = e.target.closest('select[data-dcfg]');
     if (!sel) return;
     const key = sel.dataset.dcfg;
@@ -3546,7 +3629,7 @@ export default async function mountTeam(el) {
   });
 
   // Sleeper ROSTER team picker — selecting a team re-plans (it never writes).
-  el.addEventListener('change', (e) => {
+  listen(el, 'change', (e) => {
     const sel = e.target.closest('select[data-rcfg]');
     if (!sel || sel.dataset.rcfg !== 'team') return;
     const n = Number(sel.value);
@@ -3557,7 +3640,7 @@ export default async function mountTeam(el) {
   });
 
   // League-profile selects (FLEX eligibility + keepers) — same delegation.
-  el.addEventListener('change', (e) => {
+  listen(el, 'change', (e) => {
     const sel = e.target.closest('select[data-lcfg]');
     if (!sel) return;
     const key = sel.dataset.lcfg;
@@ -3578,7 +3661,7 @@ export default async function mountTeam(el) {
 
   // Sleeper text fields: keep the typed value in closure state so the frequent
   // setup-card repaint restores it instead of eating it.
-  el.addEventListener('input', (e) => {
+  listen(el, 'input', (e) => {
     const f = e.target.closest('[data-lin]');
     if (!f) return;
     if (f.dataset.lin === 'sleeperId') sleeperId = f.value || '';
@@ -3587,7 +3670,7 @@ export default async function mountTeam(el) {
 
   // LIVE tap-list filter. Repaints ONLY the pool, never the whole draft box —
   // a full repaint would replace the input mid-keystroke and drop focus.
-  el.addEventListener('input', (e) => {
+  listen(el, 'input', (e) => {
     const f = e.target.closest('[data-lfind]');
     if (!f || !draft) return;
     liveTakeQuery = f.value || '';
@@ -3597,13 +3680,13 @@ export default async function mountTeam(el) {
 
   // <details> does not bubble its toggle — listen in the capture phase so the
   // paste fallback stays open across a repaint.
-  el.addEventListener('toggle', (e) => {
+  listen(el, 'toggle', (e) => {
     const d = e.target && e.target.closest ? e.target.closest('details.lp-paste') : null;
     if (d) pasteOpen = d.open;
   }, true);
 
   // Finder + reco controls (delegated on el so they survive every repaint).
-  el.addEventListener('click', (e) => {
+  listen(el, 'click', (e) => {
     const posBtn = e.target.closest('button[data-fpos]');
     if (posBtn) {
       finderPos = posBtn.dataset.fpos;
@@ -3646,7 +3729,7 @@ export default async function mountTeam(el) {
   // choice persists in nfl2026.ai.v1; flipping it re-ranks the reco panel.
   const aiSeg = el.querySelector('.aiseg');
   if (aiSeg) {
-    aiSeg.addEventListener('click', (e) => {
+    listen(aiSeg, 'click', (e) => {
       const btn = e.target.closest('button[data-ai]');
       if (!btn) return;
       const on = btn.dataset.ai === 'on';

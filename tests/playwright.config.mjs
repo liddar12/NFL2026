@@ -73,5 +73,35 @@ export default defineConfig({
       testMatch: /pwa\/.*\.spec\.mjs/,
       use: { ...IPHONE_16_PRO },
     },
+    // `perf` — the R25 PERFORMANCE BUDGET (tests/perf/budget.spec.mjs). Counts,
+    // not milliseconds: boot-graph size, contracts per route, duplicate fetches,
+    // DOM nodes, leaked listeners. See that file's header for exactly what it
+    // does and does not catch.
+    //
+    // Two deliberate differences from web/pwa:
+    //   - iPad 1024x1366, because the Team page is iPad-first and that is the
+    //     viewport the RCA measured. Every budget in the file is a count, and
+    //     counts are viewport-independent, so one viewport is enough.
+    //   - `dependencies` makes it run AFTER the other two projects rather than
+    //     alongside them. The budget's single timing-shaped assertion is a ratio
+    //     against a calibration workload; running it while other workers hammer
+    //     the same CPU adds noise for no benefit. The count assertions are
+    //     immune to contention either way.
+    //
+    // testMatch names budget.spec.mjs specifically: the rest of tests/perf/ is
+    // the RCA's measurement harness (mount-cost.mjs, profile.mjs, micro.mjs,
+    // ...), which is run by hand and stays out of the gate.
+    {
+      name: 'perf',
+      testMatch: /perf\/budget\.spec\.mjs/,
+      dependencies: ['web', 'pwa'],
+      use: {
+        viewport: { width: 1024, height: 1366 },
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+        baseURL: 'http://127.0.0.1:4321',
+      },
+    },
   ],
 });
