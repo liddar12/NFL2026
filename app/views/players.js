@@ -22,15 +22,36 @@
  *     bounded ±25%) and shows the per-player AI delta — so the AI's effect is
  *     visible on the numbers, not just the team-builder recos.
  *   - a .sortseg (PROJ / TREND / SOS) with a direction arrow.
+ *
+ * R21-B2 adds a SECOND adornment row per card (own its markup here — render.js
+ * is integrator-owned, so the card string is composed, never edited):
+ *   - a FANTASY-PLAYOFF SoS chip (app/playoffs.js) over the weeks THIS league's
+ *     playoffs actually run, with byes called out as their own chip because a
+ *     bye and a hard opponent are different problems. A null report renders as
+ *     nothing at all — never a neutral-looking 0.
+ *   - the MARKET auction price beside our own auction price, carrying the
+ *     app's existing "MARKET · DISPLAY ONLY" badge verbatim. The market number
+ *     is read from data/adp.json and displayed; it is never an input to a
+ *     projection, a weight or a sort (validate_data.py MARKET_PRICE_FIELDS).
  */
 
 import {
   getPlayerProjections, getPlayerWeekly, getAiInsights,
-  getPlayerHistory, getTeamStrength, getGamePredictions,
+  getPlayerHistory, getTeamStrength, getGamePredictions, getAdp,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel } from '../team-logic.js';
 import { rosPoints, gamesLeft } from '../ros.js';
+import { playoffSos, playoffWindow } from '../playoffs.js';
+import { loadProfile } from '../league.js';
+import { fairDollars, DEFAULT_BUDGET } from '../auction.js';
+// The profile -> draft-simulator shape bridge, imported rather than re-derived.
+// ourDollars() below must price a player at the SAME dollars the TEAM tab's
+// draft room does, and the draft room prices through rosterShape(draftCfg). Two
+// hand-rolled translations of one league is exactly how the two tabs came to
+// disagree (see the note on ourDollars).
+import { cfgFromProfile } from './team.js';
+import { rosterShape } from '../draft-sim.js';
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
 
@@ -99,11 +120,210 @@ function stateMsg(el, text) {
   el.innerHTML = `<div class="state">${text}</div>`;
 }
 
+/* --------------------------------------------------------------------------
+ * R21-B2 — playoff-SoS chip + market auction value (pure, exported for tests)
+ * ------------------------------------------------------------------------ */
+
+/** HTML-escape before interpolating (the local helper every view carries). */
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** One-decimal fixed number (mirrors render.js's fix1). */
+const fix1 = (n) => Number(n).toFixed(1);
+
+/**
+ * Whole dollars ("$34"), the same rounding the TEAM tab's draft room uses.
+ *
+ * With ONE correction: a real price below half a dollar rounds to "$0", and "$0"
+ * reads as free — which is exactly the claim an unpriced player must never make.
+ * A positive price under a dollar renders "<$1", so "cheap" and "not priced"
+ * stay visibly different readings.
+ */
+export function priceLabel(n) {
+  const v = Math.round(Number(n));
+  return v < 1 ? '<$1' : `$${v}`;
+}
+
+/**
+ * The MARKET · DISPLAY ONLY badge, byte-identical to the one app/views/model.js
+ * emits for market SIGNALS and app/render.js emits on the game market strip.
+ * Reused verbatim on purpose: the app must have exactly ONE way of saying "this
+ * number is a market price and it never moves anything we predict".
+ * tests/feature/players_view.test.mjs asserts it still matches model.js's.
+ */
+export const MARKET_BADGE =
+  '<span class="ms-badge" title="Market prices are never weighted into '
+  + 'predictions (user policy)">MARKET · DISPLAY ONLY</span>';
+
+/**
+ * RATING_BANDS label -> tone class. Easiest/Easy read as a break, Hard/Hardest
+ * as a cost, Neutral as neither. The WORD carries the meaning; the tone is
+ * reinforcement, never the only carrier (same rule as the SoS meter).
+ */
+export function playoffTone(label) {
+  if (label === 'Easiest' || label === 'Easy') return 'easy';
+  if (label === 'Hard' || label === 'Hardest') return 'hard';
+  return 'even';
+}
+
+/**
+ * The BYE-inside-the-playoff-window chip, or '' when there is no bye in the
+ * window. Deliberately a SEPARATE chip with its own shape (pill + warn border)
+ * rather than a shade of the difficulty chip: "you have no game that week" is a
+ * different problem from "you have a hard game that week", and the two must not
+ * be readable as points on one scale.
+ */
+export function renderPlayoffByes(report) {
+  if (!report || !report.byes) return '';
+  const wk = report.window;
+  const weeks = (report.schedule || []).filter((s) => s.bye).map((s) => `W${s.wk}`);
+  const list = weeks.length ? weeks.join(' ') : `${report.byes} WEEK`;
+  const title =
+    `Bye inside your playoff window (weeks ${wk.start}-${wk.end}): `
+    + `${weeks.length ? weeks.join(', ') : `${report.byes} week`}. `
+    + 'This player scores 0 that week whoever the opponent is — only '
+    + `${report.games} of ${wk.weeks} playoff weeks are games. `
+    + 'The difficulty rating beside this chip is measured over the games only.';
+  return (
+    `<span class="posos-bye" title="${esc(title)}">`
+      + '<span class="pb-glyph" aria-hidden="true">⊘</span>'
+      + `<span class="pb-txt">BYE ${esc(list)}</span>`
+      + `<span class="pb-n">${esc(report.games)}/${esc(wk.weeks)} GAMES</span>`
+    + '</span>'
+  );
+}
+
+/**
+ * The fantasy-playoff strength-of-schedule chip for one playoffSos() report.
+ *
+ * NULL RENDERS AS ABSENT. A player with no weekly rows, no rated opponent in
+ * the window, or an all-bye window has no reading at all — emitting a 0, a
+ * dash-in-a-meter or a mid-scale "3.0" would read as "average schedule", which
+ * is a claim the data does not support.
+ *
+ * Difficulty is relative to the player's OWN season average (report.rating), so
+ * the chip answers "does it get harder when it matters?". The number is the
+ * accessible source of truth, the band word says it in English, and the meter
+ * is a redundant graphic — the same three-carrier rule as .p-sos.
+ */
+export function renderPlayoffSos(report) {
+  if (!report) return '';
+  const wk = report.window;
+  const tone = playoffTone(report.label);
+  const filled = Math.max(1, Math.min(5, Math.round(Number(report.rating))));
+  const segs = [1, 2, 3, 4, 5].map((i) => (
+    `<span class="po-seg${i <= filled ? ` po-seg--on po-seg--${tone}` : ''}"></span>`
+  )).join('');
+  const pts = Number(report.pts_per_game);
+  const swing = pts === 0
+    ? 'no swing'
+    : `${pts > 0 ? '+' : ''}${pts.toFixed(2)} pts/game`;
+  const title =
+    `Weeks ${wk.start}-${wk.end} — your league's fantasy playoffs. `
+    + `Mean opponent Elo ${report.playoff_elo} over ${report.games} `
+    + `game${report.games === 1 ? '' : 's'} vs this player's own season average `
+    + `${report.season_elo}: ${report.elo_diff > 0 ? '+' : ''}${report.elo_diff} Elo, `
+    + `${swing} at the app's fixed 25 Elo per point. `
+    + (report.byes ? `${report.byes} bye week in the window. ` : '')
+    + (report.unrated
+      ? `${report.unrated} window game skipped — opponent has no rating. ` : '')
+    + 'Schedule lens only: never applied to a projection.';
+  return (
+    `<span class="p-posos p-posos--${tone}" title="${esc(title)}">`
+      + `<span class="posos-lbl">PLAYOFF W${esc(wk.start)}-${esc(wk.end)}</span>`
+      + `<span class="posos-num">${esc(fix1(report.rating))}</span>`
+      + `<span class="posos-word">${esc(report.label)}</span>`
+      + `<span class="posos-meter" aria-hidden="true">${segs}</span>`
+    + '</span>'
+    + renderPlayoffByes(report)
+  );
+}
+
+/**
+ * OUR auction price beside the MARKET's, or '' when we have neither.
+ *
+ *   ours     our dollars (app/auction.js fairDollars — VOR from OUR projections)
+ *   auction  data/adp.json auction_value (ESPN kona ownership.auctionValueAverage)
+ *   teams    our league's team count (the profile's), for the title
+ *   budget   the budget both prices are denominated in
+ *   board    the market board's own league size, for the title
+ *
+ * The market number is DISPLAY ONLY and carries MARKET_BADGE whenever the cell
+ * renders — including when the price is missing — so a market column can never
+ * appear on this card without the policy label attached to it. An unpriced
+ * player shows an em dash, never $0: ESPN publishing no price is not a price.
+ */
+export function renderValue({ ours, auction, teams, budget, board } = {}) {
+  const o = Number(ours);
+  const a = Number(auction);
+  const haveOurs = Number.isFinite(o) && o > 0;
+  const haveMkt = Number.isFinite(a) && a > 0;
+  if (!haveOurs && !haveMkt) return '';
+  const oursSentence = haveOurs
+    ? `OURS ${priceLabel(o)} is this app's own auction price: value over replacement `
+      + `from our projections, allocated across your league (${teams} teams, `
+      + `$${budget} budget).`
+    : 'OURS is blank: this player is not on the draft board we price, so we have '
+      + 'no auction price of our own for them.';
+  const mktSentence = haveMkt
+    ? `AUC ${priceLabel(a)} is the MARKET's price — ESPN's average winning bid on a `
+      + `${board}-team $${budget} board.`
+    : 'AUC is blank: ESPN publishes no auction value for this player. That is a '
+      + 'missing price, not a price of zero.';
+  const title = `${oursSentence} ${mktSentence} The market price is shown for `
+    + 'comparison only. It is never an input to a projection, a weight, or this '
+    + "list's sort order.";
+  return (
+    `<span class="p-val" title="${esc(title)}">`
+      + '<span class="pv-cell">'
+        + '<span class="pv-lbl">OURS</span>'
+        + (haveOurs
+          ? `<span class="pv-us">${esc(priceLabel(o))}</span>`
+          : '<span class="pv-us pv-none">—</span>')
+      + '</span>'
+      + '<span class="pv-cell">'
+        + '<span class="pv-lbl">AUC</span>'
+        + (haveMkt
+          ? `<span class="pv-mkt">${esc(priceLabel(a))}</span>`
+          : '<span class="pv-mkt pv-none">—</span>')
+      + '</span>'
+      + MARKET_BADGE
+    + '</span>'
+  );
+}
+
+/**
+ * The anchor renderPlayerCard() puts the conformal band behind. The R21-B2 row
+ * is SPLICED in front of it rather than appended to render.js's own .p-adorn —
+ * app/render.js is integrator-owned and this view may not edit it.
+ */
+const CARD_ANCHOR = '<div class="interval">';
+
+/**
+ * Compose a rendered card with an extra adornment row. If render.js ever stops
+ * emitting the anchor the card is returned untouched: an integrator-side change
+ * must cost this view its two chips, never the whole players list.
+ */
+export function withExtraRow(cardHtml, extras) {
+  if (!extras) return cardHtml;
+  const i = String(cardHtml).indexOf(CARD_ANCHOR);
+  if (i < 0) return cardHtml;
+  return `${cardHtml.slice(0, i)}<div class="p-adorn p-adorn--value">${extras}</div>${cardHtml.slice(i)}`;
+}
+
 /** A compact glossary so no acronym or arrow is ever unexplained; the same
  * collapsible <details> pattern the TEAM tab uses, owned locally (render.js is
  * integrator-owned, and this view's markup is its own). Static markup, placed
  * once under the view header. */
-function renderLegend() {
+function renderLegend(opts = {}) {
+  const wk = opts.window;
+  const poRange = wk ? `W${wk.start}-${wk.end}` : '';
   return (
     '<details class="legend legend--players">' +
       '<summary>WHAT DO THESE MEAN?</summary>' +
@@ -111,6 +331,13 @@ function renderLegend() {
         '<span class="legend-item"><b>PROJ</b> projected season points (your scoring mode)</span>' +
         '<span class="legend-item"><b>TREND</b> 5-yr trajectory — <span class="cd-trend--up">▲</span> improving, <span class="cd-trend--down">▼</span> declining</span>' +
         '<span class="legend-item"><b>SOS</b> strength of schedule, 1.0 easiest to 5.0 hardest</span>' +
+        (wk
+          ? `<span class="legend-item"><b>PLAYOFF ${esc(poRange)}</b> the same 1.0-5.0 scale over YOUR league's playoff weeks, measured against this player's own season average — 1.0 means it gets easier when it matters. Blank means we have no reading, not an average one.</span>`
+            + '<span class="legend-item"><b>⊘ BYE</b> a bye INSIDE the playoff window — that week scores 0 no matter the matchup, which is a different problem from a hard opponent</span>'
+          : '') +
+        (opts.hasValue
+          ? '<span class="legend-item"><b>OURS / AUC</b> our own auction price (value over replacement from our projections) beside the market\'s — AUC is ESPN\'s average winning bid, shown for comparison only and never used to make a number</span>'
+          : '') +
         '<span class="legend-item"><b>BYE</b> the week this player has no game (scores 0)</span>' +
         '<span class="legend-item"><b>AI+</b> AI re-rank by 5-yr trajectory (bounded ±25%, labeled ESTIMATE)</span>' +
         '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
@@ -172,13 +399,14 @@ export default async function mountPlayers(el) {
 
   // Projections required; everything else optional (allSettled) so a missing
   // weekly/insight/history/strength file never blanks the view.
-  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
     getPlayerHistory(),
     getTeamStrength(),
     getGamePredictions(),
+    getAdp(),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
@@ -219,6 +447,38 @@ export default async function mountPlayers(el) {
     const w = Number(predRes.value.week);
     if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
   }
+
+  /* ---- R21-B2 layers (both optional; each hides itself when its feed is
+   * absent, exactly like the REL2 layers above) --------------------------- */
+
+  // THIS league decides which weeks are the playoffs. No profile saved ->
+  // DEFAULT_PROFILE (weeks 15-17); an imported Sleeper league moves the window.
+  const profile = loadProfile();
+  // Taken from the module, never restated here, so the legend's week range and
+  // the chips' week range cannot drift apart.
+  const playoffWk = playoffWindow(profile);
+
+  // data/adp.json: the drafter market. `auction_value` is a MARKET PRICE —
+  // DISPLAY ONLY (validate_data.py MARKET_PRICE_FIELDS). It is read here to be
+  // shown and to give our own price something to sit beside; it never reaches
+  // model(), sortVal() or any number this view computes.
+  const adpDoc = (adpRes.status === 'fulfilled' && adpRes.value
+    && Array.isArray(adpRes.value.players)) ? adpRes.value : null;
+  const marketBudget = adpDoc && Number.isFinite(Number(adpDoc.auction_budget))
+    ? Number(adpDoc.auction_budget) : DEFAULT_BUDGET;
+  const marketBoardTeams = adpDoc && Number.isFinite(Number(adpDoc.league_size))
+    ? Number(adpDoc.league_size) : 12;
+  // id -> auction_value. A null/0/absent price is NOT recorded: "ESPN does not
+  // price this player" must stay distinguishable from "$0".
+  const auctionById = new Map();
+  if (adpDoc) {
+    adpDoc.players.forEach((r) => {
+      if (!r || r.gsis_id == null || r.auction_value == null) return;
+      const v = Number(r.auction_value);
+      if (Number.isFinite(v) && v > 0) auctionById.set(String(r.gsis_id), v);
+    });
+  }
+  const hasValue = auctionById.size > 0;
 
   let scoring = hasWeekly ? loadScoring() : 'ppr';
   const PAGE = 60;              // initial cards + SHOW MORE step (phone perf)
@@ -302,6 +562,78 @@ export default async function mountPlayers(el) {
     return v;
   }
 
+  // Fantasy-playoff SoS report per player — static per mount (weekly, strength
+  // and the league profile are all fixed here), so memoized like SoS above.
+  // A player with no weekly row / no rated window game caches a null and the
+  // chip renders as absent.
+  const _poCache = new Map();
+  function playoffOf(id) {
+    if (_poCache.has(id)) return _poCache.get(id);
+    const v = teamStrength
+      ? playoffSos(weeklyById.get(id), teamStrength, profile) : null;
+    _poCache.set(id, v);
+    return v;
+  }
+
+  // OUR auction price sheet, per scoring mode. Deliberately the SAME inputs the
+  // TEAM tab's draft room uses — the ADP board rows that carry a gsis_id, priced
+  // by scoring-adjusted season points over the league profile's roster — so a
+  // player costs the same dollars on both surfaces instead of two engines
+  // disagreeing about one number. (tests/feature/players_view.test.mjs proves
+  // the equality against createAuction()'s own fair map on the committed data.)
+  //
+  // Priced from OUR points only: the market's dollars sit BESIDE this number on
+  // the card, never inside it. AI+ deliberately does not move it either — the
+  // draft room does not apply AI, and a price sheet that shifted with a display
+  // toggle would be a different number on every screen.
+  //
+  // R21 FIX — THE SHAPE ARGUMENT. This used to hand fairDollars the raw
+  // LeagueProfile while the draft room handed it rosterShape(draftCfg), and
+  // app/auction.js reads `shape.size` when it has one and falls back to
+  // geometry.all.length when it does not. For a league whose roster_positions
+  // include K and DEF those two disagree (15 vs 13), which moves poolN, which
+  // moves `spread`, which moves EVERY dollar on the sheet — so the Sleeper
+  // leagues this release imports saw a different OURS price on PLAYERS than on
+  // TEAM for the same player. Both call sites now build the shape the same way,
+  // from the same bridge, so they cannot drift again.
+  const _ourShape = rosterShape(cfgFromProfile(profile).cfg);
+  const _projById = new Map(players.map((p) => [String(p.gsis_id), p]));
+  const _ourCache = new Map();
+  function ourDollars(mode) {
+    if (_ourCache.has(mode)) return _ourCache.get(mode);
+    let map = new Map();
+    const pool = adpDoc
+      ? adpDoc.players.filter((r) => r && r.gsis_id != null)
+      : [];
+    if (pool.length) {
+      const adjOf = (r) => {
+        const id = String(r.gsis_id);
+        const p = _projById.get(id);
+        if (!p) return 0;                  // on the board, not in our projections
+        const w = weeklyById.get(id);
+        const ppr = Number(p.proj_points);
+        return (w && mode !== 'ppr') ? seasonAdjust(ppr, w.receptions_prior, mode) : ppr;
+      };
+      map = fairDollars(pool, adjOf, profile.shape.teams, marketBudget, _ourShape);
+    }
+    _ourCache.set(mode, map);
+    return map;
+  }
+
+  /** The R21-B2 adornment row for one player id, or '' when neither half has
+   * anything honest to say. */
+  function extraRow(id) {
+    const po = renderPlayoffSos(playoffOf(id));
+    const val = renderValue({
+      ours: ourDollars(scoring).get(id),
+      auction: auctionById.get(id),
+      teams: profile.shape.teams,
+      budget: marketBudget,
+      board: marketBoardTeams,
+    });
+    return po + val;
+  }
+
   /** Sort key value for a player under the active sort. */
   function sortVal(p) {
     const id = String(p.gsis_id);
@@ -350,13 +682,14 @@ export default async function mountPlayers(el) {
     const more = filtered.length - capped.length;
     listEl.innerHTML = capped.length
       ? capped.map((p) => {
+          const id = String(p.gsis_id);
           const m = model(p);
           // Show the RoS value chip when ranking by rest-of-season, so the sort
           // is legible (you see the number you sorted on), not just re-ordered.
-          const ros = sortKey === 'ros' ? rosOf(String(p.gsis_id)) : null;
-          return renderPlayerCard(m.player, {
+          const ros = sortKey === 'ros' ? rosOf(id) : null;
+          return withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta, ros,
-          });
+          }), extraRow(id));
         }).join('')
         + (more > 0
           ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
@@ -373,7 +706,7 @@ export default async function mountPlayers(el) {
 
   el.innerHTML =
     head +
-    renderLegend() +
+    renderLegend({ window: teamStrength && hasWeekly ? playoffWk : null, hasValue }) +
     (hasWeekly ? renderScoreSeg(scoring) : '') +
     (hasAi ? aiSegRow(aiOn) : '') +
     filterRow(active) +

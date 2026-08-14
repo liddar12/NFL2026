@@ -227,6 +227,34 @@ test('every team tint clears 3.0:1 on --surface (large bold .team-ab)', () => {
   );
 });
 
+/* ---- R21-B2 players playoff-SoS + market-value chips ---------------------- */
+test('playoff-SoS + market-value chips meet AA on the player card (R21-B2)', () => {
+  // Both chips render on .card.player (--surface) in 10-11px mono — SMALL text,
+  // so every ink here is held to 4.5:1. There is no large-text escape hatch.
+  //   .posos-lbl / .p-posos--even .posos-word / .pv-lbl / .pv-none  -> muted
+  //   .posos-num                                                    -> ink
+  //   .p-posos--easy .posos-word                                    -> pos-txt
+  //   .p-posos--hard .posos-word                                    -> accent-txt
+  //   .pv-us                                                        -> brand-txt
+  //   .pv-mkt                                                       -> ink
+  //   .ms-badge (reused verbatim)                                   -> muted
+  for (const fg of ['muted', 'ink', 'pos-txt', 'accent-txt', 'brand-txt']) {
+    assertContrast(fg, 'surface', AA_TEXT);
+  }
+  // The bye pill fills itself with --surface-2 and sits on the card, so its ink
+  // is audited against the pill, not the card.
+  assertContrast('warn', 'surface-2', AA_TEXT);   // .posos-bye text + glyph
+  assertContrast('muted', 'surface-2', AA_TEXT);  // .pb-n games count
+
+  // Meter fills and the bye pill's 1px edge are GRAPHICS: 3.0:1 (WCAG 1.4.11).
+  // --brand is the .po-seg--on default (matching .sos-seg--on) and had never
+  // been pinned on --surface before; --muted is the "even" fill.
+  for (const fill of ['brand', 'pos', 'accent', 'muted']) {
+    assertContrast(fill, 'surface', AA_LARGE);
+  }
+  assertContrast('warn', 'surface-2', AA_LARGE);  // .posos-bye border
+});
+
 test('team registry is non-empty and every tint is a valid hex', () => {
   const entries = Object.entries(TEAMS);
   assert.ok(entries.length > 0, 'TEAMS registry is empty');

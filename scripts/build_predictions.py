@@ -554,10 +554,46 @@ def main():
         from scripts.scrape import adp as adp_mod  # noqa: PLC0415 (guarded)
         adp_rows, adp_join = adp_mod.join_to_pool(
             adp_mod.fetch_adp(SEASON), projected[:300])
+        # AUCTION VALUE (ESPN kona ownership.auctionValueAverage) — the room's
+        # observed price, joined onto the same rows. SAME POLICY AS ADP: display
+        # + value flags only, never an input (validate_data MARKET_PRICE_FIELDS).
+        # It needs its OWN pull: the pool request above is for PRIOR_SEASON, and
+        # ESPN zeroes auctionValueAverage for a season already played, so the
+        # draft season (SEASON) is the only place the price exists. Guarded on its
+        # own so a dead auction feed costs the auction field, not the ADP board.
+        auction_join = None
+        try:
+            _auc = espn_players.fetch_auction_values(SEASON)
+            _by_gid = {f"espn-{r['espn_id']}": r["auction_value"] for r in _auc}
+            _by_name = {}
+            for r in _auc:                      # secondary key for board rows we
+                _by_name.setdefault(              # do not project (gsis_id None)
+                    (adp_mod.norm_name(r["name"]), r["position"]), r["auction_value"])
+            _hit = 0
+            for r in adp_rows:
+                val = _by_gid.get(r.get("gsis_id")) if r.get("gsis_id") else None
+                if val is None:
+                    val = _by_name.get((adp_mod.norm_name(r["name"]), r["position"]))
+                # Absent stays ABSENT: ESPN not pricing a player is not a $0 price.
+                r["auction_value"] = val
+                if val is not None:
+                    _hit += 1
+            auction_join = round(_hit / len(adp_rows), 3) if adp_rows else 0.0
+            print(f"auction: {len(_auc)} priced by ESPN, {_hit} joined onto the "
+                  f"ADP board (join rate {auction_join})")
+        except Exception as exc:  # noqa: BLE001 — loud, and the ADP board still ships
+            for r in adp_rows:
+                r.pop("auction_value", None)
+            print(f"[warn] ESPN auction values unavailable (ADP board still ships "
+                  f"WITHOUT prices, not with fabricated ones): {exc}", file=sys.stderr)
         _write(os.path.join(DATA, "adp.json"), {
             "updated_utc": now,
             "source": "fantasyfootballcalculator ppr 12-team",
             "format": "ppr", "league_size": 12, "join_rate": adp_join,
+            "auction_source": ("espn kona ownership.auctionValueAverage"
+                               if auction_join is not None else None),
+            "auction_budget": 200 if auction_join is not None else None,
+            "auction_join_rate": auction_join,
             "players": adp_rows,
         })
         feeds["adp"] = {"rows": len(adp_rows), "age_hours": 0.0,

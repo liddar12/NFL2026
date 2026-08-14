@@ -39,6 +39,23 @@
  * ("7 of 9 slots projected") instead of implying a complete lineup.
  * Omit `profile` entirely and the geometry is DEFAULT_PROFILE's — byte-for-byte
  * the seven slots this module has always returned, with zero new warnings.
+ *
+ * R20-B1 — THE K/DST FEED ARRIVES, AND THE UNPROJECTED PATH SURVIVES IT.
+ * data/kdst_projections.json now exists, so K and DEF can be filled like any
+ * other slot. The feed is passed IN (`opts.feeds`) rather than assumed:
+ *   - `feeds` names the positions that have a live projection feed FOR THIS
+ *     RENDER, unioned with the always-present PROJECTED_POSITIONS. The caller
+ *     derives it from what actually loaded and actually has rows, so a 404, an
+ *     empty `defenses` array, or a stale deploy each collapse back to exactly
+ *     the R19-B5 behaviour: slot present, empty, worth nothing, WARN_NO_PROJECTION.
+ *     Hardcoding "K and DEF are projected now" would delete that path, and a
+ *     path that only works while the file happens to exist is not a path.
+ *   - PROJECTED_POSITIONS and isProjectedPosition() are UNCHANGED. They describe
+ *     data/player_projections.json, which still covers QB/RB/WR/TE only. The
+ *     K/DST contract is a separate file and is described by `feeds`.
+ *   - 'DST' and 'DEF' are canonicalised to one spelling, so a league whose slot
+ *     token is DST is fed by the same rows as one that says DEF.
+ * Omit `opts` and every number, slot, warning and total is what it was before.
  */
 
 import {
@@ -77,13 +94,41 @@ export const WARN_NO_PROJECTION = 'no_projection_feed';
 const FLEX_SCAN_ORDER = ['RB', 'WR', 'TE', 'QB'];
 
 /**
+ * 'DST' and 'DEF' name the same roster spot. One spelling internally, so a
+ * DST slot and a DEF row find each other. Nothing in the default geometry is a
+ * defense, so this is inert for every pre-R20 caller.
+ */
+export function canonPosition(pos) {
+  const u = String(pos == null ? '' : pos).toUpperCase();
+  return u === 'DST' ? 'DEF' : u;
+}
+
+/**
+ * Positions with a live feed for this render: the always-present
+ * PROJECTED_POSITIONS plus whatever the caller says loaded. Union, not
+ * replacement — data/player_projections.json is not optional.
+ */
+function feedSet(opts) {
+  const out = PROJECTED_POSITIONS.map(canonPosition);
+  const extra = (opts && Array.isArray(opts.feeds)) ? opts.feeds : [];
+  for (const pos of extra) {
+    const c = canonPosition(pos);
+    if (c && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
+/**
  * The starting slots of a league, as data:
  *   [{ slot, token, positions:[POS], flex:bool, projected:bool }]
- * `projected` is false when NO eligible position has a projection feed — a K or
- * DEF slot. Pass nothing for the historical seven-slot geometry.
+ * `projected` is false when NO eligible position has a projection feed. With no
+ * `opts` that is exactly a K or DEF slot; pass `opts.feeds` and those slots
+ * become projected — and stay unprojected the moment the feed is gone.
+ * Pass nothing at all for the historical seven-slot geometry.
  */
-export function lineupGeometry(profile) {
+export function lineupGeometry(profile, opts) {
   const p = normalizeProfile(profile);
+  const fed = feedSet(opts);
   return rosterSlots(p).starters.map((slot) => {
     const token = slotToken(slot, p);
     const positions = slotEligiblePositions(slot, p);
@@ -92,7 +137,7 @@ export function lineupGeometry(profile) {
       token,
       positions,
       flex: Boolean(FLEX_ELIGIBILITY[token]),
-      projected: positions.some(isProjectedPosition),
+      projected: positions.some((pos) => fed.includes(canonPosition(pos))),
     };
   });
 }
@@ -109,12 +154,12 @@ export function lineupGeometry(profile) {
  *           geometry, slotIds, projectedSlots, slotCount }.
  * `warnings` is additive and empty for the default geometry with everyone available.
  */
-export function bestLineup(players, profile) {
-  const geometry = lineupGeometry(profile);
+export function bestLineup(players, profile, opts) {
+  const geometry = lineupGeometry(profile, opts);
   const byPos = {};
-  for (const pos of PROJECTED_POSITIONS) byPos[pos] = [];
+  for (const pos of feedSet(opts)) byPos[pos] = [];
   for (const p of (Array.isArray(players) ? players : [])) {
-    const pos = String(p.pos || '').toUpperCase();
+    const pos = canonPosition(p.pos);
     // `un` = 1 when the player cannot play. STRICT === false: an absent flag (an
     // older caller, or a deploy before the availability feed) is treated as
     // available, which is exactly today's behaviour.
@@ -140,7 +185,18 @@ export function bestLineup(players, profile) {
    * dedicated one-position slot this is exactly the old single-position scan.
    */
   const takeBest = (positions) => {
-    const scan = FLEX_SCAN_ORDER.filter((pos) => positions.includes(pos));
+    // Canonicalise, then scan FLEX_SCAN_ORDER first and anything it does not
+    // enumerate (K, DEF — never flex-eligible) after, in the slot's own order.
+    // For any subset of {RB,WR,TE,QB} this is the pre-R20 scan, unchanged.
+    const canon = [];
+    for (const pos of positions) {
+      const c = canonPosition(pos);
+      if (c && !canon.includes(c)) canon.push(c);
+    }
+    const scan = [
+      ...FLEX_SCAN_ORDER.filter((pos) => canon.includes(pos)),
+      ...canon.filter((pos) => !FLEX_SCAN_ORDER.includes(pos)),
+    ];
     let best = null;
     for (const pos of scan) {
       const list = byPos[pos];
@@ -214,10 +270,10 @@ export function bestLineup(players, profile) {
  * never contributes to `netGain`: this surface only ever claims points it can
  * actually project.
  */
-export function startSitSwaps(currentStarterIds, players, week, profile) {
+export function startSitSwaps(currentStarterIds, players, week, profile, opts) {
   const ptsById = new Map((Array.isArray(players) ? players : [])
     .map((p) => [String(p.id), Number(p.pts) || 0]));
-  const optimal = bestLineup(players, profile);
+  const optimal = bestLineup(players, profile, opts);
   const optimalIds = new Set(optimal.slotIds.map((s) => optimal.slots[s]).filter(Boolean));
   const current = (Array.isArray(currentStarterIds) ? currentStarterIds : []).map(String);
   const currentSet = new Set(current);
@@ -289,6 +345,41 @@ export function __selftest() {
   if (nine.warnings.some((w) => w.reason === WARN_FORCED_UNAVAILABLE)) {
     throw new Error('an unprojected slot is not a forced start');
   }
+
+  // R20-B1 — the same league, with the K/DST feed connected. The two slots fill,
+  // the coverage goes to 9 of 9, and the points are the seven-slot total plus
+  // exactly the two new starters. Nothing else moves.
+  const withKD = [...players,
+    { id: 'k1', pos: 'K', pts: 9.5 }, { id: 'k2', pos: 'K', pts: 7.1 },
+    { id: 'd1', pos: 'DEF', pts: 8.2 },
+  ];
+  const fed = bestLineup(withKD, KDEF_PROFILE, { feeds: ['K', 'DEF'] });
+  if (fed.slots.K1 !== 'k1' || fed.slots.DEF1 !== 'd1') throw new Error('K/DEF slots fill');
+  if (fed.projectedSlots !== 9 || fed.slotCount !== 9) throw new Error('nine of nine projected');
+  if (fed.warnings.length !== 0) throw new Error('a fed slot does not warn');
+  if (Math.round((fed.total - l.total) * 10) / 10 !== 17.7) throw new Error('K/DEF add their points');
+  if (!fed.bench.includes('k2')) throw new Error('the backup kicker benches');
+  // The seven offensive slots are untouched by the new feed.
+  for (const s of LINEUP_SLOTS) if (fed.slots[s] !== l.slots[s]) throw new Error('offense unmoved');
+
+  // ...and with the feed GONE (a 404, an empty contract) the honest-degradation
+  // path is byte-for-byte what it was: empty, worthless, warned.
+  const gone = bestLineup(withKD, KDEF_PROFILE);
+  if (gone.slots.K1 !== null || gone.slots.DEF1 !== null) throw new Error('no feed -> no fill');
+  if (gone.total !== l.total) throw new Error('no feed -> no points');
+  if (gone.warnings.filter((w) => w.reason === WARN_NO_PROJECTION).length !== 2) {
+    throw new Error('no feed -> both slots still warn');
+  }
+  // A partial feed is honoured per position, not all-or-nothing.
+  const kOnly = bestLineup(withKD, KDEF_PROFILE, { feeds: ['K'] });
+  if (kOnly.slots.K1 !== 'k1' || kOnly.slots.DEF1 !== null) throw new Error('per-position feeds');
+  if (kOnly.projectedSlots !== 8) throw new Error('8 of 9 with kickers only');
+
+  // DST and DEF are one spelling: a DST slot is fed by a DEF row.
+  const dst = bestLineup(withKD, {
+    shape: { roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DST', 'BN'] },
+  }, { feeds: ['K', 'DEF', 'DST'] });
+  if (dst.slots.DST1 !== 'd1') throw new Error('a DST slot takes a DEF row');
   return true;
 }
 

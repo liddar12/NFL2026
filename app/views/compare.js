@@ -25,6 +25,23 @@
  * fabricated number that also loses every edge chip it appears in. Those cells
  * read "not projected yet" instead, and the centre rail falls back to its n/a
  * chip because there is genuinely nothing to compare.
+ *
+ * R21-B3 — PLAYOFF SoS. The season-long SoS row averages all 18 weeks, which is
+ * the wrong question for a head-to-head: a manager choosing between two players
+ * is choosing who wins him the weeks that decide his season. A second row reads
+ * app/playoffs.js over the league's OWN playoff window (LeagueProfile
+ * shape.playoff_week_start — never a hardcoded 14) and the centre rail gets the
+ * same edge chip every other metric has. app/playoffs.js returns NULL, not a
+ * neutral 3.0, when a player has no rated game in that window, so the row says
+ * "no playoff-window data" in words and the rail says which side is missing
+ * rather than crowning a winner over an absence.
+ *
+ * R21-B3 also fixes the WINNER GLYPH. `◀`/`▶` describe the >=561px layout, where
+ * the two players sit left and right of the rail. Below 560px .cmp-grid collapses
+ * to ONE column and the players STACK — A above the rail, B below it — so a left
+ * arrow pointed at nothing. Both glyph pairs are emitted and the media query
+ * picks one; no resize listener, no JS layout guess, and `display:none` keeps the
+ * hidden pair out of innerText and out of the accessibility tree.
  */
 
 import {
@@ -36,6 +53,8 @@ import { strengthOfSchedule, trendLabel } from '../team-logic.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { isProjectedPosition } from '../lineup.js';
 import { rosPoints, nextBye } from '../ros.js';
+import { playoffSos } from '../playoffs.js';
+import { loadProfile } from '../league.js';
 
 function esc(v) {
   return String(v == null ? '' : v)
@@ -87,6 +106,12 @@ export default async function mountCompare(el) {
     if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
   }
 
+  // The playoff window is the LEAGUE's, not a constant: a Sleeper import that
+  // starts playoffs in week 14 must widen this row without touching this file.
+  // loadProfile() returns DEFAULT_PROFILE when nothing is saved, so an untouched
+  // install reads weeks 15-17 and every other number on this page is unchanged.
+  const profile = loadProfile();
+
   const picks = parsePicks();
   // Same player on both sides is not a comparison — it diffs to all-"even" and
   // fires a bogus "same bye" warning. Drop the duplicate so the B column shows
@@ -115,6 +140,9 @@ export default async function mountCompare(el) {
       avail: availabilityOf(w, currentWk, currentWk),
       ros: (projected && w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
+      // NULL when the player has no rated, non-bye game inside the window. Kept
+      // null all the way to the markup — never coerced to a mid-scale 3.0.
+      psos: (w && teamStrength) ? playoffSos(w, teamStrength, profile) : null,
       bye: (w && Array.isArray(w.weeks)) ? nextBye(w.weeks, currentWk) : null,
       trend: traj ? trendLabel(traj) : null,
       trendVal: traj && Number.isFinite(Number(traj.slope_pts_per_yr)) ? Number(traj.slope_pts_per_yr) : null,
@@ -140,22 +168,33 @@ export default async function mountCompare(el) {
 
   // Edge chips down the centre when both sides are chosen.
   if (A && B) {
-    const mid = el.querySelector('#cmp-mid');
-    mid.innerHTML =
-      availEdge(A.avail, B.avail)
-      + edge('PROJ', A.proj, B.proj, 'high')
-      + edge('RoS', A.ros, B.ros, 'high')
-      + edge('TREND', A.trendVal, B.trendVal, 'high')
-      + edge('SoS', A.sos, B.sos, 'low')
-      + byeEdge(A.bye, B.bye);
+    el.querySelector('#cmp-mid').innerHTML = midHtml(A, B);
   }
 
   // Wire the two inline finders (delegated).
   wireFinders(el, players, picks);
 }
 
+/**
+ * The centre rail: ONE edge chip per metric row, in the SAME order colHtml()
+ * emits those rows. Extracted (R21-B3) so the two orderings live next to each
+ * other and a unit test can assert they still line up — a rail that drifts out
+ * of order silently mislabels every chip below the drift.
+ */
+export function midHtml(A, B) {
+  return (
+    availEdge(A.avail, B.avail)
+    + edge('PROJ', A.proj, B.proj, 'high')
+    + edge('RoS', A.ros, B.ros, 'high')
+    + edge('TREND', A.trendVal, B.trendVal, 'high')
+    + edge('SoS', A.sos, B.sos, 'low')
+    + playoffEdge(A.psos, B.psos)
+    + byeEdge(A.bye, B.bye)
+  );
+}
+
 /** One player column: identity + metric values, or an inline finder. */
-function colHtml(side, m) {
+export function colHtml(side, m) {
   if (!m) {
     return (
       `<div class="cmp-col cmp-col--empty" data-side="${side}">`
@@ -178,9 +217,136 @@ function colHtml(side, m) {
     + row('RoS VALUE', m.projected ? (m.ros == null ? '—' : fix1(m.ros)) : noFeed)
     + row('TREND', m.trend ? renderTrendChip(m.trend) : '—')
     + row('SoS', m.sos == null ? '—' : `${fix1(m.sos)} <span class="cmp-hint">1 easy · 5 hard</span>`)
+    + playoffRow(m.psos)
     + row('BYE', m.bye == null ? '—' : `W${m.bye}`)
     + evidenceHtml(m.avail)
     + '</div>'
+  );
+}
+
+/* --------------------------------------------------------------------------
+ * R21-B3 — FANTASY-PLAYOFF SoS
+ *
+ * Exported PURE so the fast gate can prove the markup with no browser — the
+ * pattern app/views/model.js and app/views/players.js already use.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * The PLAYOFF SoS metric row for one side, from an app/playoffs.js report.
+ *
+ * `report` is NULL whenever the player has no rated, non-bye game inside the
+ * league's playoff window (no weekly rows, no team_strength, an all-bye window,
+ * an unrated slate). That renders as the SENTENCE "no playoff-window data" —
+ * the same treatment R19-B5 gave an unprojected K — and never as an em dash
+ * (reads as zero) or a mid-scale 3.0 (reads as "average schedule"). The row is
+ * rendered either way so the two columns and the centre rail stay row-aligned.
+ *
+ * The number is report.rating: 1.0 easiest .. 5.0 hardest, measured against
+ * this player's OWN season average, so it answers "does his schedule get harder
+ * when it matters?" rather than restating the season-long SoS row above it.
+ * report.abs_rating — the window's ABSOLUTE difficulty on the same scale — rides
+ * in the hint after the band word, because that is the reading playoffEdge()
+ * compares and a verdict computed from a number the page never shows cannot be
+ * checked by the person reading it.
+ */
+export function playoffRow(report) {
+  const lbl = '<span class="cmp-lbl">PLAYOFF SoS</span>';
+  if (!report) {
+    return `<div class="cmp-metric cmp-metric--posos">${lbl}`
+      + '<span class="cmp-v"><span class="cmp-noproj" style="font-weight:600;color:var(--muted)">'
+      + 'no playoff-window data</span></span></div>';
+  }
+  const wk = report.window;
+  const span = `W${esc(wk.start)}-${esc(wk.end)}`;
+  // A bye inside the window is a DIFFERENT fact from a hard opponent and is
+  // reported as its own clause, never folded into the difficulty number.
+  const byes = report.byes
+    ? ` · ${esc(report.byes)} bye`
+    : '';
+  const pts = Number(report.pts_per_game);
+  const swing = Number.isFinite(pts) && pts !== 0
+    ? `${pts > 0 ? '+' : ''}${pts.toFixed(2)} pts/game`
+    : 'no swing';
+  const title =
+    `Weeks ${wk.start}-${wk.end} — this league's fantasy playoffs. `
+    + `Mean opponent Elo ${report.playoff_elo} over ${report.games} `
+    + `game${report.games === 1 ? '' : 's'} vs this player's own season average `
+    + `${report.season_elo}: ${report.elo_diff > 0 ? '+' : ''}${report.elo_diff} Elo, `
+    + `${swing} at the app's fixed 25 Elo per point. `
+    + (report.byes ? `${report.byes} bye week in the window. ` : '')
+    + (report.unrated
+      ? `${report.unrated} window game skipped — opponent has no rating. ` : '')
+    + (Number.isFinite(Number(report.abs_rating))
+      ? `Absolute window difficulty ${fix1(report.abs_rating)} of 5 — that is the `
+        + 'reading the centre chip compares, because a self-relative number is a '
+        + 'different ruler for each player. '
+      : '')
+    + 'Schedule lens only: never applied to a projection.';
+  // The ABSOLUTE reading rides in the hint beside the band word. It is what the
+  // centre rail's winner verdict is computed from, so it has to be visible: a
+  // chip that compares a number the page never prints is unauditable.
+  const absTxt = Number.isFinite(Number(report.abs_rating))
+    ? ` · ABS ${fix1(report.abs_rating)}`
+    : '';
+  return (
+    `<div class="cmp-metric cmp-metric--posos">${lbl}`
+    + `<span class="cmp-v" title="${esc(title)}">${fix1(report.rating)} `
+    + `<span class="cmp-hint">${esc(report.label)} · ${span}${byes}${absTxt}</span></span></div>`
+  );
+}
+
+/**
+ * Centre edge chip for PLAYOFF SoS. Lower difficulty = easier slate = better, so
+ * it borrows edge()'s 'low' direction and prints the same "N easier" phrasing the
+ * season SoS chip uses.
+ *
+ * IT COMPARES `abs_rating`, NOT `rating` — R21 fix. app/playoffs.js is explicit
+ * that `rating` is measured against each player's OWN season average: it answers
+ * "does HIS schedule get harder when it matters?". Two such numbers are two
+ * different rulers, and setting them against each other is not a comparison of
+ * two playoff schedules at all — it crowned the wrong player on 3.1% of pairs
+ * over the committed data. `abs_rating` is the window's raw difficulty on the
+ * same 1-5 scale for both sides, which is the only reading a head-to-head
+ * verdict can honestly rest on. The columns still headline `rating` (that is the
+ * question that row answers per player), so both readings appear on screen and
+ * the chip's own tooltip names the one it compared.
+ *
+ * A missing report on EITHER side is not a win for the other side: it is an
+ * absence, and app/playoffs.js is explicit that null means "no reading", not
+ * "neutral". The chip says which case it is instead of crowning anybody.
+ */
+export function playoffEdge(a, b) {
+  const abs = (r) => (r && Number.isFinite(Number(r.abs_rating)) ? Number(r.abs_rating) : null);
+  const av = abs(a);
+  const bv = abs(b);
+  if (av !== null && bv !== null) {
+    return edge('PLAYOFF', av, bv, 'low',
+      `Compared on ABSOLUTE playoff-window difficulty (${av.toFixed(1)} vs ${bv.toFixed(1)} `
+      + 'on the 1-5 scale). The number each column headlines is that player\'s window '
+      + 'measured against his OWN season average, which is a different ruler per player '
+      + 'and cannot decide a head-to-head.');
+  }
+  const why = (av === null && bv === null) ? 'no window data' : 'one side only';
+  return `<div class="cmp-edge cmp-edge--na">PLAYOFF<br><span class="cmp-even">${why}</span></div>`;
+}
+
+/**
+ * The winner glyph, in BOTH orientations, with CSS choosing one.
+ *
+ * At >=561px .cmp-grid is `1fr auto 1fr` — A left, rail centre, B right — and a
+ * left/right arrow is correct. At <=560px the grid collapses to one column and
+ * the players STACK (A above the rail, B below), where the same arrow points at
+ * nothing. Emitting both and letting the existing 560px breakpoint hide one
+ * keeps the decision in the layer that owns the layout; no resize listener, no
+ * JS measurement, and the hidden span is display:none so it stays out of
+ * innerText and out of the accessibility tree.
+ */
+export function winGlyph(aWins) {
+  return (
+    '<span class="cmp-arrow">'
+    + `<span class="cmp-arrow--wide">${aWins ? '◀' : '▶'}</span>`
+    + `<span class="cmp-arrow--tall">${aWins ? '▲' : '▼'}</span>`
+    + '</span>'
   );
 }
 
@@ -222,22 +388,31 @@ function availEdge(a, b) {
   if (ap && bp) return '<div class="cmp-edge cmp-edge--even">AVAIL<br><span class="cmp-even">even</span></div>';
   if (!ap && !bp) return '<div class="cmp-edge cmp-edge--warn">AVAIL<br><span class="cmp-even">⚠ neither</span></div>';
   return `<div class="cmp-edge">AVAIL<br><span class="cmp-win cmp-win--${ap ? 'a' : 'b'}">`
-    + `${ap ? '◀' : '▶'} plays</span></div>`;
+    + `${winGlyph(ap)} plays</span></div>`;
 }
 
-/** Centre edge chip for a numeric metric. dir 'high' = higher wins, 'low' = lower is easier/cheaper. */
-function edge(label, a, b, dir) {
+/**
+ * Centre edge chip for a numeric metric. dir 'high' = higher wins, 'low' = lower
+ * is easier/cheaper. `title`, when given, is the hover explanation of WHAT was
+ * compared — needed whenever the compared reading is not the number the columns
+ * print in their headline cell.
+ */
+function edge(label, a, b, dir, title) {
   const av = Number(a); const bv = Number(b);
+  // The tooltip rides on the INNER span, never on the wrapper: the wrapper's
+  // opening tag is the rail's structural signature and adding attributes to it
+  // breaks anything reading the chip order.
+  const tip = title ? ` title="${esc(title)}"` : '';
   if (!Number.isFinite(av) || !Number.isFinite(bv)) return `<div class="cmp-edge cmp-edge--na">${label}</div>`;
   const diff = av - bv;
   const eps = 1e-6;
-  if (Math.abs(diff) < eps) return `<div class="cmp-edge cmp-edge--even">${label}<br><span class="cmp-even">even</span></div>`;
+  if (Math.abs(diff) < eps) return `<div class="cmp-edge cmp-edge--even">${label}<br><span class="cmp-even"${tip}>even</span></div>`;
   const aWins = dir === 'high' ? diff > 0 : diff < 0;
   const mag = Math.abs(Math.round(diff * 10) / 10);
   const word = dir === 'low' ? 'easier' : '';
   return (
     `<div class="cmp-edge">${label}<br>`
-    + `<span class="cmp-win cmp-win--${aWins ? 'a' : 'b'}">${aWins ? '◀' : '▶'} ${mag} ${word}</span>`
+    + `<span class="cmp-win cmp-win--${aWins ? 'a' : 'b'}"${tip}>${winGlyph(aWins)} ${mag} ${word}</span>`
     + '</div>'
   );
 }

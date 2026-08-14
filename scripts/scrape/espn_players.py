@@ -22,6 +22,14 @@ silent-data-loss failure mode the loud-feeds rule targets. Do not go back to it.
 
 ID NOTE: canonical player key is nflverse `gsis_id`; ESPN doesn't expose it, so
 records are keyed `espn-<id>` until the nflverse cron path lands the mapping.
+
+MARKET BOUNDARY (R21-A3): the same kona payload carries
+`ownership.auctionValueAverage` — the ESPN draft room's average winning bid.
+That is a MARKET PRICE. It is fetched by `fetch_auction_values()` ONLY, which
+is deliberately a SEPARATE function from `fetch_fantasy_pool()`/
+`build_player_records()`: the projection-engine input record must never carry a
+market field, so the price leaves this module through its own door and lands in
+data/adp.json (display + value flags). See validate_data.MARKET_PRICE_FIELDS.
 """
 
 import json
@@ -176,6 +184,86 @@ def fetch_roster_ages(teams):
     if len(ages) < 800:  # 32 teams x ~53 rostered, most carry an age
         raise FeedError(f"roster ages: only {len(ages)} entries — pull looks broken.")
     return ages
+
+
+def _kona_market_page(season, offset, limit=_PAGE, timeout=30):
+    """One page of the DRAFT-season player pool sorted by percent-owned desc.
+
+    Deliberately not `_kona_page`: that one sorts by a REALISED season stat total
+    (`sortAppliedStatTotal` on `00<season>`), which does not exist for a season
+    that has not been played, and whose stat path must not regress. Draft-market
+    ordering is ownership, which is populated the moment ESPN opens drafts.
+    """
+    filt = {
+        "players": {
+            "filterSlotIds": {"value": _SLOT_IDS},
+            "limit": limit,
+            "offset": offset,
+            "sortPercOwned": {"sortAsc": False, "sortPriority": 1},
+        }
+    }
+    req = urllib.request.Request(
+        _KONA_URL.format(season=int(season)),
+        headers={"User-Agent": _UA, "X-Fantasy-Filter": json.dumps(filt)},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp)
+
+
+def fetch_auction_values(season, min_rows=100):
+    """ESPN draft-room auction values for `season` — A MARKET PRICE, DISPLAY ONLY.
+
+    Returns list of {espn_id, name, position, auction_value} for players ESPN
+    actually prices, sorted by auction_value desc. `auction_value` is
+    `ownership.auctionValueAverage`: the average winning bid across ESPN's
+    standard-PPR auction leagues, on their default $200 budget.
+
+    HONEST DATA: a player ESPN does not price carries `auctionValueAverage ==
+    0.0`, which means UNPRICED, not "worth $0" — those rows are dropped rather
+    than shipped as a fabricated free player. The whole PRIOR season reads 0.0
+    (ESPN zeroes the field once a season is played), so this MUST be called with
+    the upcoming draft season, never with PRIOR_SEASON; a pull that comes back
+    all-zero raises rather than silently writing an empty market.
+
+    POLICY: the returned prices may drive display and value flags only. They are
+    never a projection input, a fitted weight, or a parlay probability
+    (validate_data.MARKET_PRICE_FIELDS pins this mechanically).
+    """
+    rows_out, offset = [], 0
+    while offset < _MAX_PLAYERS:
+        payload = _kona_market_page(season, offset)
+        rows = payload.get("players") or []
+        if not rows:
+            break
+        for row in rows:
+            p = row.get("player") or {}
+            pos = _POSITION_BY_ID.get(p.get("defaultPositionId"))
+            if not pos:
+                continue
+            val = (p.get("ownership") or {}).get("auctionValueAverage")
+            try:
+                val = round(float(val), 2)   # round FIRST: a value that rounds to
+            except (TypeError, ValueError):  # $0.00 is unpriced noise, not a price
+                continue
+            if val <= 0:
+                continue  # UNPRICED by ESPN — skipped, never shipped as $0
+            rows_out.append({
+                "espn_id": str(p.get("id")),
+                "name": p.get("fullName") or str(p.get("id")),
+                "position": pos,
+                "auction_value": val,
+            })
+        if len(rows) < _PAGE:
+            break
+        offset += _PAGE
+    if len(rows_out) < min_rows:
+        raise FeedError(
+            f"ESPN auction values for {season}: only {len(rows_out)} priced "
+            f"players (< {min_rows}) — wrong season (ESPN zeroes played seasons) "
+            f"or an outage. Failing loudly rather than shipping an empty market."
+        )
+    rows_out.sort(key=lambda r: (-r["auction_value"], r["espn_id"]))
+    return rows_out
 
 
 def build_player_records(season, teams):

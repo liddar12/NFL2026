@@ -2741,3 +2741,285 @@ body.gate-locked { overflow: hidden; }
   .lp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lp-savebtn { flex: 0 0 auto; min-width: 260px; }
 }
+
+/* --------------------------------------------------------------------------
+   R20-B1 — K/DST in the weekly lineup.
+
+   Three additions, all subordinate to the row they annotate: a badge that says
+   what kind of number this is (SEASON AVG), a warn variant for the two claims
+   that qualify a total (LOW SAMPLE, PARTIAL), and the disclosure block that
+   names what a PARTIAL total leaves out. The badges reuse .lu-bye's geometry so
+   a row with one does not change height.
+   -------------------------------------------------------------------------- */
+.lu-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  color: var(--muted);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.lu-tag--warn { border-color: var(--warn); color: var(--warn); }
+
+.lu-partial {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.lu-partial-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+}
+.lu-partial-body {
+  margin-top: 4px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.lu-partial-key { margin-top: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+.lu-partial-key b { font-weight: 700; }
+.lu-partial-why {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.lu-kdstnote {
+  padding: 10px 14px;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   R21-B2 — PLAYERS view second adornment row: fantasy-playoff SoS + market
+   auction value. Both chips sit on the player card (--surface).
+
+   NO NEW TOKENS. Every text pairing here is one the AA gate already proves at
+   4.5:1 on the surface it renders on (muted / ink / pos-txt / accent-txt /
+   brand-txt on --surface; warn + muted on --surface-2 inside the bye pill), and
+   every fill is a >=3:1 graphic. tests/feature/contrast_aa.test.mjs pins the
+   pairings this block introduces. The bare --accent / --pos / --brand tokens
+   appear only as meter fills, never as text.
+
+   Meaning is never carried by colour alone: the 1.0-5.0 number and the band
+   word ("Easy" / "Hardest") both state the reading, and the meter is redundant.
+   ========================================================================== */
+
+/* The row itself — same flex/wrap rhythm as .p-adorn, one step further down. */
+.p-adorn--value { margin-top: 6px; row-gap: 6px; }
+
+/* ---- fantasy-playoff strength of schedule ---- */
+.p-posos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.posos-lbl { text-transform: uppercase; }
+.posos-num { color: var(--ink); font-variant-numeric: tabular-nums; }
+.posos-word { text-transform: uppercase; letter-spacing: 0.06em; }
+.p-posos--easy .posos-word { color: var(--pos-txt); }
+.p-posos--hard .posos-word { color: var(--accent-txt); }
+.p-posos--even .posos-word { color: var(--muted); }
+/* 5-segment meter — geometry copied from .sos-seg so the two SoS readings on a
+   card read as one family; only the fill tone differs (easy vs hard). */
+.posos-meter { display: inline-flex; gap: 2px; align-items: center; }
+.po-seg {
+  width: 6px; height: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.po-seg--on { background: var(--brand); border-color: var(--brand); }
+.po-seg--easy { background: var(--pos); border-color: var(--pos); }
+.po-seg--hard { background: var(--accent); border-color: var(--accent); }
+.po-seg--even { background: var(--muted); border-color: var(--muted); }
+
+/* A BYE inside the playoff window is a DIFFERENT PROBLEM from a hard opponent,
+   so it gets a different SHAPE (a bordered pill, geometry from .av-chip) as
+   well as a different tone — it must never read as a point on the 1-5 scale. */
+.posos-bye {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--warn);
+  border-radius: 999px; padding: 2px 8px; color: var(--warn);
+}
+.pb-glyph { font-weight: 400; }
+.pb-n { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---- our price vs the market's ---- */
+.p-val {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.pv-cell { display: inline-flex; align-items: center; gap: 4px; }
+.pv-lbl { text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+/* OURS is brand-tinted (the app's own number, matching .ms-src--us .ms-val on
+   the game market strip); the market's price is plain ink. */
+.pv-us { color: var(--brand-txt); font-variant-numeric: tabular-nums; }
+.pv-mkt { color: var(--ink); font-variant-numeric: tabular-nums; }
+/* An unpriced player: an em dash, never a $0. */
+.pv-none { color: var(--muted); font-weight: 400; }
+/* .ms-badge is reused VERBATIM (one DISPLAY-ONLY convention app-wide); its
+   margin-left:auto is a no-op in this shrink-to-fit row, dropped for clarity. */
+.p-val .ms-badge { margin-left: 0; }
+
+/* ---- R21-B3 · Compare: fantasy-playoff SoS row + orientation-correct glyph --
+ * The PLAYOFF SoS value carries a band word, the window and any bye alongside
+ * the number.
+ */
+.cmp-metric--posos .cmp-v { text-align: right; }
+/* The band word + window stay INLINE after the number so this row keeps the
+   same height as every other one — the centre rail is positioned by row
+   rhythm, and a taller row walks every chip below it out of alignment. It
+   still wraps (right-aligned) on a narrow column rather than overflowing. */
+/* "no window data" / "one side only" needs a little more room than a 2-digit
+   edge before it wraps to three lines. */
+.cmp-edge--na { min-width: 66px; }
+
+/* WINNER GLYPH ORIENTATION. .cmp-grid is `1fr auto 1fr` above 560px — A left,
+   rail centre, B right — so the winner arrow points LEFT or RIGHT. At <=560px
+   the grid collapses to one column and the players STACK (A above the rail, B
+   below), where a sideways arrow points at nothing; the vertical pair is shown
+   instead. Both are in the DOM and CSS picks one, so there is no resize
+   listener and no JS guess about the layout. display:none also keeps the
+   unused glyph out of innerText and out of the accessibility tree. */
+.cmp-arrow--wide { display: inline; }
+.cmp-arrow--tall { display: none; }
+@media (max-width: 560px) {
+  .cmp-arrow--wide { display: none; }
+  .cmp-arrow--tall { display: inline; }
+}
+
+/* ---- R20-B4 · MARKET auction value on the draft board ----------------------
+ * OURS (our VOR dollars) beside AUC (ESPN's average winning bid) plus the
+ * over/under flag, on the finder rows and the BEST PICK NOW strip.
+ *
+ * Both row types place their children by :nth-child into named grid areas, so
+ * the value cell is appended as the LAST child and given its own full-width
+ * row here — the existing name/meta/pts/take/add mapping is untouched, and a
+ * row with no price at all keeps exactly the layout it has today.
+ *
+ * The FLAG is a word first (OVER / UNDER / FAIR); its tone is reinforcement,
+ * never the only carrier. Tokens only — all pairs are audited AA in
+ * tests/feature/contrast_aa.test.mjs.
+ */
+.cd-vallegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.cd-vallegend .cvl-txt { flex: 1 1 220px; min-width: 0; }
+.cd-vallegend .ms-badge { margin-left: 0; }
+
+.cd-val {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.cv-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.cv-us { font-weight: 800; color: var(--ink); }
+.cv-mkt { font-weight: 700; color: var(--muted); }
+.cv-none { color: var(--muted); }
+.cv-flag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.cv-flag--under { color: var(--pos-txt); border-color: var(--pos); }
+.cv-flag--over  { color: var(--accent-txt); border-color: var(--accent); }
+.cv-flag--fair  { color: var(--muted); }
+
+/* Finder rows: value takes a full-width row of its own under the name line. */
+.cand--val {
+  grid-template-areas:
+    "name name pts"
+    "val  val  val"
+    "meta take add";
+}
+.cand--val > :nth-child(6) { grid-area: val; }
+
+/* Best-pick rows: same treatment, same rhythm. */
+.bestpick .bp-row--val {
+  grid-template-areas:
+    "name vor"
+    "val  val"
+    "meta act";
+}
+.bestpick .bp-row--val > :nth-child(5) { grid-area: val; }
+
+/* ---- R20-B4 · Sleeper ROSTER sync panel ----------------------------------- */
+.lp-report--roster { border-left-color: var(--brand); }
+.lp-unres-head--warn { color: var(--warn); }
+.lp-unres--drop b { color: var(--accent-txt); }
+.lp-unres--seat b { color: var(--pos-txt); }
+.lp-unres--miss b { color: var(--warn); }
+/* The removal list is the one thing that must never be lost in a long panel. */
+.lp-unres--drop {
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+}
+
+/* ---- R21 · lineup card: qualifications that travel with the number --------- */
+/* A PARTIAL D/ST total is a summand that knowingly omits scoring components the
+ * league pays for. It used to render in exactly the same mono/800/--ink as every
+ * complete figure in the column, with the only qualification a 9px badge and a
+ * disclosure block below the fold on a phone. The marker is on the number now:
+ * the warn tone the PARTIAL badge already uses, PLUS the literal '*' the view
+ * emits — colour is never the only carrier of meaning here. */
+.lu-pts--partial { color: var(--warn); }
+
+/* Roster-sync MY TEAM select: the R20-B4 panel put a 30px draft-simulator
+ * control (.ds-select, sized for the dense draft room) beside a 44px .lp-btn in
+ * the same row. This picker chooses WHICH TEAM gets overwritten, so it is the
+ * last control on the page that should be hard to hit. 44px minimum, phone and
+ * iPad. Scoped to this control on purpose: the draft-room density elsewhere is
+ * a separate, pre-existing decision and is not silently rewritten here. */
+.lp-rsel { min-height: 44px; }

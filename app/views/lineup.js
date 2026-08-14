@@ -33,14 +33,41 @@
  * the card head states the real coverage: "7 of 9 slots projected". The START/SIT
  * card says the same thing in words, so "already optimal" never covers slots this
  * app never looked at.
+ *
+ * R20-B1 — THE K/DST FEED FILLS THOSE SLOTS, WITH ITS LIMITS ON THE FACE OF IT.
+ * data/kdst_projections.json now exists (app/kdst.js reads it), so K and DEF
+ * rows enter the same optimizer as everyone else and the coverage line goes to
+ * "all 9 slots projected". Four things this view refuses to hide:
+ *   1. THE FEED IS CONDITIONAL. `feeds` is derived from what actually loaded and
+ *      which positions actually have rows. A 404, an empty `defenses`, an older
+ *      deploy — each falls straight back to the R19-B5 "awaiting feed" row and
+ *      its WARN_NO_PROJECTION warning. That path is not dead code; it is one
+ *      failed fetch away at all times.
+ *   2. THESE ARE SEASON AVERAGES. The contract carries season totals with no
+ *      weekly split and no opponent adjustment, so a K/DST week is season ÷
+ *      games. Every such row is tagged SEASON AVG. A flat average silently
+ *      dressed as a week-specific projection is a lie by presentation.
+ *   3. PARTIAL SCORING IS MARKED. Three Sleeper D/ST keys cannot be modelled
+ *      from any available source. If the connected league SCORES one of them,
+ *      the D/ST total omits it — so the row carries a PARTIAL badge and the card
+ *      names the missing components. A league that does not score them omits
+ *      nothing and is not marked.
+ *   4. BYES STILL COUNT. K/DST have no weekly rows to carry a bye flag, so the
+ *      bye comes from the schedule. A kicker on his bye is worth 0, exactly like
+ *      every other player, and the optimizer benches him for it.
  */
 
-import { getPlayerProjections, getPlayerWeekly, getGamePredictions } from '../data.js';
+import {
+  getPlayerProjections, getPlayerWeekly, getGamePredictions, getScheduleFull,
+} from '../data.js';
 import { teamTint, teamName } from '../render.js';
 import { loadProfile, rosterSlots } from '../league.js';
 import {
   bestLineup, startSitSwaps, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
 } from '../lineup.js';
+import {
+  getKdstProjections, shapeKdst, fedPositions, teamByeWeeks,
+} from '../kdst.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { rosPoints } from '../ros.js';
 
@@ -59,6 +86,20 @@ const AWAITING = {
   K: 'Kicker projections aren’t published yet',
   DEF: 'Team-defense projections aren’t published yet',
   DST: 'Team-defense projections aren’t published yet',
+};
+
+/**
+ * The OTHER reason a slot can carry no number: the feed is published, but the
+ * connected league's scoring table pays for nothing this position produces, so
+ * every projection under it would be 0 — a fact about the scoring table, not
+ * about any player. Same warning code (the slot genuinely has no projection),
+ * different words, because "not published" and "your league doesn't score it"
+ * send a manager to two different places.
+ */
+const UNSCORED = {
+  K: 'Your league’s scoring table scores no kicking stat',
+  DEF: 'Your league’s scoring table scores no team-defense stat',
+  DST: 'Your league’s scoring table scores no team-defense stat',
 };
 
 function esc(v) {
@@ -82,8 +123,12 @@ function loadRosterSlots() {
 export default async function mountLineup(el) {
   el.innerHTML = '<div class="state state--loading">Loading lineup…</div>';
 
-  const [projRes, weeklyRes, predsRes] = await Promise.allSettled([
+  // The first two are REQUIRED — no offence, no lineup. The last three are
+  // OPTIONAL by design: the K/DST contract and the schedule may be absent on an
+  // older deploy, and the view must degrade rather than blank.
+  const [projRes, weeklyRes, predsRes, kdstRes, schedRes] = await Promise.allSettled([
     getPlayerProjections(), getPlayerWeekly(), getGamePredictions(),
+    getKdstProjections(), getScheduleFull(),
   ]);
   if (projRes.status !== 'fulfilled' || weeklyRes.status !== 'fulfilled') {
     stateMsg(el, 'Lineup unavailable — the projection or weekly feed did not load.');
@@ -105,6 +150,23 @@ export default async function mountLineup(el) {
   // which is the seven-starter / six-bench roster this view has always drawn.
   const profile = loadProfile();
   const leagueSlots = rosterSlots(profile);
+  // K/DST, scored under THIS league (applyScoring on the stat line — never the
+  // contract's DEFAULT-profile convenience total). `feeds` is what tells the
+  // optimizer which slots it may fill; an unfulfilled fetch leaves it empty and
+  // the R19-B5 "awaiting feed" path is exactly what runs.
+  const kdst = shapeKdst(kdstRes.status === 'fulfilled' ? kdstRes.value : null, profile);
+  const feeds = fedPositions(kdst);
+  const kdstById = kdst.byId;
+  // Positions whose rows arrived but which this league's scoring table cannot
+  // value. They are NOT fed (there is no honest number), and the row must say
+  // that rather than blame a missing feed.
+  const unscoredPos = new Set(kdst.unscoredPositions.flatMap(
+    (pos) => (pos === 'DEF' ? ['DEF', 'DST'] : [pos]),
+  ));
+  // Byes for K/DST come from the schedule — they have no weekly rows of their
+  // own. No schedule, no bye claims (and no invented ones).
+  const byeByTeam = teamByeWeeks(schedRes.status === 'fulfilled' ? schedRes.value : null);
+  const resolvable = (id) => byId.has(id) || kdstById.has(id);
   // Sanitize against the live pool exactly like the Team builder's loadRoster:
   // a player dropped/traded/retired out of projections must NOT render as a
   // phantom row named after his raw id — drop any id we can't resolve.
@@ -125,7 +187,11 @@ export default async function mountLineup(el) {
       })
       .map((s) => slots[s]).filter(Boolean).map(String)
       .filter((id) => {
-        if (!byId.has(id) || seenIds.has(id)) return false;
+        // A K or D/ST id resolves through the K/DST contract, not through
+        // player_projections — but ONLY while that contract is loaded. Without
+        // it they are as unresolvable as a traded player, and drop out rather
+        // than render as a phantom row named after a raw id.
+        if (!resolvable(id) || seenIds.has(id)) return false;
         seenIds.add(id);
         return true;
       })
@@ -150,6 +216,29 @@ export default async function mountLineup(el) {
   }
 
   function playerRow(id, wk) {
+    // K / D/ST: one flat per-game average from the season contract, zeroed on
+    // the team's bye exactly like anyone else. There is no injury feed for a
+    // team defense, so availabilityOf(null) makes no claim rather than a false
+    // "healthy" one — it renders no chip at all.
+    const kd = kdstById.get(id);
+    if (kd) {
+      const bye = byeByTeam.get(String(kd.team).toUpperCase());
+      const onBye = Number.isFinite(bye) && Number(bye) === Number(wk);
+      return {
+        id,
+        name: kd.name,
+        pos: kd.pos,
+        team: kd.team,
+        // An unscored row contributes 0 to the optimizer (it cannot be valued,
+        // so it cannot earn a slot on merit) but must never PRINT 0.0.
+        pts: (onBye || kd.unscored) ? 0 : kd.weeklyPoints,
+        onBye,
+        ros: 0,
+        avail: availabilityOf(null, wk, currentWk),
+        kdst: kd,
+        unscored: kd.unscored,
+      };
+    }
     const p = byId.get(id);
     const w = weeklyById.get(id);
     const pos = String((p && p.position) || '').toUpperCase();
@@ -161,7 +250,50 @@ export default async function mountLineup(el) {
     const avail = availabilityOf(w, wk, currentWk);
     const pts = (onBye || avail.playable === false) ? 0 : Number(wkEntry && wkEntry.pts) || 0;
     const ros = w && Array.isArray(w.weeks) ? rosPoints(w.weeks, wk) : 0;
-    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail };
+    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail, kdst: null, unscored: false };
+  }
+
+  /** The points cell. An unvaluable row shows an em dash, never a made-up 0.0. */
+  const ptsCell = (r) => (r.unscored ? '—' : fix1(r.pts));
+
+  /**
+   * The rendered points cell for a starter row.
+   *
+   * A PARTIAL total is marked ON THE NUMBER, not only beside it. Before this,
+   * an incomplete D/ST total rendered in exactly the same mono/800/--ink as
+   * every complete number in the column, and the only qualification was a 9px
+   * badge plus a disclosure block that sits below the fold on a phone — so the
+   * most prominent thing on the row read as complete. The marker travels with
+   * the figure now: a trailing '*' (never colour alone — the app's own rule)
+   * plus the warn tone the badge already uses, and the PARTIAL SCORING block
+   * below names the asterisk so it is not a mystery glyph.
+   */
+  function ptsCellHtml(r) {
+    const partial = Boolean(r.kdst && r.kdst.partial && !r.unscored);
+    if (!partial) return `<span class="lu-pts">${ptsCell(r)}</span>`;
+    const names = r.kdst.omitted.map((o) => o.label).join(', ');
+    return '<span class="lu-pts lu-pts--partial" '
+      + `title="${esc(`INCOMPLETE total — it omits: ${names}`)}">${ptsCell(r)}*</span>`;
+  }
+
+  /**
+   * The badges a K/DST row must wear. SEASON AVG is not decoration: it is the
+   * difference between "we project 8.6 for him this week" (false) and "he
+   * averages 8.6 a game" (true). PARTIAL names a total that omits a component
+   * this league pays for. LOW SAMPLE is the contract's own flag.
+   */
+  function kdstTags(r) {
+    if (!r.kdst) return '';
+    let out = '<span class="lu-tag" title="Season projection ÷ games. '
+      + 'No weekly split and no opponent adjustment exist for this position.">SEASON AVG</span>';
+    if (r.kdst.lowSample) {
+      out += ' <span class="lu-tag lu-tag--warn" title="Few games behind this projection.">LOW SAMPLE</span>';
+    }
+    if (r.kdst.partial) {
+      const names = r.kdst.omitted.map((o) => o.label).join(', ');
+      out += ` <span class="lu-tag lu-tag--warn" title="${esc(`This total omits: ${names}`)}">PARTIAL</span>`;
+    }
+    return ` ${out}`;
   }
 
   function paint(wk) {
@@ -171,11 +303,11 @@ export default async function mountLineup(el) {
     const optIn = rows.map((r) => ({
       id: r.id, pos: r.pos, pts: r.pts, playable: r.avail.playable,
     }));
-    const optimal = bestLineup(optIn, profile);
+    const optimal = bestLineup(optIn, profile, { feeds });
     const rowById = new Map(rows.map((r) => [r.id, r]));
     const currentStarters = leagueSlots.starters.map((s) => slots[s])
-      .filter(Boolean).map(String).filter((id) => byId.has(id));
-    const moves = startSitSwaps(currentStarters, optIn, wk, profile);
+      .filter(Boolean).map(String).filter(resolvable);
+    const moves = startSitSwaps(currentStarters, optIn, wk, profile, { feeds });
     const allWarnings = Array.isArray(optimal.warnings) ? optimal.warnings : [];
     // ONE channel, TWO facts. A forced start is a waiver-wire to-do; an
     // unprojected slot is a missing feed. Splitting them here is what keeps the
@@ -183,6 +315,13 @@ export default async function mountLineup(el) {
     const warnings = allWarnings.filter((wn) => wn.reason === WARN_FORCED_UNAVAILABLE);
     const unprojected = allWarnings.filter((wn) => wn.reason === WARN_NO_PROJECTION);
     const forcedSlots = new Set(warnings.map((wn) => wn.slot));
+    // A THIRD fact, distinct from both of the above: the slot has a feed, and
+    // the roster has nobody eligible to fill it. bestLineup leaves it null. It
+    // contributes nothing to the total, so anything the card claims about that
+    // total has to exclude it — including the word "optimal".
+    const emptySlots = optimal.geometry
+      .filter((g) => g.projected && !optimal.slots[g.slot])
+      .map((g) => g.slot);
 
     // A forced start is a to-do, not a footnote: one banner per warning, at the
     // top of the card, naming the slot, the player and why he can't play.
@@ -204,12 +343,19 @@ export default async function mountLineup(el) {
       const label = slotLabel(slot);
       if (!g.projected) {
         // NOT "0.0". An em dash is the honest glyph for "no number exists"; a
-        // zero would read as a projection, and this slot has none.
+        // zero would read as a projection, and this slot has none. Two causes,
+        // two sentences, one code: the feed is missing, or it is here and this
+        // league scores nothing it measures.
+        const unscored = g.positions.some((pos) => unscoredPos.has(String(pos).toUpperCase()));
+        const why = unscored
+          ? (UNSCORED[label] || `Your league scores no ${label} stat`)
+          : (AWAITING[label] || `${label} projections aren’t published yet`);
+        const tag = unscored ? 'NOT SCORED BY THIS LEAGUE' : 'AWAITING FEED';
         return (
           '<div class="lu-row lu-row--unprojected" style="opacity:0.9">'
           + `<span class="lu-slot">${esc(label)}</span>`
-          + `<span class="lu-name" style="font-weight:600;color:var(--muted)">${esc(AWAITING[label] || `${label} projections aren’t published yet`)} `
-            + '<span class="lu-meta">AWAITING FEED · NOT IN THE TOTAL</span></span>'
+          + `<span class="lu-name" style="font-weight:600;color:var(--muted)">${esc(why)} `
+            + `<span class="lu-meta">${esc(tag)} · NOT IN THE TOTAL</span></span>`
           + '<span class="lu-pts" style="color:var(--muted)">—</span>'
           + '</div>'
         );
@@ -217,8 +363,19 @@ export default async function mountLineup(el) {
       const id = optimal.slots[slot];
       const r = id ? rowById.get(id) : null;
       if (!r) {
-        return `<div class="lu-row lu-row--empty"><span class="lu-slot">${esc(label)}</span>`
-          + '<span class="lu-name">— no eligible player —</span><span class="lu-pts">0.0</span></div>';
+        // NOT "0.0" EITHER. This slot HAS a feed — the roster simply has nobody
+        // who can fill it. "No player" and "a projection of zero points" are
+        // different facts and a manager acts on them differently: one sends him
+        // to the waiver wire, the other tells him his kicker is worthless. The
+        // em dash is the same glyph the unprojected row above uses for the same
+        // reason, and the slot is excluded from the card total, so saying so
+        // here keeps the row and the total telling one story.
+        return '<div class="lu-row lu-row--empty">'
+          + `<span class="lu-slot">${esc(label)}</span>`
+          + '<span class="lu-name" style="font-weight:600;color:var(--muted)">— no eligible player — '
+            + '<span class="lu-meta">EMPTY · NOT IN THE TOTAL</span></span>'
+          + '<span class="lu-pts" style="color:var(--muted)">—</span>'
+          + '</div>';
       }
       const byeTag = r.onBye ? ' <span class="lu-bye" title="On bye this week">BYE</span>' : '';
       const chip = renderAvailChip(r.avail, { sm: true });
@@ -226,12 +383,54 @@ export default async function mountLineup(el) {
       return (
         `<div class="lu-row${r.onBye ? ' lu-row--bye' : ''}${forced ? ' lu-row--forced' : ''}">`
         + `<span class="lu-slot">${esc(label)}</span>`
-        + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''} `
+        + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''}${kdstTags(r)} `
           + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
-        + `<span class="lu-pts">${fix1(r.pts)}</span>`
+        + ptsCellHtml(r)
         + '</div>'
       );
     }).join('');
+
+    // A number that leaves components out must say which. One footnote per
+    // distinct omitted key, naming the players whose totals it affects — a
+    // PARTIAL badge with nothing behind it is a shrug, not a disclosure.
+    const startedRows = optimal.slotIds
+      .map((s) => optimal.slots[s]).filter(Boolean)
+      .map((id) => rowById.get(id)).filter((r) => r && r.kdst && r.kdst.partial);
+    const omittedByKey = new Map();
+    for (const r of startedRows) {
+      for (const o of r.kdst.omitted) {
+        if (!omittedByKey.has(o.key)) omittedByKey.set(o.key, { ...o, who: [] });
+        omittedByKey.get(o.key).who.push(r.name);
+      }
+    }
+    const partialHtml = omittedByKey.size === 0 ? '' : (
+      '<div class="lu-partial">'
+      + '<div class="lu-partial-head">PARTIAL SCORING · MARKED * ABOVE</div>'
+      + `<div class="lu-partial-body">Your league scores ${omittedByKey.size === 1 ? 'a component' : `${omittedByKey.size} components`} `
+      + 'this feed cannot measure, so the D/ST total above is INCOMPLETE — it is not a zero for '
+      + `${omittedByKey.size === 1 ? 'that component' : 'those components'}, it simply leaves `
+      + `${omittedByKey.size === 1 ? 'it' : 'them'} out.</div>`
+      + [...omittedByKey.values()].map((o) => (
+        '<div class="lu-partial-key"><b>' + esc(o.label) + '</b> '
+        + `<span class="lu-meta">${fix1(o.points_per)} pts each · ${esc(o.who.join(', '))}</span>`
+        + `<div class="lu-partial-why">${esc(o.reason)}</div></div>`
+      )).join('')
+      + '</div>'
+    );
+
+    // K/DST are season averages, and the card says so once in prose as well as
+    // once per row, because the badge alone does not explain what it means.
+    const kdstStarted = optimal.slotIds
+      .map((s) => optimal.slots[s]).filter(Boolean)
+      .map((id) => rowById.get(id)).filter((r) => r && r.kdst);
+    const kdstNote = kdstStarted.length === 0 ? '' : (
+      '<div class="lu-kdstnote">'
+      + `${kdstStarted.length === 1 ? 'The K/DST row' : `The ${kdstStarted.length} K/DST rows`} above `
+      + `${kdstStarted.length === 1 ? 'is' : 'are'} a flat season average — `
+      + `${esc(String(kdst.games))}-game projection ÷ ${esc(String(kdst.games))} games. `
+      + 'No weekly split or opponent adjustment exists for these positions, so the number is the '
+      + 'same every week except a bye. Treat it as a baseline, not a matchup call.</div>'
+    );
 
     // Start/sit moves — honest net gain of going optimal, with the START set
     // (each into the slot it fills) and the SIT set. No misleading 1:1 pairing:
@@ -269,23 +468,57 @@ export default async function mountLineup(el) {
       + 'font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--muted)">'
       + `<b style="color:var(--ink);font-weight:700">${esc(unprojNames.join(' · '))}</b> `
       + `${unprojected.length === 1 ? 'is a slot' : `are ${unprojected.length} slots`} your league starts that `
-      + 'this app cannot project yet — no feed exists for '
-      + `${unprojNames.length === 1 ? 'it' : 'them'}. `
+      + 'this app cannot put a number on — '
+      + (unprojNames.every((n) => unscoredPos.has(n))
+        ? (unprojNames.length === 1
+          ? 'your scoring table pays for nothing that position produces'
+          : 'your scoring table pays for nothing those positions produce')
+        : `no projection exists for ${unprojNames.length === 1 ? 'it' : 'them'}`)
+      + '. '
       + `${unprojected.length === 1 ? 'That slot is' : 'Those slots are'} yours to set, and `
       + `${unprojected.length === 1 ? 'it adds' : 'they add'} nothing to the total above.</div>`
     );
 
+    // The slots this app CAN speak to and the roster cannot fill. Same reason
+    // the note above exists: a lineup with an empty starting slot is not
+    // "optimal", it is incomplete, and the card may not claim otherwise merely
+    // because there was no better arrangement of the players that do exist.
+    const emptyNames = [...new Set(emptySlots.map(slotLabel))];
+    const emptyNote = emptySlots.length === 0 ? '' : (
+      '<div class="lu-emptynote" style="padding:10px 14px;border-bottom:1px solid var(--border);'
+      + 'font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--muted)">'
+      + `<b style="color:var(--ink);font-weight:700">${esc(emptyNames.join(' · '))}</b> `
+      + `${emptySlots.length === 1 ? 'is a starting slot' : `cover ${emptySlots.length} starting slots`} `
+      + 'your league fields that nothing on your roster can fill. '
+      + `${emptySlots.length === 1 ? 'It is' : 'They are'} empty, and `
+      + `${emptySlots.length === 1 ? 'it adds' : 'they add'} nothing to the total above — `
+      + `add ${emptySlots.length === 1 ? 'a player' : 'players'} on the `
+      + '<a href="#/team">Team</a> tab.</div>'
+    );
+
+    // What the word "optimal" is allowed to cover: the projected slots that
+    // actually hold somebody. An unprojected slot was already excluded; an
+    // EMPTY one has to be too, or the tick claims a lineup that isn't there.
+    const claimed = optimal.projectedSlots - emptySlots.length;
+    let claimScope;
+    if (emptySlots.length) {
+      claimScope = `${claimed} filled slot${claimed === 1 ? '' : 's'} ${claimed === 1 ? 'is' : 'are'}`;
+    } else if (unprojected.length) {
+      claimScope = `${optimal.projectedSlots} projected slots are`;
+    } else {
+      claimScope = 'starting lineup is';
+    }
+
     let movesHtml;
     if (moves.start.length === 0 && warnings.length === 0) {
-      movesHtml = unprojNote
-        + '<div class="lu-optimal">✓ Your '
-        + (unprojected.length ? `${optimal.projectedSlots} projected slots are` : 'starting lineup is')
+      movesHtml = unprojNote + emptyNote
+        + `<div class="lu-optimal">✓ Your ${claimScope}`
         + ' already optimal for Week ' + wk + '.</div>';
     } else if (moves.start.length === 0) {
       // There is nothing better to do, but "optimal" would be a lie over a lineup
       // containing a player who cannot take a snap. Say what is actually true.
       const n = warnings.length;
-      movesHtml = unprojNote + swapNotes
+      movesHtml = unprojNote + emptyNote + swapNotes
         + `<div class="lu-optimal lu-gap">Your lineup is the best your roster allows this week, but `
         + `${n} slot${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} filled by `
         + `${n === 1 ? 'a player' : 'players'} who can’t play.</div>`;
@@ -300,7 +533,7 @@ export default async function mountLineup(el) {
         return `<div class="lu-move lu-move--sit"><span class="lu-move-out">SIT ${esc(r ? r.name : id)} `
           + `<span class="lu-meta">${fix1(r ? r.pts : 0)}</span></span></div>`;
       }).join('');
-      movesHtml = unprojNote + swapNotes
+      movesHtml = unprojNote + emptyNote + swapNotes
         + `<div class="lu-move lu-move--net">Switching to the optimal lineup adds `
         + `<b class="lu-move-gain">+${fix1(moves.netGain)} pts</b> this week.</div>`
         + startRows + sitRows;
@@ -318,23 +551,43 @@ export default async function mountLineup(el) {
         return (
           `<div class="lu-row lu-row--bench${un}">`
           + `<span class="lu-slot">BN</span>`
-          + `<span class="lu-name">${esc(r.name)}${r.onBye ? ' <span class="lu-bye">BYE</span>' : ''}${chip ? ` ${chip}` : ''} `
+          + `<span class="lu-name">${esc(r.name)}${r.onBye ? ' <span class="lu-bye">BYE</span>' : ''}${chip ? ` ${chip}` : ''}${kdstTags(r)} `
             + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
-          + `<span class="lu-pts">${fix1(r.pts)}</span>`
+          + `<span class="lu-pts">${ptsCell(r)}</span>`
           + '</div>'
         );
       }).join('');
 
+    // The total is a total OF SOMETHING — say of what. The count is READ OFF the
+    // lineup that was actually built, never asserted: it was "7 of 9" when K/DST
+    // had no feed, it is "all 9" now that they do, and it goes back the instant
+    // the feed does. Complete coverage reads as complete rather than as a ratio
+    // a manager has to check.
+    // ...and a total that is complete in COVERAGE can still be incomplete in
+    // ARITHMETIC. "all 9 slots projected" beside a D/ST whose own row admits it
+    // omits three scoring components made the card's two most prominent numbers
+    // both read as complete while the body said otherwise. The qualifications
+    // now ride on the same line as the claim: EMPTY slots (fed, but nobody on
+    // the roster fills them) and PARTIAL rows (a summand that leaves components
+    // out). Absent either, the string is byte-for-byte what it always was.
+    const coverage = [
+      optimal.projectedSlots >= optimal.slotCount
+        ? `all ${optimal.slotCount} slot${optimal.slotCount === 1 ? '' : 's'} projected`
+        : `${optimal.projectedSlots} of ${optimal.slotCount} slots projected`,
+      ...(emptySlots.length ? [`${emptySlots.length} EMPTY`] : []),
+      ...(startedRows.length ? [`${startedRows.length} PARTIAL`] : []),
+    ].join(' · ');
+
     body.innerHTML =
       '<section class="card lu-card">'
-        // The total is a total OF SOMETHING — say of what. "7 of 9 slots
-        // projected" is the difference between a number and a claim.
         + `<div class="m-head">OPTIMAL LINEUP · WEEK ${wk} <span class="lu-total">${fix1(optimal.total)} pts`
           + '<span class="lu-cover" style="display:block;font-family:var(--sans);font-weight:600;'
             + 'font-size:11px;letter-spacing:0.02em;color:var(--muted);text-align:right">'
-          + `${optimal.projectedSlots} of ${optimal.slotCount} slots projected</span></span></div>`
+          + `${esc(coverage)}</span></span></div>`
         + forcedHtml
         + starterHtml
+        + partialHtml
+        + kdstNote
       + '</section>'
       + '<section class="card lu-card">'
         + '<div class="m-head">START / SIT MOVES</div>'

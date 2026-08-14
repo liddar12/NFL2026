@@ -33,6 +33,7 @@ message otherwise. The gate (tests/run_gate.sh) keys on this exit code.
 
 import json
 import os
+import re
 import sys
 
 # Repo root = parent of this scripts/ directory. All paths resolved from here so
@@ -83,9 +84,11 @@ SCHEMA_TO_DATA = {
     "injuries.schema.json": "injuries.json",
     "player_usage.schema.json": "player_usage.json",
     "player_usage_history.schema.json": "player_usage_history.json",
+    "player_usage_weekly.schema.json": "player_usage_weekly.json",
     "ros_backtest.schema.json": "ros_backtest.json",
     "player_backtest.schema.json": "player_backtest.json",
     "adp_history.schema.json": "adp_history.json",
+    "kdst_projections.schema.json": "kdst_projections.json",
 }
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
@@ -94,7 +97,8 @@ SCHEMA_TO_DATA = {
 OPTIONAL_DATA = frozenset([
     "epa_history.json", "weather_history.json", "weather_forecast.json",
     "market_baseline.json", "injury_history.json", "player_usage.json",
-    "player_usage_history.json", "ros_backtest.json", "player_backtest.json",
+    "player_usage_history.json", "player_usage_weekly.json",
+    "ros_backtest.json", "player_backtest.json",
     "adp_history.json",
 ])
 
@@ -241,6 +245,19 @@ MARKET_DISPLAY_ONLY = frozenset([
     "odds_api", "kalshi", "polymarket",
 ])
 
+# The DATA-FIELD half of the same permanent policy. MARKET_DISPLAY_ONLY above pins
+# market SIGNAL WEIGHTS at 0.0; these are the market PRICE FIELDS carried in data/
+# for display and value flags only — the drafter market (`adp`) and the ESPN draft
+# room's average winning bid (`auction_value`, kona ownership.auctionValueAverage).
+#
+# They are named here, not in MARKET_DISPLAY_ONLY, because that set is a SIGNAL
+# registry mirror (app/views/model.js MARKET_SIGNALS badges it name-for-name); a
+# data field is not a signal and must not appear in the weight table. Same policy,
+# enforced on the surface it actually has: check_market_price_fields() below fails
+# the gate if one of these ever turns up as a fitted weight, a registry signal, or
+# a field on a projection record — i.e. if a market price becomes an INPUT.
+MARKET_PRICE_FIELDS = frozenset(["adp", "auction_value"])
+
 
 def check_meta_weights(meta):
     """Every registry signal present at exactly 0.0, and no unexpected extras.
@@ -273,6 +290,52 @@ def check_meta_weights(meta):
                               % "\n  - ".join(problems))
 
 
+def check_market_price_fields(meta, projections, proj_schema):
+    """No market PRICE FIELD may become an input (permanent user policy).
+
+    A market price is allowed to be displayed and to flag value; it is never
+    allowed to move a number we produce. The three doors it could walk through:
+
+      1. data/meta.json `weights` — a fitted weight on a price field;
+      2. EXPECTED_SIGNALS — a price field registered as a signal at all;
+      3. a player_projections record (or its contract) carrying the field,
+         which is how a price would ride into the engine as a covariate.
+
+    All three are shut here so the boundary is mechanical, not conventional.
+    ADP shipped protected by contract prose alone; auction_value joins it with
+    this check, and ADP is retro-fitted into it by the same pass.
+    """
+    problems = []
+    weights = meta.get("weights", {})
+    for name in sorted(MARKET_PRICE_FIELDS):
+        if name in weights:
+            problems.append(
+                "'%s' has a weight (%r) — MARKET PRICES ARE DISPLAY ONLY: a market "
+                "price may never be a fitted input" % (name, weights[name]))
+        if name in EXPECTED_SIGNALS:
+            problems.append(
+                "'%s' is registered as a signal — market prices are display only"
+                % name)
+    declared = set((proj_schema.get("properties", {})
+                    .get("players", {}).get("items", {})
+                    .get("properties", {}) or {}))
+    leaked_schema = MARKET_PRICE_FIELDS & declared
+    if leaked_schema:
+        problems.append(
+            "player_projections.schema.json declares market price field(s): %s"
+            % ", ".join(sorted(leaked_schema)))
+    for row in projections.get("players", []):
+        leaked = MARKET_PRICE_FIELDS & set(row)
+        if leaked:
+            problems.append(
+                "projection record %s carries market price field(s): %s"
+                % (row.get("gsis_id"), ", ".join(sorted(leaked))))
+            break  # one example is enough; the whole build is wrong
+    if problems:
+        raise ValidationError("market price fields must stay DISPLAY ONLY:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
 def check_pipeline_health(status):
     """Overall `health` must equal the worst CONFIGURED feed status.
 
@@ -295,6 +358,127 @@ def check_pipeline_health(status):
             "pipeline_status.json health %r is dishonest: worst configured feed "
             "status is %r; health must reflect the worst configured feed (you "
             "cannot report 'ok' while a feed is broken)" % (health, worst_label))
+
+
+def check_kdst_honesty(kdst, projections):
+    """R20-A1: the K/DST contract must not lie about what it scores, and must
+    not have crept into player_projections.json.
+
+    Five rules, each one a failure mode this release was built to avoid:
+
+      1. NO SILENT ZEROES. Every key listed in `unmodelled_keys` must be ABSENT
+         from every row's `stats`. Emitting it as 0.0 would make a knowingly
+         partial total look complete — the exact dishonesty the list exists to
+         prevent.
+      2. `partial_scoring[pos]` is true iff `unmodelled_keys` names a key for
+         that position. The UI's PARTIAL SCORING marker keys off this flag, so
+         it may not disagree with the list beneath it.
+      3. Every row's `stats` key set equals `modelled_keys[position]` exactly.
+         A row that quietly gains or drops a key would make the declared
+         coverage a fiction.
+      4. NO K/DST IN player_projections.json. That file publishes projected[:300];
+         kickers project well above the 38.8-point 300th offensive player, so
+         a merge would silently EVICT ~74 offensive players from Players, the
+         draft board and every VOR pool. This makes the separation mechanical
+         instead of a comment someone can undo.
+      5. A projected-points RANGE quoted in any note must equal the range the
+         file's own rows span. R20 shipped "kickers project 130-195, D/ST
+         100-185. Measured, not assumed." against rows spanning 53.4-188.7 and
+         71.0-145.5 — a hardcoded guess labelled "measured". Quoting no range
+         is fine; quoting one the rows contradict is not.
+    """
+    problems = []
+
+    unmodelled = kdst.get("unmodelled_keys", [])
+    by_pos_unmodelled = {}
+    for entry in unmodelled:
+        by_pos_unmodelled.setdefault(entry.get("position"), set()).add(entry.get("key"))
+    every_unmodelled = set()
+    for keys in by_pos_unmodelled.values():
+        every_unmodelled |= keys
+
+    modelled = kdst.get("modelled_keys", {})
+    partial = kdst.get("partial_scoring", {})
+
+    # --- rule 2 ------------------------------------------------------------
+    for pos in ("K", "DEF"):
+        expected = bool(by_pos_unmodelled.get(pos))
+        if bool(partial.get(pos)) != expected:
+            problems.append(
+                "partial_scoring[%s] is %r but unmodelled_keys %s a %s key — the "
+                "PARTIAL SCORING marker must match the list beneath it"
+                % (pos, partial.get(pos),
+                   "names" if expected else "names no", pos))
+
+    # --- rules 1 and 3 -----------------------------------------------------
+    for field in ("kickers", "defenses"):
+        for row in kdst.get(field, []):
+            pos = row.get("position")
+            stats = row.get("stats", {})
+            leaked = sorted(set(stats) & every_unmodelled)
+            if leaked:
+                problems.append(
+                    "%s %r scores unmodelled key(s) %s — an unmodelable key must "
+                    "be ABSENT, never emitted as a zero that makes a partial "
+                    "total look complete" % (field, row.get("player_id"), leaked))
+            declared = set(modelled.get(pos, []))
+            if set(stats) != declared:
+                problems.append(
+                    "%s %r stats keys %s != modelled_keys[%s] %s"
+                    % (field, row.get("player_id"),
+                       sorted(set(stats) - declared) or "(none extra)", pos,
+                       sorted(declared - set(stats)) or "(none missing)"))
+
+    # --- rule 4 ------------------------------------------------------------
+    kdst_ids = {r.get("player_id") for r in kdst.get("kickers", [])}
+    kdst_ids |= {r.get("player_id") for r in kdst.get("defenses", [])}
+    for p in (projections or {}).get("players", []):
+        if p.get("position") in ("K", "DEF", "DST"):
+            problems.append(
+                "player_projections.json contains %s %r at position %s — K/DST "
+                "live in kdst_projections.json ON PURPOSE: merging them into the "
+                "projected[:300] cut evicts ~74 offensive players"
+                % (p.get("position"), p.get("name"), p.get("position")))
+        if p.get("gsis_id") in kdst_ids:
+            problems.append(
+                "player id %r appears in BOTH player_projections.json and "
+                "kdst_projections.json" % (p.get("gsis_id"),))
+
+    # --- rule 5 ------------------------------------------------------------
+    # Any projected-points range a note QUOTES must be the range the rows in the
+    # same file actually span. R20 shipped notes[0] claiming "kickers project
+    # 130-195, D/ST 100-185. Measured, not assumed." while its own rows spanned
+    # 53.4-188.7 and 71.0-145.5 — a hardcoded guess wearing the word "measured".
+    # Quoting no range is allowed; quoting a wrong one is not.
+    _quoted = {
+        "K": (re.compile(r"kickers project ([0-9]+(?:\.[0-9]+)?)-"
+                         r"([0-9]+(?:\.[0-9]+)?)", re.I), "kickers"),
+        "DEF": (re.compile(r"D/ST ([0-9]+(?:\.[0-9]+)?)-"
+                           r"([0-9]+(?:\.[0-9]+)?)", re.I), "defenses"),
+    }
+    for note in kdst.get("notes", []):
+        for pos, (pattern, field) in _quoted.items():
+            m = pattern.search(str(note))
+            if not m:
+                continue
+            vals = [r.get("proj_points") for r in kdst.get(field, [])
+                    if r.get("proj_points") is not None]
+            if not vals:
+                problems.append(
+                    "a note quotes a %s projection range but %s is empty — a "
+                    "range cannot be 'measured' off no rows" % (pos, field))
+                continue
+            lo, hi = float(m.group(1)), float(m.group(2))
+            if abs(lo - min(vals)) > 0.05 or abs(hi - max(vals)) > 0.05:
+                problems.append(
+                    "a note claims %s project %s-%s but %s actually span "
+                    "%.1f-%.1f — a shipped note may not quote a range its own "
+                    "rows contradict" % (pos, m.group(1), m.group(2), field,
+                                         min(vals), max(vals)))
+
+    if problems:
+        raise ValidationError("kdst_projections.json honesty invariant:\n  - %s"
+                              % "\n  - ".join(problems))
 
 
 # Mirrors scripts/availability.norm_name ("A.J. Brown" == "AJ Brown"). Duplicated
@@ -694,6 +878,24 @@ def main():
             _load(inj_path) if os.path.exists(inj_path) else None,
         )
         print("ok    player_weekly.json availability cross-file invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_kdst_honesty(
+            _load(os.path.join(DATA, "kdst_projections.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+        )
+        print("ok    kdst_projections.json partial-scoring honesty invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_market_price_fields(
+            _load(os.path.join(DATA, "meta.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+            _load(os.path.join(CONTRACTS, "player_projections.schema.json")),
+        )
+        print("ok    market price fields display-only invariant (%s)"
+              % ", ".join(sorted(MARKET_PRICE_FIELDS)))
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
 

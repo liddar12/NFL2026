@@ -64,6 +64,17 @@ jobs:
       - name: Build player usage history (skill_out gate raw material)
         run: python scripts/build_player_usage_history.py
 
+      # Same nflverse release CSVs as the builders above, so the same runner
+      # network. Without these two steps their outputs could never be refreshed
+      # by any pipeline: a stale file would be indistinguishable from a fresh
+      # one, and build_kdst's "keep the existing file, exit 0" degradation path
+      # would be a dead end instead of a handoff to this cron.
+      - name: Build weekly player usage (in-season cuts, weight 0)
+        run: python scripts/build_player_usage_weekly.py
+
+      - name: Build K/DST projections (separate contract from player_projections)
+        run: python scripts/build_kdst.py
+
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
         run: python -m scripts.backtest
 

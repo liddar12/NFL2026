@@ -1,0 +1,391 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kdst_projections.schema.json",
+  "title": "Kicker and team-defense season projections",
+  "description": "K and DEF projections on their OWN contract, deliberately NOT merged into player_projections.json: that file publishes projected[:300] and its 300th offensive player scores 38.8, while kickers project 130-195 and D/ST 100-185 \u2014 merging would silently evict ~74 offensive players from Players, the draft board and every VOR pool. Produced by scripts/build_kdst.py from nflverse stats_player_week / stats_team_week plus nfldata games.csv SCORES ONLY. Validated by scripts/validate_data.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "updated_utc",
+    "source",
+    "seasons_used",
+    "games_projected",
+    "modelled_keys",
+    "unmodelled_keys",
+    "partial_scoring",
+    "skipped",
+    "kickers",
+    "defenses"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "description": "NFL regular-season year being projected.",
+      "minimum": 2026
+    },
+    "updated_utc": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp of the last regeneration."
+    },
+    "source": {
+      "type": "string"
+    },
+    "seasons_used": {
+      "type": "array",
+      "description": "Completed seasons the projection was actually built from. A season whose feed failed is ABSENT here and present in `skipped` \u2014 never silently replaced with zeros.",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "games_projected": {
+      "type": "integer",
+      "description": "Games a projected season contains. Per-game rates are multiplied by this.",
+      "minimum": 1,
+      "maximum": 25
+    },
+    "recency_weights": {
+      "type": "object",
+      "description": "{season(string): weight} applied to BOTH numerator and denominator of the per-game rate.",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "scoring_basis": {
+      "type": "string"
+    },
+    "modelled_keys": {
+      "type": "object",
+      "description": "Scoring keys this file DOES populate, by position. Anything not listed here and not in unmodelled_keys is simply not a key this app knows.",
+      "additionalProperties": false,
+      "required": [
+        "K",
+        "DEF"
+      ],
+      "properties": {
+        "K": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "DEF": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "unmodelled_keys": {
+      "type": "array",
+      "description": "HONESTY CONTRACT. Scoring keys that are genuinely unmodelable from this source. They are ABSENT from every `stats` object rather than scored as zero, so a total built from `stats` is knowingly partial. The UI must render a PARTIAL SCORING marker from this list.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label",
+          "position",
+          "reason"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "K",
+              "DEF"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why it cannot be derived. Must name the missing source, not hand-wave."
+          }
+        }
+      }
+    },
+    "partial_scoring": {
+      "type": "object",
+      "description": "Per position: true when unmodelled_keys contains at least one key for it.",
+      "additionalProperties": false,
+      "required": [
+        "K",
+        "DEF"
+      ],
+      "properties": {
+        "K": {
+          "type": "boolean"
+        },
+        "DEF": {
+          "type": "boolean"
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "description": "Every season, game or row dropped, with a reason. A missing source is skipped LOUDLY here \u2014 never fabricated and never silently zeroed.",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "player_season",
+              "team_season",
+              "kicker_week",
+              "dst_game"
+            ]
+          },
+          "season": {
+            "type": "integer"
+          },
+          "game_id": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "team_raw": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "kickers": {
+      "type": "array",
+      "description": "One row per kicker projected for `season`. Only kickers who played in the newest season used appear.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "player_id",
+          "name",
+          "team",
+          "position",
+          "games_sample",
+          "seasons_sample",
+          "weighted_games",
+          "low_sample",
+          "stats",
+          "proj_points"
+        ],
+        "properties": {
+          "player_id": {
+            "type": "string",
+            "description": "nflverse gsis_id for a kicker; 'DST-<TEAM>' for a team defense."
+          },
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string",
+            "description": "Canonical nflverse team abbreviation.",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "K",
+              "DEF"
+            ]
+          },
+          "games_sample": {
+            "type": "integer",
+            "description": "Raw games behind the projection (unweighted).",
+            "minimum": 1
+          },
+          "seasons_sample": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1
+          },
+          "weighted_games": {
+            "type": "number",
+            "description": "Denominator of the per-game rate after recency weighting.",
+            "minimum": 0
+          },
+          "low_sample": {
+            "type": "boolean",
+            "description": "True when weighted_games < games_projected \u2014 a small-sample extrapolation the UI must mark rather than rank silently."
+          },
+          "stats": {
+            "type": "object",
+            "description": "Projected season counts per scoring key. Keys are app/league.js SCORING_FIELDS keys (plus the Sleeper yds_allow_* family, which league.js keeps and applies as an unknown key). A key in unmodelled_keys is ABSENT here on purpose.",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "proj_points": {
+            "type": "number",
+            "description": "sum(stat x points-per-stat) under app/league.js DEFAULT_PROFILE scoring. Recompute from `stats` with applyScoring(stats, profile) for a real league. NOT a scale factor applied to anything."
+          }
+        }
+      }
+    },
+    "defenses": {
+      "type": "array",
+      "description": "One row per team defense (32 when every season loaded).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "player_id",
+          "name",
+          "team",
+          "position",
+          "games_sample",
+          "seasons_sample",
+          "weighted_games",
+          "low_sample",
+          "stats",
+          "proj_points"
+        ],
+        "properties": {
+          "player_id": {
+            "type": "string",
+            "description": "nflverse gsis_id for a kicker; 'DST-<TEAM>' for a team defense."
+          },
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string",
+            "description": "Canonical nflverse team abbreviation.",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "K",
+              "DEF"
+            ]
+          },
+          "games_sample": {
+            "type": "integer",
+            "description": "Raw games behind the projection (unweighted).",
+            "minimum": 1
+          },
+          "seasons_sample": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1
+          },
+          "weighted_games": {
+            "type": "number",
+            "description": "Denominator of the per-game rate after recency weighting.",
+            "minimum": 0
+          },
+          "low_sample": {
+            "type": "boolean",
+            "description": "True when weighted_games < games_projected \u2014 a small-sample extrapolation the UI must mark rather than rank silently."
+          },
+          "stats": {
+            "type": "object",
+            "description": "Projected season counts per scoring key. Keys are app/league.js SCORING_FIELDS keys (plus the Sleeper yds_allow_* family, which league.js keeps and applies as an unknown key). A key in unmodelled_keys is ABSENT here on purpose.",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "proj_points": {
+            "type": "number",
+            "description": "sum(stat x points-per-stat) under app/league.js DEFAULT_PROFILE scoring. Recompute from `stats` with applyScoring(stats, profile) for a real league. NOT a scale factor applied to anything."
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
