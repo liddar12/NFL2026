@@ -2352,11 +2352,13 @@ export default async function mountTeam(el) {
         // untrue, and it understated what the page could actually do. Replaced
         // with the limit that IS still real — the roster steppers only cover
         // the offensive slots, so a K/DEF league has to arrive by import.
-        + 'retrained. Two limits, said plainly: the roster counters above cover only QB/RB/WR/'
-        + 'TE/FLEX/BENCH, so a league that seats a K or a DEF has to come in through the Sleeper '
-        + 'import (the slots themselves render, and the room drafts them); and the opponent '
-        + 'model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league is priced as if its flex '
-        + 'were WR/RB/TE.</div>'
+        // R28 — this sentence has now been wrong twice, which is why the gate
+        // audits it. It first claimed the roster panel was fixed at 13 slots
+        // (untrue since R19 made it shape-driven), then that K/DEF could only
+        // arrive by import (untrue the moment the K and DEF counters above
+        // shipped). What remains genuinely limited is the flex assumption.
+        + 'retrained. One limit, said plainly: the opponent model drafts every FLEX as '
+        + 'WR/RB/TE, so a SUPERFLEX league is priced as if its flex were WR/RB/TE.</div>'
       + '<div class="ds-sub"><span>SLEEPER</span>'
         + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
       + '<div class="lp-sync">'
@@ -2879,7 +2881,15 @@ export default async function mountTeam(el) {
       `<div class="ds-sub"><span>ROSTER</span><span class="ds-sub-note">${starters} STARTERS + ${draftCfg.bench} BENCH · ${rounds} ROUNDS</span></div>` +
       '<div class="ds-grid ds-grid--roster">' +
         stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
-        stepper('te', 'TE') + stepper('flex', 'FLEX') + stepper('bench', 'BENCH') +
+        stepper('te', 'TE') + stepper('flex', 'FLEX') +
+        // R28 — K and DEF are settable at last. R27 made them draftable and
+        // gave rosterShape k/def, but nothing in this grid could SET them, so
+        // the only way to have a kicker was a Sleeper import: a hand-built
+        // league could not say it seats one, and the settings card had to
+        // confess exactly that. Bounded [0,1] by ROSTER_BOUNDS — a league
+        // starting two kickers is not a shape this app prices.
+        stepper('k', 'K') + stepper('def', 'DEF') +
+        stepper('bench', 'BENCH') +
       '</div>' +
       leaguePanelHtml() +
       (draftCfg.mode === 'auction'

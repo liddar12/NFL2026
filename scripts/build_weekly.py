@@ -291,7 +291,8 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
 
 def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           season, updated_utc, injuries=None,
-                          injuries_path=INJURIES_PATH, first_week=1):
+                          injuries_path=INJURIES_PATH, first_week=1,
+                          completions_by_id=None):
     """The full player_weekly.json document. Pure given its inputs.
 
     projections: player_projections.json's `players` list (order is preserved).
@@ -328,6 +329,19 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
             "gsis_id": pid,
             "receptions_prior": round(float(receptions_by_id.get(pid, 0.0) or 0.0), 1),
         }
+        # R28 — COMPLETIONS, on the same row and by the same route as receptions.
+        #
+        # receptions_prior exists so the client can convert PPR <-> Half <->
+        # Standard exactly rather than scaling a total; completions_prior exists
+        # for the same reason and for the same kind of rule (Sleeper's
+        # `pass_cmp`), which real leagues score and this app has been silently
+        # dropping. Emitted ONLY when a completion count is actually known and
+        # non-zero, so every non-passer and every build without the feed is
+        # byte-identical to the pre-R28 document — a zero here would be a claim
+        # ("this quarterback completed no passes") rather than a silence.
+        _cmp = float((completions_by_id or {}).get(pid, 0.0) or 0.0)
+        if _cmp > 0:
+            row["completions_prior"] = round(_cmp, 1)
         if view is not None:
             block = {"status": view["status"], "class": view["class"]}
             actually_blocked = sum(1 for w in weeks if w.get("avail") is False)

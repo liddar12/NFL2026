@@ -160,6 +160,13 @@ const KNOWN_OWNER = new Map(
 const NAMESPACE_OWNER = Object.freeze([
   [/^(?:fgm|fgmiss|fga|xpm|xpmiss|xpa|pat_|kick_)/, 'K'],
   [/^(?:def_|pts_allow|yds_allow)/, 'DEF'],
+  // R28 tried to add [/^st_/, 'DEF'] here and was WRONG. __selftest below
+  // caught it, and the reasoning it defends is right: in Sleeper `st_*` is the
+  // individual RETURNER's line (a WR or RB scores that touchdown) while
+  // `def_st_*` is the unit's, and this module deliberately refuses to equate
+  // them. Attributing st_* to DEF would raise a PARTIAL badge on every defence
+  // for a component no defence was ever owed — a false alarm, which this file
+  // exists to prevent. Left alone on purpose; do not "fix" it again.
 ]);
 
 export function scoringKeyOwner(key) {
