@@ -3422,3 +3422,92 @@ body.gate-locked { overflow: hidden; }
    specificity because those overrides sit AFTER the original .pv-none rule and
    would otherwise win on source order. */
 .pv-us.pv-none, .pv-mkt.pv-none { color: var(--muted); font-weight: 400; }
+
+/* ==========================================================================
+   R27 — TYPED BUDGETS AND THE PER-TEAM EDITOR
+   The auction budget was a <select> over three blessed values, which could not
+   express a $150 league at all, let alone one whose teams traded dollars in the
+   preseason. .ds-num is the typed replacement, styled to sit in the same
+   .ds-field tile as .ds-select so the settings grid stays one visual system.
+   ========================================================================== */
+.ds-num {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 30px;                    /* tile totals a >=44px tap target */
+  font-family: var(--mono);
+  font-size: 16px;                     /* >=16px: iOS must not zoom on focus */
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 4px 0;
+  min-width: 0;
+}
+.ds-num:focus { outline: none; }       /* the tile border shows focus */
+/* Spinners steal width from a 3-digit number in a narrow tile and are a poor
+   tap target next to a keyboard that already has digits. */
+.ds-num::-webkit-outer-spin-button,
+.ds-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ds-num[type='number'] { -moz-appearance: textfield; }
+
+.tb-panel {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+/* Auto-fit rather than a fixed count: the same grid holds 8, 12 or 14 teams on
+   a 13" iPad and still reflows to a phone without a second breakpoint. */
+.tb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+.tb-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.tb-cell:focus-within { border-color: var(--brand-txt); }
+.tb-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+/* MY team is the one row the manager scans for first. --brand-txt is the same
+   ink the rest of the app uses for "this is you", and it is AA-audited. */
+.tb-lbl--me { color: var(--brand-txt); }
+.tb-num { text-align: left; }
+/* The observed-sale price is a typed field inline in the SOLD row. The wrap
+   carries the $ so the sign never scrolls away from the number, and the input
+   is sized to the 3-4 digits an auction price actually needs rather than
+   stretching to fill the row. */
+.auc-soldwrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  font-family: var(--mono);
+  font-weight: 800;
+  color: var(--ink);
+}
+.auc-soldprice {
+  width: 4.5ch;
+  min-height: 28px;
+  padding: 0;
+  font-weight: 800;
+  border-bottom: 1px solid var(--line);
+}
+.auc-soldprice:focus { border-bottom-color: var(--brand-txt); }
+/* The RECO panel's budget note. --muted keeps it subordinate to the ranking
+   label it qualifies; it is AA-audited on --surface by contrast_aa.test.mjs. */
+.reco-cap { color: var(--muted); font-weight: 700; }

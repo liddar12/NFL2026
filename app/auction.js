@@ -141,10 +141,17 @@ function publishedWeights(rows) {
  * stretched to fit it. Relative prices, which are the whole opponent model,
  * are untouched: doubling every published price changes nothing here.
  */
-export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13) {
+export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13,
+                              totalMoney = null) {
   const rows = Array.isArray(adpRows) ? adpRows : [];
   const poolN = Math.min(rows.length, leagueSize * rosterSize);
-  const total = leagueSize * budget;
+  // R27 — the room's money is a SUM, not a product. It was leagueSize * budget
+  // because every team held the same budget; a league where preseason trades
+  // left T3 with $215 and T7 with $185 has the same team count and a different
+  // amount of money, and this curve must be calibrated to the money actually
+  // in the room or every valuation on the board is wrong. Passing nothing
+  // keeps the old arithmetic byte-for-byte.
+  const total = Number.isFinite(totalMoney) ? totalMoney : leagueSize * budget;
   const priced = hasPublishedPrices(rows);
   const curve = priced ? publishedWeights(rows) : null;
   const weights = [];
@@ -190,7 +197,8 @@ export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13) {
  * — that spread now lives in team-logic's FLEX_WIN_SHARE, covering every flex
  * token instead of just this one. Returns Map(gsis_id -> $).
  */
-export function fairDollars(pool, adjOf, leagueSize, budget, shape) {
+export function fairDollars(pool, adjOf, leagueSize, budget, shape,
+                            totalMoney = null) {
   const s = shape || rosterShape(null);
   const geo = rosterGeometry(s);
   const rosterSize = Number.isFinite(s.size) ? s.size : geo.all.length;
@@ -211,12 +219,31 @@ export function fairDollars(pool, adjOf, leagueSize, budget, shape) {
   const vor = new Map();
   let vorSum = 0;
   for (const p of pool) {
-    const v = Math.max(0, adjOf(p) - (repl[p.position] || 0));
+    // R27 — K and DEF are priced at the $1 TIER, deliberately.
+    //
+    // byPos above buckets only QB/RB/WR/TE, so repl['K'] is undefined and a
+    // kicker's VOR would fall out as its FULL projection — around 140 points,
+    // more than most running backs — handing kickers a large share of the
+    // room's dollars. That is not a modelling subtlety, it is the well-known
+    // fact that a kicker's replacement level is almost exactly the kicker
+    // behind him: the position has real points and almost no VALUE OVER
+    // REPLACEMENT, which is why real auctions buy them for $1 last.
+    //
+    // So they get zero VOR and land on the MIN_BID floor every other unpriced
+    // player lands on. This is the owner's "late-round, $1 tier" call
+    // (2026-08-14) and it is the honest model, not a shortcut: it says these
+    // positions are worth the minimum, which is what the market says too.
+    const v = repl[p.position] === undefined
+      ? 0
+      : Math.max(0, adjOf(p) - (repl[p.position] || 0));
     vor.set(String(p.gsis_id), v);
     if (v > 0) vorSum += v;
   }
   const poolN = Math.min(pool.length, leagueSize * rosterSize);
-  const spread = leagueSize * budget - poolN * MIN_BID;
+  // Same R27 note as marketDollars: OUR dollars are allocated over the money
+  // actually in the room, so unequal team budgets price the board correctly.
+  const money = Number.isFinite(totalMoney) ? totalMoney : leagueSize * budget;
+  const spread = money - poolN * MIN_BID;
   const out = new Map();
   for (const p of pool) {
     const v = vor.get(String(p.gsis_id)) || 0;
@@ -313,18 +340,58 @@ export function planBudget(shape, budget, style) {
  * model and applies observed sales via sellTo).
  * ------------------------------------------------------------------------ */
 
+/**
+ * Per-team starting budgets, normalised to exactly `leagueSize` finite dollar
+ * amounts. Anything missing, non-numeric or negative falls back to the league
+ * default — a typo in one team's box must not silently mint or destroy money
+ * in the room, and it must never produce a NaN that would poison every
+ * downstream price.
+ *
+ * R27: a league's teams do NOT necessarily start level. Preseason trades of
+ * auction dollars are a common house rule, and until now the room could not
+ * express one — every team was constructed with the same scalar, so a team you
+ * knew had $185 was modelled at $200 and every threat estimate built from its
+ * maxBid was wrong for the rest of the draft.
+ */
+export function normalizeTeamBudgets(teamBudgets, leagueSize, budget) {
+  const fallback = Number.isFinite(budget) && budget >= 0 ? Math.round(budget) : DEFAULT_BUDGET;
+  const src = Array.isArray(teamBudgets) ? teamBudgets : [];
+  const out = [];
+  for (let i = 0; i < leagueSize; i += 1) {
+    const raw = src[i];
+    // null / undefined / '' mean NOT STATED, and must fall back to the league
+    // default — Number(null) is 0, which is finite and non-negative, so a bare
+    // isFinite check silently seats a team with NO MONEY AT ALL and no way to
+    // bid. "I have not said" and "this team has zero dollars" are different
+    // claims and only one of them is ever what a blank box means.
+    if (raw === null || raw === undefined || raw === '') { out.push(fallback); continue; }
+    const v = Math.round(Number(raw));
+    out.push(Number.isFinite(v) && v >= 0 ? v : fallback);
+  }
+  return out;
+}
+
+/** Total dollars in the room at kickoff — the SUM of the starting budgets. */
+export function totalRoomMoney(a) {
+  return (a.teamBudgets || []).reduce((s, b) => s + b, 0);
+}
+
 export function createAuction({
   leagueSize = 12, mySlot = 5, budget = DEFAULT_BUDGET, rosterConfig = null,
   boardRows = [], adjPointsById = new Map(), adpDollars = null, seed = 1,
+  teamBudgets = null,
 } = {}) {
   const shape = rosterShape(rosterConfig);
+  const budgets = normalizeTeamBudgets(teamBudgets, leagueSize, budget);
+  const money = budgets.reduce((s, b) => s + b, 0);
   const adjOf = (r) => {
     const v = r && r.gsis_id != null ? adjPointsById.get(String(r.gsis_id)) : null;
     return Number.isFinite(v) ? v : 0;
   };
   const fair = fairDollars(boardRows.filter((r) => r.gsis_id), adjOf,
-    leagueSize, budget, shape);
-  const market = adpDollars || marketDollars(boardRows, leagueSize, budget, shape.size);
+    leagueSize, budget, shape, money);
+  const market = adpDollars
+    || marketDollars(boardRows, leagueSize, budget, shape.size, money);
   // Which market model the room is bidding off, so the UI can label it honestly
   // ('auction' = observed ESPN winning bids, 'adp' = the ADP decay transform).
   const marketSource = adpDollars ? 'given'
@@ -337,7 +404,8 @@ export function createAuction({
     kind: 'auction',
     leagueSize,
     mySlot,
-    budget,
+    budget,          // the league default — what a team holds unless told otherwise
+    teamBudgets: budgets,   // STARTING dollars per team; teams[i].budget is what is LEFT
     shape,
     adjOf,
     board: boardRows,
@@ -346,9 +414,7 @@ export function createAuction({
     market,
     marketSource,
     remainingFair,
-    teams: Array.from({ length: leagueSize }, () => ({
-      budget, players: [], tendencies: {},
-    })),
+    teams: budgets.map((b) => ({ budget: b, players: [], tendencies: {} })),
     nomIdx: 0,                       // whose nomination it is (rotates)
     block: null,                     // {boardIdx} while a player is up
     log: [],
@@ -603,7 +669,10 @@ export function scoreAuction(a) {
   const mine = myTeam(a).players;
   const opp = a.teams.filter((_, i) => i !== a.mySlot - 1).map((t) => t.players);
   const sheet = scoreVsRoom(mine, opp, a.shape, a.adjOf);
-  const spent = a.budget - myTeam(a).budget;
+  // MY starting budget, not the league default — R27 lets them differ, and
+  // spending $150 of $185 is not the same efficiency as $150 of $200.
+  const myStart = (a.teamBudgets || [])[a.mySlot - 1];
+  const spent = (Number.isFinite(myStart) ? myStart : a.budget) - myTeam(a).budget;
   return { ...sheet, spent,
     ptsPerDollar: spent > 0 ? Math.round((sheet.mine / spent) * 10) / 10 : 0 };
 }

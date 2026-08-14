@@ -50,8 +50,17 @@ import { normalizeProfile } from './league.js';
 /** Bounds per configurable slot type. Defaults reproduce the classic shape. */
 export const ROSTER_BOUNDS = Object.freeze({
   qb: [1, 2], rb: [2, 3], wr: [2, 3], te: [1, 2], flex: [0, 2], bench: [4, 8],
+  // R27 — K and DEF become DRAFTABLE. They were absent from the sim shape
+  // entirely ("its shape knows no K/DEF"), so a league whose roster carries a
+  // K1 and a DEF1 could seat them on the Team page and find them in the finder
+  // but could not draft them in the room: the board had no kickers on it. Both
+  // default to ZERO, so any shape that does not ask for them is byte-for-byte
+  // the pre-R27 shape and no existing sim, score or test moves.
+  k: [0, 1], def: [0, 1],
 });
-export const DEFAULT_ROSTER = Object.freeze({ qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6 });
+export const DEFAULT_ROSTER = Object.freeze({
+  qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6, k: 0, def: 0,
+});
 
 const _clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));
 
@@ -71,13 +80,24 @@ export function rosterShape(config) {
   };
   push('QB', c.qb); push('RB', c.rb); push('WR', c.wr); push('TE', c.te);
   for (let i = 1; i <= c.flex; i += 1) starters.push(c.flex === 1 ? 'FLEX' : `FLEX${i}`);
+  // R27 — K and DEF sit AFTER the flex, which is both how every roster page in
+  // this app orders them and the order they are actually drafted in. Zero
+  // counts push nothing, so the classic shape is unchanged.
+  push('K', c.k); push('DEF', c.def);
   const bench = [];
   for (let i = 1; i <= c.bench; i += 1) bench.push(`BN${i}`);
+  const starterDemand = { QB: c.qb, RB: c.rb, WR: c.wr, TE: c.te };
+  // Only ANNOUNCE a K/DEF demand when the league actually seats one. Writing
+  // K: 0 would put the keys into every shape in the app and change what
+  // positionDemand()/replacementLevel() iterate over for leagues that have no
+  // kicker at all.
+  if (c.k > 0) starterDemand.K = c.k;
+  if (c.def > 0) starterDemand.DEF = c.def;
   return {
     config: c,
     starters,
     bench,
-    starterDemand: { QB: c.qb, RB: c.rb, WR: c.wr, TE: c.te },
+    starterDemand,
     size: starters.length + bench.length,
   };
 }

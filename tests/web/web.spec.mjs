@@ -905,7 +905,14 @@ test.describe('auction draft room (REL9, #/team)', () => {
     await page.waitForSelector('.draftsim .ds-start', { timeout: 8000 });
     await expect(page.locator('.ds-select[data-dcfg="mode"]')).toHaveCount(1);
     await page.locator('.ds-select[data-dcfg="mode"]').selectOption('auction');
-    await expect(page.locator('.ds-select[data-dcfg="budget"]')).toHaveCount(1);
+    // R27 — BUDGET is a TYPED field now, not a <select> over $100/$200/$300:
+    // that list could not express a $150 league, let alone a room whose teams
+    // traded dollars in the preseason. What this test guards is unchanged —
+    // auction mode swaps ROOM out for BUDGET and relabels the start button —
+    // so only the selector moves, and the old control is asserted GONE rather
+    // than merely un-asserted.
+    await expect(page.locator('input[data-dnum="budget"]')).toHaveCount(1);
+    await expect(page.locator('.ds-select[data-dcfg="budget"]')).toHaveCount(0);
     await expect(page.locator('.ds-select[data-dcfg="roomType"]')).toHaveCount(0);
     await expect(page.locator('.ds-start')).toContainText('AUCTION');
     await expect(page.locator('.ds-start')).toContainText('$200');

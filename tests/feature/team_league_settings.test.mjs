@@ -87,7 +87,22 @@ test('the round trip is idempotent (saving twice changes nothing)', () => {
  * 2. Nothing is silently dropped
  * ======================================================================== */
 
-test('K / DEF / DST are carried through the round trip, not dropped', () => {
+test('K / DEF / DST survive the round trip — SEATED now, not carried (R27)', () => {
+  /* R27 CHANGED THE MECHANISM, NOT THE GUARANTEE.
+   *
+   * K and DEF used to ride through SAVE as `carried` tokens — the only way a
+   * slot the simulator could not draft could survive an edit. They are
+   * draftable now, so they live in the SHAPE (cfg.k / cfg.def) and `carried`
+   * is empty for this league.
+   *
+   * The distinction is not cosmetic. `carried` is precisely what the settings
+   * card and the import report describe as "kept on your league profile but
+   * the draft simulator does not draft them". Leaving K/DEF in it while making
+   * them draftable made the app tell the user something false — caught in
+   * review of PR #38 before it shipped, by the owner reading that exact line
+   * on the preview. The round-trip guarantee below is unchanged and is still
+   * the point of this test: a SAVE must never delete the kicker slot.
+   */
   const src = normalizeProfile({
     ...cloneProfile(DEFAULT_PROFILE),
     shape: {
@@ -97,18 +112,45 @@ test('K / DEF / DST are carried through the round trip, not dropped', () => {
     },
   });
   const { cfg, carried } = cfgFromProfile(src);
-  assert.deepEqual(carried, ['K', 'DEF']);
-  // The simulator prices only the four positions it knows about.
+  assert.deepEqual(carried, [],
+    'K/DEF are drafted now, so nothing may be reported as undraftable');
+  assert.equal(cfg.k, 1);
+  assert.equal(cfg.def, 1);
   assert.deepEqual(cfg.qb + cfg.rb + cfg.wr + cfg.te + cfg.flex, 7);
   const back = profileFromCfg(cfg, src, carried);
   assert.ok(back.shape.roster_positions.includes('K'));
   assert.ok(back.shape.roster_positions.includes('DEF'));
   assert.equal(back.shape.starters, 9);
   assert.equal(back.shape.bench, 6);
+  // Order matters: K/DEF sit after the flex and before the bench, which is how
+  // every roster surface in the app lists them.
+  assert.deepEqual(back.shape.roster_positions.slice(0, 9),
+    ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF']);
+});
+
+test('a DST league is written back as DST, not silently rewritten to DEF (R27)', () => {
+  const src = normalizeProfile({
+    ...cloneProfile(DEFAULT_PROFILE),
+    shape: {
+      ...cloneProfile(DEFAULT_PROFILE).shape,
+      roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DST',
+        'BN', 'BN', 'BN', 'BN', 'BN', 'BN'],
+    },
+  });
+  const { cfg, carried } = cfgFromProfile(src);
+  assert.equal(cfg.def, 1, 'DST and DEF are the same slot, folded into one count');
+  assert.equal(cfg.defToken, 'DST', 'but the league\'s own spelling is remembered');
+  const back = profileFromCfg(cfg, src, carried);
+  assert.ok(back.shape.roster_positions.includes('DST'));
+  assert.ok(!back.shape.roster_positions.includes('DEF'),
+    'rewriting DST to DEF would be the app editing the user\'s league');
 });
 
 test('DRAFTABLE_TOKENS names exactly the positions the simulator prices', () => {
-  assert.deepEqual([...DRAFTABLE_TOKENS], ['QB', 'RB', 'WR', 'TE']);
+  // R27 — K and DEF joined. DST is absent on purpose: it is the same slot as
+  // DEF under a second spelling, folded into one count on the way in and
+  // written back in the league's own spelling on the way out.
+  assert.deepEqual([...DRAFTABLE_TOKENS], ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
   DRAFTABLE_TOKENS.forEach((t) => {
     assert.ok(!FLEX_ELIGIBILITY[t], `${t} must not also be a flex token`);
   });
@@ -405,10 +447,16 @@ test('a pasted Sleeper league flows all the way into the panel summary', () => {
   assert.equal(byLabel.BENCH, String(p.shape.bench));
   assert.equal(byLabel['SCORING KEYS'], String(Object.keys(p.scoring).length));
 
-  // And it survives the panel's own round trip with K/DEF intact.
+  // And it survives the panel's own round trip with K/DEF intact. R27: intact
+  // now means SEATED (cfg.k / cfg.def), not carried — see the round-trip test
+  // above for why the difference is user-visible.
   const { cfg, carried } = cfgFromProfile(res.profile);
-  assert.deepEqual(carried, ['K', 'DEF']);
+  assert.equal(cfg.k, 1);
+  assert.equal(cfg.def, 1);
+  assert.deepEqual(carried, []);
   const back = profileFromCfg(cfg, res.profile, carried);
+  assert.ok(back.shape.roster_positions.includes('K'), 'K survived the round trip');
+  assert.ok(back.shape.roster_positions.includes('DEF'), 'DEF survived the round trip');
   assert.equal(back.shape.starters, 9);
   assert.deepEqual(back.scoring, p.scoring);
 });

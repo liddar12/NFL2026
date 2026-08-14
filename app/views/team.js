@@ -63,6 +63,7 @@ import {
   onTheNomination, autoNominate, nominate, resolveBids, sellTo, undoLastSale,
   liveInflation, myGuidance, nominationAdvice, planBudget, scoreAuction,
   maxBid, MIN_BID, classifyNomination, fairDollars, buyerOptions,
+  normalizeTeamBudgets,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
 import {
@@ -80,6 +81,14 @@ const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
 const TAKEN_KEY = 'nfl2026.taken.v1'; // draft board: ids taken by other managers
+
+/* R27 — bounds for a TYPED auction budget. The old select offered $100/$200/
+ * $300 and nothing else; these are the limits of what the pricing engine can
+ * sensibly spread over a board, not a list of blessed values. $1 per roster
+ * slot is the floor below which every player is a $1 player and the auction
+ * has no decisions in it; the ceiling is generous enough for any real league
+ * and exists only to stop a typo (a stray zero) rescaling the whole board. */
+const BUDGET_BOUNDS = Object.freeze([10, 10000]);
 /* MOUNT TEARDOWN (R25). This view delegates ten listeners onto #view — the ONE
  * permanent element app/main.js hands every route — and #view is never replaced
  * between navigations. Without a teardown every superseded mount's handlers stay
@@ -334,8 +343,21 @@ function recoSortInner(activeKey) {
  *   - counts outside ROSTER_BOUNDS are clamped and the clamp is reported.
  * ------------------------------------------------------------------------- */
 
-/** Roster tokens the draft simulator prices directly (its shape knows no K/DEF). */
-export const DRAFTABLE_TOKENS = Object.freeze(['QB', 'RB', 'WR', 'TE']);
+/**
+ * Roster tokens the draft simulator prices directly.
+ *
+ * R27 — K and DEF join the list. This constant is exported and asserted, and
+ * its old comment ("its shape knows no K/DEF") is exactly the claim the release
+ * retires: rosterShape seats a K1 and a DEF1 for a league that asks for them,
+ * and the room's board carries this league's kickers and defences. Leaving the
+ * four-token list here would have kept one authoritative-looking statement of
+ * the old behaviour in the codebase after the behaviour changed.
+ *
+ * DST is deliberately absent: it is the same slot as DEF under a second
+ * spelling, folded into one count on the way in and written back in the
+ * league's own spelling on the way out (see cfgFromProfile / profileFromCfg).
+ */
+export const DRAFTABLE_TOKENS = Object.freeze(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
 
 function clampCount(v, lo, hi) {
   const n = Math.round(Number(v));
@@ -373,6 +395,9 @@ export function cfgFromProfile(profile) {
   let flex = 0;
   let bench = 0;
   let flexType = null;
+  let kCount = 0;
+  let defCount = 0;
+  let defToken = null;   // 'DEF' or 'DST' — whichever spelling this league uses
   p.shape.roster_positions.forEach((token) => {
     if (token === 'BN') { bench += 1; return; }
     if (FLEX_ELIGIBILITY[token]) {
@@ -382,11 +407,37 @@ export function cfgFromProfile(profile) {
       return;
     }
     if (counts[token] != null) { counts[token] += 1; return; }
-    carried.push(token); // K / DEF / DST — kept, and said out loud
+    // R27 — K / DEF / DST are DRAFTABLE now, so they get a real slot in the sim
+    // shape and must NOT go into `carried`.
+    //
+    // `carried` means "kept on your profile but the simulator does not draft
+    // it", and the settings card and the import report both say exactly that
+    // about every token in it. Leaving K/DEF there while making them draftable
+    // made the app state something false — which is worse than the original
+    // gap, because a user who reads it stops looking for the kicker that is
+    // now right there. (Caught in review of PR #38, 2026-08-14.)
+    //
+    // defToken preserves the league's own spelling: DEF and DST are the same
+    // slot and fold into one count (the room cannot seat a team defence
+    // twice), but writing DEF back into a profile that said DST would silently
+    // rewrite the user's league.
+    if (token === 'K') { kCount += 1; return; }
+    if (token === 'DEF' || token === 'DST') {
+      defCount += 1;
+      if (!defToken) defToken = token;
+      return;
+    }
+    carried.push(token); // anything else — kept, undrafted, and said out loud
   });
   const wanted = {
     qb: counts.QB, rb: counts.RB, wr: counts.WR, te: counts.TE, flex, bench,
   };
+  // Only present when the league actually seats one. A default league would
+  // otherwise carry k: 0 / def: 0 forever, which is a different object from the
+  // one every caller and saved config has always seen — the cfg is compared
+  // byte-for-byte against the default in tests and round-tripped into storage.
+  if (kCount > 0) wanted.k = kCount;
+  if (defCount > 0) wanted.def = defCount;
   const cfg = {};
   const clamped = [];
   Object.keys(wanted).forEach((key) => {
@@ -399,6 +450,9 @@ export function cfgFromProfile(profile) {
   cfg.flexType = flexType || 'FLEX';
   cfg.keepers = p.shape.keepers_enabled === true;
   cfg.maxKeepers = p.shape.max_keepers;
+  // Only when this league actually seats a defence, and only the spelling it
+  // used — so SAVE writes back DST to a DST league and DEF to a DEF one.
+  if (defToken) cfg.defToken = defToken;
   return { cfg, carried, clamped };
 }
 
@@ -420,6 +474,13 @@ export function profileFromCfg(cfg, base, carried) {
   const push = (t, n) => { for (let i = 0; i < clampCount(n, 0, 40); i += 1) positions.push(t); };
   push('QB', c.qb); push('RB', c.rb); push('WR', c.wr); push('TE', c.te);
   push(token, c.flex);
+  // R27 — K and DEF are written back from the CONFIG now, not from `carried`.
+  // They used to ride along as carried tokens (the only way an undraftable slot
+  // could survive a SAVE); making them draftable moved them into the shape, so
+  // this is where they have to be rebuilt or SAVE would silently delete the
+  // kicker slot off an imported league. c.defToken preserves DST vs DEF.
+  push('K', c.k);
+  push(c.defToken === 'DST' ? 'DST' : 'DEF', c.def);
   (carried || []).forEach((t) => positions.push(t));
   push('BN', c.bench);
   const flexEligibility = {};
@@ -928,7 +989,18 @@ export default async function mountTeam(el) {
           ? '<span class="cd-onblock">BLOCK</span>' : '';
       }
       const mine = onTheNomination(auction) === auction.mySlot - 1;
-      if (mine || auction.play === 'live') {
+      // R27 — the LIVE label is TOOK, not NOM. The action is identical (both
+      // put the row on the block, and in LIVE the block renders the SOLD
+      // TO / FOR / RECORD SALE controls), but the WORD was wrong for what a
+      // manager is doing in a live room: they are not nominating, they are
+      // recording what the real room just did. "NOM" reads as a bid you are
+      // starting, so the price-and-buyer capture behind it — the thing that
+      // teaches the opponent model — looked like it did not exist. TOOK is
+      // already this app's word for it on the snake side.
+      if (auction.play === 'live') {
+        return `<button type="button" class="cand-add cand-took" data-act="auc-nom" data-bi="${bi}">TOOK</button>`;
+      }
+      if (mine) {
         return `<button type="button" class="cand-add" data-act="auc-nom" data-bi="${bi}">NOM</button>`;
       }
       return '';
@@ -995,6 +1067,12 @@ export default async function mountTeam(el) {
   let auction = null;        // auction room state (createAuction) or null
   let auctionResult = null;  // scoreAuction sheet after a finished auction
   let bidAdj = 0;            // my +/- adjustment to the advised bid, per block
+  /* R27 — a typed observed sale price, or null to use the computed default.
+   * Cleared whenever the block changes or the -/+ chips move, so the field
+   * never keeps showing last player's number, and the chips stay meaningful
+   * (they nudge the ESTIMATE; typing states a FACT and wins until then). */
+  let soldTyped = null;
+  const soldPrice = (base) => (soldTyped == null ? base : soldTyped);
   // A LIVE sale sellTo() refused (buyer's roster already full). Held so the
   // block zone can say WHY nothing happened instead of repainting unchanged.
   // Cleared at the top of every action, so it lives exactly one paint.
@@ -1015,9 +1093,42 @@ export default async function mountTeam(el) {
     leagueSize: 12, mySlot: 5, roomType: 'adp', mode: 'snake', play: 'sim',
     budget: DEFAULT_BUDGET, ...DEFAULT_ROSTER,
     flexType: 'FLEX', keepers: false, maxKeepers: 0,
+    // R27 — per-team STARTING dollars. null means "every team holds `budget`",
+    // the overwhelmingly common case, so the setup card stays uncluttered for
+    // leagues that never trade money. It becomes a leagueSize-length array only
+    // once a team is edited. Preseason trades of auction dollars are a real
+    // house rule the room could not express: a team you KNEW had $185 was
+    // modelled at $200, and every threat estimate built from its maxBid was
+    // wrong for the rest of the draft.
+    teamBudgets: null,
     ...seeded.cfg,
   };
   if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+
+  /* R27 — the roster totals the settings card reports.
+   *
+   * These were hand-rolled sums of qb+rb+wr+te+flex(+bench) in two places, and
+   * both silently excluded K and DEF. Once those became real seats, an
+   * Omilia-shaped league (9 starters + 4 bench) reported "7 STARTERS + 4 BENCH
+   * · 11 ROUNDS" while the room it launched actually ran the correct 13 — the
+   * card was describing a league the app was not simulating. Both numbers now
+   * come from the SAME shape builder the room itself uses, which is what keeps
+   * the two from drifting apart again. */
+  function starterSlotCount() {
+    return rosterShape(draftCfg).starters.length;
+  }
+  function rosterSlotCount() {
+    return rosterShape(draftCfg).size;
+  }
+
+  /* The per-team starting budgets as exactly leagueSize numbers, whether or not
+   * the manager ever opened the editor. `null` (nobody touched it) and a stale
+   * array from a larger league both resolve to the league default, so changing
+   * TEAMS after editing budgets can never leave a team with no money or invent
+   * one that does not play. */
+  function effectiveTeamBudgets() {
+    return normalizeTeamBudgets(draftCfg.teamBudgets, draftCfg.leagueSize, draftCfg.budget);
+  }
 
   /* ---- R21: K and D/ST can actually be SEATED -------------------------------
    *
@@ -1254,7 +1365,12 @@ export default async function mountTeam(el) {
   function ourDollarsById() {
     if (!adpDoc) return null;
     if (auction && auction.fair) return auction.fair;
-    const key = `${draftCfg.leagueSize}|${draftCfg.budget}|${draftCfg.qb},${draftCfg.rb},`
+    // R27 — the cache key carries the room's TOTAL money, not just the league
+    // default, or an uneven room would keep serving prices computed for a level
+    // one. (Level rooms produce the same total as before, so the key is stable
+    // for every league that never touches the editor.)
+    const roomMoney = effectiveTeamBudgets().reduce((s, b) => s + b, 0);
+    const key = `${draftCfg.leagueSize}|${draftCfg.budget}|${roomMoney}|${draftCfg.qb},${draftCfg.rb},`
       + `${draftCfg.wr},${draftCfg.te},${draftCfg.flex},${draftCfg.bench}`;
     if (_ourDollars && _ourDollarsKey === key) return _ourDollars;
     const rows = adpDoc.players.filter((r) => r && r.gsis_id);
@@ -1263,9 +1379,61 @@ export default async function mountTeam(el) {
       return Number.isFinite(v) ? v : 0;
     };
     _ourDollars = fairDollars(rows, adjOf, draftCfg.leagueSize, draftCfg.budget,
-      rosterShape(draftCfg));
+      rosterShape(draftCfg), roomMoney);
     _ourDollarsKey = key;
     return _ourDollars;
+  }
+
+  /**
+   * R27 — the ROOM's board: the ADP board, plus this league's K/DST when it
+   * actually seats them.
+   *
+   * The board was adpDoc.players, which is QB/RB/WR/TE by contract — K and DST
+   * live in their own feed precisely so they do not evict ~74 offensive players
+   * from the projected cut. The consequence was that a league with a K1 and a
+   * DEF1 could seat a kicker on this page and find one in the finder, but the
+   * DRAFT ROOM had no kicker on the board to draft, in either format.
+   *
+   * They are appended AFTER the offensive rows, so they sit at the end of the
+   * board by construction — which is both where ADP would put them and the
+   * "late-round, $1 tier" the owner chose. auction.js fairDollars floors them
+   * at MIN_BID (see the note there), so adding them cannot move the price of a
+   * single offensive player.
+   *
+   * A league that seats no K/DEF gets `kdstRows.length === 0` and therefore the
+   * exact array the room has always been given.
+   */
+  function roomBoardRows({ excludeTaken = true } = {}) {
+    const offence = excludeTaken
+      ? adpDoc.players.filter((pp) => !taken.has(String(pp.gsis_id)))
+      : adpDoc.players;
+    const seats = (draftCfg.k > 0 ? 1 : 0) + (draftCfg.def > 0 ? 1 : 0);
+    if (!seats || !kdstRows.length) return offence;
+    const extra = excludeTaken
+      ? kdstRows.filter((r) => !taken.has(String(r.gsis_id)))
+      : kdstRows;
+    return offence.concat(extra);
+  }
+
+  /**
+   * R27 — my auction ceiling for the RECO panel, or null when money is not a
+   * constraint (snake draft, or no room open).
+   *
+   * The cap is auction.js maxBid(), the SAME number the block's guidance and
+   * every threat estimate already use — one definition of "the most I can
+   * commit to one player", which reserves $1 for each of my other open slots.
+   * Prices are OUR dollars (the open room's `fair` map), not the market's: the
+   * panel advises what I should do, and our own valuation is the app's answer
+   * to that. Market price stays display-only, per the standing rule.
+   */
+  function recoBudget() {
+    if (!auction || draftCfg.mode !== 'auction') return null;
+    const me = aucMyTeam(auction);
+    if (!me) return null;
+    const open = auction.shape.size - me.players.length;
+    const priceById = auction.fair instanceof Map ? auction.fair : null;
+    if (!priceById) return null;
+    return { cap: maxBid(me.budget, open), priceById };
   }
 
   /** Whole dollars; a real price under $1 reads "<$1" so it never says free. */
@@ -1653,7 +1821,10 @@ export default async function mountTeam(el) {
    * available pool the fit engine sees, so TAKEN players are excluded and the
    * strip re-ranks live as players are taken. Empty picks -> no strip. */
   function bestPickStrip(pool) {
-    const picks = bestPickNow(roster, pool, weeklyById, mode, undefined, savedProfile);
+    // R27 — the strip respects my remaining dollars in an auction room; null
+    // outside one, which is byte-for-byte the previous call.
+    const picks = bestPickNow(roster, pool, weeklyById, mode,
+      { budget: recoBudget() }, savedProfile);
     if (picks.length === 0) return '';
     const rows = picks.map((r) => {
       const p = r.player;
@@ -1750,10 +1921,16 @@ export default async function mountTeam(el) {
     // 'available' (Best available — raw projected points). The head names the
     // active mode so the ranking is never ambiguous.
     const ai = aiOn && aiInsights !== null;
+    /* R27 — BEST FIT respects the dollars I have left; BEST AVAILABLE does not.
+     * Only meaningful inside an open auction room: outside one there is no
+     * "left", and in a snake draft there is no money at all, so recoBudget()
+     * returns null and both paths are byte-for-byte what they were. */
+    const budget = recoBudget();
     const recos = ai
-      ? recommendV2(roster, pool, weeklyById, mode, target, aiInsights, { sort: recoSort },
-        savedProfile)
-      : recommend(roster, pool, weeklyById, mode, target, { sort: recoSort }, savedProfile);
+      ? recommendV2(roster, pool, weeklyById, mode, target, aiInsights,
+        { sort: recoSort, budget }, savedProfile)
+      : recommend(roster, pool, weeklyById, mode, target, { sort: recoSort, budget },
+        savedProfile);
     const sortLabel = recoSort === 'available' ? 'BEST AVAIL' : 'BEST FIT';
     const head =
       '<div class="reco-head">' +
@@ -1767,7 +1944,17 @@ export default async function mountTeam(el) {
         ? '<div class="reco-explain">AI+ re-ranks by 5-yr trajectory, cold-weather edge, and stack synergy '
           + '— tuned to raise your weekly ceiling and playoff odds. Δ vs BASE shown per pick.</div>'
         : '') +
-      `<div class="reco-sublabel">Ranked by ${sortLabel}${ai ? ' · AI+' : ''}</div>`;
+      `<div class="reco-sublabel">Ranked by ${sortLabel}${ai ? ' · AI+' : ''}` +
+        // R27 — a filter the manager cannot see is a filter they cannot trust.
+        // State the ceiling whenever it is actually applied, and state plainly
+        // that BEST AVAILABLE is deliberately not filtered, so the two panels
+        // showing different players never reads as a bug.
+        (budget
+          ? (recoSort === 'available'
+            ? ' · <span class="reco-cap">BEST AVAIL ignores your budget by design</span>'
+            : ` · <span class="reco-cap">within your ${dollar(budget.cap)} max bid</span>`)
+          : '') +
+      '</div>';
     if (recos.length === 0) {
       box.innerHTML = strip + head + `<div class="reco-why">No eligible players left for ${esc(target)}.</div>`;
       return;
@@ -2085,8 +2272,7 @@ export default async function mountTeam(el) {
   }
 
   function leaguePanelHtml() {
-    const rounds = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te
-      + draftCfg.flex + draftCfg.bench;
+    const rounds = rosterSlotCount();
     const keeperCap = Math.min(LEAGUE_BOUNDS.max_keepers[1], rounds);
     if (draftCfg.maxKeepers > keeperCap) draftCfg.maxKeepers = keeperCap;
     const lopt = (v, cur, label) => (
@@ -2158,9 +2344,19 @@ export default async function mountTeam(el) {
         + 'board: league size and roster shape feed replacement level, VOR and beat-the-room '
         + 'draft value straight away, and the reception value sets the scoring mode the whole '
         + 'app projects at. None of it is ever an input to the learned-signal gate — nothing is '
-        + 'retrained. Two limits, said plainly: the 13-slot roster panel on this page is still '
-        + 'fixed, and the opponent model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league '
-        + 'is priced as if its flex were WR/RB/TE.</div>'
+        // R27 — THE OLD FIRST LIMIT WAS NO LONGER TRUE. This said "the 13-slot
+        // roster panel on this page is still fixed", which stopped being the
+        // case when R19 built the panel from rosterSlots(profile).all, and is
+        // now visibly false: a league that seats a K and a DEF renders a K and
+        // a DEF slot. A stale confession is still the app stating something
+        // untrue, and it understated what the page could actually do. Replaced
+        // with the limit that IS still real — the roster steppers only cover
+        // the offensive slots, so a K/DEF league has to arrive by import.
+        + 'retrained. Two limits, said plainly: the roster counters above cover only QB/RB/WR/'
+        + 'TE/FLEX/BENCH, so a league that seats a K or a DEF has to come in through the Sleeper '
+        + 'import (the slots themselves render, and the room drafts them); and the opponent '
+        + 'model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league is priced as if its flex '
+        + 'were WR/RB/TE.</div>'
       + '<div class="ds-sub"><span>SLEEPER</span>'
         + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
       + '<div class="lp-sync">'
@@ -2597,7 +2793,60 @@ export default async function mountTeam(el) {
       for (let v = lo; v <= hi; v += 1) opts.push(opt(v, draftCfg[key]));
       return field(key, label, opts.join(''));
     };
-    const starters = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te + draftCfg.flex;
+    /* R27 — BUDGET is typed, not picked. It was a select over
+     * BUDGET_CHOICES ($100/$200/$300), which cannot express the $150 and $250
+     * leagues that plainly exist, let alone a league that trades dollars. The
+     * three old choices survive as a datalist so the common cases are still
+     * one tap. Bounds are enforced on commit, not here, so a half-typed "2"
+     * on the way to "200" is not rewritten under the cursor. */
+    const budgetField = () => (
+      '<label class="ds-field">' +
+        '<span class="ds-lbl">BUDGET</span>' +
+        `<input class="ds-num" type="number" inputmode="numeric" data-dnum="budget" ` +
+          `min="${BUDGET_BOUNDS[0]}" max="${BUDGET_BOUNDS[1]}" step="1" ` +
+          `value="${draftCfg.budget}" list="ds-budget-choices" aria-label="League auction budget">` +
+        `<datalist id="ds-budget-choices">${BUDGET_CHOICES.map((b) => `<option value="${b}"></option>`).join('')}</datalist>` +
+      '</label>'
+    );
+    /* The header must not advertise "$200 BUDGET" for a room where that is only
+     * one team's number — the total is the honest summary of an uneven room. */
+    const aucBudgetLabel = () => {
+      const budgets = effectiveTeamBudgets();
+      return budgets.every((b) => b === budgets[0])
+        ? `AUCTION · $${budgets[0]} BUDGET`
+        : `AUCTION · $${budgets.reduce((s, b) => s + b, 0)} IN THE ROOM · UNEVEN`;
+    };
+    /* The per-team editor. Collapsed by default and OPEN once the budgets are
+     * uneven, so a league that trades dollars never has its own settings
+     * hidden behind a disclosure it might not open. Every box is seeded from
+     * the league default, so "level" is what you see until you change it. */
+    const teamBudgetsHtml = () => {
+      if (draftCfg.mode !== 'auction') return '';
+      const budgets = effectiveTeamBudgets();
+      const level = budgets.every((b) => b === budgets[0]);
+      const total = budgets.reduce((s, b) => s + b, 0);
+      const boxes = budgets.map((b, i) => {
+        const mine = i === draftCfg.mySlot - 1;
+        return '<label class="tb-cell">' +
+          `<span class="tb-lbl${mine ? ' tb-lbl--me' : ''}">${mine ? 'YOU' : `T${i + 1}`}</span>` +
+          `<input class="ds-num tb-num" type="number" inputmode="numeric" data-tbudget="${i}" ` +
+            `min="${BUDGET_BOUNDS[0]}" max="${BUDGET_BOUNDS[1]}" step="1" value="${b}" ` +
+            `aria-label="${mine ? 'Your' : `Team ${i + 1}`} starting budget">` +
+        '</label>';
+      }).join('');
+      return `<details class="tb-panel"${level ? '' : ' open'}>` +
+        '<summary class="lp-summary">PER-TEAM BUDGETS' +
+          `<span class="ds-sub-note"> ${level ? `LEVEL · $${budgets[0]} EACH` : `UNEVEN · $${total} IN THE ROOM`}</span>` +
+        '</summary>' +
+        '<div class="m-explain">Preseason trades can leave teams with different auction ' +
+          'dollars. Type what each team actually starts with — the room prices the board ' +
+          'against the money really in it, and every threat estimate uses that team\'s own ' +
+          'ceiling. Leave it alone if your league starts level.</div>' +
+        `<div class="tb-grid">${boxes}</div>` +
+        `<button type="button" class="lp-btn" data-act="tb-level">LEVEL ALL TO $${draftCfg.budget}</button>` +
+      '</details>';
+    };
+    const starters = starterSlotCount();
     const rounds = starters + draftCfg.bench;
     // 8/10/12 are the offered sizes; an imported league of any other size keeps
     // its own number in the menu rather than being silently shown as 8.
@@ -2611,7 +2860,7 @@ export default async function mountTeam(el) {
         'described under the settings. SIM rooms are practice and are kept as history ' +
         'only; a LIVE draft, where you tap what the real room actually took, is the one ' +
         'thing that measures YOUR league.</div>' +
-      `<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">${draftCfg.mode === 'auction' ? `AUCTION · $${draftCfg.budget} BUDGET` : 'SNAKE DRAFT'}</span></div>` +
+      `<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">${draftCfg.mode === 'auction' ? aucBudgetLabel() : 'SNAKE DRAFT'}</span></div>` +
       '<div class="ds-grid ds-grid--league">' +
         field('mode', 'FORMAT',
           `<option value="snake"${draftCfg.mode === 'snake' ? ' selected' : ''}>SNAKE</option>` +
@@ -2622,10 +2871,10 @@ export default async function mountTeam(el) {
         field('leagueSize', 'TEAMS', teamsOptions.map((n) => opt(n, draftCfg.leagueSize)).join('')) +
         field('mySlot', 'MY SLOT', slots.join('')) +
         (draftCfg.mode === 'auction'
-          ? field('budget', 'BUDGET',
-              BUDGET_CHOICES.map((b) => opt(b, draftCfg.budget, `$${b}`)).join(''))
+          ? budgetField()
           : field('roomType', 'ROOM', roomOptionsHtml())) +
       '</div>' +
+      teamBudgetsHtml() +
       roomKeyHtml() +
       `<div class="ds-sub"><span>ROSTER</span><span class="ds-sub-note">${starters} STARTERS + ${draftCfg.bench} BENCH · ${rounds} ROUNDS</span></div>` +
       '<div class="ds-grid ds-grid--roster">' +
@@ -2914,7 +3163,15 @@ export default async function mountTeam(el) {
       const soldControls = live
         ? '<div class="auc-soldrow">SOLD TO ' +
           `<select class="ds-select auc-soldteam">${buyers.map((i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
-          ' FOR <span class="auc-bidnum auc-soldprice" data-price="' + soldBase + '">' + dollar(soldBase) + '</span>' +
+          // R27 — the observed price is TYPED. It used to be a read-only span
+          // moved only by the -/+ chips, seeded from OUR adjusted valuation:
+          // fine for nudging a guess, wrong for recording a fact. A real room
+          // sells a player for $47 and the manager had to tap + eleven times
+          // from our $36 guess. The chips stay (they are the fastest way to
+          // correct by a dollar or two) and seed the field; typing overrides.
+          ' FOR <span class="auc-soldwrap">$<input class="ds-num auc-soldprice" type="number" ' +
+            `inputmode="numeric" min="0" step="1" value="${soldPrice(soldBase)}" ` +
+            `data-price="${soldBase}" aria-label="Price this player actually sold for"></span>` +
           '<button type="button" class="sort-chip" data-act="auc-price-minus">−</button>' +
           '<button type="button" class="sort-chip" data-act="auc-price-plus">+</button>' +
           `<button type="button" class="cand-add" data-act="auc-sold"${buyers.length ? '' : ' disabled'}>RECORD SALE</button></div>`
@@ -2927,7 +3184,10 @@ export default async function mountTeam(el) {
       return (
         '<div class="auc-zone auc-zone--block"><div class="auc-zhead">THE BLOCK ' +
           '<button type="button" class="sort-chip auc-mini" data-act="auc-cancel" title="Wrong player? Return to nomination">✕ SWAP</button></div>' +
-          `<div class="auc-player"><span class="cd-name">${esc(row.name)}</span> <span class="cd-meta">${esc(row.position)} · ADP ${row.adp}</span></div>` +
+          // R27 — K/DST reach the block now, and they carry no ADP (they are
+          // not in adp.json at all). Printing "ADP undefined" would be the app
+          // stating a fact it does not have; say NO ADP instead.
+          `<div class="auc-player"><span class="cd-name">${esc(row.name)}</span> <span class="cd-meta">${esc(row.position)} · ${Number.isFinite(Number(row.adp)) ? `ADP ${row.adp}` : 'NO ADP'}</span></div>` +
           aucPriceRow(g) +
           chip +
           `<div class="auc-verdict">⚡ ${verdict}</div>` +
@@ -3204,9 +3464,22 @@ export default async function mountTeam(el) {
       const remapped = cfgFromProfile(next);
       carriedTokens = remapped.carried;
       clampedNotes = remapped.clamped;
+      // R27 — SAY WHOSE ROUNDS THESE ARE. This line printed a bare "3 rounds"
+      // straight from the league's own draft_rounds while the card above it
+      // said "13 ROUNDS" (one per roster slot, which is what the room actually
+      // runs). Both numbers were right and nothing on screen said they meant
+      // different things, so the card read as self-contradicting — and a user
+      // who cannot reconcile two numbers stops trusting the rest of them. Only
+      // qualify it when the two genuinely differ; on a league where Sleeper's
+      // rounds match the roster there is nothing to disambiguate.
+      const slotRounds = next.shape.roster_positions.length;
+      const roundsTxt = next.shape.draft_rounds === slotRounds
+        ? `${slotRounds} rounds`
+        : `${slotRounds} roster slots (your league sets ${next.shape.draft_rounds} `
+          + 'draft rounds in Sleeper; the room drafts one round per slot)';
       const lines = [wrote
         ? `Saved: ${next.name} · ${next.shape.teams} teams · ${next.shape.starters} starters `
-          + `+ ${next.shape.bench} bench · ${next.shape.draft_rounds} rounds`
+          + `+ ${next.shape.bench} bench · ${roundsTxt}`
           + `${next.shape.keepers_enabled
             ? ` · ${next.shape.max_keepers} keeper${next.shape.max_keepers === 1 ? '' : 's'}`
             : ''}.`
@@ -3354,7 +3627,7 @@ export default async function mountTeam(el) {
         mySlot: Math.min(draftCfg.mySlot, draftCfg.leagueSize),
         roomType: draftCfg.roomType,
         rosterConfig: draftCfg,
-        boardRows: adpDoc.players,
+        boardRows: roomBoardRows({ excludeTaken: false }),
         adjPointsById: adjPointsMap(),
         seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
         excludedIds: [...taken],
@@ -3423,7 +3696,21 @@ export default async function mountTeam(el) {
 
     if (act === 'auc-cancel') {
       if (auction && auction.block) { auction.block = null; bidAdj = 0; }
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       paintAll();
+      return;
+    }
+
+    if (act === 'tb-level') {
+      // Back to a level room. Setting null rather than writing leagueSize
+      // copies of the default keeps "nobody has said otherwise" distinguishable
+      // from "every team was typed and happens to match", which is what the
+      // summary line reports.
+      draftCfg.teamBudgets = null;
+      leagueStatus = null;
+      paintDraft();
+      paintCands();
+      paintReco();
       return;
     }
 
@@ -3431,6 +3718,7 @@ export default async function mountTeam(el) {
       undoLastSale(auction);
       auctionResult = null;
       bidAdj = 0;
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       syncLiveRoom();
       paintAll();
       return;
@@ -3439,14 +3727,19 @@ export default async function mountTeam(el) {
     if (act === 'auc-start') {
       auctionResult = null;
       bidAdj = 0;
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       syncedOthers.clear();
       syncedMine.clear();
       auction = createAuction({
         leagueSize: draftCfg.leagueSize,
         mySlot: Math.min(draftCfg.mySlot, draftCfg.leagueSize),
         budget: draftCfg.budget,
+        // R27 — what each team ACTUALLY starts with. Always passed (not only
+        // when uneven) so the room has one code path, and normalizeTeamBudgets
+        // makes a level room identical to the pre-R27 construction.
+        teamBudgets: effectiveTeamBudgets(),
         rosterConfig: draftCfg,
-        boardRows: adpDoc.players.filter((pp) => !taken.has(String(pp.gsis_id))),
+        boardRows: roomBoardRows(),
         adjPointsById: adjPointsMap(),
         seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
       });
@@ -3481,6 +3774,7 @@ export default async function mountTeam(el) {
     if (act === 'auc-nom') {
       nominate(auction, Number(t.dataset.bi));
       bidAdj = 0;
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       paintAll();
       return;
     }
@@ -3489,17 +3783,22 @@ export default async function mountTeam(el) {
       const bi = autoNominate(auction);
       if (bi >= 0) { nominate(auction, bi); bidAdj = 0; }
       else { auction.done = true; }
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       if (auction.done) finishAuction();
       paintDraft();
       return;
     }
 
     if (act === 'auc-bid-minus' || act === 'auc-price-minus') {
+      // A chip nudges the ESTIMATE, so it takes over from a typed figure —
+      // otherwise -/+ would appear dead after any typing.
+      if (act === 'auc-price-minus' && soldTyped != null) { soldTyped -= 1; paintDraft(); return; }
       bidAdj -= 1;
       paintDraft();
       return;
     }
     if (act === 'auc-bid-plus' || act === 'auc-price-plus') {
+      if (act === 'auc-price-plus' && soldTyped != null) { soldTyped += 1; paintDraft(); return; }
       bidAdj += 1;
       paintDraft();
       return;
@@ -3510,6 +3809,7 @@ export default async function mountTeam(el) {
       const { winnerIdx, price } = resolveBids(auction, Number(t.dataset.max) || 0);
       sellTo(auction, winnerIdx, price, auction.block.boardIdx);
       bidAdj = 0;
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       if (auction.done) finishAuction();
       syncLiveRoom();
       paintAll();
@@ -3523,7 +3823,12 @@ export default async function mountTeam(el) {
       const options = buyerOptions(auction);
       const teamIdx = sel && sel.value !== '' ? Number(sel.value)
         : (options.length ? options[0] : -1);
-      const base = priceEl ? Number(priceEl.dataset.price) : 1;
+      // The TYPED value is the observed fact; data-price is the estimate it
+      // was seeded from. Read the field, fall back to the seed when it is
+      // blank or unparseable — a cleared box must not record a $0 sale.
+      const typed = priceEl ? Math.round(Number(priceEl.value)) : NaN;
+      const seed = priceEl ? Number(priceEl.dataset.price) : 1;
+      const base = Number.isFinite(typed) && typed >= 0 ? typed : seed;
       // Clamp to what the BUYER can legally pay ($1 reserved per other open
       // slot); sellTo's budget clamp backstops even this.
       const buyer = auction.teams[teamIdx];
@@ -3541,6 +3846,7 @@ export default async function mountTeam(el) {
         return;
       }
       bidAdj = 0;
+      soldTyped = null;   // the block changed — last player's typed price must not carry over
       if (auction.done) finishAuction();
       syncLiveRoom();
       paintAll();
@@ -3626,6 +3932,64 @@ export default async function mountTeam(el) {
       paintCands();
       paintReco();
     }
+  });
+
+  /* R27 — typed budgets (league default + per team). `change` rather than
+   * `input`, so the value is read when the field is committed: clamping on
+   * every keystroke rewrites "2" to the minimum while the user is still typing
+   * "200". An empty or unparseable box falls back to the league default rather
+   * than to zero — a blank field means "I have not said", not "this team has
+   * no money". */
+  listen(el, 'change', (e) => {
+    // A typed observed sale price. `change` not `input`, same reason as the
+    // budgets: clamping mid-keystroke fights the user.
+    const sold = e.target.closest('input.auc-soldprice');
+    if (sold) {
+      const n = Math.round(Number(sold.value));
+      soldTyped = Number.isFinite(n) && n >= 0 ? n : null;
+      return;                       // no repaint: repainting would blur the field
+    }
+    const box = e.target.closest('input[data-dnum], input[data-tbudget]');
+    if (!box) return;
+    const [lo, hi] = BUDGET_BOUNDS;
+    // A CLEARED box is "not stated", not zero. Number('') is 0, which is finite
+    // and would clamp to the $10 minimum — so an emptied field would silently
+    // leave a team with almost no money instead of restoring the default. Same
+    // trap as normalizeTeamBudgets(); both ends have to agree about it.
+    const blank = String(box.value).trim() === '';
+    const raw = blank ? NaN : Math.round(Number(box.value));
+    if (box.dataset.dnum === 'budget') {
+      const next = Number.isFinite(raw) ? Math.min(hi, Math.max(lo, raw)) : DEFAULT_BUDGET;
+      const wasLevel = !draftCfg.teamBudgets;
+      box.value = String(next);         // same dirty-property reason as below
+      draftCfg.budget = next;
+      // While the room is level, changing the league default moves every team
+      // with it — that is what "default" means. Once budgets are uneven the
+      // per-team numbers are the truth and are left alone.
+      if (wasLevel) draftCfg.teamBudgets = null;
+      leagueStatus = null;
+      if (!draft && !auction) paintDraft();
+      paintCands();
+      paintReco();
+      return;
+    }
+    const idx = Number(box.dataset.tbudget);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= draftCfg.leagueSize) return;
+    const next = effectiveTeamBudgets();
+    next[idx] = Number.isFinite(raw) ? Math.min(hi, Math.max(lo, raw)) : draftCfg.budget;
+    // Write the RESOLVED number straight back into the field. A repaint alone
+    // is not enough: re-rendering sets the value ATTRIBUTE, and a box the user
+    // has typed in has a dirtied value PROPERTY that the attribute no longer
+    // drives — so a cleared box would keep looking empty while the room quietly
+    // held $200. The field must state what was actually stored.
+    box.value = String(next[idx]);
+    draftCfg.teamBudgets = next;
+    leagueStatus = null;
+    if (!draft && !auction) paintDraft();
+    // OUR dollars are spread over the money in the room, so an uneven room
+    // reprices the board's value cell immediately.
+    paintCands();
+    paintReco();
   });
 
   // Sleeper ROSTER team picker — selecting a team re-plans (it never writes).
