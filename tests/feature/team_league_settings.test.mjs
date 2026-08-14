@@ -184,6 +184,122 @@ test('zero flex slots leaves the eligibility map empty', () => {
   assert.equal(back.shape.starters, 6);
 });
 
+/* ==========================================================================
+ * 3b. MORE THAN ONE KIND OF FLEX SLOT (R23 regression)
+ *
+ * FLEX + SUPER_FLEX is the standard superflex shape. The panel has ONE flex
+ * selector, and it used to count both slots into `flex` and re-emit them as
+ * the FIRST token — so a round trip rewrote SUPER_FLEX as a second FLEX and
+ * turned a saved superflex league into a 1-QB league. Worse, the resulting
+ * mismatch made the panel print "UNSAVED — press SAVE" for a profile that WAS
+ * saved, so following the app's own instruction is what destroyed it, and AI+
+ * (which reads the saved profile) then modelled the wrong league.
+ *
+ * The second flex token is now CARRIED, exactly like K/DEF.
+ * ======================================================================== */
+
+/** A profile with the given roster shape, everything else default. */
+function shaped(rosterPositions) {
+  return normalizeProfile({
+    ...cloneProfile(DEFAULT_PROFILE),
+    shape: {
+      ...cloneProfile(DEFAULT_PROFILE).shape,
+      roster_positions: rosterPositions,
+      draft_rounds: rosterPositions.length,
+    },
+  });
+}
+
+const MULTI_FLEX_SHAPES = [
+  ['FLEX + SUPER_FLEX (superflex)', ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'SUPER_FLEX']],
+  ['SUPER_FLEX + FLEX (reverse order)', ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'SUPER_FLEX', 'FLEX']],
+  ['FLEX + REC_FLEX', ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'REC_FLEX']],
+  ['two FLEX + one SUPER_FLEX', ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'FLEX', 'SUPER_FLEX']],
+];
+
+MULTI_FLEX_SHAPES.forEach(([label, starters]) => {
+  test(`${label} survives the round trip byte-for-byte`, () => {
+    const src = shaped([...starters, ...new Array(6).fill('BN')]);
+    const { cfg, carried } = cfgFromProfile(src);
+    const back = profileFromCfg(cfg, src, carried);
+    assert.deepEqual(back, src,
+      'pressing SAVE must not rewrite a flex slot the selector cannot show');
+    // The extra flex token is carried, not counted into the one selector.
+    const distinct = new Set(starters.filter((t) => FLEX_ELIGIBILITY[t]));
+    assert.equal(carried.length, distinct.size - 1);
+    assert.equal(cfg.flexType, starters.find((t) => FLEX_ELIGIBILITY[t]));
+    // Every flex slot on the roster gets its own eligibility, unrewritten.
+    distinct.forEach((t) => assert.deepEqual(back.shape.flex_eligibility[t],
+      [...FLEX_ELIGIBILITY[t].positions], `${t} eligibility rewritten`));
+  });
+});
+
+test('a superflex profile still starts ~2 QBs after a trip through the panel', () => {
+  // The failure this locks was silent and total: SUPER_FLEX became FLEX, so the
+  // league AI+ modelled started ONE quarterback instead of two.
+  const src = shaped(['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'SUPER_FLEX',
+    ...new Array(6).fill('BN')]);
+  const { cfg, carried } = cfgFromProfile(src);
+  const back = profileFromCfg(cfg, src, carried);
+  assert.ok(back.shape.roster_positions.includes('SUPER_FLEX'),
+    'the SUPER_FLEX slot must survive');
+  assert.equal(back.shape.roster_positions.filter((t) => t === 'FLEX').length, 1,
+    'and it must not be duplicated into a second FLEX either');
+  assert.ok(back.shape.flex_eligibility.SUPER_FLEX.includes('QB'));
+});
+
+test('the UNSAVED warning compares only what the grid can express', () => {
+  // leagueDirty() is closure-local, so this reproduces its exact expression:
+  // BOTH sides go through the same round trip. A saved multi-flex profile must
+  // read CLEAN — the old comparison against the raw saved profile said UNSAVED
+  // and then told the user to press the button that destroyed it.
+  const dirty = (saved, cfg, staged, carried) => JSON.stringify(
+    profileFromCfg(cfg, staged, carried),
+  ) !== JSON.stringify(profileFromCfg(
+    cfgFromProfile(saved).cfg, saved, cfgFromProfile(saved).carried,
+  ));
+
+  MULTI_FLEX_SHAPES.forEach(([label, starters]) => {
+    const saved = shaped([...starters, ...new Array(6).fill('BN')]);
+    const { cfg, carried } = cfgFromProfile(saved);
+    assert.equal(dirty(saved, cfg, saved, carried), false,
+      `${label}: a saved profile must not report UNSAVED`);
+    // A real edit still reports UNSAVED.
+    assert.equal(dirty(saved, { ...cfg, bench: cfg.bench + 1 }, saved, carried), true,
+      `${label}: an actual change must still report UNSAVED`);
+  });
+
+  // A count the grid CANNOT express (3 QB clamps to 2) is reported by the clamp
+  // note, not by nagging the user to press SAVE.
+  const clampedSrc = shaped(['QB', 'QB', 'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+    ...new Array(6).fill('BN')]);
+  const seeded = cfgFromProfile(clampedSrc);
+  assert.ok(seeded.clamped.some((c) => c.key === 'qb'), 'the clamp is reported');
+  assert.equal(dirty(clampedSrc, seeded.cfg, clampedSrc, seeded.carried), false,
+    'an unrepresentable count must not read as an unsaved user edit');
+});
+
+test('leagueDirty round-trips BOTH sides of the comparison', () => {
+  // Structural guard: the moment leagueDirty compares against the raw
+  // savedProfile again, the false-UNSAVED-then-destroy loop is back.
+  const body = TEAM_SRC.slice(TEAM_SRC.indexOf('function leagueDirty()'));
+  const fn = body.slice(0, body.indexOf('\n  }') + 4);
+  assert.ok(fn.includes('cfgFromProfile(savedProfile)'),
+    'the saved side must be projected through the grid too');
+  assert.ok(!/!==\s*JSON\.stringify\(savedProfile\)/.test(fn),
+    'comparing the staged round trip against the RAW saved profile is the bug');
+});
+
+test('a carried flex slot is not described as undraftable', () => {
+  // K/DEF are carried AND not drafted. A second flex token is carried AND
+  // drafted — saying otherwise about a SUPER_FLEX would be a false claim.
+  assert.ok(TEAM_SRC.includes('carriedUndraftable'),
+    'the "simulator does not draft them" note must exclude flex tokens');
+  const note = TEAM_SRC.slice(TEAM_SRC.indexOf('const carriedUndraftable'));
+  assert.ok(note.slice(0, 900).includes('carriedFlex.map(flexLabel)'),
+    'and a carried flex slot gets its own, accurate note');
+});
+
 test('flexLabel speaks the app idiom and flags the app-only slot', () => {
   assert.equal(flexLabel('WRRB_FLEX'), 'WR/RB');
   assert.equal(flexLabel('REC_FLEX'), 'WR/TE');

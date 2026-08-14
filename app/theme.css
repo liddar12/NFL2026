@@ -3036,3 +3036,206 @@ body.gate-locked { overflow: hidden; }
  * iPad. Scoped to this control on purpose: the draft-room density elsewhere is
  * a separate, pre-existing decision and is not silently rewritten here. */
 .lp-rsel { min-height: 44px; }
+
+/* ---- R23-S1 · the ROOM key, draft history, and the room's price ------------ */
+
+/* ROOM KEY. Three rooms with three-to-five-letter names say nothing about who
+   you are drafting against, so each carries one line and the selected one is
+   lit. Sits directly under the LEAGUE grid, above ROSTER — read it, then
+   change the select above it. */
+.ds-roomkey {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ds-rk {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.ds-rk-tag {
+  flex: 0 0 auto;
+  min-width: 44px;              /* the three tags align, ADP through AI+ */
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ds-rk-txt { min-width: 0; }
+/* The selected room is the one the START button will actually run. */
+.ds-rk--on { color: var(--ink); }
+.ds-rk--on .ds-rk-tag { color: var(--brand-txt); }
+.ds-rk-note,
+.ds-rk-warn {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+  color: var(--muted);
+}
+/* An AI+ room with no saved profile is a STANDARD PPR room wearing your
+   league's name. That is the one thing a manager must not miss here. */
+.ds-rk-warn {
+  color: var(--warn);
+  border-left-color: var(--warn);
+}
+
+/* "gone ~N here" — the LIVE-room calibration, consumed. A PICK NUMBER sitting
+   beside consensus ADP; toned as brand text so it never reads as a point
+   total in a row that also carries one. */
+.ds-gone {
+  color: var(--brand-txt);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* AUCTION block: the room's likely price beside ours. .ms-badge is reused
+   VERBATIM (one DISPLAY-ONLY convention app-wide) and its default
+   margin-left:auto would shove it off a non-flex row, so it is neutralised
+   here exactly as .p-val and .cd-vallegend already do. */
+.auc-prices .ms-badge { margin-left: 6px; }
+.auc-mkt { color: var(--muted); }
+.auc-mktsrc {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* DRAFT HISTORY. What is stored, what it is allowed to claim, and the wipe. */
+.ds-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.ds-hsum {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ds-hnote {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+/* NOT MEASURED is the resting state and stays quiet; a real calibration is the
+   only one that lights up. Nothing here ever fills the space with a number. */
+.ds-hcal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ds-hcal--on { color: var(--brand-txt); }
+.ds-hcal .cd-meta { font-weight: 400; letter-spacing: 0.02em; }
+.ds-hrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ds-hpos, .ds-hnoise {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-variant-numeric: tabular-nums;
+}
+/* A position this room takes EARLIER than consensus is the actionable one. */
+.ds-hpos--early { color: var(--brand-txt); border-color: var(--brand); }
+/* Erasing history destroys the only copy of a live room's transcript, so this
+   control gets a full 44px target on every screen — the surrounding draft-room
+   density is a separate, pre-existing decision and is left alone. */
+.ds-hclear {
+  min-height: 44px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.ds-hclear--armed {
+  color: var(--accent-txt);
+  border-color: var(--accent);
+}
+
+/* Phones: the room key's tag column would eat the line, so it stacks. */
+@media (max-width: 600px) {
+  .ds-rk { flex-direction: column; gap: 2px; }
+  .ds-rk-tag { min-width: 0; }
+}
+
+/* --------------------------------------------------------------------------
+ * R23 batch-2 surface fixes
+ * ------------------------------------------------------------------------ */
+
+/* A LIVE sale the engine refused (buyer's roster is already full). The picker
+   no longer offers a full team, so this is the backstop notice — it must read
+   as a refusal, not as decoration. */
+.auc-refusal {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--accent-txt);
+  border-left: 2px solid var(--accent);
+  padding: 6px 0 6px 8px;
+  margin-top: 6px;
+}
+
+/* LIVE draft: the name filter over the WHOLE board. Every untaken player has
+   to be reachable, so the list scrolls instead of being cut short. */
+.ds-livefind {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--mono);
+  font-size: 16px;                 /* >=16px: iOS must not zoom on focus */
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 8px 10px;
+  min-height: 44px;                /* touch target */
+  margin: 6px 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ds-livefind:focus { outline: none; border-color: var(--brand-txt); }
+.auc-pool--live {
+  max-height: 46vh;
+  overflow-y: auto;
+  align-content: flex-start;
+  -webkit-overflow-scrolling: touch;
+}
+.auc-pool--live .auc-poolchip { min-height: 44px; }
+.ds-livemore {
+  flex-basis: 100%;
+  padding: 6px 0 2px;
+}

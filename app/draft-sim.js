@@ -9,25 +9,39 @@
  * positional-need awareness, and run behavior. Our picks come from the VOR
  * fit engine. Beating that room, measured as our starters' projected points
  * minus the room average, IS the beat-ADP score. The opt-in "shark" room
- * (every opponent uses our VOR engine) is a stress test and is explicitly
- * excluded from the learning record so the market benchmark stays clean.
+ * (every opponent uses our VOR engine) is a stress test, kept out of the
+ * market comparison so the ADP benchmark stays clean.
  *
- * SELF-LEARNING HOOK: completed mocks are locked point-in-time (the view
- * appends them to localStorage nfl2026.mocklocks.v1). When the season
- * resolves, actual points grade those locks and the fit-engine coefficients
- * become refittable through the same NEVER-REGRESS gate as the game model.
- * Until then the coefficients are the documented priors — labeled, not
- * silently "learned".
+ * WHAT A FINISHED ROOM TEACHES: nothing in this file. A completed room is
+ * stored as DRAFT HISTORY by app/mocks.js — a point-in-time record, read back
+ * for comparison, never fed back into these coefficients. The fit-engine
+ * coefficients are the documented priors and no room refits them. SIM rooms
+ * teach nothing at all: their opponents are this module's own sampler, so
+ * grading them would only measure this file against itself. Only LIVE rooms —
+ * where the manager taps what real opponents actually did — produce
+ * opponent-model calibration, and that output is a PICK NUMBER (where this
+ * room takes a given consensus ADP), never a coefficient, never a projection,
+ * never a weight.
  *
  * ADP POLICY BOUNDARY: ADP models OPPONENTS and value flags only. It never
  * touches our projections — a player without a projection (gsis_id null) can
  * be drafted BY OPPONENTS but is never recommended to us and scores 0 toward
  * roster totals (never fabricated points).
+ *
+ * THE THIRD ROOM (R23-E1): 'aiplus' drafts to the SAVED LeagueProfile. ADP
+ * drafts the consensus board and SHARK greedily takes the most adjusted points;
+ * neither knows anything about the manager's league, so neither ever teaches a
+ * superflex or TE-premium manager when players actually go in THEIR room. The
+ * AI+ opponent values players under the league's own scoring table and derives
+ * its needs and scarcity from the league's own shape (roster slots, flex
+ * eligibility, position caps, team count) through the same team-logic geometry
+ * the reco panel and the auction use. 'adp' and 'shark' are untouched.
  */
 
 import {
-  scoringAdjust, rosterGeometry,
+  scoringAdjust, rosterGeometry, positionDemand, replacementIndex,
 } from './team-logic.js';
+import { normalizeProfile } from './league.js';
 
 /* --------------------------------------------------------------------------
  * Roster configuration (Rel6: slot counts are configurable within sane bounds)
@@ -168,6 +182,266 @@ export function sharkOpponentPick(board, counts, shape, adjOf) {
 }
 
 /* --------------------------------------------------------------------------
+ * AI+ ROOM (R23-E1) — the opponent that drafts to YOUR league profile
+ * ------------------------------------------------------------------------ */
+
+/** The room tokens createDraft understands, in menu order. */
+export const ROOM_TYPES = Object.freeze(['adp', 'shark', 'aiplus']);
+
+/** Display labels for the rooms (the view may show its own copy). */
+export const ROOM_LABELS = Object.freeze({ adp: 'ADP', shark: 'SHARK', aiplus: 'AI+' });
+
+/**
+ * Canonical room token. 'adp' and 'shark' pass through UNCHANGED, and so does
+ * anything unrecognised (an unknown token has always fallen through to the ADP
+ * model, and still does). Only the AI+ spellings collapse to 'aiplus'.
+ */
+export function normalizeRoomType(roomType) {
+  const t = String(roomType == null ? '' : roomType).trim().toLowerCase();
+  if (t === 'aiplus' || t === 'ai+' || t === 'ai' || t === 'ai-plus') return 'aiplus';
+  return roomType;
+}
+
+/** Fit points added to a candidate that still fills an UNFILLED STARTER seat on
+ * this opponent's roster. A DOCUMENTED PRIOR (the STACK_BONUS magnitude in
+ * app/team-logic.js), not a measurement: roughly the value gap of one round,
+ * enough to make a needed starter beat a marginally better bench body. */
+export const AI_STARTER_NEED_BONUS = 12;
+
+/** Candidate-set width: how many of the top-scoring players the AI+ manager
+ * will actually consider, widening as the draft goes on. */
+export const AI_TOP_K_BASE = 3;
+export const AI_TOP_K_PER_ROUND = 0.5;
+
+/** Weight decay across that candidate set (w_i = AI_PICK_DECAY^i). */
+export const AI_PICK_DECAY = 0.45;
+
+/**
+ * LEAGUE-SCORED season points for one board row — the AI+ room's valuation.
+ *
+ * HONESTY, EXACTLY: only two scoring keys can be fed here, because they are the
+ * only ones this app has a projected stat to multiply.
+ *   rec           `proj_points` is a FULL-PPR season total and player_weekly
+ *                 carries prior-season receptions, so
+ *                 ppr + (rec - 1) x receptions is the same EXACT conversion
+ *                 scoringAdjust() already performs for half/std, generalised to
+ *                 whatever per-reception value the league actually sets.
+ *   bonus_rec_te  Sleeper's TE premium, a bonus PER TE RECEPTION (carried
+ *                 through by the Sleeper import as an unknown-but-kept key).
+ *                 Same arithmetic, TEs only.
+ * EVERY OTHER KEY IS LEFT ALONE. There is no per-stat projection to multiply
+ * and inventing one would be fabrication — validateProfile() already warns
+ * exactly that about keys nothing feeds.
+ *
+ * When the ingredients are missing (no PPR total for the player, or a table
+ * that needs a reception count we do not have) the ROOM'S OWN adjusted points
+ * stand in. That is a real number the caller computed, never a guess.
+ */
+export function leagueSeasonPoints(row, profile, adjOf, pprPointsById, receptionsById) {
+  const fallback = () => (typeof adjOf === 'function' ? adjOf(row) : 0);
+  const id = row && row.gsis_id != null ? String(row.gsis_id) : null;
+  if (id == null || !pprPointsById || !pprPointsById.has(id)) return fallback();
+  const ppr = Number(pprPointsById.get(id));
+  if (!Number.isFinite(ppr)) return fallback();
+  const scoring = (profile && profile.scoring) || {};
+  const perRec = Number.isFinite(scoring.rec) ? scoring.rec : 0;
+  const pos = String((row && row.position) || '').toUpperCase();
+  const teBonus = pos === 'TE' && Number.isFinite(scoring.bonus_rec_te)
+    ? scoring.bonus_rec_te : 0;
+  if (perRec === 1 && teBonus === 0) return Math.round(ppr * 100) / 100;
+  // The table differs from full PPR, so a reception count is REQUIRED to
+  // convert. Without one there is no honest number — use the room's.
+  if (!receptionsById || !receptionsById.has(id)) return fallback();
+  const rec = Number(receptionsById.get(id));
+  if (!Number.isFinite(rec)) return fallback();
+  return Math.round((ppr + (perRec - 1) * rec + teBonus * rec) * 100) / 100;
+}
+
+/**
+ * Everything the AI+ opponent reads, built once per draft.
+ *   profile     the SAVED LeagueProfile, normalised (null -> DEFAULT_PROFILE,
+ *               so an unconfigured manager still gets a working AI+ room)
+ *   geo         rosterGeometry(profile) — slots, flex eligibility, caps
+ *   demand      positionDemand(profile) — fixed slots + each flex slot's share
+ *   leagueSize  the ROOM's team count (real scarcity is the room you are in)
+ *   valueOf     row -> league-scored season points (leagueSeasonPoints)
+ *   replacement per-position replacement level, fixed ONCE off the FULL board
+ *               (see aiReplacementLevels). Pass `board` to pin it up front;
+ *               otherwise the first pick pins it off whatever board it sees.
+ */
+export function aiPlusContext({ profile = null, adjOf = null, pprPointsById = null,
+                                receptionsById = null, leagueSize = null,
+                                board = null } = {}) {
+  const p = normalizeProfile(profile);
+  const geo = rosterGeometry(p);
+  const size = Number.isFinite(Number(leagueSize)) && Number(leagueSize) > 0
+    ? Number(leagueSize) : geo.teams;
+  // The valuation is a pure function of the row and a fixed profile/table, and
+  // the survival lookahead asks for it thousands of times per turn — memoise it
+  // by id. Rows without an id are never cached (they are never equal anyway).
+  const cache = new Map();
+  const ctx = {
+    profile: p,
+    geo,
+    demand: positionDemand(p),
+    leagueSize: size,
+    replacement: null,
+    valueOf: (row) => {
+      const id = row && row.gsis_id != null ? String(row.gsis_id) : null;
+      if (id !== null && cache.has(id)) return cache.get(id);
+      const v = leagueSeasonPoints(row, p, adjOf, pprPointsById, receptionsById);
+      if (id !== null) cache.set(id, v);
+      return v;
+    },
+  };
+  if (Array.isArray(board) && board.length > 0) {
+    ctx.replacement = computeReplacementLevels(board, ctx);
+  }
+  return ctx;
+}
+
+/**
+ * Does `pos` still fill an UNFILLED STARTING slot under this league's shape?
+ * Fixed demand first; then a flex seat, which is open while the roster's
+ * surplus (players beyond fixed demand at any flex-eligible position) has not
+ * yet covered every flex slot. Pure.
+ */
+export function needsStarterSeat(counts, pos, geo) {
+  const p = String(pos || '').toUpperCase();
+  const fixed = geo.demand[p] || 0;
+  if ((counts[p] || 0) < fixed) return true;
+  const takesFlex = geo.flexSlots.some((f) => f.positions.includes(p));
+  if (!takesFlex) return false;
+  const flexPositions = new Set();
+  geo.flexSlots.forEach((f) => f.positions.forEach((q) => flexPositions.add(q)));
+  let surplus = 0;
+  flexPositions.forEach((q) => {
+    surplus += Math.max(0, (counts[q] || 0) - (geo.demand[q] || 0));
+  });
+  return surplus < geo.flexSlots.length;
+}
+
+/**
+ * LEAGUE-WIDE replacement level per position: the value of the last player who
+ * would fill a starting slot somewhere in the room, i.e. round(demand x teams)
+ * - 1 into the ranked list — the same definition app/team-logic.js
+ * replacementLevel() and app/auction.js fairDollars() use, so all three engines
+ * agree on who the FLEX belongs to. A shallower board clamps to the worst
+ * player at that position.
+ *
+ * OVER THE FULL BOARD, ONCE (R23-E1 fix). This used to rank the REMAINING rows
+ * on every pick, which made the baseline chase the board down: drafting a QB
+ * removed a QB from the ranking, the fixed index round(demand x teams) - 1 slid
+ * onto a worse player, replacement FELL, and the VOR of the next QB ROSE. In a
+ * superflex league (QB demand ~1.92, index 22) that is a runaway loop — the
+ * room took 18 of its first 24 picks at QB, down to backups with ADP 170+,
+ * because QB replacement had collapsed to the unprojected tail of the board.
+ * Real VOR moves the other way as starters are consumed; a baseline that moves
+ * with the board is not a baseline. app/auction.js fairDollars() has always
+ * priced off the full board for exactly this reason, and now so does AI+.
+ *
+ * Rows with NO projection are excluded from the ranking. leagueSeasonPoints()
+ * honestly returns 0 for a player this app cannot project (that is the
+ * never-fabricate rule), but a 0 is a missing number, not a scouting opinion —
+ * letting one become the replacement level would price every player at that
+ * position against nothing.
+ */
+function computeReplacementLevels(board, ctx) {
+  const byPos = new Map();
+  for (let i = 0; i < board.length; i += 1) {
+    const pos = String(board[i].position || '').toUpperCase();
+    const v = ctx.valueOf(board[i]);
+    if (!Number.isFinite(v) || v <= 0) continue; // unprojected: never the baseline
+    if (!byPos.has(pos)) byPos.set(pos, []);
+    byPos.get(pos).push(v);
+  }
+  const out = {};
+  byPos.forEach((values, pos) => {
+    const demand = ctx.demand[pos];
+    if (!Number.isFinite(demand)) { out[pos] = 0; return; }
+    values.sort((a, b) => b - a);
+    const idx = Math.min(replacementIndex(demand, ctx.leagueSize), values.length - 1);
+    out[pos] = values[idx];
+  });
+  return out;
+}
+
+/** The draft's replacement levels, pinned on first use and never recomputed. */
+function aiReplacementLevels(board, ctx) {
+  if (!ctx.replacement) ctx.replacement = computeReplacementLevels(board, ctx);
+  return ctx.replacement;
+}
+
+/**
+ * One AI+ opponent pick. `board` is the REMAINING rows (ADP-ordered); returns
+ * the chosen index into it.
+ *
+ * Ranking: value over league-wide replacement, computed under the league's own
+ * scoring table and its own demand, plus AI_STARTER_NEED_BONUS while the
+ * position still has an open starting seat on that roster. In a superflex
+ * league the SUPER_FLEX slot pushes QB demand to ~1.9 starters per team, so the
+ * QB replacement level collapses and quarterbacks carry the biggest VOR in the
+ * room — the AI+ opponents chase them, which the greedy SHARK never does.
+ *
+ * PLAUSIBLE IMPERFECTION: the pick is SAMPLED from the top few candidates, not
+ * taken as the argmax. A room of perfect optimisers is not a useful practice
+ * opponent — every player would go at exactly the same slot in every sim, the
+ * survival lookahead would report 0% or 100% and nothing else, and the manager
+ * would learn a board no real draft produces. The candidate set widens with the
+ * round (AI_TOP_K_PER_ROUND) for the same reason the ADP room's noise does:
+ * early rounds are near-consensus, late rounds are opinion. Weights decay
+ * geometrically (AI_PICK_DECAY), so the best candidate still wins most of the
+ * time. Deterministic given `rng` — one uniform draw per pick.
+ */
+export function aiPlusOpponentPick(board, counts, shape, ctx, round, rng) {
+  if (board.length === 0) return 0;
+  // 1. Candidates: a position this league can actually roster, that this
+  //    roster still needs under the LEAGUE'S caps and flex eligibility.
+  let cand = [];
+  for (let i = 0; i < board.length; i += 1) {
+    const pos = String(board[i].position || '').toUpperCase();
+    if (!ctx.geo.positions.includes(pos)) continue;
+    if (!opponentNeeds(counts, pos, ctx.profile)) continue;
+    cand.push(i);
+  }
+  // 2. Profile saturated (the room drafts more rounds than the profile rosters)
+  //    -> fall back to the ROOM's shape, then to the whole board. Never throws.
+  if (cand.length === 0) {
+    for (let i = 0; i < board.length; i += 1) {
+      if (opponentNeeds(counts, board[i].position, shape)) cand.push(i);
+    }
+  }
+  if (cand.length === 0) cand = board.map((_, i) => i);
+
+  const repl = aiReplacementLevels(board, ctx);
+  const scored = cand.map((i) => {
+    const pos = String(board[i].position || '').toUpperCase();
+    const vor = ctx.valueOf(board[i]) - (repl[pos] || 0);
+    const need = needsStarterSeat(counts, pos, ctx.geo) ? AI_STARTER_NEED_BONUS : 0;
+    return { i, score: vor + need };
+  });
+  // Ties break on board order (ADP), so the ranking is a total order.
+  scored.sort((a, b) => b.score - a.score || a.i - b.i);
+
+  const k = Math.max(1, Math.min(
+    scored.length, Math.round(AI_TOP_K_BASE + AI_TOP_K_PER_ROUND * (Number(round) || 0)),
+  ));
+  let total = 0;
+  const weights = [];
+  for (let i = 0; i < k; i += 1) {
+    const w = AI_PICK_DECAY ** i;
+    weights.push(w);
+    total += w;
+  }
+  let r = (typeof rng === 'function' ? rng() : 0) * total;
+  for (let i = 0; i < k; i += 1) {
+    r -= weights[i];
+    if (r <= 0) return scored[i].i;
+  }
+  return scored[k - 1].i;
+}
+
+/* --------------------------------------------------------------------------
  * Simulation
  * ------------------------------------------------------------------------ */
 
@@ -177,7 +451,7 @@ export function sharkOpponentPick(board, counts, shape, adjOf) {
  * advance the live draft and for the lookahead survival estimate.
  */
 function simulatePicks(board, rosters, shape, roomType, adjOf, startPick, nPicks,
-                       leagueSize, mySlotIdx, rng) {
+                       leagueSize, mySlotIdx, rng, ai) {
   const taken = new Set();
   let pick = startPick;
   let made = 0;
@@ -192,9 +466,10 @@ function simulatePicks(board, rosters, shape, roomType, adjOf, startPick, nPicks
     if (remaining.length === 0) break;
     const counts = rosters[team].counts;
     const round = Math.floor((pick - 1) / leagueSize);
-    const ri = roomType === 'shark'
-      ? sharkOpponentPick(remaining, counts, shape, adjOf)
-      : adpOpponentPick(remaining, counts, shape, round, rng);
+    let ri;
+    if (roomType === 'shark') ri = sharkOpponentPick(remaining, counts, shape, adjOf);
+    else if (roomType === 'aiplus') ri = aiPlusOpponentPick(remaining, counts, shape, ai, round, rng);
+    else ri = adpOpponentPick(remaining, counts, shape, round, rng);
     const chosen = remaining[ri];
     const bi = board.indexOf(chosen);
     taken.add(bi);
@@ -208,15 +483,23 @@ function simulatePicks(board, rosters, shape, roomType, adjOf, startPick, nPicks
  * still available at my next pick, from `nSims` seeded simulations of the
  * opponents' picks in between. This is the "plan 2-3 rounds ahead" number:
  * "78% gone by your next turn" is computed, not vibes.
+ *
+ * Trailing `ai` (optional) is the draft's AI+ context (state.ai) — pass it for
+ * an AI+ room so the lookahead simulates the SAME opponents the room drafts
+ * with. Omitted for an AI+ room, the default profile stands in rather than
+ * throwing; 'adp' and 'shark' never read it.
  */
 export function survivalProbabilities(candidateIdxs, board, rosters, shape,
                                       roomType, adjOf, currentPick, picksUntilMine,
-                                      leagueSize, mySlotIdx, seed, nSims = 200) {
+                                      leagueSize, mySlotIdx, seed, nSims = 200,
+                                      ai = null) {
+  const ctx = roomType === 'aiplus'
+    ? (ai || aiPlusContext({ adjOf, leagueSize, board })) : null;
   const survived = new Map(candidateIdxs.map((i) => [i, 0]));
   for (let s = 0; s < nSims; s += 1) {
     const rng = mulberry32(seed + s * 7919);
     const taken = simulatePicks(board, rosters, shape, roomType, adjOf,
-                                currentPick, picksUntilMine, leagueSize, mySlotIdx, rng);
+                                currentPick, picksUntilMine, leagueSize, mySlotIdx, rng, ctx);
     for (const i of candidateIdxs) {
       if (!taken.has(i)) survived.set(i, survived.get(i) + 1);
     }
@@ -290,10 +573,22 @@ export function scoreVsRoom(myPlayers, opponentRosters, shape, adjOf) {
  * Create a draft. `boardRows` = data/adp.json players (ADP-sorted market
  * board); `adjPointsById` = Map gsis_id -> adjusted season points (our model).
  * Returns a state object the view advances via takeOpponentPick/takeMyPick.
+ *
+ * AI+ ROOM INPUTS (all optional; ignored by the 'adp' and 'shark' rooms):
+ *   profile         the SAVED LeagueProfile (app/league.js loadProfile()).
+ *                   Absent -> DEFAULT_PROFILE, so the room still works.
+ *   pprPointsById   Map gsis_id -> FULL-PPR season points (proj_points).
+ *   receptionsById  Map gsis_id -> prior-season receptions (receptions_prior).
+ * The last two are what let the opponents value players under the league's own
+ * scoring table (see leagueSeasonPoints); without them they fall back to the
+ * room's adjusted points and the shape still drives every need and cap.
  */
 export function createDraft({ leagueSize = 12, mySlot = 1, roomType = 'adp',
                               rosterConfig = null, boardRows, adjPointsById,
-                              seed = 20260901, excludedIds = [] }) {
+                              seed = 20260901, excludedIds = [],
+                              profile = null, pprPointsById = null,
+                              receptionsById = null }) {
+  const room = normalizeRoomType(roomType);
   const shape = rosterShape(rosterConfig);
   const rounds = shape.size;
   const excluded = new Set(excludedIds.map(String));
@@ -304,9 +599,14 @@ export function createDraft({ leagueSize = 12, mySlot = 1, roomType = 'adp',
   for (let t = 0; t < leagueSize; t += 1) {
     rosters.push({ players: [], counts: {} });
   }
+  // `board` pins the replacement baseline to the FULL board once, up front —
+  // the reference pool the whole draft is priced against.
+  const ai = room === 'aiplus'
+    ? aiPlusContext({ profile, adjOf, pprPointsById, receptionsById, leagueSize, board })
+    : null;
   return {
-    leagueSize, mySlot, roomType, shape, rounds, board, adjOf, rosters,
-    seed, pick: 0, taken: new Set(), log: [],
+    leagueSize, mySlot, roomType: room, shape, rounds, board, adjOf, rosters,
+    seed, pick: 0, taken: new Set(), log: [], ai,
     rng: mulberry32(seed),
     totalPicks: leagueSize * rounds,
     done: false,
@@ -354,9 +654,22 @@ export function takeOpponentPick(state) {
   }
   if (remaining.length === 0) { state.done = true; return null; }
   const round = Math.floor(state.pick / state.leagueSize);
-  const ri = state.roomType === 'shark'
-    ? sharkOpponentPick(remaining, state.rosters[team].counts, state.shape, state.adjOf)
-    : adpOpponentPick(remaining, state.rosters[team].counts, state.shape, round, state.rng);
+  const counts = state.rosters[team].counts;
+  let ri;
+  if (state.roomType === 'shark') {
+    ri = sharkOpponentPick(remaining, counts, state.shape, state.adjOf);
+  } else if (state.roomType === 'aiplus') {
+    // createDraft always builds the context; a hand-assembled state gets the
+    // default profile once (cached, so the room never re-derives it per pick).
+    if (!state.ai) {
+      state.ai = aiPlusContext({
+        adjOf: state.adjOf, leagueSize: state.leagueSize, board: state.board,
+      });
+    }
+    ri = aiPlusOpponentPick(remaining, counts, state.shape, state.ai, round, state.rng);
+  } else {
+    ri = adpOpponentPick(remaining, counts, state.shape, round, state.rng);
+  }
   const bi = state.board.indexOf(remaining[ri]);
   _take(state, bi, team);
   return state.log[state.log.length - 1];

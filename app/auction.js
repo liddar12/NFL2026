@@ -8,13 +8,39 @@
  *   * fairDollars: OUR dollars — VOR (value over replacement) from the fit
  *     engine's adjusted points, allocated over the league's total budget with
  *     a $1 floor. This is the independent model's price sheet.
- *   * marketDollars: the MARKET's dollars — derived from the FFC ADP consensus
- *     with an exponential price-decay curve calibrated so the draftable pool
- *     absorbs exactly the league's total budget. HONESTY LABEL: FFC publishes
- *     no auction values, so this is a documented transform of real ADP data,
- *     not observed prices; in-room observed sales (tendencies + inflation)
- *     correct it live. POLICY BOUNDARY: market dollars model OPPONENTS and
- *     flag value gaps — they are never blended into our own valuations.
+ *   * marketDollars: the MARKET's dollars — what the ROOM will pay. Two
+ *     sources, in priority order:
+ *       1. OBSERVED PRICES. data/adp.json carries `auction_value` (ESPN kona
+ *          ownership.auctionValueAverage — the average winning bid in real
+ *          draft rooms) on ~205 of 211 rows. When the board carries them they
+ *          ARE the market curve, renormalised so the draftable pool absorbs
+ *          exactly this league's total budget: that moves ESPN's published
+ *          denomination into ours and preserves every relative price.
+ *       2. THE ADP DECAY CURVE. A board with no published price on ANY row
+ *          (the pre-R23 case, and every synthetic fixture) falls back to the
+ *          exponential decay over ADP rank, unchanged and byte-for-byte.
+ *     HONESTY LABEL: (1) is observed market prices; (2) is a documented
+ *     transform of real ADP data, NOT observed prices. In-room observed sales
+ *     (tendencies + inflation) correct either one live.
+ *     POLICY BOUNDARY — the line this module does not cross: a market dollar
+ *     may never change what this app thinks a player is WORTH. fairDollars()
+ *     is the whole of that opinion and it never sees a price — VOR from the fit
+ *     engine's adjusted points, allocated over the league budget — and nothing
+ *     downstream re-derives worth from the market either: myGuidance's `fair`
+ *     is fairDollars, dollar for dollar, on any board.
+ *
+ *     WHAT MARKET DOLLARS *DO* REACH, stated exactly, because the shorter claim
+ *     that used to sit here was false: they model OPPONENTS (opponentBid,
+ *     autoNominate, threats) and flag value gaps (classifyNomination) — and
+ *     since the room bids from the market, the PRICES THE ROOM ACTUALLY PAYS
+ *     depend on the curve it was given. Those observed sales are what move
+ *     liveInflation() and drain my budget, so myGuidance's `adjusted`
+ *     (= fair x inflation), `bidTo` and `cap` DO differ between a room that bid
+ *     a steep published curve and one that bid the ADP-decay fallback. That is
+ *     the intended mechanism, not a leak: what a seat costs today has to reach
+ *     the advice. What must never move is the opinion underneath it.
+ *     tests/feature/auction.test.mjs drives two differently priced rooms
+ *     through real nominations and sales and asserts exactly that split.
  *   * inflation: remaining room budget / remaining fair value — recomputed
  *     after every sale; adjusted price = fair x inflation.
  *
@@ -45,41 +71,109 @@ export const MARKET_DECAY = 0.028;
 export const TENDENCY_ALPHA = 0.30;
 const TENDENCY_CLAMP = Object.freeze([0.6, 1.6]);
 
-/** Max legal bid: must keep $1 for every other open slot. */
+/** Max legal bid: must keep $1 for every other open slot. A team with NO open
+ * slot has no legal bid at all — $0, not "the whole budget". (Before R23-E2
+ * openSlots <= 0 returned the entire budget, so the clamp that is supposed to
+ * stop a full roster buying one more player did nothing.) */
 export function maxBid(budget, openSlots) {
-  return Math.max(0, budget - Math.max(0, openSlots - 1) * MIN_BID);
+  if (!(openSlots > 0)) return 0;
+  return Math.max(0, budget - (openSlots - 1) * MIN_BID);
+}
+
+/** A row's PUBLISHED auction price, or null when the market does not price him.
+ * Absent / null / non-positive is NOT a price — "$0" is a price and "unpriced"
+ * is not one (data/contracts/adp.schema.json says the same thing). */
+function publishedPrice(row) {
+  const v = Number(row && row.auction_value);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/** True when at least one row on this board carries a published auction price. */
+export function hasPublishedPrices(adpRows) {
+  const rows = Array.isArray(adpRows) ? adpRows : [];
+  for (const r of rows) if (publishedPrice(r) != null) return true;
+  return false;
 }
 
 /**
- * MARKET dollars from ADP rows (ascending adp). Returns Map(gsis_id|name -> $).
- * Exponential decay over ADP rank, calibrated so the top (teams x rosterSize)
- * players sum EXACTLY to teams x budget (every dollar in the room lands in the
- * draftable pool; everyone else is $1).
+ * Relative market weights from the published prices, in board (ADP) order.
+ *
+ * DEGRADING HONESTLY — the ~6 of 211 rows ESPN does not price: an unpriced
+ * player is NOT free and NOT a bargain. He is priced at the mean of his
+ * nearest priced neighbours ON THE BOARD (one side only if he sits at an end),
+ * i.e. the room pays for him roughly what it pays for the players it drafts
+ * him among. We never invent a number below that neighbourhood, and we never
+ * let "we have no price" read as "$0".
+ */
+function publishedWeights(rows) {
+  const raw = rows.map(publishedPrice);
+  const out = new Array(rows.length);
+  for (let i = 0; i < rows.length; i += 1) {
+    if (raw[i] != null) { out[i] = raw[i]; continue; }
+    let prev = null;
+    for (let j = i - 1; j >= 0; j -= 1) { if (raw[j] != null) { prev = raw[j]; break; } }
+    let next = null;
+    for (let j = i + 1; j < rows.length; j += 1) { if (raw[j] != null) { next = raw[j]; break; } }
+    if (prev != null && next != null) out[i] = (prev + next) / 2;
+    else out[i] = prev != null ? prev : (next != null ? next : MIN_BID);
+  }
+  return out;
+}
+
+/**
+ * MARKET dollars from board rows (ascending adp). Returns Map(gsis_id|name -> $).
+ *
+ * The curve is the published `auction_value` when the board carries any, and
+ * the exponential ADP-rank decay when it carries none (see the module header).
+ * Either way it is calibrated so the top (teams x rosterSize) rows sum EXACTLY
+ * to teams x budget — every dollar in the room lands in the draftable pool and
+ * everyone past it is $1. That renormalisation is what makes ESPN's published
+ * board comparable to THIS room's budget; it is a scalar, so the market's own
+ * relative prices survive it intact.
+ *
+ * The pool is still the first (teams x rosterSize) rows BY ADP: ADP is the
+ * model of who gets drafted at all, and price is the model of what they cost.
+ *
+ * WHY THE PUBLISHED PRICES NEED RENORMALISING AT ALL: ESPN's board prices ~211
+ * offensive players, while an ESPN room rosters 16 including K/DST, so its
+ * published averages sum to ~75% of a room's money — the rest is spent off
+ * this board. Our room spends 100% of its money ON this board, so the curve is
+ * stretched to fit it. Relative prices, which are the whole opponent model,
+ * are untouched: doubling every published price changes nothing here.
  */
 export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13) {
   const rows = Array.isArray(adpRows) ? adpRows : [];
   const poolN = Math.min(rows.length, leagueSize * rosterSize);
   const total = leagueSize * budget;
+  const priced = hasPublishedPrices(rows);
+  const curve = priced ? publishedWeights(rows) : null;
   const weights = [];
-  for (let i = 0; i < poolN; i += 1) weights.push(Math.exp(-MARKET_DECAY * i));
+  for (let i = 0; i < poolN; i += 1) {
+    weights.push(priced ? curve[i] : Math.exp(-MARKET_DECAY * i));
+  }
   const wSum = weights.reduce((a, b) => a + b, 0);
   const spread = total - poolN * MIN_BID;         // dollars above the $1 floors
   const out = new Map();
   let allocated = 0;
+  let topIdx = 0;
+  let topVal = -Infinity;
   for (let i = 0; i < rows.length; i += 1) {
     const key = String(rows[i].gsis_id || `name:${rows[i].name}`);
     if (i < poolN) {
-      const v = MIN_BID + Math.round(spread * (weights[i] / wSum));
+      const v = MIN_BID + (wSum > 0 ? Math.round(spread * (weights[i] / wSum)) : 0);
       out.set(key, v);
       allocated += v;
+      if (v > topVal) { topVal = v; topIdx = i; }
     } else {
       out.set(key, MIN_BID);
     }
   }
-  // Rounding drift lands on the #1 pick so the pool sums exactly.
+  // Rounding drift lands on the priciest player so the pool sums exactly. On
+  // the decay curve that is always row 0 (weights are strictly decreasing), so
+  // this is the same arithmetic it has always been.
   if (poolN > 0) {
-    const key0 = String(rows[0].gsis_id || `name:${rows[0].name}`);
-    out.set(key0, out.get(key0) + (total - allocated));
+    const keyTop = String(rows[topIdx].gsis_id || `name:${rows[topIdx].name}`);
+    out.set(keyTop, out.get(keyTop) + (total - allocated));
   }
   return out;
 }
@@ -231,6 +325,10 @@ export function createAuction({
   const fair = fairDollars(boardRows.filter((r) => r.gsis_id), adjOf,
     leagueSize, budget, shape);
   const market = adpDollars || marketDollars(boardRows, leagueSize, budget, shape.size);
+  // Which market model the room is bidding off, so the UI can label it honestly
+  // ('auction' = observed ESPN winning bids, 'adp' = the ADP decay transform).
+  const marketSource = adpDollars ? 'given'
+    : (hasPublishedPrices(boardRows) ? 'auction' : 'adp');
   let remainingFair = 0;
   for (const r of boardRows.filter((x) => x.gsis_id)) {
     remainingFair += fair.get(String(r.gsis_id)) || 0;
@@ -246,6 +344,7 @@ export function createAuction({
     taken: new Set(),
     fair,
     market,
+    marketSource,
     remainingFair,
     teams: Array.from({ length: leagueSize }, () => ({
       budget, players: [], tendencies: {},
@@ -340,11 +439,34 @@ export function resolveBids(a, myMaxBid) {
   return { winnerIdx: winner, price: Math.max(MIN_BID, Math.min(top, second + 1)) };
 }
 
+/** Can this team still be sold a player? Roster room is the whole test: a team
+ * at shape.size has nowhere to put him. Budget is NOT a test — a broke team can
+ * still be handed a $0/$1 player, and sellTo clamps the price. */
+export function canBuy(a, teamIdx) {
+  const t = a.teams[teamIdx];
+  return !!t && t.players.length < a.shape.size;
+}
+
+/** The teams a LIVE sale may legally be recorded against, as 0-based indices —
+ * the buyer picker must be built from this, never from every team. */
+export function buyerOptions(a) {
+  const out = [];
+  for (let t = 0; t < a.teams.length; t += 1) if (canBuy(a, t)) out.push(t);
+  return out;
+}
+
 /** Apply a sale (sim resolution or LIVE observed sale). Updates budgets, the
- * winner's roster, room tendencies (the learning step), inflation base. */
+ * winner's roster, room tendencies (the learning step), inflation base.
+ *
+ * REFUSES and returns null when the buyer's roster is already full (or the
+ * team index is not real): a mis-tapped LIVE sale must not push a team past
+ * shape.size, because every downstream number — needs, caps, inflation, the
+ * final score — assumes a roster no bigger than the shape. Returns the auction
+ * on success, as before. */
 export function sellTo(a, teamIdx, price, boardIdx) {
   const row = a.board[boardIdx];
   const key = String(row.gsis_id || `name:${row.name}`);
+  if (!canBuy(a, teamIdx)) return null;
   a.taken.add(boardIdx);
   const team = a.teams[teamIdx];
   // Money conservation is inviolable: a recorded price can never exceed the
@@ -394,7 +516,24 @@ export function undoLastSale(a) {
 
 /** Bid guidance for the player on the block: our price, inflation-adjusted
  * price, the number to bid to under the current strategy, and the credible
- * threats (teams that can and would go near that number). */
+ * threats (teams that can and would go near that number).
+ *
+ * POLICY: `fair` is OUR opinion of worth and is MARKET-INVARIANT — pure VOR,
+ * the same dollars on any board, whatever the room is paying.
+ *
+ * `adjusted` (= fair x inflation), `bidTo` and `cap` are ours too, but they are
+ * LIVE: inflation is the room's remaining money over remaining fair value, and
+ * `cap` comes off MY remaining budget. Both answer to what the room has
+ * actually SPENT, and the room spends from the market — so two rooms handed
+ * different market curves agree on `fair` and can legitimately differ on these
+ * three. Saying otherwise (an earlier version of this comment claimed "no
+ * market term anywhere in them") overstates the boundary: the boundary is that
+ * the market cannot change what a player is WORTH, not that it cannot change
+ * what a seat COSTS.
+ *
+ * `market` and `threats` are the ROOM, and `gap` (ours minus theirs) is the
+ * actionable spread between the two: negative = the room is paying more than he
+ * is worth to us, let him go. */
 export function myGuidance(a, boardIdx, strategy = {}) {
   const row = a.board[boardIdx];
   const key = String(row.gsis_id || `name:${row.name}`);
@@ -420,7 +559,8 @@ export function myGuidance(a, boardIdx, strategy = {}) {
     }
   }
   const cls = classifyNomination(fair, market);
-  return { fair, adjusted, bidTo, cap, needIt, market, threats, class: cls };
+  return { fair, adjusted, bidTo, cap, needIt, market, threats, class: cls,
+           gap: fair - market, marketSource: a.marketSource };
 }
 
 /** Nomination advice: my BAIT and TARGET lists among available players, plus a
