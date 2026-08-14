@@ -51,13 +51,18 @@ import {
 import {
   rosterShape, createDraft, onTheClock, takeOpponentPick, takeMyPick,
   takeOpponentPickAt, undoLastPick, picksUntilMyNext, survivalProbabilities,
-  scoreVsRoom, ROSTER_BOUNDS, DEFAULT_ROSTER,
+  scoreVsRoom, ROSTER_BOUNDS, DEFAULT_ROSTER, ROOM_TYPES, ROOM_LABELS,
 } from '../draft-sim.js';
+import {
+  MIN_CALIBRATION_PICKS, appendMock, clearHistory, expectedGoneBy, historySummary,
+  loadHistory, migrateLegacy, noiseComparison, positionDrift, recordAuction,
+  recordDraft, roomCalibration,
+} from '../mocks.js';
 import {
   BUDGET_CHOICES, DEFAULT_BUDGET, createAuction, myTeam as aucMyTeam,
   onTheNomination, autoNominate, nominate, resolveBids, sellTo, undoLastSale,
   liveInflation, myGuidance, nominationAdvice, planBudget, scoreAuction,
-  maxBid, MIN_BID, classifyNomination, fairDollars,
+  maxBid, MIN_BID, classifyNomination, fairDollars, buyerOptions,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
 import {
@@ -75,8 +80,15 @@ const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const AI_KEY = 'nfl2026.ai.v1'; // Fit Engine AI+ toggle — default OFF (base v1)
 const TAKEN_KEY = 'nfl2026.taken.v1'; // draft board: ids taken by other managers
-const MOCKS_KEY = 'nfl2026.mocklocks.v1'; // completed ADP-room mocks (learning locks)
+// Draft/auction history lives in app/mocks.js (MOCKS_KEY there, plus the
+// read-only migration off the superseded key). This view never touches either
+// key inline: a record is written through appendMock() and read back through
+// loadHistory(), so there is exactly one definition of what a record IS.
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
+// LIVE draft tap list: rows rendered at once (the list scrolls). Not a reach
+// limit — the filter beside it spans the whole board, so any untaken player is
+// tappable; this only bounds how much DOM one paint builds.
+const LIVE_TAKE_CAP = 60;
 
 /* ---- local render helpers (this view's markup is its own) ----------------- */
 
@@ -333,6 +345,14 @@ export function flexLabel(token) {
  * Returns { cfg, carried, clamped } where `carried` lists roster tokens the
  * simulator cannot price (kept on the profile) and `clamped` lists every count
  * ROSTER_BOUNDS had to pull in, as { key, wanted, used }.
+ *
+ * MORE THAN ONE KIND OF FLEX SLOT (R23 fix). FLEX + SUPER_FLEX is the standard
+ * superflex shape, and the grid has exactly ONE flex selector. The first flex
+ * token owns that selector; every LATER flex token of a DIFFERENT kind is
+ * CARRIED verbatim, the same way K/DEF are. It used to be counted into `flex`
+ * and re-mapped onto the first token, which meant the round trip rewrote
+ * SUPER_FLEX as a second FLEX — silently turning the saved superflex league
+ * into a 1-QB league the moment the panel wrote it back.
  */
 export function cfgFromProfile(profile) {
   const p = normalizeProfile(profile);
@@ -344,8 +364,9 @@ export function cfgFromProfile(profile) {
   p.shape.roster_positions.forEach((token) => {
     if (token === 'BN') { bench += 1; return; }
     if (FLEX_ELIGIBILITY[token]) {
-      flex += 1;
-      if (!flexType) flexType = token; // first flex token wins; the rest re-map
+      if (!flexType) flexType = token;  // the first flex token owns the selector
+      if (token === flexType) { flex += 1; return; }
+      carried.push(token);              // a DIFFERENT flex slot — kept as itself
       return;
     }
     if (counts[token] != null) { counts[token] += 1; return; }
@@ -373,7 +394,10 @@ export function cfgFromProfile(profile) {
  * Draft-simulator config -> LeagueProfile. `base` supplies everything the
  * simulator has no opinion about (name, scoring table, position caps); the
  * shape comes from `cfg`. `carried` tokens are re-inserted after the flex
- * slots so a K/DEF league survives an edit made in this panel.
+ * slots so a K/DEF league — or a second kind of flex slot the one selector
+ * cannot show, e.g. the SUPER_FLEX of a superflex league — survives an edit
+ * made in this panel. Eligibility is written for every flex token that ends up
+ * on the roster, not just the selected one.
  */
 export function profileFromCfg(cfg, base, carried) {
   const out = cloneProfile(normalizeProfile(base));
@@ -385,11 +409,15 @@ export function profileFromCfg(cfg, base, carried) {
   push(token, c.flex);
   (carried || []).forEach((t) => positions.push(t));
   push('BN', c.bench);
+  const flexEligibility = {};
+  positions.forEach((t) => {
+    if (FLEX_ELIGIBILITY[t] && !flexEligibility[t]) {
+      flexEligibility[t] = [...FLEX_ELIGIBILITY[t].positions];
+    }
+  });
   out.shape.roster_positions = positions;
   out.shape.teams = clampCount(c.leagueSize, LEAGUE_BOUNDS.teams[0], LEAGUE_BOUNDS.teams[1]);
-  out.shape.flex_eligibility = clampCount(c.flex, 0, 40) > 0
-    ? { [token]: [...FLEX_ELIGIBILITY[token].positions] }
-    : {};
+  out.shape.flex_eligibility = flexEligibility;
   out.shape.draft_rounds = positions.length;
   out.shape.keepers_enabled = c.keepers === true;
   out.shape.max_keepers = c.keepers === true ? clampCount(c.maxKeepers, 0, 40) : 0;
@@ -876,9 +904,11 @@ export default async function mountTeam(el) {
   }
 
   // DRAFT SIMULATOR (Rel6). ADP board = the market; our picks = VOR + survival
-  // lookahead; beat-the-room margin = the benchmark. ADP-room mocks are locked
-  // to localStorage as learning records; shark room is a stress test (never
-  // locked). Absent adp.json (older deploy) hides the whole section.
+  // lookahead; beat-the-room margin = the benchmark. Three rooms (ADP, SHARK,
+  // AI+) choose who the opponents are. Every finished draft and auction is
+  // stored through app/mocks.js as HISTORY; only a LIVE room — where the
+  // manager taps what the real room took — is admissible as calibration
+  // evidence. Absent adp.json (older deploy) hides the whole section.
   const adpDoc = (adpRes.status === 'fulfilled' && adpRes.value
     && Array.isArray(adpRes.value.players) && adpRes.value.players.length > 50)
     ? adpRes.value : null;
@@ -887,6 +917,12 @@ export default async function mountTeam(el) {
   let auction = null;        // auction room state (createAuction) or null
   let auctionResult = null;  // scoreAuction sheet after a finished auction
   let bidAdj = 0;            // my +/- adjustment to the advised bid, per block
+  // A LIVE sale sellTo() refused (buyer's roster already full). Held so the
+  // block zone can say WHY nothing happened instead of repainting unchanged.
+  // Cleared at the top of every action, so it lives exactly one paint.
+  let aucRefusal = '';
+  // LIVE snake-draft tap list: the manager's name filter over the WHOLE board.
+  let liveTakeQuery = '';
   // LEAGUE PROFILE (R19-B3). The saved profile is the durable half of this
   // config: it survives the reload that the in-memory literal never did, and
   // it is what the SAVE button below writes. Everything the profile does not
@@ -997,6 +1033,32 @@ export default async function mountTeam(el) {
   // Live strategy dials (auction) — flipping any re-plans the room in place.
   const strategy = { style: 'balanced', tempo: 'patient', enforce: true };
   let resetArmed = false;    // two-step RESET confirm
+  let histArmed = false;     // two-step confirm before wiping draft history
+
+  /* ---- R23-S1: draft history + LIVE-room calibration -------------------------
+   *
+   * The records this page writes used to be described as a refit input: the
+   * result card claimed a completed mock taught the fit engine something.
+   * Nothing read them at all. app/mocks.js is now the only owner of that
+   * storage (including the read-only migration off the old key), and the copy
+   * below says exactly what the records do: SIM rooms are history (their
+   * opponents ARE this app's own sampler, so measuring them would measure the
+   * model that produced them), LIVE rooms are a transcript of a real room and
+   * calibrate how far from consensus ADP it drafts.
+   *
+   * migrateLegacy() runs on every mount, so a manager who never drafts again
+   * still sees the mocks they already ran. It is idempotent and never deletes
+   * the old key.
+   */
+  migrateLegacy();
+  let mockHistory = loadHistory();
+  let mockCal = roomCalibration(mockHistory);
+
+  /** Re-read history after a write, so the panel and `gone by` never go stale. */
+  function refreshHistory() {
+    mockHistory = loadHistory();
+    mockCal = roomCalibration(mockHistory);
+  }
 
   /** id -> adjusted season points at the CURRENT scoring mode (draft pricing). */
   function adjPointsMap() {
@@ -1004,6 +1066,28 @@ export default async function mountTeam(el) {
       const id = String(p.gsis_id);
       return [id, adjById.get(id) || 0];
     }));
+  }
+
+  /* The two ingredients the AI+ room needs to value a player under YOUR
+   * scoring table instead of the page's scoring MODE (see draft-sim.js
+   * leagueSeasonPoints): the full-PPR season total the projection ships, and
+   * the prior-season reception count the weekly feed carries. Both are the
+   * same numbers scoringAdjust() already converts with — no new source, no
+   * market term. Built only when an AI+ draft starts; the other two rooms
+   * never call them and their board is byte-for-byte unchanged. */
+  function pprPointsMap() {
+    return new Map(players.map((p) => [String(p.gsis_id), p.proj_points]));
+  }
+  function receptionsMap() {
+    const out = new Map();
+    players.forEach((p) => {
+      const id = String(p.gsis_id);
+      const e = weeklyById.get(id);
+      if (e && Number.isFinite(Number(e.receptions_prior))) {
+        out.set(id, Number(e.receptions_prior));
+      }
+    });
+    return out;
   }
 
   // Per-mode derived maps, built once per mount (mode changes re-mount):
@@ -1696,10 +1780,24 @@ export default async function mountTeam(el) {
 
   /* ---- LEAGUE SETTINGS panel (FLEX · keepers · SAVE · Sleeper) ------------- */
 
-  /** Does the on-screen shape differ from what is actually persisted? */
+  /** Does the on-screen shape differ from what is actually persisted?
+   *
+   * Both sides go through the SAME round trip on purpose. The grid cannot
+   * express everything a LeagueProfile can — ROSTER_BOUNDS clamps counts and
+   * slot ORDER is normalised — so comparing the staged round trip against the
+   * RAW saved profile answers the wrong question. It reported UNSAVED for a
+   * profile that was saved, and the SAVE it then told the user to press was the
+   * very thing that overwrote the unrepresentable part. Round-tripping both
+   * sides asks the only honest question: would pressing SAVE change anything?
+   * What the grid cannot express is reported by clampedNotes and the carried
+   * list instead, where it belongs. */
   function leagueDirty() {
+    const seededSaved = cfgFromProfile(savedProfile);
+    const asTheGridSeesIt = profileFromCfg(
+      seededSaved.cfg, savedProfile, seededSaved.carried,
+    );
     return JSON.stringify(profileFromCfg(draftCfg, stagedProfile, carriedTokens))
-      !== JSON.stringify(savedProfile);
+      !== JSON.stringify(asTheGridSeesIt);
   }
 
   /** The status block: what just happened, in the app's own plain language. */
@@ -1904,9 +2002,20 @@ export default async function mountTeam(el) {
     clampedNotes.forEach((c) => seedNotes.push(
       `${c.key.toUpperCase()}: your saved league has ${c.wanted}; the draft simulator prices `
       + `${c.used} (its bounds).`));
-    if (carriedTokens.length > 0) seedNotes.push(
-      `${carriedTokens.join(', ')} stay on your league profile but the draft simulator does not `
-      + 'draft them.');
+    // Two different reasons a token is carried, and they mean opposite things:
+    // K/DEF are kept but NOT drafted, while a second kind of flex slot is kept
+    // AND drafted — there is just one flex selector to show it in.
+    const carriedFlex = carriedTokens.filter((t) => FLEX_ELIGIBILITY[t]);
+    const carriedUndraftable = carriedTokens.filter((t) => !FLEX_ELIGIBILITY[t]);
+    if (carriedUndraftable.length > 0) seedNotes.push(
+      `${carriedUndraftable.join(', ')} stay on your league profile but the draft simulator `
+      + 'does not draft them.');
+    if (carriedFlex.length > 0) seedNotes.push(
+      `Your league starts more than one kind of flex slot. The selector above sets the first `
+      + `(${flexLabel(draftCfg.flexType)}); ${carriedFlex.map(flexLabel).join(', ')} `
+      + `${carriedFlex.length === 1 ? 'is' : 'are'} kept exactly as saved and AI+ reads `
+      + `${carriedFlex.length === 1 ? 'it' : 'them'} in full. Saving here does not change `
+      + `${carriedFlex.length === 1 ? 'it' : 'them'}.`);
 
     return (
       '<div class="ds-sub"><span>FLEX &amp; KEEPERS</span>'
@@ -2184,6 +2293,172 @@ export default async function mountTeam(el) {
     paintDraft();
   }
 
+  /* ---- R23-S1: the ROOM selector and its explainer ---------------------------
+   *
+   * There are three rooms now and their names alone do not say who you are
+   * drafting against, so each carries one line. ADP has always been the
+   * default and stays first in the menu — an existing manager opens this page
+   * to exactly the room they left it on.
+   */
+
+  /** One line per room, in the app's voice: WHO the opponents are. */
+  const ROOM_BLURB = Object.freeze({
+    adp: 'Opponents take the consensus board — real ADP, with need-aware noise. '
+      + 'The closest thing here to a public league.',
+    shark: 'Every opponent runs this app\'s own engine and takes the best available on raw '
+      + 'projected points. A stress test, not a room you will meet.',
+    aiplus: 'Opponents draft to YOUR saved league: value converted to your per-reception '
+      + 'scoring, starters and caps read off your roster shape.',
+  });
+
+  /** The ROOM <option> list, ADP first so the default never moves. */
+  function roomOptionsHtml() {
+    return ROOM_TYPES.map((rt) => (
+      `<option value="${esc(rt)}"${draftCfg.roomType === rt ? ' selected' : ''}>`
+      + `${esc(ROOM_LABELS[rt] || rt.toUpperCase())}</option>`
+    )).join('');
+  }
+
+  /**
+   * The room key: one line each, the selected one lit.
+   *
+   * AI+ WITH NOTHING SAVED. app/draft-sim.js aiPlusContext() falls back to the
+   * DEFAULT profile when none is saved, which is a standard 12-team full-PPR
+   * league. That is a working room — but a manager who picked AI+ believes
+   * their league is being modelled, and with nothing saved it is not. So the
+   * fallback is stated, not hidden.
+   *
+   * AND WHAT IT DOES NOT MODEL. leagueSeasonPoints() converts our full-PPR
+   * projection using the one scoring key this app has a projected stat for
+   * (receptions, plus a TE-reception premium). Every other scoring difference
+   * is left alone rather than guessed at, and the copy says so.
+   */
+  function roomKeyHtml() {
+    if (draftCfg.mode === 'auction') return ''; // no ROOM select in auction mode
+    const rows = ROOM_TYPES.map((rt) => (
+      `<div class="ds-rk${draftCfg.roomType === rt ? ' ds-rk--on' : ''}">`
+        + `<b class="ds-rk-tag">${esc(ROOM_LABELS[rt] || rt.toUpperCase())}</b>`
+        + `<span class="ds-rk-txt">${esc(ROOM_BLURB[rt] || '')}</span>`
+      + '</div>'
+    )).join('');
+    let notes = '';
+    if (draftCfg.roomType === 'aiplus') {
+      if (isDefaultProfile(savedProfile)) {
+        notes += '<div class="ds-rk-warn">NO LEAGUE PROFILE SAVED — AI+ is running the '
+          + 'default: 12 teams, QB/RB/RB/WR/WR/TE/FLEX + 6 bench, full PPR (1.0 per '
+          + 'reception). That is a standard PPR room, not yours. Set or import your '
+          + 'league below and press SAVE LEAGUE SETTINGS to have AI+ model it.</div>';
+      } else {
+        notes += '<div class="ds-rk-note">AI+ is reading your saved profile: '
+          + `${esc(savedProfile.name)} · ${savedProfile.shape.teams} TEAMS · `
+          + `${savedProfile.shape.starters}+${savedProfile.shape.bench} · `
+          + `${esc(receptionLabel(savedProfile))}.</div>`;
+      }
+      if (leagueDirty()) {
+        notes += '<div class="ds-rk-warn">The settings above are UNSAVED. AI+ reads the '
+          + 'SAVED profile, so those changes are not in the room yet — press SAVE LEAGUE '
+          + 'SETTINGS first.</div>';
+      }
+      notes += '<div class="ds-rk-note">Scope, exactly: AI+ converts this app\'s full-PPR '
+        + 'projection using your per-reception value and any TE-reception premium — the '
+        + 'scoring keys there is a projected stat to multiply. Other scoring differences '
+        + 'are not modelled rather than guessed at. Roster shape, flex eligibility and '
+        + 'position caps are used in full.</div>';
+    }
+    return `<div class="ds-roomkey">${rows}${notes}</div>`;
+  }
+
+  /* ---- R23-S1: DRAFT HISTORY + what it is allowed to claim -------------------
+   *
+   * Every finished draft and auction is stored (app/mocks.js). This panel is
+   * the consumer that used to be missing, and it is deliberately split in two:
+   *
+   *   HISTORY   — everything, counted. A SIM room is practice; saying so is
+   *               the whole point, because it is what the old "learning
+   *               record" copy hid.
+   *   ROOM      — LIVE drafts only. When there is not enough of it, the panel
+   *   CALIBRATION prints roomCalibration()'s own reason instead of a number.
+   *               No number is ever synthesised to fill the space.
+   */
+  function historyPanelHtml() {
+    const s = historySummary(mockHistory);
+    const head = '<div class="ds-sub"><span>DRAFT HISTORY</span>'
+      + `<span class="ds-sub-note">${s.total} RECORDED</span></div>`;
+    if (s.total === 0) {
+      return head + '<div class="ds-hist"><div class="m-explain">Nothing recorded yet. '
+        + 'Finishing a draft or an auction saves it here, on this device only.</div></div>';
+    }
+    const bits = [
+      `${s.snake} snake`,
+      `${s.auction} auction`,
+      `${s.live} live`,
+      `${s.sim} sim`,
+    ];
+    if (s.unknown_play > 0) bits.push(`${s.unknown_play} play mode unknown`);
+    const legacy = s.legacy > 0
+      ? `<div class="ds-hnote">${s.legacy} record${s.legacy === 1 ? '' : 's'} carried over from `
+        + 'this app\'s previous draft-history storage — nothing was lost, and the old copy is '
+        + 'still on disk. Records from then did not store a play mode, so they count as '
+        + 'unknown and can never become calibration evidence.</div>'
+      : '';
+
+    let cal;
+    if (mockCal.ready) {
+      const d = mockCal.drift;
+      const dir = d.mean < 0 ? 'REACHES' : 'WAITS';
+      const mag = Math.abs(d.mean).toFixed(1);
+      const drift = '<div class="ds-hcal ds-hcal--on">'
+        + `THIS ROOM ${dir} — players go ${mag} picks `
+        + `${d.mean < 0 ? 'EARLIER' : 'LATER'} than consensus on average`
+        + (d.sd != null ? `, spread ±${d.sd.toFixed(1)}` : '')
+        + `<span class="cd-meta">measured from ${mockCal.picks} observed opponent picks `
+        + `across ${mockCal.drafts} live draft${mockCal.drafts === 1 ? '' : 's'}</span></div>`;
+      const drifts = positionDrift(mockCal);
+      const posRows = drifts.length
+        ? '<div class="ds-hrow">' + drifts.map((p) => (
+          `<span class="ds-hpos${p.picksEarly > 0 ? ' ds-hpos--early' : ''}">`
+          + `${esc(p.position)} ${p.picksEarly > 0 ? '−' : '+'}`
+          + `${Math.abs(p.picksEarly).toFixed(1)}`
+          + `<span class="cd-meta">n=${p.n}</span></span>`
+        )).join('') + '</div>'
+          + '<div class="ds-hnote">Per position, picks earlier (−) or later (+) than '
+          + 'consensus in this room. Only positions with enough observed picks appear.</div>'
+        : '';
+      const noise = noiseComparison(mockCal).slice(0, 6);
+      const noiseRows = noise.length
+        ? '<div class="ds-hrow">' + noise.map((n) => (
+          `<span class="ds-hnoise">R${n.round} ${n.ratio != null ? `${n.ratio.toFixed(2)}×` : '—'}`
+          + `<span class="cd-meta">n=${n.n}</span></span>`
+        )).join('') + '</div>'
+          + '<div class="ds-hnote">Your room\'s spread against the SIM room\'s assumed spread, '
+          + 'per round. Above 1.00× means your real league drafts looser (further off '
+          + 'consensus) than the practice room does.</div>'
+        : '';
+      cal = drift + posRows + noiseRows
+        + '<div class="ds-hnote">This is an OPPONENT MODEL and it produces a PICK NUMBER — '
+        + 'shown as “gone ~N here” beside consensus ADP while you draft. It feeds no '
+        + 'projection, no weight and no ranking.</div>';
+    } else {
+      cal = '<div class="ds-hcal">ROOM CALIBRATION — NOT MEASURED'
+        + (mockCal.drafts > 0
+          ? `<span class="cd-meta">${mockCal.picks} of ${MIN_CALIBRATION_PICKS} observed `
+            + 'opponent picks</span>'
+          : '')
+        + `</div><div class="ds-hnote">${esc(mockCal.reason)}</div>`;
+    }
+
+    const clear = histArmed
+      ? '<button type="button" class="sort-chip auc-mini ds-hclear ds-hclear--armed" '
+        + 'data-act="hist-clear">TAP AGAIN TO ERASE HISTORY</button>'
+      : '<button type="button" class="sort-chip auc-mini ds-hclear" data-act="hist-clear">'
+        + 'CLEAR HISTORY</button>';
+
+    return head + '<div class="ds-hist">'
+      + `<div class="ds-hsum">${esc(bits.join(' · '))}</div>`
+      + legacy + cal + clear
+      + '</div>';
+  }
+
   function draftSetupHtml() {
     const opt = (v, cur, label) => `<option value="${v}"${Number(v) === Number(cur) ? ' selected' : ''}>${label || v}</option>`;
     const slots = [];
@@ -2208,11 +2483,12 @@ export default async function mountTeam(el) {
     return (
       '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR</span> ' +
         '<span class="est">ESTIMATE</span></div>' +
-      '<div class="m-explain">Mock a full snake draft: opponents follow real ADP ' +
-        '(the market) with need-aware noise; your picks come from the VOR engine with a ' +
-        'survival forecast for your next turn. Beat-the-room margin is the score. ' +
-        'SHARK room (everyone drafts like our engine) is a stress test and is never ' +
-        'recorded as market evidence.</div>' +
+      '<div class="m-explain">Mock a full snake draft: your picks come from the VOR engine ' +
+        'with a survival forecast for your next turn, and beat-the-room margin is the ' +
+        'score. Pick the ROOM to choose who you are drafting against — the three are ' +
+        'described under the settings. SIM rooms are practice and are kept as history ' +
+        'only; a LIVE draft, where you tap what the real room actually took, is the one ' +
+        'thing that measures YOUR league.</div>' +
       `<div class="ds-sub"><span>LEAGUE</span><span class="ds-sub-note">${draftCfg.mode === 'auction' ? `AUCTION · $${draftCfg.budget} BUDGET` : 'SNAKE DRAFT'}</span></div>` +
       '<div class="ds-grid ds-grid--league">' +
         field('mode', 'FORMAT',
@@ -2226,10 +2502,9 @@ export default async function mountTeam(el) {
         (draftCfg.mode === 'auction'
           ? field('budget', 'BUDGET',
               BUDGET_CHOICES.map((b) => opt(b, draftCfg.budget, `$${b}`)).join(''))
-          : field('roomType', 'ROOM',
-              `<option value="adp"${draftCfg.roomType === 'adp' ? ' selected' : ''}>ADP</option>` +
-              `<option value="shark"${draftCfg.roomType === 'shark' ? ' selected' : ''}>SHARK</option>`)) +
+          : field('roomType', 'ROOM', roomOptionsHtml())) +
       '</div>' +
+      roomKeyHtml() +
       `<div class="ds-sub"><span>ROSTER</span><span class="ds-sub-note">${starters} STARTERS + ${draftCfg.bench} BENCH · ${rounds} ROUNDS</span></div>` +
       '<div class="ds-grid ds-grid--roster">' +
         stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
@@ -2238,8 +2513,35 @@ export default async function mountTeam(el) {
       leaguePanelHtml() +
       (draftCfg.mode === 'auction'
         ? `<button type="button" class="cand-add ds-start" data-act="auc-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}AUCTION · $${draftCfg.budget} · ${rounds} SLOTS</button>`
-        : `<button type="button" class="cand-add ds-start" data-act="draft-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}DRAFT · ${rounds} ROUNDS</button>`)
+        : `<button type="button" class="cand-add ds-start" data-act="draft-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}DRAFT · ${rounds} ROUNDS</button>`) +
+      historyPanelHtml()
     );
+  }
+
+  /** The LIVE tap list: every untaken board row that matches the filter, in
+   * board (consensus) order, capped only for render size. Split out so the
+   * filter can repaint the list alone and keep the input focused. */
+  function liveTakePoolHtml() {
+    const q = liveTakeQuery.trim().toLowerCase();
+    const hits = [];
+    let matched = 0;
+    for (let i = 0; i < draft.board.length; i += 1) {
+      if (draft.taken.has(i)) continue;
+      const row = draft.board[i];
+      if (q && !String(row.name).toLowerCase().includes(q)
+        && String(row.position).toLowerCase() !== q) continue;
+      matched += 1;
+      if (hits.length < LIVE_TAKE_CAP) hits.push({ i, row });
+    }
+    const more = matched - hits.length;
+    return '<div class="auc-pool auc-pool--live">' +
+      hits.map((c) => (
+        `<button type="button" class="sort-chip auc-poolchip" data-act="draft-live-take" data-bi="${c.i}">` +
+          `${esc(c.row.name)} <span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp}</span></button>`
+      )).join('') +
+      (more > 0 ? `<div class="cd-meta ds-livemore">+ ${more} more — type a name</div>` : '') +
+      (matched === 0 ? '<div class="cd-meta ds-livemore">no untaken player matches that filter</div>' : '') +
+      '</div>';
   }
 
   function draftLiveHtml() {
@@ -2254,17 +2556,18 @@ export default async function mountTeam(el) {
       body = '<div class="state">Draft complete — see the results below.</div>';
     } else if (!myTurn && draft.play === 'live') {
       // LIVE: the real room is picking — tap what actually happened.
-      const avail = [];
-      for (let i = 0; i < draft.board.length && avail.length < 15; i += 1) {
-        if (!draft.taken.has(i)) avail.push({ i, row: draft.board[i] });
-      }
+      // EVERY untaken board row must be reachable. This log is the only
+      // admissible evidence for roomCalibration(), and an off-consensus pick
+      // (a superflex QB, a deep reach) is exactly the observation that matters
+      // most; a short consensus-ordered list would censor the sample on the
+      // tail it is meant to measure, and force the manager to tap the wrong
+      // player to keep going. Hence: a name filter over the whole board, plus
+      // a scrolling list instead of a 15-row cut-off.
       body =
         `<div class="ds-turn">TEAM ${clock + 1} IS ON THE CLOCK — tap the player they took</div>` +
-        '<div class="auc-pool">' +
-        avail.map((c) => (
-          `<button type="button" class="sort-chip auc-poolchip" data-act="draft-live-take" data-bi="${c.i}">` +
-            `${esc(c.row.name)} <span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp}</span></button>`
-        )).join('') + '</div>';
+        '<input type="search" class="ds-livefind" data-lfind="1" autocomplete="off"'
+          + ` placeholder="filter any player on the board" value="${esc(liveTakeQuery)}">`
+        + liveTakePoolHtml();
     } else if (!myTurn) {
       body = `<button type="button" class="cand-add" data-act="draft-sim">SIM TO MY PICK</button>`;
     } else {
@@ -2285,7 +2588,10 @@ export default async function mountTeam(el) {
       const surv = survivalProbabilities(
         top.map((c) => c.i), draft.board, draft.rosters, draft.shape,
         draft.roomType, draft.adjOf, draft.pick, until, draft.leagueSize,
-        draft.mySlot - 1, draft.seed + draft.pick, 150);
+        // The AI+ room's own context, so the lookahead simulates the SAME
+        // opponents the room is drafting with (a default profile would model a
+        // room this manager is not in).
+        draft.mySlot - 1, draft.seed + draft.pick, 150, draft.ai || null);
       body =
         `<div class="ds-turn">YOUR PICK — ROUND ${round}</div>` +
         top.map((c) => {
@@ -2294,10 +2600,39 @@ export default async function mountTeam(el) {
           const risk = pct != null
             ? `<span class="ds-surv${pct < 40 ? ' ds-surv--hot' : ''}">${pct}% survives to your next pick</span>`
             : '';
+          // CONSUMPTION PATH for the LIVE-room calibration (app/mocks.js):
+          // where this room, measured from your own recorded live drafts,
+          // actually takes a player at that consensus ADP. A PICK NUMBER —
+          // never points, never a value, never an input to c.pts.
+          //
+          // TWO HONESTY RULES on the chip:
+          //  1. "HERE" MEANS THE ROOM ON SCREEN. The number is measured from
+          //     the manager's recorded LIVE drafts, so it describes THEIR real
+          //     room. In a SIM room the opponents are draft-sim.js's own
+          //     sampler — a different room — so "here" would be false. The
+          //     chip stays (a practice room is practice FOR that league) but
+          //     it is relabelled "your room: ~N" and says so in the tooltip.
+          //  2. NEVER IN THE PAST. The player is demonstrably still on the
+          //     board at this pick, so a claim that the room took him at or
+          //     before it is contradicted by what the manager is looking at.
+          //     expectedGoneBy clamps to >= 1, which piles every reach onto
+          //     pick 1 — exactly the contradiction this gate drops.
+          const curPick = Math.min(draft.pick + 1, draft.totalPicks);
+          const isLive = draft.play === 'live';
+          const gone = expectedGoneBy(c.row.adp, c.row.position, mockCal);
+          const goneTxt = gone != null && gone > curPick
+            && Math.abs(gone - Number(c.row.adp)) >= 1
+            ? ` · <span class="ds-gone" title="Measured from your recorded LIVE drafts: `
+              + `${mockCal.picks} observed opponent picks across ${mockCal.drafts} room(s). `
+              + `Consensus ADP is ${esc(c.row.adp)}; your room takes him around pick `
+              + `${gone}.`
+              + (isLive ? '' : ' These opponents are the practice sampler, not that room.')
+              + `">${isLive ? `gone ~${gone} here` : `your room: ~${gone}`}</span>`
+            : '';
           return (
             `<div class="ds-cand">` +
               `<span class="cd-name">${esc(c.row.name)}</span>` +
-              `<span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp} · ${fix1(c.pts)} pts</span>` +
+              `<span class="cd-meta">${esc(c.row.position)} · ADP ${c.row.adp}${goneTxt} · ${fix1(c.pts)} pts</span>` +
               risk +
               `<button type="button" class="cand-add" data-act="draft-pick" data-bi="${c.i}">PICK</button>` +
             '</div>'
@@ -2307,7 +2642,7 @@ export default async function mountTeam(el) {
     return (
       '<div class="ds-head"><span class="ds-title">' +
         `${draft.play === 'live' ? 'LIVE DRAFT' : 'DRAFT SIMULATOR'} · ` +
-        `${draft.roomType === 'shark' ? 'SHARK' : 'ADP'} ROOM</span> ` +
+        `${esc(ROOM_LABELS[draft.roomType] || 'ADP')} ROOM</span> ` +
         `<span class="ds-status">PICK ${Math.min(draft.pick + 1, draft.totalPicks)}/${draft.totalPicks}</span> ` +
         (draft.play === 'live' && draft.log.length
           ? '<button type="button" class="sort-chip auc-mini" data-act="draft-undo">UNDO</button> '
@@ -2326,14 +2661,25 @@ export default async function mountTeam(el) {
       '<div class="ds-head"><span class="ds-title">MOCK RESULT</span> ' +
         '<button type="button" class="sort-chip" data-act="draft-close">NEW DRAFT</button></div>' +
       `<div class="ds-score ${beat ? 'ds-score--win' : 'ds-score--loss'}">` +
-        `${beat ? 'BEAT' : 'LOST TO'} THE ${draft.roomType === 'shark' ? 'SHARK' : 'ADP'} ROOM BY ` +
+        `${beat ? 'BEAT' : 'LOST TO'} THE ${esc(ROOM_LABELS[draft.roomType] || 'ADP')} ROOM BY ` +
         `${fix1(Math.abs(r.margin))} PTS</div>` +
       `<div class="ds-sheet">You ${fix1(r.mine)} · room avg ${fix1(r.roomAvg)} · ` +
         `rank ${r.rank}/${r.teams} <span class="est">ESTIMATE</span></div>` +
       `<div class="ds-roster">${my}</div>` +
-      (draft.roomType === 'adp'
-        ? '<div class="m-explain">Locked as a learning record: when real season points resolve, this mock grades whether beating ADP here was right — and the fit engine refits through NEVER-REGRESS.</div>'
-        : '<div class="m-explain">Shark-room drill — not recorded as market evidence.</div>')
+      // WHAT THIS RECORD ACTUALLY DOES. It used to say the fit engine refits
+      // from it; nothing read the record at all. A SIM room's opponents ARE
+      // this app's own sampler, so it is history and says so. A LIVE room is a
+      // transcript of a real draft, and its opponent picks are the only thing
+      // here that measures anything.
+      (draft.play === 'live'
+        ? '<div class="m-explain">Saved to DRAFT HISTORY, and its opponent picks are '
+          + 'evidence: comparing what this room took to consensus ADP is how the '
+          + '“gone ~N here” number gets measured. It changes no projection and no '
+          + 'weight — it is an opponent model, and it is a pick number.</div>'
+        : '<div class="m-explain">Saved to DRAFT HISTORY. A SIM room teaches nothing about '
+          + 'a real league: the opponents were this app\'s own sampler, so measuring them '
+          + 'would only measure the model that produced them. Run a LIVE draft — tapping '
+          + 'what your real room takes — to calibrate anything.</div>')
     );
   }
 
@@ -2351,6 +2697,40 @@ export default async function mountTeam(el) {
         b('auc-tempo', strategy.tempo === 'aggressive', strategy.tempo === 'aggressive' ? 'AGGRESSIVE' : 'PATIENT') +
         b('auc-enforce', strategy.enforce, `ENFORCE ${strategy.enforce ? 'ON' : 'OFF'}`) +
       '</div>'
+    );
+  }
+
+  /* ---- R23-S1: the room's likely price, beside OUR dollars -------------------
+   *
+   * OURS and INFL-ADJ are this app's own numbers: value over replacement from
+   * our projections, times live inflation. MARKET is the OPPONENT MODEL — what
+   * this room is likely to pay — and app/auction.js now builds it from ESPN's
+   * published `auction_value` whenever the board carries any, instead of the
+   * ADP-rank decay it always used. That is a real change in what the number
+   * means, so it is labelled, and it carries the app's ONE display-only badge
+   * verbatim (MARKET_BADGE above, identical to app/views/model.js and
+   * app/views/players.js). A market price never enters `fair`, `adjusted`,
+   * `bidTo` or `cap` — validate_data.py MARKET_PRICE_FIELDS is the data-side
+   * half of the same rule.
+   */
+  function aucPriceRow(g) {
+    const src = g.marketSource === 'auction'
+      ? `ESPN's average winning bid, restated in this $${auction.budget} room`
+      : (g.marketSource === 'given'
+        ? 'the dollar curve this room was started with'
+        : 'modelled from ADP rank — ESPN publishes no auction values on this board');
+    const title = `OURS ${dollar(g.fair)} is our own price: value over replacement from our `
+      + `projections. INFL-ADJ ${dollar(g.adjusted)} is that price times the room's live `
+      + `inflation. MARKET ${dollar(g.market)} is what the ROOM is likely to pay — ${src}. `
+      + 'The market number is an opponent model and a comparison only: it is never an input '
+      + 'to our valuation, our max bid, or any projection.';
+    return (
+      `<div class="auc-prices" title="${esc(title)}">`
+        + `OURS ${dollar(g.fair)} · INFL-ADJ ${dollar(g.adjusted)} · `
+        + `<span class="auc-mkt">MARKET ${dollar(g.market)}</span> `
+        + MARKET_BADGE
+      + '</div>'
+      + `<div class="auc-mktsrc">Room price ${esc(src)}.</div>`
     );
   }
 
@@ -2405,13 +2785,17 @@ export default async function mountTeam(el) {
         ? `<div class="cd-meta">${g.threats.length} team${g.threats.length > 1 ? 's' : ''} can fight you: ${g.threats.map((t) => `T${t.team}(${dollar(t.estWill)})`).join(' ')}</div>`
         : '<div class="cd-meta">no credible threats at that number</div>';
       const soldBase = Math.max(1, g.adjusted + bidAdj); // buyer cap applies at record time
+      // The picker offers only teams that can legally take another player
+      // (auction.js buyerOptions/canBuy). A team at shape.size is not an
+      // option at all, so the manager cannot tap a sale the engine will refuse.
+      const buyers = live ? buyerOptions(auction) : [];
       const soldControls = live
         ? '<div class="auc-soldrow">SOLD TO ' +
-          `<select class="ds-select auc-soldteam">${auction.teams.map((_, i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
+          `<select class="ds-select auc-soldteam">${buyers.map((i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
           ' FOR <span class="auc-bidnum auc-soldprice" data-price="' + soldBase + '">' + dollar(soldBase) + '</span>' +
           '<button type="button" class="sort-chip" data-act="auc-price-minus">−</button>' +
           '<button type="button" class="sort-chip" data-act="auc-price-plus">+</button>' +
-          '<button type="button" class="cand-add" data-act="auc-sold">RECORD SALE</button></div>'
+          `<button type="button" class="cand-add" data-act="auc-sold"${buyers.length ? '' : ' disabled'}>RECORD SALE</button></div>`
         : '<div class="auc-bidrow">' +
           '<button type="button" class="sort-chip" data-act="auc-bid-minus">−</button>' +
           `<span class="auc-bidnum">${dollar(myMax)}</span>` +
@@ -2422,10 +2806,11 @@ export default async function mountTeam(el) {
         '<div class="auc-zone auc-zone--block"><div class="auc-zhead">THE BLOCK ' +
           '<button type="button" class="sort-chip auc-mini" data-act="auc-cancel" title="Wrong player? Return to nomination">✕ SWAP</button></div>' +
           `<div class="auc-player"><span class="cd-name">${esc(row.name)}</span> <span class="cd-meta">${esc(row.position)} · ADP ${row.adp}</span></div>` +
-          `<div class="auc-prices">OURS ${dollar(g.fair)} · INFL-ADJ ${dollar(g.adjusted)} · MARKET ${dollar(g.market)}</div>` +
+          aucPriceRow(g) +
           chip +
           `<div class="auc-verdict">⚡ ${verdict}</div>` +
           threats + soldControls +
+          (aucRefusal ? `<div class="auc-refusal">${esc(aucRefusal)}</div>` : '') +
         '</div>'
       );
     }
@@ -2518,7 +2903,13 @@ export default async function mountTeam(el) {
       `<div class="ds-sheet">You ${fix1(r.mine)} · room avg ${fix1(r.roomAvg)} · rank ${r.rank}/${r.teams} · ` +
         `spent ${dollar(r.spent)} · ${r.ptsPerDollar} pts/$ <span class="est">ESTIMATE</span></div>` +
       `<div class="ds-roster">${my}</div>` +
-      '<div class="m-explain">Locked as a learning record: when real season points resolve, the bid advice grades against outcomes through NEVER-REGRESS.</div>'
+      // An auction has no pick order, so it can never calibrate ADP drift. The
+      // in-room price model (inflation + per-team tendencies) already ran LIVE
+      // during the auction itself — nothing is deferred to a later refit.
+      '<div class="m-explain">Saved to DRAFT HISTORY. An auction has no pick order, so it '
+        + 'calibrates no ADP drift; the room\'s price behaviour — live inflation and each '
+        + 'team\'s overpay tendency — was modelled during the auction itself, not '
+        + 'afterwards.</div>'
     );
   }
 
@@ -2547,57 +2938,38 @@ export default async function mountTeam(el) {
   /* ---- events ---------------------------------------------------------------- */
 
 
-  /** Draft finished: score vs the room; ADP-room mocks are locked locally. */
+  /**
+   * Draft finished: score vs the room, then record it.
+   *
+   * EVERY room is recorded now, not just ADP. app/mocks.js stores the room
+   * type and the play mode on the record and decides for itself what is
+   * admissible evidence (LIVE snake drafts only), so throwing away a SHARK or
+   * AI+ mock just lost the manager their own history for no reason. A LIVE
+   * record additionally carries the observed OPPONENT picks — that is the
+   * transcript roomCalibration() measures.
+   */
   function finishDraft() {
     const mine = draft.rosters[draft.mySlot - 1].players;
     const opp = draft.rosters
       .filter((_, i) => i !== draft.mySlot - 1)
       .map((r) => r.players);
     draftResult = scoreVsRoom(mine, opp, draft.shape, draft.adjOf);
-    if (draft.roomType === 'adp') {
-      try {
-        const locks = JSON.parse(localStorage.getItem(MOCKS_KEY) || '[]');
-        locks.push({
-          created_utc: new Date().toISOString(),
-          league_size: draft.leagueSize,
-          my_slot: draft.mySlot,
-          roster_config: draft.shape.config,
-          result: draftResult,
-          my_players: mine.map((p) => ({ gsis_id: p.gsis_id, name: p.name, position: p.position })),
-        });
-        localStorage.setItem(MOCKS_KEY, JSON.stringify(locks.slice(-50)));
-      } catch (err) {
-        /* storage blocked — the result still displays */
-      }
-    }
+    appendMock(recordDraft(draft, draftResult));
+    refreshHistory();
   }
 
-  /** Auction finished: score vs the room; lock as a learning record. */
+  /** Auction finished: score vs the room, then record it as history. */
   function finishAuction() {
     auctionResult = scoreAuction(auction);
-    try {
-      const locks = JSON.parse(localStorage.getItem(MOCKS_KEY) || '[]');
-      locks.push({
-        created_utc: new Date().toISOString(),
-        kind: 'auction',
-        play: auction.play || 'sim',
-        league_size: auction.leagueSize,
-        budget: auction.budget,
-        roster_config: auction.shape.config,
-        result: auctionResult,
-        my_players: aucMyTeam(auction).players
-          .map((pp) => ({ gsis_id: pp.gsis_id, name: pp.name, position: pp.position })),
-      });
-      localStorage.setItem(MOCKS_KEY, JSON.stringify(locks.slice(-50)));
-    } catch (err) {
-      /* storage blocked — the result still displays */
-    }
+    appendMock(recordAuction(auction, auctionResult, aucMyTeam(auction).players));
+    refreshHistory();
   }
 
   function onAction(e) {
     const t = e.target.closest('[data-act]');
     if (!t || t.disabled || !el.contains(t)) return;
     const act = t.dataset.act;
+    aucRefusal = '';           // any new action clears the last refusal notice
 
     if (act !== 'reset' && resetArmed) {
       // Any other action disarms the pending reset (no accidental wipes).
@@ -2612,6 +2984,27 @@ export default async function mountTeam(el) {
       // button can never LOOK armed while it is not (or the reverse).
       rosterArmed = false;
       paintDraft();
+    }
+
+    if (act !== 'hist-clear' && histArmed) {
+      // Same one-tap-arms rule for the history wipe: history is the only copy
+      // of a live room's transcript, so erasing it needs a deliberate second
+      // tap and nothing else may leave the button looking armed.
+      histArmed = false;
+      paintDraft();
+    }
+
+    if (act === 'hist-clear') {
+      if (!histArmed) {
+        histArmed = true;
+        paintDraft();
+        return;
+      }
+      histArmed = false;
+      clearHistory();
+      refreshHistory();
+      paintDraft();
+      return;
     }
 
     if (act === 'pick') {
@@ -2816,6 +3209,15 @@ export default async function mountTeam(el) {
         adjPointsById: adjPointsMap(),
         seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
         excludedIds: [...taken],
+        // AI+ only. createDraft ignores all three for the ADP and SHARK rooms,
+        // so those two boards are byte-for-byte what they were; for AI+ they
+        // are what lets the opponents value a player under YOUR scoring
+        // instead of the page's scoring mode. The SAVED profile is deliberate
+        // — the room-key panel says so, and warns when it is still the
+        // default or when the settings above are unsaved.
+        profile: savedProfile,
+        pprPointsById: draftCfg.roomType === 'aiplus' ? pprPointsMap() : null,
+        receptionsById: draftCfg.roomType === 'aiplus' ? receptionsMap() : null,
       });
       draft.play = draftCfg.play;
       paintAll();
@@ -2855,6 +3257,7 @@ export default async function mountTeam(el) {
 
     if (act === 'draft-live-take') {
       takeOpponentPickAt(draft, Number(t.dataset.bi));
+      liveTakeQuery = '';   // next opponent starts from the full board again
       if (draft.done) finishDraft();
       syncLiveRoom();
       paintAll();
@@ -2968,14 +3371,26 @@ export default async function mountTeam(el) {
       // LIVE: record the observed sale exactly as it happened in the real room.
       const sel = el.querySelector('.auc-soldteam');
       const priceEl = el.querySelector('.auc-soldprice');
-      const teamIdx = sel ? Number(sel.value) : 0;
+      const options = buyerOptions(auction);
+      const teamIdx = sel && sel.value !== '' ? Number(sel.value)
+        : (options.length ? options[0] : -1);
       const base = priceEl ? Number(priceEl.dataset.price) : 1;
       // Clamp to what the BUYER can legally pay ($1 reserved per other open
       // slot); sellTo's budget clamp backstops even this.
       const buyer = auction.teams[teamIdx];
-      const price = Math.max(0, Math.min(base,
-        maxBid(buyer.budget, auction.shape.size - buyer.players.length)));
-      sellTo(auction, teamIdx, price, auction.block.boardIdx);
+      const price = buyer ? Math.max(0, Math.min(base,
+        maxBid(buyer.budget, auction.shape.size - buyer.players.length))) : 0;
+      // sellTo REFUSES a full buyer (returns null). Say so — a silent no-op
+      // reads as a broken button, and the manager needs to pick another team.
+      if (!buyer || sellTo(auction, teamIdx, price, auction.block.boardIdx) === null) {
+        const who = teamIdx === auction.mySlot - 1 ? 'YOU' : `T${teamIdx + 1}`;
+        aucRefusal = buyer
+          ? `${who} already filled all ${auction.shape.size} roster spots — that `
+            + 'team cannot buy. Pick another buyer.'
+          : 'No team has an open roster spot — this sale cannot be recorded.';
+        paintAll();
+        return;
+      }
       bidAdj = 0;
       if (auction.done) finishAuction();
       syncLiveRoom();
@@ -3100,6 +3515,16 @@ export default async function mountTeam(el) {
     if (!f) return;
     if (f.dataset.lin === 'sleeperId') sleeperId = f.value || '';
     else if (f.dataset.lin === 'pasteText') pasteText = f.value || '';
+  });
+
+  // LIVE tap-list filter. Repaints ONLY the pool, never the whole draft box —
+  // a full repaint would replace the input mid-keystroke and drop focus.
+  el.addEventListener('input', (e) => {
+    const f = e.target.closest('[data-lfind]');
+    if (!f || !draft) return;
+    liveTakeQuery = f.value || '';
+    const pool = el.querySelector('.auc-pool--live');
+    if (pool) pool.outerHTML = liveTakePoolHtml();
   });
 
   // <details> does not bubble its toggle — listen in the capture phase so the
