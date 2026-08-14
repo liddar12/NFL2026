@@ -23,7 +23,19 @@ import { fileURLToPath } from 'node:url';
 const dataPath = (rel) => fileURLToPath(new URL(`../../data/${rel}`, import.meta.url));
 const read = (rel) => JSON.parse(readFileSync(dataPath(rel), 'utf8'));
 
-const FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa', 'weather_wind', 'qb_out', 'skill_out'];
+/* CORE families: registered before Rel18, so every format-2 entry ever written
+ * carries all eight. A missing one means a family silently stopped being
+ * trialed, which is the thing this file exists to catch. */
+const CORE_FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa',
+  'weather_wind', 'qb_out', 'skill_out'];
+/* Rel18 candidates. They appear from the first gate run after that release —
+ * which is a CRON, not this checkout — so they are permitted, not required.
+ * Requiring them would red the gate against every entry archived before the
+ * release; forbidding them (the old deepEqual against the eight core names)
+ * reds it against every entry archived after. Both were live failures. */
+const REL18_FAMILIES = ['divisional', 'coach_quality', 'coach_regime',
+  'dvp_mismatch', 'scheme_matchup'];
+const FAMILIES = [...CORE_FAMILIES, ...REL18_FAMILIES];
 
 function latestV2() {
   const doc = read('model_tuning.json');
@@ -35,7 +47,15 @@ test('family gate: newest v2 entry covers all four candidate families', () => {
   const { entry } = latestV2();
   assert.ok(entry, 'format-2 promotion entry recorded');
   const names = entry.families.map((f) => f.family);
-  assert.deepEqual(names.sort(), [...FAMILIES].sort());
+  assert.equal(new Set(names).size, names.length, 'no family is listed twice');
+  for (const fam of CORE_FAMILIES) {
+    assert.ok(names.includes(fam), `${fam} missing from the newest gate entry`);
+  }
+  for (const name of names) {
+    assert.ok(FAMILIES.includes(name),
+      `unknown family ${name} — register it here (and in the MODEL tab) or it `
+      + 'is a name nobody is checking');
+  }
   const env = entry.families.find((f) => f.family === 'environment');
   assert.equal(env.trials.length, 15, 'venue x cold grid minus the zero combo');
   const rest = entry.families.find((f) => f.family === 'rest');
@@ -80,6 +100,7 @@ test('family gate: verdict is consistent with the NEVER-REGRESS margin', () => {
       weather_wind: gp.wind_hfa,
       qb_out: gp.qb_out,
       skill_out: gp.skill_out,
+      divisional: gp.divisional,
     }[a.family];
     assert.ok(block && block.applied, `game_params carries applied ${a.family} block`);
   }

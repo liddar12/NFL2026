@@ -85,6 +85,31 @@ if _ROOT not in sys.path:
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.scrape.stadiums import STADIUMS  # noqa: E402
 from scripts.refit import MARGIN  # noqa: E402
+# divisional family (R22-F1) — grid, loader, builder and adoption block all live
+# in scripts/signals/divisional.py; this module only wires them into the gate.
+# coach_quality family (R22-F2) — residual-fitted head-coach effect; the fit,
+# the leak barrier and the adoption block live in scripts/signals/coach_quality.py.
+from scripts.signals import coach_quality as coach_quality_mod  # noqa: E402
+# coach_regime family (R22-F3) — a head-coach CHANGE priced as REDUCED CONFIDENCE
+# in the rating carried across the offseason (never as "new coaches are worse");
+# detection, grid and adoption block live in scripts/signals/coach_regime.py.
+from scripts.signals import coach_regime as coach_regime_mod  # noqa: E402
+# dvp_mismatch family (R22-F4) — a CENTERED defense-vs-position interaction, so
+# the family prices positional asymmetry and not overall defensive strength
+# (which Elo and epa_total already carry); grid, leak-free window, loader and
+# adoption block live in scripts/signals/dvp_mismatch.py.
+from scripts.signals import dvp_mismatch as dvp_mod  # noqa: E402
+# scheme_matchup family (R22-F5) — FTN charting tendency (play-action, screens,
+# motion, tempo) crossed with the opposing defense's box weight. APPLICATION
+# PATH DARK: FTN has no 2026 release, so the family can be MEASURED and can
+# never be APPLIED; see scripts/signals/scheme_matchup.py.
+from scripts.signals import scheme_matchup as scheme_mod  # noqa: E402
+from scripts.signals.divisional import (  # noqa: E402
+    DIV_SCALES, DIV_REMATCH_EXTRA, divisional_builder,
+    context_map as divisional_context_map,
+    adoption_block as divisional_adoption_block,
+    divisional_current,  # noqa: F401  (re-exported for build_predictions.py)
+)
 
 DATA = os.path.join(_ROOT, "data")
 TUNING_PATH = os.path.join(DATA, "model_tuning.json")
@@ -269,6 +294,23 @@ def should_adopt(improvement, se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFEC
     noisy candidate can never return True."""
     th = adoption_threshold(se, df, n_trials, alpha, floor)["threshold"]
     return th is not None and improvement > th
+
+
+def fallthrough_candidate(best_overall, best_appliable, appliable):
+    """The APPLIABLE honesty guard, as a decision: (candidate, pending).
+
+    A family whose prediction-time application is not wired may WIN a run, and
+    the gate must record that (`pending`) rather than claim an adoption the
+    pipeline cannot honor. What it must never do is let that family VETO the
+    adoption of one that IS wired — a non-appliable winner would then carry zero
+    upside and real downside, the exact asymmetry that got referee cut, once per
+    unwired family. So the caller falls through to `candidate` (the best
+    appliable family, or None when none ran) and re-tests it on its OWN
+    significance; the pending family's evidence is never borrowed.
+    """
+    if best_overall is None or best_overall[0] in appliable:
+        return best_overall, None
+    return best_appliable, best_overall
 
 
 def paired_fold_stats(deltas_by_fold):
@@ -728,6 +770,56 @@ def _incumbent_family_fns(tuning):
             fns.append(lambda: skill_out_builder(float(so["scale"]), *inputs))
         else:
             unavailable.append("skill_out")
+    dv = gp.get("divisional") or {}
+    if dv.get("applied"):
+        dctx = divisional_context_map(SEASONS)
+        if dctx is not None:
+            fns.append(lambda: divisional_builder(float(dv.get("scale") or 0.0),
+                                                  float(dv.get("rematch_extra") or 0.0),
+                                                  dctx))
+        else:
+            unavailable.append("divisional")
+    cq = gp.get("coach_quality") or {}
+    if cq.get("applied"):
+        # Rebuilding the adopted coach fit needs the rating trajectory, which is
+        # a pure function of (finals, hfa, k, revert) and is not in scope here —
+        # so it is materialized in run() from a sentinel, exactly as epa_blend
+        # is. Coverage (not just file presence) is checked there, and a failure
+        # is appended to `unavailable` at that point.
+        fns.append(lambda: ("__coach_quality__", float(cq["scale"])))
+    cg = gp.get("coach_regime") or {}
+    if cg.get("applied"):
+        # Same sentinel treatment as coach_quality, and for the same reason: the
+        # family's per-game inputs include the PRE-GAME RATING, which is a pure
+        # function of (finals, hfa, k, revert) and is not in scope here. Checklist
+        # point 7 — without this branch an adopted coach_regime would not be part
+        # of next week's incumbent and would re-clear the bar against itself.
+        fns.append(lambda: ("__coach_regime__", float(cg.get("shrink") or 0.0),
+                            cg.get("decay_n0")))
+    dvp = gp.get("dvp_hfa") or {}
+    if dvp.get("applied"):
+        # Without this branch an adopted dvp_mismatch would not be part of next
+        # week's incumbent, so it would re-clear the bar against a bar that
+        # excludes it and never-regress would quietly stop being a rule.
+        dfeats = dvp_mod.load_features(SEASONS)
+        if dfeats is not None:
+            fns.append(lambda: dvp_mod.dvp_builder(float(dvp.get("scale") or 0.0),
+                                                   dfeats[0]))
+        else:
+            unavailable.append("dvp_hfa")
+    sch = gp.get("scheme_hfa") or {}
+    if sch.get("applied"):
+        # Same reason as dvp_hfa: an adopted family missing from the incumbent
+        # would re-clear the bar against a bar that excludes it. Note this can
+        # only fire if a future change wires the reader AND FTN publishes the
+        # live season — scheme_matchup.adoption_block writes applied=false
+        # while the application path is dark.
+        sfeats = scheme_mod.load_features(SEASONS)
+        if sfeats is not None:
+            fns.append(lambda: scheme_mod.scheme_builder(
+                float(sch.get("scale") or 0.0), sfeats[0]))
+        else:
+            unavailable.append("scheme_hfa")
     return fns, unavailable
 
 
@@ -951,6 +1043,24 @@ def run(auto_adopt=False):
         if isinstance(built, tuple) and built and built[0] == "__elo_epa__":
             _, w, margins = built
             built = elo_epa_builder(w, finals_by_year, margins, hfa, k, revert)
+        elif isinstance(built, tuple) and built and built[0] == "__coach_quality__":
+            ci = coach_quality_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
+            if ci is None:
+                inc_unavailable.append("coach_quality")
+                print("NOTICE: adopted family coach_quality could not be rebuilt "
+                      f"for seasons {SEASONS[0]}-{SEASONS[-1]} — the incumbent in "
+                      "this run is WEAKER than the one production ships")
+                continue
+            built = coach_quality_mod.builder(built[1], ci)
+        elif isinstance(built, tuple) and built and built[0] == "__coach_regime__":
+            gi = coach_regime_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
+            if gi is None:
+                inc_unavailable.append("coach_regime")
+                print("NOTICE: adopted family coach_regime could not be rebuilt "
+                      f"for seasons {SEASONS[0]}-{SEASONS[-1]} — the incumbent in "
+                      "this run is WEAKER than the one production ships")
+                continue
+            built = coach_regime_mod.coach_regime_builder(built[1], built[2], gi)
         incumbent_builders.append(built)
 
     # Incumbent walk also produces the calibration record for the MODEL tab.
@@ -1100,6 +1210,144 @@ def run(auto_adopt=False):
                       for sc in SKILL_OUT_SCALES]
         families.append({"family": "skill_out", "trials": fam_trials})
 
+    # divisional (2-D grid, the `environment` precedent: a base divisional
+    # effect x an extra term on the in-season rematch — one family because a
+    # rematch IS a divisional game, so two families would be near-duplicate
+    # competitors for the single adoption slot)
+    div_ctx = divisional_context_map(SEASONS)
+    if div_ctx is None:
+        print("  divisional   SKIPPED: game_context.json absent or does not span "
+              f"{SEASONS[0]}-{SEASONS[-1]}")
+        families.append({"family": "divisional", "skipped": True,
+                         "reason": "game_context.json absent or its games do not "
+                                   f"span {SEASONS[0]}-{SEASONS[-1]} — the "
+                                   "uncovered folds would score exact ties and "
+                                   "dilute the measured improvement",
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
+    else:
+        fam_trials = [try_candidate("divisional",
+                                    f"base={b:+.0f} rematch={e:+.0f}",
+                                    {"scale": b, "rematch_extra": e},
+                                    divisional_builder(b, e, div_ctx))
+                      for b in DIV_SCALES for e in DIV_REMATCH_EXTRA]
+        families.append({"family": "divisional", "trials": fam_trials})
+
+    # coach_quality (R22-F2) — head-coach effect fit on the Elo RESIDUAL, so the
+    # part of coaching the rating already prices is subtracted out before the
+    # coach sees it. Grid, fit, leak barrier and adoption block all live in
+    # scripts/signals/coach_quality.py; this block only wires them in.
+    coach_inputs = coach_quality_mod.inputs(finals_by_year, SEASONS, hfa, k,
+                                            revert)
+    if coach_inputs is None:
+        reason = coach_quality_mod.coverage_reason(finals_by_year, SEASONS)
+        print(f"  coach_quality SKIPPED: {reason}")
+        families.append({"family": "coach_quality", "skipped": True,
+                         "reason": reason,
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
+    else:
+        fam_trials = [try_candidate("coach_quality", f"scale={sc:.0f}",
+                                    {"scale": sc},
+                                    coach_quality_mod.builder(sc, coach_inputs))
+                      for sc in coach_quality_mod.COACH_SCALES if sc]
+        families.append({"family": "coach_quality", "trials": fam_trials})
+
+    # coach_regime (R22-F3) — a head-coach CHANGE as reduced confidence in the
+    # rating carried across the offseason: a first-year regime's team is priced
+    # with its rating reverted further toward 1500, which moves a strong team
+    # DOWN and a weak team UP by the same rule. Distinct from coach_quality
+    # (which prices coach identity) and incapable of expressing "new coaches are
+    # worse". Detection, grid and adoption block live in
+    # scripts/signals/coach_regime.py; this block only wires them in.
+    regime_inputs = coach_regime_mod.inputs(finals_by_year, SEASONS, hfa, k,
+                                            revert)
+    if regime_inputs is None:
+        reason = coach_regime_mod.coverage_reason(finals_by_year, SEASONS)
+        print(f"  coach_regime SKIPPED: {reason}")
+        families.append({"family": "coach_regime", "skipped": True,
+                         "reason": reason,
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
+    else:
+        fam_trials = [try_candidate("coach_regime",
+                                    coach_regime_mod.trial_label(sh, n0),
+                                    {"shrink": sh, "decay_n0": n0},
+                                    coach_regime_mod.coach_regime_builder(
+                                        sh, n0, regime_inputs))
+                      for sh in coach_regime_mod.REGIME_SHRINK
+                      for n0 in coach_regime_mod.REGIME_DECAY_N0]
+        families.append({"family": "coach_regime", "trials": fam_trials,
+                         "regimes": coach_regime_mod.diagnostics_summary(
+                             regime_inputs.diagnostics)})
+
+    # dvp_mismatch (R22-F4) — defense-vs-position as an INTERACTION: the
+    # offense's positional lean (share of its own scrimmage PPR, centered on the
+    # league) dotted with the opposing defense's positional tilt (z of PPR
+    # allowed, centered within that defense). Both centerings are load-bearing:
+    # they are what stops the family from re-pricing overall defensive strength,
+    # which Elo and epa_total already carry. Window, grid, loader and adoption
+    # block live in scripts/signals/dvp_mismatch.py; this block only wires them
+    # in. NOTE: dvp_mismatch is deliberately absent from APPLIABLE below —
+    # nothing in build_predictions.py calls dvp_mismatch.delta_from_params, so a
+    # winning trial records would_adopt rather than an adoption it cannot honor.
+    dvp_loaded = dvp_mod.load_features(SEASONS)
+    if dvp_loaded is None:
+        reason = dvp_mod.coverage_reason(SEASONS)
+        print(f"  dvp_mismatch SKIPPED: {reason}")
+        families.append({"family": "dvp_mismatch", "skipped": True,
+                         "reason": reason,
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
+    else:
+        dvp_feats, dvp_diag = dvp_loaded
+        fam_trials = [try_candidate("dvp_mismatch", f"scale={sc:.0f}",
+                                    {"scale": sc},
+                                    dvp_mod.dvp_builder(sc, dvp_feats))
+                      for sc in dvp_mod.DVP_SCALES if sc]
+        families.append({"family": "dvp_mismatch", "trials": fam_trials,
+                         # How many SCORED games the family priced at exactly
+                         # 0.0 for want of a defined rate. A family that helped
+                         # on a third of the corpus must never read like one
+                         # that helped on all of it.
+                         "n0_games": dvp_mod.n0_games(dvp_feats, EVAL_SEASONS,
+                                                      finals_by_year),
+                         "rates": dvp_diag})
+
+    # scheme_matchup (R22-F5) — FTN charting tendency (play-action, screens,
+    # motion, no-huddle, each standardised within season) MEANED into one
+    # misdirection index, crossed with the opposing defense's standardised
+    # defenders-in-the-box. Both halves are z-scores, so the family prices the
+    # INTERACTION and cannot re-price overall strength. Window, grid, loader,
+    # coverage block and the dark-season refusal all live in
+    # scripts/signals/scheme_matchup.py; this block only wires them in.
+    #
+    # TWO THINGS ABOUT THIS FAMILY ARE UNLIKE EVERY OTHER ONE HERE:
+    #  1. PARTIAL COVERAGE IS EXPECTED, NOT A SKIP. FTN charting starts in 2022,
+    #     so ~22 of the 26 evaluated folds price every game at exactly 0.0 and
+    #     the measured improvement is DILUTED toward zero. Refusing to run
+    #     (the dvp_mismatch rule) would mean never measuring it at all; running
+    #     it means the record must state the dilution, which `coverage` does.
+    #  2. THE APPLICATION PATH IS DARK. FTN has no 2026 release. scheme_matchup
+    #     is deliberately absent from APPLIABLE below, so a winning trial
+    #     records would_adopt, and scheme_matchup.delta_from_params RAISES
+    #     rather than pricing a dark season at a neutral 0.0.
+    scheme_loaded = scheme_mod.load_features(SEASONS)
+    if scheme_loaded is None:
+        reason = scheme_mod.coverage_reason(SEASONS)
+        print(f"  scheme_matchup SKIPPED: {reason}")
+        families.append({"family": "scheme_matchup", "skipped": True,
+                         "reason": reason,
+                         "seasons_required": "any FTN season (2022+) inside "
+                                             f"{SEASONS[0]}-{SEASONS[-1]}"})
+    else:
+        scheme_feats, scheme_diag, scheme_doc = scheme_loaded
+        fam_trials = [try_candidate("scheme_matchup", f"scale={sc:.0f}",
+                                    {"scale": sc},
+                                    scheme_mod.scheme_builder(sc, scheme_feats))
+                      for sc in scheme_mod.SCHEME_SCALES if sc]
+        families.append({"family": "scheme_matchup", "trials": fam_trials,
+                         "coverage": scheme_mod.coverage_block(
+                             scheme_feats, EVAL_SEASONS, finals_by_year,
+                             doc=scheme_doc),
+                         "windows": scheme_diag})
+
     # Verdict: best scale per family; adopt at most the single best family.
     best_overall = None
     for fam in families:
@@ -1115,40 +1363,69 @@ def run(auto_adopt=False):
     # the gate must never claim a signal is applied when the pipeline cannot
     # actually apply it.
     APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa",
-                 "qb_out", "weather_wind", "skill_out"}
+                 "qb_out", "weather_wind", "skill_out",
+                 "divisional"}
+    # coach_quality is DELIBERATELY ABSENT from APPLIABLE. Its prediction-time
+    # reader exists (coach_quality.delta_from_params) but nothing in
+    # scripts/build_predictions.py calls it, so the pipeline cannot apply the
+    # family. Listing it here would make the gate claim an application path that
+    # does not exist; leaving it out makes a winning coach_quality record
+    # `would_adopt` instead. Add it in the same change that wires the reader
+    # into build_predictions.py, never before.
+    # coach_regime is DELIBERATELY ABSENT for exactly the same reason. Its
+    # prediction-time reader (coach_regime.delta_from_params) needs only the
+    # current ratings the prediction builder already holds plus the two coaching
+    # flags, but nothing in scripts/build_predictions.py calls it yet, so the
+    # pipeline cannot apply the family. Add it in the same change that wires the
+    # reader, never before.
+
+    # Appliability is recorded ON the entry, family by family, so every reader
+    # downstream (the MODEL tab included) can tell a family that could earn
+    # pricing weight from one that cannot at any log-loss.
+    for fam in families:
+        fam["appliable"] = fam["family"] in APPLIABLE
+    # Best APPLIABLE family, tracked separately from the overall winner. A
+    # non-appliable family must NEVER be able to veto an adoption: that is the
+    # exact "zero upside, real downside" hazard that got referee cut, and with
+    # four unwired families in the run it would otherwise fire four ways. When a
+    # non-appliable family wins it is recorded as would_adopt and the gate falls
+    # through to this candidate, which is then re-tested against its OWN
+    # significance threshold — never adopted on the winner's evidence.
+    best_appliable = None
+    for fam in families:
+        if fam.get("skipped") or not fam["appliable"]:
+            continue
+        b = fam["best"]
+        if best_appliable is None or b["log_loss"] < best_appliable[1]["log_loss"]:
+            best_appliable = (fam["family"], b)
 
     # SIGNIFICANCE GATE. The threshold the best candidate must clear is earned
     # from its own uncertainty, not fixed: t_crit x the fold-clustered standard
     # error, floored at MIN_EFFECT so the gate can only ever be stricter than
     # the old constant margin. t_crit is Bonferroni-corrected for every trial
     # evaluated this run, because the candidate is the argmin over all of them.
+    # Widening the run therefore RAISES the bar for everyone (adding the Rel18
+    # families took the run from 45 trials to 89, and t_crit from ~9.9 to
+    # ~12.4); that cost is the honest price of searching more, and the entry
+    # records `trials` so a reader can see which run's bar they are looking at.
     n_trials = sum(len(f.get("trials") or []) for f in families
                    if not f.get("skipped"))
-    best_trial = best_overall[1] if best_overall else None
-    df = (best_trial or {}).get("folds", 0) - 1
-    se = (best_trial or {}).get("se")
-    info = adoption_threshold(se, df, n_trials)
-    threshold = info["threshold"]        # None = too few folds to measure it
-    # Compare the numbers exactly as recorded (all rounded to 5dp) so the
-    # archived entry is a faithful, re-checkable statement of the decision.
-    imp = (round(inc_loss, 5) - best_trial["log_loss"]) if best_trial else 0.0
-    adopt = (best_trial is not None
-             and should_adopt(imp, se, df, n_trials))
-    significance = {
-        "method": "paired per-game log-loss, CR1 cluster-robust over "
-                  "walk-forward folds, one-sided Student-t",
-        "alpha": SIG_ALPHA,
-        "trials": n_trials,
-        "alpha_bonferroni": (round(info["alpha_bonferroni"], 8)
-                             if info["alpha_bonferroni"] is not None else None),
-        "df": df if df >= 1 else 0,
-        "t_crit": round(info["t_crit"], 4) if info["t_crit"] is not None else None,
-        "effect_floor": MIN_EFFECT,
-        "threshold": threshold,
-        "best_t_stat": (best_trial or {}).get("t_stat"),
-        "best_ci95": (best_trial or {}).get("ci95"),
-        "significant": bool(adopt),
-    }
+
+    def _evaluate(cand):
+        """(trial, df, se, threshold_info, improvement, significant) for a
+        (family, trial) candidate. cand=None means there is nothing to test."""
+        bt = cand[1] if cand else None
+        c_df = (bt or {}).get("folds", 0) - 1
+        c_se = (bt or {}).get("se")
+        c_info = adoption_threshold(c_se, c_df, n_trials)
+        # Compare the numbers exactly as recorded (all rounded to 5dp) so the
+        # archived entry is a faithful, re-checkable statement of the decision.
+        c_imp = (round(inc_loss, 5) - bt["log_loss"]) if bt else 0.0
+        return (bt, c_df, c_se, c_info, c_imp,
+                bt is not None and should_adopt(c_imp, c_se, c_df, n_trials))
+
+    best_trial, df, se, info, imp, adopt = _evaluate(best_overall)
+    sig_ok = adopt                       # the statistical verdict, pre-veto
     # DEGRADED-INCUMBENT BLOCK. If any family production ships could not be
     # rebuilt for this season set, the bar every candidate just cleared is
     # LOWER than the model in production (it happens for real under --corpus:
@@ -1162,11 +1439,56 @@ def run(auto_adopt=False):
         degraded = best_overall
     else:
         degraded = None
+    # APPLIABLE honesty guard, with FALLTHROUGH. The winner is recorded as
+    # would_adopt (the pipeline cannot apply it, so claiming adoption would be a
+    # lie), and then the best appliable family gets its own shot on its own
+    # numbers. Suppressing adoption entirely here would let an unwired family
+    # cost a wired one its earned adoption — the run really is that close: on
+    # the corpus the best appliable (rest scale=3.0, 0.63032) and the best
+    # non-appliable (coach_regime shrink=0.15, 0.63038) sit 0.00006 apart.
     if adopt and best_overall[0] not in APPLIABLE:
-        adopt = False
-        pending = best_overall
+        best_overall, pending = fallthrough_candidate(
+            best_overall, best_appliable, APPLIABLE)
+        best_trial, df, se, info, imp, adopt = _evaluate(best_overall)
+        sig_ok = adopt
     else:
         pending = None
+    threshold = info["threshold"]        # None = too few folds to measure it
+    # WHICH TERM ACTUALLY DECIDED. adoption_threshold is max(effect floor,
+    # t_crit x se), and on the corpus the FLOOR is what binds (26 folds ->
+    # t_crit x se ~= 0.0011 < 0.0015), so the decision there is byte-identical
+    # to the old fixed-margin rule; in the 4-fold production window df=3 makes
+    # t_crit x se ~= 0.0125, roughly 8x the floor. Calling the gate
+    # "significance-based" without saying which half bound it would overstate
+    # what changed, so the entry records it and a reader can check both terms.
+    sig_term = (round(info["t_crit"] * float(se), 5)
+                if (info["t_crit"] is not None and se is not None) else None)
+    significance = {
+        "method": "paired per-game log-loss, CR1 cluster-robust over "
+                  "walk-forward folds, one-sided Student-t",
+        "alpha": SIG_ALPHA,
+        "trials": n_trials,
+        "trials_note": ("Bonferroni divisor is every trial this run evaluated, "
+                        "so a wider search raises the bar for all families"),
+        # The multiplicity budget, itemised. The tax a family levies on every
+        # OTHER family is exactly its trial count, and it is not evenly shared:
+        # divisional's signed 6x5 grid is 30 trials for one hypothesis.
+        "trials_by_family": {f["family"]: len(f.get("trials") or [])
+                             for f in families if not f.get("skipped")},
+        "alpha_bonferroni": (round(info["alpha_bonferroni"], 8)
+                             if info["alpha_bonferroni"] is not None else None),
+        "df": df if df >= 1 else 0,
+        "t_crit": round(info["t_crit"], 4) if info["t_crit"] is not None else None,
+        "effect_floor": MIN_EFFECT,
+        "significance_term": sig_term,     # t_crit x se, before the floor
+        "threshold": threshold,
+        "binding": (None if threshold is None
+                    else ("effect_floor" if sig_term is None
+                          or sig_term <= MIN_EFFECT else "significance")),
+        "best_t_stat": (best_trial or {}).get("t_stat"),
+        "best_ci95": (best_trial or {}).get("ci95"),
+        "significant": bool(sig_ok),
+    }
 
     import datetime as dt
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1246,13 +1568,29 @@ def run(auto_adopt=False):
               f"({inc_loss:.5f} -> {degraded[1]['log_loss']:.5f}) but the "
               f"incumbent is missing {', '.join(inc_unavailable)} — not adopted")
     if pending is not None:
-        entry["reason"] = (f"{pending[0]} cleared the margin but its application "
-                           "path is not wired yet - recorded, not adopted")
-        entry["would_adopt"] = {"family": pending[0], **pending[1]}
-        entry["adopted"] = False
-        entry["adopted_family"] = None
-        print(f"PENDING: {pending[0]} cleared the margin but has no application "
-              f"path yet ({inc_loss:.5f} -> {pending[1]['log_loss']:.5f})")
+        # Recorded on every fallthrough, adopted or not, so the winner that the
+        # pipeline cannot apply is never invisible.
+        entry["application_pending"] = {"family": pending[0], **pending[1]}
+        if adopt:
+            entry["reason"] = (
+                f"{pending[0]} had the best loss but its application path is not "
+                f"wired, so it is recorded only; {best_overall[0]} is the best "
+                "APPLIABLE family and cleared its own significance threshold")
+            print(f"PENDING: {pending[0]} had the best loss "
+                  f"({inc_loss:.5f} -> {pending[1]['log_loss']:.5f}) but has no "
+                  f"application path — fell through to {best_overall[0]} "
+                  f"({best_overall[1]['log_loss']:.5f}), which was adopted on "
+                  "its own numbers")
+        else:
+            entry["reason"] = (f"{pending[0]} cleared the margin but its application "
+                               "path is not wired yet - recorded, not adopted")
+            entry["would_adopt"] = {"family": pending[0], **pending[1]}
+            entry["adopted"] = False
+            entry["adopted_family"] = None
+            print(f"PENDING: {pending[0]} cleared the margin but has no application "
+                  f"path yet ({inc_loss:.5f} -> {pending[1]['log_loss']:.5f})"
+                  + ("; no appliable family cleared its own threshold"
+                     if best_overall else "; no appliable family ran"))
     if adopt and auto_adopt:
         _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now)
     elif adopt:
@@ -1329,6 +1667,46 @@ def _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now):
     elif family == "skill_out":
         gp["skill_out"] = {"applied": True, "scale": best["scale"],
                            "adopted_utc": now}
+    elif family == "divisional":
+        gp["divisional"] = divisional_adoption_block(best, now)
+    elif family == "coach_quality":
+        # Production fit uses ALL resolved seasons (the venue_hfa precedent);
+        # training-only fitting is for honest EVAL, not for the shipped prior.
+        gp["coach_quality"] = {
+            "applied": True, "scale": best["scale"], "shrink_n": coach_quality_mod.SHRINK_N,
+            "adopted_utc": now,
+            "deltas": {c: round(v, 2) for c, v in sorted(
+                coach_quality_mod.production_deltas(
+                    finals_by_year, SEASONS, hfa, k, revert, best["scale"]).items())}}
+    elif family == "coach_regime":
+        # Nothing is fitted, so there is no production-vs-training distinction:
+        # the block is the two grid coordinates plus the mean the extra reversion
+        # pulls toward, which is all delta_from_params needs.
+        gp["coach_regime"] = coach_regime_mod.adoption_block(best, now)
+    elif family == "dvp_mismatch":
+        # Nothing is fitted from the walk, so there is no production-vs-training
+        # distinction — the block is the grid coordinate plus the two window
+        # constants delta_from_params needs, and the count of games the family
+        # could not price at all.
+        loaded = dvp_mod.load_features(SEASONS)
+        gp["dvp_hfa"] = dvp_mod.adoption_block(
+            best, now,
+            zeros=(dvp_mod.n0_games(loaded[0], EVAL_SEASONS, finals_by_year)
+                   if loaded is not None else None))
+    elif family == "scheme_matchup":
+        # Reachable only if a future change adds scheme_matchup to APPLIABLE.
+        # The block it writes carries `applied: false` for as long as the FTN
+        # application path is dark, plus the artifact's own probe result — so
+        # even an adoption cannot turn into a live application of an input
+        # that does not exist.
+        loaded = scheme_mod.load_features(SEASONS)
+        gp["scheme_hfa"] = scheme_mod.adoption_block(
+            best, now,
+            coverage=(scheme_mod.coverage_block(loaded[0], EVAL_SEASONS,
+                                                finals_by_year, doc=loaded[2])
+                      if loaded is not None else None),
+            application=((loaded[2].get("application") or {})
+                         if loaded is not None else None))
     print(f"ADOPTED {family} {best} into game_params")
 
 
@@ -1384,9 +1762,32 @@ def selftest():
     _, f2 = skill_out_builder(100.0, {}, outs)
     assert f2(2025)({"home": "KC", "away": "BUF", "week": 5}, 0) == 0.0
 
+    _fallthrough_selftest()
     _stats_selftest()
     print("selftest OK: rest clamp + EPA leak-free blending + skill_out "
-          "share-weighting exact + significance statistics vs published values")
+          "share-weighting exact + non-appliable fallthrough + significance "
+          "statistics vs published values")
+
+
+def _fallthrough_selftest():
+    """The APPLIABLE guard must record, never veto. Locked because the failure
+    is silent: a run where an unwired family wins by 0.00006 would adopt
+    NOTHING, and the entry would look exactly like an honest retention."""
+    appliable = {"rest", "elo_epa"}
+    winner_ok = ("rest", {"log_loss": 0.63032})
+    winner_no = ("coach_regime", {"log_loss": 0.63038})
+    alt = ("rest", {"log_loss": 0.63045})
+    # 1. An appliable winner passes straight through; nothing is pending.
+    assert fallthrough_candidate(winner_ok, alt, appliable) == (winner_ok, None)
+    # 2. A non-appliable winner is recorded AND the best appliable family gets
+    #    the candidacy — it is then re-tested on its own numbers by the caller,
+    #    never adopted on the winner's evidence.
+    assert fallthrough_candidate(winner_no, alt, appliable) == (alt, winner_no)
+    # 3. No appliable family ran at all: nothing to fall through to, and the
+    #    non-appliable winner is still recorded rather than adopted.
+    assert fallthrough_candidate(winner_no, None, appliable) == (None, winner_no)
+    # 4. Nothing ran at all.
+    assert fallthrough_candidate(None, None, appliable) == (None, None)
 
 
 def _stats_selftest():

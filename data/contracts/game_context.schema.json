@@ -1,0 +1,349 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "game_context.schema.json",
+  "title": "Pregame game context joined onto the backtest corpus (1999-2025)",
+  "description": "The single enrichment join every Rel22 signal family reads. Keyed FLAT as \"{season}|{week}|{home}|{away}\" - byte-for-byte the key market_baseline.json and weather_history.json use. Built by scripts/build_game_context.py from nflverse nfldata games.csv through a POSITIVE allow-list; NO MARKET COLUMN is ever read on this path (enforced behaviourally by the builder's --selftest, by scripts/validate_data.check_game_context_no_market_columns, and by tests/feature/game_context.test.mjs - never by a schema keyword, since pattern/minProperties are unimplemented in this repo's validator subset). LABEL-ONLY: referee, home_qb and away_qb are POST-game upstream (0/272 populated for unplayed rows). They are ground truth for building and scoring a pregame estimator and may NEVER be a live model input; the document names them in label_only_fields so the rule is machine-readable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "policy",
+    "join_key",
+    "label_only_fields",
+    "seasons",
+    "diagnostics",
+    "games"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string",
+      "description": "Documentation of the market boundary. Enforced in code and tests, never here."
+    },
+    "join_key": {
+      "type": "string",
+      "enum": [
+        "{season}|{week}|{home}|{away}"
+      ]
+    },
+    "label_only_fields": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": [
+          "away_qb",
+          "home_qb",
+          "referee"
+        ]
+      }
+    },
+    "label_only_note": {
+      "type": "string"
+    },
+    "renames": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "seasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer",
+        "minimum": 1999
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "required": [
+        "games",
+        "seasons",
+        "unplayed_rows_skipped",
+        "teams_normalised",
+        "by_season"
+      ],
+      "properties": {
+        "games": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seasons": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unplayed_rows_skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "renamed_team_rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "teams_normalised": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "distinct_coaches": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "distinct_referees": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "meetings_by_number": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "null_field_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "corpus_reconcile": {
+          "type": "object",
+          "required": [
+            "compared",
+            "joined",
+            "missing"
+          ],
+          "properties": {
+            "seasons": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compared": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "joined": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            }
+          }
+        },
+        "espn_fixture_reconcile": {
+          "type": "object",
+          "required": [
+            "compared",
+            "joined",
+            "missing"
+          ],
+          "properties": {
+            "seasons": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compared": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "joined": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            }
+          }
+        },
+        "by_season": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "games",
+              "div_games"
+            ],
+            "properties": {
+              "games": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "div_games": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "games": {
+      "type": "object",
+      "description": "Completed games only, keyed \"{season}|{week}|{home}|{away}\". An unplayed game is never present; it is counted in diagnostics.unplayed_rows_skipped instead.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "div_game",
+          "meeting_no",
+          "game_type",
+          "neutral_site",
+          "home_coach",
+          "away_coach",
+          "home_rest",
+          "away_rest",
+          "roof",
+          "surface",
+          "referee",
+          "home_qb",
+          "away_qb"
+        ],
+        "properties": {
+          "div_game": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "meeting_no": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "DERIVED, not read: nth meeting of this unordered pair this season, ordered by date. Pregame-known (schedule published preseason), so it is a legal feature."
+          },
+          "game_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "REG",
+              "WC",
+              "DIV",
+              "CON",
+              "SB",
+              null
+            ]
+          },
+          "neutral_site": {
+            "type": "boolean"
+          },
+          "home_coach": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "away_coach": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "home_rest": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "away_rest": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "roof": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "surface": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "referee": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "LABEL ONLY - post-game upstream. A FIELD, never a family (Rel18 SOLUTION_DESIGN R1: a non-appliable family that wins a run suppresses adoption entirely)."
+          },
+          "home_qb": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name"
+            ],
+            "description": "LABEL ONLY - the QB who actually started. Never a live input.",
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "away_qb": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name"
+            ],
+            "description": "LABEL ONLY - the QB who actually started. Never a live input.",
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

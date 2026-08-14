@@ -1,0 +1,57 @@
+{
+  "note": "Hand-derivable fixture for scripts/signals/coach_regime.py. Season 2001 is built so EVERY team plays exactly once, which means every 2001 game is priced with both teams still at elo.INIT (1500) and each team's end-of-2001 rating is a single closed-form update. The 2002 priors are therefore 1500 + 0.55 * (that update), and the whole 2002 walk is six games a test can reproduce in twenty lines without importing anything from this repo -- which is the point: tests/feature/family_coach_regime.test.mjs recomputes the Elo trajectory in JavaScript and checks the family's deltas against ITS numbers, not against Python's. Coaching is arranged so 2002 contains every case the family can meet: HOU and JAX flagged at home, KC and LAC flagged away, JAX-vs-LAC with BOTH sides flagged, DEN-vs-LV with NEITHER flagged (exactly 0.0), HOU's second game of the season (which is what the decay axis acts on), an expansion team XXX with no 2001 season at all (UNKNOWN, never flagged), and a mid-season change of KC's coach in week 6 (counted in diagnostics, deliberately NOT a flag -- the family only reads the season boundary).",
+  "params": {
+    "hfa": 45.0,
+    "k": 25.0,
+    "revert": 0.45
+  },
+  "seasons": [
+    2001,
+    2002
+  ],
+  "expected": {
+    "flags_2002": ["HOU", "JAX", "KC", "LAC"],
+    "unflagged_2002": ["DEN", "IND", "LV", "TEN"],
+    "no_prior_season_2002": ["XXX"],
+    "midseason_changes_2002": 1,
+    "zero_delta_games": ["2002|4|DEN|LV"]
+  },
+  "finals": {
+    "2001": [
+      {"home": "HOU", "away": "IND", "home_score": 24, "away_score": 10,
+       "week": 1, "kickoff_utc": "2001-09-09T17:00:00Z"},
+      {"home": "JAX", "away": "TEN", "home_score": 13, "away_score": 20,
+       "week": 1, "kickoff_utc": "2001-09-09T18:00:00Z"},
+      {"home": "KC", "away": "LV", "home_score": 27, "away_score": 3,
+       "week": 1, "kickoff_utc": "2001-09-09T19:00:00Z"},
+      {"home": "DEN", "away": "LAC", "home_score": 10, "away_score": 21,
+       "week": 1, "kickoff_utc": "2001-09-09T20:00:00Z"}
+    ],
+    "2002": [
+      {"home": "HOU", "away": "IND", "home_score": 20, "away_score": 17,
+       "week": 1, "kickoff_utc": "2002-09-08T17:00:00Z"},
+      {"home": "TEN", "away": "KC", "home_score": 24, "away_score": 21,
+       "week": 2, "kickoff_utc": "2002-09-15T17:00:00Z"},
+      {"home": "JAX", "away": "LAC", "home_score": 10, "away_score": 27,
+       "week": 3, "kickoff_utc": "2002-09-22T17:00:00Z"},
+      {"home": "DEN", "away": "LV", "home_score": 31, "away_score": 14,
+       "week": 4, "kickoff_utc": "2002-09-29T17:00:00Z"},
+      {"home": "HOU", "away": "XXX", "home_score": 13, "away_score": 16,
+       "week": 5, "kickoff_utc": "2002-10-06T17:00:00Z"},
+      {"home": "XXX", "away": "KC", "home_score": 7, "away_score": 28,
+       "week": 6, "kickoff_utc": "2002-10-13T17:00:00Z"}
+    ]
+  },
+  "context": {
+    "2001|1|HOU|IND": {"home_coach": "Ann Alpha", "away_coach": "Ivy Indigo"},
+    "2001|1|JAX|TEN": {"home_coach": "Jay Jade", "away_coach": "Tom Teal"},
+    "2001|1|KC|LV": {"home_coach": "Ken Khaki", "away_coach": "Lou Lilac"},
+    "2001|1|DEN|LAC": {"home_coach": "Dan Denim", "away_coach": "Lee Lime"},
+    "2002|1|HOU|IND": {"home_coach": "Hal Hazel", "away_coach": "Ivy Indigo"},
+    "2002|2|TEN|KC": {"home_coach": "Tom Teal", "away_coach": "Kit Kelp"},
+    "2002|3|JAX|LAC": {"home_coach": "Jo Juniper", "away_coach": "Lex Lava"},
+    "2002|4|DEN|LV": {"home_coach": "Dan Denim", "away_coach": "Lou Lilac"},
+    "2002|5|HOU|XXX": {"home_coach": "Hal Hazel", "away_coach": "Xan Xenon"},
+    "2002|6|XXX|KC": {"home_coach": "Xan Xenon", "away_coach": "Ivo Interim"}
+  }
+}

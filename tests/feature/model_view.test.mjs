@@ -112,3 +112,41 @@ test('familyRows: adopted/retained/skipped statuses with best losses', () => {
   assert.equal(rows[2].reason, 'awaiting runner data');
   assert.deepEqual(familyRows(null), []);
 });
+
+test('familyRows: a family with no application path is distinguishable', () => {
+  /* Rendering an unappliable family identically to an appliable one is how the
+   * card ends up promising pricing weight to a family that cannot receive it at
+   * any log-loss. The gate records the fact per family (`appliable`) and, for a
+   * DARK application path, the reason (coverage.application) — both must reach
+   * the row. Entries written before the flag existed carry no opinion. */
+  const entry = {
+    adopted_family: null,
+    families: [
+      { family: 'rest', appliable: true, best: { log_loss: 0.63 }, improvement: 0.001, trials: [{}] },
+      {
+        family: 'scheme_matchup',
+        appliable: false,
+        best: { log_loss: 0.6395 },
+        improvement: 0.005,
+        trials: [{}],
+        coverage: {
+          application: {
+            live_season: 2026, applied: false, dark: true, http_status: 404,
+            reason: 'FTN charting has no 2026 release, so scheme_matchup CANNOT '
+              + 'be applied to the live season.',
+          },
+        },
+      },
+      { family: 'legacy_entry', best: { log_loss: 0.64 }, improvement: 0, trials: [{}] },
+    ],
+  };
+  const [rest, scheme, legacy] = familyRows(entry);
+  assert.equal(rest.appliable, true);
+  assert.equal(rest.appNote, '', 'a live application path needs no footnote');
+  assert.equal(scheme.appliable, false);
+  assert.match(scheme.appNote, /no 2026 release/);
+  assert.equal(scheme.status, 'retained', 'appliability is orthogonal to the verdict');
+  assert.equal(legacy.appliable, null,
+    'a pre-flag entry states no opinion rather than claiming an application path');
+  assert.equal(legacy.appNote, '');
+});

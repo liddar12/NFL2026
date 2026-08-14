@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dvp_positional_history.schema.json",
+  "title": "Defense-versus-position PPR history, team-week, 1999-2025",
+  "description": "Built by scripts/build_dvp_positional.py from the nflverse stats_player_week release. Each team-week carries BOTH sides: `off` is scrimmage PPR that team's offense produced, `def` is scrimmage PPR its defense allowed. Sums, never means (the epa_history rule), so any week window recomposes exactly by addition. The offensive mirror is emitted here because data/player_usage_history.json is SEASON-level and carries no position column, so DvP cannot weight by it and must supply its own. `scoring` and `excludes` are required: the PPR definition and what is deliberately NOT counted (2-point conversions, fumbles lost, return touchdowns) are part of the contract, not a comment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "policy",
+    "scoring",
+    "excludes",
+    "positions",
+    "renames",
+    "season_range",
+    "diagnostics",
+    "seasons"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string",
+      "description": "Documentation of the sums-not-means and REG-only rules. Enforced in code and tests, never here."
+    },
+    "scoring": {
+      "type": "string",
+      "description": "The exact ppr_scrimmage formula the numbers were produced with."
+    },
+    "excludes": {
+      "type": "string",
+      "description": "What is deliberately not counted, and why."
+    },
+    "positions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "enum": [
+          "QB",
+          "RB",
+          "WR",
+          "TE"
+        ]
+      }
+    },
+    "renames": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "season_range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "integer",
+        "minimum": 1999
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "postseason_rows_dropped",
+        "rows_without_team",
+        "unk_position_ppr_share"
+      ],
+      "properties": {
+        "postseason_rows_dropped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_without_team": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unk_position_ppr_share": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.03,
+          "description": "An UNK share above the builder's MAX_UNK_SHARE is a feed regression, not noise."
+        }
+      }
+    },
+    "seasons": {
+      "type": "object",
+      "description": "season -> team -> week -> {g, off, def}.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "g",
+              "off",
+              "def"
+            ],
+            "properties": {
+              "g": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "off": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "QB",
+                  "RB",
+                  "WR",
+                  "TE"
+                ],
+                "properties": {
+                  "QB": {
+                    "type": "number"
+                  },
+                  "RB": {
+                    "type": "number"
+                  },
+                  "WR": {
+                    "type": "number"
+                  },
+                  "TE": {
+                    "type": "number"
+                  }
+                }
+              },
+              "def": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "QB",
+                  "RB",
+                  "WR",
+                  "TE"
+                ],
+                "properties": {
+                  "QB": {
+                    "type": "number"
+                  },
+                  "RB": {
+                    "type": "number"
+                  },
+                  "WR": {
+                    "type": "number"
+                  },
+                  "TE": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

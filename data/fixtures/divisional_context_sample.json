@@ -1,0 +1,44 @@
+{
+  "note": "Hand-built game_context.json-shaped fixture for the `divisional` family (scripts/signals/divisional.py). Six 2024 rows covering every branch the family has: a divisional first meeting, its in-season rematch, a non-divisional game, a non-divisional rematch (which must NOT take the rematch term), a divisional playoff third meeting (which must also NOT take it), and a row with a null meeting_no. NOT generated from nflverse - the div_game/meeting_no values are asserted by hand in tests, so a fixture regenerated from the producer would grade the producer with its own marking scheme. Carries no market column and never will.",
+  "join_key": "{season}|{week}|{home}|{away}",
+  "seasons": [
+    2024
+  ],
+  "games": {
+    "2024|3|BUF|MIA": {
+      "div_game": 1,
+      "game_type": "REG",
+      "meeting_no": 1
+    },
+    "2024|7|BUF|SF": {
+      "div_game": 0,
+      "game_type": "REG",
+      "meeting_no": 1
+    },
+    "2024|9|KC|DEN": {
+      "div_game": 1,
+      "game_type": "REG",
+      "meeting_no": 1
+    },
+    "2024|12|MIA|BUF": {
+      "div_game": 1,
+      "game_type": "REG",
+      "meeting_no": 2
+    },
+    "2024|15|BUF|SF": {
+      "div_game": 0,
+      "game_type": "REG",
+      "meeting_no": 2
+    },
+    "2024|20|BUF|MIA": {
+      "div_game": 1,
+      "game_type": "DIV",
+      "meeting_no": 3
+    },
+    "2024|21|KC|DEN": {
+      "div_game": 1,
+      "game_type": "CON",
+      "meeting_no": null
+    }
+  }
+}

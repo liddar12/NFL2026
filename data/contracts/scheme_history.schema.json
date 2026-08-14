@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "scheme_history.schema.json",
+  "title": "Team-week offensive/defensive scheme tendencies from FTN charting (2022+)",
+  "description": "Built by scripts/build_scheme_history.py from the nflverse FTN charting release joined to play-by-play on (nflverse_game_id, nflverse_play_id) - the FTN file carries no posteam/defteam column, so the join is mandatory. Counts, never rates, so any week window recomposes exactly by addition. PARTIAL BY CONSTRUCTION: FTN charting begins in 2022, so earlier seasons are ABSENT from `seasons` rather than zero - 'we do not know' and 'there was none' are different claims. `application` records whether the LIVE season has an FTN release at all; it is currently dark (404 for 2026), which is why scheme_matchup is a backtest-only family that raises rather than pricing a dark season at a neutral 0.0. `attribution` and `license` are required so the FTN/nflverse credit is rendered FROM the data and cannot be dropped by editing a template.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "kind",
+    "source",
+    "attribution",
+    "license",
+    "policy",
+    "season_type",
+    "first_ftn_season",
+    "seasons_covered",
+    "application",
+    "sentinel_rule",
+    "units",
+    "fields",
+    "diagnostics",
+    "seasons"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "scheme_history"
+      ]
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "pbp_url": {
+      "type": "string"
+    },
+    "attribution": {
+      "type": "string",
+      "description": "Rendered FROM this field, never as a literal, so removing the feed removes the credit."
+    },
+    "license": {
+      "type": "string"
+    },
+    "attribution_note": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string",
+      "description": "Documentation of the market boundary. Enforced in code and tests, never here."
+    },
+    "season_type": {
+      "type": "string",
+      "enum": [
+        "REG"
+      ]
+    },
+    "coverage_note": {
+      "type": "string"
+    },
+    "first_ftn_season": {
+      "type": "integer",
+      "minimum": 2022
+    },
+    "seasons_covered": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer",
+        "minimum": 2022
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "live_season",
+        "applied",
+        "dark",
+        "reason"
+      ],
+      "description": "Whether scheme_matchup can be applied to the LIVE season. `dark` true means the family is backtest-only for that season and must never be reported as applied.",
+      "properties": {
+        "live_season": {
+          "type": "integer",
+          "minimum": 1999
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "dark": {
+          "type": "boolean"
+        },
+        "http_status": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "checked_utc": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "sentinel_rule": {
+      "type": "string",
+      "description": "The 0/blank n_defense_box + qb_location filter. ~23.7% of FTN rows are uncharted or special teams and MUST be dropped, not read as zero."
+    },
+    "units": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "renames": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "description": "Per-season build accounting, keyed by season string. Every drop is counted so a silent feed regression shows up as a number, not as missing rows.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "ftn_rows",
+          "unjoined",
+          "uncharted_dropped",
+          "kept"
+        ],
+        "properties": {
+          "ftn_rows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unjoined": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unjoined_share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "uncharted_dropped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "postseason_dropped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "no_team_dropped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pbp_plays_indexed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "teams": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32
+          }
+        }
+      }
+    },
+    "seasons": {
+      "type": "object",
+      "description": "season -> team -> week -> charted counts. Seasons before first_ftn_season are absent, never zero-filled.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "off_plays",
+              "pa",
+              "screen",
+              "motion",
+              "no_huddle",
+              "def_plays",
+              "box_sum",
+              "box_plays"
+            ],
+            "properties": {
+              "off_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pa": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "screen": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "motion": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "no_huddle": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "def_plays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "box_sum": {
+                "type": "number",
+                "minimum": 0
+              },
+              "box_plays": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

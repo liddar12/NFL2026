@@ -89,6 +89,9 @@ SCHEMA_TO_DATA = {
     "player_backtest.schema.json": "player_backtest.json",
     "adp_history.schema.json": "adp_history.json",
     "kdst_projections.schema.json": "kdst_projections.json",
+    "game_context.schema.json": "game_context.json",
+    "scheme_history.schema.json": "scheme_history.json",
+    "dvp_positional_history.schema.json": "dvp_positional_history.json",
 }
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
@@ -99,7 +102,12 @@ OPTIONAL_DATA = frozenset([
     "market_baseline.json", "injury_history.json", "player_usage.json",
     "player_usage_history.json", "player_usage_weekly.json",
     "ros_backtest.json", "player_backtest.json",
-    "adp_history.json",
+    "adp_history.json", "game_context.json",
+    # All three Rel18 artifacts are runner-built and refreshed by the same
+    # weekly workflow (.github/workflows/backtest.yml), so they belong to this
+    # set together — game_context.json shipped here alone while its two
+    # siblings were treated as required, which reds a fresh clone.
+    "scheme_history.json", "dvp_positional_history.json",
 ])
 
 # The signal registry, mirrored name-for-name from scripts/signals/registry.py.
@@ -334,6 +342,102 @@ def check_market_price_fields(meta, projections, proj_schema):
     if problems:
         raise ValidationError("market price fields must stay DISPLAY ONLY:\n  - %s"
                               % "\n  - ".join(problems))
+
+
+# The eight betting columns nflverse `nfldata` games.csv ships. Kept as a
+# LITERAL here and never imported from scripts/build_game_context.py: a checker
+# that imports the producer's constants grades the pipeline with the pipeline's
+# own marking scheme. This is the DATA-layer backstop that still fires when the
+# producer and its unit test were both edited.
+BETTING_COLUMNS = frozenset([
+    "away_moneyline", "home_moneyline", "spread_line", "total_line",
+    "over_odds", "under_odds", "away_spread_odds", "home_spread_odds",
+])
+
+
+def _walk_json_keys(node, path="$"):
+    """Yield (json_path, key) for EVERY key at EVERY depth."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = "%s.%s" % (path, key)
+            yield child, key
+            yield from _walk_json_keys(value, child)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _walk_json_keys(value, "%s[%d]" % (path, i))
+
+
+def check_game_context_no_market_columns(context, label="game_context.json"):
+    """No betting column may appear as a key anywhere in the enrichment join.
+
+    MARKET PRICES ARE DISPLAY ONLY (permanent owner policy). data/game_context
+    .json is built from the same games.csv that carries the eight betting
+    columns, so it is the one artifact where a price could ride into a model
+    input. The builder guards this with a positive allow-list; this walks the
+    SHIPPED bytes and fails the gate regardless of what the builder claims.
+    """
+    hits = ["%s (key '%s')" % (p, k) for p, k in _walk_json_keys(context)
+            if k in BETTING_COLUMNS]
+    if hits:
+        raise ValidationError(
+            "%s carries market column(s) — MARKET PRICES ARE DISPLAY ONLY and "
+            "may never reach a model input path:\n  - %s"
+            % (label, "\n  - ".join(hits)))
+
+
+def check_game_context_join(context, corpus_dir, label="game_context.json"):
+    """Every completed corpus game must have a context row.
+
+    A join that silently loses games is the failure mode this artifact exists
+    to avoid: five signal families read it, and a missing row degrades each of
+    them to "neutral" without anything going red. Verified 7,276/7,276 at build
+    time; re-verified here against the SHIPPED file.
+
+    Also asserts the label-only declaration is present and honest — referee and
+    the two QB records are post-game ground truth, never a live model input.
+    """
+    problems = []
+    games = context.get("games") or {}
+
+    declared = context.get("label_only_fields")
+    if declared != ["away_qb", "home_qb", "referee"]:
+        problems.append(
+            "label_only_fields is %r — it must name exactly the three POST-GAME "
+            "fields ['away_qb', 'home_qb', 'referee'] so no family can mistake "
+            "them for live inputs" % (declared,))
+    if context.get("join_key") != "{season}|{week}|{home}|{away}":
+        problems.append("join_key is %r — the one flat key is "
+                        "'{season}|{week}|{home}|{away}'"
+                        % (context.get("join_key"),))
+
+    if os.path.isdir(corpus_dir):
+        covered = {int(k.split("|", 1)[0]) for k in games}
+        compared = missing = 0
+        examples = []
+        for fname in sorted(os.listdir(corpus_dir)):
+            if not (fname.startswith("finals_") and fname.endswith(".json")):
+                continue
+            with open(os.path.join(corpus_dir, fname), encoding="utf-8") as fh:
+                doc = json.load(fh)
+            season = int(doc["season"])
+            if season not in covered:
+                continue
+            for g in doc["games"]:
+                compared += 1
+                key = "%d|%d|%s|%s" % (season, g["week"], g["home"], g["away"])
+                if key not in games:
+                    missing += 1
+                    if len(examples) < 5:
+                        examples.append(key)
+        if missing:
+            problems.append(
+                "%d of %d backtest-corpus games have no context row (e.g. %s) — "
+                "a silent join miss degrades every family that reads this file"
+                % (missing, compared, ", ".join(examples)))
+
+    if problems:
+        raise ValidationError("%s join/label invariant:\n  - %s"
+                              % (label, "\n  - ".join(problems)))
 
 
 def check_pipeline_health(status):
@@ -898,6 +1002,18 @@ def main():
               % ", ".join(sorted(MARKET_PRICE_FIELDS)))
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
+    # game_context.json is runner-built (network); validated strictly when present.
+    ctx_path = os.path.join(DATA, "game_context.json")
+    if os.path.exists(ctx_path):
+        try:
+            ctx = _load(ctx_path)
+            check_game_context_no_market_columns(ctx)
+            print("ok    game_context.json carries no market column at any depth")
+            check_game_context_join(ctx,
+                                    os.path.join(DATA, "fixtures", "backtest_corpus"))
+            print("ok    game_context.json corpus join + label-only declaration")
+        except (OSError, ValueError, ValidationError) as exc:
+            failures.append(str(exc))
 
     if failures:
         print("\nVALIDATION FAILED (%d):" % len(failures), file=sys.stderr)

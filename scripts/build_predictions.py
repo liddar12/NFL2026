@@ -206,6 +206,36 @@ def main():
             _windy = sum(1 for v in _wind_map.values() if v >= _wind_thr)
             print(f"promoted weather_wind in effect: scale={_wind_scale:+g} "
                   f"threshold={_wind_thr}kph ({_windy}/{len(_wind_map)} upcoming games windy)")
+    # divisional (adopted family): same-division matchups take a fixed Elo
+    # delta, with an extra term on the in-season rematch. Both fields are
+    # SCHEDULE facts, so they are derived straight from this season's slate
+    # when game_context.json does not yet carry the season being played.
+    _div = _adopted.get("divisional") or {}
+    _div_ctx, _div_scale, _div_extra = {}, 0.0, 0.0
+    if _div.get("applied"):
+        from scripts.promote_signals import divisional_current  # noqa: PLC0415 (guarded)
+        _dc = divisional_current(SEASON, schedule=schedule)
+        if not _dc:
+            print("WARNING: divisional adopted but neither game_context.json nor the "
+                  "schedule could supply div_game/meeting_no — not applied")
+        else:
+            _div_ctx = _dc
+            _div_scale = float(_div.get("scale") or 0.0)
+            _div_extra = float(_div.get("rematch_extra") or 0.0)
+            _ndiv = sum(1 for v in _div_ctx.values() if v.get("div_game"))
+            # COVERAGE, not just presence. A non-empty map is truthy, so the
+            # "not applied" warning above can never fire for a PARTIAL map —
+            # and a game with no row prices at exactly 0.0, indistinguishable
+            # from a non-divisional game. Count the misses out loud.
+            _dmiss = sum(1 for g in schedule
+                         if f"{SEASON}|{g.get('week')}|{g['home']}|{g['away']}"
+                         not in _div_ctx)
+            if _dmiss:
+                print(f"WARNING: divisional context covers only "
+                      f"{len(schedule) - _dmiss}/{len(schedule)} scheduled games "
+                      f"— {_dmiss} game(s) will price at 0.0 (not applied there)")
+            print(f"promoted divisional in effect: base={_div_scale:+g} "
+                  f"rematch={_div_extra:+g} ({_ndiv}/{len(_div_ctx)} games divisional)")
     # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
     # runner-built epa_history.json; absent data means no delta, loudly.
     _epa_hfa = _adopted.get("epa_hfa") or {}
@@ -256,6 +286,11 @@ def main():
             _lost_a = sum(_skill_share.get(pid, 0.0)
                           for pid in _skill_outs.get((g["away"], _wk2), ()))
             hfa_eff += _skill_scale * (_lost_a - _lost_h)
+        if _div_ctx:
+            from scripts.signals.divisional import (  # noqa: PLC0415 (guarded)
+                divisional_delta, context_key)
+            hfa_eff += divisional_delta(_div_ctx.get(context_key(SEASON, g)),
+                                        _div_scale, _div_extra)
         row["hfa_elo"] = hfa_eff
         pred = game_model.predict_game(row, teams=None, model="elo_prior")
         pred["week"] = g["week"]

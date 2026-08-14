@@ -751,11 +751,28 @@ silently stops being never-regress**; (8) `*_current(season)` reader + the
 ```python
 APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa",
              "qb_out", "weather_wind", "skill_out",
-             "divisional", "coach_quality", "coach_regime",
-             "dvp_mismatch", "scheme_matchup"}
+             "divisional"}
 ```
 
-All 13 are appliable. **Rel18 introduces no non-appliable family** (§9.1).
+**CORRECTED (R21).** The design intended all 13 to be appliable ("Rel18
+introduces no non-appliable family", §9.1). What shipped wires only
+`divisional` into `scripts/build_predictions.py`; `coach_quality`,
+`coach_regime`, `dvp_mismatch` and `scheme_matchup` have readers but no caller,
+so listing them in `APPLIABLE` would make the gate claim an application path the
+pipeline does not have. They stay out until the reader is wired — and
+`scheme_matchup` cannot be wired for the live season at all while FTN charting
+has no release for it (§9.5, `application.dark`).
+
+That leaves the §9.1 hazard that cut `referee` — a non-appliable family that
+WINS a run — live four times over, so the gate no longer resolves it by
+suppressing adoption. `promote_signals.fallthrough_candidate` records the
+unappliable winner (`application_pending`, and `would_adopt` when nothing else
+is adopted) and then falls through to the best APPLIABLE family, which is
+**re-tested on its own significance**, never adopted on the winner's evidence.
+An unwired family therefore has no downside either: it can never cost a wired
+family its earned adoption. The margin between the two is real — on the corpus
+the best appliable (`rest` scale=3.0, 0.63032) and the best non-appliable
+(`coach_regime` shrink=0.15, 0.63038) sit 0.00006 apart.
 
 `_write_adoption` blocks: `divisional → {applied, scale, rematch_extra}`;
 `coach_quality → {applied, scale, shrink_n: 16, deltas: {coach: q}}` (production
@@ -800,17 +817,34 @@ not a scale grid.
 
 ### 9.7 Multiplicity — the brake
 
-Rel18 takes the gate from 8 candidate families to **13**, and from ~40 to ~85
-trials. More chances that one clears 0.0015 by luck.
+Rel18 takes the gate from 8 candidate families to **13**, and from 45 to 89
+trials. More chances that one clears the bar by luck.
 
-**The margin does not move.** It stays 0.0015 — never lowered to force an
-adoption, and never raised ad hoc either (the same sin in the other direction).
-Four brakes: (1) one family adopted per run, so a lucky family must be the best
-of 13; (2) the incumbent absorbs adoptions, so a noise adoption must keep earning
-every later week; (3) walk-forward over four held-out seasons; (4) **new**, the
-promotion entry gains `"families_tested": 13, "families_runnable": N,
-"trials": M` so the multiple-comparisons exposure of any adoption is visible in
-the archive. Rel18 **records** it and does not act on it.
+**CORRECTED (R21).** The paragraph this replaces said "the margin does not move,
+it stays 0.0015". That was already stale when Rel18 shipped: R18 retired the
+fixed 0.0015 constant for a **significance-based** threshold —
+`max(MIN_EFFECT, t_crit x se)`, where `se` is the candidate's own CR1
+fold-clustered standard error and `t_crit` is Bonferroni-corrected at
+`alpha / n_trials` (`scripts/promote_signals.adoption_threshold`). 0.0015 was
+only ~0.85 sigma, i.e. not a significance bar at all.
+
+So the margin **does** move, and Rel18 moved it: the Bonferroni divisor is every
+trial the run evaluates, so going 45 -> 89 trials took `t_crit` from ~9.85 to
+~12.42 and the threshold from ~0.00993 to ~0.01252 — a ~26% higher bar **for
+every family**, including the ones that were already clearing it. That is the
+honest price of searching wider, and it is deliberately paid rather than dodged:
+scoping the correction to one family would make the bar depend on which family
+happened to win, which is the selection effect the correction exists to price.
+The run records `significance.trials` and `significance.trials_note` so a reader
+can see which run's bar they are looking at and why an incumbent-improving family
+may have stopped clearing.
+
+Four brakes remain: (1) one family adopted per run, so a lucky family must be the
+best of 13; (2) the incumbent absorbs adoptions, so a noise adoption must keep
+earning every later week; (3) walk-forward over four held-out seasons; (4) the
+promotion entry records the full multiplicity exposure (`significance.trials`,
+`alpha_bonferroni`, `t_crit`, `threshold`) so any adoption can be re-checked from
+the archive.
 
 ---
 
