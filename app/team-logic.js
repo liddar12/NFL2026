@@ -435,12 +435,71 @@ export function replacementIndex(demand, leagueSize) {
  * receptions: half = ppr − 0.5·rec, std = ppr − rec; ppr passes through.
  * Unknown mode falls back to ppr (never throws — display code depends on it).
  */
-export function scoringAdjust(seasonPpr, receptions, mode) {
+export function scoringAdjust(seasonPpr, receptions, mode, extraPts) {
   const ppr = Number(seasonPpr) || 0;
   const rec = Number(receptions) || 0;
-  if (mode === 'half') return ppr - 0.5 * rec;
-  if (mode === 'std') return ppr - rec;
-  return ppr;
+  // R29 — league scoring rules this app can price but the base projection does
+  // not include. `extraPts` is already the POINTS (component x the league's
+  // rate), computed once per player by withLeagueExtras() rather than derived
+  // here, so this function stays a pure conversion and there is exactly one
+  // place that knows a rate. Absent/0 -> byte-identical to the pre-R29 result.
+  const extra = Number(extraPts) || 0;
+  if (mode === 'half') return ppr - 0.5 * rec + extra;
+  if (mode === 'std') return ppr - rec + extra;
+  return ppr + extra;
+}
+
+/**
+ * R29 — THE LEAGUE'S OWN SCORING, STAMPED ONTO THE WEEKLY ENTRIES.
+ *
+ * The problem this solves. A league scoring Sleeper's `pass_cmp` awards points
+ * the base projection knows nothing about — 0.5 a completion is roughly 150-200
+ * points a season for a starting quarterback, and it moved Dak Prescott +42.8
+ * VOR and Jared Goff +37.3 in the measurement that justified this release.
+ * Applying it means every surface must agree, and the obvious route — threading
+ * a rate through the eight signatures that carry `mode` — is exactly the shape
+ * of change whose QA caught a half-threaded profile in R19. Two surfaces
+ * quoting different points for the same quarterback is a worse bug than not
+ * pricing the rule at all.
+ *
+ * So the rate is applied ONCE, here, and rides on the weekly entry that every
+ * call site already holds beside `receptions_prior`. There is one place that
+ * knows a rate and one place that reads it.
+ *
+ * WHY THIS IS NOT BEHIND AI+. It is the league's scoring table, not a model
+ * opinion. The reception value already re-prices globally the moment it
+ * changes; this is the same kind of input arriving through the same import.
+ * (Owner's call, 2026-08-14.)
+ *
+ * HONEST DATA. A player with no `completions_prior` gets NO extra — not a zero
+ * that pretends to be a measurement. A league that does not score pass_cmp gets
+ * the identical Map back, so nothing downstream can tell this ran.
+ *
+ * Returns a NEW Map; the input is never mutated (views hold it across repaints).
+ */
+export function withLeagueExtras(weeklyById, profile) {
+  const rate = passCmpRate(profile);
+  if (!(weeklyById instanceof Map) || !rate) return weeklyById;
+  const out = new Map();
+  for (const [id, entry] of weeklyById) {
+    const cmp = entry && Number(entry.completions_prior);
+    out.set(id, Number.isFinite(cmp) && cmp > 0
+      ? { ...entry, extra_pts: Math.round(cmp * rate * 100) / 100 }
+      : entry);
+  }
+  return out;
+}
+
+/** The league's points-per-completion, or 0 when it does not score them. */
+export function passCmpRate(profile) {
+  const v = profile && profile.scoring ? Number(profile.scoring.pass_cmp) : NaN;
+  return Number.isFinite(v) ? v : 0;
+}
+
+/** The extra points stamped on an entry by withLeagueExtras(), or 0. */
+export function extraPtsOf(entry) {
+  const v = entry ? Number(entry.extra_pts) : NaN;
+  return Number.isFinite(v) ? v : 0;
 }
 
 /**
@@ -526,7 +585,7 @@ function resolveStarters(slots, playersById, weeklyById, mode, geo) {
     const player = lookup(playersById, id);
     const entry = lookup(weeklyById, id);
     const arr = player && entry
-      ? weeklyPoints(entry, scoringAdjust(player.proj_points, entry.receptions_prior, mode), player.proj_points)
+      ? weeklyPoints(entry, scoringAdjust(player.proj_points, entry.receptions_prior, mode, extraPtsOf(entry)), player.proj_points)
       : null;
     out.push({ slot, id: String(id), player, bye: entry ? byeWeek(entry) : null, arr });
   });
@@ -539,7 +598,7 @@ function bestOf(players, weeklyById, mode) {
   let bestAdj = -Infinity;
   players.forEach((p) => {
     const e = lookup(weeklyById, p.gsis_id);
-    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
+    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
     if (adj > bestAdj + EPS || (Math.abs(adj - bestAdj) <= EPS && best && String(p.gsis_id) < String(best.gsis_id))) {
       best = p;
       bestAdj = adj;
@@ -567,7 +626,7 @@ export function fitScore(candidate, roster, ctx) {
   const slots = (roster && roster.slots) || {};
 
   const candEntry = lookup(weeklyById, candidate.gsis_id);
-  const candAdj = scoringAdjust(candidate.proj_points, candEntry ? candEntry.receptions_prior : 0, mode);
+  const candAdj = scoringAdjust(candidate.proj_points, candEntry ? candEntry.receptions_prior : 0, mode, extraPtsOf(candEntry));
   const candArr = candEntry ? weeklyPoints(candEntry, candAdj, candidate.proj_points) : null;
   const candBye = candEntry ? byeWeek(candEntry) : null;
   const candPos = String(candidate.position || '').toUpperCase();
@@ -731,7 +790,7 @@ export function neediestOpenSlot(roster, pool, weeklyById, mode, shape) {
     players.forEach((p) => {
       if (rostered.has(String(p.gsis_id)) || !slotEligible(p.position, slot, shape)) return;
       const e = lookup(weeklyById, p.gsis_id);
-      const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
+      const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
       if (adj > top) top = adj;
     });
     if (top > bestAdj + EPS) {
@@ -770,7 +829,7 @@ export function recommend(roster, pool, weeklyById, mode, slot, opts, shape) {
       const e = lookup(weeklyById, p.gsis_id);
       return {
         player: p,
-        adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode),
+        adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e)),
         ...fitScore(p, roster, { playersById, weeklyById, mode, slot: target, shape }),
       };
     });
@@ -1000,7 +1059,7 @@ export function recommendV2(roster, pool, weeklyById, mode, slot, insights, opts
       const base = fitScore(p, roster, ctx).score;
       return {
         player: p,
-        adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode),
+        adj: scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e)),
         base,
         ...fitScoreV2(p, roster, { ...ctx, ai: true, insights }),
       };
@@ -1138,7 +1197,7 @@ export const VOR_SCARCITY_MAX = 3;
 /** Adjusted season points for a projection player at a scoring mode. */
 function adjOf(p, weeklyById, mode) {
   const e = lookup(weeklyById, p.gsis_id);
-  return scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
+  return scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
 }
 
 /** Pool rows at `position`, sorted adjusted points desc, tie gsis_id asc. */

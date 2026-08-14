@@ -40,6 +40,7 @@ import {
   positionAtCap,
   POSITION_CAPS,
   bestPickNow,
+  withLeagueExtras,
 } from '../team-logic.js';
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
@@ -837,7 +838,7 @@ export default async function mountTeam(el) {
     return;
   }
   const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-  const weeklyById = new Map();
+  let weeklyById = new Map();
   if (weekly && Array.isArray(weekly.players)) {
     weekly.players.forEach((w) => weeklyById.set(String(w.gsis_id), w));
   }
@@ -1085,6 +1086,12 @@ export default async function mountTeam(el) {
   // describe (my slot, snake vs auction, sim vs live, budget) stays session
   // state — those are how I am playing the room, not what my league IS.
   let savedProfile = loadProfile();
+  /* R29 — THIS LEAGUE's own scoring rules, stamped onto the weekly entries
+   * once, so every conversion below prices the same player identically without
+   * threading a rate through eight signatures. Must follow the profile load:
+   * stamping before the league is known would price every league at zero. A
+   * league that does not score pass_cmp gets the identical Map back. */
+  weeklyById = withLeagueExtras(weeklyById, savedProfile);
   let stagedProfile = cloneProfile(savedProfile); // name/scoring/caps, editable by import
   const seeded = cfgFromProfile(savedProfile);
   let carriedTokens = seeded.carried;             // K/DEF/DST — kept, not draftable

@@ -85,6 +85,8 @@ import {
   getKdstProjections, shapeKdst, fedPositions, teamByeWeeks,
 } from '../kdst.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
+// R29 — the league's own scoring rules, stamped onto the weekly entries once.
+import { withLeagueExtras } from '../team-logic.js';
 import { rosPoints } from '../ros.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';   // mirror of the Team builder's roster key
@@ -174,7 +176,13 @@ export default async function mountLineup(el) {
   const players = (projRes.value && Array.isArray(projRes.value.players)) ? projRes.value.players : [];
   const weekly = (weeklyRes.value && Array.isArray(weeklyRes.value.players)) ? weeklyRes.value.players : [];
   const byId = new Map(players.map((p) => [String(p.gsis_id), p]));
-  const weeklyById = new Map(weekly.map((w) => [String(w.gsis_id), w]));
+  const weeklyRaw = new Map(weekly.map((w) => [String(w.gsis_id), w]));
+  /* R29 — THIS LEAGUE's own scoring rules, stamped onto the weekly entries
+   * once, so every conversion below prices the same player identically without
+   * threading a rate through eight signatures. Must follow the profile load:
+   * stamping before the league is known would price every league at zero. A
+   * league that does not score pass_cmp gets the identical Map back. */
+  const weeklyById = withLeagueExtras(weeklyRaw, profile);
 
   let currentWk = 1;
   if (predsRes.status === 'fulfilled' && predsRes.value && predsRes.value.week != null) {

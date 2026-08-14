@@ -188,3 +188,49 @@ test('kdst partial scoring is still declared, not quietly dropped', () => {
     + 'import report now points at this behaviour instead of claiming the '
     + 'rules do nothing at all');
 });
+
+/* ==========================================================================
+   5. R29 — EVERY SURFACE PRICES THE SAME PLAYER THE SAME WAY
+   ========================================================================== */
+
+test('every view that converts season points stamps the league extras first', () => {
+  /* THE R19 FAILURE MODE, GENERALISED.
+   *
+   * R19 loaded the league profile and did not thread it to the surfaces, so
+   * saved settings reached storage and nothing else. R29 has the identical
+   * shape of risk: the league's pass_cmp rate is applied by withLeagueExtras()
+   * onto the weekly entries, and a view that builds its own weekly Map and
+   * forgets to stamp it would quietly price that league's quarterbacks at
+   * zero — while the tab next door priced them correctly. Two surfaces
+   * disagreeing about the same player is worse than not pricing the rule.
+   *
+   * So: any view that holds a weekly map AND converts season points must call
+   * withLeagueExtras. Asserted by construction rather than by remembering.
+   */
+  const CONVERTERS = ['app/views/players.js', 'app/views/team.js',
+    'app/views/lineup.js', 'app/views/compare.js'];
+  for (const f of CONVERTERS) {
+    const src = read(f);
+    assert.ok(/withLeagueExtras\s*\(/.test(src),
+      `${f} builds a weekly map and converts season points, but never calls `
+      + 'withLeagueExtras — this league\'s scoring rules would be dropped on '
+      + 'this surface only, and it would disagree with every other tab');
+  }
+});
+
+test('there is exactly ONE season-points conversion in the app', () => {
+  // app/views/players.js carried a hand-rolled copy of scoringAdjust, line for
+  // line. Teaching one copy a new scoring rule and not the other ships a
+  // two-tabs-disagree bug by construction, which is REL21 all over again.
+  const copies = [];
+  for (const f of ['app/views/players.js', 'app/views/team.js',
+    'app/views/lineup.js', 'app/views/compare.js', 'app/render.js']) {
+    const src = prose(f);
+    // The signature of the conversion: a half/std branch on `mode`.
+    if (/mode === 'half'/.test(src) && /mode === 'std'/.test(src)) copies.push(f);
+  }
+  assert.deepEqual(copies, [],
+    `${copies.join(', ')} re-implements the season-points conversion instead of `
+    + 'calling team-logic scoringAdjust(); one copy will eventually learn a '
+    + 'scoring rule the other does not');
+});

@@ -312,6 +312,19 @@ def build_player_records(season, teams):
             "injury_status": p["injury_status"],
             "prior_season_points": p["prior_season_points"],
             "receptions": p["receptions"],
+            # R29 — completions must survive THIS mapping too.
+            #
+            # R28 read statId 1 in fetch_fantasy_pool and consumed it in
+            # build_predictions, and shipped green — because this function
+            # rebuilds the record field by field and silently dropped it in
+            # between. Nothing failed: build_predictions' .get(..., 0.0) read a
+            # missing key as zero, build_weekly omits a zero by design, and the
+            # feed came out byte-identical. A no-op that looks exactly like a
+            # working feature is the worst shape a bug can take, which is why
+            # tests/feature/espn_record_fields.test.mjs now asserts that every
+            # stat fetch_fantasy_pool collects reaches the record.
+            "completions": p["completions"],
+            "pass_attempts": p["pass_attempts"],
         })
     return records
 
