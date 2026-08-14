@@ -3511,3 +3511,17 @@ body.gate-locked { overflow: hidden; }
 /* The RECO panel's budget note. --muted keeps it subordinate to the ranking
    label it qualifies; it is AA-audited on --surface by contrast_aa.test.mjs. */
 .reco-cap { color: var(--muted); font-weight: 700; }
+/* R29 — the LEAGUE RULES contribution chip. Sits in the same adornment row as
+   the playoff-SoS and value chips, styled to match: the number carries the ink,
+   the label is --muted (AA-audited on --surface by contrast_aa.test.mjs). It
+   explains a projection that already includes these points; it is not a
+   separate number the reader has to add. */
+.p-lgx {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink);
+}
+.p-lgx b { font-weight: 800; }

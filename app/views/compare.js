@@ -67,7 +67,7 @@ import {
   getGamePredictions,
 } from '../data.js';
 import { teamTint, renderTrendChip } from '../render.js';
-import { strengthOfSchedule, trendLabel } from '../team-logic.js';
+import { strengthOfSchedule, trendLabel, withLeagueExtras } from '../team-logic.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { isProjectedPosition } from '../lineup.js';
 import { rosPoints, nextBye } from '../ros.js';
@@ -112,7 +112,7 @@ export default async function mountCompare(el) {
   const byId = new Map(players.map((p) => [String(p.gsis_id), p]));
   const weekly = (weeklyRes.status === 'fulfilled' && weeklyRes.value && Array.isArray(weeklyRes.value.players))
     ? weeklyRes.value.players : [];
-  const weeklyById = new Map(weekly.map((w) => [String(w.gsis_id), w]));
+  const weeklyRaw = new Map(weekly.map((w) => [String(w.gsis_id), w]));
   const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings) ? strRes.value : null;
   const historyMap = (histRes.status === 'fulfilled' && histRes.value && histRes.value.players)
     ? histRes.value.players : null;
@@ -129,6 +129,16 @@ export default async function mountCompare(el) {
   // loadProfile() returns DEFAULT_PROFILE when nothing is saved, so an untouched
   // install reads weeks 15-17 and every other number on this page is unchanged.
   const profile = loadProfile();
+  /* R29 — THIS LEAGUE's own scoring rules, stamped onto the weekly entries once,
+   * so every conversion below prices the same player identically without
+   * threading a rate through eight signatures.
+   *
+   * It MUST sit after loadProfile(). The first cut of this put it beside the
+   * map construction twenty lines up, where `profile` is still in its temporal
+   * dead zone — which did not price leagues at zero, it threw a ReferenceError
+   * and took the whole COMPARE view down. Caught by the REL17 availability
+   * spec, whose .cmp-grid never appeared. */
+  const weeklyById = withLeagueExtras(weeklyRaw, profile);
 
   const picks = parsePicks();
   // Same player on both sides is not a comparison — it diffs to all-"even" and

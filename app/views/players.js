@@ -40,7 +40,8 @@ import {
   getPlayerHistory, getTeamStrength, getGamePredictions, getAdp,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
-import { strengthOfSchedule, trendLabel } from '../team-logic.js';
+import { strengthOfSchedule, trendLabel, scoringAdjust, extraPtsOf,
+  withLeagueExtras } from '../team-logic.js';
 import { rosPoints, gamesLeft } from '../ros.js';
 import { playoffSos, playoffWindow } from '../playoffs.js';
 import { loadProfile } from '../league.js';
@@ -145,11 +146,16 @@ function saveAiPref(on) {
  * Season points under a scoring mode. EXACT conversion via prior-season
  * receptions: half = ppr − 0.5·rec, std = ppr − rec. ppr passes through.
  */
-function seasonAdjust(ppr, receptions, mode) {
-  const rec = Number(receptions) || 0;
-  if (mode === 'half') return ppr - 0.5 * rec;
-  if (mode === 'std') return ppr - rec;
-  return ppr;
+/* R29 — A DELEGATION NOW, NOT A SECOND IMPLEMENTATION.
+ *
+ * This was a hand-rolled copy of team-logic's scoringAdjust, identical line for
+ * line. That is exactly how two tabs come to quote different points for the
+ * same player: the copy must be found and changed every time the original is,
+ * and REL21's shape-argument bug is what it looks like when one is missed.
+ * Teaching one copy the league's own scoring rules and not the other would have
+ * shipped that bug by construction, so the copy is gone. */
+function seasonAdjust(ppr, receptions, mode, extraPts) {
+  return scoringAdjust(ppr, receptions, mode, extraPts);
 }
 
 /** Paint a plain .state message (empty / error). */
@@ -312,6 +318,32 @@ export function renderPlayoffSos(report) {
  * market's. An unpriced player shows an em dash, never $0: ESPN publishing no
  * price is not a price.
  */
+/**
+ * R29 — WHAT THIS LEAGUE'S OWN SCORING RULES ADDED, PER PLAYER.
+ *
+ * The points are applied globally, not behind a toggle: a league's scoring
+ * table is a fact about the league, not a model opinion, and the reception
+ * value already re-prices everything the moment it changes. But applying a rule
+ * silently means a quarterback's projection jumps ~175 points with nothing on
+ * screen saying why, and an unexplained number is one the owner cannot check.
+ * So the contribution is shown, the way AI+ already shows its delta vs BASE —
+ * verifiable without a mode that displays knowingly-wrong numbers.
+ *
+ * Renders NOTHING when the league scores no extra rule, or when this player has
+ * no component for it. A "+0" chip on every running back would be noise, and a
+ * chip on a player we have no completion count for would be a claim we cannot
+ * support.
+ */
+export function renderLeagueExtra(entry) {
+  const pts = entry ? Number(entry.extra_pts) : NaN;
+  if (!Number.isFinite(pts) || pts === 0) return '';
+  const sign = pts > 0 ? '+' : '−';
+  const mag = Math.abs(Math.round(pts * 10) / 10);
+  return '<span class="p-lgx" title="Points from your league\'s own scoring rules '
+    + '(completions), already included in the projection above">'
+    + `<b>${sign}${mag}</b> <span class="cd-meta">LEAGUE RULES</span></span>`;
+}
+
 export function renderValue({ ours, auction, teams, budget, board, boardBudget } = {}) {
   const o = Number(ours);
   const raw = Number(auction);
@@ -506,6 +538,7 @@ export default async function mountPlayers(el) {
   if (weekly && Array.isArray(weekly.players)) {
     weekly.players.forEach((w) => weeklyById.set(String(w.gsis_id), w));
   }
+
   const hasWeekly = weeklyById.size > 0;
 
   // AI insights ({players:{id:{trajectory_adj,...}}}) — only real when populated.
@@ -533,6 +566,15 @@ export default async function mountPlayers(el) {
   // THIS league decides which weeks are the playoffs. No profile saved ->
   // DEFAULT_PROFILE (weeks 15-17); an imported Sleeper league moves the window.
   const profile = loadProfile();
+  /* R29 — stamp THIS LEAGUE's own scoring rules onto the weekly entries, once.
+   * withLeagueExtras adds `extra_pts` per player (completions x the league's
+   * pass_cmp rate) so every conversion below prices the same quarterback
+   * identically, without threading a rate through eight signatures — which is
+   * the change whose half-done version R19's QA caught. It must sit AFTER
+   * loadProfile(): stamping before the league is known would price every
+   * league at zero. A league that does not score pass_cmp gets the identical
+   * Map back, so nothing downstream can tell this ran. */
+  const weeklyPriced = withLeagueExtras(weeklyById, profile);
   // Taken from the module, never restated here, so the legend's week range and
   // the chips' week range cannot drift apart.
   const playoffWk = playoffWindow(profile);
@@ -608,9 +650,9 @@ export default async function mountPlayers(el) {
    */
   function model(p) {
     const id = String(p.gsis_id);
-    const w = weeklyById.get(id);
+    const w = weeklyPriced.get(id);
     const ppr = Number(p.proj_points);
-    const scoreAdj = (w && scoring !== 'ppr') ? seasonAdjust(ppr, w.receptions_prior, scoring) : ppr;
+    const scoreAdj = w ? seasonAdjust(ppr, w.receptions_prior, scoring, extraPtsOf(w)) : ppr;
     const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
     const r = aiOn ? aiRatio(id) : 1;
     const proj = scoreAdj * r;
@@ -632,7 +674,7 @@ export default async function mountPlayers(el) {
   const _sosCache = new Map();
   function sosOf(id) {
     if (_sosCache.has(id)) return _sosCache.get(id);
-    const v = teamStrength ? strengthOfSchedule(weeklyById.get(id), teamStrength) : null;
+    const v = teamStrength ? strengthOfSchedule(weeklyPriced.get(id), teamStrength) : null;
     _sosCache.set(id, v);
     return v;
   }
@@ -642,7 +684,7 @@ export default async function mountPlayers(el) {
   const _rosCache = new Map();
   function rosOf(id) {
     if (_rosCache.has(id)) return _rosCache.get(id);
-    const w = weeklyById.get(id);
+    const w = weeklyPriced.get(id);
     const v = (w && Array.isArray(w.weeks))
       ? { points: rosPoints(w.weeks, currentWk), gamesLeft: gamesLeft(w.weeks, currentWk) }
       : null;
@@ -658,7 +700,7 @@ export default async function mountPlayers(el) {
   function playoffOf(id) {
     if (_poCache.has(id)) return _poCache.get(id);
     const v = teamStrength
-      ? playoffSos(weeklyById.get(id), teamStrength, profile) : null;
+      ? playoffSos(weeklyPriced.get(id), teamStrength, profile) : null;
     _poCache.set(id, v);
     return v;
   }
@@ -698,9 +740,9 @@ export default async function mountPlayers(el) {
         const id = String(r.gsis_id);
         const p = _projById.get(id);
         if (!p) return 0;                  // on the board, not in our projections
-        const w = weeklyById.get(id);
+        const w = weeklyPriced.get(id);
         const ppr = Number(p.proj_points);
-        return (w && mode !== 'ppr') ? seasonAdjust(ppr, w.receptions_prior, mode) : ppr;
+        return w ? seasonAdjust(ppr, w.receptions_prior, mode, extraPtsOf(w)) : ppr;
       };
       map = fairDollars(pool, adjOf, profile.shape.teams, OUR_BUDGET, _ourShape);
     }
@@ -712,6 +754,7 @@ export default async function mountPlayers(el) {
    * anything honest to say. */
   function extraRow(id) {
     const po = renderPlayoffSos(playoffOf(id));
+    const lg = renderLeagueExtra(weeklyPriced.get(id));
     const val = renderValue({
       ours: ourDollars(scoring).get(id),
       auction: auctionById.get(id),
@@ -720,7 +763,7 @@ export default async function mountPlayers(el) {
       board: marketBoardTeams,
       boardBudget: marketBoardBudget,
     });
-    return po + val;
+    return po + lg + val;
   }
 
   /** Sort key value for a player under the active sort. */
@@ -932,11 +975,11 @@ export default async function mountPlayers(el) {
       let strip = card.querySelector('.wkstrip');
       if (!open && !strip) {
         const p = players.find((pl) => String(pl.gsis_id) === card.dataset.gsis);
-        const w = weeklyById.get(card.dataset.gsis);
+        const w = weeklyPriced.get(card.dataset.gsis);
         if (!p || !w) return; // no weekly row — leave the card collapsed
         // Match the card's displayed ratio (scoring × AI) so the strip agrees.
         const ppr = Number(p.proj_points);
-        const scoreAdj = scoring !== 'ppr' ? seasonAdjust(ppr, w.receptions_prior, scoring) : ppr;
+        const scoreAdj = seasonAdjust(ppr, w.receptions_prior, scoring, extraPtsOf(w));
         const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
         const ratio = scoreRatio * (aiOn ? aiRatio(card.dataset.gsis) : 1);
         btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, ratio));
