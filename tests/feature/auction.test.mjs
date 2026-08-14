@@ -16,6 +16,7 @@ import {
   liveInflation, myGuidance, nominationAdvice, scoreAuction,
 } from '../../app/auction.js';
 import { rosterShape } from '../../app/draft-sim.js';
+import { positionDemand } from '../../app/team-logic.js';
 
 /* ---- fixtures --------------------------------------------------------------- */
 
@@ -272,6 +273,82 @@ test('resolveBids no-bidder fallback never sells to a team that cannot pay', () 
   const spent = b.log.reduce((s, l) => s + l.price, 0);
   const remaining = b.teams.reduce((s, t) => s + t.budget, 0);
   assert.equal(spent + remaining, 0, 'drained room stays at zero dollars');
+});
+
+/* ---- R19-B4: shape-driven demand, shared with the fit engine ---------------- */
+
+test('fairDollars: shape-derived demand is byte-identical to the old flex-spread literal', () => {
+  // The old arithmetic, written out: fixed starters + flexCount x {RB .45, WR .45,
+  // TE .10}, replacement = round(demand x teams) - 1. positionDemand() must
+  // reproduce it exactly for every shape the draft room can build, or every
+  // fair price in the room shifts.
+  const flexShare = { RB: 0.45, WR: 0.45, TE: 0.10 };
+  const configs = [null, { qb: 2 }, { flex: 0 }, { flex: 2 }, { rb: 3, te: 2, flex: 2 },
+    { qb: 2, rb: 3, wr: 3, te: 2, flex: 2, bench: 8 }];
+  for (const cfg of configs) {
+    const s = rosterShape(cfg);
+    const demand = positionDemand(s);
+    for (const pos of ['QB', 'RB', 'WR', 'TE']) {
+      const old = (s.starterDemand[pos] || 0) + (s.config.flex || 0) * (flexShare[pos] || 0);
+      assert.ok(Object.is(old, demand[pos] || 0),
+        `${JSON.stringify(cfg)} ${pos}: ${old} !== ${demand[pos]}`);
+      for (const teams of [4, 8, 10, 12, 14, 32]) {
+        assert.equal(Math.max(0, Math.round((demand[pos] || 0) * teams) - 1),
+          Math.max(0, Math.round(old * teams) - 1), 'replacement rank unchanged');
+      }
+    }
+  }
+});
+
+test('fairDollars: a 2-QB league prices quarterbacks above a 1-QB league', () => {
+  const rows = board();
+  const adj = adjMap(rows);
+  const adjOf = (r) => adj.get(String(r.gsis_id)) || 0;
+  const one = fairDollars(rows, adjOf, 4, 200, rosterShape({ bench: 4 }));
+  const two = fairDollars(rows, adjOf, 4, 200, rosterShape({ qb: 2, bench: 4 }));
+  const topQb = rows.find((r) => r.position === 'QB').gsis_id;
+  assert.ok(two.get(topQb) > one.get(topQb),
+    'two starting QBs push the QB replacement level down, so QBs cost more');
+});
+
+test('fairDollars: accepts a LeagueProfile shape (superflex demands more QB)', () => {
+  const rows = board();
+  const adj = adjMap(rows);
+  const adjOf = (r) => adj.get(String(r.gsis_id)) || 0;
+  const classic = {
+    shape: {
+      teams: 4,
+      roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'BN', 'BN', 'BN', 'BN'],
+    },
+  };
+  const superflex = {
+    shape: {
+      teams: 4,
+      roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'SUPER_FLEX', 'BN', 'BN', 'BN', 'BN'],
+    },
+  };
+  const a = fairDollars(rows, adjOf, 4, 200, classic);
+  const b = fairDollars(rows, adjOf, 4, 200, superflex);
+  const topQb = rows.find((r) => r.position === 'QB').gsis_id;
+  assert.ok(b.get(topQb) > a.get(topQb), 'a superflex slot is mostly a QB slot');
+  assert.equal(positionDemand(superflex).QB, 1.9);
+});
+
+test('teamNeedsPos: a 2-QB room still wants a third QB; a 1-QB room does not', () => {
+  const rows = board();
+  const qbIdx = rows.findIndex((r) => r.position === 'QB');
+  const mk = (qb) => createAuction({
+    leagueSize: 4, mySlot: 2, budget: 200,
+    rosterConfig: { qb, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 },
+    boardRows: rows, adjPointsById: adjMap(rows), seed: 11,
+  });
+  const two = mk(2);
+  const one = mk(1);
+  const qbs = rows.filter((r) => r.position === 'QB').slice(1, 3);
+  for (const a of [two, one]) myTeam(a).players.push(...qbs);
+  assert.equal(myGuidance(two, qbIdx).needIt, true);
+  assert.equal(myGuidance(two, qbIdx).bidTo > 0, true, 'and will actually bid');
+  assert.equal(myGuidance(one, qbIdx).needIt, false);
 });
 
 test('nominationAdvice never classifies unprojected players (unknown != bait)', () => {

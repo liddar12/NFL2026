@@ -210,6 +210,88 @@ test('scoreVsRoom: margin and rank are exact', () => {
   assert.equal(sheet.teams, 3);
 });
 
+/* ---- R19-B4: the room's caps and starter set come from the SHAPE ------------ */
+
+test('opponentNeeds: a 2-QB room drafts a THIRD QB; a 1-QB room still stops at two', () => {
+  const twoQb = rosterShape({ qb: 2 });
+  assert.equal(opponentNeeds({ QB: 2 }, 'QB', twoQb), true,
+    'a lineup that must start two QBs needs a bye/injury backup');
+  assert.equal(opponentNeeds({ QB: 3 }, 'QB', twoQb), false, 'and stops at three');
+  assert.equal(opponentNeeds({ QB: 2 }, 'QB', rosterShape(null)), false,
+    'the 1-QB room is unchanged');
+});
+
+test('a full 2-QB draft leaves opponents with three QBs; the 1-QB draft never does', () => {
+  const rows = board60();
+  const run = (qb) => {
+    const draft = createDraft({
+      leagueSize: 4, mySlot: 2, roomType: 'adp',
+      rosterConfig: { qb, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 },
+      boardRows: rows, adjPointsById: adjMap(rows), seed: 7,
+    });
+    while (!draft.done) {
+      if (onTheClock(draft) === draft.mySlot - 1) {
+        let pick = -1;
+        for (let i = 0; i < draft.board.length; i += 1) {
+          if (!draft.taken.has(i)) { pick = i; break; }
+        }
+        takeMyPick(draft, pick);
+      } else {
+        takeOpponentPick(draft);
+      }
+    }
+    return draft.rosters
+      .filter((_, i) => i !== draft.mySlot - 1)
+      .map((r) => r.counts.QB || 0);
+  };
+  const two = run(2);
+  const one = run(1);
+  assert.equal(Math.max(...two), 3, `a 2-QB room reaches three QBs (got ${two})`);
+  assert.equal(Math.max(...one), 2, `a 1-QB room caps at two (got ${one})`);
+});
+
+test('startersTotal: slot-driven fill reproduces the old fixed-then-FLEX arithmetic', () => {
+  const players = [
+    { position: 'QB', gsis_id: 'q1' }, { position: 'QB', gsis_id: 'q2' },
+    { position: 'RB', gsis_id: 'r1' }, { position: 'RB', gsis_id: 'r2' },
+    { position: 'RB', gsis_id: 'r3' }, { position: 'WR', gsis_id: 'w1' },
+    { position: 'WR', gsis_id: 'w2' }, { position: 'WR', gsis_id: 'w3' },
+    { position: 'TE', gsis_id: 't1' }, { position: 'TE', gsis_id: 't2' },
+    { position: 'WR', gsis_id: null },
+  ];
+  const pts = new Map([['q1', 300], ['q2', 280], ['r1', 250], ['r2', 240], ['r3', 230],
+    ['w1', 220], ['w2', 210], ['w3', 205], ['t1', 150], ['t2', 140]]);
+  const adjOf = (p) => (p.gsis_id && pts.has(p.gsis_id) ? pts.get(p.gsis_id) : 0);
+  // The pre-R19-B4 implementation, written out.
+  const oldTotal = (shape) => {
+    const sorted = players.slice().sort((a, b) => adjOf(b) - adjOf(a));
+    const used = new Set();
+    let total = 0;
+    const fill = (pos, n) => {
+      let left = n;
+      for (const p of sorted) {
+        if (left === 0) break;
+        if (used.has(p) || p.position !== pos) continue;
+        used.add(p); total += adjOf(p); left -= 1;
+      }
+    };
+    fill('QB', shape.starterDemand.QB); fill('RB', shape.starterDemand.RB);
+    fill('WR', shape.starterDemand.WR); fill('TE', shape.starterDemand.TE);
+    let flexLeft = shape.config.flex;
+    for (const p of sorted) {
+      if (flexLeft === 0) break;
+      if (used.has(p) || !['RB', 'WR', 'TE'].includes(p.position)) continue;
+      used.add(p); total += adjOf(p); flexLeft -= 1;
+    }
+    return Math.round(total * 10) / 10;
+  };
+  for (const cfg of [null, { flex: 0 }, { flex: 2 }, { qb: 2 }, { rb: 3, te: 2, flex: 2 }]) {
+    const shape = rosterShape(cfg);
+    assert.equal(startersTotal(players, shape, adjOf), oldTotal(shape),
+      `shape ${JSON.stringify(cfg)} must score identically`);
+  }
+});
+
 test('takeOpponentPickAt records the OBSERVED live pick for the team on the clock', () => {
   const rows = board60();
   const draft = createDraft({

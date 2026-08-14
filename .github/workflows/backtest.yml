@@ -74,6 +74,14 @@ jobs:
       - name: Promotion gate (auto-adopt past NEVER-REGRESS margin)
         run: python -m scripts.promote_signals --auto-adopt
 
+      # Player-level walk-forward. Without this step the harness is an orphan —
+      # measured once, committed, then frozen while the seasons move on, which
+      # is exactly the defect (REL15 #10) it was built to retire. It exits
+      # non-zero when the projection path it claims to score stops matching the
+      # one the app ships, so a silent divergence reds the cron.
+      - name: Player-level walk-forward backtest
+        run: python -m scripts.backtest_player
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

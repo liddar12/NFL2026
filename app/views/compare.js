@@ -19,6 +19,12 @@
  * the availability-adjusted number. Where a duration was parsed from a real team
  * report, the sentence itself is quoted; where it is only the league's rule floor
  * there is deliberately NO quote, because there is nothing to quote.
+ *
+ * R19-B5 — UNPROJECTED POSITIONS. K and DEF/DST have no projection feed yet, and
+ * `Number(p.proj_points) || 0` would render that absence as a confident 0.0 — a
+ * fabricated number that also loses every edge chip it appears in. Those cells
+ * read "not projected yet" instead, and the centre rail falls back to its n/a
+ * chip because there is genuinely nothing to compare.
  */
 
 import {
@@ -28,6 +34,7 @@ import {
 import { teamTint, renderTrendChip } from '../render.js';
 import { strengthOfSchedule, trendLabel } from '../team-logic.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
+import { isProjectedPosition } from '../lineup.js';
 import { rosPoints, nextBye } from '../ros.js';
 
 function esc(v) {
@@ -92,14 +99,21 @@ export default async function mountCompare(el) {
     if (!p) return null;
     const w = weeklyById.get(id);
     const traj = historyMap && historyMap[id] ? historyMap[id].trajectory : null;
+    const pos = String(p.position || '').toUpperCase();
+    // R19-B5 — a K or a DEF has NO projection feed. `Number(x) || 0` would turn
+    // that absence into a confident 0.0 sitting next to a real WR's 14.2, which
+    // is the worst kind of wrong: a fabricated number that loses every edge chip
+    // it appears in. Null means "no number exists", and the column says so.
+    const projected = isProjectedPosition(pos);
     return {
       id,
       name: p.name || id,
-      pos: String(p.position || '').toUpperCase(),
+      pos,
       team: p.team || '',
-      proj: Number(p.proj_points) || 0,
+      projected,
+      proj: projected ? Number(p.proj_points) || 0 : null,
       avail: availabilityOf(w, currentWk, currentWk),
-      ros: (w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
+      ros: (projected && w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
       bye: (w && Array.isArray(w.weeks)) ? nextBye(w.weeks, currentWk) : null,
       trend: traj ? trendLabel(traj) : null,
@@ -151,14 +165,17 @@ function colHtml(side, m) {
     );
   }
   const row = (label, val) => `<div class="cmp-metric"><span class="cmp-lbl">${label}</span><span class="cmp-v">${val}</span></div>`;
+  // A position with no feed says so, in words, once — never a dash that reads as
+  // "zero" and never a number nobody computed.
+  const noFeed = `<span class="cmp-noproj" style="font-weight:600;color:var(--muted)">not projected yet</span>`;
   return (
     `<div class="cmp-col" data-side="${side}">`
     + `<div class="cmp-id"><span class="cmp-name" style="color:${teamTint(m.team)}">${esc(m.name)}</span>`
       + `<span class="cmp-pos">${esc(m.pos)} · ${esc(m.team)}</span>`
       + `<button type="button" class="cmp-swap" data-side="${side}" data-act="cmp-clear">change</button></div>`
     + availRow(m.avail)
-    + row('PROJ PTS', fix1(m.proj))
-    + row('RoS VALUE', m.ros == null ? '—' : fix1(m.ros))
+    + row('PROJ PTS', m.projected ? fix1(m.proj) : noFeed)
+    + row('RoS VALUE', m.projected ? (m.ros == null ? '—' : fix1(m.ros)) : noFeed)
     + row('TREND', m.trend ? renderTrendChip(m.trend) : '—')
     + row('SoS', m.sos == null ? '—' : `${fix1(m.sos)} <span class="cmp-hint">1 easy · 5 hard</span>`)
     + row('BYE', m.bye == null ? '—' : `W${m.bye}`)

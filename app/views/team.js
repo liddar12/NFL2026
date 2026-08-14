@@ -28,12 +28,9 @@
  */
 
 import {
-  SLOT_ORDER,
-  STARTER_SLOTS,
   scoringAdjust,
   weeklyPoints,
   byeWeek,
-  slotEligible,
   teamWeeklyTotals,
   neediestOpenSlot,
   recommend,
@@ -60,6 +57,15 @@ import {
   maxBid, MIN_BID, classifyNomination,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
+import {
+  FLEX_ELIGIBILITY, FLEX_TOKENS, LEAGUE_BOUNDS,
+  cloneProfile, isDefaultProfile, loadProfile, normalizeProfile, saveProfile,
+  scoringMode, validateProfile, rosterSlots, slotAccepts, firstOpenSlot,
+} from '../league.js';
+import {
+  SLEEPER_API_BASE, importFromPastedJson, importFromSleeper,
+  summarizeImport, unresolvedItems,
+} from '../sleeper.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
@@ -115,8 +121,14 @@ function loadScoring() {
  * current player pool (dropped players vanish honestly), duplicates keep only
  * their first slot. Corrupt/absent storage -> an all-empty roster.
  */
-function loadRoster(validIds) {
-  const slots = Object.fromEntries(SLOT_ORDER.map((s) => [s, null]));
+function loadRoster(validIds, profile) {
+  // ONE slot vocabulary, derived from the profile. The saved roster, the grid
+  // the user taps, the engines and the Lineup page must all name slots the same
+  // way. If Team writes the frozen legacy ids while Lineup reads profile-derived
+  // ids, every rostered player silently disappears from the optimizer the moment
+  // a league's geometry differs from the old 13-slot default.
+  const order = rosterSlots(profile).all;
+  const slots = Object.fromEntries(order.map((s) => [s, null]));
   let stored = null;
   try {
     stored = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
@@ -125,10 +137,24 @@ function loadRoster(validIds) {
   }
   const seen = new Set();
   if (stored && stored.slots && typeof stored.slots === 'object') {
-    SLOT_ORDER.forEach((s) => {
+    order.forEach((s) => {
       const id = stored.slots[s] == null ? null : String(stored.slots[s]);
       if (id && validIds.has(id) && !seen.has(id)) {
         slots[s] = id;
+        seen.add(id);
+      }
+    });
+    // Migration sweep: an id parked under a slot id this profile no longer has
+    // (a legacy roster, or a shape the user just changed) moves into the first
+    // slot that will take it. A saved player is never dropped merely because the
+    // geometry moved under him.
+    Object.keys(stored.slots).forEach((s) => {
+      if (order.includes(s)) return;
+      const id = stored.slots[s] == null ? null : String(stored.slots[s]);
+      if (!id || !validIds.has(id) || seen.has(id)) return;
+      const target = order.find((slot) => !slots[slot]);
+      if (target) {
+        slots[target] = id;
         seen.add(id);
       }
     });
@@ -261,7 +287,130 @@ function recoSortInner(activeKey) {
   return opt('fit', 'BEST FIT') + opt('available', 'BEST AVAIL');
 }
 
+/* ---- LEAGUE PROFILE bridge (pure — exported for tests, no DOM) -------------
+ *
+ * The draft simulator's roster config (app/draft-sim.js rosterShape) speaks
+ * {qb,rb,wr,te,flex,bench}; the LeagueProfile (app/league.js) speaks
+ * roster_positions tokens. These two functions are the ONLY translation, and
+ * they translate in both directions without inventing anything:
+ *   - tokens the simulator cannot price (K, DEF, DST) are CARRIED through the
+ *     round trip and reported, never silently dropped;
+ *   - counts outside ROSTER_BOUNDS are clamped and the clamp is reported.
+ * ------------------------------------------------------------------------- */
+
+/** Roster tokens the draft simulator prices directly (its shape knows no K/DEF). */
+export const DRAFTABLE_TOKENS = Object.freeze(['QB', 'RB', 'WR', 'TE']);
+
+function clampCount(v, lo, hi) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return lo;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+/** Menu label for a flex token, in this app's idiom (bare positions, upper). */
+export function flexLabel(token) {
+  const spec = FLEX_ELIGIBILITY[token];
+  if (!spec) return String(token == null ? '' : token);
+  const positions = spec.positions.join('/');
+  if (token === 'SUPER_FLEX') return `${positions} · SUPERFLEX`;
+  return spec.app_only ? `${positions} · APP ONLY` : positions;
+}
+
+/**
+ * LeagueProfile -> draft-simulator config.
+ * Returns { cfg, carried, clamped } where `carried` lists roster tokens the
+ * simulator cannot price (kept on the profile) and `clamped` lists every count
+ * ROSTER_BOUNDS had to pull in, as { key, wanted, used }.
+ */
+export function cfgFromProfile(profile) {
+  const p = normalizeProfile(profile);
+  const counts = { QB: 0, RB: 0, WR: 0, TE: 0 };
+  const carried = [];
+  let flex = 0;
+  let bench = 0;
+  let flexType = null;
+  p.shape.roster_positions.forEach((token) => {
+    if (token === 'BN') { bench += 1; return; }
+    if (FLEX_ELIGIBILITY[token]) {
+      flex += 1;
+      if (!flexType) flexType = token; // first flex token wins; the rest re-map
+      return;
+    }
+    if (counts[token] != null) { counts[token] += 1; return; }
+    carried.push(token); // K / DEF / DST — kept, and said out loud
+  });
+  const wanted = {
+    qb: counts.QB, rb: counts.RB, wr: counts.WR, te: counts.TE, flex, bench,
+  };
+  const cfg = {};
+  const clamped = [];
+  Object.keys(wanted).forEach((key) => {
+    const [lo, hi] = ROSTER_BOUNDS[key];
+    const used = clampCount(wanted[key], lo, hi);
+    if (used !== wanted[key]) clamped.push({ key, wanted: wanted[key], used });
+    cfg[key] = used;
+  });
+  cfg.leagueSize = clampCount(p.shape.teams, LEAGUE_BOUNDS.teams[0], LEAGUE_BOUNDS.teams[1]);
+  cfg.flexType = flexType || 'FLEX';
+  cfg.keepers = p.shape.keepers_enabled === true;
+  cfg.maxKeepers = p.shape.max_keepers;
+  return { cfg, carried, clamped };
+}
+
+/**
+ * Draft-simulator config -> LeagueProfile. `base` supplies everything the
+ * simulator has no opinion about (name, scoring table, position caps); the
+ * shape comes from `cfg`. `carried` tokens are re-inserted after the flex
+ * slots so a K/DEF league survives an edit made in this panel.
+ */
+export function profileFromCfg(cfg, base, carried) {
+  const out = cloneProfile(normalizeProfile(base));
+  const c = cfg || {};
+  const token = FLEX_ELIGIBILITY[c.flexType] ? c.flexType : 'FLEX';
+  const positions = [];
+  const push = (t, n) => { for (let i = 0; i < clampCount(n, 0, 40); i += 1) positions.push(t); };
+  push('QB', c.qb); push('RB', c.rb); push('WR', c.wr); push('TE', c.te);
+  push(token, c.flex);
+  (carried || []).forEach((t) => positions.push(t));
+  push('BN', c.bench);
+  out.shape.roster_positions = positions;
+  out.shape.teams = clampCount(c.leagueSize, LEAGUE_BOUNDS.teams[0], LEAGUE_BOUNDS.teams[1]);
+  out.shape.flex_eligibility = clampCount(c.flex, 0, 40) > 0
+    ? { [token]: [...FLEX_ELIGIBILITY[token].positions] }
+    : {};
+  out.shape.draft_rounds = positions.length;
+  out.shape.keepers_enabled = c.keepers === true;
+  out.shape.max_keepers = c.keepers === true ? clampCount(c.maxKeepers, 0, 40) : 0;
+  return normalizeProfile(out);
+}
+
+/** "PPR (1)" / "HALF (0.5)" / "STD (0)" / "CUSTOM (0.75)" for a profile. */
+export function receptionLabel(profile) {
+  const p = normalizeProfile(profile);
+  const rec = Number.isFinite(Number(p.scoring.rec)) ? Number(p.scoring.rec) : 0;
+  return `${scoringMode(p).toUpperCase()} (${rec})`;
+}
+
+/**
+ * The "did it take?" rows for an import: what actually landed on the profile.
+ * Pure — reads the PROFILE, not the payload, so it can never claim a value the
+ * profile does not carry.
+ */
+export function importSummaryRows(profile) {
+  const p = normalizeProfile(profile);
+  return [
+    { label: 'TEAMS', value: String(p.shape.teams) },
+    { label: 'STARTERS', value: String(p.shape.starters) },
+    { label: 'BENCH', value: String(p.shape.bench) },
+    { label: 'SCORING KEYS', value: String(Object.keys(p.scoring).length) },
+    { label: 'RECEPTION', value: receptionLabel(p) },
+  ];
+}
+
 /* ---- mount ------------------------------------------------------------------ */
+
+/** One-shot league status carried across the re-mount a scoring re-price forces. */
+let leagueFlash = null;
 
 export default async function mountTeam(el) {
   el.innerHTML = '<div class="state state--loading">Loading team builder…</div>';
@@ -507,10 +656,35 @@ export default async function mountTeam(el) {
   let auction = null;        // auction room state (createAuction) or null
   let auctionResult = null;  // scoreAuction sheet after a finished auction
   let bidAdj = 0;            // my +/- adjustment to the advised bid, per block
+  // LEAGUE PROFILE (R19-B3). The saved profile is the durable half of this
+  // config: it survives the reload that the in-memory literal never did, and
+  // it is what the SAVE button below writes. Everything the profile does not
+  // describe (my slot, snake vs auction, sim vs live, budget) stays session
+  // state — those are how I am playing the room, not what my league IS.
+  let savedProfile = loadProfile();
+  let stagedProfile = cloneProfile(savedProfile); // name/scoring/caps, editable by import
+  const seeded = cfgFromProfile(savedProfile);
+  let carriedTokens = seeded.carried;             // K/DEF/DST — kept, not draftable
+  let clampedNotes = seeded.clamped;              // counts ROSTER_BOUNDS pulled in
   const draftCfg = {
     leagueSize: 12, mySlot: 5, roomType: 'adp', mode: 'snake', play: 'sim',
     budget: DEFAULT_BUDGET, ...DEFAULT_ROSTER,
+    flexType: 'FLEX', keepers: false, maxKeepers: 0,
+    ...seeded.cfg,
   };
+  if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+
+  // League-settings panel state (all of it survives a paintDraft() repaint).
+  let leagueStatus = leagueFlash;   // {tone, lines} — one-shot across a re-mount
+  leagueFlash = null;
+  let importReport = null;          // report from the last Sleeper import
+  let importLines = [];             // summarizeImport() plain-language lines
+  let importUnresolved = [];        // unresolvedItems() — the honesty list
+  let importProfile = null;         // the profile that import produced
+  let sleeperId = '';               // league id / URL typed into the sync field
+  let pasteText = '';               // pasted league JSON
+  let pasteOpen = false;            // <details> disclosure state
+  let syncBusy = false;             // a SYNC NOW request is in flight
   // Live strategy dials (auction) — flipping any re-plans the room in place.
   const strategy = { style: 'balanced', tempo: 'patient', enforce: true };
   let resetArmed = false;    // two-step RESET confirm
@@ -542,7 +716,7 @@ export default async function mountTeam(el) {
     adjById.get(String(b.gsis_id)) - adjById.get(String(a.gsis_id))
     || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1));
 
-  const roster = loadRoster(new Set(playersById.keys()));
+  const roster = loadRoster(new Set(playersById.keys()), savedProfile);
   let selectedSlot = null; // empty slot targeted for recommendations
   let query = '';
 
@@ -584,13 +758,18 @@ export default async function mountTeam(el) {
 
   /* ---- section painters ----------------------------------------------------- */
 
+  /** The slot ids this league actually has, in draft order. */
+  function slotOrder() {
+    return rosterSlots(savedProfile).all;
+  }
+
   /** First open slot (starters before bench) this position may occupy. */
   function firstEligibleOpenSlot(position) {
-    return SLOT_ORDER.find((s) => !roster.slots[s] && slotEligible(position, s)) || null;
+    return firstOpenSlot(position, roster.slots, savedProfile);
   }
 
   function paintRoster() {
-    const rows = SLOT_ORDER.map((slot) => {
+    const rows = slotOrder().map((slot) => {
       const pos = slot.replace(/\d+$/, ''); // QB1 -> QB, BN3 -> BN
       const id = roster.slots[slot];
       let body;
@@ -717,7 +896,7 @@ export default async function mountTeam(el) {
     const rows = hits.slice(0, FINDER_CAP).map((p) => {
       const id = String(p.gsis_id);
       const open = firstEligibleOpenSlot(p.position);
-      const capped = positionAtCap(p.position, roster.slots, playersById);
+      const capped = positionAtCap(p.position, roster.slots, playersById, savedProfile);
       const tl = trendLabel(trajFor(id));
       const trendTxt = tl && tl.dir !== 'flat'
         ? ` <span class="cd-trend cd-trend--${tl.dir}">${tl.dir === 'up' ? '▲' : '▼'}</span>`
@@ -759,7 +938,7 @@ export default async function mountTeam(el) {
    * available pool the fit engine sees, so TAKEN players are excluded and the
    * strip re-ranks live as players are taken. Empty picks -> no strip. */
   function bestPickStrip(pool) {
-    const picks = bestPickNow(roster, pool, weeklyById, mode);
+    const picks = bestPickNow(roster, pool, weeklyById, mode, undefined, savedProfile);
     if (picks.length === 0) return '';
     const rows = picks.map((r) => {
       const p = r.player;
@@ -812,8 +991,9 @@ export default async function mountTeam(el) {
     // active mode so the ranking is never ambiguous.
     const ai = aiOn && aiInsights !== null;
     const recos = ai
-      ? recommendV2(roster, pool, weeklyById, mode, target, aiInsights, { sort: recoSort })
-      : recommend(roster, pool, weeklyById, mode, target, { sort: recoSort });
+      ? recommendV2(roster, pool, weeklyById, mode, target, aiInsights, { sort: recoSort },
+        savedProfile)
+      : recommend(roster, pool, weeklyById, mode, target, { sort: recoSort }, savedProfile);
     const sortLabel = recoSort === 'available' ? 'BEST AVAIL' : 'BEST FIT';
     const head =
       '<div class="reco-head">' +
@@ -870,7 +1050,8 @@ export default async function mountTeam(el) {
 
   function paintSummary() {
     const box = el.querySelector('#t-summary');
-    const starterIds = STARTER_SLOTS.map((s) => roster.slots[s]).filter(Boolean);
+    const starterIds = rosterSlots(savedProfile).starters
+      .map((s) => roster.slots[s]).filter(Boolean);
     const totals = teamWeeklyTotals(starterIds, scaledById);
     const seasonTotal = starterIds.reduce((sum, id) => sum + (adjById.get(id) || 0), 0);
 
@@ -929,6 +1110,175 @@ export default async function mountTeam(el) {
 
   /* ---- DRAFT SIMULATOR painter ---------------------------------------------- */
 
+  /* ---- LEAGUE SETTINGS panel (FLEX · keepers · SAVE · Sleeper) ------------- */
+
+  /** Does the on-screen shape differ from what is actually persisted? */
+  function leagueDirty() {
+    return JSON.stringify(profileFromCfg(draftCfg, stagedProfile, carriedTokens))
+      !== JSON.stringify(savedProfile);
+  }
+
+  /** The status block: what just happened, in the app's own plain language. */
+  function leagueStatusHtml() {
+    if (!leagueStatus || !leagueStatus.lines || leagueStatus.lines.length === 0) return '';
+    const tone = leagueStatus.tone === 'err' ? 'err' : (leagueStatus.tone === 'warn' ? 'warn' : 'ok');
+    return `<div class="lp-status lp-status--${tone}" role="status">`
+      + leagueStatus.lines.map((l) => `<div class="lp-status-line">${esc(l)}</div>`).join('')
+      + '</div>';
+  }
+
+  /** What the last import actually put on the profile — never what it promised. */
+  function importReportHtml() {
+    if (!importReport && importLines.length === 0) return '';
+    const league = (importReport && importReport.league) || {};
+    const srcLabel = importReport
+      ? ({ api: 'SLEEPER API', paste: 'PASTED JSON', default: 'PPR DEFAULT' }[importReport.source]
+        || String(importReport.source).toUpperCase())
+      : 'IMPORT';
+    const cells = importProfile
+      ? importSummaryRows(importProfile).map((r) => (
+        `<div class="lp-rep-cell"><span class="ds-lbl">${r.label}</span>`
+        + `<b class="lp-rep-val">${esc(r.value)}</b></div>`)).join('')
+      : '';
+    const lines = importLines.map((l) => `<div class="lp-rep-line">${esc(l)}</div>`).join('');
+    const unresolved = importUnresolved.length > 0
+      ? `<div class="lp-unres-head">${importUnresolved.length} ITEM(S) NOT APPLIED</div>`
+        + '<ul class="lp-unres">'
+        + importUnresolved.map((u) => (
+          `<li><b>${esc(String(u.kind).replace(/_/g, ' ').toUpperCase())}</b> ${esc(u.message)}</li>`
+        )).join('')
+        + '</ul>'
+      : '';
+    return '<div class="lp-report">'
+      + `<div class="lp-rep-head">${esc(srcLabel)}`
+        + (league.name ? ` · ${esc(league.name)}` : '')
+        + (importReport && importReport.synced_at ? ` · ${esc(importReport.synced_at)}` : '')
+      + '</div>'
+      + (cells ? `<div class="lp-rep-grid">${cells}</div>` : '')
+      + lines
+      + unresolved
+      + '</div>';
+  }
+
+  function leaguePanelHtml() {
+    const rounds = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te
+      + draftCfg.flex + draftCfg.bench;
+    const keeperCap = Math.min(LEAGUE_BOUNDS.max_keepers[1], rounds);
+    if (draftCfg.maxKeepers > keeperCap) draftCfg.maxKeepers = keeperCap;
+    const lopt = (v, cur, label) => (
+      `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>`
+      + `${esc(label == null ? v : label)}</option>`
+    );
+    const lfield = (key, label, optsHtml) => (
+      '<label class="lp-field">'
+      + `<span class="ds-lbl">${label}</span>`
+      + `<select class="ds-select" data-lcfg="${key}">${optsHtml}</select>`
+      + '</label>'
+    );
+    const keeperOpts = [];
+    for (let v = 0; v <= keeperCap; v += 1) keeperOpts.push(lopt(v, draftCfg.maxKeepers));
+    const dirty = leagueDirty();
+    const savedLine = dirty
+      ? 'UNSAVED — press SAVE to keep this shape past a reload'
+      : (isDefaultProfile(savedProfile)
+        ? 'SAVED · STANDARD PPR DEFAULT (nothing customised yet)'
+        : `SAVED · ${savedProfile.name} · ${savedProfile.shape.teams} TEAMS · `
+          + `${savedProfile.shape.starters}+${savedProfile.shape.bench} · ${receptionLabel(savedProfile)}`);
+    const seedNotes = [];
+    clampedNotes.forEach((c) => seedNotes.push(
+      `${c.key.toUpperCase()}: your saved league has ${c.wanted}; the draft simulator prices `
+      + `${c.used} (its bounds).`));
+    if (carriedTokens.length > 0) seedNotes.push(
+      `${carriedTokens.join(', ')} stay on your league profile but the draft simulator does not `
+      + 'draft them.');
+
+    return (
+      '<div class="ds-sub"><span>FLEX &amp; KEEPERS</span>'
+        + `<span class="ds-sub-note">${esc(flexLabel(draftCfg.flexType))}`
+        + `${draftCfg.keepers
+          ? ` · ${draftCfg.maxKeepers} KEEPER${draftCfg.maxKeepers === 1 ? '' : 'S'}`
+          : ' · NO KEEPERS'}</span></div>`
+      + '<div class="lp-grid">'
+        + lfield('flexType', 'FLEX SLOTS TAKE',
+          FLEX_TOKENS.map((t) => lopt(t, draftCfg.flexType, flexLabel(t))).join(''))
+        + lfield('keepers', 'KEEPERS',
+          lopt('off', draftCfg.keepers ? 'on' : 'off', 'OFF')
+          + lopt('on', draftCfg.keepers ? 'on' : 'off', 'ON'))
+        + lfield('maxKeepers', 'MAX KEEPERS', keeperOpts.join(''))
+      + '</div>'
+      + '<div class="m-explain">Keepers are recorded on your league profile and can be changed '
+        + 'at any time. They are NOT simulated: mark the players you are keeping TAKEN on the '
+        + 'board so the room drafts without them.</div>'
+      // SAVE — directly after the league + roster settings it persists.
+      + '<div class="lp-save">'
+        + `<button type="button" class="lp-savebtn${dirty ? ' lp-savebtn--dirty' : ''}" `
+          + 'data-act="league-save">SAVE LEAGUE SETTINGS</button>'
+        + `<div class="lp-saved${dirty ? ' lp-saved--dirty' : ''}">${esc(savedLine)}</div>`
+      + '</div>'
+      + leagueStatusHtml()
+      + (seedNotes.length
+        ? `<div class="lp-notes">${seedNotes.map((n) => `<div>${esc(n)}</div>`).join('')}</div>`
+        : '')
+      + '<div class="m-explain">SAVE writes these to your league profile and RE-PRICES the '
+        + 'board: league size and roster shape feed replacement level, VOR and beat-the-room '
+        + 'draft value straight away, and the reception value sets the scoring mode the whole '
+        + 'app projects at. None of it is ever an input to the learned-signal gate — nothing is '
+        + 'retrained. Two limits, said plainly: the 13-slot roster panel on this page is still '
+        + 'fixed, and the opponent model drafts every FLEX as WR/RB/TE, so a SUPERFLEX league '
+        + 'is priced as if its flex were WR/RB/TE.</div>'
+      + '<div class="ds-sub"><span>SLEEPER</span>'
+        + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
+      + '<div class="lp-sync">'
+        + '<label class="lp-field lp-field--grow">'
+          + '<span class="ds-lbl">LEAGUE ID OR URL</span>'
+          + '<input class="lp-input" type="text" data-lin="sleeperId" autocomplete="off" '
+            + `spellcheck="false" placeholder="1051234567890123456" value="${esc(sleeperId)}" `
+            + 'aria-label="Sleeper league id or league URL">'
+        + '</label>'
+        + `<button type="button" class="lp-btn" data-act="sleeper-sync"${syncBusy ? ' disabled' : ''}>`
+          + `${syncBusy ? 'SYNCING…' : 'SYNC NOW'}</button>`
+      + '</div>'
+      + `<details class="lp-paste"${pasteOpen ? ' open' : ''}>`
+        + '<summary class="lp-summary">PASTE LEAGUE JSON INSTEAD</summary>'
+        + `<div class="m-explain">No network from this app: open ${esc(SLEEPER_API_BASE)}`
+          + '/league/{your league id} in a browser tab and paste the whole response here.</div>'
+        + '<textarea class="lp-textarea" data-lin="pasteText" rows="4" spellcheck="false" '
+          + `aria-label="Pasted Sleeper league JSON" placeholder="{ &quot;league_id&quot;: … }">${esc(pasteText)}</textarea>`
+        + '<button type="button" class="lp-btn lp-btn--wide" data-act="sleeper-paste">'
+          + 'IMPORT PASTED JSON</button>'
+      + '</details>'
+      + importReportHtml()
+    );
+  }
+
+  /** Fold an ImportResult into the panel: it stages, it never saves. */
+  function applyImport(res) {
+    importReport = res && res.report ? res.report : null;
+    importLines = summarizeImport(res);
+    importUnresolved = importReport ? unresolvedItems(importReport) : [];
+    if (res && res.ok && res.profile) {
+      importProfile = normalizeProfile(res.profile);
+      stagedProfile = cloneProfile(importProfile);
+      const mapped = cfgFromProfile(importProfile);
+      carriedTokens = mapped.carried;
+      clampedNotes = mapped.clamped;
+      Object.assign(draftCfg, mapped.cfg);
+      if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+      const lines = ['Imported into the settings above — NOT saved yet. Check the numbers, '
+        + 'then press SAVE LEAGUE SETTINGS.'];
+      mapped.clamped.forEach((c) => lines.push(
+        `${c.key.toUpperCase()}: your league has ${c.wanted}; the draft simulator prices `
+        + `${c.used} (its bounds).`));
+      if (mapped.carried.length > 0) lines.push(
+        `${mapped.carried.join(', ')} kept on the profile — the simulator does not draft them.`);
+      leagueStatus = { tone: 'ok', lines };
+    } else {
+      importProfile = null;
+      leagueStatus = { tone: 'err', lines: importLines };
+    }
+    paintDraft();
+  }
+
   function draftSetupHtml() {
     const opt = (v, cur, label) => `<option value="${v}"${Number(v) === Number(cur) ? ' selected' : ''}>${label || v}</option>`;
     const slots = [];
@@ -947,6 +1297,9 @@ export default async function mountTeam(el) {
     };
     const starters = draftCfg.qb + draftCfg.rb + draftCfg.wr + draftCfg.te + draftCfg.flex;
     const rounds = starters + draftCfg.bench;
+    // 8/10/12 are the offered sizes; an imported league of any other size keeps
+    // its own number in the menu rather than being silently shown as 8.
+    const teamsOptions = [...new Set([8, 10, 12, draftCfg.leagueSize])].sort((a, b) => a - b);
     return (
       '<div class="ds-head"><span class="ds-title">DRAFT SIMULATOR</span> ' +
         '<span class="est">ESTIMATE</span></div>' +
@@ -963,8 +1316,7 @@ export default async function mountTeam(el) {
         field('play', 'PLAY',
           `<option value="sim"${draftCfg.play === 'sim' ? ' selected' : ''}>SIM (practice)</option>` +
           `<option value="live"${draftCfg.play === 'live' ? ' selected' : ''}>LIVE (my real draft)</option>`) +
-        field('leagueSize', 'TEAMS',
-          opt(8, draftCfg.leagueSize) + opt(10, draftCfg.leagueSize) + opt(12, draftCfg.leagueSize)) +
+        field('leagueSize', 'TEAMS', teamsOptions.map((n) => opt(n, draftCfg.leagueSize)).join('')) +
         field('mySlot', 'MY SLOT', slots.join('')) +
         (draftCfg.mode === 'auction'
           ? field('budget', 'BUDGET',
@@ -978,6 +1330,7 @@ export default async function mountTeam(el) {
         stepper('qb', 'QB') + stepper('rb', 'RB') + stepper('wr', 'WR') +
         stepper('te', 'TE') + stepper('flex', 'FLEX') + stepper('bench', 'BENCH') +
       '</div>' +
+      leaguePanelHtml() +
       (draftCfg.mode === 'auction'
         ? `<button type="button" class="cand-add ds-start" data-act="auc-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}AUCTION · $${draftCfg.budget} · ${rounds} SLOTS</button>`
         : `<button type="button" class="cand-add ds-start" data-act="draft-start">START ${draftCfg.play === 'live' ? 'LIVE ' : ''}DRAFT · ${rounds} ROUNDS</button>`)
@@ -1374,7 +1727,7 @@ export default async function mountTeam(el) {
         return;
       }
       resetArmed = false;
-      SLOT_ORDER.forEach((slot) => { roster.slots[slot] = null; });
+      slotOrder().forEach((slot) => { roster.slots[slot] = null; });
       taken.clear();
       draft = null;
       draftResult = null;
@@ -1385,6 +1738,89 @@ export default async function mountTeam(el) {
       t.textContent = 'RESET';
       t.classList.remove('reset-btn--armed');
       paintAll();
+      return;
+    }
+
+    if (act === 'league-save') {
+      // Persist the league + roster settings as the LeagueProfile. This is the
+      // only writer of nfl2026.league.v1 in this view, and it RE-PRICES: the
+      // shape it writes is the shape the draft room prices against, and the
+      // reception value it carries is the scoring mode the app projects at.
+      const next = profileFromCfg(draftCfg, stagedProfile, carriedTokens);
+      const wrote = saveProfile(next);
+      savedProfile = next;
+      stagedProfile = cloneProfile(next);
+      const remapped = cfgFromProfile(next);
+      carriedTokens = remapped.carried;
+      clampedNotes = remapped.clamped;
+      const lines = [wrote
+        ? `Saved: ${next.name} · ${next.shape.teams} teams · ${next.shape.starters} starters `
+          + `+ ${next.shape.bench} bench · ${next.shape.draft_rounds} rounds`
+          + `${next.shape.keepers_enabled
+            ? ` · ${next.shape.max_keepers} keeper${next.shape.max_keepers === 1 ? '' : 's'}`
+            : ''}.`
+        : 'Storage is blocked, so nothing was written to disk. These settings still drive this '
+          + 'session, but they will not survive a reload.'];
+      validateProfile(next).forEach((p) => { if (p && p.message) lines.push(p.message); });
+      const nextMode = scoringMode(next);
+      if (nextMode !== 'custom' && nextMode !== mode) {
+        lines.push(`Scoring re-priced to ${nextMode.toUpperCase()} from your league's reception `
+          + 'value — every projection on the board is recomputed.');
+        try {
+          localStorage.setItem(SCORING_KEY, nextMode);
+        } catch (err) {
+          lines.push('The scoring mode could not be stored, so it reverts on reload.');
+        }
+        leagueFlash = { tone: wrote ? 'ok' : 'warn', lines };
+        Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+        return;
+      }
+      if (nextMode === 'custom') {
+        lines.push(`Reception is ${receptionLabel(next)} — the projection conversion only knows `
+          + `1, 0.5 and 0, so the board stays at ${mode.toUpperCase()}.`);
+      }
+      leagueStatus = { tone: wrote ? 'ok' : 'warn', lines };
+      paintDraft();
+      return;
+    }
+
+    if (act === 'sleeper-sync') {
+      if (syncBusy) return;
+      const idText = sleeperId.trim();
+      if (!idText) {
+        leagueStatus = { tone: 'err', lines: ['Enter your Sleeper league id or league URL first.'] };
+        paintDraft();
+        return;
+      }
+      syncBusy = true;
+      leagueStatus = { tone: 'ok', lines: ['Reading your league from Sleeper…'] };
+      paintDraft();
+      Promise.resolve(importFromSleeper(idText)).then((res) => {
+        syncBusy = false;
+        applyImport(res);
+      }).catch((err) => {
+        syncBusy = false;
+        leagueStatus = {
+          tone: 'err',
+          lines: [`The import failed: ${err && err.message ? err.message : String(err)}`,
+            'Open the league URL yourself and paste the JSON instead.'],
+        };
+        paintDraft();
+      });
+      return;
+    }
+
+    if (act === 'sleeper-paste') {
+      if (!pasteText.trim()) {
+        leagueStatus = {
+          tone: 'err',
+          lines: ['Paste the league JSON first — the whole response, from the first { to the '
+            + 'last }.'],
+        };
+        paintDraft();
+        return;
+      }
+      applyImport(importFromPastedJson(pasteText));
       return;
     }
 
@@ -1597,7 +2033,8 @@ export default async function mountTeam(el) {
       // Reco ADDs carry their target slot; finder ADDs honor the selected slot
       // when it fits, else the first eligible open slot (starters before bench).
       const wanted = t.dataset.slot || selectedSlot;
-      const slot = (wanted && !roster.slots[wanted] && slotEligible(p.position, wanted))
+      const slot = (wanted && !roster.slots[wanted]
+        && slotAccepts(p.position, wanted, savedProfile))
         ? wanted
         : firstEligibleOpenSlot(p.position);
       if (!slot) return;
@@ -1634,8 +2071,46 @@ export default async function mountTeam(el) {
     draftCfg[key] = (key === 'roomType' || key === 'mode' || key === 'play')
       ? sel.value : Number(sel.value);
     if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+    // The shape moved, so a "Saved:" line from a moment ago would now be a lie.
+    if (key === 'leagueSize' || ROSTER_BOUNDS[key]) leagueStatus = null;
     if (!draft && !auction) paintDraft(); // setup card reflects clamped values
   });
+
+  // League-profile selects (FLEX eligibility + keepers) — same delegation.
+  el.addEventListener('change', (e) => {
+    const sel = e.target.closest('select[data-lcfg]');
+    if (!sel) return;
+    const key = sel.dataset.lcfg;
+    if (key === 'flexType') {
+      draftCfg.flexType = FLEX_ELIGIBILITY[sel.value] ? sel.value : 'FLEX';
+    } else if (key === 'keepers') {
+      draftCfg.keepers = sel.value === 'on';
+      // Turning keepers on with a max of 0 says nothing; 1 is the smallest
+      // league that actually keeps anyone, and it is one tap from any other.
+      if (draftCfg.keepers && draftCfg.maxKeepers < 1) draftCfg.maxKeepers = 1;
+    } else if (key === 'maxKeepers') {
+      const n = Number(sel.value);
+      draftCfg.maxKeepers = Number.isFinite(n) ? n : 0;
+    }
+    leagueStatus = null;
+    if (!draft && !auction) paintDraft();
+  });
+
+  // Sleeper text fields: keep the typed value in closure state so the frequent
+  // setup-card repaint restores it instead of eating it.
+  el.addEventListener('input', (e) => {
+    const f = e.target.closest('[data-lin]');
+    if (!f) return;
+    if (f.dataset.lin === 'sleeperId') sleeperId = f.value || '';
+    else if (f.dataset.lin === 'pasteText') pasteText = f.value || '';
+  });
+
+  // <details> does not bubble its toggle — listen in the capture phase so the
+  // paste fallback stays open across a repaint.
+  el.addEventListener('toggle', (e) => {
+    const d = e.target && e.target.closest ? e.target.closest('details.lp-paste') : null;
+    if (d) pasteOpen = d.open;
+  }, true);
 
   // Finder + reco controls (delegated on el so they survive every repaint).
   el.addEventListener('click', (e) => {

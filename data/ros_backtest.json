@@ -1,10 +1,10 @@
 {
  "__meta__": {
-  "generated_utc": "2026-08-12T17:49:29Z",
-  "method": "season_rank_correlation",
+  "generated_utc": "2026-08-14T01:15:18Z",
+  "method": "deployed_engine_season_rank_correlation",
   "granularity": "season",
   "baseline": "prior_season_points (last year's finish)",
-  "note": "Walk-forward: season S projected from seasons <= S-1 only. No per-player weekly actuals are committed, so this is the honest season-level directional check, not a weekly backtest."
+  "note": "Walk-forward: season S projected from seasons <= S-1 only, through the DEPLOYED engine (scripts.models.player_projection.project_player), whose week-1 RoS total is identical to the value app/ros.js renders. Written by scripts/backtest_player.py; the retired scripts/backtest_ros.py proxy formula now appears only as a baseline in data/player_backtest.json. At day-zero weights proj_points == prior_season_points, so rho_ros and rho_lastyear are the SAME NUMBERS by construction and no position can beat the baseline until a signal earns weight."
  },
  "per_season": [
   {
@@ -12,38 +12,38 @@
    "positions": {
     "QB": {
      "n": 26,
-     "rho_ros": 0.4243,
+     "rho_ros": 0.3504,
      "rho_lastyear": 0.3504,
-     "ndcg_ros": 0.8657,
+     "ndcg_ros": 0.8487,
      "ndcg_lastyear": 0.8487,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "RB": {
      "n": 20,
-     "rho_ros": 0.6331,
+     "rho_ros": 0.418,
      "rho_lastyear": 0.418,
-     "ndcg_ros": 0.9284,
+     "ndcg_ros": 0.8639,
      "ndcg_lastyear": 0.8639,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "WR": {
      "n": 44,
-     "rho_ros": 0.6637,
+     "rho_ros": 0.6741,
      "rho_lastyear": 0.6741,
-     "ndcg_ros": 0.9063,
+     "ndcg_ros": 0.9036,
      "ndcg_lastyear": 0.9036,
      "beats_baseline": false,
      "measured": true
     },
     "TE": {
      "n": 27,
-     "rho_ros": 0.641,
+     "rho_ros": 0.5715,
      "rho_lastyear": 0.5715,
-     "ndcg_ros": 0.8625,
-     "ndcg_lastyear": 0.8291,
-     "beats_baseline": true,
+     "ndcg_ros": 0.8283,
+     "ndcg_lastyear": 0.8283,
+     "beats_baseline": false,
      "measured": true
     }
    }
@@ -53,36 +53,36 @@
    "positions": {
     "QB": {
      "n": 26,
-     "rho_ros": 0.2807,
+     "rho_ros": 0.3607,
      "rho_lastyear": 0.3607,
-     "ndcg_ros": 0.8053,
+     "ndcg_ros": 0.8067,
      "ndcg_lastyear": 0.8067,
      "beats_baseline": false,
      "measured": true
     },
     "RB": {
      "n": 33,
-     "rho_ros": 0.4435,
+     "rho_ros": 0.3597,
      "rho_lastyear": 0.3597,
-     "ndcg_ros": 0.9126,
+     "ndcg_ros": 0.9021,
      "ndcg_lastyear": 0.9021,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "WR": {
      "n": 59,
-     "rho_ros": 0.7633,
+     "rho_ros": 0.7401,
      "rho_lastyear": 0.7401,
-     "ndcg_ros": 0.8713,
+     "ndcg_ros": 0.8912,
      "ndcg_lastyear": 0.8912,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "TE": {
      "n": 35,
-     "rho_ros": 0.5259,
+     "rho_ros": 0.5436,
      "rho_lastyear": 0.5436,
-     "ndcg_ros": 0.8894,
+     "ndcg_ros": 0.9202,
      "ndcg_lastyear": 0.9202,
      "beats_baseline": false,
      "measured": true
@@ -94,36 +94,36 @@
    "positions": {
     "QB": {
      "n": 28,
-     "rho_ros": 0.405,
+     "rho_ros": 0.5298,
      "rho_lastyear": 0.5298,
-     "ndcg_ros": 0.7961,
+     "ndcg_ros": 0.8324,
      "ndcg_lastyear": 0.8324,
      "beats_baseline": false,
      "measured": true
     },
     "RB": {
      "n": 45,
-     "rho_ros": 0.694,
+     "rho_ros": 0.605,
      "rho_lastyear": 0.605,
-     "ndcg_ros": 0.8728,
+     "ndcg_ros": 0.8375,
      "ndcg_lastyear": 0.8375,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "WR": {
      "n": 79,
-     "rho_ros": 0.6135,
+     "rho_ros": 0.6279,
      "rho_lastyear": 0.6279,
-     "ndcg_ros": 0.8779,
-     "ndcg_lastyear": 0.857,
+     "ndcg_ros": 0.8569,
+     "ndcg_lastyear": 0.8569,
      "beats_baseline": false,
      "measured": true
     },
     "TE": {
      "n": 43,
-     "rho_ros": 0.5882,
+     "rho_ros": 0.5906,
      "rho_lastyear": 0.5906,
-     "ndcg_ros": 0.7757,
+     "ndcg_ros": 0.7436,
      "ndcg_lastyear": 0.7436,
      "beats_baseline": false,
      "measured": true
@@ -135,36 +135,36 @@
    "positions": {
     "QB": {
      "n": 35,
-     "rho_ros": 0.3653,
+     "rho_ros": 0.4515,
      "rho_lastyear": 0.4515,
-     "ndcg_ros": 0.7612,
+     "ndcg_ros": 0.7553,
      "ndcg_lastyear": 0.7553,
      "beats_baseline": false,
      "measured": true
     },
     "RB": {
      "n": 57,
-     "rho_ros": 0.7204,
+     "rho_ros": 0.6644,
      "rho_lastyear": 0.6644,
-     "ndcg_ros": 0.8682,
+     "ndcg_ros": 0.8606,
      "ndcg_lastyear": 0.8606,
-     "beats_baseline": true,
+     "beats_baseline": false,
      "measured": true
     },
     "WR": {
      "n": 100,
-     "rho_ros": 0.6132,
+     "rho_ros": 0.5661,
      "rho_lastyear": 0.5661,
-     "ndcg_ros": 0.83,
-     "ndcg_lastyear": 0.8113,
-     "beats_baseline": true,
+     "ndcg_ros": 0.8111,
+     "ndcg_lastyear": 0.8111,
+     "beats_baseline": false,
      "measured": true
     },
     "TE": {
      "n": 48,
-     "rho_ros": 0.5669,
+     "rho_ros": 0.5838,
      "rho_lastyear": 0.5838,
-     "ndcg_ros": 0.7562,
+     "ndcg_ros": 0.7881,
      "ndcg_lastyear": 0.7881,
      "beats_baseline": false,
      "measured": true
@@ -175,39 +175,47 @@
  "pooled": {
   "QB": {
    "n": 115,
-   "rho_ros": 0.4008,
+   "rho_ros": 0.4206,
    "rho_lastyear": 0.4206,
-   "delta": -0.0198,
+   "ndcg_ros": 0.785,
+   "ndcg_lastyear": 0.785,
    "beats_baseline": false,
-   "measured": true
+   "measured": true,
+   "delta": 0.0
   },
   "RB": {
    "n": 155,
-   "rho_ros": 0.6557,
+   "rho_ros": 0.5686,
    "rho_lastyear": 0.5686,
-   "delta": 0.0871,
-   "beats_baseline": true,
-   "measured": true
+   "ndcg_ros": 0.7365,
+   "ndcg_lastyear": 0.7365,
+   "beats_baseline": false,
+   "measured": true,
+   "delta": 0.0
   },
   "WR": {
    "n": 282,
-   "rho_ros": 0.6639,
+   "rho_ros": 0.6468,
    "rho_lastyear": 0.6468,
-   "delta": 0.0172,
-   "beats_baseline": true,
-   "measured": true
+   "ndcg_ros": 0.7846,
+   "ndcg_lastyear": 0.7846,
+   "beats_baseline": false,
+   "measured": true,
+   "delta": 0.0
   },
   "TE": {
    "n": 153,
-   "rho_ros": 0.5947,
+   "rho_ros": 0.6101,
    "rho_lastyear": 0.6101,
-   "delta": -0.0155,
+   "ndcg_ros": 0.7796,
+   "ndcg_lastyear": 0.7796,
    "beats_baseline": false,
-   "measured": true
+   "measured": true,
+   "delta": 0.0
   }
  },
  "summary": {
-  "positions_beating_baseline": 2,
+  "positions_beating_baseline": 0,
   "positions_scored": 4
  }
 }

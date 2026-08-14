@@ -31,6 +31,7 @@
  */
 
 import { mulberry32, rosterShape, startersTotal, scoreVsRoom } from './draft-sim.js';
+import { rosterGeometry, positionDemand, replacementIndex } from './team-logic.js';
 
 export const DEFAULT_BUDGET = 200;
 export const BUDGET_CHOICES = Object.freeze([100, 200, 300]);
@@ -86,12 +87,19 @@ export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13) {
 /**
  * OUR dollars from projections: VOR over the draftable pool. `pool` is an array
  * of {gsis_id, position}, adjOf(row) -> adjusted points. Replacement level per
- * position = the points of the last starter-demanded player league-wide (flex
- * demand spread over RB/WR/TE by count). Returns Map(gsis_id -> $).
+ * position = the points of the last starter-demanded player league-wide.
+ *
+ * Starter demand and the replacement index are NOT computed here any more:
+ * both come from app/team-logic.js (positionDemand + replacementIndex), which
+ * is the same definition the fit engine's replacementLevel() uses when it is
+ * given a shape. The classic W/R/T flex still spreads {RB .45, WR .45, TE .10}
+ * — that spread now lives in team-logic's FLEX_WIN_SHARE, covering every flex
+ * token instead of just this one. Returns Map(gsis_id -> $).
  */
 export function fairDollars(pool, adjOf, leagueSize, budget, shape) {
   const s = shape || rosterShape(null);
-  const rosterSize = s.size;
+  const geo = rosterGeometry(s);
+  const rosterSize = Number.isFinite(s.size) ? s.size : geo.all.length;
   const byPos = { QB: [], RB: [], WR: [], TE: [] };
   for (const p of pool) {
     if (byPos[p.position]) byPos[p.position].push(p);
@@ -99,13 +107,10 @@ export function fairDollars(pool, adjOf, leagueSize, budget, shape) {
   for (const pos of Object.keys(byPos)) {
     byPos[pos].sort((a, b) => adjOf(b) - adjOf(a));
   }
-  // Starter demand: fixed slots + flex spread over RB/WR/TE proportionally to
-  // how often flex is actually won by each (approx: RB/WR heavy, TE light).
-  const flexShare = { RB: 0.45, WR: 0.45, TE: 0.10 };
+  const demandByPos = positionDemand(s);
   const repl = {};
   for (const pos of Object.keys(byPos)) {
-    const demand = (s.starterDemand[pos] || 0) + (s.config.flex || 0) * (flexShare[pos] || 0);
-    const idx = Math.max(0, Math.round(demand * leagueSize) - 1);
+    const idx = replacementIndex(demandByPos[pos] || 0, leagueSize);
     const arr = byPos[pos];
     repl[pos] = arr.length ? adjOf(arr[Math.min(idx, arr.length - 1)]) : 0;
   }
@@ -154,17 +159,26 @@ export function tendencyUpdate(current, paid, market) {
 }
 
 /** Positional slots a team still needs (mirror of draft-sim's opponentNeeds but
- * counting open capacity, since auctions fill rosters in any order). */
+ * counting open capacity, since auctions fill rosters in any order).
+ *
+ * Capacity is read off the SHAPE, not off literal config fields: QB uses the
+ * shape's derived cap (which is qb+1 for every shape the draft room can build,
+ * and qb+2 for a SUPER_FLEX league), and RB/WR/TE get starters + flex + one
+ * backup exactly as before. */
 function teamNeedsPos(team, pos, shape) {
   const counts = {};
   for (const p of team.players) counts[p.position] = (counts[p.position] || 0) + 1;
+  const geo = rosterGeometry(shape);
+  const nFlex = geo.flexSlots.length;
   const caps = {
-    QB: shape.config.qb + 1, RB: shape.config.rb + shape.config.flex + 1,
-    WR: shape.config.wr + shape.config.flex + 1, TE: shape.config.te + 1,
+    QB: geo.caps.QB != null ? geo.caps.QB : (geo.demand.QB || 0) + 1,
+    RB: (geo.demand.RB || 0) + nFlex + 1,
+    WR: (geo.demand.WR || 0) + nFlex + 1,
+    TE: (geo.demand.TE || 0) + 1,
   };
   const total = team.players.length;
-  if (total >= shape.size) return false;
-  return (counts[pos] || 0) < (caps[pos] || 0) + Math.max(0, shape.config.bench - 4);
+  if (total >= geo.all.length) return false;
+  return (counts[pos] || 0) < (caps[pos] || 0) + Math.max(0, geo.bench.length - 4);
 }
 
 /**

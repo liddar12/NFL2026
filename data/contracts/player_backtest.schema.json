@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "player_backtest.schema.json",
+  "title": "Player-level walk-forward evaluation (scripts/backtest_player.py)",
+  "description": "Walk-forward, held-out player-level evaluation of the DEPLOYED projection path (scripts.models.player_projection.project_player, whose from_week=1 total is the RoS number app/ros.js renders), scored per position against two baselines. Honesty is enforced structurally: `engine` is pinned by enum so the artifact cannot claim a different code path, `__meta__.approximations` cannot be emptied, and `__meta__.path_identity` carries the MEASURED split-then-sum round trip rather than a claim about it. Deliberately NO $ref anywhere: scripts/validate_data.py implements a draft-07 subset that silently skips $ref subschemas, so a $ref here would be an unvalidated hole.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["__meta__", "per_season", "pooled", "summary", "signal_audit"],
+  "properties": {
+    "__meta__": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_utc", "method", "granularity", "engine", "engine_path",
+        "substrate", "eval_seasons", "min_games", "baselines",
+        "weights_source", "nonzero_weights", "schedule_source",
+        "path_identity", "approximations"
+      ],
+      "properties": {
+        "generated_utc": { "type": "string" },
+        "method": { "type": "string", "enum": ["walk_forward_season_holdout"] },
+        "granularity": { "type": "string", "enum": ["season"] },
+        "engine": {
+          "type": "string",
+          "enum": ["scripts.models.player_projection.project_player"]
+        },
+        "engine_path": { "type": "string" },
+        "substrate": { "type": "string" },
+        "eval_seasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1999 }
+        },
+        "min_games": { "type": "integer", "minimum": 1 },
+        "baselines": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string" }
+        },
+        "weights_source": { "type": "string", "enum": ["registry", "override"] },
+        "nonzero_weights": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "schedule_source": { "type": "string" },
+        "path_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["checked", "max_abs_diff", "tolerance", "holds", "note"],
+          "properties": {
+            "checked": { "type": "integer", "minimum": 0 },
+            "max_abs_diff": { "type": ["number", "null"], "minimum": 0 },
+            "tolerance": { "type": "number", "minimum": 0 },
+            "holds": { "type": "boolean" },
+            "note": { "type": "string" }
+          }
+        },
+        "approximations": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "per_season": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["season", "held_out", "fit_seasons",
+                     "excluded_no_prior_season", "positions"],
+        "properties": {
+          "season": { "type": "integer" },
+          "held_out": { "type": "integer" },
+          "fit_seasons": { "type": "string" },
+          "excluded_no_prior_season": { "type": "integer", "minimum": 0 },
+          "positions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n", "measured"],
+              "properties": {
+                "n": { "type": "integer", "minimum": 0 },
+                "measured": { "type": "boolean" },
+                "skipped": { "type": "string" },
+                "rho_engine": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "rho_last_year": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "rho_ppg17": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "ndcg_engine": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                "ndcg_last_year": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                "ndcg_ppg17": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                "mae_engine": { "type": ["number", "null"], "minimum": 0 },
+                "mae_last_year": { "type": ["number", "null"], "minimum": 0 },
+                "mae_ppg17": { "type": ["number", "null"], "minimum": 0 },
+                "rmse_engine": { "type": ["number", "null"], "minimum": 0 },
+                "rmse_last_year": { "type": ["number", "null"], "minimum": 0 },
+                "rmse_ppg17": { "type": ["number", "null"], "minimum": 0 },
+                "beats_last_year": { "type": "boolean" },
+                "beats_ppg17": { "type": "boolean" },
+                "engine_equals_last_year": { "type": "boolean" },
+                "delta_vs_last_year": { "type": "number" },
+                "delta_vs_ppg17": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pooled": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["n", "measured"],
+        "properties": {
+          "n": { "type": "integer", "minimum": 0 },
+          "measured": { "type": "boolean" },
+          "skipped": { "type": "string" },
+          "rho_engine": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "rho_last_year": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "rho_ppg17": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "ndcg_engine": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "ndcg_last_year": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "ndcg_ppg17": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "mae_engine": { "type": ["number", "null"], "minimum": 0 },
+          "mae_last_year": { "type": ["number", "null"], "minimum": 0 },
+          "mae_ppg17": { "type": ["number", "null"], "minimum": 0 },
+          "rmse_engine": { "type": ["number", "null"], "minimum": 0 },
+          "rmse_last_year": { "type": ["number", "null"], "minimum": 0 },
+          "rmse_ppg17": { "type": ["number", "null"], "minimum": 0 },
+          "beats_last_year": { "type": "boolean" },
+          "beats_ppg17": { "type": "boolean" },
+          "engine_equals_last_year": { "type": "boolean" },
+          "delta_vs_last_year": { "type": "number" },
+          "delta_vs_ppg17": { "type": "number" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positions_scored", "engine_beats_last_year",
+                   "engine_beats_ppg17", "player_seasons_scored",
+                   "player_seasons_excluded_no_prior",
+                   "engine_equals_last_year_everywhere"],
+      "properties": {
+        "positions_scored": { "type": "integer", "minimum": 0 },
+        "engine_beats_last_year": { "type": "integer", "minimum": 0 },
+        "engine_beats_ppg17": { "type": "integer", "minimum": 0 },
+        "player_seasons_scored": { "type": "integer", "minimum": 0 },
+        "player_seasons_excluded_no_prior": { "type": "integer", "minimum": 0 },
+        "engine_equals_last_year_everywhere": { "type": "boolean" }
+      }
+    },
+    "signal_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["player_signals_in_registry", "baseline_fed",
+                   "engine_implements", "deployed_inputs_fire",
+                   "candidate_inputs_fire", "substrate_missing",
+                   "registry_only", "note"],
+      "properties": {
+        "player_signals_in_registry": { "type": "integer", "minimum": 0 },
+        "baseline_fed": { "type": "array", "items": { "type": "string" } },
+        "engine_implements": { "type": "array", "items": { "type": "string" } },
+        "deployed_inputs_fire": { "type": "array", "items": { "type": "string" } },
+        "candidate_inputs_fire": { "type": "array", "items": { "type": "string" } },
+        "substrate_missing": { "type": "array", "items": { "type": "string" } },
+        "registry_only": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

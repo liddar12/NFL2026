@@ -28,16 +28,50 @@ LEAK-FREEDOM (the whole ballgame):
 ADOPTION (the discipline that makes it self-learning, not self-deluding):
   * Incumbent = flat params + families ALREADY adopted in game_params (their
     features recomputed leak-free at the adopted scales).
-  * At most ONE family is adopted per run — the best scale of the best family,
-    and only if it beats the incumbent by the same 0.0015 log-loss margin the
-    parameter backtest uses. Sequential forward selection, one honest step per
-    weekly cron run.
+  * At most ONE family is adopted per run — the best scale of the best family.
+    Sequential forward selection, one honest step per weekly cron run.
   * --auto-adopt actually writes game_params; without it the run is a dry run
     that records trials only. Every trial is archived either way.
   * The incumbent walk also emits CALIBRATION bins (predicted-prob buckets vs
     actual home-win rates) for the MODEL tab.
+
+SIGNIFICANCE GATE (R18 — replaces the fixed 0.0015 adoption margin):
+  A fixed margin is not a significance threshold. On the 2022-2025 fixtures
+  0.0015 nats is roughly 0.85 standard errors of the paired improvement, so a
+  candidate could "clear" it while its 95% confidence interval still spanned
+  zero — i.e. while being statistically indistinguishable from noise. Adding
+  candidate families to a gate that loose adopts noise faster, not slower.
+
+  A candidate is now adopted only when ALL THREE hold:
+    1. EFFECT FLOOR   improvement > MIN_EFFECT (= the old MARGIN). Kept so the
+       new gate is strictly stricter than the old one: nothing that failed
+       before can pass now, and a statistically clean but practically
+       meaningless improvement still cannot buy pricing weight.
+    2. SIGNIFICANCE   the paired per-game log-loss improvement must exceed
+       t_crit x its own standard error, where the standard error is estimated
+       CLUSTER-ROBUSTLY over the walk-forward folds (see paired_fold_stats):
+       games inside one fold share fitted features and one rating trajectory,
+       so they are not independent draws and an i.i.d. standard error would
+       overstate the evidence by a large factor.
+    3. MULTIPLICITY   t_crit is Bonferroni-corrected for EVERY trial the run
+       evaluated, because the candidate is the argmin over all of them. The
+       selection is what inflates the apparent improvement, so the selection
+       is what must be paid for.
+  The threshold actually applied, max(MIN_EFFECT, t_crit x se), is recorded as
+  the entry's `margin` — the never-regress rule is unchanged in form (beat the
+  incumbent by more than the margin), only the margin is now earned from the
+  data instead of being a constant. Every trial records its own t statistic and
+  95% confidence interval, so a candidate that fails is visibly a coin flip
+  rather than silently discarded.
+
+  Consequence, stated plainly: with four eval seasons the fold-clustered test
+  has three degrees of freedom, so almost nothing can clear it. That is the
+  honest reading of 1,084 games, and it is the argument for evaluating over the
+  expanded corpus (data/fixtures/backtest_corpus/, --corpus) where more folds
+  buy real power.
 """
 
+import functools
 import json
 import math
 import os
@@ -101,6 +135,182 @@ SKILL_POSITIONS = ("RB", "WR", "TE")
 CAL_BINS = 10
 _EPS = 1e-12
 
+# --- adoption gate ---------------------------------------------------------- #
+MIN_EFFECT = MARGIN        # effect-size floor (the old fixed margin, retained)
+SIG_ALPHA = 0.05           # one-sided false-adoption rate BEFORE multiplicity
+CI_LEVEL = 0.95            # two-sided level for the reported (uncorrected) CI
+
+# Expanded corpus (scripts/build_backtest_corpus.py). Opt-in via --corpus: the
+# default run keeps reading the committed ESPN fixtures so the cron, the
+# prediction builder and the contract tests see exactly the shape they always
+# have.
+FIXTURE_DIR = os.path.join(DATA, "fixtures")
+CORPUS_DIR = os.path.join(DATA, "fixtures", "backtest_corpus")
+
+
+# --------------------------------------------------------------------------- #
+# statistics (stdlib only — no scipy; verified against published values in     #
+# selftest())                                                                  #
+# --------------------------------------------------------------------------- #
+
+def _betacf(a, b, x, itmax=400, eps=3e-16):
+    """Continued fraction for the incomplete beta function (modified Lentz)."""
+    tiny = 1e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < tiny:
+        d = tiny
+    d = 1.0 / d
+    h = d
+    for m in range(1, itmax + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + aa / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + aa / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        step = d * c
+        h *= step
+        if abs(step - 1.0) < eps:
+            break
+    return h
+
+
+def betainc(a, b, x):
+    """Regularized incomplete beta I_x(a, b), 0 <= x <= 1."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    front = math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+                     + a * math.log(x) + b * math.log1p(-x))
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _betacf(a, b, x) / a
+    return 1.0 - front * _betacf(b, a, 1.0 - x) / b
+
+
+def student_t_sf(t, df):
+    """Upper-tail P(T > t) for Student's t with df degrees of freedom."""
+    if df <= 0:
+        raise ValueError("df must be > 0")
+    if t != t:                                   # NaN in, NaN out is worse
+        raise ValueError("t must be a number")
+    if t == 0.0:
+        return 0.5
+    two_tail = betainc(df / 2.0, 0.5, df / (df + float(t) * float(t)))
+    return 0.5 * two_tail if t > 0 else 1.0 - 0.5 * two_tail
+
+
+@functools.lru_cache(maxsize=512)
+def student_t_ppf(p, df):
+    """Inverse CDF of Student's t: the value t with P(T <= t) == p.
+
+    Bisection on the (monotone) survival function — slower than a rational
+    approximation and exactly as accurate as student_t_sf, which is what the
+    gate is entitled to rely on.
+    """
+    if not 0.0 < p < 1.0:
+        raise ValueError("p must be in (0, 1)")
+    target = 1.0 - p
+    lo, hi = -1.0e7, 1.0e7
+    for _ in range(300):
+        mid = 0.5 * (lo + hi)
+        if student_t_sf(mid, df) > target:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 1e-12 * max(1.0, abs(mid)):
+            break
+    return 0.5 * (lo + hi)
+
+
+def adoption_threshold(se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFECT):
+    """The improvement a candidate must EXCEED to be adopted, in log-loss units.
+
+    max(floor, t_crit x se), where t_crit is the one-sided Student-t critical
+    value at alpha/n_trials with `df` degrees of freedom. The Bonferroni divisor
+    is the number of trials the run evaluated, because the candidate put to this
+    test is the argmin over all of them — the selection is what inflates the
+    apparent improvement, so the selection is what must be paid for.
+
+    Returns {threshold, t_crit, alpha_bonferroni}; threshold is None when the
+    uncertainty cannot be estimated (fewer than two folds), which the caller
+    must treat as 'do not adopt', never as 'adopt freely'.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+    if floor < 0:
+        raise ValueError("floor must be >= 0 (a negative floor admits regressions)")
+    if se is None or df is None or df < 1:
+        return {"threshold": None, "t_crit": None, "alpha_bonferroni": None}
+    a = float(alpha) / max(int(n_trials), 1)
+    t_crit = student_t_ppf(1.0 - a, df)
+    return {"threshold": round(max(floor, t_crit * float(se)), 5),
+            "t_crit": t_crit, "alpha_bonferroni": a}
+
+
+def should_adopt(improvement, se, df, n_trials, alpha=SIG_ALPHA, floor=MIN_EFFECT):
+    """NEVER-REGRESS, significance form. True only when `improvement` (positive
+    = the candidate beats the incumbent) exceeds both the effect floor and its
+    own Bonferroni-corrected significance threshold. A worse, tied, or merely
+    noisy candidate can never return True."""
+    th = adoption_threshold(se, df, n_trials, alpha, floor)["threshold"]
+    return th is not None and improvement > th
+
+
+def paired_fold_stats(deltas_by_fold):
+    """Cluster-robust paired statistics for per-game log-loss differences.
+
+    deltas_by_fold: {fold: [d_i]} with d_i = incumbent_loss_i - candidate_loss_i
+    (positive = the candidate priced game i better). Both walks score exactly
+    the same games in the same order, so the pairing is game-for-game.
+
+    The mean of d is the reported improvement. Its variance is estimated with a
+    CR1 cluster sandwich over the walk-forward folds rather than an i.i.d.
+    formula: within a fold every game is priced by the same fitted features and
+    the same rating trajectory, so the games are not independent evidence. The
+    t statistic is referenced to df = G - 1 (G = folds), the conservative
+    small-cluster convention.
+
+    Returns {n, folds, df, mean, se, t, fold_means, folds_positive} or None.
+    """
+    folds = {f: list(v) for f, v in deltas_by_fold.items() if v}
+    n = sum(len(v) for v in folds.values())
+    if not n:
+        return None
+    g = len(folds)
+    mean = sum(sum(v) for v in folds.values()) / n
+    fold_means = {f: sum(v) / len(v) for f, v in folds.items()}
+    out = {"n": n, "folds": g, "df": max(g - 1, 0), "mean": mean,
+           "fold_means": fold_means,
+           "folds_positive": sum(1 for m in fold_means.values() if m > 0)}
+    if g < 2:
+        out["se"] = None       # one cluster carries no between-fold evidence
+        out["t"] = 0.0
+        return out
+    ss = 0.0
+    for v in folds.values():
+        s = sum(d - mean for d in v)
+        ss += s * s
+    var = (g / (g - 1.0)) * ss / float(n * n)
+    se = math.sqrt(var) if var > 0.0 else 0.0
+    out["se"] = se
+    out["t"] = (mean / se) if se > 0.0 else (math.inf if mean > 0.0 else 0.0)
+    return out
+
 
 def _load_json(path, key):
     if not os.path.exists(path):
@@ -109,10 +319,29 @@ def _load_json(path, key):
         return (json.load(fh)).get(key) or None
 
 
+def _spans_seasons(covered):
+    """True when `covered` includes EVERY season in the current SEASONS set.
+
+    A family whose inputs cover only part of the walk still gets scored on
+    every fold: its builder returns 0.0 for the games it cannot see, which is
+    an exact tie with the incumbent. Those ties are counted in n and in the CR1
+    variance, so they dilute the measured improvement toward zero and make
+    `folds_positive` conflate 'no data here' with 'no help here'. Under
+    --corpus (1999-2025) that is a ~12x dilution for a 2021-2025 input.
+    epa_week_margins() has always guarded this; weather_wind and skill_out now
+    do too. Partial coverage means SKIP the family loudly, never score it.
+    """
+    c = {str(x) for x in covered}
+    return all(str(y) in c for y in SEASONS)
+
+
 def load_weather_map():
-    """{season|week|home|away: wind_kph} or None (builder not run yet)."""
+    """{season|week|home|away: wind_kph}, or None when the builder has not run
+    or its games do not span SEASONS (see _spans_seasons)."""
     games = _load_json(WEATHER_PATH, "games")
     if not games:
+        return None
+    if not _spans_seasons(k.split("|", 1)[0] for k in games):
         return None
     return {k: v.get("wind_kph") for k, v in games.items()}
 
@@ -192,6 +421,8 @@ def skill_out_inputs():
     injuries = _load_json(INJURY_PATH, "seasons")
     if not usage or not injuries:
         return None
+    if not _spans_seasons(usage) or not _spans_seasons(injuries):
+        return None                      # partial coverage would dilute, not measure
     shares_by_season = {
         int(yr): {pid: rec["share"] for pid, rec in players.items()}
         for yr, players in usage.items()
@@ -209,10 +440,42 @@ def skill_out_inputs():
 
 
 def load_finals(year):
-    with open(os.path.join(DATA, "fixtures", f"finals_{year}.json"), encoding="utf-8") as fh:
+    """Regular-season finals for one season, in kickoff order.
+
+    Reads FIXTURE_DIR, which is the committed ESPN fixtures by default and the
+    expanded corpus under --corpus. Corpus records carry postseason rows and a
+    `gameday` fallback for seasons whose kickoff clock time is unknown; both are
+    handled here so every downstream builder keeps its 'regular season, kickoff
+    order' contract.
+    """
+    with open(os.path.join(FIXTURE_DIR, f"finals_{year}.json"), encoding="utf-8") as fh:
         games = json.load(fh)["games"]
-    games.sort(key=lambda g: g.get("kickoff_utc") or "")
+    games = [g for g in games if (g.get("game_type") or "REG") == "REG"]
+    games.sort(key=lambda g: (g.get("kickoff_utc") or g.get("gameday") or ""))
     return games
+
+
+def use_corpus():
+    """Point the gate at data/fixtures/backtest_corpus/ (--corpus).
+
+    Rebinds the module's season set and fixture directory, which every builder
+    reads through, and returns the season list. Raises when the corpus has not
+    been built — a missing corpus is never silently downgraded to the small
+    fixture set, because that would report a corpus result that isn't one.
+    """
+    global FIXTURE_DIR, SEASONS, EVAL_SEASONS
+    manifest = os.path.join(CORPUS_DIR, "manifest.json")
+    if not os.path.exists(manifest):
+        raise SystemExit(f"corpus not built: {manifest} absent "
+                         "(run scripts/build_backtest_corpus.py)")
+    years = sorted(int(f[7:11]) for f in os.listdir(CORPUS_DIR)
+                   if f.startswith("finals_") and f.endswith(".json"))
+    if not years:
+        raise SystemExit(f"corpus not built: no finals_*.json in {CORPUS_DIR}")
+    FIXTURE_DIR = CORPUS_DIR
+    SEASONS = years
+    EVAL_SEASONS = years[1:]        # season 1 seeds the priors, never evaluated
+    return years
 
 
 def is_cold_game(game):
@@ -411,10 +674,17 @@ def features_from_residuals(residual_rows, venue_scale, cold_scale):
 
 def _incumbent_family_fns(tuning):
     """Delta builders for families ALREADY adopted in game_params — they are part
-    of the incumbent every candidate must now beat. Returns a list of builder
-    functions with the same signature as candidate builders."""
+    of the incumbent every candidate must now beat.
+
+    Returns (builders, unavailable): `unavailable` names every applied family
+    whose inputs could not be rebuilt for this season set, so a run can never
+    quietly compare candidates against a WEAKER incumbent than production ships
+    (it happens for real: the corpus reaches back to 1999, the EPA and injury
+    histories do not).
+    """
     gp = tuning.get("game_params") or {}
     fns = []
+    unavailable = []
     vh = gp.get("venue_hfa") or {}
     ch = gp.get("cold_hfa") or {}
     if vh.get("applied") or ch.get("applied"):
@@ -428,22 +698,37 @@ def _incumbent_family_fns(tuning):
         feats = load_epa_features(eh.get("kind") or "total")
         if feats is not None:
             fns.append(lambda: epa_builder(float(eh["scale"]), feats))
+        else:
+            unavailable.append("epa_hfa")
     eb = gp.get("epa_blend") or {}
     if eb.get("applied"):
         margins = epa_week_margins()
         if margins is not None:
             fns.append(lambda: ("__elo_epa__", float(eb["weight"]), margins))
+        else:
+            unavailable.append("epa_blend")
     wh = gp.get("wind_hfa") or {}
     if wh.get("applied"):
         wind = load_weather_map()
         if wind is not None:
             fns.append(lambda: weather_wind_builder(float(wh["scale"]), wind))
+        else:
+            unavailable.append("wind_hfa")
     qo = gp.get("qb_out") or {}
     if qo.get("applied"):
         inputs = qb_out_inputs()
         if inputs is not None:
             fns.append(lambda: qb_out_builder(float(qo["scale"]), *inputs))
-    return fns
+        else:
+            unavailable.append("qb_out")
+    so = gp.get("skill_out") or {}
+    if so.get("applied"):
+        inputs = skill_out_inputs()
+        if inputs is not None:
+            fns.append(lambda: skill_out_builder(float(so["scale"]), *inputs))
+        else:
+            unavailable.append("skill_out")
+    return fns, unavailable
 
 
 # Family builders. Each returns (season_setup, delta_fn_factory):
@@ -604,9 +889,15 @@ def skill_out_builder(scale, shares_by_season, outs):
 
 
 def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
-             probs_out=None):
+             probs_out=None, losses_out=None):
     """Walk-forward mean log-loss with the given family builders combined
-    (their per-game deltas add). Leak-free per the module docstring."""
+    (their per-game deltas add). Leak-free per the module docstring.
+
+    losses_out: optional list that receives (season, per-game log-loss) for every
+    scored game in walk order. Two evaluate() calls score the identical games in
+    the identical order, so their losses_out lists pair element-for-element —
+    that pairing is what the significance test consumes.
+    """
     total_ll = 0.0
     total_n = 0
     training_residuals = []
@@ -618,13 +909,18 @@ def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
             for setup, factory in builders:
                 fns.append(factory(setup(yr, games, training_residuals)))
             delta_fn = (lambda g, i: sum(fn(g, i) for fn in fns)) if fns else None
-            season_probs = [] if probs_out is not None else None
+            want_probs = probs_out is not None or losses_out is not None
+            season_probs = [] if want_probs else None
             ll, n, res = walk_season(games, priors, hfa, k, delta_fn,
                                      collect_residuals=True, calibration=calibration,
                                      probs=season_probs)
             if probs_out is not None:
                 for g, p, actual in season_probs:
                     probs_out.append((yr, g, p, actual))
+            if losses_out is not None:
+                for _g, p, actual in season_probs:
+                    losses_out.append(
+                        (yr, -(actual * math.log(p) + (1.0 - actual) * math.log(1.0 - p))))
             total_ll += ll
             total_n += n
         else:
@@ -643,7 +939,14 @@ def run(auto_adopt=False):
     hfa, revert, k, tuning = game_params()
     finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
     incumbent_builders = []
-    for mk in _incumbent_family_fns(tuning):
+    inc_fns, inc_unavailable = _incumbent_family_fns(tuning)
+    if inc_unavailable:
+        print("NOTICE: adopted famil"
+              f"{'ies' if len(inc_unavailable) != 1 else 'y'} "
+              f"{', '.join(inc_unavailable)} could not be rebuilt for seasons "
+              f"{SEASONS[0]}-{SEASONS[-1]} (inputs unavailable) — the incumbent "
+              "in this run is WEAKER than the one production ships")
+    for mk in inc_fns:
         built = mk()
         if isinstance(built, tuple) and built and built[0] == "__elo_epa__":
             _, w, margins = built
@@ -653,9 +956,10 @@ def run(auto_adopt=False):
     # Incumbent walk also produces the calibration record for the MODEL tab.
     cal = [[0, 0.0, 0.0] for _ in range(CAL_BINS)]
     inc_probs = []
+    inc_losses = []
     inc_loss, inc_n = evaluate(incumbent_builders, hfa, revert, k,
                                finals_by_year, calibration=cal,
-                               probs_out=inc_probs)
+                               probs_out=inc_probs, losses_out=inc_losses)
     calibration = {
         "seasons": f"{EVAL_SEASONS[0]}-{EVAL_SEASONS[-1]}",
         "n": inc_n,
@@ -671,10 +975,34 @@ def run(auto_adopt=False):
     families = []
 
     def try_candidate(family, label, params, builder):
-        ll, n = evaluate(incumbent_builders + [builder], hfa, revert, k, finals_by_year)
+        cand_losses = []
+        ll, n = evaluate(incumbent_builders + [builder], hfa, revert, k,
+                         finals_by_year, losses_out=cand_losses)
         trial = dict(params)
         trial.update({"log_loss": round(ll, 5), "n": n})
-        print(f"  {family:12s} {label:24s} -> log-loss {ll:.5f}")
+        stats = None
+        if len(cand_losses) == len(inc_losses):
+            by_fold = {}
+            for (yr, inc_l), (_yr2, cand_l) in zip(inc_losses, cand_losses):
+                by_fold.setdefault(yr, []).append(inc_l - cand_l)
+            stats = paired_fold_stats(by_fold)
+        if stats:
+            se = stats["se"]
+            trial["improvement"] = round(stats["mean"], 6)
+            trial["se"] = round(se, 6) if se is not None else None
+            trial["t_stat"] = (None if stats["t"] == math.inf
+                               else round(stats["t"], 3))
+            trial["folds_positive"] = stats["folds_positive"]
+            trial["folds"] = stats["folds"]
+            if se:
+                half = student_t_ppf(0.5 + CI_LEVEL / 2.0, stats["df"]) * se
+                trial["ci95"] = [round(stats["mean"] - half, 6),
+                                 round(stats["mean"] + half, 6)]
+            t_txt = "n/a" if trial["t_stat"] is None else f"{trial['t_stat']:+.2f}"
+            print(f"  {family:12s} {label:24s} -> log-loss {ll:.5f}  "
+                  f"t={t_txt} ({stats['folds_positive']}/{stats['folds']} folds +)")
+        else:
+            print(f"  {family:12s} {label:24s} -> log-loss {ll:.5f}")
         return trial
 
     # environment (venue x cold grid, zero-combo excluded: that IS the incumbent)
@@ -726,9 +1054,14 @@ def run(auto_adopt=False):
     # weather_wind (open-roof windy games; sign grid — direction unknown a priori)
     wind_map = load_weather_map()
     if wind_map is None:
-        print("  weather_wind SKIPPED: weather_history.json not built yet")
+        print("  weather_wind SKIPPED: weather_history.json absent or does not "
+              f"span {SEASONS[0]}-{SEASONS[-1]}")
         families.append({"family": "weather_wind", "skipped": True,
-                         "reason": "weather_history.json not built yet"})
+                         "reason": "weather_history.json absent or incomplete — "
+                                   f"its games must span {SEASONS[0]}-{SEASONS[-1]} "
+                                   "or the uncovered folds score exact ties and "
+                                   "dilute the measured improvement",
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
     else:
         fam_trials = [try_candidate("weather_wind", f"scale={sc:+.0f}", {"scale": sc},
                                     weather_wind_builder(sc, wind_map))
@@ -754,10 +1087,13 @@ def run(auto_adopt=False):
     skill_inputs = skill_out_inputs()
     if skill_inputs is None:
         print("  skill_out    SKIPPED: needs player_usage_history + injury_history "
-              "(runner-built)")
+              f"spanning {SEASONS[0]}-{SEASONS[-1]} (runner-built)")
         families.append({"family": "skill_out", "skipped": True,
-                         "reason": "usage-share history + injury_history pending "
-                                   "(built by the weekly backtest workflow)"})
+                         "reason": "usage-share history + injury_history pending or "
+                                   f"not spanning {SEASONS[0]}-{SEASONS[-1]} — "
+                                   "uncovered folds would score exact ties and "
+                                   "dilute the measured improvement",
+                         "seasons_required": [SEASONS[0], SEASONS[-1]]})
     else:
         fam_trials = [try_candidate("skill_out", f"scale={sc:.0f}", {"scale": sc},
                                     skill_out_builder(sc, *skill_inputs))
@@ -780,8 +1116,52 @@ def run(auto_adopt=False):
     # actually apply it.
     APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa",
                  "qb_out", "weather_wind", "skill_out"}
-    adopt = (best_overall is not None
-             and inc_loss - best_overall[1]["log_loss"] > MARGIN)
+
+    # SIGNIFICANCE GATE. The threshold the best candidate must clear is earned
+    # from its own uncertainty, not fixed: t_crit x the fold-clustered standard
+    # error, floored at MIN_EFFECT so the gate can only ever be stricter than
+    # the old constant margin. t_crit is Bonferroni-corrected for every trial
+    # evaluated this run, because the candidate is the argmin over all of them.
+    n_trials = sum(len(f.get("trials") or []) for f in families
+                   if not f.get("skipped"))
+    best_trial = best_overall[1] if best_overall else None
+    df = (best_trial or {}).get("folds", 0) - 1
+    se = (best_trial or {}).get("se")
+    info = adoption_threshold(se, df, n_trials)
+    threshold = info["threshold"]        # None = too few folds to measure it
+    # Compare the numbers exactly as recorded (all rounded to 5dp) so the
+    # archived entry is a faithful, re-checkable statement of the decision.
+    imp = (round(inc_loss, 5) - best_trial["log_loss"]) if best_trial else 0.0
+    adopt = (best_trial is not None
+             and should_adopt(imp, se, df, n_trials))
+    significance = {
+        "method": "paired per-game log-loss, CR1 cluster-robust over "
+                  "walk-forward folds, one-sided Student-t",
+        "alpha": SIG_ALPHA,
+        "trials": n_trials,
+        "alpha_bonferroni": (round(info["alpha_bonferroni"], 8)
+                             if info["alpha_bonferroni"] is not None else None),
+        "df": df if df >= 1 else 0,
+        "t_crit": round(info["t_crit"], 4) if info["t_crit"] is not None else None,
+        "effect_floor": MIN_EFFECT,
+        "threshold": threshold,
+        "best_t_stat": (best_trial or {}).get("t_stat"),
+        "best_ci95": (best_trial or {}).get("ci95"),
+        "significant": bool(adopt),
+    }
+    # DEGRADED-INCUMBENT BLOCK. If any family production ships could not be
+    # rebuilt for this season set, the bar every candidate just cleared is
+    # LOWER than the model in production (it happens for real under --corpus:
+    # qb_out needs passer + injury history that does not reach back to 1999, so
+    # the incumbent walk runs with zero adopted families while production ships
+    # qb_out at scale 75). Beating a weaker-than-production incumbent is not
+    # evidence for adding a family on top of production, so adoption is refused
+    # outright — never-regress has to be absolute or it is not a rule.
+    if adopt and inc_unavailable:
+        adopt = False
+        degraded = best_overall
+    else:
+        degraded = None
     if adopt and best_overall[0] not in APPLIABLE:
         adopt = False
         pending = best_overall
@@ -794,21 +1174,30 @@ def run(auto_adopt=False):
         "generated_utc": now,
         "kind": "signal_promotion",
         "format": 2,
-        "source": "scripts/promote_signals.py walk-forward 2022-2025 "
-                  "(environment + rest + epa families)",
+        "source": (f"scripts/promote_signals.py walk-forward {EVAL_SEASONS[0]}-"
+                   f"{EVAL_SEASONS[-1]} over {os.path.basename(FIXTURE_DIR)} "
+                   "(environment + rest + epa families)"),
         "objective": "log_loss",
-        "margin": MARGIN,
+        # `margin` is the threshold ACTUALLY APPLIED this run: max(effect floor,
+        # t_crit x the best candidate's fold-clustered standard error). It is no
+        # longer a constant — see `significance` for how it was earned.
+        "margin": threshold if threshold is not None else MIN_EFFECT,
+        "effect_floor": MIN_EFFECT,
+        "significance": significance,
         "incumbent_loss": round(inc_loss, 5),
         "incumbent_families": sorted(
             name for name, blk in (tuning.get("game_params") or {}).items()
             if isinstance(blk, dict) and blk.get("applied")),
+        "incumbent_unavailable": inc_unavailable,
         "families": families,
         "adopted": bool(adopt),
         "adopted_family": ({"family": best_overall[0], **best_overall[1]}
                            if adopt else None),
         "auto_adopt": bool(auto_adopt),
-        "reason": ("cleared never-regress margin" if adopt else
-                   "incumbent retained: no family cleared the margin"),
+        "reason": ("improvement is significant at the Bonferroni-corrected "
+                   "one-sided level and clears the effect floor" if adopt else
+                   "incumbent retained: no family's improvement was large "
+                   "relative to its own fold-clustered uncertainty"),
         "calibration": calibration,
     }
     baseline = load_baseline_map()
@@ -836,6 +1225,26 @@ def run(auto_adopt=False):
                   f"over {bn} games (gap {(ours_ll-mkt_ll)/bn:+.5f})")
     tuning.setdefault("history", []).insert(0, entry)
 
+    if degraded is not None:
+        entry["reason"] = (
+            f"{degraded[0]} cleared the significance threshold, but adopted "
+            f"famil{'ies' if len(inc_unavailable) != 1 else 'y'} "
+            f"{', '.join(inc_unavailable)} could not be rebuilt for "
+            f"{SEASONS[0]}-{SEASONS[-1]}, so the incumbent it beat is WEAKER "
+            "than the one production ships - recorded, not adopted")
+        entry["would_adopt"] = {"family": degraded[0], **degraded[1]}
+        entry["adopted"] = False
+        entry["adopted_family"] = None
+        entry["adoption_blocked"] = {
+            "rule": "degraded_incumbent",
+            "unavailable": list(inc_unavailable),
+            "detail": "adoption requires the incumbent walk to carry every "
+                      "family production ships; beating a weaker incumbent is "
+                      "not evidence for adding a family on top of production",
+        }
+        print(f"BLOCKED: {degraded[0]} cleared the threshold "
+              f"({inc_loss:.5f} -> {degraded[1]['log_loss']:.5f}) but the "
+              f"incumbent is missing {', '.join(inc_unavailable)} — not adopted")
     if pending is not None:
         entry["reason"] = (f"{pending[0]} cleared the margin but its application "
                            "path is not wired yet - recorded, not adopted")
@@ -854,11 +1263,20 @@ def run(auto_adopt=False):
         entry["adopted"] = False
         entry["would_adopt"] = {"family": best_overall[0], **best_overall[1]}
         entry["adopted_family"] = None
+    elif degraded is not None:
+        pass                     # already reported above; RETAINED text would lie
     else:
-        best_txt = (f"best {best_overall[0]} {best_overall[1]['log_loss']:.5f}"
-                    if best_overall else "no runnable candidates")
-        print(f"RETAINED incumbent ({inc_loss:.5f}); {best_txt} "
-              f"(margin {MARGIN})")
+        if best_overall:
+            bt = best_overall[1]
+            ci = bt.get("ci95")
+            ci_txt = (f" 95% CI [{ci[0]:+.5f}, {ci[1]:+.5f}]" if ci else "")
+            best_txt = (f"best {best_overall[0]} {bt['log_loss']:.5f} "
+                        f"(+{imp:.5f}, t={bt.get('t_stat')}{ci_txt})")
+        else:
+            best_txt = "no runnable candidates"
+        print(f"RETAINED incumbent ({inc_loss:.5f}); {best_txt} — needed "
+              f"> {threshold} (t_crit {significance['t_crit']} x se over "
+              f"{significance['df'] + 1} folds, Bonferroni over {n_trials} trials)")
 
     with open(TUNING_PATH, "w", encoding="utf-8") as fh:
         json.dump(tuning, fh, ensure_ascii=True, indent=2, sort_keys=False)
@@ -965,7 +1383,114 @@ def selftest():
     # No prior-season shares (rookie season) -> no delta, never a crash.
     _, f2 = skill_out_builder(100.0, {}, outs)
     assert f2(2025)({"home": "KC", "away": "BUF", "week": 5}, 0) == 0.0
-    print("selftest OK: rest clamp + EPA leak-free blending + skill_out share-weighting exact")
+
+    _stats_selftest()
+    print("selftest OK: rest clamp + EPA leak-free blending + skill_out "
+          "share-weighting exact + significance statistics vs published values")
+
+
+def _stats_selftest():
+    """The adoption gate's statistics, checked against CLOSED FORMS and
+    published t tables. Home-rolled statistics that are never verified are how
+    a 'significance test' becomes a second arbitrary constant."""
+    # --- betainc against exact closed forms -------------------------------- #
+    # I_x(1, 1) = x ; I_x(a, 1) = x^a ; I_x(1, b) = 1 - (1-x)^b
+    for x in (0.05, 0.25, 0.5, 0.75, 0.99):
+        assert abs(betainc(1.0, 1.0, x) - x) < 1e-12, x
+        assert abs(betainc(3.0, 1.0, x) - x ** 3) < 1e-12, x
+        assert abs(betainc(1.0, 4.0, x) - (1 - (1 - x) ** 4)) < 1e-12, x
+    assert betainc(2.0, 5.0, 0.0) == 0.0
+    assert betainc(2.0, 5.0, 1.0) == 1.0
+    assert abs(betainc(2.5, 2.5, 0.5) - 0.5) < 1e-12      # symmetry at the median
+
+    # --- Student-t CDF/quantile against published critical values ---------- #
+    assert abs(student_t_sf(0.0, 7) - 0.5) < 1e-12
+    # two-sided symmetry
+    assert abs(student_t_sf(1.3, 9) + student_t_sf(-1.3, 9) - 1.0) < 1e-12
+    # t(df=1) is Cauchy: P(T > 1) = 0.25 exactly
+    assert abs(student_t_sf(1.0, 1) - 0.25) < 1e-12
+    table = {                     # (p, df): published t quantile
+        (0.95, 1): 6.313752, (0.975, 1): 12.706205,
+        (0.95, 2): 2.919986, (0.975, 2): 4.302653,
+        (0.95, 3): 2.353363, (0.975, 3): 3.182446, (0.995, 3): 5.840909,
+        (0.95, 10): 1.812461, (0.975, 10): 2.228139, (0.995, 10): 3.169273,
+        (0.95, 20): 1.724718, (0.975, 20): 2.085963, (0.995, 20): 2.845340,
+        (0.975, 30): 2.042272, (0.975, 26): 2.055529, (0.95, 26): 1.705618,
+    }
+    for (p, df), want in table.items():
+        got = student_t_ppf(p, df)
+        assert abs(got - want) < 5e-6, (p, df, got, want)
+    # df -> infinity collapses onto the normal quantile
+    assert abs(student_t_ppf(0.975, 2_000_000) - 1.959964) < 1e-4
+    # round trip
+    for df in (3, 12, 40):
+        for p in (0.6, 0.9, 0.999):
+            assert abs(student_t_sf(student_t_ppf(p, df), df) - (1 - p)) < 1e-9
+
+    # --- cluster-robust paired statistics ---------------------------------- #
+    # One fold, constant delta: no between-game spread -> zero se, and the
+    # single-cluster case must refuse to claim evidence.
+    one = paired_fold_stats({2024: [0.01] * 10})
+    assert one["folds"] == 1 and one["se"] is None and one["t"] == 0.0
+
+    # Hand-computable case: two folds, delta 0 in one and 0.2 in the other,
+    # five games each. mean = 0.1. Fold deviation sums: 5*(0-0.1) = -0.5 and
+    # 5*(0.2-0.1) = +0.5 -> ss = 0.5. var = (2/1) * 0.5 / 100 = 0.01,
+    # se = 0.1, t = 1.0 — i.e. an improvement carried entirely by one fold is
+    # exactly one standard error, which is the whole point of clustering.
+    two = paired_fold_stats({2023: [0.0] * 5, 2024: [0.2] * 5})
+    assert two["n"] == 10 and two["folds"] == 2 and two["df"] == 1
+    assert abs(two["mean"] - 0.1) < 1e-12
+    assert abs(two["se"] - 0.1) < 1e-12, two
+    assert abs(two["t"] - 1.0) < 1e-12, two
+    assert two["folds_positive"] == 1
+
+    # The same total improvement spread evenly over the folds is far more
+    # significant than the same amount concentrated in one fold.
+    even = paired_fold_stats({2023: [0.1] * 5, 2024: [0.1] * 5})
+    assert abs(even["mean"] - 0.1) < 1e-12
+    assert even["se"] == 0.0 and even["t"] == math.inf
+    assert even["folds_positive"] == 2
+
+    # NEVER-REGRESS direction: a candidate that is worse produces a negative t
+    # and can never clear a positive threshold.
+    worse = paired_fold_stats({2023: [-0.05] * 5, 2024: [-0.01] * 5})
+    assert worse["mean"] < 0 and worse["t"] < 0 and worse["folds_positive"] == 0
+    assert paired_fold_stats({}) is None
+
+    # --- the adoption rule itself ------------------------------------------ #
+    # 44 trials, 4 folds (df 3): t_crit = t(1 - 0.05/44, 3) = 9.7784...
+    info = adoption_threshold(0.001, 3, 44)
+    assert abs(info["t_crit"] - 9.7784) < 1e-3, info
+    assert info["threshold"] == round(9.7784134 * 0.001, 5), info
+    # The floor still binds when the standard error is tiny.
+    assert adoption_threshold(1e-9, 3, 44)["threshold"] == MIN_EFFECT
+    # Fewer than two folds -> no uncertainty estimate -> never adopt.
+    assert adoption_threshold(None, 0, 44)["threshold"] is None
+    assert should_adopt(999.0, None, 0, 44) is False
+
+    # NEVER-REGRESS: worse, tied and sub-floor candidates are never adopted,
+    # and neither is a large-but-noisy one.
+    assert should_adopt(-0.01, 0.0005, 3, 44) is False
+    assert should_adopt(0.0, 0.0005, 3, 44) is False
+    assert should_adopt(MIN_EFFECT, 1e-9, 3, 44) is False       # strict >
+    assert should_adopt(0.0014, 1e-9, 3, 44) is False           # under the floor
+    assert should_adopt(0.02, 0.01, 3, 44) is False             # t = 2.0, not enough
+    assert should_adopt(0.11, 0.01, 3, 44) is True              # t = 11 > 9.78
+    # More folds buy power: the same effect+se that fails on 4 folds passes on 26.
+    assert should_adopt(0.04, 0.01, 25, 44) is True
+    # More trials cost power: the same numbers on a single trial pass earlier.
+    assert adoption_threshold(0.01, 3, 1)["t_crit"] < adoption_threshold(0.01, 3, 44)["t_crit"]
+    # A negative floor would admit regressions and is rejected outright.
+    try:
+        adoption_threshold(0.001, 3, 44, floor=-0.001)
+        raise AssertionError("negative floor must raise")
+    except ValueError:
+        pass
+
+    # The measured qb_out adoption (2026-07-18): improvement 0.0024 against a
+    # fold-clustered se of 0.00246 is t = 0.98 — a coin flip, never adoptable.
+    assert should_adopt(0.0024, 0.002462, 3, 44) is False
 
 
 def wind_current(season):
@@ -1089,6 +1614,10 @@ def main():
     if "--selftest" in sys.argv:
         selftest()
         return None
+    if "--corpus" in sys.argv:
+        years = use_corpus()
+        print(f"corpus mode: {len(years)} seasons {years[0]}-{years[-1]} from "
+              f"{os.path.relpath(CORPUS_DIR, _ROOT)}")
     return run(auto_adopt="--auto-adopt" in sys.argv)
 
 

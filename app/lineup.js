@@ -21,10 +21,81 @@
  * slot, or silently starting him, are both dishonest. `playable` is read as
  * STRICTLY `=== false`, so every existing call site (which never sets it) sorts
  * and totals exactly as before.
+ *
+ * R19-B5 — THE LEAGUE'S REAL SLOTS, INCLUDING THE UNPROJECTED ONES. The lineup
+ * is no longer frozen at seven slots: geometry comes from the connected league
+ * profile (app/league.js), so a 9-starter league gets QB/RB/RB/WR/WR/TE/FLEX/K/DEF.
+ * K and DEF have NO projection feed yet (data/player_projections.json carries
+ * QB/RB/WR/TE only — see PROJECTED_POSITIONS). Those slots are therefore:
+ *   - RETURNED, never omitted. A lineup that is quietly 7 slots long when the
+ *     league starts 9 is a wrong answer wearing a right answer's clothes.
+ *   - EMPTY (id null) and worth NOTHING toward `total` — never a fabricated 0.0
+ *     that a manager could read as "my kicker is projected for zero".
+ *   - WARNED about, through the SAME `warnings` channel as a forced start but
+ *     under a DISTINCT reason code (WARN_NO_PROJECTION vs WARN_FORCED_UNAVAILABLE):
+ *     "we cannot project this slot" and "you are forced to start someone who
+ *     cannot play" are different facts and must never collapse into one.
+ * `projectedSlots` / `slotCount` let the view state the coverage out loud
+ * ("7 of 9 slots projected") instead of implying a complete lineup.
+ * Omit `profile` entirely and the geometry is DEFAULT_PROFILE's — byte-for-byte
+ * the seven slots this module has always returned, with zero new warnings.
  */
 
+import {
+  normalizeProfile, rosterSlots, slotToken, slotEligiblePositions, FLEX_ELIGIBILITY,
+} from './league.js';
+
 export const LINEUP_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
-const FLEX_POS = ['RB', 'WR', 'TE'];
+
+/**
+ * Positions the projection model actually covers. Mirrors app/team-logic.js's
+ * MODELED list and the contents of data/player_projections.json. K / DEF / DST
+ * are deliberately absent: no feed exists yet, and inventing one is fabrication.
+ */
+export const PROJECTED_POSITIONS = Object.freeze(['QB', 'RB', 'WR', 'TE']);
+
+/** Does the projection model cover this position at all? */
+export function isProjectedPosition(pos) {
+  return PROJECTED_POSITIONS.includes(String(pos == null ? '' : pos).toUpperCase());
+}
+
+/**
+ * The two warning reasons, exported so the view and the tests share one spelling.
+ * They are SEPARATE codes on purpose — see the R19-B5 note above. Never widen one
+ * to cover the other's case.
+ */
+/** A slot filled by a player who cannot play, because nobody else could fill it. */
+export const WARN_FORCED_UNAVAILABLE = 'no_available_alternative';
+/** A real league slot whose position has no projection feed yet (K / DEF / DST). */
+export const WARN_NO_PROJECTION = 'no_projection_feed';
+
+/**
+ * Canonical scan order for a multi-position (flex) slot. Only exact ties are
+ * decided here, and this order reproduces the pre-R19-B5 FLEX scan (RB, WR, TE)
+ * exactly, so a legacy tie still resolves the way it always has.
+ */
+const FLEX_SCAN_ORDER = ['RB', 'WR', 'TE', 'QB'];
+
+/**
+ * The starting slots of a league, as data:
+ *   [{ slot, token, positions:[POS], flex:bool, projected:bool }]
+ * `projected` is false when NO eligible position has a projection feed — a K or
+ * DEF slot. Pass nothing for the historical seven-slot geometry.
+ */
+export function lineupGeometry(profile) {
+  const p = normalizeProfile(profile);
+  return rosterSlots(p).starters.map((slot) => {
+    const token = slotToken(slot, p);
+    const positions = slotEligiblePositions(slot, p);
+    return {
+      slot,
+      token,
+      positions,
+      flex: Boolean(FLEX_ELIGIBILITY[token]),
+      projected: positions.some(isProjectedPosition),
+    };
+  });
+}
 
 /**
  * Optimal legal starting lineup for one week.
@@ -33,11 +104,15 @@ const FLEX_POS = ['RB', 'WR', 'TE'];
  *            onBye true. `playable: false` means the player CANNOT play this week
  *            (IR/PUP/NFI/suspended/ruled out) and demotes him below every
  *            available candidate for the same slot.
- * Returns { slots:{slot->id|null}, bench:[id], total, warnings:[{slot,id,reason}] }.
- * `warnings` is additive and empty in the all-available case.
+ *   profile: the connected LeagueProfile (app/league.js). Omitted -> DEFAULT.
+ * Returns { slots:{slot->id|null}, bench:[id], total, warnings:[{slot,id,reason}],
+ *           geometry, slotIds, projectedSlots, slotCount }.
+ * `warnings` is additive and empty for the default geometry with everyone available.
  */
-export function bestLineup(players) {
-  const byPos = { QB: [], RB: [], WR: [], TE: [] };
+export function bestLineup(players, profile) {
+  const geometry = lineupGeometry(profile);
+  const byPos = {};
+  for (const pos of PROJECTED_POSITIONS) byPos[pos] = [];
   for (const p of (Array.isArray(players) ? players : [])) {
     const pos = String(p.pos || '').toUpperCase();
     // `un` = 1 when the player cannot play. STRICT === false: an absent flag (an
@@ -55,55 +130,72 @@ export function bestLineup(players) {
   const used = new Set();
   const unById = new Map();
   for (const k of Object.keys(byPos)) for (const c of byPos[k]) unById.set(c.id, c.un);
-  const takeBest = (pos) => {
-    for (const c of byPos[pos]) if (!used.has(c.id)) { used.add(c.id); return c.id; }
-    return null;
-  };
-  const slots = {
-    QB1: takeBest('QB'),
-    RB1: takeBest('RB'),
-    RB2: takeBest('RB'),
-    WR1: takeBest('WR'),
-    WR2: takeBest('WR'),
-    TE1: takeBest('TE'),
-  };
-  // FLEX: best still-unused player across RB/WR/TE (each pos array is sorted, so
-  // the first unused entry per position is that position's best leftover). The
-  // cross-position comparison uses the SAME (availability, points) tuple as the
-  // sort — comparing on points alone here would let an unavailable 12.4 take FLEX
-  // over an available 4.0, which is the F3 defect wearing a different hat.
-  let flexId = null;
-  let flexUn = 2;
-  let flexPts = -Infinity;
-  for (const pos of FLEX_POS) {
-    for (const c of byPos[pos]) {
-      if (!used.has(c.id)) {
-        if (c.un < flexUn || (c.un === flexUn && c.pts > flexPts)) {
-          flexUn = c.un; flexPts = c.pts; flexId = c.id;
-        }
-        break;
-      }
-    }
-  }
-  if (flexId) used.add(flexId);
-  slots.FLEX = flexId;
 
-  // A filled slot holding an unavailable player means no available candidate was
-  // left for it. Never silent — the view turns each of these into a banner.
+  /**
+   * Best still-unused candidate across `positions` (each byPos array is sorted,
+   * so the first unused entry per position is that position's best leftover).
+   * The cross-position comparison uses the SAME (availability, points) tuple as
+   * the sort — comparing on points alone would let an unavailable 12.4 take FLEX
+   * over an available 4.0, which is the F3 defect wearing a different hat. For a
+   * dedicated one-position slot this is exactly the old single-position scan.
+   */
+  const takeBest = (positions) => {
+    const scan = FLEX_SCAN_ORDER.filter((pos) => positions.includes(pos));
+    let best = null;
+    for (const pos of scan) {
+      const list = byPos[pos];
+      if (!list) continue;
+      const c = list.find((x) => !used.has(x.id));
+      if (!c) continue;
+      if (!best || c.un < best.un || (c.un === best.un && c.pts > best.pts)) best = c;
+    }
+    if (best) used.add(best.id);
+    return best ? best.id : null;
+  };
+
+  // Dedicated slots first, then flex: every dedicated slot must be filled by its
+  // own position and flex takes the best eligible leftover, so no reassignment
+  // can raise the total. Unprojected slots (K/DEF) are filled by nobody — there
+  // is no feed to fill them from — but they still exist, so they still render.
+  const slots = {};
+  for (const g of geometry) if (g.projected && !g.flex) slots[g.slot] = takeBest(g.positions);
+  for (const g of geometry) if (g.projected && g.flex) slots[g.slot] = takeBest(g.positions);
+  for (const g of geometry) if (!g.projected) slots[g.slot] = null;
+
+  // Two DISTINCT facts on one channel. A filled slot holding an unavailable
+  // player means no available candidate was left for it; an unprojected slot
+  // means the league starts a position this app cannot yet project. The view
+  // turns the first into a waiver-wire banner and the second into an
+  // "awaiting its feed" row — they must never be conflated.
   const warnings = [];
-  for (const slot of LINEUP_SLOTS) {
-    const id = slots[slot];
+  for (const g of geometry) {
+    if (!g.projected) {
+      warnings.push({ slot: g.slot, id: null, reason: WARN_NO_PROJECTION });
+      continue;
+    }
+    const id = slots[g.slot];
     if (id && unById.get(id) === 1) {
-      warnings.push({ slot, id, reason: 'no_available_alternative' });
+      warnings.push({ slot: g.slot, id, reason: WARN_FORCED_UNAVAILABLE });
     }
   }
 
   const ptsById = new Map((Array.isArray(players) ? players : []).map((p) => [String(p.id), Number(p.pts) || 0]));
-  const total = LINEUP_SLOTS.reduce((s, slot) => s + (slots[slot] ? ptsById.get(slots[slot]) || 0 : 0), 0);
+  const total = geometry.reduce(
+    (s, g) => s + (slots[g.slot] ? ptsById.get(slots[g.slot]) || 0 : 0), 0,
+  );
   const bench = (Array.isArray(players) ? players : [])
     .filter((p) => !used.has(String(p.id)))
     .map((p) => String(p.id));
-  return { slots, bench, total: Math.round(total * 10) / 10, warnings };
+  return {
+    slots,
+    bench,
+    total: Math.round(total * 10) / 10,
+    warnings,
+    geometry,
+    slotIds: geometry.map((g) => g.slot),
+    projectedSlots: geometry.filter((g) => g.projected).length,
+    slotCount: geometry.length,
+  };
 }
 
 /**
@@ -117,12 +209,16 @@ export function bestLineup(players) {
  * `playable` rides through to bestLineup unchanged, so `start` can never contain
  * an unavailable id while an available alternative exists. That is the literal F3
  * defect, and it is locked as a test assertion.
+ *
+ * An unprojected slot (K/DEF) holds nobody, so it can never produce a START and
+ * never contributes to `netGain`: this surface only ever claims points it can
+ * actually project.
  */
-export function startSitSwaps(currentStarterIds, players, week) {
+export function startSitSwaps(currentStarterIds, players, week, profile) {
   const ptsById = new Map((Array.isArray(players) ? players : [])
     .map((p) => [String(p.id), Number(p.pts) || 0]));
-  const optimal = bestLineup(players);
-  const optimalIds = new Set(LINEUP_SLOTS.map((s) => optimal.slots[s]).filter(Boolean));
+  const optimal = bestLineup(players, profile);
+  const optimalIds = new Set(optimal.slotIds.map((s) => optimal.slots[s]).filter(Boolean));
   const current = (Array.isArray(currentStarterIds) ? currentStarterIds : []).map(String);
   const currentSet = new Set(current);
   const start = [...optimalIds].filter((id) => !currentSet.has(id));
@@ -179,5 +275,29 @@ export function __selftest() {
   ]);
   if (flex.slots.FLEX !== 'teOk') throw new Error('FLEX prefers an available player');
   if (flex.warnings.length !== 0) throw new Error('a benched unavailable player is not a warning');
+
+  // R19-B5 — a 9-starter K/DEF league. Both extra slots exist, hold nobody, are
+  // worth nothing, and say why. The seven projected slots are untouched.
+  const nine = bestLineup(players, KDEF_PROFILE);
+  if (nine.slotCount !== 9 || nine.projectedSlots !== 7) throw new Error('nine slots, seven projected');
+  if (nine.slots.K1 !== null || nine.slots.DEF1 !== null) throw new Error('unprojected slots hold nobody');
+  if (nine.total !== l.total) throw new Error('an unprojected slot adds no points');
+  const unproj = nine.warnings.filter((w) => w.reason === WARN_NO_PROJECTION).map((w) => w.slot);
+  if (unproj.length !== 2 || unproj[0] !== 'K1' || unproj[1] !== 'DEF1') {
+    throw new Error('both unprojected slots warn');
+  }
+  if (nine.warnings.some((w) => w.reason === WARN_FORCED_UNAVAILABLE)) {
+    throw new Error('an unprojected slot is not a forced start');
+  }
   return true;
 }
+
+/** A 9-starter league (QB RB RB WR WR TE FLEX K DEF + 6 bench) for __selftest. */
+const KDEF_PROFILE = {
+  shape: {
+    roster_positions: [
+      'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
+      'BN', 'BN', 'BN', 'BN', 'BN', 'BN',
+    ],
+  },
+};
