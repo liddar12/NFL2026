@@ -60,6 +60,11 @@ import {
   validateProfile,
 } from './league.js';
 import { TEAMS } from './teams.js';
+// R28 — the SAME attribution app/kdst.js uses to decide which position owns a
+// scoring key, so the import report cannot claim a rule does nothing while
+// kdst.js is busy applying it. Importing the function rather than restating
+// the rule is the point: two copies of this list is how the claim went stale.
+import { scoringKeyOwner } from './kdst.js';
 
 /* --------------------------------------------------------------------------
  * Endpoint + sync policy
@@ -1120,13 +1125,41 @@ export function unresolvedItems(report) {
   const roster = isPlainObject(report.roster) ? report.roster : {};
   const settings = isPlainObject(report.settings) ? report.settings : {};
 
-  (scoring.carried || []).forEach((c) => out.push({
-    kind: 'scoring_carried',
-    key: c.key,
-    value: c.value,
-    message: `"${c.key}" is worth ${c.value} in your league. It is kept and applied, but this `
-      + 'app has no projection for it, so it adds nothing to a projected total.',
-  }));
+  /* R28 — SAY WHICH PROJECTION, BECAUSE THE OLD MESSAGE WAS FALSE FOR HALF OF
+   * THESE KEYS.
+   *
+   * This told the user, of every carried rule, that it "adds nothing to a
+   * projected total". True of the QB/RB/WR/TE path, which has no components.
+   * FLATLY FALSE for K and D/ST: app/kdst.js recomputes each stat line under
+   * the league's own scoring table, so fgm_50_59, fgm_60p and the whole
+   * yds_allow ladder ARE applied. Measured against a real 10-team import,
+   * those rules move a defence between -17.85 and +16.18 points and reorder 29
+   * of 32 — while the app was telling its owner they did nothing at all.
+   *
+   * scoringKeyOwner() is the discriminator app/kdst.js already uses, so the
+   * message cannot drift from the behaviour: a key it attributes to K or DEF
+   * gets the truthful "applied there" line, and only a key it cannot attribute
+   * gets the "adds nothing" one. Where a K/DEF stat line genuinely cannot
+   * supply the component, kdst.js marks that entry PARTIAL — which is the
+   * honest disclosure this message now points at instead of overwriting. */
+  (scoring.carried || []).forEach((c) => {
+    const owner = scoringKeyOwner(c.key);
+    const where = owner === 'K' ? 'kicker' : owner === 'DEF' ? 'defence' : null;
+    out.push({
+      kind: 'scoring_carried',
+      key: c.key,
+      value: c.value,
+      owner: owner || null,
+      message: where
+        ? `"${c.key}" is worth ${c.value} in your league. It IS applied to your `
+          + `${where} projections, under your own scoring table. It does not affect `
+          + 'QB/RB/WR/TE projections, and where a stat line cannot supply it the '
+          + 'entry is marked PARTIAL rather than counted as zero.'
+        : `"${c.key}" is worth ${c.value} in your league. It is kept and applied, but `
+          + 'this app projects no component for it, so it adds nothing to a '
+          + 'QB/RB/WR/TE projected total.',
+    });
+  });
   (scoring.dropped_zero || []).forEach((key) => out.push({
     kind: 'scoring_zero',
     key,

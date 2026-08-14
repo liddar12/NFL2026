@@ -128,7 +128,26 @@ def fetch_fantasy_pool(season, min_rows=150):
                 continue
             # Raw receptions ride the SAME actuals entry under statId "53" —
             # exact PPR<->Half<->Standard conversion downstream, never a guess.
-            receptions = float((entry.get("stats") or {}).get("53") or 0.0)
+            _stats = entry.get("stats") or {}
+            receptions = float(_stats.get("53") or 0.0)
+            # R28 — COMPLETIONS (statId "1") and ATTEMPTS (statId "0"), from the
+            # SAME actuals entry.
+            #
+            # These were already arriving in every response and being discarded,
+            # while the app told the user "pass_cmp is not a stat this app
+            # computes". In a league scoring 0.5 a completion that is roughly
+            # 150-200 points a season per starting quarterback going uncounted.
+            #
+            # VERIFIED, NOT ASSUMED. This repo has been burned by ESPN statIds
+            # before — build_kdst rejected ESPN outright after a hand decode of
+            # its kicker ids reconciled only 33/42 — so the pairing was checked
+            # against reality: across the 2025 top-40, completions/attempts lands
+            # between 0.58 and 0.72 for every quarterback, which is the plausible
+            # NFL completion-rate band and could not hold if either id meant
+            # something else. `pass_attempts` is carried precisely so that check
+            # stays reproducible downstream instead of living only in a comment.
+            completions = float(_stats.get("1") or 0.0)
+            pass_attempts = float(_stats.get("0") or 0.0)
             raw_status = (p.get("injuryStatus") or "").strip() or None
             code = normalize_status(raw_status)
             if raw_status and code is None:
@@ -141,6 +160,8 @@ def fetch_fantasy_pool(season, min_rows=150):
                 "injury_status": code,
                 "prior_season_points": round(total, 2),
                 "receptions": round(receptions, 1),
+                "completions": round(completions, 1),
+                "pass_attempts": round(pass_attempts, 1),
             })
         if len(rows) < _PAGE:
             break

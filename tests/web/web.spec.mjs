@@ -754,7 +754,11 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     await expect(page.locator('.draftsim .ds-sub').nth(1)).toContainText('ROSTER');
     // League grid: FORMAT + PLAY (Rel9) + TEAMS + MY SLOT + ROOM/BUDGET.
     expect(await page.locator('.ds-grid--league .ds-field').count()).toBe(5);
-    expect(await page.locator('.ds-grid--roster .ds-field').count()).toBe(6);
+    // Roster grid: QB RB WR TE FLEX BENCH, plus K and DEF from R28 — which is
+    // the change, not a regression. Until R28 the only way to have a kicker was
+    // a Sleeper import: a hand-built league could not state that it seats one,
+    // while the roster panel rendered the slot and the room drafted it.
+    expect(await page.locator('.ds-grid--roster .ds-field').count()).toBe(8);
     // Default shape QB+2RB+2WR+TE+FLEX+6 = 13 rounds, echoed live in the note
     // and on the start button; bumping BENCH to 7 re-counts both to 14.
     await expect(page.locator('.ds-sub-note').nth(1)).toContainText('13 ROUNDS');

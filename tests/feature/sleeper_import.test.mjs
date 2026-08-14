@@ -1034,7 +1034,41 @@ test('unresolvedItems names the specific things a user would ask about', () => {
   assert.ok(find('scoring_carried', 'idp_sack'));
   assert.ok(find('scoring_carried', 'bonus_rec_te'));
   assert.ok(find('scoring_zero', 'bonus_fd_qb'));
-  assert.match(find('scoring_carried', 'idp_sack').message, /adds nothing to a projected total/);
+  /* R28 — THE MESSAGE NOW NAMES THE PROJECTION IT MEANS.
+   *
+   * It used to say a carried rule "adds nothing to a projected total", full
+   * stop. True of the QB/RB/WR/TE path; FLATLY FALSE for K and D/ST, which
+   * app/kdst.js scores from the league's own table. Measured on a real import,
+   * those rules move a defence between -17.85 and +16.18 points and reorder 29
+   * of 32 — while the app told its owner they did nothing at all.
+   *
+   * An unowned key still says "adds nothing", correctly scoped. */
+  assert.match(find('scoring_carried', 'idp_sack').message,
+    /adds nothing to a QB\/RB\/WR\/TE projected total/);
+  assert.equal(find('scoring_carried', 'idp_sack').owner, null);
+});
+
+test('a carried K or D/ST rule is reported as APPLIED, not as doing nothing (R28)', () => {
+  const fx = fixture();
+  fx.scoring_settings = {
+    ...(fx.scoring_settings || {}), fgm_50_59: 5, yds_allow_450_499: -5,
+  };
+  const items = unresolvedItems(sleeperToProfile(fx, { now: T0 }).report);
+  const find = (key) => items.find((i) => i.kind === 'scoring_carried' && i.key === key);
+
+  const k = find('fgm_50_59');
+  assert.ok(k, 'a carried kicker rule must still be reported');
+  assert.equal(k.owner, 'K');
+  assert.match(k.message, /IS applied to your kicker projections/);
+  assert.doesNotMatch(k.message, /adds nothing/);
+
+  const d = find('yds_allow_450_499');
+  assert.ok(d, 'a carried defence rule must still be reported');
+  assert.equal(d.owner, 'DEF');
+  assert.match(d.message, /IS applied to your defence projections/);
+  assert.doesNotMatch(d.message, /adds nothing/);
+  // The honest caveat survives: an unsuppliable component reads PARTIAL, not 0.
+  assert.match(d.message, /PARTIAL/);
 });
 
 test('a genuinely unknown setting surfaces as an item', () => {

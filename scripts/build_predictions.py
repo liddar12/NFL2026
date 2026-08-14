@@ -728,9 +728,14 @@ def main():
     # from Week 2 onward. In preseason current_week() is 1, so this is a no-op
     # today and correct the moment real football starts.
     receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
+    # R28 — completions ride the SAME N2 feed (kona statId 1, beside the statId
+    # 53 receptions read just above), so a league scoring Sleeper's `pass_cmp`
+    # can be priced exactly instead of having ~0.5 x 350 points a season quietly
+    # omitted from every starting quarterback.
+    completions_by_id = {r["gsis_id"]: r.get("completions", 0.0) for r in players_in}
     weekly_doc = build_weekly.build_weekly_document(
         projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
-        first_week=wk)
+        first_week=wk, completions_by_id=completions_by_id)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
 
     # === PARLAYS (moved from the early slot — needs weekly + projections) ========

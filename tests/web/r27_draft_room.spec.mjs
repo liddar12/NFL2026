@@ -186,8 +186,28 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await page.goto('/#/team');
     await page.waitForSelector('.ds-head', { timeout: 20000 });
     await expect(page.locator('.draftsim')).not.toContainText('13-slot roster panel');
-    // The limit that IS real is still stated.
-    await expect(page.locator('.draftsim')).toContainText('QB/RB/WR/TE/FLEX/BENCH');
+    // R28 — and the sentence that REPLACED it went stale within one release:
+    // it said a K/DEF league had to arrive by Sleeper import, which stopped
+    // being true the moment the K and DEF counters shipped. Both dead claims
+    // are asserted absent, and the one limit that is still real is asserted
+    // present. This is the pattern the stale-text audit generalises.
+    await expect(page.locator('.draftsim')).not.toContainText('has to come in through the Sleeper');
+    await expect(page.locator('.draftsim')).toContainText('SUPERFLEX league is priced as if');
+  });
+
+  test('K and DEF can be set by hand, not only by import (R28)', async ({ page }) => {
+    // The RCA finding: the app supported K/DEF end to end EXCEPT the one
+    // control that lets a hand-built league say it has them.
+    await page.goto('/#/team');
+    await page.waitForSelector('.ds-head', { timeout: 20000 });
+    await expect(page.locator('select[data-dcfg="k"]')).toHaveCount(1);
+    await expect(page.locator('select[data-dcfg="def"]')).toHaveCount(1);
+    // Default league seats neither, and the roster summary agrees.
+    await expect(page.locator('.draftsim')).toContainText('7 STARTERS');
+    await page.selectOption('select[data-dcfg="k"]', '1');
+    await page.selectOption('select[data-dcfg="def"]', '1');
+    // Two more starters, two more rounds — the room will run them.
+    await expect(page.locator('.draftsim')).toContainText('9 STARTERS');
   });
 
   test('the RECO panel states the ceiling it is applying', async ({ page }) => {
