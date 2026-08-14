@@ -29,7 +29,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const SRC = readFileSync(join(REPO_ROOT, 'scripts/scrape/espn_players.py'), 'utf8');
+const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
+const SRC = read('scripts/scrape/espn_players.py');
 
 /** The keys of the dict literal that follows `marker`, to its closing brace. */
 function dictKeysAfter(marker) {
@@ -74,4 +75,70 @@ test('build_predictions still reads the key this file guarantees', () => {
     'build_predictions must read "completions" from the record');
   assert.match(bp, /completions_by_id=completions_by_id/,
     'and pass it to build_weekly_document');
+});
+
+/* ==========================================================================
+   THE CONTRACT MUST ACCEPT WHAT THE BUILDER WRITES
+   ========================================================================== */
+
+test('player_weekly.schema.json accepts completions_prior (R29 pipeline failure)', () => {
+  /* WHAT HAPPENED. R29 merged with a fully green gate and then FAILED THE
+   * PIPELINE: build_weekly wrote completions_prior for 52 quarterbacks,
+   * player_weekly.schema.json has additionalProperties:false and had never
+   * heard of the key, and validate_data rejected the document — so the run died
+   * before committing and prod kept the old, completion-free feed.
+   *
+   * WHY THE LOCAL GATE COULD NOT CATCH IT. validate_data checks the data file
+   * ON DISK, and the committed player_weekly.json has no completions_prior at
+   * all: the field only appears after a live ESPN fetch, which the sandbox
+   * cannot perform. So the schema was never once tested against a document
+   * that actually contained the thing it rejects. A gate that only ever sees
+   * yesterday's data cannot validate tomorrow's field.
+   *
+   * The fix is to assert the CONTRACT directly, against a document shaped the
+   * way the builder really writes one, rather than waiting for a fetch to
+   * produce it.
+   */
+  const schema = JSON.parse(read('data/contracts/player_weekly.schema.json'));
+  const item = schema.properties.players.items;
+
+  assert.equal(item.additionalProperties, false,
+    'this schema is strict by design — which is exactly why a new field must be '
+    + 'declared here in the same change that starts writing it');
+  assert.ok(item.properties.completions_prior,
+    'build_weekly writes completions_prior; the contract must accept it, or the '
+    + 'pipeline fails validation and never commits');
+  assert.equal(item.properties.completions_prior.type, 'number');
+  assert.ok(!(item.required || []).includes('completions_prior'),
+    'it is OMITTED when zero or unknown — requiring it would fail every '
+    + 'non-passer and contradict the builder');
+});
+
+test('every key build_weekly can emit is declared in the contract', () => {
+  // The general form: whatever row keys build_weekly.py assigns must all be
+  // known to a schema that forbids anything else. Catches the next field too,
+  // not just this one.
+  const src = read('scripts/build_weekly.py');
+  const schema = JSON.parse(read('data/contracts/player_weekly.schema.json'));
+  const declared = new Set(Object.keys(schema.properties.players.items.properties));
+
+  /* PLAYER-ROW keys only. The first cut matched any 8-space-indented dict key
+   * and swept in the document's own top-level fields (season, updated_utc) and
+   * the availability sub-object's (applied, unavailable, ...), none of which
+   * live in players[].items — a test that reports work it is not doing is
+   * worse than no test. So: the `row = { ... }` literal, plus every explicit
+   * row["key"] = assignment. */
+  const emitted = new Set();
+  const literal = src.match(/row = \{([\s\S]*?)\n {8}\}/);
+  if (literal) for (const m of literal[1].matchAll(/"([a-z_]+)":/g)) emitted.add(m[1]);
+  for (const m of src.matchAll(/row\["([a-z_]+)"\]\s*=/g)) emitted.add(m[1]);
+  assert.ok(emitted.has('receptions_prior') && emitted.has('completions_prior'),
+    'the extraction must actually find the row keys, or this test proves nothing');
+
+  const undeclared = [...emitted].filter((k) => !declared.has(k));
+  assert.deepEqual(undeclared, [],
+    `build_weekly.py can emit ${undeclared.join(', ')}, which player_weekly.schema.json `
+    + 'does not declare while forbidding additional properties — the pipeline would '
+    + 'write it, validate_data would reject the document, and the run would fail '
+    + 'AFTER doing all its work');
 });

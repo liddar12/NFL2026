@@ -5,7 +5,12 @@
   "description": "Per-player 18-week split of the season projection (weekly_split_v1: even split, Elo matchup tilt, home/away, renormalized to the season total). Player order mirrors player_projections.json. Produced by scripts/build_weekly.py, validated by scripts/validate_data.py.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["season", "updated_utc", "model", "players"],
+  "required": [
+    "season",
+    "updated_utc",
+    "model",
+    "players"
+  ],
   "properties": {
     "season": {
       "type": "integer",
@@ -18,12 +23,20 @@
     "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "tilt_coef", "home_coef", "estimate", "notes"],
+      "required": [
+        "name",
+        "tilt_coef",
+        "home_coef",
+        "estimate",
+        "notes"
+      ],
       "properties": {
-        "name": { "type": "string" },
+        "name": {
+          "type": "string"
+        },
         "tilt_coef": {
           "type": "number",
-          "description": "Elo matchup-tilt coefficient — the transparent prior the P2 optimizer refits in-season."
+          "description": "Elo matchup-tilt coefficient \u2014 the transparent prior the P2 optimizer refits in-season."
         },
         "home_coef": {
           "type": "number",
@@ -33,24 +46,43 @@
           "type": "boolean",
           "description": "true => NOT a validated measurement (honesty flag)."
         },
-        "notes": { "type": "string" },
+        "notes": {
+          "type": "string"
+        },
         "injury_shape": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["applied", "statuses_used"],
+          "required": [
+            "applied",
+            "statuses_used"
+          ],
           "description": "Present ONLY when at least one player's split was shaped by data/injuries.json (Out 0.55 / Doubtful 0.7 / Questionable 0.9 on the first 3 non-bye weeks, season total unchanged). statuses_used = players shaped.",
           "properties": {
-            "applied": { "type": "boolean" },
-            "statuses_used": { "type": "integer", "minimum": 1 }
+            "applied": {
+              "type": "boolean"
+            },
+            "statuses_used": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "availability": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["applied", "vocab_version", "unavailable", "season_ending", "min_weeks_rule", "season_points_removed"],
+          "required": [
+            "applied",
+            "vocab_version",
+            "unavailable",
+            "season_ending",
+            "min_weeks_rule",
+            "season_points_removed"
+          ],
           "description": "Present ONLY when at least one player's weeks were actually blocked by a long-term absence (IR/PUP/NFI/suspension, or a parsed duration). Distinct from injury_shape on purpose: shaping PRESERVES the season total, this REDUCES it.",
           "properties": {
-            "applied": { "type": "boolean" },
+            "applied": {
+              "type": "boolean"
+            },
             "vocab_version": {
               "type": "integer",
               "minimum": 1,
@@ -59,7 +91,7 @@
             "unavailable": {
               "type": "integer",
               "minimum": 1,
-              "description": "Players whose weeks were actually zeroed. A flagged-but-unblocked row (a suspension of unstated length) is NOT counted — it claims no duration."
+              "description": "Players whose weeks were actually zeroed. A flagged-but-unblocked row (a suspension of unstated length) is NOT counted \u2014 it claims no duration."
             },
             "season_ending": {
               "type": "integer",
@@ -74,7 +106,7 @@
             "season_points_removed": {
               "type": "number",
               "minimum": 0,
-              "description": "Sum of every player's season_points_lost — the honest headline for how many projected points left the model."
+              "description": "Sum of every player's season_points_lost \u2014 the honest headline for how many projected points left the model."
             }
           }
         }
@@ -85,7 +117,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["gsis_id", "receptions_prior", "weeks"],
+        "required": [
+          "gsis_id",
+          "receptions_prior",
+          "weeks"
+        ],
         "properties": {
           "gsis_id": {
             "type": "string",
@@ -96,36 +132,67 @@
             "minimum": 0,
             "description": "Prior-season receptions (ESPN raw statId 53); exact PPR<->Half<->Standard conversion. 0.0 when unknown."
           },
+          "completions_prior": {
+            "type": "number",
+            "minimum": 0,
+            "description": "R28/R29 \u2014 prior-season pass completions (ESPN raw statId 1), for a league that scores Sleeper pass_cmp. OPTIONAL and OMITTED when zero or unknown: a non-passer carries no key at all, because a 0 here would be a measurement rather than a silence. Not in `required` for the same reason."
+          },
           "availability": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["status", "class"],
-            "description": "Present ONLY when the player carries a non-ACTIVE canonical status in data/injuries.json. The five season keys ride ONLY on a player whose weeks were actually blocked — a flagged-but-unblocked row states nothing about duration and therefore claims nothing.",
+            "required": [
+              "status",
+              "class"
+            ],
+            "description": "Present ONLY when the player carries a non-ACTIVE canonical status in data/injuries.json. The five season keys ride ONLY on a player whose weeks were actually blocked \u2014 a flagged-but-unblocked row states nothing about duration and therefore claims nothing.",
             "properties": {
               "status": {
                 "type": "string",
                 "description": "Canonical availability code (scripts/availability.py).",
-                "enum": ["ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED"]
+                "enum": [
+                  "ACTIVE",
+                  "QUESTIONABLE",
+                  "DOUBTFUL",
+                  "OUT",
+                  "IR",
+                  "PUP",
+                  "NFI",
+                  "SUSPENDED"
+                ]
               },
               "class": {
                 "type": "string",
                 "description": "week = near-term shaping, season total preserved. season = long-term absence, season total reduced. An OUT whose report text says season-ending is PROMOTED to season, so this is not derivable from status alone.",
-                "enum": ["week", "season"]
+                "enum": [
+                  "week",
+                  "season"
+                ]
               },
               "weeks_out": {
-                "type": ["integer", "null"],
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "minimum": 1,
                 "maximum": 18,
                 "description": "Weeks actually zeroed (what we DID). null when out_for_season. Must equal the count of weeks carrying avail:false."
               },
-              "out_for_season": { "type": "boolean" },
+              "out_for_season": {
+                "type": "boolean"
+              },
               "confidence": {
                 "type": "string",
                 "description": "explicit = the report stated the duration and `evidence` quotes it. rule = nothing was stated and the documented league floor was applied, so the surface must say 'at least N', never 'N'.",
-                "enum": ["explicit", "rule"]
+                "enum": [
+                  "explicit",
+                  "rule"
+                ]
               },
               "evidence": {
-                "type": ["string", "null"],
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "description": "The verbatim report sentence the duration was parsed from; null for a rule-floor row, which has no report to quote."
               },
               "season_points_lost": {
@@ -143,22 +210,67 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["wk", "opp", "home", "bye", "pts"],
+              "required": [
+                "wk",
+                "opp",
+                "home",
+                "bye",
+                "pts"
+              ],
               "properties": {
-                "wk": { "type": "integer", "minimum": 1, "maximum": 18 },
+                "wk": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18
+                },
                 "opp": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "description": "Canonical opponent abbreviation; null on bye.",
                   "enum": [
-                    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
-                    "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
-                    "LV", "LAC", "LAR", "MIA", "MIN", "NE", "NO", "NYG",
-                    "NYJ", "PHI", "PIT", "SF", "SEA", "TB", "TEN", "WAS",
+                    "ARI",
+                    "ATL",
+                    "BAL",
+                    "BUF",
+                    "CAR",
+                    "CHI",
+                    "CIN",
+                    "CLE",
+                    "DAL",
+                    "DEN",
+                    "DET",
+                    "GB",
+                    "HOU",
+                    "IND",
+                    "JAX",
+                    "KC",
+                    "LV",
+                    "LAC",
+                    "LAR",
+                    "MIA",
+                    "MIN",
+                    "NE",
+                    "NO",
+                    "NYG",
+                    "NYJ",
+                    "PHI",
+                    "PIT",
+                    "SF",
+                    "SEA",
+                    "TB",
+                    "TEN",
+                    "WAS",
                     null
                   ]
                 },
-                "home": { "type": "boolean" },
-                "bye": { "type": "boolean" },
+                "home": {
+                  "type": "boolean"
+                },
+                "bye": {
+                  "type": "boolean"
+                },
                 "pts": {
                   "type": "number",
                   "minimum": 0,
@@ -166,8 +278,10 @@
                 },
                 "avail": {
                   "type": "boolean",
-                  "enum": [false],
-                  "description": "Emitted ONLY when the player cannot play this week (long-term absence). ABSENT means available, which keeps the committed diff to the affected rows instead of 5,400 cosmetic booleans. Deliberately distinguishable from bye:true — that is what lets a lineup row say BYE rather than IR."
+                  "enum": [
+                    false
+                  ],
+                  "description": "Emitted ONLY when the player cannot play this week (long-term absence). ABSENT means available, which keeps the committed diff to the affected rows instead of 5,400 cosmetic booleans. Deliberately distinguishable from bye:true \u2014 that is what lets a lineup row say BYE rather than IR."
                 }
               }
             }
