@@ -470,8 +470,14 @@ def main():
         # feeds["injuries"] = "down" for a feed that is demonstrably up — a false
         # statement about a feed, which is the one thing pipeline_status may never be.
         try:
+            # R30c — by_name switches on the offseason-mover fallback (see
+            # availability.index_report_by_name: the pool's team column lags the
+            # report's every August, so the (team, name) join dropped exactly
+            # the players who changed teams — Questionable stars rendered
+            # healthy five days before the owner's draft).
             n_overridden = availability.apply_to_records(
-                players_in, availability.index_report(inj))
+                players_in, availability.index_report(inj),
+                by_name=availability.index_report_by_name(inj))
             if n_overridden:
                 reprojected = [p for p in project_players(players_in,
                                                           ctx={"teams": teams_fixture})
