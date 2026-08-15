@@ -52,6 +52,37 @@ def _hours_since(iso):
     return round((dt.datetime.now(dt.timezone.utc) - t).total_seconds() / 3600.0, 1)
 
 
+def market_feed_record(src, now):
+    """pipeline_status feed record for one market source (kalshi / polymarket),
+    from the source block build_markets stamps into market_prices.json.
+
+    R30: the old inline mapping collapsed the source's own three-state status to
+    a binary and HARDCODED "ok" without ever reading the row count, so kalshi
+    shipped {rows: 0, status: "ok"} and the MODEL tab's freshness card counted
+    an empty feed among "feeds ok". House rule: a 0-row write is never silently
+    ok. Now the builder's status is carried through verbatim, with a belt-and-
+    braces guard for older market_prices documents that predate the builder fix:
+
+      * "ok" with rows == 0  -> degraded (a configured feed delivered nothing);
+      * "degraded"           -> degraded, keeping the real row count (a partial
+                                 pull is still a pull — rows 15 is a fact);
+      * "down" / absent      -> down, rows 0, no fabricated success timestamp.
+
+    Kalshi and Polymarket are keyless, so "unconfigured" (odds_api's awaiting-
+    config idiom for a missing API key) is deliberately NOT a state this
+    function can produce: these feeds are always configured.
+    """
+    status = src.get("status") or "down"
+    rows = int(src.get("rows") or 0)
+    if status == "ok" and rows == 0:
+        status = "degraded"
+    if status == "down":
+        return {"rows": 0, "age_hours": 999.0,
+                "last_success_utc": None, "status": "down"}
+    return {"rows": rows, "age_hours": 0.0,
+            "last_success_utc": now, "status": status}
+
+
 def current_week(schedule):
     """The earliest week not entirely FINAL — the one to surface on the slate."""
     by_week = {}
@@ -484,11 +515,17 @@ def main():
         from scripts import build_environment  # noqa: PLC0415 (guarded feature import)
         env = build_environment.build(refresh=False)
         env_age = _hours_since(env.get("updated_utc")) if env.get("reused") else 0.0
+        # Age here is REAL and can be weeks (refresh=False reuses the committed
+        # file, see the block comment above) — that is by design, not staleness:
+        # the artifact measures the CLOSED 2021-2025 window, so its content
+        # cannot go stale until the window definition changes. "ok" is honest
+        # only because of that; a zero-row build is still degraded, per the
+        # 0-row-is-never-ok house rule.
         feeds["environment"] = {
             "rows": env["rows"],
             "age_hours": env_age if env_age is not None else 0.0,
             "last_success_utc": env.get("updated_utc") or now,
-            "status": "ok",
+            "status": "ok" if int(env.get("rows") or 0) > 0 else "degraded",
         }
     except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
         feeds["environment"] = {"rows": 0, "age_hours": 999.0,
@@ -682,15 +719,11 @@ def main():
     try:
         from scripts import build_markets  # noqa: PLC0415 (guarded feature import)
         mdoc = build_markets.main()
+        # R30: the source's own honest status (ok/degraded/down) carries through
+        # — see market_feed_record. Never "ok" off a zero-row write.
         for src_name in ("kalshi", "polymarket"):
-            src = mdoc["sources"].get(src_name, {})
-            ok = src.get("status") == "ok"
-            feeds[src_name] = (
-                {"rows": src.get("rows", 0), "age_hours": 0.0,
-                 "last_success_utc": now, "status": "ok"}
-                if ok else
-                {"rows": 0, "age_hours": 999.0, "last_success_utc": None,
-                 "status": "degraded"})
+            feeds[src_name] = market_feed_record(
+                mdoc["sources"].get(src_name, {}), now)
     except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
         for src_name in ("kalshi", "polymarket"):
             feeds[src_name] = {"rows": 0, "age_hours": 999.0,

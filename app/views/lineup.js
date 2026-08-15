@@ -2,9 +2,11 @@
  *
  * Phase 1 of the in-season roadmap. Reads the roster the Team builder saved
  * (localStorage nfl2026.team.v1) and, for a chosen week, computes the optimal
- * legal starting lineup from the committed per-week projections (PPR), then
- * surfaces the start/sit moves versus the manager's current starters. Pure math
- * lives in app/lineup.js; this module only fetches contracts and paints.
+ * legal starting lineup from the committed per-week projections — converted to
+ * the persisted scoring mode and the league's own extra rules (R30b,
+ * leagueWeeks below) — then surfaces the start/sit moves versus the manager's
+ * current starters. Pure math lives in app/lineup.js; this module only fetches
+ * contracts and paints.
  *
  * Honest by construction: byes are excluded (a bye-week player can never start);
  * a missing weekly feed degrades to a clear state message, never a blank or a
@@ -86,7 +88,12 @@ import {
 } from '../kdst.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 // R29 — the league's own scoring rules, stamped onto the weekly entries once.
-import { withLeagueExtras } from '../team-logic.js';
+// R30b — plus the ONE shared season-points conversion (scoringAdjust) and the
+// ONE weekly redistribution (weeklyPoints), so this tab prints the same table
+// as PLAYERS/TEAM/COMPARE instead of hard-wired full PPR.
+import {
+  withLeagueExtras, scoringAdjust, extraPtsOf, weeklyPoints, loadScoringMode,
+} from '../team-logic.js';
 import { rosPoints } from '../ros.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';   // mirror of the Team builder's roster key
@@ -127,6 +134,42 @@ function esc(v) {
 }
 const fix1 = (n) => (Number.isFinite(Number(n)) ? Number(n).toFixed(1) : '—');
 const stateMsg = (el, text) => { el.innerHTML = `<div class="state">${text}</div>`; };
+
+/**
+ * R30b — ONE player's weekly points in the LEAGUE'S OWN TABLE, exported PURE.
+ *
+ * WEEKLY LINEUP used to print `wkEntry.pts` raw — full PPR by contract —
+ * regardless of the persisted scoring mode or the league's extra rules, so the
+ * same player's week disagreed with the TEAM tab's slot chip (Nacua W1: 21.1
+ * here, 13.8 on TEAM in STD) and the optimizer ranked, totalled and phrased its
+ * "+X pts" claim in points the league does not award.
+ *
+ * The conversion is the SAME two shared functions team.js:1307-1309 uses, in
+ * the same order — never a private copy:
+ *   1. scoringAdjust() turns the full-PPR season total into this mode's season
+ *      total, including the league's extra_pts (stamped by withLeagueExtras).
+ *   2. weeklyPoints() redistributes that season total across the weeks
+ *      proportionally to each week's share of the season (byes stay hard 0).
+ *
+ * That redistribution IS the extras-apportionment decision R30a deferred:
+ * `extra_pts` is a SEASON total, and scaling every non-bye week by
+ * season_adj/season_ppr hands week i exactly extra × (pts_i / season_ppr) —
+ * proportional to its share of season points, 0 on byes — so the season
+ * identity holds: the weekly extras sum back to extra_pts.
+ *
+ * Returns { adj, ratio, weeks } where weeks[i] aligns 1:1 with w.weeks[i].
+ * No weekly entry -> weeks [] and ratio 1 (nothing to convert — absent stays
+ * absent, never a fabricated 0.0).
+ */
+export function leagueWeeks(p, w, mode) {
+  const ppr = Number(p ? p.proj_points : NaN);
+  const adj = scoringAdjust(ppr, w ? w.receptions_prior : 0, mode, extraPtsOf(w));
+  return {
+    adj,
+    ratio: Number.isFinite(ppr) && ppr > 0 ? adj / ppr : 1,
+    weeks: weeklyPoints(w, adj, ppr),
+  };
+}
 
 /** Read the saved roster's slot->id map (starters only matter here). */
 function loadRosterSlots() {
@@ -181,8 +224,21 @@ export default async function mountLineup(el) {
    * once, so every conversion below prices the same player identically without
    * threading a rate through eight signatures. Must follow the profile load:
    * stamping before the league is known would price every league at zero. A
-   * league that does not score pass_cmp gets the identical Map back. */
+   * league that does not score pass_cmp gets the identical Map back.
+   * R30b — the stamp is no longer inert here: leagueWeeks() reads extra_pts
+   * (via the shared scoringAdjust) into every weekly number this tab prints. */
   const weeklyById = withLeagueExtras(weeklyRaw, profile);
+  /* R30b — the persisted scoring mode, through the ONE shared reader. Read once
+   * per mount, exactly like players.js/team.js/compare.js: the toggle lives on
+   * those tabs, and whatever it last persisted is the table this page is in. */
+  const scoringMode = loadScoringMode();
+  // Per-player converted weekly arrays, memoized: paint(wk) re-runs on every
+  // week tap and the conversion is identical each time.
+  const _lw = new Map();
+  const leagueWeeksOf = (id) => {
+    if (!_lw.has(id)) _lw.set(id, leagueWeeks(byId.get(id), weeklyById.get(id), scoringMode));
+    return _lw.get(id);
+  };
 
   let currentWk = 1;
   if (predsRes.status === 'fulfilled' && predsRes.value && predsRes.value.week != null) {
@@ -252,7 +308,10 @@ export default async function mountLineup(el) {
   el.innerHTML =
     '<header class="view-head">' +
       '<h1 class="view-title">WEEKLY LINEUP</h1>' +
-      '<span class="view-sub">START / SIT · PPR · <span class="est">ESTIMATE</span></span>' +
+      // R30b — the sub-label names the ACTIVE table, not a literal 'PPR': the
+      // rows below are converted to the persisted mode, and a header that said
+      // PPR over STD numbers would be the exact stale-copy defect R27 shipped.
+      `<span class="view-sub">START / SIT · ${esc(scoringMode.toUpperCase())} · <span class="est">ESTIMATE</span></span>` +
     '</header>' +
     weekBar(currentWk) +
     '<div id="lineup-body"></div>';
@@ -295,13 +354,23 @@ export default async function mountLineup(el) {
     const w = weeklyById.get(id);
     const pos = String((p && p.position) || '').toUpperCase();
     const team = (p && p.team) || '';
-    const wkEntry = (w && Array.isArray(w.weeks)) ? w.weeks.find((x) => Number(x.wk) === wk) : null;
+    const weeks = (w && Array.isArray(w.weeks)) ? w.weeks : null;
+    const wkIdx = weeks ? weeks.findIndex((x) => Number(x.wk) === wk) : -1;
+    const wkEntry = wkIdx >= 0 ? weeks[wkIdx] : null;
     const onBye = !!(wkEntry && wkEntry.bye);
     // Mirrors the bye line: a player who cannot play scores 0 for display. Showing
     // 12.4 beside a "⊘ IR" chip is the same lie the un-haircut projection shipped.
     const avail = availabilityOf(w, wk, currentWk);
-    const pts = (onBye || avail.playable === false) ? 0 : Number(wkEntry && wkEntry.pts) || 0;
-    const ros = w && Array.isArray(w.weeks) ? rosPoints(w.weeks, wk) : 0;
+    // R30b — the week's points come out of the CONVERTED array (same index as
+    // w.weeks), never raw wkEntry.pts: this row must be the same arithmetic as
+    // the TEAM tab's weekly grid, in the league's own scoring table.
+    const lw = leagueWeeksOf(id);
+    const pts = (onBye || avail.playable === false)
+      ? 0
+      : (wkIdx >= 0 ? Number(lw.weeks[wkIdx]) || 0 : 0);
+    // RoS rides the same season ratio (mode + apportioned extras), matching
+    // players.js rosValue(): remaining games must never outweigh the season.
+    const ros = weeks ? rosPoints(weeks, wk) * lw.ratio : 0;
     return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail, kdst: null, unscored: false };
   }
 

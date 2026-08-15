@@ -8,7 +8,9 @@
  * legs. Same-game (GAME) parlays are 2-leg; cross-game (WEEK) parlays come in
  * 2..7-leg buckets from the pipeline. The selector is built from the leg counts
  * actually present in the active scope (plus ALL), so it never offers an empty
- * bucket. A short .legend explains leg / EV / tier. Filtering is client-side.
+ * bucket. A short .legend explains leg / MODEL / IMPL / EV / tier — see the
+ * legend() docblock for the honesty contract behind that wording. Filtering is
+ * client-side.
  */
 
 import { getParlays, getScheduleFull } from '../data.js';
@@ -54,12 +56,37 @@ function legSeg(counts, activeLeg) {
   );
 }
 
-/** A one-line glossary so the parlay terms are never unexplained. */
+/** A short glossary so the parlay terms are never unexplained.
+ *
+ * Every claim here is checked against the builder
+ * (scripts/models/parlay_builder.py) and the shipped feed — this legend once
+ * called MODEL EV a "placeholder until live odds" long after the live odds
+ * feed was wired (R30b). The truth it states now:
+ *   MODEL — our probability, computed with no book input (R30a: a de-vigged
+ *           book price may never reach model_prob; the gate reds if it does).
+ *   IMPL  — the price to beat. Game lines (moneyline/spread) are the book's
+ *           real de-vigged prices from the live odds feed; prop legs have no
+ *           book feed yet, so their IMPL charges the standard vig to our own
+ *           number — a prop leg can therefore never fabricate a positive
+ *           single-leg edge. IMPL is display + comparison only, never a model
+ *           input.
+ *   EV    — combined MODEL ÷ combined IMPL − 1 (_combined_probs): same-game
+ *           legs are combined via the pairwise-rho correlation model, cross-
+ *           game (WEEK) legs as independent (rho=0), and the IMPL side is
+ *           always the independence product because that is how books price
+ *           parlays. Each card carries its own correlation note from the feed.
+ */
 function legend() {
   return (
     '<div class="legend">' +
       '<span class="legend-item"><b>LEG</b> one pick in the parlay — all must hit</span>' +
-      '<span class="legend-item"><b>MODEL EV</b> model edge vs the book price (placeholder until live odds)</span>' +
+      '<span class="legend-item"><b>MODEL</b> our model’s probability — computed with no book input</span>' +
+      '<span class="legend-item"><b>IMPL</b> the price to beat: the book’s de-vigged '
+        + 'line (live odds feed) on game legs; on prop legs, our number plus the '
+        + 'standard vig until a prop feed lands. Display only — never a model input</span>' +
+      '<span class="legend-item"><b>MODEL EV</b> our combined probability vs the book’s '
+        + 'parlay price. Same-game legs are correlation-adjusted (rho model); '
+        + 'cross-game legs are combined as independent — see each card’s note</span>' +
       '<span class="legend-item"><b>TIER</b> confidence: high &gt; medium &gt; low (more legs = lower)</span>' +
       '<span class="est">ESTIMATE</span>' +
     '</div>'

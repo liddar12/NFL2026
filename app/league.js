@@ -32,7 +32,11 @@
  *                       bench:int, flex_eligibility:{ <flex_token>:[POS,...] },
  *                       position_caps:{ POS:int }, draft_rounds:int,
  *                       keepers_enabled:bool, max_keepers:int,
- *                       playoff_week_start:int } }
+ *                       playoff_week_start:int,
+ *                       position_caps_source?:'sleeper'|'sleeper-advisory',
+ *                       draft_rounds_source?:'draft'|'league' } }
+ *            (the two *_source fields are PROVENANCE marks written only by the
+ *             Sleeper import — see their normalisation blocks below)
  *   slots    { starters:['QB1',...], bench:['BN1',...], all:[...] }
  *   error    { path, code, message, value, severity:'error'|'warning' }
  */
@@ -396,7 +400,7 @@ export function normalizeProfile(raw) {
     out.shape.position_caps = caps;
   }
 
-  /* ---- position-cap PROVENANCE (R26) ----
+  /* ---- position-cap PROVENANCE (R26, extended R30b) ----
    * Whether the caps above are a league's ENFORCED roster limit or somebody's
    * best guess. Only 'sleeper' carries authority: it means the numbers came
    * from a real league's position_limit_* settings, which Sleeper enforces at
@@ -404,9 +408,19 @@ export function normalizeProfile(raw) {
    * bye/injury allowance it gives a hand-typed cap. Any other value — and
    * every profile saved before R26 — is dropped, which lands on the lenient
    * pre-R26 behaviour. An unrecognised string must never be treated as
-   * authority: that would let a bad import silently tighten a roster. */
+   * authority: that would let a bad import silently tighten a roster.
+   *
+   * R30b adds 'sleeper-advisory': the limits DID come from a real league's
+   * position_limit_* settings, but Sleeper's own draft record was read and its
+   * enforce_position_limits flag is OFF — the commissioner left the numbers in
+   * place with enforcement disabled. The mark is preserved (so the UI can say
+   * why the caps are not read as a ban) but it deliberately carries NO
+   * authority: app/team-logic.js treats anything other than the literal
+   * 'sleeper' as the lenient hand-typed reading, which is exactly what an
+   * unenforced limit deserves. */
   const capsSource = String(rawShape.position_caps_source || '').toLowerCase();
   if (capsSource === 'sleeper') out.shape.position_caps_source = 'sleeper';
+  else if (capsSource === 'sleeper-advisory') out.shape.position_caps_source = 'sleeper-advisory';
 
   /* ---- scalars ---- */
   out.shape.teams = clampInt(
@@ -419,6 +433,24 @@ export function normalizeProfile(raw) {
     // An unset draft_rounds tracks the roster size (13 by default).
     out.shape.starters + out.shape.bench,
   );
+
+  /* ---- draft-rounds PROVENANCE (R30b) ----
+   * WHERE an EXPLICIT draft_rounds came from, written only by the Sleeper
+   * import. 'draft' means Sleeper's DRAFT record (draft.settings.rounds) — the
+   * authoritative count. 'league' means only the league object's
+   * settings.draft_rounds copy was readable (paste tier, missing draft_id, or
+   * a failed draft read), and Sleeper leaves that copy STALE: the owner's real
+   * league reports 3 there while its draft record and its 13 roster slots both
+   * say 13 (R30b sleeper-import-draft-rounds). A 'league' number is therefore
+   * a fallback the UI must not assert as the league's real round count.
+   * Anything else is dropped — an unrecognised provenance must never lend
+   * authority to a number — and a profile whose draft_rounds merely tracks the
+   * roster size carries no source at all, because nothing was read. */
+  const roundsSource = String(rawShape.draft_rounds_source || '').toLowerCase();
+  if ((roundsSource === 'draft' || roundsSource === 'league')
+      && toFinite(rawShape.draft_rounds) !== null) {
+    out.shape.draft_rounds_source = roundsSource;
+  }
   out.shape.playoff_week_start = clampInt(
     rawShape.playoff_week_start,
     LEAGUE_BOUNDS.playoff_week_start[0],

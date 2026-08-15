@@ -42,6 +42,10 @@ import {
   scoringAdjust, rosterGeometry, positionDemand, replacementIndex,
 } from './team-logic.js';
 import { normalizeProfile } from './league.js';
+// R30b — the DST/DEF fold comes from team-logic, NOT app/kdst.js: kdst is a
+// lazy-only module and a static edge from here put it on every route's boot
+// path (the R25 perf budget caught it). team-logic is already imported above.
+import { canonKdstPosition } from './team-logic.js';
 
 /* --------------------------------------------------------------------------
  * Roster configuration (Rel6: slot counts are configurable within sane bounds)
@@ -63,6 +67,42 @@ export const DEFAULT_ROSTER = Object.freeze({
 });
 
 const _clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));
+
+/**
+ * R30b — ONE SPELLING OF THE TEAM DEFENCE INSIDE THE ENGINES.
+ *
+ * 'DST' and 'DEF' are the same position wearing two spellings (app/kdst.js
+ * canonKdstPosition is the app-wide statement of that fact). The engines'
+ * geometry side only ever speaks DEF — rosterShape() emits 'DEF1' whatever the
+ * league's own token says — but the BOARD side could arrive speaking DST: the
+ * K/DST rows are stamped with the league's raw roster token, so a league whose
+ * saved profile spells the slot 'DST' put position:'DST' rows on a board whose
+ * eligibility table only accepts 'DEF'. The row could be BOUGHT (teamNeedsPos
+ * counts it against the DEF/DST cap) but never SEATED: fillStarters' DEF1 slot
+ * refused it, the defence's points vanished from the score sheet, and the
+ * dollars spent on him still counted. Measured: an otherwise identical roster
+ * scored 130 points lower spelled DST than spelled DEF, with DEF1 reported
+ * empty.
+ *
+ * So every board is folded to the canonical spelling ONCE, here at the engine
+ * boundary (createDraft / createAuction), and both spellings seat, price and
+ * score identically. Rows that need no fold are returned by reference and a
+ * clean board comes back as the SAME array — the identity-sensitive callers
+ * (board.indexOf, taken-index bookkeeping) see no new objects unless a fold
+ * actually happened. The league's own profile is never rewritten; this is the
+ * engine's internal spelling, not the user's.
+ */
+export function canonicalizeBoardPositions(rows) {
+  const src = Array.isArray(rows) ? rows : [];
+  let changed = false;
+  const out = src.map((r) => {
+    const pos = r == null ? '' : String(r.position == null ? '' : r.position);
+    if (pos.toUpperCase() !== 'DST') return r;
+    changed = true;
+    return { ...r, position: canonKdstPosition(pos) };
+  });
+  return changed ? out : src;
+}
 
 /**
  * Normalize a roster config to bounds and derive the slot lists.
@@ -631,7 +671,10 @@ export function createDraft({ leagueSize = 12, mySlot = 1, roomType = 'adp',
   const shape = rosterShape(rosterConfig);
   const rounds = shape.size;
   const excluded = new Set(excludedIds.map(String));
-  const board = boardRows.filter((r) => !(r.gsis_id && excluded.has(String(r.gsis_id))));
+  // R30b — fold any DST-spelled rows to the engine's canonical DEF before the
+  // board exists (see canonicalizeBoardPositions). A clean board is untouched.
+  const board = canonicalizeBoardPositions(boardRows)
+    .filter((r) => !(r.gsis_id && excluded.has(String(r.gsis_id))));
   const adjOf = (row) => (row.gsis_id != null && adjPointsById.has(String(row.gsis_id))
     ? adjPointsById.get(String(row.gsis_id)) : 0);
   const rosters = [];

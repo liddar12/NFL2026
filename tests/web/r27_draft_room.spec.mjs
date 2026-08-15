@@ -192,7 +192,15 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     // are asserted absent, and the one limit that is still real is asserted
     // present. This is the pattern the stale-text audit generalises.
     await expect(page.locator('.draftsim')).not.toContainText('has to come in through the Sleeper');
-    await expect(page.locator('.draftsim')).toContainText('SUPERFLEX league is priced as if');
+    // R30b — the third generation of this sentence. "a SUPERFLEX league is
+    // priced as if" blamed EVERY room, which stopped being true at R23: the
+    // AI+ room reads the saved flex slots in full. The sentence now names the
+    // rooms the limit is real for (ADP/SHARK/auction) and says the AI+ room is
+    // exempt — so this spec asserts the scoped claim and the exemption, and
+    // asserts the over-broad generation is gone.
+    await expect(page.locator('.draftsim')).not.toContainText('SUPERFLEX league is priced as if');
+    await expect(page.locator('.draftsim')).toContainText('they treat a SUPERFLEX league as if');
+    await expect(page.locator('.draftsim')).toContainText('AI+ room reads your saved flex slots in full');
   });
 
   test('K and DEF can be set by hand, not only by import (R28)', async ({ page }) => {

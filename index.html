@@ -138,8 +138,19 @@
     <div class="health" id="health" role="status" aria-live="polite"></div>
 
     <!-- Router paints the active view here; tabindex="-1" so focus can land on
-         route change for a11y. -->
-    <main class="view" id="view" aria-live="polite" tabindex="-1"></main>
+         route change for a11y (main.js focuses it, which is what announces a
+         route change). R30b: this element must NOT be aria-live — as a live
+         region, every partial repaint (each 140ms search debounce, every draft
+         pick) queued its entire changed subtree for announcement, a firehose
+         that made the draft room unusable with a screen reader. Targeted
+         announcements belong in #announce below. -->
+    <main class="view" id="view" tabindex="-1"></main>
+
+    <!-- R30b — dedicated announcement outlet, the same scoped-live-region
+         pattern as #health above. Views write SHORT strings here ("12 players
+         match", "Bid $35") instead of ever making their paint target live.
+         Not yet populated by any view — wiring is the R30c a11y pass. -->
+    <div id="announce" class="visually-hidden" aria-live="polite"></div>
 
     <!-- Bottom tab bar. Active tab gets .tab--active + aria-selected via main.js. -->
     <nav class="tabbar" role="tablist" aria-label="Sections">

@@ -1,4 +1,24 @@
-"""BUILD data/preseason_form.json — the Rel17 F7 preseason-form signal.
+"""BUILD data/preseason_form.json — the Rel17 F7 preseason-form EXPERIMENT.
+
+STATUS: EXPERIMENTAL, UNWIRED, OUTPUT READ BY NOBODY (R30)
+----------------------------------------------------------
+This script is invoked by NO workflow and no other script — not daily.yml, not
+gameday.yml, not backtest.yml, not build_predictions.py, not build_all.py. It
+has been standalone since the commit that introduced it (Rel17, 9fdcc0d); git
+history shows it was never wired and then orphaned — it simply never ran
+anywhere. Consequences, stated so nobody trusts the artifact past what it is:
+
+  * data/preseason_form.json is FROZEN at whatever manual run last wrote it;
+    nothing refreshes it, so its numbers are a snapshot, not a feed.
+  * `preseason_form` is NOT in scripts/signals/registry.py, NOT in
+    data/meta.json weights, and NOT known to scripts/promote_signals.py.
+    There is no registry weight and no promotion path for it today — wiring
+    those up is a deliberate future feature, not something this docstring may
+    claim already exists.
+  * No app surface and no pipeline script reads the output.
+
+Running it prints a loud stderr banner saying exactly this (see main()).
+The math below is real and --selftest exercises it; the plumbing is not.
 
 WHAT THIS IS, AND WHAT IT IS EMPHATICALLY NOT
 ---------------------------------------------
@@ -15,9 +35,11 @@ schedule:
                 team has DECAY_GAMES (3) FINAL regular-season games. After that
                 the adjustment is exactly 1.0 forever: real football has landed
                 and August is not evidence any more.
-  * WEIGHT 0  — `preseason_form` ships at registry weight 0.0 like every learned
-                signal, so today it moves no published number at all. It has to
-                clear the never-regress promotion gate to earn any weight.
+  * WEIGHT 0  — in the strongest possible sense: `preseason_form` is not
+                registered as a signal AT ALL (see STATUS above), so today it
+                moves no published number. Registering it at 0.0 and giving it
+                a promotion-gate family would be the first step of wiring it —
+                neither has happened.
   * LABELLED  — a mandatory `caveat` rides in the document so no surface can
                 render the number without the sentence that makes it honest.
 
@@ -52,9 +74,13 @@ player would suffer if these adjustments were applied at full strength) and
 `rank_guard_ok` (that value <= MAX_RANK_MOVE). The promotion gate — not this
 builder — is the place that may refuse to grant weight when the guard is false.
 
-Runner-built in the build_injury_history / build_player_usage mould, and NOT
-invoked from build_predictions.py: preseason_form.json is an OPTIONAL data file, so
-a dead preseason feed can never change the core pipeline's failure semantics.
+NOT invoked from build_predictions.py (deliberate — a dead preseason feed must
+never change the core pipeline's failure semantics) and, unlike the
+build_injury_history / build_player_usage siblings that pattern was copied
+from, not invoked from any workflow either (see STATUS above). The committed
+preseason_form.json is still schema-validated by scripts/validate_data.py and
+tests/feature/preseason.test.mjs, so the frozen artifact at least cannot rot
+silently into an invalid shape.
 --selftest is fixture-driven, touches no network, and writes nothing.
 """
 
@@ -316,7 +342,21 @@ def _write(doc):
         fh.write("\n")
 
 
+# Printed by main() on every real run. A quiet dead script looks alive the
+# moment someone runs it by hand; this one announces what it is.
+UNWIRED_BANNER = (
+    "=" * 72 + "\n"
+    "  build_preseason.py is EXPERIMENTAL AND UNWIRED (R30):\n"
+    "  - no workflow or script invokes it (this is a manual run);\n"
+    "  - preseason_form is NOT in the signal registry and has NO weight;\n"
+    "  - nothing reads data/preseason_form.json, and nothing refreshes it,\n"
+    "    so the file this run writes will sit frozen until the next manual run.\n"
+    + "=" * 72)
+
+
 def main():
+    print(UNWIRED_BANNER, file=sys.stderr)
+
     from scripts.scrape import espn, espn_gamestats           # noqa: PLC0415
     from scripts.scrape.espn import FeedError                 # noqa: PLC0415
 

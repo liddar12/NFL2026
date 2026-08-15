@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "market_prices.schema.json",
   "title": "Kalshi + Polymarket NFL prices (DISPLAY ONLY)",
-  "description": "Produced by scripts/build_markets.py from the keyless Kalshi + Polymarket public APIs. USER POLICY: display_only is pinned true - these prices are shown next to our probabilities and are never an input to predictions, weights, fit scores, or parlay probabilities (see validate_data.py MARKET_DISPLAY_ONLY). Only real prices are emitted; a dead book emits nothing.",
+  "description": "Produced by scripts/build_markets.py from the keyless Kalshi + Polymarket public APIs. USER POLICY: display_only is pinned true - these prices are shown next to our probabilities and are never an input to predictions, weights, fit scores, or parlay probabilities (see validate_data.py MARKET_DISPLAY_ONLY). Only real prices are emitted; a dead book emits nothing. Deliberately NO $ref anywhere: scripts/validate_data.py implements a draft-07 subset that hard-errors on $ref rather than resolving it, so the source/game/future shapes are INLINED at every use site (R30: the previous $refs left everything below the top level silently unvalidated).",
   "type": "object",
   "additionalProperties": false,
   "required": ["updated_utc", "display_only", "note", "sources", "games", "futures"],
@@ -15,8 +15,34 @@
       "additionalProperties": false,
       "required": ["kalshi", "polymarket"],
       "properties": {
-        "kalshi": { "$ref": "#/definitions/source" },
-        "polymarket": { "$ref": "#/definitions/source" }
+        "kalshi": {
+          "type": "object",
+          "description": "Source health as build_markets.source_record() writes it: ok requires rows > 0; a reachable feed that delivered zero rows is degraded (never silently ok); a partly-failed source is degraded with a note; a dead source is down.",
+          "required": ["status", "rows"],
+          "properties": {
+            "status": { "type": "string", "enum": ["ok", "degraded", "down"] },
+            "rows": { "type": "integer", "minimum": 0 },
+            "events_seen": { "type": "integer" },
+            "unmatched": { "type": "integer" },
+            "dropped_unmapped": { "type": "integer" },
+            "note": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "polymarket": {
+          "type": "object",
+          "description": "Source health as build_markets.source_record() writes it: ok requires rows > 0; a reachable feed that delivered zero rows is degraded (never silently ok); a partly-failed source is degraded with a note; a dead source is down.",
+          "required": ["status", "rows"],
+          "properties": {
+            "status": { "type": "string", "enum": ["ok", "degraded", "down"] },
+            "rows": { "type": "integer", "minimum": 0 },
+            "events_seen": { "type": "integer" },
+            "unmatched": { "type": "integer" },
+            "dropped_unmapped": { "type": "integer" },
+            "note": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "games": {
@@ -25,8 +51,26 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "kalshi": { "$ref": "#/definitions/gamePrices" },
-          "polymarket": { "$ref": "#/definitions/gamePrices" }
+          "kalshi": {
+            "type": "object",
+            "properties": {
+              "home_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "away_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "ticker": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "polymarket": {
+            "type": "object",
+            "properties": {
+              "home_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "away_prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "ticker": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
         }
       }
     },
@@ -35,44 +79,35 @@
       "additionalProperties": false,
       "required": ["kalshi", "polymarket"],
       "properties": {
-        "kalshi": { "type": "array", "items": { "$ref": "#/definitions/futureRow" } },
-        "polymarket": { "type": "array", "items": { "$ref": "#/definitions/futureRow" } }
+        "kalshi": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["team", "prob"],
+            "properties": {
+              "team": { "type": "string" },
+              "prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "ticker": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "polymarket": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["team", "prob"],
+            "properties": {
+              "team": { "type": "string" },
+              "prob": { "type": "number", "minimum": 0, "maximum": 1 },
+              "ticker": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
       }
-    }
-  },
-  "definitions": {
-    "source": {
-      "type": "object",
-      "required": ["status", "rows"],
-      "properties": {
-        "status": { "type": "string", "enum": ["ok", "down"] },
-        "rows": { "type": "integer", "minimum": 0 },
-        "events_seen": { "type": "integer" },
-        "unmatched": { "type": "integer" },
-        "dropped_unmapped": { "type": "integer" }
-      },
-      "additionalProperties": false
-    },
-    "gamePrices": {
-      "type": "object",
-      "properties": {
-        "home_prob": { "type": "number", "minimum": 0, "maximum": 1 },
-        "away_prob": { "type": "number", "minimum": 0, "maximum": 1 },
-        "ticker": { "type": "string" },
-        "slug": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "futureRow": {
-      "type": "object",
-      "required": ["team", "prob"],
-      "properties": {
-        "team": { "type": "string" },
-        "prob": { "type": "number", "minimum": 0, "maximum": 1 },
-        "ticker": { "type": "string" },
-        "slug": { "type": "string" }
-      },
-      "additionalProperties": false
     }
   }
 }

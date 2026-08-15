@@ -65,7 +65,7 @@ import {
   onTheNomination, autoNominate, nominate, resolveBids, sellTo, undoLastSale,
   liveInflation, myGuidance, nominationAdvice, planBudget, scoreAuction,
   maxBid, MIN_BID, classifyNomination, fairDollars, buyerOptions,
-  normalizeTeamBudgets,
+  normalizeTeamBudgets, totalRoomMoney,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
 import {
@@ -156,29 +156,32 @@ function loadScoring() {
 }
 
 /**
- * Load the roster, sanitized: every slot key present, ids must exist in the
- * current player pool (dropped players vanish honestly), duplicates keep only
- * their first slot. Corrupt/absent storage -> an all-empty roster.
+ * Sanitize a stored roster against the current pool: every slot key present,
+ * ids must exist in `validIds` (dropped players vanish honestly), duplicates
+ * keep only their first slot. Corrupt/absent storage -> an all-empty roster.
+ *
+ * `retainSlots` (R30b) names the slots where an UNRESOLVABLE id is KEPT
+ * instead of dropped. An id can be unresolvable for two different reasons and
+ * they must not share a fate: a player who left the pool is gone and should
+ * vanish, but a saved K or D/ST whose id only the kdst contract could resolve
+ * is merely UNREADABLE while that feed is down. Dropping it here was the wipe:
+ * the very next saveRoster() — any ADD, REMOVE or live-room sync — wrote the
+ * emptied slot back to nfl2026.team.v1 and the player was gone even after the
+ * feed came back. A retained id stays in its own slot only; the painters
+ * render it as a degraded seat, and only the user removes it.
+ *
+ * Pure and exported so the retention rule is node-testable without a DOM or
+ * localStorage.
  */
-function loadRoster(validIds, profile) {
-  // ONE slot vocabulary, derived from the profile. The saved roster, the grid
-  // the user taps, the engines and the Lineup page must all name slots the same
-  // way. If Team writes the frozen legacy ids while Lineup reads profile-derived
-  // ids, every rostered player silently disappears from the optimizer the moment
-  // a league's geometry differs from the old 13-slot default.
-  const order = rosterSlots(profile).all;
+export function sanitizeRosterSlots(stored, order, validIds, retainSlots = null) {
   const slots = Object.fromEntries(order.map((s) => [s, null]));
-  let stored = null;
-  try {
-    stored = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
-  } catch (err) {
-    stored = null;
-  }
+  const retain = retainSlots || new Set();
   const seen = new Set();
   if (stored && stored.slots && typeof stored.slots === 'object') {
     order.forEach((s) => {
       const id = stored.slots[s] == null ? null : String(stored.slots[s]);
-      if (id && validIds.has(id) && !seen.has(id)) {
+      if (!id || seen.has(id)) return;
+      if (validIds.has(id) || retain.has(s)) {
         slots[s] = id;
         seen.add(id);
       }
@@ -186,7 +189,8 @@ function loadRoster(validIds, profile) {
     // Migration sweep: an id parked under a slot id this profile no longer has
     // (a legacy roster, or a shape the user just changed) moves into the first
     // slot that will take it. A saved player is never dropped merely because the
-    // geometry moved under him.
+    // geometry moved under him. Only RESOLVABLE ids move — retention is
+    // per-slot, so an unreadable id under a dead slot has no seat to keep.
     Object.keys(stored.slots).forEach((s) => {
       if (order.includes(s)) return;
       const id = stored.slots[s] == null ? null : String(stored.slots[s]);
@@ -199,6 +203,23 @@ function loadRoster(validIds, profile) {
     });
   }
   return { slots };
+}
+
+/** Load the roster from storage, sanitized (see sanitizeRosterSlots). */
+function loadRoster(validIds, profile, retainSlots = null) {
+  // ONE slot vocabulary, derived from the profile. The saved roster, the grid
+  // the user taps, the engines and the Lineup page must all name slots the same
+  // way. If Team writes the frozen legacy ids while Lineup reads profile-derived
+  // ids, every rostered player silently disappears from the optimizer the moment
+  // a league's geometry differs from the old 13-slot default.
+  const order = rosterSlots(profile).all;
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
+  } catch (err) {
+    stored = null;
+  }
+  return sanitizeRosterSlots(stored, order, validIds, retainSlots);
 }
 
 /** Persist the roster; storage failures are non-fatal (session still works). */
@@ -551,6 +572,85 @@ export function importSummaryRows(profile) {
     { label: 'SCORING KEYS', value: String(Object.keys(p.scoring).length) },
     { label: 'RECEPTION', value: receptionLabel(p) },
   ];
+}
+
+/* ---- R30b honesty helpers (pure, exported for tests, no DOM) ----------------
+ *
+ * Four small facts this page states that R30 caught it stating wrongly. Each
+ * is a pure function so the CLAIM itself is node-testable, not just the code
+ * around it.
+ */
+
+/**
+ * R30b — the import report's "Next:" line on a failed paste.
+ *
+ * app/sleeper.js still advertises a third import tier on failure ("Start from
+ * standard PPR — Hand-build the league from the standard PPR default. Every
+ * value is editable."). No such control exists anywhere: no button starts
+ * from the PPR default, and no surface in this app edits a per-stat scoring
+ * value. This view owns what the user actually reads, so the unreachable
+ * route is replaced with the routes that exist — fix the paste, or SYNC NOW —
+ * plus the hand-set path this card really offers (the roster counters and
+ * selectors). Every other line passes through untouched: the first line of a
+ * failure report is the true error and must stay first.
+ */
+export function honestImportFailureLines(lines) {
+  return (Array.isArray(lines) ? lines : []).map((l) => (
+    /^Next: Start from standard PPR/.test(String(l))
+      ? 'Next: check the paste and import again — the whole /league/{id} response, '
+        + 'from the first { to the last } — or enter your league id above and press '
+        + 'SYNC NOW. You can also set teams, roster slots and flex by hand with the '
+        + 'counters on this card; there is no scoring editor in this app, so a '
+        + 'league\'s own per-stat scoring arrives only through a successful import.'
+      : String(l)
+  ));
+}
+
+/**
+ * R30b — MY starting auction money. `a.budget` is the league default ("what a
+ * team holds unless told otherwise" — app/auction.js), and R27's per-team
+ * editor lets mine differ. Mirrors app/auction.js scoreAuction, which
+ * documents why: spending $150 of $185 is not the same as $150 of $200. MY
+ * BUILD read the default and so opened an uneven room with a partly-filled
+ * spend bar and a plan for money I do not have.
+ */
+export function aucStartingBudget(a) {
+  const myStart = (a && a.teamBudgets ? a.teamBudgets : [])[a.mySlot - 1];
+  return Number.isFinite(myStart) ? myStart : a.budget;
+}
+
+/**
+ * R30b — the AUC half of the visible value-cell legend. The cell rescales
+ * ESPN's published bid into the user's budget (valueCell), and the per-cell
+ * title says so — but a title is hover-only, unreachable on an iPad, and the
+ * always-visible legend flatly called the rescaled number "ESPN's average
+ * winning bid". The legend must state the same restatement the cell performs,
+ * in the same three cases the cell's own title distinguishes.
+ */
+export function aucLegendAucText(userBudget, mktBudget) {
+  if (!mktBudget) {
+    return 'AUC = ESPN\'s average winning bid, shown as published — ESPN does not '
+      + 'publish this board\'s budget, so it cannot be restated in yours. ';
+  }
+  if (Number(userBudget) !== Number(mktBudget)) {
+    return `AUC = ESPN's average winning bid, published on a $${mktBudget} board `
+      + `and restated here in your $${userBudget}. `;
+  }
+  return 'AUC = ESPN\'s average winning bid. ';
+}
+
+/**
+ * R30b — the seated starters whose K/D-ST total is INCOMPLETE under this
+ * league's scoring (app/kdst.js marks them `partial` with the omitted
+ * components named). The slot chip, the finder row and the Lineup card all
+ * mark these numbers; the STARTERS SEASON TOTAL folded them in unmarked —
+ * the single most prominent figure on the page read as complete while the
+ * rows it was built from admitted they were not.
+ */
+export function partialKdstStarters(starterIds, playersById) {
+  return (Array.isArray(starterIds) ? starterIds : [])
+    .map((id) => playersById.get(String(id)))
+    .filter((p) => p && p.kdst && p.kdst.partial);
 }
 
 /* ---- SLEEPER ROSTER SYNC — SEATING (pure, exported for tests, no DOM) -------
@@ -1340,7 +1440,27 @@ export default async function mountTeam(el) {
   /** The extra finder chips this league needs, in roster order. [] normally. */
   const kdstChips = [...new Set(kdstRows.map((r) => r.position))];
 
-  const roster = loadRoster(new Set(playersById.keys()), savedProfile);
+  /* R30b — WHICH SLOTS KEEP AN ID THIS MOUNT CANNOT RESOLVE. A saved K or
+   * D/ST id resolves through the kdst contract alone (those ids are not in
+   * player_projections.json), so on any load where that OPTIONAL feed fails —
+   * a dropped request, a missing/hollow document, or a scoring table that
+   * leaves every row unscored — the id has no row behind it. That is a fact
+   * about THE FEED, not about the roster: dropping the id would let the next
+   * saveRoster() (any ADD, REMOVE or live-room sync) delete the saved kicker
+   * and defence permanently. So a slot whose eligible positions are all
+   * K/D-ST, and none of which produced a seatable row this mount, RETAINS its
+   * saved id; the painters render it as a degraded seat and only the user
+   * removes it. When the feed IS up, the set is empty per position and a
+   * player genuinely dropped from it still vanishes honestly, like any other.
+   */
+  const kdstFedCanon = new Set(kdstRows.map((r) => canonKdstPosition(r.position)));
+  const kdstUnresolvedSlots = new Set(rosterSlots(savedProfile).all.filter((slot) => {
+    const eligible = slotEligiblePositions(slot, savedProfile);
+    return eligible.length > 0
+      && eligible.every(isKdstPosition)
+      && !eligible.some((pos) => kdstFedCanon.has(canonKdstPosition(pos)));
+  }));
+  const roster = loadRoster(new Set(playersById.keys()), savedProfile, kdstUnresolvedSlots);
   let selectedSlot = null; // empty slot targeted for recommendations
   let query = '';
 
@@ -1534,14 +1654,25 @@ export default async function mountTeam(el) {
     '<span class="ms-badge" title="Market prices are never weighted into '
     + 'predictions (user policy)">MARKET · DISPLAY ONLY</span>';
 
+  /* R30b — the AUC sentence must match what the cells beside it actually
+   * show. valueCell() rescales ESPN's bid into the user's budget, and the
+   * unconditional "AUC = ESPN's average winning bid" made the visible key
+   * contradict every rescaled cell under it — with the correction living only
+   * in a hover title an iPad cannot reach. One string, built from the same
+   * two inputs the rescale reads, used by the shell legend and the BEST PICK
+   * strip alike. */
+  function valueLegendText() {
+    return 'OURS = our auction price (VOR). '
+      + aucLegendAucText(draftCfg.budget, mktBudget)
+      + 'OVER / UNDER = are you paying above or below the room.';
+  }
+
   /** Column key for the value cell — one per section, never one per row. */
   function valueLegendHtml() {
     if (!adpDoc) return '';
     return (
       '<div class="cd-vallegend">'
-        + '<span class="cvl-txt">OURS = our auction price (VOR). '
-        + 'AUC = ESPN\'s average winning bid. '
-        + 'OVER / UNDER = are you paying above or below the room.</span>'
+        + `<span class="cvl-txt">${esc(valueLegendText())}</span>`
         + MARKET_BADGE
       + '</div>'
     );
@@ -1635,6 +1766,25 @@ export default async function mountTeam(el) {
         body =
           `<button type="button" class="slot-empty" data-act="pick" data-slot="${slot}">` +
             `ADD ${label}</button>`;
+      } else if (!playersById.has(id)) {
+        // R30b — a RETAINED id (see kdstUnresolvedSlots): the saved K/D-ST is
+        // kept while its feed is down, and the seat says so instead of
+        // reverting to an ADD button that pretends nothing was ever here. No
+        // name or number can be shown — the feed is the only source of both —
+        // so the seat states the feed failure and offers exactly one action,
+        // the user's own REMOVE.
+        body =
+          `<div class="slot-player" role="button" tabindex="0" data-act="remove" data-slot="${slot}" ` +
+            `aria-label="Remove the saved ${esc(pos)} from ${slot}">` +
+            '<span class="sp-main">' +
+              `<span class="sp-name">SAVED ${esc(pos)} · FEED UNAVAILABLE</span>` +
+              '<span class="sp-pts">—</span>' +
+            '</span>' +
+            '<span class="sp-meta"><span class="lu-tag lu-tag--warn" ' +
+              'title="The K/D-ST projections feed did not load this visit. Your saved player ' +
+              'is kept and comes back with the feed; nothing removes it but you.">' +
+              'K/D-ST projections did not load — kept, not counted. Tap to remove.</span></span>' +
+          '</div>';
       } else {
         const p = playersById.get(id);
         const e = weeklyById.get(id);
@@ -1712,6 +1862,14 @@ export default async function mountTeam(el) {
 
   function paintCands() {
     const box = el.querySelector('#t-cands');
+    // R30b — the finder's legend sits in the ONE-SHOT shell, but its AUC
+    // sentence depends on draftCfg.budget (see valueLegendText). Every path
+    // that reprices the cells calls paintCands, so syncing the ≤2 legend
+    // spans here keeps the visible key in lock-step with the numbers under
+    // it, at the cost of two textContent writes per paint.
+    el.querySelectorAll('.cd-vallegend .cvl-txt').forEach((s) => {
+      s.textContent = valueLegendText();
+    });
     const q = query.trim().toLowerCase();
     const rostered = new Set(Object.values(roster.slots).filter(Boolean));
     // WHICH POOL. K/DST are seatable but are not draft-board material (see the
@@ -1956,11 +2114,17 @@ export default async function mountTeam(el) {
         `<span class="reco-controls">${recoSortInner(recoSort)}</span> ` +
         '<span class="est">ESTIMATE</span>' +
       '</div>' +
-      // What AI+ optimizes for — the answer to "what is the AI doing?". Only
+      // What AI+ actually does — the answer to "what is the AI doing?". Only
       // shown when AI+ is on, so BASE stays byte-identical to before.
+      // R30b — this said "tuned to raise your weekly ceiling and playoff
+      // odds". Nothing tunes these terms (they are fixed, documented priors —
+      // STACK_BONUS, COLD_SCALE in app/team-logic.js — no optimiser has ever
+      // touched them) and nothing in this app computes a fantasy roster's
+      // ceiling or playoff odds. Naming a mechanism that does not exist is the
+      // R27 defect class; say what the toggle does instead.
       (ai
         ? '<div class="reco-explain">AI+ re-ranks by 5-yr trajectory, cold-weather edge, and stack synergy '
-          + '— tuned to raise your weekly ceiling and playoff odds. Δ vs BASE shown per pick.</div>'
+          + '— three fixed, documented weights, not fitted to any outcome. Δ vs BASE shown per pick.</div>'
         : '') +
       `<div class="reco-sublabel">Ranked by ${sortLabel}${ai ? ' · AI+' : ''}` +
         // R27 — a filter the manager cannot see is a filter they cannot trust.
@@ -2024,6 +2188,16 @@ export default async function mountTeam(el) {
       .map((id) => playersById.get(String(id)))
       .filter((p) => p && p.kdst)
       .map((p) => p.name);
+    // R30b — starters whose K/D-ST total is INCOMPLETE under this league's
+    // scoring. The slot chip, the finder row and the Lineup card all mark
+    // these numbers ('*' / PARTIAL); a total built FROM them is exactly as
+    // incomplete and gets the same mark — rule 4 of the seating block above.
+    const partialStarters = partialKdstStarters(starterIds, playersById);
+    // R30b — retained seats (kdstUnresolvedSlots): a saved id kept through a
+    // failed kdst feed has no number, so it is NOT in the total. Saying so is
+    // what keeps the kept-but-uncounted seat from reading as a scored one.
+    const staleSeats = rosterSlots(savedProfile).starters
+      .filter((s) => roster.slots[s] && !playersById.has(String(roster.slots[s])));
 
     // Worst week flagged only when someone actually starts (an all-zero grid
     // has no meaningful floor). Marker glyph + label text, never color alone.
@@ -2065,9 +2239,22 @@ export default async function mountTeam(el) {
     box.innerHTML =
       '<div class="ts-head">' +
         `<span class="ts-label">STARTERS SEASON TOTAL · ${mode.toUpperCase()}</span> ` +
-        `<span class="ts-total">${fix1(seasonTotal)}</span> ` +
+        `<span class="ts-total">${fix1(seasonTotal)}${partialStarters.length ? '*' : ''}</span> ` +
         '<span class="est">ESTIMATE</span>' +
       '</div>' +
+      // R30b — the '*' above is a claim, and this line is its proof: name the
+      // partial starters and the components their totals omit, mirroring the
+      // coverage line the Lineup card prints beside ITS total.
+      (partialStarters.length
+        ? `<div class="ts-note">* INCOMPLETE — ${esc(partialStarters.map((p) => (
+          `${p.name} omits ${p.kdst.omitted.map((o) => o.label).join(', ')}`)).join('; '))}: `
+          + 'components your league scores that the K/D-ST feed cannot measure.</div>'
+        : '') +
+      (staleSeats.length
+        ? `<div class="ts-note">${esc(staleSeats.join(', '))}: your saved player is kept but `
+          + 'NOT in the total above — the K/D-ST projections feed did not load, so there is '
+          + 'no number to add.</div>'
+        : '') +
       `<div class="team-weeks" role="img" aria-label="${esc(gridLabel)}">${cells}</div>` +
       (chips
         ? `<div class="ts-byes"><div class="ts-byes-lbl">BYE WEEKS BY STARTER</div>${chips}</div>`
@@ -2375,8 +2562,19 @@ export default async function mountTeam(el) {
         // (untrue since R19 made it shape-driven), then that K/DEF could only
         // arrive by import (untrue the moment the K and DEF counters above
         // shipped). What remains genuinely limited is the flex assumption.
-        + 'retrained. One limit, said plainly: the opponent model drafts every FLEX as '
-        + 'WR/RB/TE, so a SUPERFLEX league is priced as if its flex were WR/RB/TE.</div>'
+        // R30b — and a third time: "the opponent model drafts every FLEX as
+        // WR/RB/TE" stopped being true of the AI+ room at R23, which reads
+        // the saved profile's flex eligibility in full (app/draft-sim.js
+        // aiPlusContext -> app/team-logic.js FLEX_WIN_SHARE.SUPER_FLEX — a
+        // superflex league's QB demand rises to ~1.9 per team there). The
+        // limit is real only for the rooms priced off the derived roster
+        // shape, whose flex slots are the literal FLEX token — the sentence now
+        // names those rooms, and agrees with the carriedFlex note above and
+        // the AI+ room key below instead of contradicting both.
+        + 'retrained. One limit, said plainly: the ADP and SHARK rooms and the auction '
+        + 'price every flex as WR/RB/TE, so they treat a SUPERFLEX league as if its flex '
+        + 'were WR/RB/TE; the AI+ room reads your saved flex slots in full, superflex '
+        + 'included.</div>'
       + '<div class="ds-sub"><span>SLEEPER</span>'
         + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
       + '<div class="lp-sync">'
@@ -2599,7 +2797,11 @@ export default async function mountTeam(el) {
   /** Fold an ImportResult into the panel: it stages, it never saves. */
   function applyImport(res) {
     importReport = res && res.report ? res.report : null;
-    importLines = summarizeImport(res);
+    // R30b — a failed import's "Next:" line pointed at an import tier that is
+    // not wired anywhere (see honestImportFailureLines). Rewritten HERE, at
+    // the one place the lines reach a screen, because this agent owns this
+    // view and not app/sleeper.js.
+    importLines = honestImportFailureLines(summarizeImport(res));
     importUnresolved = importReport ? unresolvedItems(importReport) : [];
     if (res && res.ok && res.profile) {
       importProfile = normalizeProfile(res.profile);
@@ -2614,8 +2816,22 @@ export default async function mountTeam(el) {
       mapped.clamped.forEach((c) => lines.push(
         `${c.key.toUpperCase()}: your league has ${c.wanted}; the draft simulator prices `
         + `${c.used} (its bounds).`));
-      if (mapped.carried.length > 0) lines.push(
-        `${mapped.carried.join(', ')} kept on the profile — the simulator does not draft them.`);
+      // R30b — the same carried split the settings card makes (carriedFlex vs
+      // carriedUndraftable in leaguePanelHtml), because the two kinds mean
+      // OPPOSITE things. The import line lumped them together as "the
+      // simulator does not draft them", so importing a superflex league told
+      // its manager the one room built to model it would not draft their
+      // SUPER_FLEX — while the settings note beside it said AI+ reads it in
+      // full. One truth, both panels.
+      const carriedFlexImp = mapped.carried.filter((t) => FLEX_ELIGIBILITY[t]);
+      const carriedOtherImp = mapped.carried.filter((t) => !FLEX_ELIGIBILITY[t]);
+      if (carriedOtherImp.length > 0) lines.push(
+        `${carriedOtherImp.join(', ')} stay on your league profile but the draft simulator `
+        + 'does not draft them.');
+      if (carriedFlexImp.length > 0) lines.push(
+        `${carriedFlexImp.join(', ')} kept on the profile exactly as imported — the AI+ room `
+        + `reads ${carriedFlexImp.length === 1 ? 'it' : 'them'} in full; the ADP and SHARK `
+        + 'rooms and the auction price every flex as WR/RB/TE.');
       leagueStatus = { tone: 'ok', lines };
     } else {
       importProfile = null;
@@ -3265,8 +3481,14 @@ export default async function mountTeam(el) {
 
   function aucBuildZone() {
     const me = aucMyTeam(auction);
-    const plan = planBudget(auction.shape, auction.budget, strategy.style);
-    const spent = auction.budget - me.budget;
+    // R30b — MY money, not the league default (aucStartingBudget). With a $150
+    // YOU in a $200 room this panel opened saying "$150 LEFT of $200" with the
+    // spend bar 25% filled and a slot plan for $194 of money I do not have.
+    // scoreAuction already reads teamBudgets for the same reason; the plan,
+    // the label and the bar denominator now read the same number it does.
+    const myStart = aucStartingBudget(auction);
+    const plan = planBudget(auction.shape, myStart, strategy.style);
+    const spent = myStart - me.budget;
     // Greedy: match my buys to plan slots by descending price for the display.
     const buys = auction.log.filter((l) => l.team === auction.mySlot)
       .sort((a, b) => b.price - a.price);
@@ -3282,17 +3504,27 @@ export default async function mountTeam(el) {
     }).join('');
     return (
       '<div class="auc-zone auc-zone--build"><div class="auc-zhead">MY BUILD</div>' +
-        `<div class="auc-budget">${dollar(me.budget)} LEFT <span class="cd-meta">of $${auction.budget} · max bid ${dollar(maxBid(me.budget, auction.shape.size - me.players.length))} · $1 bench x ${plan.benchDollars}</span></div>` +
-        `<div class="auc-budgetbar"><span style="width:${Math.min(100, (spent / auction.budget) * 100).toFixed(0)}%"></span></div>` +
+        `<div class="auc-budget">${dollar(me.budget)} LEFT <span class="cd-meta">of $${myStart} · max bid ${dollar(maxBid(me.budget, auction.shape.size - me.players.length))} · $1 bench x ${plan.benchDollars}</span></div>` +
+        `<div class="auc-budgetbar"><span style="width:${Math.min(100, (spent / myStart) * 100).toFixed(0)}%"></span></div>` +
         rows +
       '</div>'
     );
   }
 
   function auctionRoomHtml() {
+    // R30b — "$${auction.budget}" here was the league default, which in an
+    // uneven room is nobody's number (the setup card directly above already
+    // said "IN THE ROOM · UNEVEN"). Same summary rule as aucBudgetLabel():
+    // a level room's one true number, else the room's total, flagged UNEVEN.
+    const starts = auction.teamBudgets || [];
+    const headBudget = starts.length && starts.every((b) => b === starts[0])
+      ? `$${starts[0]}`
+      : (starts.length
+        ? `$${totalRoomMoney(auction)} IN THE ROOM · UNEVEN`
+        : `$${auction.budget}`);
     return (
       '<div class="ds-head"><span class="ds-title">' +
-        `${auction.play === 'live' ? 'LIVE AUCTION' : 'AUCTION SIMULATOR'} · $${auction.budget}</span> ` +
+        `${auction.play === 'live' ? 'LIVE AUCTION' : 'AUCTION SIMULATOR'} · ${headBudget}</span> ` +
         `<span class="ds-status">${auction.log.length}/${auction.leagueSize * auction.shape.size} SOLD</span> ` +
         '<button type="button" class="sort-chip" data-act="auc-close">EXIT</button></div>' +
       aucToggles() +

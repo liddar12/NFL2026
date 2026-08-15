@@ -46,6 +46,47 @@ def _write(path, obj):
         fh.write("\n")
 
 
+def source_record(rows, parts_failed=0, parts_total=1, note=None, extra=None):
+    """The health record for one market source — the ONLY place its status is set.
+
+    HOUSE RULE (inherited from wc2026, and the reason pipeline_status.py exists):
+    every feed asserts its row count and fails LOUDLY — a 0-row write is never
+    silently "ok". R30 caught this file stamping kalshi "ok" with rows 0, which
+    rolled all the way up to a green MODEL-tab freshness card over an empty feed.
+
+    Kalshi and Polymarket are KEYLESS public APIs, so the "unconfigured" /
+    "awaiting config" idiom (what build_predictions writes for odds_api when no
+    ODDS_API_KEY is set) can never apply here: these sources are always
+    configured, and zero rows from a configured, reachable feed is a
+    degradation to surface — not a fact of life and not a crash.
+
+    Decision order (worst wins):
+      parts_failed == parts_total -> down      (nothing was reachable)
+      parts_failed > 0            -> degraded  (a sub-source broke; note says which)
+      rows == 0                   -> degraded  (reachable but delivered NOTHING)
+      otherwise                   -> ok
+
+    `extra` merges source-specific counters (events_seen, unmatched,
+    dropped_unmapped) into the record; `note` explains any non-ok state.
+    """
+    rows = int(rows or 0)
+    if parts_failed >= parts_total:
+        status = "down"
+    elif parts_failed > 0:
+        status = "degraded"
+    elif rows == 0:
+        status = "degraded"
+        note = note or ("0 rows from a reachable feed - listed events matched "
+                        "no schedule game or carried no price")
+    else:
+        status = "ok"
+    rec = {"status": status, "rows": rows}
+    rec.update(extra or {})
+    if note:
+        rec["note"] = note
+    return rec
+
+
 def name_map():
     """{lowercased identity string: abbrev} from the ESPN teams fixture.
 
@@ -164,12 +205,17 @@ def main():
                       file=sys.stderr)
                 continue
             futures["kalshi"].append({"team": ab, "prob": r["prob"], "ticker": r["ticker"]})
-        sources["kalshi"] = {"status": "ok",
-                             "rows": len(games_k) + len(futures["kalshi"]),
-                             "events_seen": len(events), "unmatched": unmatched}
+        # R30: status comes from source_record, which refuses to say "ok" for a
+        # feed that delivered zero rows (26 events seen, 0 rows shipped green).
+        sources["kalshi"] = source_record(
+            len(games_k) + len(futures["kalshi"]),
+            extra={"events_seen": len(events), "unmatched": unmatched})
+        if sources["kalshi"]["status"] != "ok":
+            print(f"[warn] kalshi reachable but delivered 0 rows "
+                  f"({len(events)} events seen) -> degraded", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001 — loud, isolated
         failures.append(f"kalshi: {exc}")
-        sources["kalshi"] = {"status": "down", "rows": 0}
+        sources["kalshi"] = source_record(0, parts_failed=1, note=str(exc))
         print(f"[warn] kalshi markets failed: {exc}", file=sys.stderr)
 
     # --- Polymarket (champion futures + any listed game markets).
@@ -216,21 +262,16 @@ def main():
         poly_notes.append(f"games: {exc}")
         print(f"[warn] polymarket game markets failed: {exc}", file=sys.stderr)
 
-    # Honest three-state roll-up: both halves up = ok, one up = degraded (and it
-    # says which half broke), neither = down and it counts as a source failure.
-    if poly_ok == 2:
-        sources["polymarket"] = {"status": "ok",
-                                 "rows": len(futures["polymarket"]) + n_games,
-                                 "dropped_unmapped": dropped}
-    elif poly_ok == 1:
-        sources["polymarket"] = {"status": "degraded",
-                                 "rows": len(futures["polymarket"]) + n_games,
-                                 "dropped_unmapped": dropped,
-                                 "note": "; ".join(poly_notes)}
-    else:
+    # Honest three-state roll-up via source_record: both halves up = ok (but
+    # never with 0 rows — R30), one up = degraded (and it says which half
+    # broke), neither = down and it counts as a source failure.
+    sources["polymarket"] = source_record(
+        len(futures["polymarket"]) + n_games,
+        parts_failed=2 - poly_ok, parts_total=2,
+        note="; ".join(poly_notes) if poly_notes else None,
+        extra={"dropped_unmapped": dropped})
+    if poly_ok == 0:
         failures.append(f"polymarket: {'; '.join(poly_notes)}")
-        sources["polymarket"] = {"status": "down", "rows": 0,
-                                 "note": "; ".join(poly_notes)}
 
     if len(failures) == 2:
         raise RuntimeError(f"both market sources failed: {failures}")
