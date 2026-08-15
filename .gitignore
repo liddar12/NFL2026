@@ -13,3 +13,8 @@ test-results/
 # would be committing noise that no gate reads. The harness scripts themselves
 # ARE committed - they are how a future RCA reproduces the measurement.
 tests/perf/results/
+
+# R31 verification artifacts: theme screenshots and the throwaway Playwright
+# drivers that produced them. Machine-specific pixels, regenerated on demand —
+# committing them would be committing noise no gate reads.
+.artifacts/
