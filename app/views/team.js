@@ -41,6 +41,7 @@ import {
   POSITION_CAPS,
   bestPickNow,
   withLeagueExtras,
+  extraPtsOf,
 } from '../team-logic.js';
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getAiInsights,
@@ -1301,10 +1302,20 @@ export default async function mountTeam(el) {
   const playersById = new Map(seatable.map((p) => [String(p.gsis_id), p]));
   const adjById = new Map();
   const scaledById = new Map();
+  //
+  // R30 — the 4th argument is NOT optional here. weeklyById was stamped with
+  // this league's extra scoring rules at mount (withLeagueExtras, ~line 1094);
+  // omitting extraPtsOf(e) stamped the map and then threw the stamp away, and
+  // this was the ONLY scoringAdjust call site in the app that did so. The
+  // result was a page that disagreed with itself: team-logic DOES pass the
+  // extras, so BEST FIT valued a pass_cmp league's Josh Allen at 524.1 while
+  // the finder card, his slot chip and the SEASON TOTAL printed 364.6 for the
+  // same player at the same moment — and the "best available" ordering was
+  // computed on a scale the page never showed.
   players.forEach((p) => {
     const id = String(p.gsis_id);
     const e = weeklyById.get(id);
-    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode);
+    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
     adjById.set(id, adj);
     if (e) scaledById.set(id, weeklyPoints(e, adj, p.proj_points));
   });
@@ -3289,6 +3300,18 @@ export default async function mountTeam(el) {
     );
   }
 
+  /* R30 — the starting slots a finished draft left empty, or '' when the lineup
+   * is complete. Worded as a warning rather than a stat because it invalidates
+   * the number printed directly above it: a total that silently counted two
+   * empty seats as 0.0 is not a score, it is an incomplete roster. */
+  function emptySlotsHtml(slots) {
+    if (!Array.isArray(slots) || !slots.length) return '';
+    const names = slots.map((s) => esc(String(s))).join(', ');
+    return `<div class="ds-sheet ds-sheet--warn">${slots.length === 1 ? 'SLOT' : 'SLOTS'} `
+      + `NEVER FILLED: ${names} — the total above counts ${slots.length === 1 ? 'it' : 'them'} `
+      + 'as 0.0, so this lineup cannot legally be started.</div>';
+  }
+
   function auctionResultHtml() {
     const r = auctionResult;
     const beat = r.margin >= 0;
@@ -3301,6 +3324,11 @@ export default async function mountTeam(el) {
         `${beat ? 'BEAT' : 'LOST TO'} THE ROOM BY ${fix1(Math.abs(r.margin))} PTS</div>` +
       `<div class="ds-sheet">You ${fix1(r.mine)} · room avg ${fix1(r.roomAvg)} · rank ${r.rank}/${r.teams} · ` +
         `spent ${dollar(r.spent)} · ${r.ptsPerDollar} pts/$ <span class="est">ESTIMATE</span></div>` +
+      // R30 — AN UNFILLED SLOT IS NOT A ZERO, IT IS A HOLE. The margin above
+      // adds 0 for every starting slot the auction did not fill, so a roster
+      // that cannot legally be started used to read as a comfortable win. Say
+      // it, above the roster, in the same place the score is claimed.
+      emptySlotsHtml(r.emptySlots) +
       `<div class="ds-roster">${my}</div>` +
       // An auction has no pick order, so it can never calibrate ADP drift. The
       // in-room price model (inflation + per-team tendencies) already ran LIVE

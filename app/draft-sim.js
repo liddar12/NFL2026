@@ -544,27 +544,46 @@ export function survivalProbabilities(candidateIdxs, board, rosters, shape,
  * contribute 0 — honest, never fabricated.
  */
 export function startersTotal(players, shape, adjOf) {
+  return fillStarters(players, shape, adjOf).total;
+}
+
+/**
+ * R30 — THE SAME FILL, PLUS THE SLOTS IT COULD NOT FILL.
+ *
+ * startersTotal() adds nothing for a slot with no eligible player and returns a
+ * bare number, so an incomplete roster is indistinguishable from a complete
+ * one. That is how a team holding no kicker and no defence came to be told it
+ * had "BEAT THE ROOM BY 235.3 PTS · rank 1/12": the two seats it never filled
+ * scored zero silently, and the sheet read like a win.
+ *
+ * A zero that means "nobody is in this slot" has to be reportable as such.
+ * This returns both halves; startersTotal keeps its signature and delegates,
+ * so every existing caller is untouched.
+ */
+export function fillStarters(players, shape, adjOf) {
   const geo = rosterGeometry(shape);
   const sorted = players.slice().sort((a, b) => adjOf(b) - adjOf(a));
   const used = new Set();
+  const empty = [];
   let total = 0;
-  const fill = (accepts) => {
+  const fill = (slot, accepts) => {
     for (const p of sorted) {
       if (used.has(p) || !accepts.includes(p.position)) continue;
       used.add(p); total += adjOf(p);
       return;
     }
+    empty.push(slot);
   };
   const flexSlots = new Set(geo.flexSlots.map((f) => f.slot));
   // Fixed slots first — a flex slot must never steal a player its fixed
   // neighbours still need.
   geo.starters.forEach((slot) => {
-    if (!flexSlots.has(slot)) fill(geo.eligibility[slot] || []);
+    if (!flexSlots.has(slot)) fill(slot, geo.eligibility[slot] || []);
   });
   geo.starters.forEach((slot) => {
-    if (flexSlots.has(slot)) fill(geo.eligibility[slot] || []);
+    if (flexSlots.has(slot)) fill(slot, geo.eligibility[slot] || []);
   });
-  return Math.round(total * 10) / 10;
+  return { total: Math.round(total * 10) / 10, empty };
 }
 
 /**

@@ -502,6 +502,33 @@ export function extraPtsOf(entry) {
   return Number.isFinite(v) ? v : 0;
 }
 
+/* R30 — THE SCORING MODE LIVES NEXT TO THE CONVERSION IT SELECTS.
+ *
+ * players.js and team.js each carried a byte-identical private loadScoring().
+ * That was harmless while they were the only two surfaces that converted, and
+ * it stopped being harmless the moment a third surface needed the mode:
+ * COMPARE did not read it at all, so with the toggle on STD it showed a full-
+ * PPR number under the label every other tab defines as "your scoring mode",
+ * and its winner chip could crown the player PLAYERS ranked second. Adding a
+ * third copy would have been the same bug with a longer fuse, so the reader
+ * moves here, beside scoringAdjust — the one function whose behaviour it
+ * picks. Unknown or unreadable values fall to ppr, which is what every copy
+ * already did: a blocked localStorage (Safari private mode) throws on READ,
+ * not just on write, and a scoring toggle is never worth failing a mount for.
+ */
+export const SCORING_KEY = 'nfl2026.scoring.v1';
+const SCORING_SET = new Set(['ppr', 'half', 'std']);
+
+/** The persisted scoring mode; unknown/unreadable falls to 'ppr'. */
+export function loadScoringMode() {
+  try {
+    const v = localStorage.getItem(SCORING_KEY);
+    return SCORING_SET.has(v) ? v : 'ppr';
+  } catch (err) {
+    return 'ppr'; // storage blocked (private mode) — session default
+  }
+}
+
 /**
  * The player's 18 weekly points rescaled to a scoring mode: each non-bye week
  * scales by season_adj/season_ppr (the season conversion redistributed

@@ -67,7 +67,10 @@ import {
   getGamePredictions,
 } from '../data.js';
 import { teamTint, renderTrendChip } from '../render.js';
-import { strengthOfSchedule, trendLabel, withLeagueExtras } from '../team-logic.js';
+import {
+  strengthOfSchedule, trendLabel, withLeagueExtras,
+  scoringAdjust, extraPtsOf, loadScoringMode,
+} from '../team-logic.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { isProjectedPosition } from '../lineup.js';
 import { rosPoints, nextBye } from '../ros.js';
@@ -139,6 +142,20 @@ export default async function mountCompare(el) {
    * and took the whole COMPARE view down. Caught by the REL17 availability
    * spec, whose .cmp-grid never appeared. */
   const weeklyById = withLeagueExtras(weeklyRaw, profile);
+  /* R30 — and COMPARE must actually READ what it just stamped.
+   *
+   * The line above shipped in R29 and was inert: nothing in this file ever
+   * looked at extra_pts, and nothing here converted season points at all. The
+   * PROJ PTS row printed p.proj_points raw, which app/draft-sim.js documents
+   * as a FULL-PPR season total. So with the scoring toggle on STD, PLAYERS put
+   * Jonathan Taylor above Christian McCaffrey and COMPARE crowned McCaffrey
+   * with a PROJ edge chip — the same two players, opposite answers, one tap
+   * apart. 3,914 pairs in the shipped pool flip order between PPR and STD.
+   *
+   * The mode gap is the serious half and needs no league import to trigger it.
+   * The extras gap only bites an imported league that scores pass_cmp. Both are
+   * closed by converting here, through the one shared scoringAdjust. */
+  const scoringMode = loadScoringMode();
 
   const picks = parsePicks();
   // Same player on both sides is not a comparison — it diffs to all-"even" and
@@ -164,7 +181,10 @@ export default async function mountCompare(el) {
       pos,
       team: p.team || '',
       projected,
-      proj: projected ? Number(p.proj_points) || 0 : null,
+      proj: projected
+        ? scoringAdjust(Number(p.proj_points) || 0,
+          w ? w.receptions_prior : 0, scoringMode, extraPtsOf(w))
+        : null,
       avail: availabilityOf(w, currentWk, currentWk),
       ros: (projected && w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
@@ -180,8 +200,8 @@ export default async function mountCompare(el) {
   const A = picks.a ? metricsFor(picks.a) : null;
   const B = picks.b ? metricsFor(picks.b) : null;
 
-  const colA = colHtml('a', A);
-  const colB = colHtml('b', B);
+  const colA = colHtml('a', A, scoringMode);
+  const colB = colHtml('b', B, scoringMode);
   // R24 — THE RAIL SHARES THE ROWS IT ANNOTATES. The centre column used to be
   // pushed down by a fixed `padding-top: 62px` and then run its own box model, so
   // every chip that was taller than the metric row beside it pushed the next one
@@ -236,8 +256,13 @@ export function midHtml(A, B) {
   );
 }
 
+/* R30 — `mode` names the table the PROJ PTS number is in. It is a parameter
+ * rather than a module read so this exported function stays pure for the tests
+ * that call it directly, and it defaults to the persisted mode so the live
+ * render cannot silently label a converted number with the wrong table. */
 /** One player column: identity + metric values, or an inline finder. */
-export function colHtml(side, m) {
+export function colHtml(side, m, mode) {
+  const modeLabel = String(mode || loadScoringMode()).toUpperCase();
   if (!m) {
     // R24 — A REAL ACCESSIBLE NAME PER SIDE. Both finders carried the SAME
     // placeholder and nothing else, so a screen reader announced "search edit"
@@ -278,7 +303,7 @@ export function colHtml(side, m) {
       + `<button type="button" class="cmp-swap" data-side="${side}" data-act="cmp-clear">`
         + '<span class="cmp-swap-pill">change</span></button></div>'
     + availRow(m.avail)
-    + row('PROJ PTS', m.projected ? fix1(m.proj) : noFeed)
+    + row(`PROJ PTS · ${esc(modeLabel)}`, m.projected ? fix1(m.proj) : noFeed)
     + row('RoS VALUE', m.projected ? (m.ros == null ? '—' : fix1(m.ros)) : noFeed)
     + row('TREND', m.trend ? renderTrendChip(m.trend) : '—')
     + row('SoS', m.sos == null ? '—' : `${fix1(m.sos)} <span class="cmp-hint">1 easy · 5 hard</span>`)
