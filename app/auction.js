@@ -58,6 +58,7 @@
 
 import {
   mulberry32, rosterShape, startersTotal, fillStarters, scoreVsRoom,
+  canonicalizeBoardPositions,
 } from './draft-sim.js';
 import { rosterGeometry, positionDemand, replacementIndex } from './team-logic.js';
 
@@ -161,7 +162,16 @@ export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13,
     weights.push(priced ? curve[i] : Math.exp(-MARKET_DECAY * i));
   }
   const wSum = weights.reduce((a, b) => a + b, 0);
-  const spread = total - poolN * MIN_BID;         // dollars above the $1 floors
+  /* R30b — MIN_BID IS THE LOWER BOUND OF EVERY PUBLISHED DOLLAR. At the $10
+   * minimum league budget the room's money (teams x $10) is LESS than $1 per
+   * draftable seat (teams x rosterSize), so the unfloored spread went negative
+   * and was distributed as negative allocation on top of the $1 floor — the
+   * highest-weighted player got the MOST negative price (measured: MARKET -$7).
+   * An under-funded room prices everyone at the floor instead: the floor is
+   * the honest bound, because no legal sale in this room can happen below $1.
+   * `shortfall` records that state for the conservation step below. */
+  const shortfall = total - poolN * MIN_BID < 0;
+  const spread = Math.max(0, total - poolN * MIN_BID); // dollars above the $1 floors
   const out = new Map();
   let allocated = 0;
   let topIdx = 0;
@@ -180,7 +190,17 @@ export function marketDollars(adpRows, leagueSize, budget, rosterSize = 13,
   // Rounding drift lands on the priciest player so the pool sums exactly. On
   // the decay curve that is always row 0 (weights are strictly decreasing), so
   // this is the same arithmetic it has always been.
-  if (poolN > 0) {
+  //
+  // R30b — CONSERVATION YIELDS TO THE FLOOR when the two conflict, and only
+  // then. In a shortfall room every pool row is already exactly MIN_BID, so
+  // `total - allocated` is negative by construction; applying it here is what
+  // used to turn the top player's $1 into negative dollars. The published pool
+  // then sums to poolN x $1 (MORE than the room's money) — that overstatement
+  // is deliberate and honest: $1 is the least any seat can legally cost, and
+  // sellTo/maxBid still stop any team spending money it does not have. In every
+  // adequately funded room (spread >= 0) the drift line runs unchanged and the
+  // pool sums EXACTLY to the room's money, byte-for-byte as before.
+  if (poolN > 0 && !shortfall) {
     const keyTop = String(rows[topIdx].gsis_id || `name:${rows[topIdx].name}`);
     out.set(keyTop, out.get(keyTop) + (total - allocated));
   }
@@ -245,7 +265,13 @@ export function fairDollars(pool, adjOf, leagueSize, budget, shape,
   // Same R27 note as marketDollars: OUR dollars are allocated over the money
   // actually in the room, so unequal team budgets price the board correctly.
   const money = Number.isFinite(totalMoney) ? totalMoney : leagueSize * budget;
-  const spread = money - poolN * MIN_BID;
+  // R30b — same floor as marketDollars: a room whose money cannot cover $1 per
+  // draftable seat used to distribute a NEGATIVE spread by VOR share, so the
+  // BEST player carried the most negative price ('OURS $-1' on the block).
+  // MIN_BID bounds every published dollar; an under-funded room prices the
+  // whole board at the floor. fairDollars has never force-summed its pool
+  // (rounding is per-row), so no conservation step needs a matching guard.
+  const spread = Math.max(0, money - poolN * MIN_BID);
   const out = new Map();
   for (const p of pool) {
     const v = vor.get(String(p.gsis_id)) || 0;
@@ -371,7 +397,9 @@ export function opponentBid(player, team, market, tendency, inflationRate, shape
 }
 
 /** Per-slot budget plan. 'stars' front-loads the top starters; 'balanced'
- * spreads evenly by slot value. Sums exactly to (budget - bench dollars). */
+ * spreads evenly by slot value. Sums exactly to (budget - bench dollars) —
+ * except in a budget too small to fund $1 per slot, where the $1 floor wins
+ * over exact summation (see the R30b note below). */
 export function planBudget(shape, budget, style) {
   const starters = shape.starters.length;
   const benchDollars = shape.bench.length * MIN_BID;
@@ -384,6 +412,14 @@ export function planBudget(shape, budget, style) {
   const plan = weights.map((w) => Math.max(MIN_BID, Math.round(pool * (w / wSum))));
   let drift = pool - plan.reduce((a, b) => a + b, 0);
   plan[0] += drift;
+  /* R30b — the drift lands on the top slot, and at the $10 minimum budget the
+   * per-slot $1 floors alone can exceed the pool, making the drift negative
+   * enough to push that slot below zero ('QB1 -$2 planned'). A planned price
+   * can never be below the minimum legal bid: the floor wins, and a plan that
+   * cannot fund $1 everywhere shows $1 everywhere rather than negative money.
+   * For every budget that CAN fund the floors this clamp never engages and the
+   * plan still sums exactly. */
+  plan[0] = Math.max(MIN_BID, plan[0]);
   return { slots: shape.starters.map((name, i) => ({ slot: name, planned: plan[i] })),
            benchDollars };
 }
@@ -435,6 +471,12 @@ export function createAuction({
   teamBudgets = null,
 } = {}) {
   const shape = rosterShape(rosterConfig);
+  // R30b — fold any DST-spelled rows to the engine's canonical DEF before the
+  // board exists. rosterShape() only ever emits DEF slots, so a DST-spelled row
+  // could be bought but never seated — fillStarters dropped its points and
+  // reported DEF1 empty (see draft-sim.js canonicalizeBoardPositions). A board
+  // with nothing to fold comes back as the same array, untouched.
+  boardRows = canonicalizeBoardPositions(boardRows);
   const budgets = normalizeTeamBudgets(teamBudgets, leagueSize, budget);
   const money = budgets.reduce((s, b) => s + b, 0);
   const adjOf = (r) => {
@@ -587,8 +629,23 @@ export function nominate(a, boardIdx) {
 }
 
 /** Live inflation right now: every remaining room dollar vs remaining fair
- * value ($1-floor players carry ~$1 of fair value, so no reserve adjustment). */
+ * value ($1-floor players carry ~$1 of fair value, so no reserve adjustment).
+ *
+ * R30b — A ROOM WITH NO SALES IS NEUTRAL, BY DEFINITION. Inflation is a claim
+ * about how this room's money is chasing value, and before a single dollar has
+ * moved there is no observation to base it on — the only honest prior is 1.00.
+ * The raw ratio disagreed at kickoff because the denominator sums fair value
+ * over the WHOLE board while the room's money only ever chases the draftable
+ * pool: every $1-floor row past the pool cut inflates the denominator, so a
+ * fresh 8-team room opened at -4% ("bargains ahead — money is scarce") and a
+ * 2-team room at -28%, before anything had happened. The denominator itself is
+ * left alone on purpose: the R30 verifier measured that re-seeding it from the
+ * top-of-board pool cut lands at +2% (unpriced pool rows hold no fair entry),
+ * i.e. it swaps a false "bargains ahead" for a false "selling rich" — and the
+ * ratio converges anyway as sales drain both sides. undoLastSale pops the log,
+ * so undoing the only sale honestly returns the room to neutral. */
 export function liveInflation(a) {
+  if (!a.log || a.log.length === 0) return 1;
   const remBudget = a.teams.reduce((s, t) => s + t.budget, 0);
   return inflation(remBudget, a.remainingFair);
 }
@@ -742,16 +799,34 @@ export function undoLastSale(a) {
 export function myGuidance(a, boardIdx, strategy = {}) {
   const row = a.board[boardIdx];
   const key = String(row.gsis_id || `name:${row.name}`);
-  const fair = a.fair.get(key) || MIN_BID;
-  const infl = liveInflation(a);
-  const adjusted = Math.round(fair * infl);
-  const tempo = strategy.tempo === 'aggressive' ? 1.08 : 1.0;
   const me = myTeam(a);
   const open = a.shape.size - me.players.length;
   const cap = maxBid(me.budget, open);
   const needIt = teamNeedsPos(me, row.position, a.shape);
-  const bidTo = needIt ? Math.min(cap, Math.round(adjusted * tempo)) : 0;
   const market = a.market.get(key) || MIN_BID;
+  /* R30b — NO PROJECTION, NO PRICE. `fair` is built only from rows that carry a
+   * gsis_id (createAuction), so a missing entry means this app holds NO opinion
+   * of the player's worth — and `|| MIN_BID` used to turn "we have no opinion"
+   * into "we say $1". That fabricated dollar flowed into `adjusted`, `bidTo`,
+   * `gap` and classifyNomination, where any real market price cleared the BAIT
+   * threshold: the block told the user 'MARKET OVERPRICES · LET THEM SPEND'
+   * about a top-30 ADP player the app simply cannot value, while
+   * nominationAdvice (below) correctly refuses to classify the same row. This
+   * is the same honest degraded state, on the block: fair/adjusted/gap are
+   * null (absent, not $0 and not $1), no classification, no advised bid, and
+   * `reason` says why in words the UI can print. `market`, `cap` and `needIt`
+   * remain — they are facts about the room and my roster, not about his worth. */
+  if (!a.fair.has(key)) {
+    return { fair: null, adjusted: null, bidTo: 0, cap, needIt, market,
+             threats: [], class: null, gap: null, unpriced: true,
+             reason: 'no projection — we cannot price this player',
+             marketSource: a.marketSource };
+  }
+  const fair = a.fair.get(key) || MIN_BID;
+  const infl = liveInflation(a);
+  const adjusted = Math.round(fair * infl);
+  const tempo = strategy.tempo === 'aggressive' ? 1.08 : 1.0;
+  const bidTo = needIt ? Math.min(cap, Math.round(adjusted * tempo)) : 0;
   const threats = [];
   for (let t = 0; t < a.leagueSize; t += 1) {
     if (t === a.mySlot - 1) continue;
@@ -765,7 +840,7 @@ export function myGuidance(a, boardIdx, strategy = {}) {
   }
   const cls = classifyNomination(fair, market);
   return { fair, adjusted, bidTo, cap, needIt, market, threats, class: cls,
-           gap: fair - market, marketSource: a.marketSource };
+           gap: fair - market, unpriced: false, marketSource: a.marketSource };
 }
 
 /** Nomination advice: my BAIT and TARGET lists among available players, plus a

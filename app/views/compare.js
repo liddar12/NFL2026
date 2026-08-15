@@ -73,7 +73,11 @@ import {
 } from '../team-logic.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
 import { isProjectedPosition } from '../lineup.js';
-import { rosPoints, nextBye } from '../ros.js';
+// R30b — the RoS conversion is players.js's OWN exported helper, not a copy:
+// the RoS VALUE row here and the RoS chip on PLAYERS must be one arithmetic,
+// or the two surfaces diverge again the first time one of them learns a rule.
+import { rosValue } from './players.js';
+import { nextBye } from '../ros.js';
 import { playoffSos } from '../playoffs.js';
 import { loadProfile } from '../league.js';
 
@@ -170,23 +174,16 @@ export default async function mountCompare(el) {
     const w = weeklyById.get(id);
     const traj = historyMap && historyMap[id] ? historyMap[id].trajectory : null;
     const pos = String(p.position || '').toUpperCase();
-    // R19-B5 — a K or a DEF has NO projection feed. `Number(x) || 0` would turn
-    // that absence into a confident 0.0 sitting next to a real WR's 14.2, which
-    // is the worst kind of wrong: a fabricated number that loses every edge chip
-    // it appears in. Null means "no number exists", and the column says so.
-    const projected = isProjectedPosition(pos);
+    const sm = seasonMetrics(p, w, scoringMode, currentWk);
     return {
       id,
       name: p.name || id,
       pos,
       team: p.team || '',
-      projected,
-      proj: projected
-        ? scoringAdjust(Number(p.proj_points) || 0,
-          w ? w.receptions_prior : 0, scoringMode, extraPtsOf(w))
-        : null,
+      projected: sm.projected,
+      proj: sm.proj,
       avail: availabilityOf(w, currentWk, currentWk),
-      ros: (projected && w && Array.isArray(w.weeks)) ? rosPoints(w.weeks, currentWk) : null,
+      ros: sm.ros,
       sos: (w && teamStrength) ? strengthOfSchedule(w, teamStrength) : null,
       // NULL when the player has no rated, non-bye game inside the window. Kept
       // null all the way to the markup — never coerced to a mid-scale 3.0.
@@ -236,6 +233,36 @@ export default async function mountCompare(el) {
 
   // Wire the two inline finders (delegated).
   wireFinders(el, players, picks);
+}
+
+/**
+ * R30b — the two season-scale numbers this view prints, exported PURE so the
+ * parity gate (tests/feature/r30b_parity.test.mjs) can prove the ACTUAL path
+ * COMPARE renders against PLAYERS/TEAM/LINEUP with no browser.
+ *
+ * PROJ: the shared scoringAdjust under the persisted mode plus the league's
+ * stamped extras — the R30a fix for the raw-PPR PROJ PTS row.
+ * RoS: players.js's own exported rosValue — the R30b fix; this row used to sum
+ * raw full-PPR weekly floats beside a mode-converted PROJ, so in STD a
+ * player's remaining games could out-point his whole season and the centre
+ * rail's RoS chip crowned winners on a scale the row never named.
+ *
+ * R19-B5 — a K or a DEF has NO projection feed. `Number(x) || 0` would turn
+ * that absence into a confident 0.0 sitting next to a real WR's 14.2, which is
+ * the worst kind of wrong: a fabricated number that loses every edge chip it
+ * appears in. Null means "no number exists", and the column says so.
+ */
+export function seasonMetrics(p, w, mode, currentWk) {
+  const projected = isProjectedPosition(String(p.position || '').toUpperCase());
+  const rosV = projected ? rosValue(p, w, mode, currentWk) : null;
+  return {
+    projected,
+    proj: projected
+      ? scoringAdjust(Number(p.proj_points) || 0,
+        w ? w.receptions_prior : 0, mode, extraPtsOf(w))
+      : null,
+    ros: rosV ? rosV.points : null,
+  };
 }
 
 /**

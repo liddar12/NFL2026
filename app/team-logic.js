@@ -490,6 +490,24 @@ export function withLeagueExtras(weeklyById, profile) {
   return out;
 }
 
+/**
+ * 'DST' and 'DEF' are the same position wearing two spellings (Sleeper says
+ * DEF, plenty of hosts say D/ST). One fold, used everywhere a spelling could
+ * arrive from outside.
+ *
+ * R30b — this DEFINITION lives here rather than in app/kdst.js, where it was
+ * born, for a boot-graph reason: draft-sim.js needs the fold at the engine
+ * boundary (a DST-spelled board row could be bought but never seated), and
+ * kdst.js is a LAZY-ONLY module — a static edge from draft-sim would have put
+ * its 30 kB on the critical path of every route, which is the exact R25-F3
+ * defect the perf budget test exists to block. team-logic is already in the
+ * boot graph. kdst.js re-exports it, so its existing importers see no change.
+ */
+export function canonKdstPosition(pos) {
+  const u = String(pos == null ? '' : pos).toUpperCase();
+  return u === 'DST' ? 'DEF' : u;
+}
+
 /** The league's points-per-completion, or 0 when it does not score them. */
 export function passCmpRate(profile) {
   const v = profile && profile.scoring ? Number(profile.scoring.pass_cmp) : NaN;

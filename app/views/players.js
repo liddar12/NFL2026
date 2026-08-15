@@ -158,6 +158,52 @@ function seasonAdjust(ppr, receptions, mode, extraPts) {
   return scoringAdjust(ppr, receptions, mode, extraPts);
 }
 
+/**
+ * R30b — THE season-points number for one player under one mode, exported PURE.
+ *
+ * This expression already existed in three places in this file (the card model,
+ * the WEEKS strip, the auction adjOf) and each was one edit away from drifting
+ * from the others. It is now written once and exported so the fast gate's
+ * cross-view parity test (tests/feature/r30b_parity.test.mjs) can prove the
+ * ACTUAL path this view renders, not a re-derivation of it.
+ *
+ * A player with no weekly entry keeps his full-PPR total — there is no
+ * receptions count to convert with, and pretending otherwise would fabricate a
+ * number (HONEST DATA: absent stays absent).
+ */
+export function projSeason(p, w, mode) {
+  const ppr = Number(p ? p.proj_points : NaN);
+  return w ? seasonAdjust(ppr, w.receptions_prior, mode, extraPtsOf(w)) : ppr;
+}
+
+/**
+ * R30b — REST-OF-SEASON IN THE SAME SCORING TABLE AS THE CARD.
+ *
+ * The RoS chip and the ROS sort used to sum raw full-PPR weekly floats while
+ * the PROJ number beside them was mode-adjusted, so in STD mode a receiver's
+ * remaining 17 games could read HIGHER than his whole 18-game season (Puka
+ * Nacua: "246.0" season, "RoS 375.0"). The remaining sum is rescaled by the
+ * same season ratio the card itself displays — season_adj / season_ppr, the
+ * exact proportional redistribution team-logic's weeklyPoints() defines — so
+ * RoS, PROJ and the weekly strip are one arithmetic and RoS can never exceed
+ * the season total again. League extras (a SEASON total) ride the same ratio,
+ * i.e. they are apportioned to the remaining weeks by their share of season
+ * points, matching the LINEUP tab's apportionment.
+ *
+ * Returns { points, gamesLeft } or null when the player has no weekly rows —
+ * null renders as an absent chip, never as 0.0.
+ */
+export function rosValue(p, w, mode, currentWk) {
+  if (!w || !Array.isArray(w.weeks)) return null;
+  const ppr = Number(p ? p.proj_points : NaN);
+  const adj = projSeason(p, w, mode);
+  const ratio = Number.isFinite(ppr) && ppr > 0 ? adj / ppr : 1;
+  return {
+    points: rosPoints(w.weeks, currentWk) * ratio,
+    gamesLeft: gamesLeft(w.weeks, currentWk),
+  };
+}
+
 /** Paint a plain .state message (empty / error). */
 function stateMsg(el, text) {
   el.innerHTML = `<div class="state">${text}</div>`;
@@ -652,7 +698,7 @@ export default async function mountPlayers(el) {
     const id = String(p.gsis_id);
     const w = weeklyPriced.get(id);
     const ppr = Number(p.proj_points);
-    const scoreAdj = w ? seasonAdjust(ppr, w.receptions_prior, scoring, extraPtsOf(w)) : ppr;
+    const scoreAdj = projSeason(p, w, scoring);
     const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
     const r = aiOn ? aiRatio(id) : 1;
     const proj = scoreAdj * r;
@@ -679,16 +725,17 @@ export default async function mountPlayers(el) {
     return v;
   }
 
-  // Rest-of-season value (remaining-week projection sum) — static per mount, so
-  // memoized like SoS. null when this player has no weekly data. Bye excluded.
+  // Rest-of-season value (remaining-week projection sum, rescaled to the active
+  // scoring mode by rosValue — R30b). null when this player has no weekly data.
+  // Bye excluded. Keyed by MODE as well as id, the way _ourCache already is:
+  // the scoring toggle changes the number, so a mode flip must never hand back
+  // the previous table's sum.
   const _rosCache = new Map();
   function rosOf(id) {
-    if (_rosCache.has(id)) return _rosCache.get(id);
-    const w = weeklyPriced.get(id);
-    const v = (w && Array.isArray(w.weeks))
-      ? { points: rosPoints(w.weeks, currentWk), gamesLeft: gamesLeft(w.weeks, currentWk) }
-      : null;
-    _rosCache.set(id, v);
+    const key = `${scoring}|${id}`;
+    if (_rosCache.has(key)) return _rosCache.get(key);
+    const v = rosValue(_projById.get(id), weeklyPriced.get(id), scoring, currentWk);
+    _rosCache.set(key, v);
     return v;
   }
 
@@ -740,9 +787,7 @@ export default async function mountPlayers(el) {
         const id = String(r.gsis_id);
         const p = _projById.get(id);
         if (!p) return 0;                  // on the board, not in our projections
-        const w = weeklyPriced.get(id);
-        const ppr = Number(p.proj_points);
-        return w ? seasonAdjust(ppr, w.receptions_prior, mode, extraPtsOf(w)) : ppr;
+        return projSeason(p, weeklyPriced.get(id), mode);
       };
       map = fairDollars(pool, adjOf, profile.shape.teams, OUR_BUDGET, _ourShape);
     }
@@ -979,7 +1024,7 @@ export default async function mountPlayers(el) {
         if (!p || !w) return; // no weekly row — leave the card collapsed
         // Match the card's displayed ratio (scoring × AI) so the strip agrees.
         const ppr = Number(p.proj_points);
-        const scoreAdj = seasonAdjust(ppr, w.receptions_prior, scoring, extraPtsOf(w));
+        const scoreAdj = projSeason(p, w, scoring);
         const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
         const ratio = scoreRatio * (aiOn ? aiRatio(card.dataset.gsis) : 1);
         btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, ratio));

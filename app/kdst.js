@@ -61,11 +61,16 @@ export const KDST_POSITIONS = Object.freeze(['K', 'DEF']);
  * 'DST' and 'DEF' are the same thing wearing two spellings (Sleeper uses DEF,
  * plenty of hosts say D/ST). Canonicalise to DEF everywhere so a roster slot
  * spelled either way is fed by the same rows.
+ *
+ * R30b — the DEFINITION moved to app/team-logic.js, re-exported here so this
+ * module's importers are untouched. draft-sim.js needs the fold at the engine
+ * boundary (a DST-spelled board row could be bought but never seated) and this
+ * file is LAZY-ONLY: a static draft-sim -> kdst edge put ~30 kB on every
+ * route's boot path and tripped the R25 perf budget. team-logic is already in
+ * the boot graph, so the fold rides free there.
  */
-export function canonKdstPosition(pos) {
-  const u = String(pos == null ? '' : pos).toUpperCase();
-  return u === 'DST' ? 'DEF' : u;
-}
+export { canonKdstPosition } from './team-logic.js';
+import { canonKdstPosition } from './team-logic.js';
 
 /** True when this position is one the K/DST contract can feed. */
 export function isKdstPosition(pos) {
@@ -169,11 +174,41 @@ const NAMESPACE_OWNER = Object.freeze([
   // exists to prevent. Left alone on purpose; do not "fix" it again.
 ]);
 
+/* R30b — SLEEPER'S TEAM-DEFENCE KEYS THAT CARRY NO PREFIX, by exact name.
+ *
+ * Not every team-defence key Sleeper scores lives in the def_ namespace. The
+ * unit's core line is the BARE family — `sack`, `int`, `fum_rec`, `ff`, … —
+ * and Sleeper disambiguates it from the two look-alikes by PREFIX, not by the
+ * bare key: the individual defender's line is `idp_*` (a real league's
+ * scoring_settings carries idp_ff/idp_sack/idp_int/idp_fum_rec ALONGSIDE
+ * ff/sack/int/fum_rec — two families, same suffixes) and the individual
+ * returner's is `st_*` (vs the unit's `def_st_*`, see the R28 note above). So
+ * a bare key from this family is the UNIT's stat — the same reading
+ * app/league.js SCORING_FIELDS already applies to the members it computes
+ * (sack, int, fum_rec: group 'defense'). Before R30b the members it does NOT
+ * compute — `ff` first among them — returned null here, so a league scoring
+ * forced fumbles at 1 point had that component dropped from every D/ST total
+ * WITHOUT appearing in the omitted list, and the import report described `ff`
+ * as an offence-only rule. That is the exact silent-drop this module exists
+ * to prevent.
+ *
+ * An EXACT-NAME set, not a regex, so `idp_ff` and `st_ff` can never match.
+ * `fum` is deliberately ABSENT: Sleeper's `fum` is the offensive
+ * ball-carrier's fumble (sibling of `fum_lost`/`fum_rec_td`, which
+ * SCORING_FIELDS files under the offensive 'misc' group), and attributing it
+ * to DEF would be the same false alarm the R28 note above refuses for st_*.
+ * Ambiguous keys stay unattributed — conservative by design. */
+const SLEEPER_TEAM_DEF_KEYS = Object.freeze(new Set([
+  'ff', 'tkl', 'tkl_solo', 'tkl_ast', 'tkl_loss', 'qb_hit',
+  'sack_yd', 'int_ret_yd', 'fum_ret_yd', 'blk_kick_ret_yd',
+]));
+
 export function scoringKeyOwner(key) {
   const k = String(key == null ? '' : key);
   if (!k) return null;
   const known = KNOWN_OWNER.get(k);
   if (known) return known;
+  if (SLEEPER_TEAM_DEF_KEYS.has(k)) return 'DEF';
   for (const [re, owner] of NAMESPACE_OWNER) if (re.test(k)) return owner;
   return null;
 }
@@ -520,6 +555,32 @@ export function __selftest() {
     || scoringKeyOwner('rec_td') !== 'OFF' || scoringKeyOwner('st_td') !== null) {
     throw new Error('key ownership');
   }
+
+  // R30b — the bare team-defence family is the UNIT's (Sleeper separates the
+  // individual defender as idp_* and the individual returner as st_*), so `ff`
+  // belongs to DEF while its prefixed look-alikes stay unattributed, and the
+  // ambiguous offensive `fum` is attributed to NOBODY.
+  if (scoringKeyOwner('ff') !== 'DEF' || scoringKeyOwner('tkl') !== 'DEF'
+    || scoringKeyOwner('qb_hit') !== 'DEF' || scoringKeyOwner('int_ret_yd') !== 'DEF') {
+    throw new Error('bare team-defence keys belong to the unit');
+  }
+  if (scoringKeyOwner('idp_ff') !== null || scoringKeyOwner('st_ff') !== null
+    || scoringKeyOwner('idp_tkl') !== null || scoringKeyOwner('fum') !== null) {
+    throw new Error('idp_*/st_*/ambiguous keys stay unattributed');
+  }
+  // A league paying for `ff` gets the D/ST total marked PARTIAL with `ff`
+  // NAMED in the omitted list (it used to vanish without a trace), the
+  // arithmetic untouched, and the kicker unmarked.
+  const ffLeague = shapeKdst(FIXTURE, {
+    scoring: { ...DEFAULT_PROFILE.scoring, ff: 1 },
+  });
+  const ffd = ffLeague.byId.get('DST-DEN');
+  if (ffd.partial !== true) throw new Error('a scored ff marks the D/ST total partial');
+  if (ffd.omitted.map((o) => o.key).join(',') !== 'ff') {
+    throw new Error('the omitted forced-fumble component is named');
+  }
+  if (ffd.seasonPoints !== 95) throw new Error('ff attribution changes no arithmetic');
+  if (ffLeague.byId.get('K-A').partial !== false) throw new Error('ff never marks a kicker');
 
   // A league whose scoring table pays for NOTHING a kicker does does not get a
   // 0.0 kicker: the position is not fed, and it is flagged as unscored rather

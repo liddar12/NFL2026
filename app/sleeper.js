@@ -65,6 +65,16 @@ import { TEAMS } from './teams.js';
 // kdst.js is busy applying it. Importing the function rather than restating
 // the rule is the point: two copies of this list is how the claim went stale.
 import { scoringKeyOwner } from './kdst.js';
+// R30b — the SAME predicate app/team-logic.js uses to price a league's
+// offensive extras (pass_cmp, applied to every QB/RB/WR/TE surface by
+// withLeagueExtras since R29). The R28 discriminator above only asked whether
+// kdst.js owns a key, so when R29 gave pass_cmp a live reader this report kept
+// telling the user it "adds nothing" while the Players tab showed a +200
+// LEAGUE RULES chip for the same rule. Same cure as R28: import the predicate
+// from the module that does the pricing, so probing it with a one-key scoring
+// table answers "would team-logic price this key?" and the message cannot
+// drift from the behaviour again.
+import { passCmpRate } from './team-logic.js';
 
 /* --------------------------------------------------------------------------
  * Endpoint + sync policy
@@ -104,6 +114,24 @@ export const IMPORT_TIERS = Object.freeze([
 /** GET url for one league. */
 export function leagueEndpoint(leagueId) {
   return `${SLEEPER_API_BASE}/league/${encodeURIComponent(String(leagueId))}`;
+}
+
+/**
+ * GET url for one DRAFT record (R30b).
+ *
+ * The league object carries `draft_id`, and the draft record is the only place
+ * two settings this import needs actually live:
+ *   - `settings.rounds` — the REAL round count. The league object's own
+ *     `settings.draft_rounds` is a copy Sleeper leaves stale (the owner's real
+ *     league reports 3 there while the draft record and the 13-slot roster
+ *     both say 13), so the league object must never be treated as
+ *     authoritative for rounds when the draft record is reachable.
+ *   - `settings.enforce_position_limits` — whether the position_limit_* caps
+ *     the league object lists are actually ENFORCED at the roster or are just
+ *     numbers a commissioner left in place with enforcement off.
+ */
+export function draftEndpoint(draftId) {
+  return `${SLEEPER_API_BASE}/draft/${encodeURIComponent(String(draftId))}`;
 }
 
 /* --------------------------------------------------------------------------
@@ -473,10 +501,36 @@ export function mapSettings(settings, context) {
       + 'Check it before drafting.', null));
   }
 
-  /* ---- draft rounds ---- */
-  const rounds = toFinite(s.draft_rounds);
-  if (rounds !== null) {
-    shape.draft_rounds = rounds;
+  /* ---- draft rounds ----
+   *
+   * R30b — the DRAFT RECORD is authoritative, the league object is a copy
+   * Sleeper leaves stale. Measured on the owner's real league
+   * (1393691504228184064): league.settings.draft_rounds = 3 while the draft
+   * record and the 13-slot roster both say 13. So when a draft record is in
+   * context (the fetch tier gets one; the paste tier cannot), its
+   * settings.rounds wins, and a disagreement with the league copy is reported
+   * rather than silently papered over — the user deserves to know their league
+   * object lies about this. */
+  const draftRec = isPlainObject(ctx.draft) ? ctx.draft : null;
+  const draftSettings = draftRec && isPlainObject(draftRec.settings) ? draftRec.settings : null;
+  const leagueRounds = toFinite(s.draft_rounds);
+  const recordRounds = draftSettings ? toFinite(draftSettings.rounds) : null;
+  if (recordRounds !== null) {
+    shape.draft_rounds = recordRounds;
+    if (leagueRounds !== null && leagueRounds !== recordRounds) {
+      notes.push(note('draft_rounds_stale_copy',
+        `The league object says ${leagueRounds} draft rounds but the draft record `
+        + `says ${recordRounds} — Sleeper leaves the league copy stale, so the draft `
+        + 'record\'s count is used.', { league: leagueRounds, draft: recordRounds }));
+    }
+  } else if (leagueRounds !== null) {
+    shape.draft_rounds = leagueRounds;
+    if (draftRec === null) {
+      notes.push(note('draft_rounds_unverified',
+        `Draft rounds (${leagueRounds}) were read from the league object, which Sleeper `
+        + 'can leave stale. The fetched import verifies this against the draft record; '
+        + 'a pasted league object cannot.', leagueRounds));
+    }
   } else {
     notes.push(note('draft_rounds_missing',
       'No "draft_rounds" in the league settings; it will track the roster size.', null));
@@ -560,6 +614,36 @@ export function mapSettings(settings, context) {
       DEFAULT_PROFILE.shape.position_caps));
   }
 
+  /* ---- cap ENFORCEMENT (R30b) ----
+   *
+   * position_limit_* numbers say what the caps ARE; enforce_position_limits
+   * says whether Sleeper actually REFUSES a roster that breaks them. The two
+   * are different settings, and this import used to stamp the caps as enforced
+   * without ever reading the second one. The flag lives on the draft record
+   * (the owner's real draft carries enforce_position_limits: 1); a league
+   * object may carry a copy, read as a fallback and consumed either way so it
+   * cannot land in the "unmapped" pile. Three honest states:
+   *   true  — flag read and on: caps are hard limits.
+   *   false — flag read and off: the numbers are advisory; say so.
+   *   null  — no draft record to read (the paste tier): unknown, reported.
+   */
+  consumed.add('enforce_position_limits');
+  const enforceRaw = draftSettings && draftSettings.enforce_position_limits != null
+    ? toFinite(draftSettings.enforce_position_limits)
+    : toFinite(s.enforce_position_limits);
+  const capsEnforced = enforceRaw === null ? null : enforceRaw !== 0;
+  if (capKeysSeen > 0 && capsEnforced === false) {
+    notes.push(note('position_limits_not_enforced',
+      'This league lists position limits but enforce_position_limits is OFF, so '
+      + 'Sleeper will not stop a roster that breaks them — the app treats them as '
+      + 'advisory, not hard caps.', enforceRaw));
+  } else if (capKeysSeen > 0 && capsEnforced === null) {
+    notes.push(note('position_limits_enforcement_unverified',
+      'Position limits were imported, but whether Sleeper enforces them lives on '
+      + 'the draft record, which a pasted league object does not include. They are '
+      + 'treated as enforced; the fetched import verifies the flag.', null));
+  }
+
   /* ---- everything else ---- */
   Object.keys(s).forEach((key) => {
     if (consumed.has(key)) return;
@@ -570,6 +654,7 @@ export function mapSettings(settings, context) {
   return {
     shape,
     position_caps: positionCaps,
+    caps_enforced: capsEnforced,
     caps_unmapped: capsUnmapped,
     reserve_slots: reserve === null ? null : reserve,
     taxi_slots: taxi === null ? null : taxi,
@@ -620,7 +705,13 @@ export function sleeperToProfile(payload, opts) {
 
   const scoring = mapScoring(payload.scoring_settings);
   const roster = mapRosterPositions(payload.roster_positions);
-  const settings = mapSettings(payload.settings, { total_rosters: payload.total_rosters });
+  const settings = mapSettings(payload.settings, {
+    total_rosters: payload.total_rosters,
+    // R30b — the draft record, when the caller could reach one. The paste tier
+    // never has it (the user pasted the league object alone), which is exactly
+    // why every fallback below must say which source it used.
+    draft: isPlainObject(options.draft) ? options.draft : null,
+  });
   const notes = [...settings.notes];
 
   if (!roster.usable) {
@@ -682,12 +773,17 @@ export function sleeperToProfile(payload, opts) {
       ...settings.shape,
       roster_positions: roster.roster_positions,
       position_caps: settings.position_caps,
-      // R26 — these caps came from the league's real position_limit_* settings,
-      // which Sleeper ENFORCES at the roster. Marking them lets team-logic
-      // honour them exactly instead of adding the +1 bye/injury allowance it
-      // gives a hand-typed cap; without the mark the app could recommend a
-      // third QB this league will not let you roster.
-      position_caps_source: 'sleeper',
+      // R26 — 'sleeper' tells team-logic these caps are HARD limits Sleeper
+      // refuses to break, so it honours them exactly instead of adding the +1
+      // bye/injury allowance a hand-typed cap gets.
+      // R30b — but that is only true when enforce_position_limits is actually
+      // on, which this import used to assume without reading. Flag off means
+      // the numbers are advisory and get the hand-typed treatment; flag
+      // unreadable (the paste tier has no draft record) keeps the enforced
+      // stamp with a report note saying the fetched import is what verifies it
+      // — the failure mode of wrongly-advisory is recommending a third QB the
+      // league then refuses, which is worse than wrongly-strict.
+      position_caps_source: settings.caps_enforced === false ? 'sleeper-advisory' : 'sleeper',
     },
   };
 
@@ -967,6 +1063,21 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
   });
 }
 
+/** Best-effort fetch of the league's DRAFT record (R30b). Never fails the
+ * import: the draft record upgrades two settings (the real round count, the
+ * cap-enforcement flag) and its absence just means the league-object fallbacks
+ * apply, with the report saying so. */
+export async function fetchSleeperDraft(draftId, opts) {
+  if (draftId == null || String(draftId).trim() === '') return null;
+  const got = await sleeperGetJson(draftEndpoint(draftId), isPlainObject(opts) ? opts : {}, {
+    noFetch: 'no fetch available',
+    missing: 'Sleeper has no such draft.',
+    missingDetail: String(draftId),
+    hint: 'draft record unavailable',
+  });
+  return got.ok && isPlainObject(got.payload) ? got.payload : null;
+}
+
 /** TIER 1: fetch + map, as one call. Returns an ImportResult. */
 export async function importFromSleeper(idOrUrl, opts) {
   const options = isPlainObject(opts) ? opts : {};
@@ -981,7 +1092,13 @@ export async function importFromSleeper(idOrUrl, opts) {
       next_tier: IMPORT_TIERS[1],
     };
   }
-  const mappedResult = sleeperToProfile(fetched.payload, { ...options, source: 'api' });
+  // R30b — the draft record rides along when reachable. It is the ONLY source
+  // of the real round count (the league object's draft_rounds is a stale copy:
+  // the owner's real league says 3 there against a 13-round draft) and of
+  // whether position limits are actually enforced. Best-effort by design: a
+  // draft-record failure must never fail a league import that already worked.
+  const draft = await fetchSleeperDraft(fetched.payload && fetched.payload.draft_id, options);
+  const mappedResult = sleeperToProfile(fetched.payload, { ...options, source: 'api', draft });
   return {
     ok: mappedResult.ok,
     tier: 'api',

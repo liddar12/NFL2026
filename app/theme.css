@@ -101,6 +101,22 @@ button { font: inherit; color: inherit; }
 /* Do not show a ring on the programmatic route-focus target */
 .view:focus { outline: none; }
 
+/* R30b — screen-reader-only content (the #announce live region). The standard
+   clip pattern: visually removed but still rendered, so aria-live mutations
+   are announced. display:none/visibility:hidden would silence it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Respect reduced-motion: kill transitions/animations for sensitive users */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -1618,10 +1634,15 @@ button { font: inherit; color: inherit; }
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* R30b — the non-best bars are width-encoded DATA, so their fill is held to the
+   3:1 graphics bar (WCAG 1.4.11) like every other bar in the app. --surface-2
+   measured 1.14:1 on the card: nine of the ten trials were invisible. --muted
+   (9.05:1) keeps them clearly subordinate to the --brand leader while making
+   the ranking the lengths encode actually readable. */
 .bt-bar {
   height: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--muted);
+  border: 1px solid var(--muted);
   border-radius: 4px;
   justify-self: start;
   min-width: 12px;
@@ -1758,7 +1779,12 @@ button { font: inherit; color: inherit; }
   min-width: 2px;
   max-width: 100%;
 }
-.cal-bar--exp { background: var(--surface-3, var(--border)); }
+/* R30b — the EXPECTED bar is the reference the CALIBRATION card exists to
+   compare against; its old fill (an undefined --surface-3 falling back to
+   --border) measured 1.36:1 on the card, i.e. invisible. --muted clears the
+   3:1 graphics bar (9.05:1) and matches .cal-key--exp, so the legend's ink IS
+   the bar's fill. --brand stays on ACTUAL: two clearly distinct series. */
+.cal-bar--exp { background: var(--muted); }
 .cal-bar--act { background: var(--brand); }
 .cal-val { text-align: right; color: var(--ink); }
 .cal-n { color: var(--muted); font-size: 9px; }
@@ -2082,7 +2108,13 @@ button { font: inherit; color: inherit; }
 .auc-infl--cold { color: var(--brand-txt); }
 .auc-team {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  /* R30b — equal fr tracks squeezed each cell to ~50-70px inside the 13"
+     three-zone layout, so "max $200" and the needs column wrapped on every
+     row of the ledger. The first four columns are short bounded strings
+     ("$200", "max $200", "QB RB"): size them to content and give the one
+     phrase-length column (overpays …) the remainder, where wrapping is the
+     designed behavior rather than data loss. */
+  grid-template-columns: 38px max-content max-content max-content minmax(0, 1fr);
   gap: 6px;
   align-items: baseline;
   font-family: var(--mono);
@@ -3464,10 +3496,14 @@ body.gate-locked { overflow: hidden; }
 .ds-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .ds-num[type='number'] { -moz-appearance: textfield; }
 
+/* R30b — these three panels shipped with `var(--line)`, a token that exists
+   nowhere in the LOCKED set, so the declaration was invalid-at-computed-value
+   time and the borders (and the focus substitutes that recolor them) never
+   painted. --border is the app-wide hairline idiom and is what was meant. */
 .tb-panel {
   margin: 8px 0 0;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
 }
@@ -3484,7 +3520,7 @@ body.gate-locked { overflow: hidden; }
   flex-direction: column;
   gap: 2px;
   padding: 4px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
 }
@@ -3517,7 +3553,7 @@ body.gate-locked { overflow: hidden; }
   min-height: 28px;
   padding: 0;
   font-weight: 800;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 .auc-soldprice:focus { border-bottom-color: var(--brand-txt); }
 /* The RECO panel's budget note. --muted keeps it subordinate to the ranking

@@ -231,16 +231,11 @@ test('a view that stamps the league extras also READS them', () => {
    * A call whose return value is discarded is not wiring. Stamp and read have
    * to be asserted together, or "calls the function" is a ritual.
    */
-  /* app/views/lineup.js is KNOWINGLY ABSENT from this list, and saying why is
-   * the point of the exemption. It has the same inert call — R30 confirmed it —
-   * but it renders WEEKLY points off wkEntry.pts, while extra_pts is a SEASON
-   * total. Reading it there is not a one-line change: it needs a decision about
-   * how a season-long rule is apportioned across 18 weeks and byes, which is a
-   * scoring change, not a bug fix. Doing that inside a blocker release is how a
-   * fix becomes a regression. Tracked as R30b in docs/qa/R30_RCA_FINDINGS.md;
-   * add lineup.js back to this array in the change that lands it. */
+  /* app/views/lineup.js rejoined this list in R30b, which landed the deferred
+   * apportionment: extras redistribute proportionally to each week's share of
+   * season points, byes 0 (leagueWeeks -> team-logic weeklyPoints). */
   const CONVERTERS = ['app/views/players.js', 'app/views/team.js',
-    'app/views/compare.js'];
+    'app/views/lineup.js', 'app/views/compare.js'];
   for (const f of CONVERTERS) {
     const src = prose(f);
     assert.ok(/extraPtsOf\s*\(|extra_pts/.test(src),
@@ -260,9 +255,11 @@ test('every surface that prints season points converts them by MODE', () => {
    *
    * The mode reader is now one exported function (team-logic loadScoringMode).
    * Requiring the surfaces to go through it is what stops a fourth private
-   * copy drifting again — three already existed. */
+   * copy drifting again — three already existed. lineup.js joined in R30b:
+   * its weekly rows are the season conversion redistributed, so it prints the
+   * persisted table too and must read the same key. */
   const CONVERTERS = ['app/views/players.js', 'app/views/team.js',
-    'app/views/compare.js'];
+    'app/views/lineup.js', 'app/views/compare.js'];
   for (const f of CONVERTERS) {
     const src = prose(f);
     assert.ok(/loadScoringMode\s*\(|SCORING_KEY/.test(src),

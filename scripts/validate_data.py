@@ -5,12 +5,17 @@ Stdlib only (Python 3.11). No jsonschema, no pip. We implement just enough of
 JSON Schema draft-07 to actually check the contracts in data/contracts/:
 
     type, required, properties, additionalProperties (bool OR subschema),
-    items (array element schema), enum, minimum, maximum, minItems, maxItems.
+    items (array element schema), enum, minimum, maximum, exclusiveMinimum,
+    exclusiveMaximum, minItems, maxItems, minProperties, maxProperties,
+    minLength, pattern.
 
-That subset is exactly what the six contracts use; anything richer is out of
+That subset is exactly what the contracts use; anything richer is out of
 scope on purpose (a validator you can read top-to-bottom is worth more here than
 a general one you can't audit). The keywords $schema/$id/title/description are
-metadata and ignored.
+metadata and ignored. `$ref` is NOT supported and is a HARD ERROR, never a
+silent skip: R30 found market_prices.schema.json validating nothing below its
+top level because six $refs fell through this validator as no-ops. A contract
+must inline its definitions (see player_backtest.schema.json's note).
 
 Beyond per-file schema validation we assert three CROSS-FILE invariants that no
 single schema can express:
@@ -93,6 +98,11 @@ SCHEMA_TO_DATA = {
     "game_context.schema.json": "game_context.json",
     "scheme_history.schema.json": "scheme_history.json",
     "dvp_positional_history.schema.json": "dvp_positional_history.json",
+    # R30: was the ONE contract missing from this map, so the crons never checked
+    # it (only tests/feature/preseason.test.mjs did). The builder is standalone
+    # and unwired (see its docstring), but the committed artifact still gets the
+    # same gate as every other data/ file.
+    "preseason_form.schema.json": "preseason_form.json",
 }
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
@@ -109,6 +119,9 @@ OPTIONAL_DATA = frozenset([
     # set together — game_context.json shipped here alone while its two
     # siblings were treated as required, which reds a fresh clone.
     "scheme_history.json", "dvp_positional_history.json",
+    # Written only by the standalone, unwired scripts/build_preseason.py —
+    # validated strictly when present, but its absence cannot red a clone.
+    "preseason_form.json",
 ])
 
 # The signal registry, mirrored name-for-name from scripts/signals/registry.py.
@@ -184,6 +197,18 @@ def _validate(value, schema, path, errors):
     Returns nothing; appends to `errors`. We keep going after a failure so one
     run reports as many problems as possible instead of one-at-a-time.
     """
+    # $ref: NOT resolved here, and never silently skipped. A schema node holding
+    # only a $ref has no type/required/properties, so before R30 it validated
+    # NOTHING — six of them left market_prices.schema.json a no-op below the top
+    # level. Failing loudly turns the next $ref into a red gate instead of a hole.
+    if "$ref" in schema:
+        errors.append(
+            "%s: schema uses $ref %r — this validator does not resolve $ref "
+            "(it would be an unvalidated hole); inline the definition instead, "
+            "as player_backtest/ros_backtest/player_usage_weekly already do"
+            % (path, schema["$ref"]))
+        return
+
     # type (gate the rest on it: e.g. don't check `properties` on a non-object)
     if not _check_type(value, schema, path, errors):
         return
@@ -198,9 +223,31 @@ def _validate(value, schema, path, errors):
             errors.append("%s: %r < minimum %r" % (path, value, schema["minimum"]))
         if "maximum" in schema and value > schema["maximum"]:
             errors.append("%s: %r > maximum %r" % (path, value, schema["maximum"]))
+        # draft-07 numeric form: the bound itself is excluded.
+        if "exclusiveMinimum" in schema and value <= schema["exclusiveMinimum"]:
+            errors.append("%s: %r <= exclusiveMinimum %r"
+                          % (path, value, schema["exclusiveMinimum"]))
+        if "exclusiveMaximum" in schema and value >= schema["exclusiveMaximum"]:
+            errors.append("%s: %r >= exclusiveMaximum %r"
+                          % (path, value, schema["exclusiveMaximum"]))
+
+    # string: minLength, pattern (re.search — draft-07 patterns are unanchored)
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            errors.append("%s: string length %d < minLength %d"
+                          % (path, len(value), schema["minLength"]))
+        if "pattern" in schema and re.search(schema["pattern"], value) is None:
+            errors.append("%s: %r does not match pattern %r"
+                          % (path, value, schema["pattern"]))
 
     # object: required, properties, additionalProperties
     if isinstance(value, dict):
+        if "minProperties" in schema and len(value) < schema["minProperties"]:
+            errors.append("%s: object has %d properties, minProperties %d"
+                          % (path, len(value), schema["minProperties"]))
+        if "maxProperties" in schema and len(value) > schema["maxProperties"]:
+            errors.append("%s: object has %d properties, maxProperties %d"
+                          % (path, len(value), schema["maxProperties"]))
         for req in schema.get("required", []):
             if req not in value:
                 errors.append("%s: missing required property '%s'" % (path, req))
@@ -1289,10 +1336,92 @@ def _selftest():
          "model_prob": 0.594, "implied_prob": 0.45},
     ]), _preds)
 
+    # --- R30b: the six formerly-decorative schema keywords now BITE ----------
+    # Each of these appeared in committed contracts (minProperties in 11 of
+    # them, market_baseline's pattern/exclusive bounds, preseason_form's
+    # minLength) while _validate silently ignored it. A keyword that has never
+    # failed is not a constraint, so every one gets a negative case here.
+    def _schema_red(value, schema, why):
+        try:
+            validate_against_schema(value, schema, "selftest")
+        except ValidationError:
+            return
+        raise AssertionError("validate_against_schema did NOT catch: " + why)
+
+    _schema_red({"a": 1}, {"type": "object", "minProperties": 30},
+                "an object below minProperties (the partial-ESPN-pull hole: a "
+                "2-team team_strength.json shipping as valid)")
+    _schema_red({"a": 1, "b": 2, "c": 3}, {"type": "object", "maxProperties": 2},
+                "an object above maxProperties")
+    _schema_red("advisory", {"type": "string", "pattern": "MEASUREMENT ONLY"},
+                "a policy string that dropped its mandatory phrase")
+    _schema_red(0.0, {"type": "number", "exclusiveMinimum": 0},
+                "a probability of exactly 0 against exclusiveMinimum 0")
+    _schema_red(1.0, {"type": "number", "exclusiveMaximum": 1},
+                "a probability of exactly 1 against exclusiveMaximum 1")
+    _schema_red("too short", {"type": "string", "minLength": 40},
+                "a caveat shorter than minLength")
+    # And the happy path: a document sitting exactly ON every bound passes.
+    validate_against_schema(
+        {"policy": "MEASUREMENT ONLY - display", "probs": {"a": 0.5, "b": 0.5}},
+        {"type": "object", "minProperties": 2, "maxProperties": 2,
+         "properties": {
+             "policy": {"type": "string", "pattern": "MEASUREMENT ONLY",
+                        "minLength": 5},
+             "probs": {"type": "object", "minProperties": 2,
+                       "additionalProperties": {
+                           "type": "number",
+                           "exclusiveMinimum": 0, "exclusiveMaximum": 1}}}},
+        "selftest")
+
+    # --- R30b: $ref is a HARD ERROR, never a silent no-op ---------------------
+    # The exact hole that shipped: a subschema holding only a $ref used to fall
+    # through every keyword branch and validate nothing.
+    _schema_red({"sources": {"kalshi": {"status": "nonsense", "rows": -5}}},
+                {"type": "object",
+                 "properties": {"sources": {"type": "object",
+                                            "additionalProperties": {
+                                                "$ref": "#/definitions/source"}}},
+                 "definitions": {"source": {"type": "object"}}},
+                "a $ref subschema (must red loudly, not skip silently)")
+
+    # --- R30b: market_prices.schema.json really validates BELOW the top level -
+    # Before the inlining, corrupting anything under sources/games/futures
+    # passed. Prove the coverage on the REAL contract with the REAL committed
+    # document: corrupt a nested value in a deep copy and the gate must go red.
+    import copy
+    _mp_schema = _load(os.path.join(CONTRACTS, "market_prices.schema.json"))
+    _mp_doc = _load(os.path.join(DATA, "market_prices.json"))
+    validate_against_schema(_mp_doc, _mp_schema, "market_prices.json")  # baseline
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["sources"]["kalshi"]["bogus_key"] = 123
+    _schema_red(_bad, _mp_schema,
+                "an undeclared key inside sources.kalshi (the injected-garbage "
+                "repro from the R30 finding)")
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["futures"]["polymarket"].append({"team": "KC", "prob": 7.5})
+    _schema_red(_bad, _mp_schema,
+                "a 750% future probability nested under futures.polymarket")
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["sources"]["polymarket"]["status"] = "fine"
+    _schema_red(_bad, _mp_schema,
+                "an off-enum source status below the top level")
+    # And what build_markets actually emits on a half-broken source — degraded
+    # plus a note — is now DECLARED, so enforcing the contract cannot re-run the
+    # R29 failure (the daily cron dying on a shape the builder writes by design).
+    _ok_degraded = copy.deepcopy(_mp_doc)
+    _ok_degraded["sources"]["polymarket"] = {
+        "status": "degraded", "rows": 15, "dropped_unmapped": 0,
+        "note": "futures: champion event renamed"}
+    validate_against_schema(_ok_degraded, _mp_schema, "market_prices.json")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags and a dishonest "
           "model summary; parlay legs reject a market price in model_prob, a "
-          "mislabelled side, a total leg and a model/market collision")
+          "mislabelled side, a total leg and a model/market collision; the six "
+          "R30b keywords (minProperties/maxProperties/pattern/exclusiveMinimum/"
+          "exclusiveMaximum/minLength) each fail a violating document; $ref is "
+          "a hard error; market_prices is validated below the top level")
 
 
 # ---------------------------------------------------------------------------
