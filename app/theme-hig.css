@@ -589,8 +589,12 @@
    state as well as color does, which also means selection is not signalled by
    color alone (WCAG 1.4.1) — a plate spanning a sixth of a 1366px bar would
    have been a much louder object than the thing it marks. */
+/* R30c moved the bottom nav from tab roles to nav-link semantics, so the state
+ * attribute is aria-current="page" now — aria-selected no longer appears on a
+ * .tab anywhere. The scopeseg/wk-chip selectors elsewhere in this file keep
+ * aria-selected: their views still emit it. */
 [data-theme="hig"] .tab--active,
-[data-theme="hig"] .tab[aria-selected="true"] {
+[data-theme="hig"] .tab[aria-current="page"] {
   color: var(--brand-txt);
   background: transparent;
   border-top-color: transparent;
@@ -983,8 +987,9 @@
    ========================================================================== */
 
 [data-theme="hig"] .slot { min-height: 52px; padding: 8px 14px; }
-[data-theme="hig"] .slot--active,
-[data-theme="hig"] .slot[aria-selected="true"] {
+/* R30c retired the roster's listbox semantics (aria-selected with it);
+ * .slot--active alone carries the state now. */
+[data-theme="hig"] .slot--active {
   border-color: var(--brand);
   background: var(--hig-tint-soft);
 }

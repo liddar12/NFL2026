@@ -54,6 +54,14 @@
  *   every opponent starts at the market prior (tendency 1.0 per position) and
  *   updates with an exponentially-weighted overpay ratio after each observed
  *   sale — the room model adapts to how THIS room actually bids.
+ *
+ * ROOM MEMORY (cross-draft, auction-memory S2): when the caller hands
+ *   createAuction the stored DRAFT HISTORY (app/mocks.js records), opponents
+ *   open at a per-position prior seeded from the observed sale prices of past
+ *   LIVE auctions at the same league size, shrunk toward 1.0 by sample size
+ *   (seedTendencies below). LIVE evidence only — a SIM room's sales are this
+ *   module's own opponentBid sampler talking to itself, and fitting a prior to
+ *   them would measure our own RNG and report it back as your league.
  */
 
 import {
@@ -73,6 +81,24 @@ export const MARKET_DECAY = 0.028;
 /** Tendency EW update rate: how fast the room model believes observed sales. */
 export const TENDENCY_ALPHA = 0.30;
 const TENDENCY_CLAMP = Object.freeze([0.6, 1.6]);
+
+/** Prior strength for seeding tendencies from stored LIVE auction history:
+ * the seed is posterior = (n·observed + K·1.0) / (n + K), i.e. the market
+ * prior counts as K virtual sales at ratio 1.0.
+ *
+ * WHY 16: chosen against the volumes one real draft produces, so that
+ *   - a stray pair of sales barely moves the prior: n=2 of ratio 1.5 seeds
+ *     1.056, not 1.5 — two observations of one league are not a tendency, and
+ *     a confident wrong prior is worse than no prior;
+ *   - one full LIVE 12-team draft earns real weight where it has real volume:
+ *     RB/WR see ~45-60 opponent sales each, so their observed ratio carries
+ *     ~75% of the seed after a single recorded draft;
+ *   - thin positions stay majority-prior until a second draft corroborates:
+ *     QB/TE see ~12-15 sales per draft, under the K=16 virtual sales.
+ * The seed is only a STARTING point: in-room tendencyUpdate (alpha 0.30)
+ * halves its influence roughly every two observed sales at that position, so
+ * a seeded room that bids differently today re-teaches itself within rounds. */
+export const TENDENCY_PRIOR_K = 16;
 
 /** Max legal bid: must keep $1 for every other open slot. A team with NO open
  * slot has no legal bid at all — $0, not "the whole budget". (Before R23-E2
@@ -307,6 +333,127 @@ export function tendencyUpdate(current, paid, market) {
   return Math.min(TENDENCY_CLAMP[1], Math.max(TENDENCY_CLAMP[0], next));
 }
 
+/**
+ * ROOM MEMORY (auction-memory S2): per-position tendency priors seeded from
+ * stored DRAFT HISTORY (app/mocks.js records), shrunk toward 1.0 by sample
+ * size. Pure and deterministic — same records, same seeds; no Date, no rng.
+ *
+ * WHAT COUNTS AS EVIDENCE, exactly:
+ *   - kind 'auction', play 'live', with a non-empty observed sale log. SIM
+ *     rooms are excluded wholesale: their sales are this module's own
+ *     opponentBid sampler, and a prior fitted to them measures our RNG, not
+ *     your league (same circularity rule app/mocks.js roomCalibration
+ *     enforces for snake drafts).
+ *   - the same league size as the room being seeded. The overpay ratio is
+ *     dimensionless (price and fair both scale with the room's money), so
+ *     budget and roster differences do NOT disqualify a record — but a
+ *     10-team room and a 14-team room are different scarcity regimes, and
+ *     their prices are evidence about themselves.
+ *   - opponent sales only. My own buys stay in the record (it is a
+ *     transcript) but never in the evidence — measuring my own opinion back
+ *     is not evidence, the same reason sellTo skips my tendency updates.
+ *   - sales with a real price and a real fair value (>= MIN_BID each): a
+ *     fair-less row is a player this app could not price, so its ratio would
+ *     be a fabrication.
+ *
+ * THE RATIO IS price / OUR-fair-at-sale — observed dollars a real room paid
+ * over this app's own opinion of worth. ESPN market values are display /
+ * opponent-model-only (standing owner rule) and are not even PRESENT in the
+ * stored shape (mocks.js strips them), so the seed is structurally incapable
+ * of depending on them. Each ratio is clamped to TENDENCY_CLAMP before
+ * averaging, the same bound the live update enforces, so one $40 sale on a $3
+ * fair cannot own the whole seed.
+ *
+ * SHRINKAGE: seeded = (n·mean_ratio + K·1.0) / (n + K), K = TENDENCY_PRIOR_K
+ * (see its comment for why 16). n=0 positions are simply absent — absent IS
+ * the market prior (opponentBid treats a missing tendency as 1.0), and an
+ * absent key is honest about "no evidence" in a way a stored 1.0 is not.
+ *
+ * SEEDING IS ROOM-WIDE PER POSITION, not per buyer slot — every opponent
+ * opens at the same seeded prior. The stored log does carry the buyer slot,
+ * so a per-manager seed ("T3 overpays RBs") is possible evidence-wise, but
+ * slot identity across drafts is an assumption this app cannot verify (league
+ * order changes year to year), and per-slot samples (~4 sales per slot per
+ * position per draft) would be shrunk to nothing at any honest K. That
+ * refinement is a stated REMAINDER of the epic, unlocked by this shape, not
+ * shipped by it.
+ *
+ * RETURN — always the same shape, so the UI can be honest about whether
+ * memory is active without special cases (surfacing it is S4, owned by the
+ * caller; nothing here touches the DOM):
+ *   { active, drafts, sales, tendencies: {POS: seeded}, byPosition:
+ *     {POS: {n, observed, seeded}}, reason }
+ * With no admissible history: active:false, tendencies:{} (every tendency
+ * stays exactly the 1.0 market prior), and `reason` says why in words.
+ */
+export function seedTendencies(records, leagueSize) {
+  const rows = Array.isArray(records) ? records : [];
+  const byPos = new Map();
+  let drafts = 0;          // records that contributed at least one sale
+  let sales = 0;           // admissible opponent sales, all positions
+  let liveHere = 0;        // LIVE auction records at THIS league size
+  let liveElsewhere = 0;   // LIVE auction records at some other league size
+  for (const r of rows) {
+    if (!r || r.kind !== 'auction' || r.play !== 'live') continue;
+    if (!Array.isArray(r.observed) || r.observed.length === 0) continue;
+    if (Number(r.league_size) !== Number(leagueSize)) { liveElsewhere += 1; continue; }
+    liveHere += 1;
+    const mySlot = Number(r.my_slot);
+    let counted = 0;
+    for (const e of r.observed) {
+      if (!e || !e.position) continue;
+      if (Number.isFinite(mySlot) && Number(e.team) === mySlot) continue;
+      const price = Number(e.price);
+      const fair = Number(e.fair);
+      if (!(price >= MIN_BID) || !(fair >= MIN_BID)) continue;
+      const ratio = Math.min(TENDENCY_CLAMP[1],
+        Math.max(TENDENCY_CLAMP[0], price / fair));
+      const pos = String(e.position).toUpperCase();
+      if (!byPos.has(pos)) byPos.set(pos, { n: 0, sum: 0 });
+      const b = byPos.get(pos);
+      b.n += 1;
+      b.sum += ratio;
+      counted += 1;
+    }
+    if (counted > 0) drafts += 1;
+    sales += counted;
+  }
+  const out = {
+    active: sales > 0,
+    drafts,
+    sales,
+    tendencies: {},
+    byPosition: {},
+    reason: '',
+  };
+  if (sales === 0) {
+    if (liveHere > 0) {
+      out.reason = 'LIVE auction history at this league size holds no usable '
+        + 'opponent sales (own buys and unpriced rows are not evidence) — '
+        + 'every tendency starts at the market prior (1.0).';
+    } else if (liveElsewhere > 0) {
+      out.reason = `LIVE auction history exists only at other league sizes — a `
+        + `${leagueSize}-team room seeds from ${leagueSize}-team evidence only, `
+        + 'so every tendency starts at the market prior (1.0).';
+    } else {
+      out.reason = 'No LIVE auction recorded. Every tendency starts at the '
+        + 'market prior (1.0). SIM rooms teach nothing about your league: '
+        + 'their sales are this app’s own bidder talking to itself.';
+    }
+    return out;
+  }
+  // Sorted position keys so the same history always yields the same object,
+  // key order included — determinism a caller can deepEqual.
+  for (const pos of [...byPos.keys()].sort()) {
+    const { n, sum } = byPos.get(pos);
+    const observed = sum / n;
+    const seeded = (n * observed + TENDENCY_PRIOR_K * 1.0) / (n + TENDENCY_PRIOR_K);
+    out.tendencies[pos] = seeded;
+    out.byPosition[pos] = { n, observed, seeded };
+  }
+  return out;
+}
+
 /** Positional slots a team still needs (mirror of draft-sim's opponentNeeds but
  * counting open capacity, since auctions fill rosters in any order).
  *
@@ -468,7 +615,7 @@ export function totalRoomMoney(a) {
 export function createAuction({
   leagueSize = 12, mySlot = 5, budget = DEFAULT_BUDGET, rosterConfig = null,
   boardRows = [], adjPointsById = new Map(), adpDollars = null, seed = 1,
-  teamBudgets = null,
+  teamBudgets = null, history = null,
 } = {}) {
   const shape = rosterShape(rosterConfig);
   // R30b — fold any DST-spelled rows to the engine's canonical DEF before the
@@ -495,6 +642,17 @@ export function createAuction({
   for (const r of boardRows.filter((x) => x.gsis_id)) {
     remainingFair += fair.get(String(r.gsis_id)) || 0;
   }
+  // ROOM MEMORY (auction-memory S2). `history` is the caller's stored DRAFT
+  // HISTORY (app/mocks.js loadHistory()); seedTendencies decides for itself
+  // what in it is admissible (LIVE auctions at this league size, opponent
+  // sales only) and how hard to believe it (shrunk toward 1.0 by sample
+  // size). Opponents open at the seeded prior; MY tendencies stay {} exactly
+  // as before — the room never models me, live or seeded. Passing no history
+  // is byte-identical to the pre-memory construction: memory.active is false
+  // and every team opens at {}. `memory` rides on the room state so the UI
+  // can say whether memory is active and on how many sales (S4 — surfacing
+  // it is the caller's, nothing here renders).
+  const memory = seedTendencies(history, leagueSize);
   return {
     kind: 'auction',
     leagueSize,
@@ -509,7 +667,14 @@ export function createAuction({
     market,
     marketSource,
     remainingFair,
-    teams: budgets.map((b) => ({ budget: b, players: [], tendencies: {} })),
+    teams: budgets.map((b, i) => ({
+      budget: b,
+      players: [],
+      // Each opponent gets its OWN copy of the seed: tendencies mutate
+      // per-team as sellTo learns, and a shared object would alias them all.
+      tendencies: memory.active && i !== mySlot - 1 ? { ...memory.tendencies } : {},
+    })),
+    memory,
     nomIdx: 0,                       // whose nomination it is (rotates)
     block: null,                     // {boardIdx} while a player is up
     log: [],

@@ -152,14 +152,21 @@
          Not yet populated by any view — wiring is the R30c a11y pass. -->
     <div id="announce" class="visually-hidden" aria-live="polite"></div>
 
-    <!-- Bottom tab bar. Active tab gets .tab--active + aria-selected via main.js. -->
-    <nav class="tabbar" role="tablist" aria-label="Sections">
-      <a class="tab" href="#/" data-tab="slate" role="tab">Slate</a>
-      <a class="tab" href="#/players" data-tab="players" role="tab">Players</a>
-      <a class="tab" href="#/parlays" data-tab="parlays" role="tab">Parlays</a>
-      <a class="tab" href="#/team" data-tab="team" role="tab">Team</a>
-      <a class="tab" href="#/lineup" data-tab="lineup" role="tab">Lineup</a>
-      <a class="tab" href="#/model" data-tab="model" role="tab">Model</a>
+    <!-- Bottom navigation. Active link gets .tab--active + aria-current="page"
+         via main.js. R30c — these are deliberately LINKS, not role="tab": the
+         old tablist/tab roles promised a widget (arrow-key navigation, roving
+         tabindex, aria-controls -> tabpanel) none of which existed, so AT
+         announced "tab 1 of 6" and every promised gesture did nothing. Each
+         item here changes the URL hash and loads a different route — that IS
+         navigation, so <nav> + links + aria-current is the honest pattern and
+         needs no keyboard machinery beyond what links already have. -->
+    <nav class="tabbar" aria-label="Sections">
+      <a class="tab" href="#/" data-tab="slate">Slate</a>
+      <a class="tab" href="#/players" data-tab="players">Players</a>
+      <a class="tab" href="#/parlays" data-tab="parlays">Parlays</a>
+      <a class="tab" href="#/team" data-tab="team">Team</a>
+      <a class="tab" href="#/lineup" data-tab="lineup">Lineup</a>
+      <a class="tab" href="#/model" data-tab="model">Model</a>
     </nav>
   </div>
 

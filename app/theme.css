@@ -350,9 +350,11 @@ button { font: inherit; color: inherit; }
     padding: 10px 2px;
   }
 }
-/* active tab (route match) — brand underline + brighter label */
+/* active tab (route match) — brand underline + brighter label.
+   R30c: the state attribute is aria-current="page" now (nav links, not a
+   tablist), and main.js still applies .tab--active alongside it. */
 .tab--active,
-.tab[aria-selected="true"] {
+.tab[aria-current="page"] {
   color: var(--ink);
   border-top-color: var(--brand);
 }
@@ -959,9 +961,10 @@ button { font: inherit; color: inherit; }
   border-radius: var(--radius-sm);
   padding: 10px 12px;
 }
-/* selected slot (recommendation target) — brand edge, no fill change */
-.slot--active,
-.slot[aria-selected="true"] {
+/* selected slot (recommendation target) — brand edge, no fill change.
+   R30c: the roster stopped being a fake listbox, so slots carry no
+   aria-selected any more; .slot--active is the one spelling of this state. */
+.slot--active {
   border-color: var(--brand);
   background: var(--elev);
 }

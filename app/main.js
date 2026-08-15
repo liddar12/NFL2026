@@ -6,8 +6,9 @@
  * framework, no build step, dependency-free (platform fetch + DOM only).
  *
  * A11Y: on every route change we move focus to #view (tabindex="-1") so screen
- * reader / keyboard users land on the freshly painted content, and set
- * aria-selected on the active tab (the tabbar is role="tablist").
+ * reader / keyboard users land on the freshly painted content, set
+ * aria-current="page" on the active nav link (R30c — the tabbar is a <nav> of
+ * links, not a tablist), and announce the loaded view's name in #announce.
  */
 
 import { getPipelineStatus, getGamePredictions } from './data.js';
@@ -71,16 +72,17 @@ async function mountCompare(el) {
   return mod.default(el);
 }
 
-// hash -> { mount, tab }. '#/' is the default/fallback (slate).
+// hash -> { mount, tab, name }. '#/' is the default/fallback (slate). `name`
+// is what #announce speaks on route change (R30c).
 const ROUTES = {
-  '#/': { mount: mountSlate, tab: 'slate' },
-  '#/players': { mount: mountPlayers, tab: 'players' },
-  '#/parlays': { mount: mountParlays, tab: 'parlays' },
-  '#/team': { mount: mountTeam, tab: 'team' },
-  '#/lineup': { mount: mountLineup, tab: 'lineup' },
-  '#/model': { mount: mountModel, tab: 'model' },
+  '#/': { mount: mountSlate, tab: 'slate', name: 'Slate' },
+  '#/players': { mount: mountPlayers, tab: 'players', name: 'Players' },
+  '#/parlays': { mount: mountParlays, tab: 'parlays', name: 'Parlays' },
+  '#/team': { mount: mountTeam, tab: 'team', name: 'Team' },
+  '#/lineup': { mount: mountLineup, tab: 'lineup', name: 'Lineup' },
+  '#/model': { mount: mountModel, tab: 'model', name: 'Model' },
   // No tab: reached by action + deep link; reads its picks from the hash query.
-  '#/compare': { mount: mountCompare, tab: null },
+  '#/compare': { mount: mountCompare, tab: null, name: 'Compare' },
 };
 
 // Monotonic navigation token: guards against out-of-order async paints when the
@@ -96,13 +98,28 @@ let navSeq = 0;
 // superseded route is dropped before it ever paints.
 let mountQueue = Promise.resolve();
 
-/** Sync .tab--active + aria-selected on the tab bar for the active section. */
+/** Sync .tab--active + aria-current on the nav bar for the active section.
+ * R30c — aria-current="page", not aria-selected: the tabbar is a <nav> of
+ * links (see index.html), and aria-selected is only valid on widget roles the
+ * markup no longer claims. The attribute is REMOVED (not set "false") on the
+ * inactive links — absent is the spec's inactive state for aria-current. */
 function setActiveTab(tab) {
   document.querySelectorAll('.tabbar .tab').forEach((a) => {
     const on = a.dataset.tab === tab;
     a.classList.toggle('tab--active', on);
-    a.setAttribute('aria-selected', on ? 'true' : 'false');
+    if (on) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   });
+}
+
+/** R30c — speak the destination in the #announce live region on route change.
+ * #view is focused on navigation (which announces its label), but the region
+ * gives SRs an explicit, consistent "X view loaded" once the mount resolves.
+ * Route changes ONLY — per-action announcements were rejected in R30b as a
+ * firehose, which is why #view itself must never be aria-live. */
+function announceRoute(name) {
+  const live = document.getElementById('announce');
+  if (live && name) live.textContent = `${name} view loaded`;
 }
 
 /** Render the current route into #view and update tab state + focus. */
@@ -125,7 +142,13 @@ async function renderRoute() {
     // Superseded while we waited our turn: never paint a route the user has
     // already navigated away from.
     if (seq !== navSeq) return undefined;
-    return route.mount(el);
+    // Announce only after the mount settles, and only if this navigation is
+    // still the latest — announcing a superseded route would tell an SR user
+    // they are somewhere they are not. A failed mount paints its own .state
+    // error and is deliberately NOT announced as "loaded".
+    return Promise.resolve(route.mount(el)).then(() => {
+      if (seq === navSeq) announceRoute(route.name);
+    });
   };
   // `then(run, run)` on both settlements so one view's failure cannot wedge the
   // queue and freeze every later navigation.
