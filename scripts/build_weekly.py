@@ -135,16 +135,32 @@ def injury_multipliers(projections, injuries):
     a multiplier, is what handles a long-term absence.
     """
     by_key = {}
+    # R30c — the name-only fallback for offseason movers (the incident is
+    # documented at availability.index_report_by_name: the pool's team column
+    # lags the report's, so Mike Evans/Kirk/Waller were Questionable in a fresh
+    # feed and rendered healthy). Same discipline as the view join: a report
+    # name on more than one team is ambiguous and excluded; a pool-duplicated
+    # name never falls back.
+    by_name = {}
+    name_teams = {}
     for row in injuries or []:
         code = availability.normalize_status(row.get("status"))
         mult = INJURY_MULT_CANON.get(code, 1.0)
         if mult >= 1.0:
             continue
-        key = (row.get("team"), _norm_name(row.get("player")))
+        nm = _norm_name(row.get("player"))
+        key = (row.get("team"), nm)
         by_key[key] = min(by_key.get(key, 1.0), mult)
+        name_teams.setdefault(nm, set()).add(row.get("team"))
+        by_name[nm] = min(by_name.get(nm, 1.0), mult)
+    by_name = {n: m for n, m in by_name.items() if len(name_teams[n]) == 1}
+    ambiguous = availability.dup_names(projections)
     out = {}
     for p in projections:
-        mult = by_key.get((p.get("team"), _norm_name(p.get("name"))))
+        nm = _norm_name(p.get("name"))
+        mult = by_key.get((p.get("team"), nm))
+        if mult is None and nm not in ambiguous:
+            mult = by_name.get(nm)
         if mult is not None:
             out[p["gsis_id"]] = mult
     return out
@@ -165,9 +181,13 @@ def unavailability(projections, injuries):
     and at the gate, never in a silent consumer.
     """
     index = availability.index_report(injuries)
+    # R30c — offseason movers: exact (team, name) first, unique name second.
+    by_name = availability.index_report_by_name(injuries)
+    ambiguous = availability.dup_names(projections)
     out = {}
     for p in projections:
-        view = index.get((p.get("team"), _norm_name(p.get("name"))))
+        view = availability.lookup_report(index, by_name, p.get("team"),
+                                          p.get("name"), ambiguous)
         if not view or view["availability"] == availability.ACTIVE:
             continue
         cls = view.get("availability_class")

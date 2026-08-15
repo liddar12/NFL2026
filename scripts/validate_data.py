@@ -1000,12 +1000,32 @@ def check_weekly_availability(weekly, projections, injuries):
 
     # (team, normalized name) -> {canonical codes on that player's report rows}
     report = {}
+    # R33 — the validator's copy of the R32 offseason-mover fallback: name ->
+    # codes, for report names on exactly ONE team. build_weekly stamps an
+    # availability block through availability.lookup_report (exact (team, name),
+    # else unique name), so rule 4 must accept the same join or it reds the gate
+    # precisely when the safety net works — an honest block would be called an
+    # orphan whenever the pool's team lags the report's (a mover mid-drift).
+    # Same guards as the producer: a report name on two teams never matches by
+    # name, and a pool-duplicated name never falls back.
+    report_by_name = {}
+    _name_teams = {}
     for row in (injuries or {}).get("injuries", []):
         code = row.get("availability")
         if not code:
             continue  # unmapped rows are the smoke check's business, not ours
-        report.setdefault((row.get("team"), _norm_name(row.get("player"))),
-                          set()).add(code)
+        nm = _norm_name(row.get("player"))
+        report.setdefault((row.get("team"), nm), set()).add(code)
+        _name_teams.setdefault(nm, set()).add(row.get("team"))
+        report_by_name.setdefault(nm, set()).add(code)
+    report_by_name = {n: c for n, c in report_by_name.items()
+                      if len(_name_teams[n]) == 1}
+    _seen, proj_dup_names = set(), set()
+    for p in projections.get("players", []):
+        nm = _norm_name(p.get("name"))
+        if nm in _seen:
+            proj_dup_names.add(nm)
+        _seen.add(nm)
 
     season_players = 0
     season_ending = 0
@@ -1052,6 +1072,9 @@ def check_weekly_availability(weekly, projections, injuries):
         if record is not None:
             key = (record.get("team"), _norm_name(record.get("name")))
             codes = report.get(key)
+            if codes is None and key[1] not in proj_dup_names:
+                # R33: the R32 name-only fallback, mirrored (see the map above).
+                codes = report_by_name.get(key[1])
             if codes is None:
                 problems.append(
                     "%s (%s %s): flagged %s with NO matching row in "
@@ -1229,6 +1252,29 @@ def _selftest():
     w, p, i = _fixture(blocked=4, weeks_out=4)
     i["injuries"][0]["player"] = "Someone Else"
     red(w, p, i, "join on the wrong player")
+
+    # R33 — rule 4 honors the R32 offseason-mover name fallback, with BOTH of the
+    # producer's guards. The incident shape: the pool's team lags the report's
+    # (record says TB, the report's current team says SF) — the availability
+    # block is honest, built through the same fallback, and must not be called
+    # an orphan.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"          # pool lags; the SF report row stands
+    ok(w, p, i, why="mover matched by unique report name (R32 fallback)")
+    # Guard 1: a report name on TWO teams is ambiguous — matching either would
+    # stamp a guess, so the name fallback must refuse and the flag stays an orphan.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"
+    i["injuries"].append({"team": "DAL", "player": "AJ Hurt",
+                          "status": "Questionable", "availability": "QUESTIONABLE"})
+    red(w, p, i, "report name on two teams must not match by name")
+    # Guard 2: a pool-duplicated name never falls back — a wrong injury is worse
+    # than a missed one.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"
+    p["players"].append({"gsis_id": "espn-2", "name": "A.J. Hurt",
+                         "team": "GB", "proj_points": 50.0})
+    red(w, p, i, "pool-duplicated name must not take a name-only report row")
 
     # Rule 5 — the headline must equal what happened.
     w, p, i = _fixture(blocked=4, weeks_out=4)

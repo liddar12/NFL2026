@@ -25,6 +25,13 @@
  *   to consensus ADP is a genuine measurement of how far from the market THIS
  *   room drafts, and which positions it takes earlier than consensus.
  *
+ *   LIVE auctions teach a different real thing: PRICES. A live auction record
+ *   carries the room's sale log (auction-memory S1, see the record shape
+ *   below); app/auction.js seedTendencies() turns those observed sales into a
+ *   sample-size-shrunk opponent-model prior for the next room. The same sim
+ *   exclusion applies: a SIM auction's sales are this app's own bidder, so
+ *   they are recorded as [] and can never seed anything.
+ *
  * POLICY BOUNDARY (non-negotiable). Everything computed here is an
  * OPPONENT MODEL: when players leave the board in this room. ADP is market
  * data and is allowed to model what the room will do. Nothing in this file
@@ -127,12 +134,44 @@ const posOf = (v) => String(v == null ? '' : v).toUpperCase();
  *   { version:2, created_utc, kind:'snake'|'auction', play:'sim'|'live'|null,
  *     room_type:'adp'|'shark'|'aiplus'|null, league_size, my_slot, budget|null,
  *     roster_config, result, my_players:[{gsis_id,name,position}],
- *     observed:[{pick, team, name, position, adp}],
+ *     observed:   kind 'snake'   -> [{pick, team, name, position, adp}]
+ *                 kind 'auction' -> [{gsis_id, position, team, price, fair}],
  *     migrated_from?: 'nfl2026.mocklocks.v1' }
  *
- * `observed` is the OPPONENTS' picks only, and is populated ONLY for
- * play === 'live'. My own picks are mine, not the room's; a sim's picks are
- * this app's sampler, not the room's.
+ * `observed` is populated ONLY for play === 'live': a sim's picks and sales
+ * are this app's own sampler, not the room's.
+ *
+ * SNAKE `observed` is the OPPONENTS' picks only (my picks are mine, not the
+ * room's) — the transcript roomCalibration() measures.
+ *
+ * AUCTION `observed` (auction-memory S1) is the room's SALE LOG, one entry per
+ * sale INCLUDING my own buys — the record is a transcript and a transcript
+ * with my rows deleted is not one. The learning path (auction.js
+ * seedTendencies) excludes my buys itself, for the same reason sellTo skips
+ * them live: measuring my own opinion back is not evidence. Fields, kept
+ * deliberately minimal for the localStorage budget (no names, no whole player
+ * objects — HISTORY_LIMIT records of ~150 sales each must stay cheap):
+ *   gsis_id  board identity of the player sold (null for name-only rows)
+ *   position sold player's position — the axis tendencies learn on
+ *   team     buyer slot, 1-based, same numbering as my_slot
+ *   price    the observed winning bid, in this room's dollars
+ *   fair     OUR fair price for him at sale time (auction.fair; static for the
+ *            life of a room, so read-at-record equals read-at-sale) — the
+ *            denominator of the stored overpay evidence
+ * MARKET dollars are deliberately NOT stored: market prices are display /
+ * opponent-model-only by standing owner rule, and the seeding path must be
+ * provably independent of them — the normalizer below strips any such field
+ * so it can never be smuggled into evidence via storage.
+ *
+ * VERSIONING NOTE — why this is still version 2. The auction `observed` shape
+ * is strictly ADDITIVE: every pre-existing v2 auction row simply has
+ * observed: [] (recordAuction hardcoded it until auction-memory S1) and loads
+ * byte-identically through the same normalizer, seeding nothing. Bumping
+ * HISTORY_VERSION would be actively wrong under the current legacy inference
+ * (`version !== HISTORY_VERSION` => migrated-from-v1), which would misclassify
+ * every genuine v2 row as legacy and strip play/observed from stored LIVE
+ * snake records. A bump is reserved for a change that alters the meaning of
+ * an EXISTING field.
  */
 
 function normalizePlayers(list) {
@@ -158,6 +197,29 @@ function normalizeObserved(list) {
       name: e.name != null ? String(e.name) : '',
       position: posOf(e.position),
       adp,
+    });
+  }
+  return out;
+}
+
+/** Auction sale-log entries (see the record-shape comment above). An entry
+ * without a recorded price is not a sale and is dropped; everything beyond the
+ * five documented fields — names, market dollars, whatever a future caller
+ * hands us — is stripped, which is what makes the market-price exclusion a
+ * structural guarantee rather than a promise. */
+function normalizeObservedSales(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const e of list) {
+    if (!e) continue;
+    const price = num(e.price);
+    if (price == null || price < 0) continue;
+    out.push({
+      gsis_id: e.gsis_id != null ? String(e.gsis_id) : null,
+      position: posOf(e.position),
+      team: num(e.team),
+      price,
+      fair: num(e.fair),
     });
   }
   return out;
@@ -189,8 +251,13 @@ export function normalizeRecord(rec) {
       ? { ...r.roster_config } : null,
     result: r.result && typeof r.result === 'object' ? { ...r.result } : null,
     my_players: normalizePlayers(r.my_players),
-    // A record that is not LIVE has no observed room, by construction.
-    observed: play === 'live' ? normalizeObserved(r.observed) : [],
+    // A record that is not LIVE has no observed room, by construction. The
+    // shape of `observed` follows the kind: snake rooms produce a pick log,
+    // auction rooms a sale log.
+    observed: play !== 'live' ? []
+      : (kind === 'auction'
+        ? normalizeObservedSales(r.observed)
+        : normalizeObserved(r.observed)),
   };
   if (legacy) out.migrated_from = MOCKS_KEY_V1;
   else if (r.migrated_from) out.migrated_from = String(r.migrated_from);
@@ -219,12 +286,52 @@ export function recordDraft(draft, result, nowIso) {
   });
 }
 
-/** Build a v2 record from a finished auction. Auctions have no pick order, so
- * they carry NO observed pick log and never calibrate ADP drift — they are
- * history. (In-room price behaviour is already modelled live by
- * app/auction.js liveInflation()/tendencies; nothing here duplicates it.) */
+/** Build a v2 record from a finished auction.
+ *
+ * Auctions have no pick order, so they never calibrate ADP drift — but they
+ * produce the one thing a snake draft does not: A PRICE PER PLAYER PER BUYER.
+ * Until auction-memory S1 this function hardcoded observed: [] and threw that
+ * away, so every auction record claimed to be a record of the room while
+ * holding none of what happened in it. Now the sale log the room already
+ * computed (auction.log, via sellTo) is persisted as compact
+ * {gsis_id, position, team, price, fair} entries — see the record-shape
+ * comment for what each field is and why market dollars are excluded.
+ *
+ * `fair` is read from auction.fair here, at record time; that map is built
+ * once in createAuction and never changes during a room's life, so this IS
+ * the fair price at the moment of sale.
+ *
+ * normalizeRecord applies the play gate: a SIM room's sales are this app's
+ * own sampler bidding against itself, so only play === 'live' records keep
+ * the log. (In-room price behaviour is still modelled live by app/auction.js
+ * liveInflation()/tendencies; what is new is that LIVE evidence now survives
+ * the room — auction.js seedTendencies() is the consumer.)
+ *
+ * EPIC REMAINDERS, stated where a reader of this record would look for them:
+ * S3 (every LIVE take must capture a buyer + price) is a team.js UI rule and
+ * shipped with R27-B's SOLD row, not here; S4 (show the manager what the app
+ * has learned, per position, on how many sales) is NOT yet rendered anywhere —
+ * the data rides on auction.memory / this record, and until a panel consumes
+ * it no UI may claim the league is being "remembered". */
 export function recordAuction(auction, result, myPlayers, nowIso) {
   const a = auction || {};
+  const board = Array.isArray(a.board) ? a.board : [];
+  const fairMap = a.fair && typeof a.fair.get === 'function' ? a.fair : null;
+  const log = Array.isArray(a.log) ? a.log : [];
+  const observed = log.map((l) => {
+    const e = l && typeof l === 'object' ? l : {};
+    const row = board[e.boardIdx] && typeof board[e.boardIdx] === 'object'
+      ? board[e.boardIdx] : null;
+    const gid = row && row.gsis_id != null ? String(row.gsis_id) : null;
+    const fair = gid && fairMap ? fairMap.get(gid) : null;
+    return {
+      gsis_id: gid,
+      position: e.position != null ? e.position : (row ? row.position : ''),
+      team: e.team,
+      price: e.price,
+      fair: Number.isFinite(fair) ? fair : null,
+    };
+  });
   return normalizeRecord({
     version: HISTORY_VERSION,
     created_utc: nowIso || new Date().toISOString(),
@@ -237,7 +344,7 @@ export function recordAuction(auction, result, myPlayers, nowIso) {
     roster_config: a.shape ? a.shape.config : null,
     result,
     my_players: myPlayers || [],
-    observed: [],
+    observed,
   });
 }
 
@@ -309,7 +416,12 @@ export function clearHistory(storage) {
  * The review panel's counts (Option B half: history, honestly labelled)
  * ------------------------------------------------------------------------ */
 
-/** Counts for the history panel header. Pure. */
+/** Counts for the history panel header. Pure.
+ * `observed_picks` counts SNAKE pick-log entries (the calibration evidence);
+ * `observed_sales` counts AUCTION sale-log entries (the seeding evidence).
+ * They are different observations of different things and are never summed —
+ * before auction records carried a log, every auction row contributed 0 to
+ * observed_picks, so splitting the counters changes no existing number. */
 export function historySummary(records) {
   const rows = Array.isArray(records) ? records : [];
   const out = {
@@ -318,6 +430,7 @@ export function historySummary(records) {
     sim: 0, live: 0, unknown_play: 0,
     legacy: 0,
     observed_picks: 0,
+    observed_sales: 0,
   };
   for (const r of rows) {
     if (r.kind === 'auction') out.auction += 1; else out.snake += 1;
@@ -325,7 +438,8 @@ export function historySummary(records) {
     else if (r.play === 'sim') out.sim += 1;
     else out.unknown_play += 1;
     if (r.migrated_from) out.legacy += 1;
-    out.observed_picks += (r.observed || []).length;
+    if (r.kind === 'auction') out.observed_sales += (r.observed || []).length;
+    else out.observed_picks += (r.observed || []).length;
   }
   return out;
 }

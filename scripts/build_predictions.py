@@ -74,13 +74,25 @@ def market_feed_record(src, now):
     """
     status = src.get("status") or "down"
     rows = int(src.get("rows") or 0)
+    note = src.get("note")
     if status == "ok" and rows == 0:
         status = "degraded"
+        # Belt-and-braces path (older market_prices doc, no builder note): the
+        # downgrade must SAY WHY, or the MODEL tab shows a wordless red.
+        note = note or ("0 rows from a configured feed downgraded to degraded — "
+                        "a 0-row write is never ok (R30)")
     if status == "down":
-        return {"rows": 0, "age_hours": 999.0,
-                "last_success_utc": None, "status": "down"}
-    return {"rows": rows, "age_hours": 0.0,
-            "last_success_utc": now, "status": status}
+        rec = {"rows": 0, "age_hours": 999.0,
+               "last_success_utc": None, "status": "down"}
+    else:
+        rec = {"rows": rows, "age_hours": 0.0,
+               "last_success_utc": now, "status": status}
+    # The builder's own explanation (e.g. kalshi's "listed events matched none of
+    # our markets") rides through to pipeline_status so the health card can show
+    # the reason, not just the color. Optional in the contract; omitted when empty.
+    if note:
+        rec["note"] = str(note)
+    return rec
 
 
 def current_week(schedule):
@@ -145,6 +157,15 @@ def main():
         "rows": len(finals_cur), "age_hours": 0.0, "last_success_utc": now,
         "status": "ok",
     }
+    if not finals_cur:
+        # A bare ok/0 during August reads as silence — say WHY it is zero. This
+        # feed counts REGULAR-SEASON finals only (fetch_final_results pages
+        # seasontype=2, weeks 1-18): preseason games are excluded BY DESIGN and
+        # must never feed Elo, actuals, or scoring (the status-gating rule).
+        feeds[f"espn_results_{SEASON}"]["note"] = (
+            "0 regular-season finals: the %d season has not started. Preseason "
+            "games are excluded by design (seasontype=2 only) and never feed "
+            "Elo or scoring." % SEASON)
     # === end LEARNING LOOP hooks ==================================================
 
     schedule = espn.fetch_season_schedule(SEASON)
@@ -396,7 +417,15 @@ def main():
     # + roster ages -> the projection engine. At day-zero weights every signal is
     # neutral, so proj == prior-season production: the honest baseline every future
     # signal must beat through the optimizer.
-    players_in = espn_players.build_player_records(PRIOR_SEASON, teams)
+    # R33 — current_season=SEASON stamps each record's `team` from the DRAFT
+    # season's rosters (measured stats still come from PRIOR_SEASON). This is the
+    # root cause behind R32: the prior-season kona freezes proTeamId at last
+    # season's rosters, so every offseason mover showed his old team in the app,
+    # got the wrong 2026 bye/schedule split, seeded props for the wrong slate —
+    # and broke the (team, name) injury join that R32's name fallback papers
+    # over. With teams current, that fallback is a safety net again, not the join.
+    players_in = espn_players.build_player_records(PRIOR_SEASON, teams,
+                                                   current_season=SEASON)
     feeds["espn_fantasy"] = {"rows": len(players_in), "age_hours": 0.0,
                              "last_success_utc": now, "status": "ok"}
     try:
@@ -470,8 +499,14 @@ def main():
         # feeds["injuries"] = "down" for a feed that is demonstrably up — a false
         # statement about a feed, which is the one thing pipeline_status may never be.
         try:
+            # R30c — by_name switches on the offseason-mover fallback (see
+            # availability.index_report_by_name: the pool's team column lags the
+            # report's every August, so the (team, name) join dropped exactly
+            # the players who changed teams — Questionable stars rendered
+            # healthy five days before the owner's draft).
             n_overridden = availability.apply_to_records(
-                players_in, availability.index_report(inj))
+                players_in, availability.index_report(inj),
+                by_name=availability.index_report_by_name(inj))
             if n_overridden:
                 reprojected = [p for p in project_players(players_in,
                                                           ctx={"teams": teams_fixture})

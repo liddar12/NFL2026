@@ -241,7 +241,74 @@ def index_report(injuries):
     return out
 
 
-def apply_to_records(records, index):
+def index_report_by_name(injuries):
+    """{norm_name(player): availability view} for report names on exactly ONE team.
+
+    THE OFFSEASON JOIN GAP (found live, five days before the owner's draft).
+    Every consumer joins on (team, norm_name) -- and every August that key quietly
+    breaks for exactly the players a drafter most needs to see: ESPN's injury
+    report carries a player's CURRENT team while the projection pool's `team`
+    column is built from last season's stats. Measured on prod 2026-08-15:
+    Mike Evans (pool TB, report SF), Christian Kirk (pool HOU, report SF) and
+    Darren Waller (pool MIA, report CAR) were all Questionable in a fresh
+    injuries.json and all rendered as healthy -- while 10 of 13 hurt pool players,
+    the ones who had not changed teams, mapped fine. A join that only fails for
+    movers is invisible in-season and worst at draft time.
+
+    So: a NAME-ONLY fallback, defined once here and used by every consumer after
+    its (team, name) lookup misses. Safe by construction on the report side -- a
+    name appearing on MORE THAN ONE team in the report is excluded as ambiguous
+    (same-team duplicate rows still _worse-merge exactly as index_report does).
+    The pool side's duplicate-name guard is dup_names() below, applied by each
+    consumer, because only the consumer can see its own pool.
+    """
+    views = {}
+    teams = {}
+    for row in injuries or []:
+        view = _avail_fields(row)
+        if not view.get("availability"):
+            continue
+        n = norm_name(view.get("player"))
+        teams.setdefault(n, set()).add(view.get("team"))
+        views[n] = _worse(views.get(n), view)
+    return {n: v for n, v in views.items() if len(teams[n]) == 1}
+
+
+def dup_names(rows):
+    """Normalized names appearing MORE THAN ONCE among `rows` ({name: ...} dicts).
+
+    The consumer-side half of the fallback guard: a pool carrying two players who
+    normalize to the same name must not let either take a name-only report row --
+    one of the two would be wrongly stamped, and a WRONG injury is worse than a
+    missed one.
+    """
+    seen = set()
+    dups = set()
+    for r in rows or []:
+        n = norm_name(r.get("name") if isinstance(r, dict) else r)
+        if n in seen:
+            dups.add(n)
+        seen.add(n)
+    return dups
+
+
+def lookup_report(index, by_name, team, name, ambiguous=frozenset()):
+    """One report view for one pool player: exact (team, name), else unique name.
+
+    `ambiguous` is the consumer's dup_names() set; a pool-duplicated name never
+    falls back. This is THE join -- consumers call this instead of re-deciding
+    the fallback rules independently.
+    """
+    n = norm_name(name)
+    view = index.get((team, n))
+    if view is not None:
+        return view
+    if n in ambiguous:
+        return None
+    return by_name.get(n)
+
+
+def apply_to_records(records, index, by_name=None):
     """Stamp the canonical `injury_status` onto player records IN PLACE.
 
     `records` are espn_players.build_player_records rows ({team, name, ...}); they
@@ -252,10 +319,16 @@ def apply_to_records(records, index):
     Returns the number of records overridden. A record with no matching report row is
     left exactly as it was -- absence of a report is not evidence of health, and
     fabricating ACTIVE here would be the honest-data violation this release removes.
+
+    `by_name` is index_report_by_name(...) when the caller wants the offseason
+    name fallback (see that function's header); omitted, the join is exactly the
+    old (team, name) key.
     """
     n = 0
+    ambiguous = dup_names(records) if by_name else frozenset()
     for rec in records or []:
-        view = index.get((rec.get("team"), norm_name(rec.get("name"))))
+        view = lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"),
+                             ambiguous)
         if not view:
             continue
         code = view["availability"]
@@ -379,8 +452,36 @@ def selftest():
     assert recs[2]["injury_status"] is None, "wrong team must not join"
     assert apply_to_records(recs, idx) == 0, "second pass is a no-op (idempotent)"
 
+    # --- the offseason-mover fallback (R30c) ---------------------------------------
+    # The live incident, in miniature: the report says SF, the pool still says TB.
+    report = [
+        {"team": "SF", "player": "Mike Evans", "status": "Questionable", "detail": ""},
+        # Same name on TWO teams: ambiguous, must never fall back.
+        {"team": "NYJ", "player": "Twin Name", "status": "Out", "detail": ""},
+        {"team": "MIA", "player": "Twin Name", "status": "Questionable", "detail": ""},
+    ]
+    idx4 = index_report(report)
+    by_name = index_report_by_name(report)
+    assert "mike evans" in by_name and "twin name" not in by_name, by_name
+    movers = [{"team": "TB", "name": "Mike Evans", "injury_status": None},
+              {"team": "CHI", "name": "Twin Name", "injury_status": None}]
+    n = apply_to_records(movers, idx4, by_name=by_name)
+    assert n == 1 and movers[0]["injury_status"] == QUESTIONABLE, movers[0]
+    assert movers[1]["injury_status"] is None, \
+        "a report name on two teams is ambiguous — falling back would stamp a guess"
+    # Pool-side duplicate: two pool players sharing a name never take a
+    # name-only row, even when the report side is unique.
+    dup_pool = [{"team": "TB", "name": "Mike Evans", "injury_status": None},
+                {"team": "GB", "name": "Mike Evans", "injury_status": None}]
+    assert apply_to_records(dup_pool, idx4, by_name=by_name) == 0, \
+        "pool-duplicated names must not fall back — a wrong injury is worse than a missed one"
+    # And WITHOUT by_name the old exact-key behaviour is untouched.
+    legacy = [{"team": "TB", "name": "Mike Evans", "injury_status": None}]
+    assert apply_to_records(legacy, idx4) == 0, "no by_name => the old join, verbatim"
+
     print(f"selftest OK: {len(CODES)} canonical codes, {len(_MAP)} feed spellings "
-          f"mapped, unknown stays unknown, MIN_WEEKS_OUT={MIN_WEEKS_OUT}")
+          f"mapped, unknown stays unknown, MIN_WEEKS_OUT={MIN_WEEKS_OUT}, "
+          f"offseason-mover fallback joins by unique name only")
 
 
 if __name__ == "__main__":

@@ -287,20 +287,75 @@ def fetch_auction_values(season, min_rows=100):
     return rows_out
 
 
-def build_player_records(season, teams):
-    """End-to-end N2 feed: fantasy pool + roster ages -> projection-engine inputs.
+# Paged deeper than _MAX_PLAYERS on purpose: the current-season pool is sorted by
+# OWNERSHIP, the prior-season pool by REALISED points, and the two orders disagree —
+# a 2025 producer can sit deeper than rank 400 in 2026 ownership. Paging further
+# shrinks the loud fallback count below; it costs 4 extra keyless requests.
+_CURRENT_TEAM_MAX = 600
 
-    Returns list of player dicts shaped for scripts.models.player_projection
-    (gsis_id/name/team/position/age/injury_status/prior_season_points), filtered to
-    players with a canonical current team.
+
+def fetch_current_pro_teams(season, min_rows=150):
+    """{espn_id: proTeamId} AS OF TODAY, from the CURRENT (draft) season's pool.
+
+    R33 — THE ROOT CAUSE BEHIND THE R32 INJURY-JOIN INCIDENT. The kona endpoint
+    freezes each player object at its OWN season's rosters, so the prior-season
+    pull that carries the measured totals also carries LAST season's proTeamId.
+    Verified live 2026-08-15: seasons/2025 returns Mike Evans proTeamId 27 (TB),
+    Christian Kirk 34 (HOU), Darren Waller 15 (MIA); seasons/2026 returns 25 (SF),
+    25 (SF), 29 (CAR) — their real current teams. So the stats MUST keep coming
+    from the prior season and the team MUST NOT. This fetch pages the draft
+    season's pool sorted by ownership (the only sort that exists before a season
+    is played — same convention as fetch_auction_values) and returns the current
+    id -> proTeamId map. Loud if the pull is implausibly small: a thin map would
+    silently push most of the pool onto the stale-team fallback.
     """
-    pool = fetch_fantasy_pool(season)
-    ages = fetch_roster_ages(teams)
+    out, offset = {}, 0
+    while offset < _CURRENT_TEAM_MAX:
+        payload = _kona_market_page(season, offset)
+        rows = payload.get("players") or []
+        if not rows:
+            break
+        for row in rows:
+            p = row.get("player") or {}
+            if p.get("id") is None:
+                continue
+            out.setdefault(str(p["id"]), p.get("proTeamId"))
+        if len(rows) < _PAGE:
+            break
+        offset += _PAGE
+    if len(out) < min_rows:
+        raise FeedError(
+            f"current-season ({season}) pro-team map has {len(out)} players "
+            f"(< {min_rows}) — outage or filter drift. Failing loudly rather than "
+            f"stamping the whole pool with last season's teams."
+        )
+    return out
+
+
+def assemble_records(pool, ages, teams, current_pro_teams=None):
+    """Pure record assembly (no I/O): fantasy pool + ages (+ current-team map).
+
+    TEAM STAMPING (R33): with `current_pro_teams` (fetch_current_pro_teams output),
+    `team` is the player's CURRENT proTeamId; the pool's own prior-season
+    pro_team_id is a FALLBACK only — used when the player is absent from the
+    current-season pool or his current id does not map (e.g. 0 = free agent
+    today, kept on last season's team exactly as the pre-R33 behaviour did
+    rather than dropping a draftable player mid-signing). Every fallback is
+    counted and reported on stderr so a mapping drift is LOUD, never silent.
+    Without the map, behaviour is byte-for-byte the old prior-season stamping
+    (standalone/backtest callers unchanged — the R32 apply_to_records discipline).
+    """
     by_pro_id = {int(t["espn_id"]): ab for ab, t in teams.items()}
 
-    records = []
+    records, fallbacks = [], []
     for p in pool:
-        team = by_pro_id.get(p["pro_team_id"])
+        team = None
+        if current_pro_teams is not None:
+            team = by_pro_id.get(current_pro_teams.get(p["espn_id"]))
+            if team is None and by_pro_id.get(p["pro_team_id"]) is not None:
+                fallbacks.append(p["name"])
+        if team is None:
+            team = by_pro_id.get(p["pro_team_id"])
         if team is None:
             continue  # free agent / no current team -> not projectable to a 2026 role
         records.append({
@@ -326,13 +381,45 @@ def build_player_records(season, teams):
             "completions": p["completions"],
             "pass_attempts": p["pass_attempts"],
         })
+    if fallbacks:
+        # LOUD, not fatal: each name here still carries a canonical team (last
+        # season's), so the pool ships — but a GROWING count means the current-
+        # season map is drifting away from the pool and the R32 name-fallback in
+        # the injury join is back to doing primary duty. Visible > comfortable.
+        shown = ", ".join(sorted(fallbacks)[:15])
+        more = "" if len(fallbacks) <= 15 else f", +{len(fallbacks) - 15} more"
+        print(f"[warn] current-team stamp fell back to the PRIOR-season team for "
+              f"{len(fallbacks)} player(s) (absent from the current-season pool, "
+              f"or current proTeamId unmapped — e.g. 0 = free agent): {shown}{more}",
+              file=sys.stderr)
     return records
+
+
+def build_player_records(season, teams, current_season=None):
+    """End-to-end N2 feed: fantasy pool + roster ages -> projection-engine inputs.
+
+    Returns list of player dicts shaped for scripts.models.player_projection
+    (gsis_id/name/team/position/age/injury_status/prior_season_points), filtered to
+    players with a canonical current team.
+
+    `current_season` (R33): the draft season whose rosters stamp `team`. Pass it
+    from the live pipeline so offseason movers carry the team they play for NOW
+    (measured stats still come from `season`); omit it to keep the old
+    prior-season stamping byte-for-byte (standalone history/backtest callers).
+    A failed current-team pull raises — same unguarded loudness as the pool
+    fetch itself, because silently reverting to last season's teams would
+    re-open the exact wrong-team defect this parameter exists to close.
+    """
+    pool = fetch_fantasy_pool(season)
+    ages = fetch_roster_ages(teams)
+    current = fetch_current_pro_teams(current_season) if current_season else None
+    return assemble_records(pool, ages, teams, current)
 
 
 if __name__ == "__main__":  # manual smoke: python -m scripts.scrape.espn_players
     from . import espn
     teams = espn.fetch_teams()
-    recs = build_player_records(2025, teams)
+    recs = build_player_records(2025, teams, current_season=2026)
     print(f"records={len(recs)}")
     for r in recs[:8]:
         print(f"  {r['name']:<24} {r['position']:<3} {r['team']:<4} age={r['age']} "

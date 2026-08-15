@@ -22,7 +22,7 @@
  * (404, older deploy) the toggle is hidden and the view is byte-for-byte the
  * v1 experience.
  *
- * Degrades honestly: player_weekly.json missing (older deploy) -> a .state
+ * Degrades honestly: player_weekly.json failing to load -> a .state
  * message, never a blank screen. Render helpers live LOCALLY (render.js is
  * untouched — this view owns its own markup).
  */
@@ -944,11 +944,15 @@ export default async function mountTeam(el) {
     weekly.players.forEach((w) => weeklyById.set(String(w.gsis_id), w));
   }
   if (weeklyById.size === 0) {
-    // Older deploy without player_weekly.json: no bye/floor/matchup math is
-    // possible — say so instead of faking a fit score.
-    stateMsg(el, 'Weekly data unavailable — the team builder needs the weekly '
-      + 'projection feed (data/player_weekly.json), which ships with the next '
-      + 'data deploy.');
+    // No usable weekly feed: no bye/floor/matchup math is possible — say so
+    // instead of faking a fit score. R30c — the old message promised the feed
+    // "ships with the next data deploy"; it shipped long ago and the daily
+    // cron refreshes it, so this branch means the fetch failed (or returned no
+    // matchable rows) THIS visit. Name the honest failure and the honest
+    // remedy (retry), never a release that already happened.
+    stateMsg(el, 'Weekly data unavailable — the weekly projection feed '
+      + '(data/player_weekly.json) did not load. Reload to retry; if it '
+      + 'persists the feed is temporarily unreachable.');
     return;
   }
 
@@ -1508,8 +1512,16 @@ export default async function mountTeam(el) {
     // one. (Level rooms produce the same total as before, so the key is stable
     // for every league that never touches the editor.)
     const roomMoney = effectiveTeamBudgets().reduce((s, b) => s + b, 0);
-    const key = `${draftCfg.leagueSize}|${draftCfg.budget}|${roomMoney}|${draftCfg.qb},${draftCfg.rb},`
-      + `${draftCfg.wr},${draftCfg.te},${draftCfg.flex},${draftCfg.bench}`;
+    // R30c — the key is DERIVED from the same shape fairDollars prices with,
+    // not hand-listed per field. The hand-written key spelled out qb..bench and
+    // omitted k/def, so the K and DEF steppers repainted a board whose OURS
+    // dollars were still priced for the 0-K/0-DEF shape (18 of 182 rows $1-$2
+    // off until an unrelated keyed field moved). Joining shape.starters +
+    // bench count means a future ROSTER_BOUNDS slot type cannot be forgotten
+    // the same way — it lands in starters, so it lands in the key.
+    const shape = rosterShape(draftCfg);
+    const key = `${draftCfg.leagueSize}|${draftCfg.budget}|${roomMoney}|`
+      + `${shape.starters.join(',')}|${shape.bench.length}`;
     if (_ourDollars && _ourDollarsKey === key) return _ourDollars;
     const rows = adpDoc.players.filter((r) => r && r.gsis_id);
     const adjOf = (r) => {
@@ -1517,7 +1529,7 @@ export default async function mountTeam(el) {
       return Number.isFinite(v) ? v : 0;
     };
     _ourDollars = fairDollars(rows, adjOf, draftCfg.leagueSize, draftCfg.budget,
-      rosterShape(draftCfg), roomMoney);
+      shape, roomMoney);
     _ourDollarsKey = key;
     return _ourDollars;
   }
@@ -1697,7 +1709,15 @@ export default async function mountTeam(el) {
     '<div class="team-grid">' +
       '<div class="team-col team-col--build">' +
         '<section class="draftsim" id="t-draft" aria-label="Draft simulator"></section>' +
-        '<section class="roster" id="t-roster" role="listbox" aria-label="Roster slots"></section>' +
+        // R30c — role="list", NOT listbox. The old listbox/option markup
+        // announced "Roster slots, list box, 13 items" — a selectable widget —
+        // while nothing responded to arrow keys, the container was not
+        // focusable, and every filled slot read "not selected". Selection here
+        // is actually driven by the buttons INSIDE each slot (ADD / remove),
+        // so the honest semantics are a plain list whose interactive children
+        // keep their own roles; the targeted-slot state lives on the ADD
+        // button as aria-pressed. Deliberately not a full ARIA listbox.
+        '<section class="roster" id="t-roster" role="list" aria-label="Roster slots"></section>' +
         '<section class="finder" aria-label="Player finder">' +
           '<input class="finder-input" id="t-find" type="search" autocomplete="off" ' +
             'placeholder="SEARCH NAME · TEAM · POS" aria-label="Search player pool">' +
@@ -1763,8 +1783,13 @@ export default async function mountTeam(el) {
       let body;
       if (!id) {
         const label = pos === 'BN' ? 'BENCH' : pos;
+        // aria-pressed carries the "fit engine is aiming here" state the old
+        // aria-selected pretended to: it sits on the control that actually
+        // toggles it, so AT announces it where the interaction happens (R30c).
+        const sel = selectedSlot === slot;
         body =
-          `<button type="button" class="slot-empty" data-act="pick" data-slot="${slot}">` +
+          `<button type="button" class="slot-empty" data-act="pick" data-slot="${slot}" ` +
+            `aria-pressed="${sel ? 'true' : 'false'}">` +
             `ADD ${label}</button>`;
       } else if (!playersById.has(id)) {
         // R30b — a RETAINED id (see kdstUnresolvedSlots): the saved K/D-ST is
@@ -1825,10 +1850,14 @@ export default async function mountTeam(el) {
             meta +
           '</div>';
       }
+      // R30c — listitem, not option (see the shell comment at #t-roster). The
+      // visual highlight stays on .slot--active; the announced state moved to
+      // the ADD button's aria-pressed above, because only an empty slot ever
+      // had a "selected" state and role="option" told AT every filled slot
+      // was an unselectable "not selected" entry.
       const sel = selectedSlot === slot && !id;
       return (
-        `<div class="slot${sel ? ' slot--active' : ''}" role="option" data-slot="${slot}" ` +
-          `aria-selected="${sel ? 'true' : 'false'}">` +
+        `<div class="slot${sel ? ' slot--active' : ''}" role="listitem" data-slot="${slot}">` +
           `<span class="slot-pos">${pos}</span>${body}` +
         '</div>'
       );
@@ -1862,6 +1891,10 @@ export default async function mountTeam(el) {
 
   function paintCands() {
     const box = el.querySelector('#t-cands');
+    // R30c — same focus preservation as paintDraft (see draftFocusKey there):
+    // the TAKE toggle is rebuilt by the very press that toggles it, so without
+    // this a keyboard user lost their place in the finder on every mark.
+    const focusKey = draftFocusKey(box);
     // R30b — the finder's legend sits in the ONE-SHOT shell, but its AUC
     // sentence depends on draftCfg.budget (see valueLegendText). Every path
     // that reprices the cells calls paintCands, so syncing the ≤2 legend
@@ -1991,6 +2024,7 @@ export default async function mountTeam(el) {
       rows.push(`<div class="cand cand--more">+ ${hits.length - FINDER_CAP} more — refine search</div>`);
     }
     box.innerHTML = rows.join('');
+    restoreDraftFocus(box, focusKey);
   }
 
   /** BEST PICK NOW strip: top-3 by value over replacement, from the SAME
@@ -2456,9 +2490,14 @@ export default async function mountTeam(el) {
         + 'above, so it stops needing hand entry. Uses the same league id as the settings sync. '
         + 'It runs ONLY when you press the button — there is no polling and no background '
         + 'refresh. A Sleeper roster carries player ids and no names, so the first press also '
-        + 'downloads Sleeper\'s player list (several MB); it is kept for this visit, so a '
-        + 'second sync does not download it again. Nothing is written until you confirm, and '
-        + 'every player it cannot match is listed by name.</div>'
+        // R30c — this said "kept for this visit", but the cache (sleeperIndex)
+        // lives in the mount closure and the router re-mounts this view on
+        // every navigation, so tapping any other tab and coming back drops it.
+        // The copy states the real boundary: this stay on the TEAM tab.
+        + 'downloads Sleeper\'s player list (several MB); it is kept while you stay on this '
+        + 'TEAM tab, so a second sync here does not re-download it — leaving the tab drops '
+        + 'it, and the next sync fetches the list again. Nothing is written until you '
+        + 'confirm, and every player it cannot match is listed by name.</div>'
       + '<div class="lp-sync">'
         + `<button type="button" class="lp-btn" data-act="roster-sync"${rosterBusy ? ' disabled' : ''}>`
           + `${rosterBusy ? 'READING…' : 'SYNC ROSTER'}</button>`
@@ -3527,9 +3566,41 @@ export default async function mountTeam(el) {
         `${auction.play === 'live' ? 'LIVE AUCTION' : 'AUCTION SIMULATOR'} · ${headBudget}</span> ` +
         `<span class="ds-status">${auction.log.length}/${auction.leagueSize * auction.shape.size} SOLD</span> ` +
         '<button type="button" class="sort-chip" data-act="auc-close">EXIT</button></div>' +
+      aucMemoryHtml() +
       aucToggles() +
       '<div class="auc-room">' + aucRoomZone() + aucBlockZone() + aucBuildZone() + '</div>'
     );
+  }
+
+  /* Auction-memory S4 — what the room learned from PAST drafts, said plainly.
+   *
+   * auction.memory is seedTendencies' summary: when active, the opponents in
+   * THIS room opened at per-position priors fitted to the sale prices real
+   * rooms actually paid (LIVE auctions only, shrunk hard toward 1.0 at low
+   * sample counts — see TENDENCY_PRIOR_K). When inactive, the engine says WHY
+   * in `reason`, written to be user-facing, and this card prints it verbatim
+   * rather than implying a memory that is not there. Only positions whose seed
+   * actually moved (≥ 1% off the 1.0 prior) are listed — printing "RB ×1.00"
+   * would dress the prior up as a finding. */
+  function aucMemoryHtml() {
+    const m = auction && auction.memory;
+    if (!m) return '';
+    if (!m.active) {
+      return `<div class="m-explain">ROOM MEMORY: off — ${esc(m.reason || 'no usable history')}.</div>`;
+    }
+    const parts = Object.keys(m.byPosition).sort()
+      .filter((pos) => Math.abs(m.byPosition[pos].seeded - 1) >= 0.01)
+      .map((pos) => `${esc(pos)} ×${m.byPosition[pos].seeded.toFixed(2)} `
+        + `(${m.byPosition[pos].n} sales)`);
+    if (!parts.length) {
+      return `<div class="m-explain">ROOM MEMORY: ${m.drafts} LIVE `
+        + `draft${m.drafts === 1 ? '' : 's'} on record — every seeded tendency is `
+        + 'within 1% of the market prior, so the room opens effectively unseeded.</div>';
+    }
+    return `<div class="m-explain">ROOM MEMORY: opponents open at tendencies learned `
+      + `from ${m.drafts} LIVE draft${m.drafts === 1 ? '' : 's'} (${m.sales} observed `
+      + `sales, shrunk toward 1.0 at low counts): ${parts.join(' · ')}. In-room `
+      + 'bidding keeps re-teaching these live.</div>';
   }
 
   /* R30 — the starting slots a finished draft left empty, or '' when the lineup
@@ -3585,14 +3656,45 @@ export default async function mountTeam(el) {
    * are deliberately excluded: liveTakePoolHtml() writes into that box behind
    * paintDraft's back, so only the setup branch can trust its own cache. */
   let _draftSetupPainted = null;
+  /* R30c — FOCUS SURVIVES THE REPAINT. Every draft-room action rebuilds its
+   * section with innerHTML, which detaches the very control that was just
+   * activated and drops keyboard/VoiceOver focus to <body> — raising a bid
+   * from $34 to $47 meant re-Tabbing the whole page per press, and the armed
+   * "TAP AGAIN" confirms were unreachable without a full re-Tab. Pointer users
+   * never noticed (the replacement renders at the identical spot, and Safari
+   * does not focus buttons on click), which is why this survived so long.
+   * The cheap fix inside the existing painter architecture: capture the
+   * focused control's identity (its data-act plus whichever stable data-*
+   * identity it carries) before the rebuild, and focus its equivalent in the
+   * fresh markup afterwards. data-max is tried but never required — the BID
+   * button's max moves with the bid, so the act-only fallback catches it. */
+  function draftFocusKey(box) {
+    const a = document.activeElement;
+    if (!box || !a || !box.contains(a) || !a.dataset || !a.dataset.act) return null;
+    const d = a.dataset;
+    return { act: d.act, gsis: d.gsis, bi: d.bi, slot: d.slot, max: d.max };
+  }
+  function restoreDraftFocus(box, key) {
+    if (!key) return;
+    const attr = (n, v) => (v == null ? '' : `[data-${n}="${v}"]`);
+    const exact = `[data-act="${key.act}"]${attr('gsis', key.gsis)}`
+      + `${attr('bi', key.bi)}${attr('slot', key.slot)}${attr('max', key.max)}`;
+    const next = box.querySelector(exact) || box.querySelector(`[data-act="${key.act}"]`);
+    if (next) {
+      try { next.focus({ preventScroll: true }); } catch (_) { next.focus(); }
+    }
+  }
+
   function paintDraft() {
     const box = el.querySelector('#t-draft');
     if (!box) return;
+    const focusKey = draftFocusKey(box);
     if (!adpDoc) {
       box.innerHTML = '';
       _draftSetupPainted = null;
       return;
     }
+    let rebuilt = true;
     if (auction && auctionResult) { box.innerHTML = auctionResultHtml(); _draftSetupPainted = null; }
     else if (auction) { box.innerHTML = auctionRoomHtml(); _draftSetupPainted = null; }
     else if (draft && draftResult) { box.innerHTML = draftResultHtml(); _draftSetupPainted = null; }
@@ -3602,8 +3704,11 @@ export default async function mountTeam(el) {
       if (html !== _draftSetupPainted) {
         box.innerHTML = html;
         _draftSetupPainted = html;
+      } else {
+        rebuilt = false; // the DOM was not touched, so focus never moved
       }
     }
+    if (rebuilt) restoreDraftFocus(box, focusKey);
   }
 
   function paintAll() {
@@ -3720,6 +3825,17 @@ export default async function mountTeam(el) {
       auctionResult = null;
       saveRoster(roster);
       saveTaken(taken);
+      // R30c — a wholesale roster wipe must also clear the Sleeper panel's
+      // applied state, the way buildRosterPlan/runRosterSync do. Leaving
+      // rosterApplied=true pinned rosterPlanHtml() to its post-apply branch:
+      // the panel kept reporting "Roster replaced … player(s) seated" under a
+      // roster RESET just emptied, and the FILL MY ROSTER offer the empty
+      // roster now qualifies for was unreachable — re-seating the already
+      // downloaded players needed a fresh network sync. Re-planning against
+      // the emptied slots restores that offer without any network.
+      rosterApplied = false;
+      rosterStatus = null;
+      if (rosterPlan) buildRosterPlan();
       t.textContent = 'RESET';
       t.classList.remove('reset-btn--armed');
       paintAll();
@@ -3785,7 +3901,14 @@ export default async function mountTeam(el) {
           + `1, 0.5 and 0, so the board stays at ${mode.toUpperCase()}.`);
       }
       leagueStatus = { tone: wrote ? 'ok' : 'warn', lines };
-      paintDraft();
+      // R30c — paintAll, not paintDraft: the save rewrote savedProfile, and
+      // the roster grid (slotOrder → rosterSlots(savedProfile)), the starters
+      // total, the finder and the reco all render FROM that profile but were
+      // not repainted, so the page kept asserting the pre-save slot geometry
+      // (e.g. no K seat after saving K=1) until an unrelated action reached
+      // paintRoster. Repaint everything the profile feeds, the same way the
+      // other roster-mutating actions (reset, add, remove) already do.
+      paintAll();
       return;
     }
 
@@ -4019,6 +4142,12 @@ export default async function mountTeam(el) {
         boardRows: roomBoardRows(),
         adjPointsById: adjPointsMap(),
         seed: 20260901 + draftCfg.leagueSize * 100 + draftCfg.mySlot,
+        // Auction-memory S2 — the stored DRAFT HISTORY seeds the opponents'
+        // per-position priors from past LIVE auctions at this league size
+        // (seedTendencies applies the shrinkage and the SIM/market exclusions;
+        // an empty or SIM-only history seeds nothing and says why in
+        // auction.memory.reason, which the room header prints verbatim).
+        history: mockHistory,
       });
       auction.play = draftCfg.play;
       paintAll();

@@ -88,7 +88,15 @@ const STORAGE = resolve(TESTS_DIR, '../gate-unlocked.storage.json');
 // throwaway copy of app/: the boot graph goes 15 -> 19 modules and
 // 275,856 -> 582,101 bytes, tripping both.
 const BOOT_MODULE_CEILING = 16; // measured 15; one module of headroom.
-const BOOT_BYTE_CEILING = 320_000; // measured 275,856; ~16% headroom for edits.
+/* Re-measured 2026-08-15 after the R30/auction-memory releases: 325,257 bytes,
+ * up from 275,856. The growth is legitimate boot-module content, not a leak —
+ * the module-count and lazy-only guards above both still pass, and the bytes
+ * are the auction-memory seeding engine plus the R30 incident commentary in
+ * auction.js / team-logic.js (this repo deliberately writes the why into the
+ * source, and this budget measures source bytes). Ceiling re-set with ~11%
+ * headroom. If this trips again WITHOUT a lazy-leak, re-measure and decide
+ * again in writing — never bump it to make a red bar green. */
+const BOOT_BYTE_CEILING = 360_000; // measured 325,257 (2026-08-15).
 // Depth is a LOOSE guard, not a lock: each level is one serialized round trip,
 // but the pre-fix graph was depth 3 too, so this ceiling would NOT have caught
 // R25-F3 on its own. It only catches a NEW, deeper chain.
