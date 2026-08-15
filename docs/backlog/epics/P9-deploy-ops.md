@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter reuses the whole topology — static PWA on Netlify (push-to-main auto-deploy), a separate edge live-API on Vercel, GitHub Actions crons committing JSON to `main` with race-safe merges, an exit-code-gated regression run before any deploy, a stated rollback, and post-deploy prod verification. An adapter re-authors only the concrete endpoint URLs, the live-API handler, and the feed-specific cron cadence; the deploy discipline is domain-agnostic.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **22 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/18 automatable). **16** name a test file that does not
+> exist; **2** name a file that exists but contains no assertion that bites. **4** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/deploy_config.test.mjs`, `tests/feature/cron_racesafe.test.mjs`, `tests/feature/headers.test.mjs`, `tests/feature/live_status_gate.test.mjs` and 3 more. Stories with **nothing asserted at all**: P9-S1, P9-S2, P9-S3, P9-S4, P9-S5, P9-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Ship the PWA and its live-score API safely and repeatably: a green gate is the precondition for every deploy, a one-line rollback is stated before shipping, and prod is verified after (curl the deployed file/endpoint — never assume). Two independent deploy surfaces stay decoupled (static site on Netlify, edge API on Vercel) so one can ship without the other, and concurrent crons commit data to `main` without clobbering each other. Freshness is controlled by HTTP headers, not a caching service worker, so a deploy reaches every open tab within minutes.
 
@@ -10,7 +19,7 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 
 ## User stories
 
-### P9-S1 — PWA auto-deploys from main via Netlify (no bundler)   ·  Status: 🟡   ·  Est: S
+### P9-S1 — PWA auto-deploys from main via Netlify (no bundler)   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** a push to `main` to auto-deploy the static PWA **so that** shipping is `git push`, with no build pipeline to break.
 **Acceptance criteria** (Given/When/Then):
 - P9-S1-AC1 — Given `netlify.toml`, When Netlify builds, Then the build command is exactly `node scripts/write-runtime-config.mjs` and `publish = "."` (no bundler/framework step).
@@ -21,13 +30,13 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S1-T2 — Keep `write-runtime-config.mjs` Node-builtins-only and secret-free.
 - [ ] P9-S1-T3 — Smoke-check the generated `runtime-config.js` shape in the gate.
 **QA coverage:**
-- P9-S1-AC1 → `tests/feature/deploy_config.test.mjs::netlify_build_and_publish` (unit — parse netlify.toml) — Planned
-- P9-S1-AC2 → `tests/feature/deploy_config.test.mjs::runtime_config_empty_env` (unit — run script with empty env) — Planned
-- P9-S1-AC3 → `tests/feature/deploy_config.test.mjs::redirects_order` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P9-S1-AC1 → `tests/feature/deploy_config.test.mjs::netlify_build_and_publish` (unit — parse netlify.toml) — Planned  **[MISSING]**
+- P9-S1-AC2 → `tests/feature/deploy_config.test.mjs::runtime_config_empty_env` (unit — run script with empty env) — Planned  **[MISSING]**
+- P9-S1-AC3 → `tests/feature/deploy_config.test.mjs::redirects_order` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `netlify.toml`, `scripts/write-runtime-config.mjs`, `app/runtime-config.js`.
 
-### P9-S2 — Live API deploys separately to Vercel edge   ·  Status: ⬜   ·  Est: M
+### P9-S2 — Live API deploys separately to Vercel edge   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** the live-score API to deploy independently on Vercel **so that** the real-time endpoint can ship without a site deploy and vice versa.
 **Acceptance criteria** (Given/When/Then):
 - P9-S2-AC1 — Given the live-API project, When redeployed via the Vercel CLI (`--prod --yes --scope <team>`), Then it publishes only the edge function and Netlify ignores that directory (the two surfaces are decoupled).
@@ -38,13 +47,13 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S2-T2 — Enforce STATUS-gating in the handler (FINAL-only scoring).
 - [ ] P9-S2-T3 — Mirror the RENAMES map across client/edge/scraper and test the three stay in sync.
 **QA coverage:**
-- P9-S2-AC1 → `tests/feature/deploy_config.test.mjs::live_api_excluded_from_netlify` (unit) — Planned
-- P9-S2-AC2 → `tests/feature/live_status_gate.test.mjs::final_only_scores` (unit) — Planned
-- P9-S2-AC3 → `tests/feature/live_renames.test.mjs::renames_in_sync` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P9-S2-AC1 → `tests/feature/deploy_config.test.mjs::live_api_excluded_from_netlify` (unit) — Planned  **[MISSING]**
+- P9-S2-AC2 → `tests/feature/live_status_gate.test.mjs::final_only_scores` (unit) — Planned  **[MISSING]**
+- P9-S2-AC3 → `tests/feature/live_renames.test.mjs::renames_in_sync` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new (`live-api/api/nfl.js`), `scripts/scrape/renames.py`, `app/data.js`.
 
-### P9-S3 — GitHub Actions crons commit JSON to main, race-safe   ·  Status: 🟡   ·  Est: M
+### P9-S3 — GitHub Actions crons commit JSON to main, race-safe   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Operator **I want** the daily and gameday crons to commit `data/` to `main` without clobbering each other **so that** concurrent pushes never drop a commit.
 **Acceptance criteria** (Given/When/Then):
 - P9-S3-AC1 — Given a cron regenerated data, When it commits, Then it runs `git pull --ff-only origin main` then `git push`, retrying up to 5 times, and exits non-zero only if all retries fail (`::error::could not push`).
@@ -58,15 +67,15 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S3-T3 — Keep `[skip ci]` on data commits and distinct concurrency groups.
 - [ ] P9-S3-T4 — Run `pipeline_status.py` + `validate_data.py` before every commit so no invalid/`down` data lands.
 **QA coverage:**
-- P9-S3-AC1 → `tests/feature/cron_racesafe.test.mjs::ff_only_retry_loop` (unit — parse yml, assert steps) — Planned
-- P9-S3-AC2 → manual (conflict-resolution policy review) — Planned (documented policy)
-- P9-S3-AC3 → `tests/feature/cron_racesafe.test.mjs::no_empty_commit` (unit) — Planned
-- P9-S3-AC4 → `tests/feature/cron_racesafe.test.mjs::no_realtime_on_cron` (unit — assert scores not sourced from daily cron) — Planned
-- P9-S3-AC5 → `tests/feature/cron_racesafe.test.mjs::skip_ci_and_concurrency` (unit) — Planned
-  Coverage: 4/5 automatable covered; AC2 manual-by-nature = 4/4 automatable = 100%. Test types: unit(node:test), manual.
+- P9-S3-AC1 → `tests/feature/cron_racesafe.test.mjs::ff_only_retry_loop` (unit — parse yml, assert steps) — Planned  **[MISSING]**
+- P9-S3-AC2 → manual (conflict-resolution policy review) — Planned (documented policy)  **[MANUAL]**
+- P9-S3-AC3 → `tests/feature/cron_racesafe.test.mjs::no_empty_commit` (unit) — Planned  **[MISSING]**
+- P9-S3-AC4 → `tests/feature/cron_racesafe.test.mjs::no_realtime_on_cron` (unit — assert scores not sourced from daily cron) — Planned  **[MISSING]**
+- P9-S3-AC5 → `tests/feature/cron_racesafe.test.mjs::skip_ci_and_concurrency` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `.github/workflows/daily.yml`, `.github/workflows/gameday.yml`, `scripts/validate_data.py`, `scripts/pipeline_status.py`.
 
-### P9-S4 — Regression 100% green before any deploy   ·  Status: ✅   ·  Est: S
+### P9-S4 — Regression 100% green before any deploy   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/2 ACs asserted (0%)**
 **As** an Operator **I want** the full regression gate to pass before any deploy **so that** a red build never ships.
 **Acceptance criteria** (Given/When/Then):
 - P9-S4-AC1 — Given the gate, When run, Then it executes in order — `validate_data.py` → `smoke.sh` → `node --test tests/feature/*.mjs` — and fails fast on the first non-zero exit (gated on EXIT CODES, never on grepping colored summaries).
@@ -77,13 +86,13 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S4-T2 — Keep the gate stdlib-only (no pip/npm install in `ci.yml`).
 - [ ] P9-S4-T3 — Document "never deploy red" as a hard precondition.
 **QA coverage:**
-- P9-S4-AC1 → `tests/run_gate.sh` exit-code ordering, exercised on every CI run (smoke/meta) — Done
-- P9-S4-AC2 → `.github/workflows/ci.yml` runs `bash tests/run_gate.sh`, no install steps — Done
-- P9-S4-AC3 → manual (deploy-precondition policy) — Planned (documented policy)
-  Coverage: 2/2 automatable = 100% (AC1/AC2 Done); AC3 policy-manual. Test types: smoke(bash), meta(CI), manual.
+- P9-S4-AC1 → `tests/run_gate.sh` exit-code ordering, exercised on every CI run (smoke/meta) — Done  **[TOOTHLESS · self-referential]**
+- P9-S4-AC2 → `.github/workflows/ci.yml` runs `bash tests/run_gate.sh`, no install steps — Done  **[TOOTHLESS · self-referential]**
+- P9-S4-AC3 → manual (deploy-precondition policy) — Planned (documented policy)  **[MANUAL]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/2 · TOOTHLESS 2 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/run_gate.sh`, `tests/smoke.sh`, `tests/feature/*.mjs`, `scripts/validate_data.py`, `.github/workflows/ci.yml`.
 
-### P9-S5 — Rollback stated before deploy; verify on prod after   ·  Status: 🟡   ·  Est: S
+### P9-S5 — Rollback stated before deploy; verify on prod after   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/2 ACs asserted (0%)**
 **As** an Operator **I want** every deploy to name its one-line rollback up front and be verified on prod after **so that** a bad ship reverts in one command and no deploy is assumed.
 **Acceptance criteria** (Given/When/Then):
 - P9-S5-AC1 — Given a PWA deploy, When it ships, Then the rollback is a single command stated beforehand: `git revert <sha> && git push origin main` (Netlify auto-redeploys the reverted shell).
@@ -95,14 +104,14 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S5-T2 — Provide a `scripts/verify_prod.sh` that curls the prod shell, `/data/*.json`, and the live endpoint and exits non-zero on mismatch.
 - [ ] P9-S5-T3 — Record the exact rollback one-liner per surface in the checklist.
 **QA coverage:**
-- P9-S5-AC1 → `docs/` deploy checklist + `tests/feature/deploy_config.test.mjs::rollback_documented` (unit — assert checklist present) — Planned
-- P9-S5-AC2 → `docs/` deploy checklist (manual — Vercel rollback) — Planned (documented policy)
-- P9-S5-AC3 → `scripts/verify_prod.sh` (smoke — post-deploy prod curl; manual/CD-triggered) — Planned
-- P9-S5-AC4 → manual (chat confirmation gate) — Planned (policy)
-  Coverage: 2/2 automatable covered (AC1 test, AC3 script); AC2/AC4 policy-manual by nature = 100% automatable. Test types: unit(node:test), smoke(bash), manual.
+- P9-S5-AC1 → `docs/` deploy checklist + `tests/feature/deploy_config.test.mjs::rollback_documented` (unit — assert checklist present) — Planned  **[MISSING]**
+- P9-S5-AC2 → `docs/` deploy checklist (manual — Vercel rollback) — Planned (documented policy)  **[MANUAL]**
+- P9-S5-AC3 → `scripts/verify_prod.sh` (smoke — post-deploy prod curl; manual/CD-triggered) — Planned  **[MISSING]**
+- P9-S5-AC4 → manual (chat confirmation gate) — Planned (policy)  **[MANUAL]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/2 · MISSING 2 · manual 2 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new (`scripts/verify_prod.sh`, `docs/DEPLOY_CHECKLIST.md`), `netlify.toml`.
 
-### P9-S6 — Freshness by headers, not a caching service worker   ·  Status: ✅   ·  Est: S
+### P9-S6 — Freshness by headers, not a caching service worker   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** a deploy to reach open tabs within minutes without a stale-SW bug **so that** users never run day-old JS or score off stale data.
 **Acceptance criteria** (Given/When/Then):
 - P9-S6-AC1 — Given `sw.js`, When it activates, Then it installs NO `fetch` handler and deletes every `nfl26-*` cache (pure cache-purger — the wc2026 stale-shell bug cannot recur).
@@ -114,11 +123,11 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - [ ] P9-S6-T2 — Keep the `_headers` freshness matrix as specified; assert it in the gate.
 - [ ] P9-S6-T3 — Assert security headers exist.
 **QA coverage:**
-- P9-S6-AC1 → `tests/feature/sw_purge.test.mjs::no_fetch_handler_purges_caches` (unit — parse sw.js) — Planned
-- P9-S6-AC2 → `tests/feature/headers.test.mjs::app_freshness` (unit — parse _headers) — Planned
-- P9-S6-AC3 → `tests/feature/headers.test.mjs::data_and_shell_freshness` (unit) — Planned
-- P9-S6-AC4 → `tests/feature/headers.test.mjs::security_headers` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test).
+- P9-S6-AC1 → `tests/feature/sw_purge.test.mjs::no_fetch_handler_purges_caches` (unit — parse sw.js) — Planned  **[MISSING]**
+- P9-S6-AC2 → `tests/feature/headers.test.mjs::app_freshness` (unit — parse _headers) — Planned  **[MISSING]**
+- P9-S6-AC3 → `tests/feature/headers.test.mjs::data_and_shell_freshness` (unit) — Planned  **[MISSING]**
+- P9-S6-AC4 → `tests/feature/headers.test.mjs::security_headers` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `sw.js`, `_headers`.
 
 ## Epic QA roll-up

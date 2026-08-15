@@ -227,7 +227,12 @@ test('odds_api.parse_event parses spread + total and rejects unmatchable events'
   // Equal -110/-110 spread prices de-vig to a fair 0.5/0.5.
   assert.equal(r.markets.spread.home_cover_prob, 0.5);
   assert.equal(r.markets.spread.away_cover_prob, 0.5);
-  assert.equal(r.markets.spread.selection, 'KC -3.5');
+  // BOTH sides are labelled, signs mirrored, plus the handicap as a number (R30
+  // F2: a single home-only `selection` let the consumer name one team and price
+  // the other). Pinned in full in tests/feature/parlay_market_independence.test.mjs.
+  assert.equal(r.markets.spread.home_selection, 'KC -3.5');
+  assert.equal(r.markets.spread.away_selection, 'BUF +3.5');
+  assert.equal(r.markets.spread.home_point, -3.5);
   // Total: -105 Over vs -115 Under -> Over slightly below 0.5; line carried.
   assert.equal(r.markets.total.line, 47.5);
   assert.ok(r.markets.total.over_prob > 0.48 && r.markets.total.over_prob < 0.5);

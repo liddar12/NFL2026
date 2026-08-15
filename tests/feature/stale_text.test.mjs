@@ -218,6 +218,60 @@ test('every view that converts season points stamps the league extras first', ()
   }
 });
 
+test('a view that stamps the league extras also READS them', () => {
+  /* R30 — THE ASSERTION ABOVE WAS SATISFIABLE BY DOING NOTHING.
+   *
+   * It checks that withLeagueExtras is CALLED. app/views/compare.js called it
+   * and then never looked at the result: no path in the file read extra_pts,
+   * and the file performed no season-points conversion at all — it printed the
+   * raw full-PPR proj_points under a label every other tab defines as "your
+   * scoring mode". So the guard written in R29 to prevent exactly this class of
+   * bug passed, for two releases, on a file that had the bug.
+   *
+   * A call whose return value is discarded is not wiring. Stamp and read have
+   * to be asserted together, or "calls the function" is a ritual.
+   */
+  /* app/views/lineup.js is KNOWINGLY ABSENT from this list, and saying why is
+   * the point of the exemption. It has the same inert call — R30 confirmed it —
+   * but it renders WEEKLY points off wkEntry.pts, while extra_pts is a SEASON
+   * total. Reading it there is not a one-line change: it needs a decision about
+   * how a season-long rule is apportioned across 18 weeks and byes, which is a
+   * scoring change, not a bug fix. Doing that inside a blocker release is how a
+   * fix becomes a regression. Tracked as R30b in docs/qa/R30_RCA_FINDINGS.md;
+   * add lineup.js back to this array in the change that lands it. */
+  const CONVERTERS = ['app/views/players.js', 'app/views/team.js',
+    'app/views/compare.js'];
+  for (const f of CONVERTERS) {
+    const src = prose(f);
+    assert.ok(/extraPtsOf\s*\(|extra_pts/.test(src),
+      `${f} stamps this league's scoring rules onto its weekly map with `
+      + 'withLeagueExtras and then never reads extra_pts or calls extraPtsOf, '
+      + 'so the stamp is discarded and the league is priced as if it had no '
+      + 'extra rules — while the tab next door prices it correctly.');
+  }
+});
+
+test('every surface that prints season points converts them by MODE', () => {
+  /* The other half of the same defect, and the more serious half: it needs no
+   * league import to trigger. COMPARE never read the scoring mode, so flipping
+   * the toggle to STD changed PLAYERS and left COMPARE on full PPR — 3,914
+   * pairs in the shipped pool flip order between those two tables, so the two
+   * tabs could crown different winners for the same two players.
+   *
+   * The mode reader is now one exported function (team-logic loadScoringMode).
+   * Requiring the surfaces to go through it is what stops a fourth private
+   * copy drifting again — three already existed. */
+  const CONVERTERS = ['app/views/players.js', 'app/views/team.js',
+    'app/views/compare.js'];
+  for (const f of CONVERTERS) {
+    const src = prose(f);
+    assert.ok(/loadScoringMode\s*\(|SCORING_KEY/.test(src),
+      `${f} prints season points but never reads the persisted scoring mode, `
+      + 'so it renders one scoring table while the rest of the app renders '
+      + 'another — and neither number says which table it is in');
+  }
+});
+
 test('there is exactly ONE season-points conversion in the app', () => {
   // app/views/players.js carried a hand-rolled copy of scoringAdjust, line for
   // line. Teaching one copy a new scoring rule and not the other ships a

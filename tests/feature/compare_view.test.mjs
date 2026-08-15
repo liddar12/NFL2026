@@ -72,8 +72,17 @@ function metrics(over = {}) {
 }
 
 /** Metric labels, in DOM order, out of a rendered column. */
+/* R30 — the PROJ PTS row now names the scoring table its number is in
+ * ("PROJ PTS · STD"), because COMPARE used to print a full-PPR number whatever
+ * the toggle said and nothing on the row admitted which table that was. These
+ * ordering tests are about WHICH ROWS APPEAR AND IN WHAT ORDER, so the mode
+ * suffix is stripped here rather than pinned into every expectation — pinning
+ * it would make an ordering test fail the next time a label gains a qualifier,
+ * which tells nobody anything about ordering. The suffix itself is asserted
+ * directly, once, in the test below. */
 function rowLabels(html) {
-  return [...html.matchAll(/<span class="cmp-lbl">([^<]*)<\/span>/g)].map((m) => m[1]);
+  return [...html.matchAll(/<span class="cmp-lbl">([^<]*)<\/span>/g)]
+    .map((m) => m[1].replace(/ · (?:PPR|HALF|STD)$/, ''));
 }
 
 /** Edge-chip labels, in DOM order, out of a rendered centre rail. */
@@ -245,6 +254,25 @@ test('AVAILABILITY is still the FIRST metric row, above PROJ PTS (REL17)', () =>
   const labels = rowLabels(colHtml('a', metrics()));
   assert.equal(labels[0], 'AVAILABILITY');
   assert.equal(labels[1], 'PROJ PTS');
+});
+
+test('the PROJ PTS row names the scoring table its number is in (R30)', () => {
+  /* THE DEFECT. compare.js printed p.proj_points raw — documented as a FULL-PPR
+   * season total — and never read the persisted scoring mode at all. So with
+   * the toggle on STD, PLAYERS ranked Jonathan Taylor above Christian
+   * McCaffrey and COMPARE crowned McCaffrey with a PROJ edge chip: the same two
+   * players, opposite answers, one tap apart. 3,914 pairs in the shipped pool
+   * flip order between those two tables.
+   *
+   * Converting was the fix; SAYING WHICH TABLE is what stops the next reader
+   * having to trust that it happened. */
+  for (const mode of ['ppr', 'half', 'std']) {
+    const labels = [...colHtml('a', metrics(), mode)
+      .matchAll(/<span class="cmp-lbl">([^<]*)<\/span>/g)].map((m) => m[1]);
+    assert.equal(labels[1], `PROJ PTS · ${mode.toUpperCase()}`,
+      'the row must name the scoring table, or a converted number is '
+      + 'indistinguishable from an unconverted one');
+  }
 });
 
 test('PLAYOFF SoS sits after the season SoS row and before BYE', () => {

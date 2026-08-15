@@ -2,6 +2,15 @@
 **Layer:** NFL Adapter   ·   **Status:** 🟡   ·   **Instantiates:** P5 (Data Pipeline & Feed Health), P6 (JSON Contract & Frontend Data Layer)
 **Reuse:** A future adapter (NBA/MLB/markets) keeps the P5/P6 contracts — guarded fetchers, `FeedError` on zero-row/stale, a single `RENAMES` source-of-truth mirrored across layers, a `RequestBudget` gate for metered APIs, and ESPN-authoritative schedule reconciliation. It re-authors only *this* file: which upstreams exist (nflverse vs a league stats API), the canonical key (`gsis_id` here), the venue/roof table, and the specific name-normalization pairs.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **18 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/18 automatable). **14** name a test file that does not
+> exist; **4** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/odds_budget.test.mjs`, `tests/feature/nflverse_feed.test.mjs`, `tests/feature/espn_status_gating.test.mjs`, `tests/feature/weather_roof.test.mjs` and 2 more. Stories with **nothing asserted at all**: N1-S1, N1-S2, N1-S3, N1-S4, N1-S5, N1-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Stand up the NFL data supply so every downstream model is fed real, fresh, correctly-keyed truth instead of fixtures. nflverse (`nfl_data_py`) is the canonical player record keyed on `gsis_id`; ESPN supplies schedule, live scores and injuries; The Odds API + Kalshi supply market-implied probabilities; Open-Meteo + a stadium roof table supply weather. The harness-first thesis holds: a source only counts once its rows are contract-valid, non-zero, non-stale, and reconciled — a feed that returns an empty file is treated as an outage, not as "no data".
 
@@ -10,7 +19,7 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 
 ## User stories
 
-### N1-S1 — nflverse canonical player feed (gsis_id)   ·  Status: 🟡   ·  Est: L
+### N1-S1 — nflverse canonical player feed (gsis_id)   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** the System/Automation actor **I want** weekly stats, rosters, depth charts, snap counts and contracts pulled from nflverse and keyed on `gsis_id` **so that** every player-side model joins on one stable canonical key instead of fragile name matching.
 **Acceptance criteria** (Given/When/Then):
 - N1-S1-AC1 — Given a clean box with no `nfl_data_py` installed, When `scripts/scrape/nflverse.py` is imported, Then import succeeds (the heavy dep is imported inside each fetcher, never at module top-level) and only calling a fetcher raises `FeedError` with an actionable install line.
@@ -25,14 +34,14 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S1-T5 — Assert `gsis_id` present + non-null on every record; drop/raise otherwise.
 - [ ] N1-S1-T6 — DataFrame→records reduction so no pandas type escapes the module.
 **QA coverage:**
-- N1-S1-AC1 → `tests/feature/nflverse_feed.test.mjs::imports_without_dep` (unit) — Planned
-- N1-S1-AC2 → `tests/feature/nflverse_feed.test.mjs::zero_rows_raises` (unit) — Planned
-- N1-S1-AC3 → `tests/feature/nflverse_feed.test.mjs::stale_frame_raises` (unit) — Planned
-- N1-S1-AC4 → `scripts/validate_data.py::players_have_gsis_id` (data) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test), data(validate_data).
+- N1-S1-AC1 → `tests/feature/nflverse_feed.test.mjs::imports_without_dep` (unit) — Planned  **[MISSING]**
+- N1-S1-AC2 → `tests/feature/nflverse_feed.test.mjs::zero_rows_raises` (unit) — Planned  **[MISSING]**
+- N1-S1-AC3 → `tests/feature/nflverse_feed.test.mjs::stale_frame_raises` (unit) — Planned  **[MISSING]**
+- N1-S1-AC4 → `scripts/validate_data.py::players_have_gsis_id` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/nflverse.py`, `data/contracts/player_projections.schema.json`, `scripts/validate_data.py`.
 
-### N1-S2 — ESPN schedule / scores / injuries with STATUS-gating   ·  Status: 🟡   ·  Est: M
+### N1-S2 — ESPN schedule / scores / injuries with STATUS-gating   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the System/Automation actor **I want** ESPN's public JSON for schedule, live scores and injuries **so that** the game/live layer has kickoff times, in-flight scores, and injury status without an API key.
 **Acceptance criteria** (Given/When/Then):
 - N1-S2-AC1 — Given an ESPN game payload, When ingested, Then only `STATUS_FINAL` / `STATUS_FINAL_OVERTIME` records are eligible to become actual results; every other status (in-progress, halftime, scheduled, postponed, 0-0 `STATUS_SCHEDULED` stubs) is flagged display-only and can never award points or advance standings.
@@ -45,13 +54,13 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S2-T4 — Tag non-final records `display_only=true`; assert they never enter the results path.
 - [ ] N1-S2-T5 — Guarded in-function `requests` import.
 **QA coverage:**
-- N1-S2-AC1 → `tests/feature/espn_status_gating.test.mjs::only_final_scores` (unit) — Planned
-- N1-S2-AC2 → `tests/feature/espn_status_gating.test.mjs::imports_without_requests` (unit) — Planned
-- N1-S2-AC3 → `scripts/validate_data.py::injuries_keyed_on_gsis` (data) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test), data(validate_data).
+- N1-S2-AC1 → `tests/feature/espn_status_gating.test.mjs::only_final_scores` (unit) — Planned  **[MISSING]**
+- N1-S2-AC2 → `tests/feature/espn_status_gating.test.mjs::imports_without_requests` (unit) — Planned  **[MISSING]**
+- N1-S2-AC3 → `scripts/validate_data.py::injuries_keyed_on_gsis` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/espn.py`, `scripts/scrape/renames.py`, `scripts/validate_data.py`.
 
-### N1-S3 — Betting markets (The Odds API + Kalshi) under a request budget   ·  Status: 🟡   ·  Est: M
+### N1-S3 — Betting markets (The Odds API + Kalshi) under a request budget   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** the Operator **I want** market prices turned into clean implied probabilities under an enforced free-tier budget **so that** markets act as a first-class model input without silently blowing the monthly quota.
 **Acceptance criteria** (Given/When/Then):
 - N1-S3-AC1 — Given a `RequestBudget` with a per-day and per-minute cap, When a call would exceed either cap, Then the call is refused loudly (raises) before the HTTP request fires — never a silent degrade.
@@ -65,14 +74,14 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S3-T4 — Source-tag each price; expose remaining budget to `pipeline_status.py`.
 - [ ] N1-S3-T5 — Guarded in-function `requests` import.
 **QA coverage:**
-- N1-S3-AC1 → `tests/feature/odds_budget.test.mjs::refuses_over_cap` (unit) — Planned
-- N1-S3-AC2 → `tests/feature/odds_budget.test.mjs::vig_removed_sums_to_one` (unit) — Planned
-- N1-S3-AC3 → `tests/feature/odds_budget.test.mjs::decrements_budget` (unit) — Planned
-- N1-S3-AC4 → `tests/feature/odds_budget.test.mjs::source_tagged` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test).
+- N1-S3-AC1 → `tests/feature/odds_budget.test.mjs::refuses_over_cap` (unit) — Planned  **[MISSING]**
+- N1-S3-AC2 → `tests/feature/odds_budget.test.mjs::vig_removed_sums_to_one` (unit) — Planned  **[MISSING]**
+- N1-S3-AC3 → `tests/feature/odds_budget.test.mjs::decrements_budget` (unit) — Planned  **[MISSING]**
+- N1-S3-AC4 → `tests/feature/odds_budget.test.mjs::source_tagged` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/odds.py`, `scripts/pipeline_status.py`, `data/pipeline_status.json`.
 
-### N1-S4 — Weather + stadium roof metadata   ·  Status: 🟡   ·  Est: S
+### N1-S4 — Weather + stadium roof metadata   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Modeler **I want** Open-Meteo forecasts joined to a stadium roof table **so that** the weather signal fires only for outdoor / open-retractable games and is neutral indoors.
 **Acceptance criteria** (Given/When/Then):
 - N1-S4-AC1 — Given a team playing in a fixed-roof (indoor) venue, When weather is resolved, Then the weather signal is neutral (no wind/temp/precip effect) — roof state comes from `data/fixtures/teams.json`, not from the fetcher.
@@ -84,13 +93,13 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S4-T3 — `roof_for_team` lookup against `teams.json`; indoor → neutral.
 - [ ] N1-S4-T4 — Validate `roof` enum + coordinates for all 32 teams.
 **QA coverage:**
-- N1-S4-AC1 → `tests/feature/weather_roof.test.mjs::indoor_is_neutral` (unit) — Planned
-- N1-S4-AC2 → `tests/feature/weather_roof.test.mjs::pure_reduction` (unit) — Planned
-- N1-S4-AC3 → `scripts/validate_data.py::teams_roof_enum` (data) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test), data(validate_data).
+- N1-S4-AC1 → `tests/feature/weather_roof.test.mjs::indoor_is_neutral` (unit) — Planned  **[MISSING]**
+- N1-S4-AC2 → `tests/feature/weather_roof.test.mjs::pure_reduction` (unit) — Planned  **[MISSING]**
+- N1-S4-AC3 → `scripts/validate_data.py::teams_roof_enum` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/weather_fetch.py`, `scripts/signals/weather.py`, `data/fixtures/teams.json`, `scripts/validate_data.py`.
 
-### N1-S5 — Name normalization: single source, mirrored across layers   ·  Status: 🟡   ·  Est: S
+### N1-S5 — Name normalization: single source, mirrored across layers   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/2 ACs asserted (0%)**
 **As** the System/Automation actor **I want** one `RENAMES` map in Python byte-mirrored into the JS layer **so that** ESPN and nflverse spellings never drift apart and attach results to the wrong entity.
 **Acceptance criteria** (Given/When/Then):
 - N1-S5-AC1 — Given `scripts/scrape/renames.py` as the single Python source of truth, When the JS `RENAMES` in `app/live-scores.js` is diffed against it, Then the two are byte-equivalent (a failing diff blocks the gate).
@@ -101,12 +110,12 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S5-T3 — Cross-layer diff test that fails on drift.
 - [ ] N1-S5-T4 — Idempotence assertion on the normalizer.
 **QA coverage:**
-- N1-S5-AC1 → `tests/feature/renames_sync.test.mjs::py_js_byte_equivalent` (unit) — Planned
-- N1-S5-AC2 → `tests/feature/renames_sync.test.mjs::normalize_idempotent` (unit) — Planned
-- Coverage: 2/2 = 100%. Test types: unit(node:test).
+- N1-S5-AC1 → `tests/feature/renames_sync.test.mjs::py_js_byte_equivalent` (unit) — Planned  **[MISSING]**
+- N1-S5-AC2 → `tests/feature/renames_sync.test.mjs::normalize_idempotent` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/2 · MISSING 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/renames.py`, `app/live-scores.js`.
 
-### N1-S6 — Schedule reconciliation (ESPN-authoritative kickoff_utc)   ·  Status: 🟡   ·  Est: M
+### N1-S6 — Schedule reconciliation (ESPN-authoritative kickoff_utc)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/2 ACs asserted (0%)**
 **As** the System/Automation actor **I want** cron-committed kickoff times reconciled against ESPN **so that** date drift in the schedule can't misfile a game to the wrong day/week.
 **Acceptance criteria** (Given/When/Then):
 - N1-S6-AC1 — Given a stored `kickoff_utc` that disagrees with ESPN for the same game id, When reconciliation runs, Then ESPN wins and the corrected `kickoff_utc` is written with a minimal diff (no cosmetic churn to unrelated rows).
@@ -116,7 +125,7 @@ Every model in N2/N3/N4 is only as honest as its inputs. The wc2026 postmortems 
 - [ ] N1-S6-T2 — ESPN-authoritative overwrite with minimal-diff writer.
 - [ ] N1-S6-T3 — Race-safe push sequence in the cron wrapper.
 **QA coverage:**
-- N1-S6-AC1 → `tests/feature/schedule_reconcile.test.mjs::espn_wins_on_drift` (unit) — Planned
-- N1-S6-AC2 → `tests/smoke.sh::race_safe_merge` (smoke) — Planned
-- Coverage: 2/2 = 100%. Test types: unit(node:test), smoke(bash).
+- N1-S6-AC1 → `tests/feature/schedule_reconcile.test.mjs::espn_wins_on_drift` (unit) — Planned  **[MISSING]**
+- N1-S6-AC2 → `tests/smoke.sh::race_safe_merge` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/2 · MISSING 1 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/espn.py`, `.github/workflows/daily.yml`, `.github/workflows/gameday.yml`.

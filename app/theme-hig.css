@@ -1,0 +1,1364 @@
+/* =============================================================================
+   NFL2026 — theme-hig.css  (ALTERNATIVE THEME · Apple Human Interface Guidelines)
+   R31. An opt-in reskin of the SAME markup app/theme.css already styles. It is
+   a second reading of the app, not a fork: every class here is a class the
+   views already emit, and not one line of app/views/*.js changed to make it fit.
+
+   WHY EVERY RULE IS SCOPED UNDER [data-theme="hig"]
+   The Broadcast Gameday design stays the DEFAULT, and "default" has to be true
+   by CONSTRUCTION rather than by discipline. Nothing in this file matches
+   anything until <html> carries data-theme="hig", so a user who never touches
+   the switch cannot be affected by a mistake made in here. That attribute is
+   set from localStorage by an inline <script> in the <head> of index.html —
+   before first paint, so there is never a flash of the wrong theme.
+
+   LOAD ORDER + SPECIFICITY
+   This sheet is linked AFTER theme.css. Every selector carries the
+   [data-theme="hig"] prefix, so it outranks its theme.css counterpart by one
+   attribute-selector of specificity and wins without a single !important.
+
+   THE APPROACH, IN ORDER OF LEVERAGE
+   1. Re-point the TOKENS. theme.css draws everything from --bg / --surface /
+      --ink / --brand / ..., so redefining those under the scope re-skins
+      hundreds of rules we never have to name. That is also what makes a light
+      mode possible at all in an app whose stylesheet is dark-only.
+   2. Re-point the TYPE. theme.css's broadcast lockup is heavy italic uppercase
+      mono; HIG's is the SF text-style ladder. The classes are the same.
+   3. Restate the components HIG genuinely disagrees with: materials instead of
+      1px boxes, real iOS segmented controls, capsule chips with a tinted
+      selected state, inset grouped rows, 44pt touch targets.
+
+   WHAT THIS THEME REFUSES TO DO
+   Trade information for calm. The draft room, the finder and the model tables
+   show a lot at once ON PURPOSE. Padding grows only where it is free; the
+   dense regions keep their 6-8px rhythm. Not one number, chip or control is
+   hidden, collapsed behind a disclosure, or shrunk out of legibility.
+
+   TARGET
+   13" iPadOS / laptop, ~1024-1366px, touch. Controls clear 44x44pt.
+   ========================================================================== */
+
+
+/* =============================================================================
+   1 · COLOR — HIG semantic system colors, as tokens
+   ---------------------------------------------------------------------------
+   Named after the roles UIKit gives them (label / secondaryLabel,
+   systemBackground / secondarySystemGroupedBackground, systemBlue, ...) and
+   then ADJUSTED where Apple's literal value would miss WCAG AA. Two honest
+   examples, because "we used Apple's hex" is not a contrast argument:
+
+     - secondaryLabel is rgba(60,60,67,0.6) => ~#8E8E93 on white = 3.5:1. That
+       is below the 4.5:1 this app holds all small text to, and --muted here
+       carries 9-11px labels everywhere. So secondary label is darkened to
+       #55555C (7.39:1 on white).
+     - systemBlue #007AFF on white is 4.02:1 — fine as a BAR FILL or a large
+       glyph (WCAG 1.4.11 graphics, 3:1) but not as 11px link text. So --brand
+       keeps the vivid systemBlue for fills and --brand-txt gets #0B60D0
+       (5.84:1) for text, exactly the split theme.css already makes.
+
+   Every pairing below is re-measured by tests/feature/contrast_aa_hig.test.mjs,
+   which parses THIS FILE — so the audit cannot drift away from the shipped CSS.
+   ========================================================================== */
+
+:root[data-theme="hig"] {
+  /* Light and dark are both real here; the browser picks. theme.css pins
+     color-scheme:dark on :root, and this attribute selector outranks it. */
+  color-scheme: light dark;
+
+  /* -- surfaces (systemGroupedBackground family) -- */
+  --bg: #F2F2F7;          /* systemGroupedBackground — the page beneath cards */
+  --surface: #FFFFFF;     /* secondarySystemGroupedBackground — the card       */
+  --surface-2: #F2F2F7;   /* tertiary fill — insets INSIDE a card              */
+  --elev: #E5E5EA;        /* systemFill — pressed / selected inset             */
+
+  /* Separator, not a border. HIG hairlines are translucent so they sit on any
+     material; the true 1px/0.5px width is set per-rule in section 4. */
+  --border: rgba(60, 60, 67, 0.29);   /* separator */
+  --hig-separator-opaque: #C6C6C8;    /* opaqueSeparator — where blend is bad  */
+
+  /* -- label hierarchy -- */
+  --ink: #1C1C1E;         /* label            17.01:1 on white */
+  --muted: #55555C;       /* secondaryLabel    7.39:1 on white */
+  --hig-label-3: #6C6C74; /* tertiaryLabel — quiet glyphs only (the "@" on a
+                             game card). Held to the 3:1 graphic bar, never
+                             promoted to a body-text color.                   */
+
+  /* -- tint (systemBlue) -- */
+  --brand: #007AFF;       /* fills + large glyphs (3:1 graphic)                */
+  --brand-txt: #0B60D0;   /* small text + links (4.5:1)                        */
+
+  /* -- accent (systemRed) -- */
+  --accent: #D6303B;
+  --accent-txt: #C22B35;
+
+  /* -- win-probability pair. Kept as a blue/orange CVD-safe pair, restated in
+        system colors: systemBlue family vs systemOrange family. -- */
+  --home: #0A6CD8;  --home-txt: #0B60D0;
+  --away: #B26100;  --away-txt: #9A5400;
+
+  /* -- semantic value (systemGreen / systemYellow / systemRed) -- */
+  --pos: #248A3D;   --pos-txt: #196E2E;
+  --warn: #7D5800;                       /* systemYellow is unreadable as text
+                                            on white; this is its AA sibling  */
+  --neg: #D6303B;
+
+  /* -- control colors that theme.css hardcodes, restated -----------------
+     theme.css writes `color:#0D1117` (its --bg) on `background:var(--brand)`
+     for every solid pill. That pair is 5.46:1 in the dark theme and about
+     2.4:1 here — so this theme cannot reuse it and every one of those rules is
+     re-inked in section 5 with these tokens instead. -- */
+  --hig-fill-solid: #0B60D0;  /* prominent button fill  (white on it = 5.84:1) */
+  --hig-fill-ink: #FFFFFF;    /* its label                                     */
+  --hig-tint-soft: #DDEAFB;   /* tinted/selected chip fill (brand-txt = 4.94:1)*/
+  --hig-thumb: #FFFFFF;       /* segmented-control selected thumb              */
+  --hig-fill-secondary: rgba(120, 120, 128, 0.16); /* secondarySystemFill      */
+  --hig-fill-tertiary: rgba(120, 120, 128, 0.12);  /* tertiarySystemFill       */
+
+  /* -- team-tint correction for LIGHT mode ------------------------------
+     app/teams.js holds one tint per team, and the registry docstring says it
+     is "lightened to clear 3:1 on --surface" — i.e. tuned for a DARK card and
+     only for a dark card. On white, the pale end of that registry collapses:
+     GB's #FFCB4D measures 1.51:1, which is not a color, it is a highlighter.
+     Those tints arrive as INLINE style="color:#…" written by render.js and
+     team.js, so no stylesheet rule can replace them without !important — but a
+     `filter` can, because nothing inline sets one. Multiplying the rendered
+     color takes every tint in the registry to >= 4.70:1 on white while keeping
+     its hue, so the team is still recognisable at a glance.
+     The factor is a token so tests/feature/contrast_aa_hig.test.mjs can read it
+     and re-derive that bound over the real registry. Dark mode sets it to 1
+     (no correction) — there the registry is already right. */
+  --hig-tint-darken: 0.55;
+
+  /* -- materials (HIG translucency). A material is a blur + a scrim, never a
+        flat color: content must be visible THROUGH the chrome as it scrolls
+        under it. Section 4 pairs each with its backdrop-filter. -- */
+  /* Alpha chosen against the WORST case, which is the draft room: a sticky
+     zone header full of high-contrast text scrolling directly under the bar.
+     At 0.82 that text ghosted through legibly enough to compete with the
+     wordmark. 0.88 + a heavier blur keeps the "content lives under this"
+     reading without letting the content be read. */
+  --hig-mat-thick: rgba(255, 255, 255, 0.88);
+  --hig-mat-regular: rgba(249, 249, 251, 0.76);
+
+  /* -- elevation. HIG expresses depth with material and a soft, wide, nearly
+        colorless shadow — not a hard drop shadow and not a 1px outline. -- */
+  --hig-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --hig-shadow-2: 0 4px 14px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --hig-shadow-thumb: 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
+
+  /* -- geometry. HIG's continuous corners read larger than a plain radius at
+        the same value, so these sit a touch under the Broadcast theme's. -- */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --hig-radius-control: 10px;
+  --hig-radius-thumb: 8px;
+
+  /* -- type stacks. The system font ships the optical sizing, tracking tables
+        and legibility tuning a webfont would have to re-invent — and it costs
+        zero bytes, which matters in a no-build PWA. -- */
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+          "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+  /* theme.css puts var(--mono) on nearly every label and number in the app to
+     get the terminal look. HIG would not: SF with TABULAR FIGURES gives the
+     column alignment without the typewriter texture, so --mono is re-pointed
+     at the same SF stack and section 3 turns tabular figures on globally. */
+  --mono: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+          system-ui, Roboto, Helvetica, Arial, sans-serif;
+
+  /* -- iOS type scale (pt == px). Size / leading / tracking are ONE set, as
+        WWDC20 'The Details of UI Typography' argues: tracking is size-specific
+        (tight as type grows, open as it shrinks) and leading moves inversely
+        with size. In rem so a user's browser text size scales the whole
+        ladder — the web's Dynamic Type. -- */
+  --fs-large-title: 2.125rem; --lh-large-title: 1.21; --tr-large-title: -0.015em;
+  --fs-title1: 1.75rem;       --lh-title1: 1.21;      --tr-title1: -0.013em;
+  --fs-title2: 1.375rem;      --lh-title2: 1.27;      --tr-title2: -0.012em;
+  --fs-title3: 1.25rem;       --lh-title3: 1.25;      --tr-title3: -0.0225em;
+  --fs-headline: 1.0625rem;   --lh-headline: 1.29;    --tr-headline: -0.025em;
+  --fs-body: 1.0625rem;       --lh-body: 1.29;        --tr-body: -0.025em;
+  --fs-callout: 1rem;         --lh-callout: 1.31;     --tr-callout: -0.02em;
+  --fs-subhead: 0.9375rem;    --lh-subhead: 1.33;     --tr-subhead: -0.015em;
+  --fs-footnote: 0.8125rem;   --lh-footnote: 1.38;    --tr-footnote: -0.006em;
+  --fs-caption1: 0.75rem;     --lh-caption1: 1.33;    --tr-caption1: 0em;
+  --fs-caption2: 0.6875rem;   --lh-caption2: 1.18;    --tr-caption2: 0.005em;
+
+  /* -- motion. See section 8 for what these curves are and where they came
+        from. Declared here so every component reaches for the same two. -- */
+  --hig-spring: linear(0, 0.0432, 0.1402, 0.2575, 0.3764, 0.4867, 0.584, 0.667,
+    0.7361, 0.7925, 0.838, 0.8743, 0.9029, 0.9254, 0.9428, 0.9564, 0.9668,
+    0.9748, 0.9809, 0.9856, 0.9892, 0.9918, 0.9939, 0.9954, 0.9966);
+  --hig-spring-dur: 500ms;
+  --hig-bounce: linear(0, 0.0588, 0.1913, 0.3499, 0.5056, 0.6433, 0.7563,
+    0.8439, 0.9083, 0.9532, 0.9826, 1.0005, 1.0102, 1.0144, 1.0151, 1.0139,
+    1.0118, 1.0093, 1.007, 1.005, 1.0034, 1.0021, 1.0012, 1.0006, 1.0002, 1,
+    0.9998);
+  --hig-bounce-dur: 550ms;
+  /* Press feedback is NOT a spring: it must land inside the same frame budget
+     as the finger, so it is a short ease-out (apple-design §1: respond on
+     pointer-down, and be vigilant about every latency). */
+  --hig-press: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Device-pixel hairline. A "1px" separator is two device pixels on a Retina
+     iPad and reads as a drawn line rather than an edge; 0.5px is the real one.
+     Overridden per-DPR in section 4. */
+  --hig-hairline: 1px;
+}
+
+/* -- DARK. Not an inversion: HIG dark has its own surface ladder (pure black
+      base, LIGHTER cards climbing away from it) and its own, more saturated
+      tints, because a vivid color on black needs more luminance to read. -- */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="hig"] {
+    --bg: #000000;          /* systemBackground (dark)                        */
+    --surface: #1C1C1E;     /* secondarySystemGroupedBackground               */
+    --surface-2: #2C2C2E;   /* tertiarySystemBackground                       */
+    --elev: #3A3A3C;        /* systemFill                                     */
+
+    --border: rgba(84, 84, 88, 0.65);
+    --hig-separator-opaque: #38383A;
+
+    --ink: #FFFFFF;         /* label            21:1 on black                 */
+    --muted: #A8A8AF;       /* secondaryLabel, lifted to 4.5:1 on --elev      */
+    --hig-label-3: #8E8E93;
+
+    --brand: #0A84FF;  --brand-txt: #5AB0FF;
+    --accent: #FF453A; --accent-txt: #FF8B84;
+    --home: #409CFF;   --home-txt: #7ABBFF;
+    --away: #FF9F0A;   --away-txt: #FFB84D;
+    --pos: #30D158;    --pos-txt: #5BDE7C;
+    --warn: #FFD426;
+    --neg: #FF453A;
+
+    /* White on systemBlue is only 3.65:1 in dark, so the prominent fill steps
+       down to a deeper blue that clears 4.5:1 with a white label. */
+    --hig-fill-solid: #0A6BD6;
+    --hig-fill-ink: #FFFFFF;
+    --hig-tint-soft: #10344F;
+    --hig-thumb: #48484A;   /* dark segmented thumb is GRAY, not tinted       */
+    --hig-fill-secondary: rgba(120, 120, 128, 0.36);
+    --hig-fill-tertiary: rgba(120, 120, 128, 0.24);
+
+    /* The team registry is already tuned for a dark card — leave it alone. */
+    --hig-tint-darken: 1;
+
+    --hig-mat-thick: rgba(30, 30, 32, 0.88);
+    --hig-mat-regular: rgba(24, 24, 26, 0.78);
+
+    /* Shadows carry almost no information on black — depth in dark mode comes
+       from the surface ladder instead. Keep them, but nearly weightless. */
+    --hig-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --hig-shadow-2: 0 6px 18px rgba(0, 0, 0, 0.5);
+    --hig-shadow-thumb: 0 3px 8px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Retina: draw the real hairline. */
+@media (min-resolution: 2dppx) {
+  :root[data-theme="hig"] { --hig-hairline: 0.5px; }
+}
+@media (min-resolution: 3dppx) {
+  :root[data-theme="hig"] { --hig-hairline: 0.34px; }
+}
+
+
+/* =============================================================================
+   2 · BASE
+   ========================================================================== */
+
+[data-theme="hig"] body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--tr-body);
+  /* Tabular figures everywhere. This is what buys back the column alignment
+     the mono font used to provide, now that --mono is an SF stack. */
+  font-variant-numeric: tabular-nums;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The broadcast lockup is heavy ITALIC UPPERCASE on every display class. HIG
+   type is upright; the emphasis comes from weight and size instead. (Two
+   italics survive on purpose — see section 3.) */
+[data-theme="hig"] .wordmark,
+[data-theme="hig"] .view-title,
+[data-theme="hig"] .p-name,
+[data-theme="hig"] .p-num,
+[data-theme="hig"] .p-pos,
+[data-theme="hig"] .team-ab,
+[data-theme="hig"] .at,
+[data-theme="hig"] .pos-header,
+[data-theme="hig"] .slate-day,
+[data-theme="hig"] .tab,
+[data-theme="hig"] .chip,
+[data-theme="hig"] .ev,
+[data-theme="hig"] .reco-score,
+[data-theme="hig"] .gate-brand,
+[data-theme="hig"] .lg-edge--neg,
+[data-theme="hig"] .scopeseg button,
+[data-theme="hig"] .scopeseg .seg-opt,
+[data-theme="hig"] .scoreseg button,
+[data-theme="hig"] .aiseg button,
+[data-theme="hig"] .posfilter button,
+[data-theme="hig"] .posfilter .chip { font-style: normal; }
+
+/* HIG focus is a tint-colored ring with a clear offset, on every focusable
+   thing, and only for keyboard users. */
+[data-theme="hig"] :focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+[data-theme="hig"] button:focus-visible,
+[data-theme="hig"] select:focus-visible,
+[data-theme="hig"] input:focus-visible,
+[data-theme="hig"] [role="button"]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+[data-theme="hig"] a { color: var(--brand-txt); }
+
+
+/* =============================================================================
+   3 · TYPOGRAPHY — the app's headings and labels, mapped onto the SF ladder
+   ---------------------------------------------------------------------------
+   Nothing is renamed. Each rule takes a class the views already emit and
+   assigns it the text style it actually is.
+   ========================================================================== */
+
+/* Wordmark — the app's identity, so it keeps its lockup, minus the italic.
+   Large Title weight with tight tracking (apple-design §15: letters read too
+   far apart as they grow). */
+[data-theme="hig"] .wordmark {
+  font-weight: 700;
+  font-size: var(--fs-title2);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+[data-theme="hig"] .wm-accent { color: var(--accent); }
+
+/* View title — Large Title. The DOM text is uppercase ("WEEK 1 SLATE"), and
+   CSS cannot sentence-case it back without mangling MODEL / AI+, so this stays
+   an uppercase display line. Uppercase wants MORE tracking than mixed case at
+   the same size, which is why this is the one large style that does not go
+   negative. clamp() keeps it Title-1-sized on a narrow window and Large-Title
+   -sized on the 13" canvas this theme targets. */
+[data-theme="hig"] .view-title {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(var(--fs-title1), 2.4vw, var(--fs-large-title));
+  line-height: var(--lh-large-title);
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+
+/* View subtitle — the uppercase Footnote eyebrow HIG uses over grouped
+   sections. Kept uppercase (it already is in the DOM) but re-tracked open,
+   because small uppercase needs positive tracking to stay legible. */
+[data-theme="hig"] .view-sub {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  font-weight: 590;
+  letter-spacing: 0.055em;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* Every small uppercase label in the app is Caption 2, secondaryLabel. */
+[data-theme="hig"] .lbl,
+[data-theme="hig"] .k,
+[data-theme="hig"] .ds-lbl,
+[data-theme="hig"] .ds-zhead,
+[data-theme="hig"] .auc-zhead,
+[data-theme="hig"] .bp-label,
+[data-theme="hig"] .cmp-lbl,
+[data-theme="hig"] .p-unit,
+[data-theme="hig"] .posos-lbl,
+[data-theme="hig"] .pv-lbl,
+[data-theme="hig"] .cv-lbl,
+[data-theme="hig"] .ms-lbl,
+[data-theme="hig"] .slate-day,
+[data-theme="hig"] .pf-subhead {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  font-weight: 590;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+/* Section heads inside cards — Headline. */
+[data-theme="hig"] .m-head,
+[data-theme="hig"] .ds-title,
+[data-theme="hig"] .lu-title,
+[data-theme="hig"] .reco-head .lbl,
+[data-theme="hig"] .pos-header {
+  font-family: var(--sans);
+  font-size: var(--fs-headline);
+  font-weight: 640;
+  letter-spacing: var(--tr-headline);
+  text-transform: none;
+  color: var(--ink);
+}
+/* .pos-header is a group divider, so it stays tinted and small. */
+[data-theme="hig"] .pos-header {
+  font-size: var(--fs-subhead);
+  color: var(--brand-txt);
+}
+
+/* Player / team names — Headline. The single most-read string on the page. */
+[data-theme="hig"] .p-name {
+  font-size: var(--fs-title3);
+  font-weight: 620;
+  letter-spacing: var(--tr-title3);
+  text-transform: none;
+  color: var(--ink);
+}
+[data-theme="hig"] .cd-name,
+[data-theme="hig"] .bp-name,
+[data-theme="hig"] .lu-name,
+[data-theme="hig"] .reco-name,
+[data-theme="hig"] .cmp-name,
+[data-theme="hig"] .slot-player {
+  font-family: var(--sans);
+  font-size: var(--fs-callout);
+  font-weight: 590;
+  letter-spacing: var(--tr-callout);
+  color: var(--ink);
+}
+
+/* Hero numerals — Title 1, tabular, semibold. Numbers are the product here, so
+   they keep their size; they just stop being italic mono. */
+[data-theme="hig"] .p-num {
+  font-family: var(--sans);
+  font-weight: 640;
+  font-size: var(--fs-title1);
+  letter-spacing: var(--tr-title1);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+[data-theme="hig"] .team-ab {
+  font-family: var(--sans);
+  font-weight: 680;
+  font-size: var(--fs-title2);
+  letter-spacing: var(--tr-title2);
+  color: var(--team-tint, var(--ink));
+}
+/* Every element that wears an inline team tint, corrected for the light card.
+   See --hig-tint-darken above for why this is a filter and not a color. The
+   list is exhaustive by call site: render.js writes .team-ab, model.js .po-team,
+   compare.js .cmp-name, and lineup.js / team.js wrap the abbreviation in a bare
+   <span style="color:…"> inside .lu-meta / .cd-meta / .bp-meta / .sp-name. */
+[data-theme="hig"] .team-ab,
+[data-theme="hig"] .po-team,
+[data-theme="hig"] .cmp-name,
+[data-theme="hig"] .sp-ab,
+[data-theme="hig"] .lu-meta span[style*="color"],
+[data-theme="hig"] .cd-meta span[style*="color"],
+[data-theme="hig"] .bp-meta span[style*="color"] {
+  filter: brightness(var(--hig-tint-darken));
+}
+
+[data-theme="hig"] .team-nm {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+}
+[data-theme="hig"] .at {
+  font-family: var(--sans);
+  font-weight: 400;
+  font-size: var(--fs-subhead);
+  color: var(--hig-label-3);
+}
+
+/* Body-ish running text inside cards. */
+[data-theme="hig"] .m-explain,
+[data-theme="hig"] .reco-explain,
+[data-theme="hig"] .lp-status,
+[data-theme="hig"] .lp-notes,
+[data-theme="hig"] .ds-rk-note,
+[data-theme="hig"] .legend-body,
+[data-theme="hig"] .ai-note,
+[data-theme="hig"] .p-foot,
+[data-theme="hig"] .auc-nomadv {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  line-height: 1.45;
+  letter-spacing: var(--tr-footnote);
+  color: var(--muted);
+}
+
+/* The two italics that MEAN something stay italic: "no signals weighted yet"
+   and a bye week are both "this is not a real value", and italic is how the
+   Broadcast theme says so. Familiarity beats consistency-for-its-own-sake. */
+[data-theme="hig"] .sig--none,
+[data-theme="hig"] .wkcell--bye .wkc-opp,
+[data-theme="hig"] .wkcell--bye .wkc-pts { font-style: italic; }
+
+
+/* =============================================================================
+   4 · MATERIALS, DEPTH AND STRUCTURE
+   ---------------------------------------------------------------------------
+   apple-design §12: chrome is a translucent floating LAYER with content moving
+   underneath it, not an opaque strip that eats a band of the screen. The three
+   pieces of permanent chrome here (topbar, health, tabbar) become materials;
+   cards stop being 1px boxes and become surfaces with a soft elevation.
+   ========================================================================== */
+
+[data-theme="hig"] .topbar {
+  background: var(--hig-mat-thick);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-bottom: var(--hig-hairline) solid var(--border);
+  padding: calc(10px + var(--safe-top)) 20px 10px;
+  gap: 12px;
+}
+
+[data-theme="hig"] .health {
+  background: var(--hig-mat-regular);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: var(--hig-hairline) solid var(--border);
+  /* The status stripe is a 3px bar in the Broadcast theme. HIG carries status
+     in the dot and the word; the stripe drops to a hairline so the bar reads
+     as chrome rather than as an alert. */
+  border-left-width: 3px;
+  padding: 8px 20px;
+  font-size: var(--fs-caption1);
+}
+[data-theme="hig"] .health-label,
+[data-theme="hig"] .health-note {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  letter-spacing: 0.02em;
+}
+[data-theme="hig"] .health-label { font-weight: 590; }
+[data-theme="hig"] .health-note { color: var(--muted); text-transform: none; }
+/* A status dot is a filled circle with a faint ring — HIG's own status idiom,
+   and the ring keeps it visible on a translucent material. */
+[data-theme="hig"] .health-dot {
+  width: 8px; height: 8px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+[data-theme="hig"] .view {
+  padding: 20px 20px;
+  padding-bottom: calc(88px + var(--safe-bottom));
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+/* Tab bar — the same material as the top, with content scrolling under it.
+   HIG tab labels are Caption 2, capitalized (not uppercase) and NOT italic;
+   the DOM already carries "Slate" / "Players", so text-transform:none is all
+   it takes to get the real thing back. */
+[data-theme="hig"] .tabbar {
+  background: var(--hig-mat-thick);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border-top: var(--hig-hairline) solid var(--border);
+  padding: 6px var(--safe-right) calc(6px + var(--safe-bottom)) var(--safe-left);
+}
+[data-theme="hig"] .tab {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  font-weight: 510;
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  border-top: none;                 /* the Broadcast underline is not HIG      */
+  /* 44pt minimum touch target (HIG Controls; standing instruction for this
+     project). The label is small — the TARGET is not. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  border-radius: var(--hig-radius-control);
+  transition: color 180ms var(--hig-press),
+              background-color 180ms var(--hig-press);
+}
+/* Selected tab = TINT plus WEIGHT. iOS marks the selected tab by tinting it,
+   and deliberately does not draw a plate or a rule under it. Weight carries the
+   state as well as color does, which also means selection is not signalled by
+   color alone (WCAG 1.4.1) — a plate spanning a sixth of a 1366px bar would
+   have been a much louder object than the thing it marks. */
+[data-theme="hig"] .tab--active,
+[data-theme="hig"] .tab[aria-selected="true"] {
+  color: var(--brand-txt);
+  background: transparent;
+  border-top-color: transparent;
+  font-weight: 680;
+}
+[data-theme="hig"] .tab:active { background: var(--hig-fill-tertiary); }
+
+/* -- cards ---------------------------------------------------------------
+   HIG's inset grouped list: a filled surface with generous corners, separated
+   from the page by MATERIAL (fill + soft shadow), not by a drawn border. The
+   1px border becomes a hairline only where the surface would otherwise vanish
+   into the page (light mode: white card on #F2F2F7). */
+[data-theme="hig"] .card,
+[data-theme="hig"] .mcard,
+[data-theme="hig"] .draftsim,
+[data-theme="hig"] .lu-card,
+[data-theme="hig"] .tb-panel,
+[data-theme="hig"] .cmp-col {
+  background: var(--surface);
+  border: var(--hig-hairline) solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--hig-shadow-1);
+}
+/* The colored left stripes (crimson = the draft room, blue = a model card) are
+   real wayfinding, so they survive — as a 4px rounded edge rather than a hard
+   3px rule, which is how HIG marks a sectioned surface. */
+[data-theme="hig"] .draftsim {
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--hig-shadow-2);
+}
+[data-theme="hig"] .mcard { border-left: 4px solid var(--brand); }
+
+/* Insets INSIDE a card (tiles, sub-panels, rows) use the tertiary fill and a
+   smaller radius — the nesting is expressed by fill weight, never by stacking
+   two translucent layers (apple-design §12: never stack light on light). */
+[data-theme="hig"] .bestpick,
+[data-theme="hig"] .auc-zone,
+[data-theme="hig"] .ds-field,
+[data-theme="hig"] .lp-field,
+[data-theme="hig"] .ds-cand,
+[data-theme="hig"] .leg,
+[data-theme="hig"] .slot,
+[data-theme="hig"] .lp-rep-cell,
+[data-theme="hig"] .lu-row {
+  background: var(--surface-2);
+  border: var(--hig-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+[data-theme="hig"] .auc-zone--block { border-left: 4px solid var(--accent); }
+
+/* Empty / error state — a quiet grouped-list placeholder, not a dashed box. */
+[data-theme="hig"] .state {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  color: var(--muted);
+  background: var(--surface);
+  border: var(--hig-hairline) solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px 20px;
+}
+
+/* Day-group rule on the slate: a Caption-2 eyebrow with a hairline, HIG's
+   grouped-section header. */
+[data-theme="hig"] .slate-day::after { background: var(--border); }
+
+
+/* =============================================================================
+   5 · CONTROLS — HIG metrics and states
+   ---------------------------------------------------------------------------
+   Two shapes do almost all the work in iOS: the CAPSULE (filter chips, pills)
+   and the SEGMENTED CONTROL (a filled track with a raised selected thumb).
+   theme.css builds both out of outlined pills with a solid-brand selected
+   state; this section restates them, and re-inks every rule where theme.css
+   hardcodes #0D1117 on var(--brand) — a pairing that is 5.46:1 in the dark
+   Broadcast palette and would be roughly 2.4:1 here.
+   ========================================================================== */
+
+/* -- 5.1 segmented controls (PPR/HALF/STD · BASE/AI+ · GAME/WEEK) ---------
+   The real UISegmentedControl: a tertiary-fill track, 2px inset, and a raised
+   thumb under the selected segment. This is a much bigger legibility win than
+   it looks — the Broadcast version paints a saturated full-width blue slab
+   across the top of the Players tab. */
+[data-theme="hig"] .scopeseg,
+[data-theme="hig"] .scoreseg,
+[data-theme="hig"] .aiseg {
+  background: var(--hig-fill-tertiary);
+  border-radius: var(--hig-radius-control);
+  padding: 2px;
+  gap: 2px;
+  min-height: 44px;
+  align-items: stretch;
+}
+[data-theme="hig"] .scopeseg button,
+[data-theme="hig"] .scopeseg .seg-opt,
+[data-theme="hig"] .scoreseg button,
+[data-theme="hig"] .aiseg button {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  font-weight: 510;
+  font-style: normal;
+  letter-spacing: var(--tr-subhead);
+  text-transform: none;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-radius: var(--hig-radius-thumb);
+  padding: 8px 10px;
+  transition: background-color 200ms var(--hig-press),
+              transform 200ms var(--hig-press);
+}
+[data-theme="hig"] .scopeseg button[aria-pressed="true"],
+[data-theme="hig"] .scopeseg .seg-btn--active,
+[data-theme="hig"] .scopeseg .seg-opt--active,
+[data-theme="hig"] .scopeseg .seg-opt[aria-selected="true"],
+[data-theme="hig"] .scoreseg button[aria-pressed="true"],
+[data-theme="hig"] .scoreseg .scoreseg--active,
+[data-theme="hig"] .aiseg button[aria-pressed="true"],
+[data-theme="hig"] .aiseg .aiseg--active {
+  color: var(--ink);
+  background: var(--hig-thumb);
+  border-color: transparent;
+  font-weight: 590;
+  box-shadow: var(--hig-shadow-thumb);
+}
+/* Press feedback on pointer-DOWN, and the thumb compresses slightly — iOS
+   squeezes the segment you are holding rather than waiting for the release. */
+[data-theme="hig"] .scopeseg button:active,
+[data-theme="hig"] .scoreseg button:active,
+[data-theme="hig"] .aiseg button:active { transform: scale(0.96); }
+
+/* -- 5.2 capsule chips (weeks, positions, sort, legs, WEEKS toggle) -------
+   Idle: secondary fill, label color. Selected: a TINTED fill with a tint
+   label — the modern iOS filter chip. Not a saturated solid, which at this
+   density turns a control row into a stripe of blue. */
+[data-theme="hig"] .wk-chip,
+[data-theme="hig"] .sort-chip,
+[data-theme="hig"] .pf-chip,
+[data-theme="hig"] .leg-chip,
+[data-theme="hig"] .p-expand,
+[data-theme="hig"] .posfilter .chip,
+[data-theme="hig"] .posfilter button,
+[data-theme="hig"] .slot-empty,
+[data-theme="hig"] .auc-poolchip,
+[data-theme="hig"] .load-more {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  font-weight: 510;
+  font-style: normal;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--ink);
+  background: var(--hig-fill-secondary);
+  border: none;
+  border-radius: 999px;
+  padding: 0 16px;
+  min-height: 44px;                 /* HIG touch target                       */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Flex layout drops whitespace-only text nodes, and some chips are built as
+     `NAME <span>POS</span>` (the auction nominee pool) — without a gap the two
+     run together as "Bijan RobinsonRB". The gap restores the word space in em
+     so it tracks the label size. */
+  gap: 0.35em;
+  cursor: pointer;
+  transition: background-color 180ms var(--hig-press),
+              transform 180ms var(--hig-press);
+}
+[data-theme="hig"] .wk-chip--active,
+[data-theme="hig"] .wk-chip[aria-selected="true"],
+[data-theme="hig"] .sort-chip[aria-pressed="true"],
+[data-theme="hig"] .sort-chip--active,
+[data-theme="hig"] .pf-chip[aria-pressed="true"],
+[data-theme="hig"] .pf-chip--active,
+[data-theme="hig"] .leg-chip[aria-pressed="true"],
+[data-theme="hig"] .leg-chip--active,
+[data-theme="hig"] .posfilter .chip[aria-pressed="true"],
+[data-theme="hig"] .posfilter button[aria-pressed="true"],
+[data-theme="hig"] .posfilter .chip--active,
+[data-theme="hig"] .p-expand[aria-expanded="true"] {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+  border-color: transparent;
+  font-weight: 590;
+}
+[data-theme="hig"] .wk-chip:active,
+[data-theme="hig"] .sort-chip:active,
+[data-theme="hig"] .pf-chip:active,
+[data-theme="hig"] .leg-chip:active,
+[data-theme="hig"] .p-expand:active,
+[data-theme="hig"] .posfilter button:active,
+[data-theme="hig"] .load-more:active { transform: scale(0.96); }
+
+/* The empty-roster-slot affordance keeps its dashed edge — that dash IS the
+   "nothing here yet" signal, and HIG has the same idiom for a placeholder. */
+[data-theme="hig"] .slot-empty {
+  background: transparent;
+  border: var(--hig-hairline) dashed var(--border);
+  color: var(--brand-txt);
+  min-height: 36px;
+}
+
+/* SHOW MORE sits at the tail of a list: full width, quiet, tinted label. */
+[data-theme="hig"] .load-more {
+  width: 100%;
+  color: var(--brand-txt);
+  background: var(--hig-fill-tertiary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 590;
+}
+
+/* -- 5.3 prominent buttons ------------------------------------------------
+   Every solid-brand control in theme.css, re-inked. These are the rules that
+   hardcode #0D1117; without this block the HIG palette would ship a genuinely
+   unreadable button, so it is listed exhaustively rather than by family. */
+[data-theme="hig"] .cand-add,
+[data-theme="hig"] .lp-savebtn,
+[data-theme="hig"] .lp-btn,
+[data-theme="hig"] .ds-start,
+[data-theme="hig"] .gate-btn {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  font-weight: 590;
+  letter-spacing: var(--tr-subhead);
+  text-transform: none;
+  color: var(--hig-fill-ink);
+  background: var(--hig-fill-solid);
+  border: none;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 18px;
+  cursor: pointer;
+  transition: transform 180ms var(--hig-press), opacity 180ms var(--hig-press);
+}
+[data-theme="hig"] .cand-add:active,
+[data-theme="hig"] .lp-savebtn:active,
+[data-theme="hig"] .lp-btn:active,
+[data-theme="hig"] .ds-start:active,
+[data-theme="hig"] .gate-btn:active { transform: scale(0.97); opacity: 0.88; }
+/* Unsaved edits: HIG would not turn a primary button red (red means
+   destructive). It stays tinted and states the change in its label area; the
+   crimson signal moves to the .lp-saved text beside it, which already says
+   what changed. */
+[data-theme="hig"] .lp-savebtn--dirty {
+  color: var(--hig-fill-ink);
+  background: var(--hig-fill-solid);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+[data-theme="hig"] .lp-saved--dirty { color: var(--accent-txt); font-weight: 590; }
+[data-theme="hig"] .lp-btn:disabled { opacity: 0.4; }
+
+/* ADD is REPEATED — once per candidate, a dozen times down the draft board.
+   HIG reserves the filled/prominent style for the one primary action on a
+   screen; a filled button per row turns the board into a wall of blue and
+   destroys the hierarchy that makes SAVE LEAGUE SETTINGS findable. So ADD
+   takes the TINTED style (blue label on a blue-tinted capsule), which is what
+   iOS uses for a repeated affirmative action in a list. It keeps the 44pt
+   target — the row is already two lines tall, so the height is free. */
+[data-theme="hig"] .cand-add {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+  padding: 0 16px;
+}
+[data-theme="hig"] .auc-mini { min-height: 32px; padding: 0 12px; font-size: var(--fs-caption1); }
+
+/* Destructive / armed states: HIG uses systemRed as a LABEL color on a plain
+   button, not as a fill. */
+[data-theme="hig"] .reset-btn--armed,
+[data-theme="hig"] .ds-hclear--armed,
+[data-theme="hig"] .cand-took {
+  color: var(--accent-txt);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 590;
+}
+
+/* Toggle-ish chips that mark a taken player / an active mode. */
+[data-theme="hig"] .cand-taken,
+[data-theme="hig"] .taken-toggle,
+[data-theme="hig"] .reset-btn,
+[data-theme="hig"] .ds-hcal,
+[data-theme="hig"] .ds-hclear,
+[data-theme="hig"] .auc-toggle--on {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  font-weight: 510;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+}
+[data-theme="hig"] .cand-taken--on,
+[data-theme="hig"] .ds-hcal--on,
+[data-theme="hig"] .auc-toggle--on {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+  border-color: transparent;
+  font-weight: 590;
+}
+
+/* -- 5.4 fields, selects, text inputs ------------------------------------
+   The tile (label over value) is already the right HIG idiom, so it keeps its
+   shape and gains HIG's focus behaviour: the whole tile lights with the tint,
+   which is a far clearer target than a 1px border change. */
+[data-theme="hig"] .ds-field,
+[data-theme="hig"] .lp-field { padding: 8px 12px; min-height: 52px; }
+[data-theme="hig"] .ds-field:focus-within,
+[data-theme="hig"] .lp-field:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+[data-theme="hig"] .ds-select {
+  font-family: var(--sans);
+  font-size: var(--fs-callout);
+  font-weight: 510;
+  letter-spacing: var(--tr-callout);
+  color: var(--ink);
+  min-height: 28px;
+}
+[data-theme="hig"] .finder-input,
+[data-theme="hig"] .lp-input,
+[data-theme="hig"] .lp-textarea,
+[data-theme="hig"] .gate-input {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  letter-spacing: var(--tr-body);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--hig-hairline) solid var(--border);
+  border-radius: var(--hig-radius-control);
+  min-height: 44px;
+  padding: 10px 14px;
+}
+[data-theme="hig"] .finder-input:focus,
+[data-theme="hig"] .lp-input:focus,
+[data-theme="hig"] .gate-input:focus {
+  border-color: var(--brand);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+/* -- 5.5 non-interactive chips (badges, pills, tags) ----------------------
+   These are LABELS, not controls, so they deliberately do NOT get a 44pt
+   target — inflating them would cost real information density for nothing. */
+[data-theme="hig"] .sig,
+[data-theme="hig"] .tier,
+[data-theme="hig"] .est,
+[data-theme="hig"] .em,
+[data-theme="hig"] .av-chip,
+[data-theme="hig"] .ms-badge,
+[data-theme="hig"] .ds-pick,
+[data-theme="hig"] .auc-cls,
+[data-theme="hig"] .lu-tag,
+[data-theme="hig"] .gate-chip,
+[data-theme="hig"] .cv-flag,
+[data-theme="hig"] .posos-bye {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  font-weight: 510;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border-color: transparent;
+  background: var(--hig-fill-tertiary);
+  padding: 3px 9px;
+}
+/* ESTIMATE is an honesty marker — it must never fade into the furniture. */
+[data-theme="hig"] .est,
+[data-theme="hig"] .em {
+  color: var(--accent-txt);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 590;
+}
+[data-theme="hig"] .tier--low { color: var(--muted); }
+[data-theme="hig"] .tier--medium { color: var(--brand-txt); background: var(--hig-tint-soft); }
+[data-theme="hig"] .tier--high {
+  color: var(--pos-txt);
+  background: color-mix(in srgb, var(--pos) 14%, transparent);
+  font-weight: 590;
+}
+
+
+/* =============================================================================
+   6 · LISTS AND ROWS — the dense surfaces, kept dense
+   ---------------------------------------------------------------------------
+   The draft room, the finder and the model tables are the reason this app
+   exists. HIG's inset grouped list gives them a calmer frame WITHOUT taking
+   away a single column: rows sit on a filled surface, are separated by
+   hairlines, and clear 44pt.
+   ========================================================================== */
+
+[data-theme="hig"] .slot { min-height: 52px; padding: 8px 14px; }
+[data-theme="hig"] .slot--active,
+[data-theme="hig"] .slot[aria-selected="true"] {
+  border-color: var(--brand);
+  background: var(--hig-tint-soft);
+}
+[data-theme="hig"] .slot-pos {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  font-weight: 590;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+[data-theme="hig"] .cand,
+[data-theme="hig"] .ds-cand { padding: 10px 14px; min-height: 56px; }
+[data-theme="hig"] .cand--taken { opacity: 0.45; }
+[data-theme="hig"] .cd-meta,
+[data-theme="hig"] .bp-meta,
+[data-theme="hig"] .lu-meta,
+[data-theme="hig"] .reco-meta,
+[data-theme="hig"] .ds-surv,
+[data-theme="hig"] .ds-sheet,
+[data-theme="hig"] .ds-log,
+[data-theme="hig"] .auc-plan,
+[data-theme="hig"] .auc-bidrow,
+[data-theme="hig"] .auc-soldrow {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  letter-spacing: 0.005em;
+  color: var(--muted);
+}
+
+/* Parlay legs — grouped rows. */
+[data-theme="hig"] .leg { padding: 10px 14px; min-height: 44px; }
+/* The leg NAME is ellipsized by theme.css above 719px, so its size directly
+   decides how much of "J. Smith-Njigba 60+ receiving yards" a reader gets. It
+   stays at Footnote rather than climbing to Subhead for exactly that reason:
+   two more points of type here costs four or five characters of the pick. */
+[data-theme="hig"] .leg-nm {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  font-weight: 590;
+  letter-spacing: var(--tr-footnote);
+  color: var(--ink);
+}
+[data-theme="hig"] .leg-od,
+[data-theme="hig"] .ev,
+[data-theme="hig"] .legcount {
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  font-weight: 590;
+  font-style: normal;
+}
+
+/* Model / playoff / feed tables. Rows separated by hairlines, header in the
+   Caption-2 secondary style — the HIG plain-list table. */
+[data-theme="hig"] .po-row,
+[data-theme="hig"] .gate-row,
+[data-theme="hig"] .bt-row,
+[data-theme="hig"] .mp-row,
+[data-theme="hig"] .sg-row,
+[data-theme="hig"] .pf-rows > *,
+[data-theme="hig"] .auc-team {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  letter-spacing: var(--tr-footnote);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="hig"] .po-row--head,
+[data-theme="hig"] .gate-row--head,
+[data-theme="hig"] .pf-subhead,
+[data-theme="hig"] .lp-rep-head,
+[data-theme="hig"] .auc-zhead {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  font-weight: 590;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+[data-theme="hig"] .pf-tbl { font-family: var(--sans); }
+/* The ROOM ledger is a five-column grid whose columns were separated as much by
+   the mono font's fixed advance as by its 6px gap. SF is narrower, so the
+   columns need the gap to do that work on its own. */
+[data-theme="hig"] .auc-team { column-gap: 12px; }
+[data-theme="hig"] .pf-name,
+[data-theme="hig"] .mp-name,
+[data-theme="hig"] .sg-name,
+[data-theme="hig"] .po-team { color: var(--ink); font-weight: 510; }
+
+/* Week strip inside a player card: a 2-column grouped list. */
+[data-theme="hig"] .wkstrip { border-top-color: var(--border); gap: 6px 18px; }
+[data-theme="hig"] .wkcell {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* =============================================================================
+   7 · DATA GRAPHICS
+   ---------------------------------------------------------------------------
+   The bars, meters and markers keep their exact semantics and their exact
+   numbers. What changes is the drawing: HIG bars are fully rounded, sit in a
+   quaternary-fill track, and carry no 1px outline.
+   ========================================================================== */
+
+[data-theme="hig"] .track { height: 10px; border-radius: 999px; gap: 3px; }
+[data-theme="hig"] .seg--away { border-radius: 999px 3px 3px 999px; }
+[data-theme="hig"] .seg--home { border-radius: 3px 999px 999px 3px; }
+
+[data-theme="hig"] .iv-band {
+  background: var(--hig-fill-tertiary);
+  border: none;
+  border-radius: 999px;
+}
+[data-theme="hig"] .iv-pt {
+  border: 2px solid var(--surface);
+  box-shadow: var(--hig-shadow-1);
+}
+
+[data-theme="hig"] .bt-bar,
+[data-theme="hig"] .auc-budgetbar,
+[data-theme="hig"] .cal-bar {
+  border: none;
+  border-radius: 999px;
+  background: var(--hig-fill-tertiary);
+  overflow: hidden;
+}
+[data-theme="hig"] .auc-budgetbar span { border-radius: 999px; }
+
+/* Segment meters (SoS, playoff SoS) — small squares become HIG's rounded
+   ticks; "on" segments take the tint, "off" the quaternary fill. */
+[data-theme="hig"] .sos-seg,
+[data-theme="hig"] .po-seg {
+  border-radius: 3px;
+  border: none;
+  background: var(--hig-fill-tertiary);
+}
+[data-theme="hig"] .sos-seg--on,
+[data-theme="hig"] .po-seg--on { background: var(--brand); }
+[data-theme="hig"] .po-seg--easy { background: var(--pos); }
+[data-theme="hig"] .po-seg--hard { background: var(--accent); }
+[data-theme="hig"] .po-seg--even { background: var(--muted); }
+
+
+/* =============================================================================
+   8 · MOTION
+   ---------------------------------------------------------------------------
+   apple-design §4: think in DAMPING and RESPONSE, not duration and easing, and
+   reach for a spring for anything a user can touch. The web platform has no
+   spring primitive in CSS — but linear() can carry an arbitrary sampled curve,
+   so the two curves in section 1 are literal samples of the analytic spring
+   solutions Apple's own numbers describe:
+
+     --hig-spring  damping 1.0, response 0.4s  -> x(t) = 1 - (1 + wt)e^(-wt)
+                   critically damped, no overshoot. The default for everything.
+     --hig-bounce  damping 0.8, response 0.35s -> underdamped, ~1.5% overshoot.
+                   Reserved for motion that FOLLOWED a momentum gesture, per
+                   §4: overshoot on a menu that merely faded in feels wrong.
+
+   Both are sampled at 25-27 stops over the settle window, which is dense
+   enough that the piecewise-linear error is well under a pixel at these
+   travel distances.
+
+   The honest limit, stated plainly: CSS transitions are not interruptible in
+   the way §3 demands — they cannot be grabbed mid-flight and re-targeted from
+   their live velocity. Doing that properly needs a rAF spring driven by
+   Pointer Events, which would mean shipping JS the views do not have and this
+   CSS-only brief does not allow. So this theme applies springs to the places
+   where a fixed-duration transition is honest (state changes: selection,
+   press, focus, appearance) and does NOT pretend to fluid gesture tracking.
+   ========================================================================== */
+
+/* State changes on surfaces: a critically damped settle. */
+[data-theme="hig"] .card,
+[data-theme="hig"] .slot,
+[data-theme="hig"] .cand,
+[data-theme="hig"] .ds-cand,
+[data-theme="hig"] .leg,
+[data-theme="hig"] .auc-zone {
+  transition: background-color var(--hig-spring-dur) var(--hig-spring),
+              border-color var(--hig-spring-dur) var(--hig-spring),
+              box-shadow var(--hig-spring-dur) var(--hig-spring);
+}
+
+/* Route arrival. The view is repainted wholesale by the router, so an entrance
+   here is the one moment the theme can express "this content just arrived".
+   Materialize rather than fade (§12): scale and opacity together, from very
+   close to the resting value, so it reads as a surface settling — not a slide.
+   Under 250ms so it never delays a tap on the freshly painted content. */
+@keyframes hig-arrive {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.995); }
+  to   { opacity: 1; transform: none; }
+}
+[data-theme="hig"] .view > * {
+  animation: hig-arrive 240ms var(--hig-press) both;
+}
+
+/* Press feedback lands on pointer-DOWN (:active), never on release (§1). */
+[data-theme="hig"] .card:active { transition-duration: 80ms; }
+
+/* Interactive rows acknowledge the touch with a fill, not a jump. */
+[data-theme="hig"] .cand:active,
+[data-theme="hig"] .ds-cand:active,
+[data-theme="hig"] .slot:active { background: var(--elev); }
+
+
+/* =============================================================================
+   9 · ACCESSIBILITY — the three signals HIG says to honor independently
+   ---------------------------------------------------------------------------
+   apple-design §14: reduced motion is not "no feedback", it is non-vestibular
+   feedback; reduced transparency means frostier/solid, not blurrier; increased
+   contrast means near-solid surfaces with defined edges.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the color/opacity changes that aid comprehension; drop everything
+     that moves. theme.css already clamps durations globally, so this block
+     only has to remove the transforms and the entrance animation. */
+  [data-theme="hig"] .view > * { animation: none; }
+  [data-theme="hig"] .scopeseg button:active,
+  [data-theme="hig"] .scoreseg button:active,
+  [data-theme="hig"] .aiseg button:active,
+  [data-theme="hig"] .wk-chip:active,
+  [data-theme="hig"] .sort-chip:active,
+  [data-theme="hig"] .pf-chip:active,
+  [data-theme="hig"] .leg-chip:active,
+  [data-theme="hig"] .p-expand:active,
+  [data-theme="hig"] .posfilter button:active,
+  [data-theme="hig"] .load-more:active,
+  [data-theme="hig"] .cand-add:active,
+  [data-theme="hig"] .lp-savebtn:active,
+  [data-theme="hig"] .lp-btn:active,
+  [data-theme="hig"] .ds-start:active,
+  [data-theme="hig"] .gate-btn:active { transform: none; }
+  [data-theme="hig"] .view { scroll-behavior: auto; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* Solid chrome. The material's JOB is to show content moving underneath it;
+     if the user has asked for that to stop, the honest answer is an opaque
+     bar, not a heavier blur. */
+  [data-theme="hig"] .topbar,
+  [data-theme="hig"] .tabbar,
+  [data-theme="hig"] .health {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  [data-theme="hig"] {
+    --border: rgba(60, 60, 67, 0.68);
+    --muted: #3C3C43;
+  }
+  [data-theme="hig"] .card,
+  [data-theme="hig"] .mcard,
+  [data-theme="hig"] .draftsim,
+  [data-theme="hig"] .slot,
+  [data-theme="hig"] .cand,
+  [data-theme="hig"] .ds-cand,
+  [data-theme="hig"] .leg { border-width: 1px; }
+  [data-theme="hig"] .wk-chip,
+  [data-theme="hig"] .sort-chip,
+  [data-theme="hig"] .pf-chip,
+  [data-theme="hig"] .leg-chip,
+  [data-theme="hig"] .posfilter button {
+    border: 1px solid var(--border);
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  [data-theme="hig"] { --border: rgba(180, 180, 190, 0.75); --muted: #D0D0D6; }
+}
+
+
+/* =============================================================================
+   10 · THE SWITCHER ITSELF
+   ---------------------------------------------------------------------------
+   #theme-switch is the one piece of markup this work adds (index.html topbar).
+   It wears class="wk" so the DEFAULT theme styles it for free, out of the week
+   chip's own rules — no new component, no second stylesheet, and nothing about
+   the Broadcast theme changes except that one more chip now exists. Here it
+   becomes a proper HIG capsule button with a 44pt target.
+   ========================================================================== */
+
+[data-theme="hig"] .wk,
+[data-theme="hig"] #theme-switch {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  font-weight: 590;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--brand-txt);
+  background: var(--hig-fill-secondary);
+  border: none;
+  border-radius: 999px;
+  padding: 0 14px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+/* The topbar is justify-content:space-between with three children, which would
+   strand the switch in the middle of the bar. Pushing it right groups it with
+   the week chip so the left edge stays the wordmark alone — HIG's leading /
+   trailing navigation-bar split. (The Broadcast theme cannot get this without
+   editing theme.css, which is locked, so there it sits centered.) */
+[data-theme="hig"] #theme-switch {
+  margin-left: auto;
+  min-height: 44px;
+  cursor: pointer;
+  transition: background-color 180ms var(--hig-press),
+              transform 180ms var(--hig-press);
+}
+[data-theme="hig"] #theme-switch:active { transform: scale(0.96); }
+[data-theme="hig"] #theme-switch[aria-pressed="true"] {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="hig"] #theme-switch:active { transform: none; }
+}
+
+
+/* =============================================================================
+   11 · WIDE-SCREEN — the 13" target
+   ---------------------------------------------------------------------------
+   theme.css already turns the card lists into a grid and the team builder into
+   two columns above 820px. This theme keeps that structure and only widens the
+   gutters, because HIG's reading measure is generous but the DRAFT ROOM's
+   density is the feature. Nothing collapses, nothing is capped smaller.
+   ========================================================================== */
+
+@media (min-width: 820px) {
+  [data-theme="hig"] .card-list { gap: 16px; }
+  [data-theme="hig"] .team-grid { gap: 20px; }
+  [data-theme="hig"] .roster { gap: 10px; }
+
+  /* A NOTE ON WHAT IS *NOT* HERE.
+     HIG sizes a segmented control by its content; stretched across 1180px,
+     PPR / HALF / STD reads more like three banners than one switch, and capping
+     it was the obvious move. It is not capped, and the reason is alignment:
+     theme.css centres every direct child of .view inside a 1180px reading
+     column (`width:100%; max-width:1180px; margin-inline:auto`). A narrower
+     child centres in the same box, so a capped control would float to the
+     middle of the window while every other control on the page starts at the
+     column's left edge — and there is no way to express "align with the column"
+     in CSS without hard-coding the gutter that produced it. Between an
+     un-HIG-wide control and a control that does not line up with anything, the
+     alignment wins: a broken left edge is a craft failure people SEE, and the
+     stretched track still reads correctly because the thumb marks the choice. */
+
+}
+@media (min-width: 1200px) {
+  [data-theme="hig"] .view { padding-left: 28px; padding-right: 28px; }
+}
+
+/* The password gate is the first surface a new visitor sees, so it gets the
+   full treatment rather than inheriting a half-styled dialog. */
+[data-theme="hig"] .gate { background: var(--bg); }
+[data-theme="hig"] .gate-card {
+  background: var(--surface);
+  border: var(--hig-hairline) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--hig-shadow-2);
+}
+[data-theme="hig"] .gate-brand {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -0.02em;
+}
+[data-theme="hig"] .gate-label {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  color: var(--muted);
+}

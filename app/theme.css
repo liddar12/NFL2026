@@ -1940,6 +1940,18 @@ button { font: inherit; color: inherit; }
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* R30 — the draft finished with a starting slot empty. --warn is the token this
+ * app already uses for "the number beside this is not what it looks like"
+ * (stale/degraded feed health), and it is the right one here: the score printed
+ * directly above counted the empty seat as 0.0. Left rule and weight so it does
+ * not read as one more stat line in the same mono grey. */
+.ds-sheet--warn {
+  color: var(--warn);
+  font-weight: 600;
+  border-left: 2px solid var(--warn);
+  padding-left: 8px;
+  margin-top: 4px;
+}
 .ds-roster { display: flex; flex-wrap: wrap; gap: 6px; }
 .ds-pick {
   font-family: var(--mono);

@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter (NBA, MLB, Kalshi) reuses the registry mechanism, the "enters at weight 0" discipline, the byte-for-byte name-mirror invariant, and the end-to-end wiring gate wholesale; it re-authors only the *contents* of `SIGNALS` (the sport's named factors) and the `data/meta.json` weights map that mirrors them.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **17 acceptance criteria**, **3 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **18%** (3/17 automatable). **4** name a test file that does not
+> exist; **10** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/signal_wiring.test.mjs`. Stories with **nothing asserted at all**: P4-S4, P4-S5.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Make every factor the platform considers a **named, registered signal** with an explicit `{group, weight, description}` record, so the model has one auditable source of truth for what it looks at. Every signal enters at `weight = 0.0` and can earn weight only through the walk-forward optimizer (P5) — nothing is hand-weighted, "Dominance started at 0." The registry is the contract that lets the evaluation harness come first and models second: a factor is *named and computed* before it is ever *trusted*, and it is trusted only in proportion to measured out-of-sample lift. The registry is also the wiring ledger — a signal that is registered but never reaches the model is a bug the tests must catch.
 
@@ -10,7 +19,7 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 
 ## User stories
 
-### P4-S1 — Registry as single source of truth   ·  Status: 🟡   ·  Est: M
+### P4-S1 — Registry as single source of truth   ·  Status: 🟡   ·  Est: M   ·  **QA: 1/4 ACs asserted (25%)**
 **As** a Modeler **I want** every factor expressed as a named record in one registry **so that** there is exactly one auditable list of what the model may consider and how each factor is computed.
 **Acceptance criteria** (Given/When/Then):
 - P4-S1-AC1 — Given `scripts/signals/registry.py`, When `SIGNALS` is loaded, Then it is an insertion-ordered map of exactly 32 entries grouped player(19)/game(10)/market(3), each value a dict with keys exactly `{group, weight, description}` and no others.
@@ -23,14 +32,14 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S1-T3 — Add a `groups()` / count helper for downstream consumers and tests.
 - [ ] P4-S1-T4 — Assert stdlib-only imports (no third-party) so the registry loads in any environment.
 **QA coverage** (≥90% of ACs map to a named test):
-- P4-S1-AC1 → `tests/feature/signal_registry.test.mjs::count-and-groups` (unit) — Partial
-- P4-S1-AC2 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) — Done
-- P4-S1-AC3 → `tests/feature/signal_registry.test.mjs::deterministic-order` (unit) — Planned
-- P4-S1-AC4 → `tests/feature/signal_registry.test.mjs::non-empty-description` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test).
+- P4-S1-AC1 → `tests/feature/signal_registry.test.mjs::count-and-groups` (unit) — Partial  **[TOOTHLESS · hardcoded-literal]**
+- P4-S1-AC2 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) — Done  **[REAL]**
+- P4-S1-AC3 → `tests/feature/signal_registry.test.mjs::deterministic-order` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P4-S1-AC4 → `tests/feature/signal_registry.test.mjs::non-empty-description` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `scripts/signals/__init__.py`, `tests/feature/signal_registry.test.mjs`.
 
-### P4-S2 — Every signal enters at weight 0.0 ("Dominance started at 0")   ·  Status: 🟡   ·  Est: S
+### P4-S2 — Every signal enters at weight 0.0 ("Dominance started at 0")   ·  Status: 🟡   ·  Est: S   ·  **QA: 1/3 ACs asserted (33%)**
 **As** a Modeler **I want** every new signal to enter the model at weight 0.0 **so that** no factor gets credit for being plausible — only for measurably improving out-of-sample loss.
 **Acceptance criteria** (Given/When/Then):
 - P4-S2-AC1 — Given the registry at scaffold time, When all 32 weights are read, Then every one is exactly `0.0` and none has been hand-edited to a nonzero value outside the optimizer.
@@ -42,17 +51,18 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S2-T3 — Document the rule and the sole-writer constraint in `docs/SIGNAL_REGISTRY.md`.
 - [ ] P4-S2-T4 — Add a `validate_data.py` assertion that every `meta.json` weight is a float in `[0,1]` (and all 0.0 pre-fit).
 **QA coverage**:
-- P4-S2-AC1 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) — Done
-- P4-S2-AC2 → `tests/feature/signal_registry.test.mjs::registry-weights-all-zero` (unit) — Planned
-- P4-S2-AC3 → `scripts/validate_data.py::meta_weights_zero_and_bounded` (data) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test) | data(validate_data).
+- P4-S2-AC1 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) — Done  **[REAL]**
+- P4-S2-AC2 → `tests/feature/signal_registry.test.mjs::registry-weights-all-zero` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P4-S2-AC3 → `scripts/validate_data.py::meta_weights_zero_and_bounded` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `data/meta.json`, `scripts/validate_data.py`, `docs/SIGNAL_REGISTRY.md`.
 
-### P4-S3 — Names mirror byte-for-byte across code and data   ·  Status: 🟡   ·  Est: S
+### P4-S3 — Names mirror byte-for-byte across code and data   ·  Status: 🟡   ·  Est: S   ·  **QA: 1/3 ACs asserted (33%)**
 **As** the System **I want** the signal names in `registry.py` and `data/meta.json` to match byte-for-byte **so that** the optimizer, the frontend, and the harness never disagree about which factor is which.
 **Acceptance criteria** (Given/When/Then):
 - P4-S3-AC1 — Given the registry names and the `meta.json` weights keys, When compared as ordered sets, Then they are identical: same names, same count (32), no extras on either side.
 - P4-S3-AC2 — Given a renamed or reordered signal in `registry.py`, When the test runs, Then it fails until `data/meta.json` is updated to match (missing-key AND unexpected-extra-key both caught).
+  > **Correction (2026-08-15):** the behaviour this AC describes does not exist. `signal_registry.test.mjs:16` compares `meta.json` against an `EXPECTED` list pasted into the test file and never reads `registry.py`; `scripts/validate_data.py:118-130` (`EXPECTED_SIGNALS`) carries a **second** hardcoded mirror. A rename in `registry.py` reds nothing. Reordering is doubly unguarded — `:38` uses `name in meta.weights` and `:49` uses `EXPECTED.includes()`, both order-insensitive, despite the `in group order` comment at `:15`. See QA-D5.
 - P4-S3-AC3 — Given a signal name, When it appears anywhere downstream (optimizer feature keys, frontend labels), Then it is the exact registry string — no aliasing, casing, or whitespace drift.
 **Tasks** (implementation checklist):
 - [ ] P4-S3-T1 — Keep the `EXPECTED` name list in `signal_registry.test.mjs` synced to `registry.py`.
@@ -60,13 +70,13 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S3-T3 — Add a generator/check helper so `meta.json` weights can be regenerated from the registry (mirror is derivable, not hand-maintained).
 - [ ] P4-S3-T4 — Wire the mirror check into `tests/run_gate.sh` so a drift blocks the gate.
 **QA coverage**:
-- P4-S3-AC1 → `tests/feature/signal_registry.test.mjs::count matches (no missing, no extra)` (unit) — Done
-- P4-S3-AC2 → `tests/feature/signal_registry.test.mjs::no unexpected signals leaked into the weights map` (unit) — Done
-- P4-S3-AC3 → `tests/feature/signal_registry.test.mjs::names-are-exact-strings` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P4-S3-AC1 → `tests/feature/signal_registry.test.mjs::count matches (no missing, no extra)` (unit) — Done  **[REAL]**
+- P4-S3-AC2 → `tests/feature/signal_registry.test.mjs::no unexpected signals leaked into the weights map` (unit) — Done  **[TOOTHLESS · hardcoded-literal]**
+- P4-S3-AC3 → `tests/feature/signal_registry.test.mjs::names-are-exact-strings` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `data/meta.json`, `tests/feature/signal_registry.test.mjs`, `tests/run_gate.sh`.
 
-### P4-S4 — End-to-end wiring gate ("a signal that doesn't reach the model does not exist")   ·  Status: ⬜   ·  Est: M
+### P4-S4 — End-to-end wiring gate ("a signal that doesn't reach the model does not exist")   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** a test that proves each registered signal is actually consumed by the prediction path **so that** we never again ship a computed-but-unwired feature that has zero effect.
 **Acceptance criteria** (Given/When/Then):
 - P4-S4-AC1 — Given every registered signal name, When the wiring check runs, Then each name is referenced by at least one consumer in the predict path (`scripts/optimize/optimize_weights.py::_predict_probs` feature keys or its documented feature-builder), or is explicitly listed in a `NOT_YET_WIRED` allowlist with a reason.
@@ -80,14 +90,14 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S4-T4 — Enforce weight-stays-0 for allowlisted signals in the optimizer path.
 - [ ] P4-S4-T5 — Add the check to `tests/run_gate.sh`.
 **QA coverage**:
-- P4-S4-AC1 → `tests/feature/signal_wiring.test.mjs::every-signal-consumed-or-allowlisted` (unit) — Planned
-- P4-S4-AC2 → `tests/feature/signal_wiring.test.mjs::unwired-stays-zero` (unit) — Planned
-- P4-S4-AC3 → `tests/feature/signal_wiring.test.mjs::no-orphan-consumers` (unit) — Planned
-- P4-S4-AC4 → `tests/feature/signal_wiring.test.mjs::new-unwired-signal-fails-gate` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test).
+- P4-S4-AC1 → `tests/feature/signal_wiring.test.mjs::every-signal-consumed-or-allowlisted` (unit) — Planned  **[MISSING]**
+- P4-S4-AC2 → `tests/feature/signal_wiring.test.mjs::unwired-stays-zero` (unit) — Planned  **[MISSING]**
+- P4-S4-AC3 → `tests/feature/signal_wiring.test.mjs::no-orphan-consumers` (unit) — Planned  **[MISSING]**
+- P4-S4-AC4 → `tests/feature/signal_wiring.test.mjs::new-unwired-signal-fails-gate` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new `tests/feature/signal_wiring.test.mjs`, new `scripts/signals/wiring.py` (or check helper), `scripts/optimize/optimize_weights.py`, `scripts/pipeline_status.py`, `data/pipeline_status.json`, `tests/run_gate.sh`.
 
-### P4-S5 — Groups, contribution, and human-readable registry doc   ·  Status: 🟡   ·  Est: S
+### P4-S5 — Groups, contribution, and human-readable registry doc   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Analyst **I want** signals grouped (player/game/market) with markets treated as first-class models and a synced human-readable doc **so that** I can read what the platform considers and how much each group contributes.
 **Acceptance criteria** (Given/When/Then):
 - P4-S5-AC1 — Given the three groups, When enumerated, Then `player`, `game`, and `market` are the only groups and `market` signals are documented as models-in-their-own-right (baseline the complex models must beat), not mere benchmarks.
@@ -99,8 +109,8 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S5-T3 — Add a `group_contribution(meta)` helper summing weights per group.
 - [ ] P4-S5-T4 — Document the markets-as-models framing and the day-zero all-0 state.
 **QA coverage**:
-- P4-S5-AC1 → `tests/feature/signal_registry.test.mjs::groups-are-the-three` (unit) — Planned
-- P4-S5-AC2 → `tests/feature/signal_registry.test.mjs::doc-matches-registry` (unit) — Planned
-- P4-S5-AC3 → `tests/feature/signal_registry.test.mjs::group-contribution-sums` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P4-S5-AC1 → `tests/feature/signal_registry.test.mjs::groups-are-the-three` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P4-S5-AC2 → `tests/feature/signal_registry.test.mjs::doc-matches-registry` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P4-S5-AC3 → `tests/feature/signal_registry.test.mjs::group-contribution-sums` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `docs/SIGNAL_REGISTRY.md`, `data/meta.json`, `tests/feature/signal_registry.test.mjs`.

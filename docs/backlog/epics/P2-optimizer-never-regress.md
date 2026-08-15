@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter (NBA/MLB/markets) reuses the entire fitting loop, the leak-safe walk-forward harness, and the NEVER REGRESS gate unchanged; it re-authors only the signal set it feeds in and the sport's event granularity (game/prop) — the optimizer never knows the sport.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **24 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/23 automatable). **0** name a test file that does not
+> exist; **23** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. Stories with **nothing asserted at all**: P2-S1, P2-S2, P2-S3, P2-S4, P2-S5, P2-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Fit signal weights against real, already-happened events in a strictly leak-safe walk-forward, optimizing log-loss (probability quality), and adopt new weights only when they beat the incumbent by a hard margin. The harness comes first: no weight is trusted that wasn't earned on out-of-sample, as-of-kickoff information. New signals join the model at weight 0 and earn weight only through the fit — never by hand. This is the mechanism that lets the platform absorb 32+ signals without any of them silently degrading the model.
 
@@ -10,7 +19,7 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 
 ## User stories
 
-### P2-S1 — Leak-safe walk-forward fit   ·  Status: 🟡   ·  Est: L
+### P2-S1 — Leak-safe walk-forward fit   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** every event scored using only information available as-of its kickoff **so that** fitted weights reflect real predictive power, not hindsight.
 **Acceptance criteria** (Given/When/Then):
 - P2-S1-AC1 — Given a fold cut at kickoff time T, When features for event E (kickoff T) are assembled, Then every input row used has an as-of/observed timestamp `< T`; any row at or after T is excluded and the exclusion is counted.
@@ -24,14 +33,14 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S1-T4 — Persist per-fold and aggregate log-loss + accuracy and fold metadata to `data/model_tuning.json`.
 - [ ] P2-S1-T5 — Unit-test splitter determinism and boundary correctness (event on the boundary belongs to the future, never the train fold).
 **QA coverage:**
-- P2-S1-AC1 → `tests/feature/never_regress.test.mjs::asof_filter_excludes_future_rows` (unit) — Planned
-- P2-S1-AC2 → `tests/feature/never_regress.test.mjs::walkforward_no_self_training` (unit) — Planned
-- P2-S1-AC3 → `tests/feature/never_regress.test.mjs::leak_canary_fails_loud` (backtest) — Planned
-- P2-S1-AC4 → `scripts/validate_data.py::model_tuning_schema` (data) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test), backtest(leak-safe), data(validate_data).
+- P2-S1-AC1 → `tests/feature/never_regress.test.mjs::asof_filter_excludes_future_rows` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S1-AC2 → `tests/feature/never_regress.test.mjs::walkforward_no_self_training` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S1-AC3 → `tests/feature/never_regress.test.mjs::leak_canary_fails_loud` (backtest) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S1-AC4 → `scripts/validate_data.py::model_tuning_schema` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · TOOTHLESS 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/optimize_weights.py`, `data/model_tuning.json`, `data/contracts/model_tuning.schema.json` (new/extend), `tests/feature/never_regress.test.mjs`.
 
-### P2-S2 — Log-loss objective; accuracy reported, never optimized   ·  Status: 🟡   ·  Est: M
+### P2-S2 — Log-loss objective; accuracy reported, never optimized   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** the optimizer to minimize log-loss **so that** the model is calibrated probabilistically, with accuracy tracked only as a readout.
 **Acceptance criteria** (Given/When/Then):
 - P2-S2-AC1 — Given a candidate weight vector, When the objective is evaluated, Then the returned scalar is mean log-loss over the leak-safe out-of-sample set (lower is better); accuracy is computed but never enters the objective.
@@ -43,13 +52,13 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S2-T3 — Emit both metrics to `data/model_tuning.json` labeled objective vs readout.
 - [ ] P2-S2-T4 — Unit-test the A-vs-B case (accuracy-up/log-loss-worse must lose).
 **QA coverage:**
-- P2-S2-AC1 → `tests/feature/never_regress.test.mjs::objective_is_logloss` (unit) — Planned
-- P2-S2-AC2 → `tests/feature/never_regress.test.mjs::accuracy_never_overrides_logloss` (unit) — Planned
-- P2-S2-AC3 → `tests/feature/never_regress.test.mjs::logloss_eps_clip_finite` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P2-S2-AC1 → `tests/feature/never_regress.test.mjs::objective_is_logloss` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S2-AC2 → `tests/feature/never_regress.test.mjs::accuracy_never_overrides_logloss` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S2-AC3 → `tests/feature/never_regress.test.mjs::logloss_eps_clip_finite` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/optimize_weights.py`, `data/model_tuning.json`.
 
-### P2-S3 — Shrinkage toward current weights on small samples   ·  Status: 🟡   ·  Est: M
+### P2-S3 — Shrinkage toward current weights on small samples   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** fitted weights pulled toward the incumbent when the sample is thin **so that** early-season noise doesn't hand large weight to lucky signals.
 **Acceptance criteria** (Given/When/Then):
 - P2-S3-AC1 — Given N out-of-sample events, When weights are fit, Then the result is a shrinkage blend `w = α·w_fit + (1-α)·w_current` where α increases monotonically with N (documented schedule).
@@ -62,14 +71,14 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S3-T3 — Unit-test the three regimes (N below floor → α≈0; mid; large → α≈1) and monotonicity.
 - [ ] P2-S3-T4 — Record α, N, w_fit, w_current, w_blended in `data/model_tuning.json` for auditability.
 **QA coverage:**
-- P2-S3-AC1 → `tests/feature/never_regress.test.mjs::shrinkage_alpha_monotonic_in_n` (unit) — Planned
-- P2-S3-AC2 → `tests/feature/never_regress.test.mjs::shrinkage_small_sample_holds_incumbent` (unit) — Planned
-- P2-S3-AC3 → `tests/feature/never_regress.test.mjs::shrinkage_large_sample_frees_fit` (unit) — Planned
-- P2-S3-AC4 → `tests/feature/never_regress.test.mjs::shrinkage_reads_meta_weights` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test).
+- P2-S3-AC1 → `tests/feature/never_regress.test.mjs::shrinkage_alpha_monotonic_in_n` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S3-AC2 → `tests/feature/never_regress.test.mjs::shrinkage_small_sample_holds_incumbent` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S3-AC3 → `tests/feature/never_regress.test.mjs::shrinkage_large_sample_frees_fit` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S3-AC4 → `tests/feature/never_regress.test.mjs::shrinkage_reads_meta_weights` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · TOOTHLESS 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/optimize_weights.py`, `data/meta.json`, `data/model_tuning.json`.
 
-### P2-S4 — NEVER REGRESS adoption gate (margin 0.0015)   ·  Status: 🟡   ·  Est: L
+### P2-S4 — NEVER REGRESS adoption gate (margin 0.0015)   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/5 ACs asserted (0%)**
 **As** an Operator **I want** new weights adopted only if they beat the incumbent by a hard margin on the same leak-safe set **so that** refits never ship a worse or noise-equal model.
 **Acceptance criteria** (Given/When/Then):
 - P2-S4-AC1 — Given candidate weights and incumbent weights, When both are scored on the identical leak-safe out-of-sample set, Then adoption requires `logloss_current − logloss_candidate ≥ 0.0015`; otherwise the incumbent is retained.
@@ -84,15 +93,15 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S4-T4 — Log verdict + deltas to `data/model_tuning.json`.
 - [ ] P2-S4-T5 — Unit-test the three boundary cases: below margin (reject), at margin (adopt), above margin (adopt); and a regression (candidate worse → reject).
 **QA coverage:**
-- P2-S4-AC1 → `tests/feature/never_regress.test.mjs::gate_requires_0_0015_margin` (unit) — Planned
-- P2-S4-AC2 → `tests/feature/never_regress.test.mjs::gate_rejects_below_margin_no_write` (unit) — Planned
-- P2-S4-AC3 → `tests/feature/never_regress.test.mjs::gate_adopts_at_and_above_margin_writes` (unit) — Planned
-- P2-S4-AC4 → `tests/feature/never_regress.test.mjs::gate_asserts_same_set` (unit) — Planned
-- P2-S4-AC5 → `tests/smoke.sh::never_regress_block_exits_zero` (smoke) — Planned
-  Coverage: 5/5 = 100%. Test types: unit(node:test), smoke(bash).
+- P2-S4-AC1 → `tests/feature/never_regress.test.mjs::gate_requires_0_0015_margin` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S4-AC2 → `tests/feature/never_regress.test.mjs::gate_rejects_below_margin_no_write` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S4-AC3 → `tests/feature/never_regress.test.mjs::gate_adopts_at_and_above_margin_writes` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S4-AC4 → `tests/feature/never_regress.test.mjs::gate_asserts_same_set` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S4-AC5 → `tests/smoke.sh::never_regress_block_exits_zero` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/5 · TOOTHLESS 5.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/never_regress.py`, `data/meta.json`, `data/model_tuning.json`, `tests/feature/never_regress.test.mjs`, `tests/smoke.sh`.
 
-### P2-S5 — New signals enter at weight 0; earn weight only via the fit   ·  Status: 🟡   ·  Est: M
+### P2-S5 — New signals enter at weight 0; earn weight only via the fit   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** any newly registered signal to start at weight 0 and gain weight only through the optimizer **so that** no signal can influence predictions until it demonstrably improves them.
 **Acceptance criteria** (Given/When/Then):
 - P2-S5-AC1 — Given a signal newly added to `scripts/signals/registry.py`, When it first appears, Then its weight in `data/meta.json` is exactly 0.0 and it contributes nothing to any prediction.
@@ -105,14 +114,14 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S5-T3 — Unit-test: add a synthetic signal → weight 0; run predictive fixture → weight rises via fit; run noise fixture → weight stays 0.
 - [ ] P2-S5-T4 — Data-test that all 32 registry signals map to 0.0 weights in the current `data/meta.json`.
 **QA coverage:**
-- P2-S5-AC1 → `tests/feature/never_regress.test.mjs::new_signal_defaults_zero` (unit) — Planned
-- P2-S5-AC2 → `tests/feature/never_regress.test.mjs::predictive_signal_earns_weight_via_fit` (unit) — Planned
-- P2-S5-AC3 → `tests/feature/never_regress.test.mjs::noise_signal_stays_zero` (unit) — Planned
-- P2-S5-AC4 → `scripts/validate_data.py::all_registry_signals_zero_weight` (data) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test), data(validate_data).
+- P2-S5-AC1 → `tests/feature/never_regress.test.mjs::new_signal_defaults_zero` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S5-AC2 → `tests/feature/never_regress.test.mjs::predictive_signal_earns_weight_via_fit` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S5-AC3 → `tests/feature/never_regress.test.mjs::noise_signal_stays_zero` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S5-AC4 → `scripts/validate_data.py::all_registry_signals_zero_weight` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · TOOTHLESS 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `data/meta.json`, `scripts/optimize/optimize_weights.py`, `tests/feature/never_regress.test.mjs`.
 
-### P2-S6 — Refit orchestration & reproducibility   ·  Status: ⬜   ·  Est: M
+### P2-S6 — Refit orchestration & reproducibility   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** the fit → gate → write sequence to run deterministically on a cron with a stated rollback **so that** weight changes are auditable and reversible.
 **Acceptance criteria** (Given/When/Then):
 - P2-S6-AC1 — Given the same input snapshot and seed, When `optimize_weights.py` runs twice, Then it produces byte-identical `data/model_tuning.json` (deterministic; seed recorded).
@@ -125,9 +134,9 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S6-T3 — Emit the rollback one-liner and before/after weights to the run log prior to any write.
 - [ ] P2-S6-T4 — Make the commit step race-safe per repo convention.
 **QA coverage:**
-- P2-S6-AC1 → `tests/smoke.sh::optimize_deterministic_rerun` (smoke) — Planned
-- P2-S6-AC2 → `tests/smoke.sh::refit_order_gate_guards_meta` (smoke) — Planned
-- P2-S6-AC3 → manual (rollback drill) — documented; one `git revert`, verified by re-reading `data/meta.json`
-- P2-S6-AC4 → `tests/smoke.sh::refit_commit_race_safe` (smoke) — Planned
-  Coverage: 3/4 automatable = 75% automated; AC3 is manual-only (rollback drill). Automatable ACs covered: 3/3 = 100%. Test types: smoke(bash), manual.
+- P2-S6-AC1 → `tests/smoke.sh::optimize_deterministic_rerun` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S6-AC2 → `tests/smoke.sh::refit_order_gate_guards_meta` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S6-AC3 → manual (rollback drill) — documented; one `git revert`, verified by re-reading `data/meta.json`  **[MANUAL]**
+- P2-S6-AC4 → `tests/smoke.sh::refit_commit_race_safe` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/optimize_weights.py`, `scripts/optimize/never_regress.py`, `data/meta.json`, `data/model_tuning.json`, `.github/workflows/daily.yml`, `.github/workflows/gameday.yml`, `tests/smoke.sh`.

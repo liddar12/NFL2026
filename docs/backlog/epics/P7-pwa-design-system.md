@@ -5,6 +5,15 @@
 
 **Reuse:** A future adapter (NBA/MLB/markets) reuses the entire shell — hash router, pure-cache-purger `sw.js`, standalone manifest scaffold, safe-area handling, the tokenized design system, and the automated WCAG-AA contrast gate — verbatim. It re-authors ONLY the token *values* (one theme file) and the brand assets (icons, name, theme-color). Nothing in this epic is NFL-specific; the current instance happens to render as *Broadcast Gameday · dark-only · J5L · iPhone 16 Pro*, but that identity lives entirely in swappable tokens.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **23 acceptance criteria**, **1 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **5%** (1/22 automatable). **13** name a test file that does not
+> exist; **8** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/tokens.test.mjs`, `tests/web/router.spec.mjs`, `tests/pwa/sw_purge.spec.mjs`, `tests/pwa/install.spec.mjs` and 5 more. Stories with **nothing asserted at all**: P7-S1, P7-S2, P7-S3, P7-S4, P7-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Ship a vanilla-JS, no-build installable PWA shell and a tokenized design system that any prediction adapter can re-skin by editing one token layer. The shell must be installable standalone on iPhone with correct safe-area handling, route without a framework, never serve stale code, and prove — by an automated test, not by eye — that every foreground/background pairing meets WCAG-AA. Visual identity (color, type, brand) is data (tokens), not code, so the platform thesis "the next adapter reuses the core untouched" holds at the presentation layer too.
 
@@ -13,7 +22,7 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 
 ## User stories
 
-### P7-S1 — Installable standalone PWA (manifest + safe-area)   ·  Status: 🟡   ·  Est: M
+### P7-S1 — Installable standalone PWA (manifest + safe-area)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** to install NFL2026 to my iPhone home screen and run it fullscreen **so that** it behaves like a native app with no browser chrome eating the score meters.
 **Acceptance criteria:**
 - P7-S1-AC1 — Given `manifest.webmanifest`, When validated, Then `display` = `standalone`, `orientation` = `portrait`, `start_url` = `/`, `scope` = `/`, and both 192 and 512 icons are declared `purpose: "any maskable"`.
@@ -26,14 +35,14 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - [ ] P7-S1-T3 — Apply `env(safe-area-inset-*)` to the app frame (top and bottom), keep `viewport-fit=cover` in `index.html`.
 - [ ] P7-S1-T4 — Add a PWA e2e that asserts standalone display-mode and inset padding on the iPhone 16 Pro device profile.
 **QA coverage:**
-- P7-S1-AC1 → `scripts/validate_data.py::manifest_check` (data) — Planned
-- P7-S1-AC2 → `tests/pwa/install.spec.mjs::standalone-display-mode` (e2e-pwa) — Planned
-- P7-S1-AC3 → `tests/pwa/safe_area.spec.mjs::bottom-inset-applied` (e2e-pwa) — Planned
-- P7-S1-AC4 → `tests/web/theme_color.spec.mjs::meta-matches-manifest` (e2e-web) — Planned
-- Coverage: 4/4 = 100%. Test types: data | e2e-pwa | e2e-web.
+- P7-S1-AC1 → `scripts/validate_data.py::manifest_check` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S1-AC2 → `tests/pwa/install.spec.mjs::standalone-display-mode` (e2e-pwa) — Planned  **[MISSING]**
+- P7-S1-AC3 → `tests/pwa/safe_area.spec.mjs::bottom-inset-applied` (e2e-pwa) — Planned  **[MISSING]**
+- P7-S1-AC4 → `tests/web/theme_color.spec.mjs::meta-matches-manifest` (e2e-web) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `manifest.webmanifest`, `index.html`, `icons/*` (new — dir empty today), `tests/pwa/*.spec.mjs` (new), `tests/web/*.spec.mjs` (new).
 
-### P7-S2 — Frameworkless hash router   ·  Status: ✅   ·  Est: S
+### P7-S2 — Frameworkless hash router   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Analyst **I want** deep-linkable routes (`#/`, `#/players`, `#/games`, `#/parlays`) without a framework **so that** the app stays a no-build vanilla-JS shell any adapter can lift.
 **Acceptance criteria:**
 - P7-S2-AC1 — Given a route hash, When it changes, Then the `#view` region re-renders to the matching view and unknown hashes fall back to Home (no blank screen).
@@ -44,32 +53,33 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - [ ] P7-S2-T2 — Preserve the once-only boot guard on both `DOMContentLoaded` and already-parsed paths.
 - [ ] P7-S2-T3 — Add an e2e that navigates each hash and asserts the correct view header + fallback-to-Home on a bad hash.
 **QA coverage:**
-- P7-S2-AC1 → `tests/web/router.spec.mjs::route-and-fallback` (e2e-web) — Planned
-- P7-S2-AC2 → `tests/feature/router.test.mjs::boot-runs-once` (unit) — Planned
-- P7-S2-AC3 → `tests/web/router.spec.mjs::view-is-live-region` (e2e-web) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test) | e2e-web.
+- P7-S2-AC1 → `tests/web/router.spec.mjs::route-and-fallback` (e2e-web) — Planned  **[MISSING]**
+- P7-S2-AC2 → `tests/feature/router.test.mjs::boot-runs-once` (unit) — Planned  **[MISSING]**
+- P7-S2-AC3 → `tests/web/router.spec.mjs::view-is-live-region` (e2e-web) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/main.js`, `index.html`.
 
-### P7-S3 — Pure cache-purger service worker   ·  Status: ✅   ·  Est: S
+### P7-S3 — Pure cache-purger service worker   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Operator **I want** a service worker that caches NOTHING and purges any prior caches **so that** a deploy never leaves users running day-old JS (the wc2026 stale-shell postmortem).
 **Acceptance criteria:**
 - P7-S3-AC1 — Given `sw.js`, When inspected, Then it registers NO `fetch` handler (every request hits the network).
 - P7-S3-AC2 — Given a prior install that cached files, When the new SW activates, Then it deletes every cache keyed `nfl26-*` and calls `clients.claim()`.
 - P7-S3-AC3 — Given SW registration, When it fails, Then first paint is unaffected (registration is best-effort, `.catch` only warns).
 - P7-S3-AC4 — Given freshness is header-controlled, When `_headers` is read, Then app code uses short max-age + stale-while-revalidate and `/data/*` is `must-revalidate` (SW does not manage freshness).
+  > **Correction (2026-08-15):** this AC and P9-S6-AC3 pin **different** policies for the same path — here `/data/*` is `must-revalidate`, there it is `max-age=0, stale-while-revalidate=120`. The shipped `_headers` matches P9-S6-AC3 (`must-revalidate` is on `/index.html` and `/sw.js`). No test reads `_headers` at all, so nothing has ever caught the contradiction. Reconcile the two ACs before writing the check — see QA-D2.
 **Tasks:**
 - [ ] P7-S3-T1 — Keep `sw.js` fetch-handler-free; retain `skipWaiting()` + activate-time purge.
 - [ ] P7-S3-T2 — Keep the `GET_VERSION` message probe for active-SW confirmation.
 - [ ] P7-S3-T3 — Add a smoke assertion that `sw.js` contains no `addEventListener('fetch'`.
 **QA coverage:**
-- P7-S3-AC1 → `tests/smoke.sh::sw-has-no-fetch-handler` (smoke) — Planned
-- P7-S3-AC2 → `tests/pwa/sw_purge.spec.mjs::activate-deletes-caches` (e2e-pwa) — Planned
-- P7-S3-AC3 → `tests/pwa/sw_purge.spec.mjs::registration-nonblocking` (e2e-pwa) — Planned
-- P7-S3-AC4 → `tests/smoke.sh::headers-freshness-policy` (smoke) — Planned
-- Coverage: 4/4 = 100%. Test types: smoke(bash) | e2e-pwa.
+- P7-S3-AC1 → `tests/smoke.sh::sw-has-no-fetch-handler` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S3-AC2 → `tests/pwa/sw_purge.spec.mjs::activate-deletes-caches` (e2e-pwa) — Planned  **[MISSING]**
+- P7-S3-AC3 → `tests/pwa/sw_purge.spec.mjs::registration-nonblocking` (e2e-pwa) — Planned  **[MISSING]**
+- P7-S3-AC4 → `tests/smoke.sh::headers-freshness-policy` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 2 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `sw.js`, `_headers`, `index.html`.
 
-### P7-S4 — Tokenized design system (dark theme)   ·  Status: ⬜   ·  Est: L
+### P7-S4 — Tokenized design system (dark theme)   ·  Status: ⬜   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** all color, type, spacing, and radius expressed as CSS custom-property tokens in one theme file **so that** a new adapter re-skins by editing tokens, not components.
 **Acceptance criteria:**
 - P7-S4-AC1 — Given `app/theme.css`, When audited, Then every color/type/space/radius used by views resolves to a `--token` (no raw hex or px literals in view CSS/JS; the provisional inline `<style>` in `index.html` is removed).
@@ -82,14 +92,14 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - [ ] P7-S4-T3 — Remove provisional inline `<style>` from `index.html`; link `app/theme.css`.
 - [ ] P7-S4-T4 — Add a lint/test asserting no raw hex/px in view layer and presence of the required token set.
 **QA coverage:**
-- P7-S4-AC1 → `tests/feature/tokens.test.mjs::no-raw-hex-in-views` (unit) — Planned
-- P7-S4-AC2 → `tests/web/theme.spec.mjs::dark-color-scheme` (e2e-web) — Planned
-- P7-S4-AC3 → `tests/feature/tokens.test.mjs::primitives-from-tokens` (unit) — Planned
-- P7-S4-AC4 → `tests/feature/tokens.test.mjs::required-token-set-present` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | e2e-web.
+- P7-S4-AC1 → `tests/feature/tokens.test.mjs::no-raw-hex-in-views` (unit) — Planned  **[MISSING]**
+- P7-S4-AC2 → `tests/web/theme.spec.mjs::dark-color-scheme` (e2e-web) — Planned  **[MISSING]**
+- P7-S4-AC3 → `tests/feature/tokens.test.mjs::primitives-from-tokens` (unit) — Planned  **[MISSING]**
+- P7-S4-AC4 → `tests/feature/tokens.test.mjs::required-token-set-present` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/theme.css` (new), `app/render.js` (new), `index.html`.
 
-### P7-S5 — WCAG-AA contrast enforced by automated test   ·  Status: ⬜   ·  Est: M
+### P7-S5 — WCAG-AA contrast enforced by automated test   ·  Status: ⬜   ·  Est: M   ·  **QA: 1/4 ACs asserted (25%)**
 **As** an Operator **I want** the gate to fail if any token pairing drops below AA **so that** a dark theme can never ship unreadable meters or muted text.
 **Acceptance criteria:**
 - P7-S5-AC1 — Given every foreground/background token pairing used in the UI, When contrast is computed, Then normal text ≥ 4.5:1.
@@ -102,14 +112,14 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - [ ] P7-S5-T3 — Threshold-map each pairing (text 4.5 / large+graphics 3.0) and assert.
 - [ ] P7-S5-T4 — Wire `tests/feature/contrast_aa.test.mjs` into `tests/run_gate.sh`.
 **QA coverage:**
-- P7-S5-AC1 → `tests/feature/contrast_aa.test.mjs::text-min-4_5` (contrast) — Planned
-- P7-S5-AC2 → `tests/feature/contrast_aa.test.mjs::large-and-graphics-min-3` (contrast) — Planned
-- P7-S5-AC3 → `tests/run_gate.sh` exit-code gate on the above (contrast) — Planned
-- P7-S5-AC4 → `tests/feature/contrast_aa.test.mjs::team-tints-checked` (contrast) — Planned
-- Coverage: 4/4 = 100%. Test types: contrast(AA) | gate(exit-code).
+- P7-S5-AC1 → `tests/feature/contrast_aa.test.mjs::text-min-4_5` (contrast) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S5-AC2 → `tests/feature/contrast_aa.test.mjs::large-and-graphics-min-3` (contrast) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S5-AC3 → `tests/run_gate.sh` exit-code gate on the above (contrast) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S5-AC4 → `tests/feature/contrast_aa.test.mjs::team-tints-checked` (contrast) — Planned  **[REAL]**
+- **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/feature/contrast_aa.test.mjs` (new), `app/theme.css` (new), `tests/run_gate.sh`.
 
-### P7-S6 — Re-skin seam: token extraction for a future adapter   ·  Status: ⬜   ·  Est: M
+### P7-S6 — Re-skin seam: token extraction for a future adapter   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler standing up the next adapter **I want** a documented, tested procedure to re-skin by swapping only tokens + brand assets **so that** the platform stays one codebase across sports/markets.
 **Acceptance criteria:**
 - P7-S6-AC1 — Given a second token set (a throwaway "verify" theme), When its values replace `app/theme.css`, Then the app renders with the new identity and NO view/router/SW code changes are required.
@@ -121,9 +131,9 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - [ ] P7-S6-T2 — Add a test that loads an alternate token file and asserts render + AA pass with zero code diff.
 - [ ] P7-S6-T3 — Add a grep guard that brand strings/colors appear only in the token/manifest/icons surface.
 **QA coverage:**
-- P7-S6-AC1 → `tests/web/reskin.spec.mjs::alt-tokens-render` (e2e-web) — Planned
-- P7-S6-AC2 → `tests/feature/contrast_aa.test.mjs` run against alt tokens (contrast) — Planned
-- P7-S6-AC3 → `tests/smoke.sh::brand-confined-to-token-surface` (smoke) — Planned
-- P7-S6-AC4 → design-doc review (manual) — Planned
+- P7-S6-AC1 → `tests/web/reskin.spec.mjs::alt-tokens-render` (e2e-web) — Planned  **[MISSING]**
+- P7-S6-AC2 → `tests/feature/contrast_aa.test.mjs` run against alt tokens (contrast) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S6-AC3 → `tests/smoke.sh::brand-confined-to-token-surface` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P7-S6-AC4 → design-doc review (manual) — Planned  **[MANUAL]**
 - Coverage: automatable 3/4 = 75% automated; 4/4 including the doc-review AC. Test types: e2e-web | contrast | smoke | manual.
 **Traceability:** `app/theme.css` (new), `icons/*` (new), `manifest.webmanifest`, `index.html`, `docs/backlog/*`.

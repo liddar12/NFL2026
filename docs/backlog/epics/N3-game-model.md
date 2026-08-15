@@ -2,6 +2,15 @@
 **Layer:** NFL Adapter   ·   **Status:** 🟡   ·   **Instantiates:** P3 (Multi-Model Ensemble)
 **Reuse:** A future adapter keeps the platform blender contract — combine full probability VECTORS, take element-wise MAX on directional disagreement, never average point picks; uniform start weights refit by the optimizer; log-loss/Brier evaluation via the harness. It re-authors this file's NFL specifics: the two-way (no-draw) outcome space, the Elo scale + home-field constant, the market ingestion, and the situational adjustments (rest, travel, weather, injury).
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **20 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/20 automatable). **16** name a test file that does not
+> exist; **4** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/game_model.test.mjs`. Stories with **nothing asserted at all**: N3-S1, N3-S2, N3-S3, N3-S4, N3-S5, N3-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Emit a full two-way win-probability vector `{home, away}` (sums to 1) per game, matching `data/contracts/game_predictions.schema.json`, by blending an Elo source, a market-implied source, and the J5L composite. Adjust for home-field, rest differential, travel, weather and injury impact. Rank weekly winners by model probability versus market-implied probability so the biggest model-vs-market edges surface first. The blend obeys the cardinal invariant: full-vector blend when sources agree on the favorite, element-wise max when they disagree — never a manufactured coin flip.
 
@@ -10,7 +19,7 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 
 ## User stories
 
-### N3-S1 — Full-vector blend with max-on-disagreement   ·  Status: 🟡   ·  Est: L
+### N3-S1 — Full-vector blend with max-on-disagreement   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** the Modeler **I want** the Elo/market/J5L vectors blended by the agree→weighted-average, disagree→element-wise-max rule **so that** opposing strong evidence is preserved rather than averaged into a coin flip.
 **Acceptance criteria** (Given/When/Then):
 - N3-S1-AC1 — Given sources that agree on the favorite, When blended, Then `final = normalize(Σ w_i · vec_i)` (full-vector weighted average).
@@ -24,14 +33,14 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S1-T4 — Uniform start weights across present sources.
 - [ ] N3-S1-T5 — Schema-validate two-way sum-to-1 output.
 **QA coverage:**
-- N3-S1-AC1 → `tests/feature/game_model.test.mjs::agree_weighted_average` (unit) — Planned
-- N3-S1-AC2 → `tests/feature/game_model.test.mjs::disagree_takes_max` (unit) — Planned
-- N3-S1-AC3 → `scripts/validate_data.py::game_prediction_contract` (data) — Planned
-- N3-S1-AC4 → `tests/feature/game_model.test.mjs::uniform_start_weights` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test), data(validate_data).
+- N3-S1-AC1 → `tests/feature/game_model.test.mjs::agree_weighted_average` (unit) — Planned  **[MISSING]**
+- N3-S1-AC2 → `tests/feature/game_model.test.mjs::disagree_takes_max` (unit) — Planned  **[MISSING]**
+- N3-S1-AC3 → `scripts/validate_data.py::game_prediction_contract` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- N3-S1-AC4 → `tests/feature/game_model.test.mjs::uniform_start_weights` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `data/contracts/game_predictions.schema.json`, `data/game_predictions.json`, `scripts/validate_data.py`.
 
-### N3-S2 — Elo source (scale + home-field)   ·  Status: 🟡   ·  Est: M
+### N3-S2 — Elo source (scale + home-field)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Modeler **I want** a standard-scale Elo source vector **so that** the blend has a self-contained baseline that needs no external feed.
 **Acceptance criteria** (Given/When/Then):
 - N3-S2-AC1 — Given two teams with equal Elo on a neutral field, When predicted, Then the vector is 0.50/0.50 within 1e-9.
@@ -42,13 +51,13 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S2-T2 — Home-field as an Elo-point offset (~65).
 - [ ] N3-S2-T3 — STATUS-gated rating updates (finals only).
 **QA coverage:**
-- N3-S2-AC1 → `tests/feature/game_model.test.mjs::equal_elo_neutral_half` (unit) — Planned
-- N3-S2-AC2 → `tests/feature/game_model.test.mjs::home_field_logistic` (unit) — Planned
-- N3-S2-AC3 → `tests/feature/game_model.test.mjs::finals_only_update_elo` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test).
+- N3-S2-AC1 → `tests/feature/game_model.test.mjs::equal_elo_neutral_half` (unit) — Planned  **[MISSING]**
+- N3-S2-AC2 → `tests/feature/game_model.test.mjs::home_field_logistic` (unit) — Planned  **[MISSING]**
+- N3-S2-AC3 → `tests/feature/game_model.test.mjs::finals_only_update_elo` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`.
 
-### N3-S3 — Market source ingestion   ·  Status: 🟡   ·  Est: M
+### N3-S3 — Market source ingestion   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Modeler **I want** market-implied probabilities ingested as a first-class blend source **so that** the sharpest available signal usually carries the most weight.
 **Acceptance criteria** (Given/When/Then):
 - N3-S3-AC1 — Given raw two-way prices from N1, When converted, Then the market source vector is vig-removed and sums to 1.0 within 1e-6.
@@ -59,13 +68,13 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S3-T2 — Keep Odds-API and Kalshi as separate weightable sources.
 - [ ] N3-S3-T3 — Graceful degrade + status note when market absent.
 **QA coverage:**
-- N3-S3-AC1 → `tests/feature/game_model.test.mjs::market_vig_removed` (unit) — Planned
-- N3-S3-AC2 → `tests/feature/game_model.test.mjs::two_market_sources` (unit) — Planned
-- N3-S3-AC3 → `tests/feature/game_model.test.mjs::degrade_without_market` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test).
+- N3-S3-AC1 → `tests/feature/game_model.test.mjs::market_vig_removed` (unit) — Planned  **[MISSING]**
+- N3-S3-AC2 → `tests/feature/game_model.test.mjs::two_market_sources` (unit) — Planned  **[MISSING]**
+- N3-S3-AC3 → `tests/feature/game_model.test.mjs::degrade_without_market` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/scrape/odds.py`, `data/pipeline_status.json`.
 
-### N3-S4 — Situational adjustments (home-field, rest, travel, weather, injury)   ·  Status: 🟡   ·  Est: M
+### N3-S4 — Situational adjustments (home-field, rest, travel, weather, injury)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** the Modeler **I want** rest differential, travel, weather and injury impact folded into the pre-blend vectors **so that** context beyond raw ratings is represented.
 **Acceptance criteria** (Given/When/Then):
 - N3-S4-AC1 — Given a rest-day differential (e.g. off a bye vs a short week), When applied, Then the rested team's win probability increases monotonically with the rest gap.
@@ -78,14 +87,14 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S4-T3 — Weather adjustment gated by roof (indoor → neutral).
 - [ ] N3-S4-T4 — Injury-impact adjustment with bounds/clamp.
 **QA coverage:**
-- N3-S4-AC1 → `tests/feature/game_model.test.mjs::rest_monotone` (unit) — Planned
-- N3-S4-AC2 → `tests/feature/game_model.test.mjs::travel_penalty_neutral_site` (unit) — Planned
-- N3-S4-AC3 → `tests/feature/game_model.test.mjs::weather_roof_gated` (unit) — Planned
-- N3-S4-AC4 → `tests/feature/game_model.test.mjs::injury_bounded` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test).
+- N3-S4-AC1 → `tests/feature/game_model.test.mjs::rest_monotone` (unit) — Planned  **[MISSING]**
+- N3-S4-AC2 → `tests/feature/game_model.test.mjs::travel_penalty_neutral_site` (unit) — Planned  **[MISSING]**
+- N3-S4-AC3 → `tests/feature/game_model.test.mjs::weather_roof_gated` (unit) — Planned  **[MISSING]**
+- N3-S4-AC4 → `tests/feature/game_model.test.mjs::injury_bounded` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/signals/weather.py`, `data/fixtures/teams.json`.
 
-### N3-S5 — Weekly winners ranked by model-vs-market edge   ·  Status: 🟡   ·  Est: M
+### N3-S5 — Weekly winners ranked by model-vs-market edge   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Analyst **I want** each week's games ranked by model probability minus market-implied probability **so that** the biggest edges (not just the biggest favorites) surface first.
 **Acceptance criteria** (Given/When/Then):
 - N3-S5-AC1 — Given a week's predictions and market lines, When ranked, Then games sort by `model_prob − implied_prob` (edge) descending, and the emitted list carries both numbers per game.
@@ -96,13 +105,13 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S5-T2 — Descending edge sort; carry both probabilities.
 - [ ] N3-S5-T3 — Exclude / flag no-line games from ranking.
 **QA coverage:**
-- N3-S5-AC1 → `tests/feature/game_model.test.mjs::rank_by_edge` (unit) — Planned
-- N3-S5-AC2 → `tests/feature/game_model.test.mjs::no_line_excluded` (unit) — Planned
-- N3-S5-AC3 → `tests/feature/game_model.test.mjs::full_vector_pick` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test).
+- N3-S5-AC1 → `tests/feature/game_model.test.mjs::rank_by_edge` (unit) — Planned  **[MISSING]**
+- N3-S5-AC2 → `tests/feature/game_model.test.mjs::no_line_excluded` (unit) — Planned  **[MISSING]**
+- N3-S5-AC3 → `tests/feature/game_model.test.mjs::full_vector_pick` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `data/game_predictions.json`.
 
-### N3-S6 — Evaluation: log-loss / Brier, leak-safe   ·  Status: 🟡   ·  Est: M
+### N3-S6 — Evaluation: log-loss / Brier, leak-safe   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Modeler **I want** the game model scored by log-loss and Brier on resolved games **so that** blend weights earn their place against measured calibration, not narrative.
 **Acceptance criteria** (Given/When/Then):
 - N3-S6-AC1 — Given resolved FINAL games, When evaluated, Then the harness emits log-loss and Brier vs actual outcomes.
@@ -113,8 +122,8 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 - [ ] N3-S6-T2 — Leak-safe walk-forward feed via `scripts/harness/snapshot.py`.
 - [ ] N3-S6-T3 — NEVER-REGRESS 0.0015 gate on blend-weight refits.
 **QA coverage:**
-- N3-S6-AC1 → `tests/feature/metrics.test.mjs::logloss_brier` (unit) — Planned
-- N3-S6-AC2 → `tests/feature/backtest_honesty.test.mjs::no_lookahead` (backtest) — Planned
-- N3-S6-AC3 → `tests/feature/never_regress.test.mjs::margin_0_0015` (backtest) — Done
-- Coverage: 3/3 = 100%. Test types: unit(node:test), backtest(leak-safe).
+- N3-S6-AC1 → `tests/feature/metrics.test.mjs::logloss_brier` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N3-S6-AC2 → `tests/feature/backtest_honesty.test.mjs::no_lookahead` (backtest) — Planned  **[TOOTHLESS · unwritten-case]**
+- N3-S6-AC3 → `tests/feature/never_regress.test.mjs::margin_0_0015` (backtest) — Done  **[TOOTHLESS · reimplements-under-test]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `scripts/harness/snapshot.py`, `scripts/optimize/never_regress.py`.

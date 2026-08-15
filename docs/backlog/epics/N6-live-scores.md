@@ -2,6 +2,15 @@
 **Layer:** NFL Adapter   ·   **Status:** ⬜   ·   **Instantiates:** P5 (Pipeline & Feed Health), P9 (Deploy & Edge Runtime)
 **Reuse:** A future adapter re-authors the edge handler's *source* (ESPN scoreboard for a given league), the `RENAMES` map, and the scrapers. It reuses verbatim: the STATUS-gating rule (only FINAL settles), the "edge for real-time, git pipeline for the durable record" split, the direct-source fallback pattern, and the discipline that the same normalization map is mirrored across app + edge + scrapers. The reusable seam is the contract: the edge returns display-only live state; only the durable `data/actual_results` record settles points/standings.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **18 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/17 automatable). **12** name a test file that does not
+> exist; **5** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/live_fallback.test.mjs`, `tests/feature/status_gate.test.mjs`, `tests/feature/live_edge.test.mjs`, `tests/feature/renames.test.mjs` and 2 more. Stories with **nothing asserted at all**: N6-S1, N6-S2, N6-S3, N6-S4, N6-S5.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Deliver real-time NFL scores through a Vercel edge function `/api/nfl` (ESPN source, direct-ESPN fallback on error) that the app polls, while the git pipeline (`data/actual_results`) remains the durable, authoritative record for scoring and standings. The edge is for latency; the pipeline is for truth. STATUS-gating is the invariant that keeps the two honest: only FINAL games settle anything; everything else is display-only.
 
@@ -10,7 +19,7 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 
 ## User stories
 
-### N6-S1 — `/api/nfl` edge function (ESPN source)   ·  Status: ⬜   ·  Est: M
+### N6-S1 — `/api/nfl` edge function (ESPN source)   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** a Vercel edge function that returns current NFL scores from ESPN **so that** the app has a low-latency real-time source independent of the throttled crons.
 **Acceptance criteria:**
 - N6-S1-AC1 — Given `live-api/api/nfl.js`, When called, Then it returns normalized JSON per game: teams (canonical names), score, and a `status` field mapped to the STATUS enum.
@@ -23,14 +32,14 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 - [ ] N6-S1-T3 — Set cache headers; add a `curl` smoke against the prod endpoint.
 - [ ] N6-S1-T4 — Document redeploy + rollback commands in the epic/runbook.
 **QA coverage:**
-- N6-S1-AC1 → `tests/feature/live_edge.test.mjs::normalized-shape` (unit, fixture ESPN payload) — Planned
-- N6-S1-AC2 → `tests/smoke.sh::api-nfl-reachable` (smoke, curl prod) — Planned
-- N6-S1-AC3 → `tests/feature/live_edge.test.mjs::cache-headers` (unit) — Planned
-- N6-S1-AC4 → deploy runbook review (manual) — Planned
+- N6-S1-AC1 → `tests/feature/live_edge.test.mjs::normalized-shape` (unit, fixture ESPN payload) — Planned  **[MISSING]**
+- N6-S1-AC2 → `tests/smoke.sh::api-nfl-reachable` (smoke, curl prod) — Planned  **[TOOTHLESS · unwritten-case]**
+- N6-S1-AC3 → `tests/feature/live_edge.test.mjs::cache-headers` (unit) — Planned  **[MISSING]**
+- N6-S1-AC4 → deploy runbook review (manual) — Planned  **[MANUAL]**
 - Coverage: automatable 3/4 = 75% automated; 4/4 incl. manual runbook AC. Test types: unit(node:test) | smoke(bash) | manual.
 **Traceability:** `live-api/api/nfl.js` (new), `tests/feature/live_edge.test.mjs` (new), `tests/smoke.sh`.
 
-### N6-S2 — Direct-ESPN fallback on edge error   ·  Status: ⬜   ·  Est: S
+### N6-S2 — Direct-ESPN fallback on edge error   ·  Status: ⬜   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Analyst **I want** the client to fall back to ESPN directly when `/api/nfl` errors **so that** a live view degrades to a source rather than to nothing.
 **Acceptance criteria:**
 - N6-S2-AC1 — Given `/api/nfl` returns non-200 or times out, When the poller runs, Then `app/live-scores.js` fetches ESPN directly using the SAME normalization + STATUS mapping.
@@ -42,13 +51,13 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 - [ ] N6-S2-T3 — Degrade path to durable record + `DATA · DEGRADED` badge.
 - [ ] N6-S2-T4 — Unit tests for fallback selection + backoff.
 **QA coverage:**
-- N6-S2-AC1 → `tests/feature/live_fallback.test.mjs::edge-error-uses-espn` (unit) — Planned
-- N6-S2-AC2 → `tests/feature/live_fallback.test.mjs::both-fail-uses-durable` (unit) — Planned
-- N6-S2-AC3 → `tests/feature/live_fallback.test.mjs::backoff-on-repeated-error` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test).
+- N6-S2-AC1 → `tests/feature/live_fallback.test.mjs::edge-error-uses-espn` (unit) — Planned  **[MISSING]**
+- N6-S2-AC2 → `tests/feature/live_fallback.test.mjs::both-fail-uses-durable` (unit) — Planned  **[MISSING]**
+- N6-S2-AC3 → `tests/feature/live_fallback.test.mjs::backoff-on-repeated-error` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/live-scores.js` (new), `app/live-poller.js` (new), `data/actual_results` (new, durable record).
 
-### N6-S3 — STATUS-gating (only FINAL settles)   ·  Status: ⬜   ·  Est: M
+### N6-S3 — STATUS-gating (only FINAL settles)   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** only FINAL games to award points/advance standings **so that** live and pre-kick states can never corrupt the durable record.
 **Acceptance criteria:**
 - N6-S3-AC1 — Given a game with `STATUS_FINAL` (or equivalent terminal status), When scored, Then it settles points/standings from the durable record.
@@ -61,14 +70,14 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 - [ ] N6-S3-T3 — Treat 0-0 `STATUS_SCHEDULED` explicitly as display-only stub.
 - [ ] N6-S3-T4 — Unit-test the enum coverage incl. lead-change-before-final and 0-0 stub.
 **QA coverage:**
-- N6-S3-AC1 → `tests/feature/status_gate.test.mjs::final-settles` (unit) — Planned
-- N6-S3-AC2 → `tests/feature/status_gate.test.mjs::live-and-scheduled-display-only` (unit) — Planned
-- N6-S3-AC3 → `tests/feature/status_gate.test.mjs::no-mutation-before-final` (unit) — Planned
-- N6-S3-AC4 → `tests/smoke.sh::single-status-gate-source` (smoke, grep for duplicate classifiers) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | smoke(bash).
+- N6-S3-AC1 → `tests/feature/status_gate.test.mjs::final-settles` (unit) — Planned  **[MISSING]**
+- N6-S3-AC2 → `tests/feature/status_gate.test.mjs::live-and-scheduled-display-only` (unit) — Planned  **[MISSING]**
+- N6-S3-AC3 → `tests/feature/status_gate.test.mjs::no-mutation-before-final` (unit) — Planned  **[MISSING]**
+- N6-S3-AC4 → `tests/smoke.sh::single-status-gate-source` (smoke, grep for duplicate classifiers) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** shared status gate (new, referenced by `app/live-scores.js`, `live-api/api/nfl.js`, scorer), `tests/feature/status_gate.test.mjs` (new).
 
-### N6-S4 — Durable git-pipeline record is authoritative   ·  Status: ⬜   ·  Est: M
+### N6-S4 — Durable git-pipeline record is authoritative   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Operator **I want** `data/actual_results` (committed by the cron pipeline) to be the source of truth for scoring **so that** the edge's latency never becomes the system of record.
 **Acceptance criteria:**
 - N6-S4-AC1 — Given scoring/standings, When computed, Then they read from the durable `data/actual_results` record, never from a live edge response.
@@ -81,14 +90,14 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 - [ ] N6-S4-T3 — Race-safe merge procedure in the cron workflow.
 - [ ] N6-S4-T4 — Staleness/row-count feed-health assertion in `scripts/pipeline_status.py`.
 **QA coverage:**
-- N6-S4-AC1 → `tests/feature/scoring_source.test.mjs::reads-durable-not-edge` (unit) — Planned
-- N6-S4-AC2 → `tests/smoke.sh::race-safe-merge-procedure` (smoke) — Planned
-- N6-S4-AC3 → `scripts/validate_data.py::actual_results_final_only` (data) — Planned
-- N6-S4-AC4 → `tests/feature/feed_health.test.mjs::zero-output-flagged` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | data(validate_data) | smoke(bash).
+- N6-S4-AC1 → `tests/feature/scoring_source.test.mjs::reads-durable-not-edge` (unit) — Planned  **[MISSING]**
+- N6-S4-AC2 → `tests/smoke.sh::race-safe-merge-procedure` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- N6-S4-AC3 → `scripts/validate_data.py::actual_results_final_only` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- N6-S4-AC4 → `tests/feature/feed_health.test.mjs::zero-output-flagged` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 2 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `data/actual_results` (new), `scripts/validate_data.py`, `scripts/pipeline_status.py`, `.github/workflows/*.yml`.
 
-### N6-S5 — Team-name normalization (RENAMES kept in sync)   ·  Status: ⬜   ·  Est: S
+### N6-S5 — Team-name normalization (RENAMES kept in sync)   ·  Status: ⬜   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** the ESPN↔nflverse `RENAMES` map identical across app, edge, and scrapers **so that** a naming drift never silently drops a team from results.
 **Acceptance criteria:**
 - N6-S5-AC1 — Given the canonical `RENAMES` map, When applied, Then every ESPN team name normalizes to the nflverse canonical key used by the durable record and projections.
@@ -99,8 +108,8 @@ Real-time is where a prediction app most easily lies: a half-time score shown as
 - [ ] N6-S5-T2 — Add a sync test that loads all three and asserts equal key/value sets.
 - [ ] N6-S5-T3 — Add an "unmapped name" assertion in validate_data / feed health.
 **QA coverage:**
-- N6-S5-AC1 → `tests/feature/renames.test.mjs::normalizes-espn-to-canonical` (unit) — Planned
-- N6-S5-AC2 → `tests/feature/renames.test.mjs::three-mirrors-in-sync` (unit) — Planned
-- N6-S5-AC3 → `scripts/validate_data.py::unmapped_team_flagged` (data) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test) | data(validate_data).
+- N6-S5-AC1 → `tests/feature/renames.test.mjs::normalizes-espn-to-canonical` (unit) — Planned  **[MISSING]**
+- N6-S5-AC2 → `tests/feature/renames.test.mjs::three-mirrors-in-sync` (unit) — Planned  **[MISSING]**
+- N6-S5-AC3 → `scripts/validate_data.py::unmapped_team_flagged` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/scrape/renames.py` (new), `app/live-scores.js` (new), `live-api/api/nfl.js` (new).

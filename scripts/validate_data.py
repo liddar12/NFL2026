@@ -32,6 +32,7 @@ message otherwise. The gate (tests/run_gate.sh) keys on this exit code.
 """
 
 import json
+import math
 import os
 import re
 import sys
@@ -324,6 +325,80 @@ def market_price_keys_deep(node, _parent_key=None):
     return found
 
 
+# ---------------------------------------------------------------------------
+# R30 — the same policy, generalised past the two feeds that were caught.
+# ---------------------------------------------------------------------------
+# MARKET_PRICE_FIELDS names PRICES ("adp", "auction_value"). The parlay defect
+# was a market PROBABILITY: a de-vigged sportsbook number, which carries none of
+# those names. check_parlay_model_independence() now recomputes parlay legs from
+# our own model and catches it there — but only there, on one file.
+#
+# This is the general boundary, and it is deliberately a NAME scan rather than a
+# recomputation: the names below only ever originate in scripts/scrape/odds_api.py
+# (or a future book scraper), so their PRESENCE inside a document we produce as a
+# model output is itself the defect, whatever value they hold. A name scan also
+# keeps working for a feed that has no model to recompute against — which is
+# every feed we have not written a model for yet, and therefore exactly the case
+# a market number is most tempting to borrow for.
+#
+# `implied_prob` is the one legitimate carrier: it IS the display column, and
+# parlays.json is the one document allowed to hold it. Anywhere else, and any
+# other name from this set anywhere at all, is a market number that has reached
+# an artifact the app presents as ours.
+MARKET_DERIVED_PROB_FIELDS = frozenset([
+    "home_cover_prob", "away_cover_prob", "over_prob", "under_prob",
+    "devig_prob", "vig_free_prob", "book_prob", "implied_prob",
+])
+# Documents whose every number the app presents as OUR model's.
+MODEL_OUTPUT_DOCS = ("player_projections.json", "player_weekly.json",
+                     "game_predictions.json", "ai_insights.json")
+
+
+def keys_deep(node, names, _parent_key=None):
+    """Every name in `names` used as a KEY (or listed under `required`) inside."""
+    found = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in names:
+                found.add(key)
+            found |= keys_deep(value, names, key)
+    elif isinstance(node, list):
+        for item in node:
+            if _parent_key == "required" and item in names:
+                found.add(item)
+            found |= keys_deep(item, names, _parent_key)
+    return found
+
+
+def check_market_probabilities(docs, parlay_doc=None):
+    """No book-derived PROBABILITY may sit on a model-output artifact.
+
+    `docs` is (label, document) pairs for the model outputs; `parlay_doc` is
+    parlays.json, which may carry `implied_prob` and nothing else from the set.
+    """
+    problems = []
+    for label, doc in docs:
+        leaked = keys_deep(doc, MARKET_DERIVED_PROB_FIELDS)
+        if leaked:
+            problems.append(
+                "%s carries book-derived probability field(s): %s — every number "
+                "in this document is presented as OUR model's, so a sportsbook "
+                "probability may not appear in it at any depth"
+                % (label, ", ".join(sorted(leaked))))
+    if parlay_doc is not None:
+        leaked = keys_deep(parlay_doc, MARKET_DERIVED_PROB_FIELDS) - {"implied_prob"}
+        if leaked:
+            problems.append(
+                "parlays.json carries book-derived probability field(s) beyond the "
+                "display column: %s — implied_prob is the ONLY market number a "
+                "parlay leg may hold, and it is display-only"
+                % ", ".join(sorted(leaked)))
+    if problems:
+        raise ValidationError(
+            "MARKET PRICES ARE DISPLAY-ONLY (CLAUDE.md, owner policy):\n  - %s"
+            % "\n  - ".join(problems))
+
+
 def check_market_price_fields(meta, projections, proj_schema, extra_docs=()):
     """No market PRICE FIELD may become an input (permanent user policy).
 
@@ -383,6 +458,210 @@ def check_market_price_fields(meta, projections, proj_schema, extra_docs=()):
     if problems:
         raise ValidationError("market price fields must stay DISPLAY ONLY:\n  - %s"
                               % "\n  - ".join(problems))
+
+
+# ---------------------------------------------------------------------------
+# Parlay legs: the MODEL column must be OURS (R30 blocker).
+# ---------------------------------------------------------------------------
+# check_market_price_fields() above only guards market price FIELD NAMES ("adp",
+# "auction_value"). It cannot see a market price that arrives with no name at all —
+# a de-vigged sportsbook probability written straight into a leg's `model_prob`,
+# which is exactly what shipped: parlay_builder passed
+# market["spread"]["home_cover_prob"] as make_leg's third positional argument
+# (model_prob), so all 16 spread legs on the slate displayed The Odds API's number
+# under our MODEL label, and it drove the combined probability, the MODEL EV badge
+# and the confidence tier.
+#
+# A name-based scan can never catch that, so this check RECOMPUTES what our own
+# model says for each leg and requires the shipped number to match it. Equality with
+# our model is a much stronger statement than inequality with the book's: it fails
+# whether the foreign number came from a book, a seed, or a typo, and it also fails
+# the sibling defect where a leg named one team and carried the other team's
+# probability (the recomputation is done for the team NAMED in the selection).
+#
+# The margin sigma is a deliberate LITERAL, not an import from
+# scripts/models/game_model.py: a checker that imports the producer's constants
+# grades the pipeline with the pipeline's own marking scheme (same reasoning as
+# BETTING_COLUMNS below). If the model's sigma moves, this reds until a human
+# confirms the move here too.
+_PARLAY_MARGIN_SIGMA = 13.5
+
+# Markets whose model_prob this check can reproduce from data/game_predictions.json.
+# Player props are seeded from a documented formula over team win probability and are
+# not reproducible from the slate file alone, so they are out of scope here — no book
+# price is attached to them either.
+_PARLAY_MODELLED_MARKETS = ("moneyline", "spread")
+
+# Markets that must NOT appear at all, with the reason. A `total` leg requires a
+# scoring/total model; this repo has none, so any P(over) would be either the book's
+# de-vigged price or an unfitted seed. The leg is dropped at the source
+# (parlay_builder.derive_candidate_legs step 3) and locked out here so it cannot come
+# back without a human deleting this line and saying why.
+_PARLAY_BANNED_MARKETS = {
+    "total": ("no scoring/total model exists in this repo, so P(over) could only be "
+              "the book's price or a seed"),
+}
+
+_SPREAD_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ([+-]?\d+(?:\.\d+)?)$")
+_ML_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ML$")
+
+
+def _normal_cdf(z):
+    """Standard normal CDF via the stdlib error function (no scipy, no imports)."""
+    return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+
+def _inv_normal_cdf(p):
+    """Standard normal quantile — Acklam's rational approximation (|err| < 1.15e-9).
+
+    Written out rather than imported from statistics.NormalDist for the same reason
+    the sigma is a literal: this file grades the producer, so it does its own math.
+    """
+    a = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+         1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
+    b = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+         6.680131188771972e+01, -1.328068155288572e+01)
+    c = (-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+         -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00)
+    d = (7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+         3.754408661907416e+00)
+    p_low, p_high = 0.02425, 1.0 - 0.02425
+    if p < p_low:
+        q = math.sqrt(-2.0 * math.log(p))
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+               ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+    if p > p_high:
+        q = math.sqrt(-2.0 * math.log(1.0 - p))
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+                ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+    q = p - 0.5
+    r = q * q
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / \
+           (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1.0)
+
+
+def _expected_cover_prob(p_home, point_for_team, team_is_home):
+    """OUR P(the named team covers `point_for_team`), recomputed from the slate file.
+
+    p_home is the game model's home win probability. Invert the margin->probability
+    map to get our expected home margin, shift by the handicap the named side is
+    taking, and read the normal CDF back off. No market number participates.
+    """
+    p = min(max(float(p_home), 1e-4), 1.0 - 1e-4)
+    home_margin = _inv_normal_cdf(p) * _PARLAY_MARGIN_SIGMA
+    if team_is_home:
+        return _normal_cdf((home_margin + float(point_for_team)) / _PARLAY_MARGIN_SIGMA)
+    # The away side's handicap mirrors the home side's; away covers when the home
+    # margin falls short of it.
+    return 1.0 - _normal_cdf(
+        (home_margin - float(point_for_team)) / _PARLAY_MARGIN_SIGMA)
+
+
+def check_parlay_model_independence(parlays, predictions, label="parlays.json",
+                                    tol=1.5e-3):
+    """Every parlay leg's `model_prob` is OURS, recomputed, for the team it names.
+
+    parlays     : data/parlays.json document.
+    predictions : data/game_predictions.json document (the slate whose probabilities
+                  the parlays are built from).
+
+    Three rules, all of them the same policy — market prices are DISPLAY ONLY:
+
+      1. A moneyline leg's model_prob equals the game model's win probability for the
+         team the selection names.
+      2. A spread leg's model_prob equals OUR margin model evaluated at the handicap
+         the selection names, for the team the selection names. This is the rule that
+         reds the shipped-before-R30 data, where model_prob was the book's de-vigged
+         cover probability (e.g. TEN -3 at 0.4783, NYG +2.5 at 0.4892, MIN -1.5 at
+         0.4826 — all book numbers, none of them producible by any model here).
+      3. No leg carries a market whose model we do not have (currently: `total`).
+
+    Plus a mechanical tripwire: on a leg that carries a real book price, model_prob
+    and implied_prob must not be the identical number, because after R30 the IMPL
+    column IS the market feed's probability for that game and the MODEL column may
+    never be the same value. Rules 1-2 are the real proof; this one states the policy
+    where a future market has no recomputable model. (A genuine 4-decimal coincidence
+    between our number and the book's would red the gate — ~1 in 10,000 per leg. That
+    is the deliberate trade: a false red is a conversation, a market price wearing our
+    label is the failure this whole check exists to prevent.)
+
+    Legs whose game cannot be resolved on the slate are reported, never skipped
+    quietly — an unresolvable leg is a leg nobody is checking.
+    """
+    problems = []
+    by_team = {}   # team -> (game_id, p_home, is_home)
+    for g in (predictions or {}).get("games", []) or []:
+        gid = g.get("game_id")
+        p_home = (g.get("probs") or {}).get("home")
+        if p_home is None:
+            continue
+        by_team[g.get("home")] = (gid, float(p_home), True)
+        by_team[g.get("away")] = (gid, float(p_home), False)
+
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+        for leg in parlay.get("legs", []) or []:
+            market = leg.get("market")
+            sel = str(leg.get("selection", ""))
+            mp = leg.get("model_prob")
+            ip = leg.get("implied_prob")
+
+            if market in _PARLAY_BANNED_MARKETS:
+                problems.append(
+                    "%s leg '%s' has market '%s' — %s. Dropping the leg is the "
+                    "honest outcome; re-enable it only with a real model."
+                    % (pid, sel, market, _PARLAY_BANNED_MARKETS[market]))
+                continue
+
+            if market in _PARLAY_MODELLED_MARKETS and mp is not None \
+                    and ip is not None and float(mp) == float(ip):
+                problems.append(
+                    "%s leg '%s' has model_prob == implied_prob (%.4f) — the IMPL "
+                    "column carries the market feed's probability, so the MODEL "
+                    "column may never equal it" % (pid, sel, float(mp)))
+
+            if market == "moneyline":
+                m = _ML_SELECTION_RE.match(sel)
+                if not m:
+                    problems.append("%s moneyline leg has unparseable selection %r"
+                                    % (pid, sel))
+                    continue
+                team = m.group(1)
+                if team not in by_team:
+                    problems.append("%s leg '%s' names team %s, which is not on the "
+                                    "slate in game_predictions.json" % (pid, sel, team))
+                    continue
+                _gid, p_home, is_home = by_team[team]
+                expected = p_home if is_home else 1.0 - p_home
+                if mp is None or abs(float(mp) - expected) > tol:
+                    problems.append(
+                        "%s leg '%s' model_prob %r != our model's win probability "
+                        "%.4f for %s" % (pid, sel, mp, expected, team))
+
+            elif market == "spread":
+                m = _SPREAD_SELECTION_RE.match(sel)
+                if not m:
+                    problems.append("%s spread leg has unparseable selection %r "
+                                    "(expected e.g. 'KC -3.5')" % (pid, sel))
+                    continue
+                team, point = m.group(1), float(m.group(2))
+                if team not in by_team:
+                    problems.append("%s leg '%s' names team %s, which is not on the "
+                                    "slate in game_predictions.json" % (pid, sel, team))
+                    continue
+                _gid, p_home, is_home = by_team[team]
+                expected = _expected_cover_prob(p_home, point, is_home)
+                if mp is None or abs(float(mp) - expected) > tol:
+                    problems.append(
+                        "%s leg '%s' model_prob %r != OUR margin model's cover "
+                        "probability %.4f for %s at %+g — a spread leg's MODEL column "
+                        "must be our number for the team it names, never the book's"
+                        % (pid, sel, mp, expected, team, point))
+
+    if problems:
+        raise ValidationError(
+            "%s: parlay legs must carry OUR probability, never a market price:\n  - %s"
+            % (label, "\n  - ".join(problems)))
 
 
 # The eight betting columns nflverse `nfldata` games.csv ships. Kept as a
@@ -939,9 +1218,81 @@ def _selftest():
     # passing case; assert the negative so a no-op _norm_name cannot hide.
     assert _norm_name("A.J. Brown") == _norm_name("AJ  brown") == "aj brown"
 
+    # --- R30: a market price in a parlay leg's MODEL column -------------------
+    # KC hosts DEN; OUR model has DEN ahead (p_home 0.406). The book has KC -3
+    # (de-vigged home cover 0.4892 / away cover 0.5108).
+    _preds = {"games": [{"game_id": "g1", "home": "KC", "away": "DEN",
+                         "probs": {"home": 0.406, "away": 0.594}}]}
+
+    def _parlay(legs):
+        return {"parlays": [{"parlay_id": "p1", "scope": "game", "game_id": "g1",
+                             "legs": legs}]}
+
+    def _red(doc, why):
+        try:
+            check_parlay_model_independence(doc, _preds)
+        except ValidationError:
+            return
+        raise AssertionError("check_parlay_model_independence did NOT catch: " + why)
+
+    # Exactly the shape that shipped: the book's de-vigged cover probability in
+    # model_prob, the IMPL column fabricated off it by the hold, home-only label.
+    _red(_parlay([{"market": "spread", "selection": "KC -3",
+                   "model_prob": 0.5108, "implied_prob": 0.5338}]),
+         "the book's cover price sitting in model_prob")
+    # Our number, but attributed to the team it was NOT computed for.
+    _red(_parlay([{"market": "spread", "selection": "KC -3",
+                   "model_prob": 0.6771, "implied_prob": 0.4892}]),
+         "a leg naming one team while carrying the other side's probability")
+    # A market with no model of ours coming back.
+    _red(_parlay([{"market": "total", "selection": "Over 44.5",
+                   "model_prob": 0.52, "implied_prob": 0.5238}]),
+         "a total leg with no scoring model behind it")
+    # The market feed's number in both columns.
+    _red(_parlay([{"market": "moneyline", "selection": "DEN ML",
+                   "model_prob": 0.45, "implied_prob": 0.45}]),
+         "model_prob identical to the market feed's probability")
+    # --- R30: the SAME policy on every other model output ---------------------
+    # The check above recomputes parlay legs. It cannot cover a feed we have not
+    # written a model for, which is precisely where borrowing a book number is
+    # most tempting — so the general boundary is a NAME scan, and these pin it.
+    def _red_prob(docs, parlay, why):
+        try:
+            check_market_probabilities(docs, parlay)
+        except ValidationError:
+            return
+        raise AssertionError("check_market_probabilities did NOT catch: " + why)
+
+    _red_prob([("player_projections.json",
+                {"players": [{"gsis_id": "x", "home_cover_prob": 0.52}]})], None,
+              "a book cover probability on a projection record")
+    _red_prob([("game_predictions.json",
+                {"games": [{"meta": {"nested": {"over_prob": 0.5}}}]})], None,
+              "a book total probability buried three levels down")
+    _red_prob([("player_weekly.json", {"players": [{"implied_prob": 0.5}]})], None,
+              "implied_prob outside parlays.json — it is the parlay DISPLAY "
+              "column, not a field a projection may carry")
+    _red_prob([], {"parlays": [{"legs": [{"implied_prob": 0.5,
+                                          "home_cover_prob": 0.52}]}]},
+              "a parlay leg carrying a book number beyond the display column")
+    # And the shapes that must PASS: a clean projection, and a parlay leg holding
+    # exactly the one market number it is allowed to display.
+    check_market_probabilities(
+        [("player_projections.json", {"players": [{"gsis_id": "x", "proj_points": 1}]})],
+        {"parlays": [{"legs": [{"model_prob": 0.6, "implied_prob": 0.5}]}]})
+
+    # The fixed shape passes: OUR margin model for the team named, book in IMPL.
+    check_parlay_model_independence(_parlay([
+        {"market": "spread", "selection": "DEN +3",
+         "model_prob": 0.6771, "implied_prob": 0.5108},
+        {"market": "moneyline", "selection": "DEN ML",
+         "model_prob": 0.594, "implied_prob": 0.45},
+    ]), _preds)
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags and a dishonest "
-          "model summary")
+          "model summary; parlay legs reject a market price in model_prob, a "
+          "mislabelled side, a total leg and a model/market collision")
 
 
 # ---------------------------------------------------------------------------
@@ -1054,6 +1405,36 @@ def main():
         )
         print("ok    market price fields display-only invariant (%s)"
               % ", ".join(sorted(MARKET_PRICE_FIELDS)))
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        # The other half of the same policy, on the surface the policy names
+        # explicitly: a parlay leg's MODEL column. The field-name scan above cannot
+        # see a de-vigged book probability sitting in `model_prob`, so this one
+        # recomputes every moneyline and spread leg from OUR model and requires a
+        # match. Both files are pipeline outputs and always present; a missing one
+        # is a failure, not a skip.
+        check_parlay_model_independence(
+            _load(os.path.join(DATA, "parlays.json")),
+            _load(os.path.join(DATA, "game_predictions.json")),
+        )
+        print("ok    parlays.json legs carry OUR probability (no market price in "
+              "model_prob)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        # R30 — and the same boundary on EVERY model output, by name rather than
+        # by recomputation, so a feed we have not modelled yet is covered too.
+        _model_docs = []
+        for _name in MODEL_OUTPUT_DOCS:
+            _dp = os.path.join(DATA, _name)
+            if os.path.exists(_dp):
+                _model_docs.append((_name, _load(_dp)))
+        _pp = os.path.join(DATA, "parlays.json")
+        check_market_probabilities(
+            _model_docs, _load(_pp) if os.path.exists(_pp) else None)
+        print("ok    no book-derived probability on any model output (%d docs)"
+              % len(_model_docs))
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     # game_context.json is runner-built (network); validated strictly when present.

@@ -46,11 +46,22 @@ const sha = String(process.env.COMMIT_REF || '').trim().slice(0, 12);
 if (sha) {
   const indexPath = join(repoRoot, 'index.html');
   const html = readFileSync(indexPath, 'utf8');
-  const stamped = html.replace(/\/app\/theme\.css\?v=[^"']*/, `/app/theme.css?v=${sha}`);
-  if (stamped === html) {
-    console.warn('WARNING: theme.css ?v= tag not found in index.html - CSS not cache-busted');
-  } else {
+  // R31: index.html now links TWO stylesheets — theme.css and the opt-in
+  // theme-hig.css. Both are under /app/*, so both ship with
+  // stale-while-revalidate and both need the SHA stamp; a stamped shell paired
+  // with a stale alternate theme is the same bug, just one theme over.
+  let stamped = html;
+  const missing = [];
+  for (const name of ['theme.css', 'theme-hig.css']) {
+    const re = new RegExp(`/app/${name.replace('.', '\\.')}\\?v=[^"']*`);
+    if (!re.test(stamped)) { missing.push(name); continue; }
+    stamped = stamped.replace(re, `/app/${name}?v=${sha}`);
+  }
+  for (const name of missing) {
+    console.warn(`WARNING: ${name} ?v= tag not found in index.html - CSS not cache-busted`);
+  }
+  if (stamped !== html) {
     writeFileSync(indexPath, stamped, 'utf8');
-    console.log(`Stamped index.html theme.css ?v=${sha}`);
+    console.log(`Stamped index.html stylesheet ?v=${sha}`);
   }
 }

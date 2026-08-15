@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** ✅   ·   **Instantiates:** —
 **Reuse:** A future adapter reuses this wholesale — the versioned `data/*.json` contract, the stdlib draft-07-subset validator (`scripts/validate_data.py`), and the single client-side reader (`app/data.js`). An adapter re-authors only the schemas under `data/contracts/*.schema.json` and the concrete file list; the decoupling pattern (pipeline writes JSON, frontend reads JSON, neither imports the other) is domain-agnostic.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **17 acceptance criteria**, **2 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **12%** (2/16 automatable). **13** name a test file that does not
+> exist; **1** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/contract_catalogue.test.mjs`, `tests/feature/schema_evolution.test.mjs`, `tests/feature/validate_data.test.mjs`. Stories with **nothing asserted at all**: P6-S1, P6-S3, P6-S4, P6-S5.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Make the versioned JSON files under `data/` the ONLY interface between the model pipeline and any frontend, and make that interface schema-validated on every commit. Model iteration (new signals, refit weights, new snapshot format) must be able to ship without a frontend release, and a frontend redesign must be able to ship without touching the pipeline — because both sides only ever agree on the JSON contract. Exactly one client-side reader (`app/data.js`) is the path from JSON to UI, so a contract change lands in one file.
 
@@ -10,7 +19,7 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 
 ## User stories
 
-### P6-S1 — Single client-side reader is the only path to data   ·  Status: ✅   ·  Est: S
+### P6-S1 — Single client-side reader is the only path to data   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** every UI surface to read data through one module **so that** a contract change touches exactly one file and no page fetches raw JSON on its own.
 **Acceptance criteria** (Given/When/Then):
 - P6-S1-AC1 — Given any view under `app/views/*`, When it needs contract data, Then it imports a getter from `app/data.js` and never calls `fetch('/data/...')` directly.
@@ -22,14 +31,14 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - [ ] P6-S1-T2 — Guard against direct `/data/*` fetches outside `app/data.js` with a lint/grep check in the gate.
 - [ ] P6-S1-T3 — Keep the promise-cache + evict-on-failure semantics; cover both.
 **QA coverage:**
-- P6-S1-AC1 → `tests/feature/data_reader.test.mjs::no_raw_fetch_outside_reader` (unit — grep app/ for `/data/`) — Planned
-- P6-S1-AC2 → `tests/feature/data_reader.test.mjs::dedupes_concurrent` (unit, fetch stub) — Planned
-- P6-S1-AC3 → `tests/feature/data_reader.test.mjs::evicts_on_error` (unit) — Planned
-- P6-S1-AC4 → `tests/feature/data_reader.test.mjs::getAll_isolates_failures` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test).
+- P6-S1-AC1 → `tests/feature/data_reader.test.mjs::no_raw_fetch_outside_reader` (unit — grep app/ for `/data/`) — Planned  **[MISSING]**
+- P6-S1-AC2 → `tests/feature/data_reader.test.mjs::dedupes_concurrent` (unit, fetch stub) — Planned  **[MISSING]**
+- P6-S1-AC3 → `tests/feature/data_reader.test.mjs::evicts_on_error` (unit) — Planned  **[MISSING]**
+- P6-S1-AC4 → `tests/feature/data_reader.test.mjs::getAll_isolates_failures` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/data.js`, `app/views/*`, `app/main.js`.
 
-### P6-S2 — Every contract is schema-validated in the gate   ·  Status: ✅   ·  Est: M
+### P6-S2 — Every contract is schema-validated in the gate   ·  Status: ✅ code shipped · ⚠ QA PARTIAL   ·  Est: M   ·  **QA: 2/3 ACs asserted (67%)**
 **As** an Operator **I want** each `data/*.json` validated against its schema on every commit **so that** a shape break fails CI instead of shipping.
 **Acceptance criteria** (Given/When/Then):
 - P6-S2-AC1 — Given all contracts valid, When `python3 scripts/validate_data.py` runs, Then it prints per-file `ok` lines and exits 0.
@@ -41,14 +50,14 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - [ ] P6-S2-T2 — Keep `SCHEMA_TO_DATA` complete: every committed contract file has a schema mapping.
 - [ ] P6-S2-T3 — Validate any `data/snapshots/*.json` against `snapshot.schema.json` when present; skip cleanly when empty.
 **QA coverage:**
-- P6-S2-AC1 → `scripts/validate_data.py` exit 0 on clean tree, run by `tests/run_gate.sh` (data) — Done
-- P6-S2-AC2 → `tests/feature/validate_data.test.mjs::bad_shape_exits_1` (unit, feeds a broken fixture) — Planned
-- P6-S2-AC3 → manual (validator-scope review) — Planned (documented-scope AC)
-- P6-S2-AC4 → `scripts/validate_data.py::{check_meta_weights,check_pipeline_health}` via `tests/feature/validate_data.test.mjs` (data/unit) — Planned
-  Coverage: 3/4 automatable covered now (AC1 Done, AC2/AC4 Planned), AC3 manual-by-nature = 3/3 automatable = 100%. Test types: data(validate_data), unit(node:test), manual.
+- P6-S2-AC1 → `scripts/validate_data.py` exit 0 on clean tree, run by `tests/run_gate.sh` (data) — Done  **[REAL]**
+- P6-S2-AC2 → `tests/feature/validate_data.test.mjs::bad_shape_exits_1` (unit, feeds a broken fixture) — Planned  **[MISSING]**
+- P6-S2-AC3 → manual (validator-scope review) — Planned (documented-scope AC)  **[MANUAL]**
+- P6-S2-AC4 → `scripts/validate_data.py::{check_meta_weights,check_pipeline_health}` via `tests/feature/validate_data.test.mjs` (data/unit) — Planned  **[REAL]**
+  - **Coverage (measured 2026-08-15): 67% — REAL 2/3 · MISSING 1 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py`, `data/contracts/*.schema.json`, `data/*.json`, `tests/run_gate.sh`.
 
-### P6-S3 — Contract catalogue is complete and one-to-one   ·  Status: 🟡   ·  Est: S
+### P6-S3 — Contract catalogue is complete and one-to-one   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** every emitted `data/*.json` to have exactly one schema and vice versa **so that** no file ships unvalidated and no schema goes stale.
 **Acceptance criteria** (Given/When/Then):
 - P6-S3-AC1 — Given the set of committed `data/*.json` contract files, When compared to `data/contracts/*.schema.json` via `SCHEMA_TO_DATA`, Then every contract file maps to a schema (no unmapped contract ships).
@@ -58,13 +67,13 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - [ ] P6-S3-T1 — Add a catalogue-consistency check: `SCHEMA_TO_DATA` keys ↔ `data/contracts/`, values ↔ `data/`, cross-checked against `app/data.js` `PATHS`.
 - [ ] P6-S3-T2 — Fail the gate if a contract file has no schema or a reader path has no contract.
 **QA coverage:**
-- P6-S3-AC1 → `tests/feature/contract_catalogue.test.mjs::every_data_file_has_schema` (unit) — Planned
-- P6-S3-AC2 → `tests/feature/contract_catalogue.test.mjs::no_dead_schema` (unit) — Planned
-- P6-S3-AC3 → `tests/feature/contract_catalogue.test.mjs::reader_paths_match_contracts` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P6-S3-AC1 → `tests/feature/contract_catalogue.test.mjs::every_data_file_has_schema` (unit) — Planned  **[MISSING]**
+- P6-S3-AC2 → `tests/feature/contract_catalogue.test.mjs::no_dead_schema` (unit) — Planned  **[MISSING]**
+- P6-S3-AC3 → `tests/feature/contract_catalogue.test.mjs::reader_paths_match_contracts` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py` (`SCHEMA_TO_DATA`), `data/contracts/*.schema.json`, `data/*.json`, `app/data.js`.
 
-### P6-S4 — Schema versioning on the contract   ·  Status: ⬜   ·  Est: M
+### P6-S4 — Schema versioning on the contract   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** each contract to carry an explicit schema version **so that** a frontend can detect a contract it is too old to read instead of silently mis-parsing.
 **Acceptance criteria** (Given/When/Then):
 - P6-S4-AC1 — Given a contract file, When written, Then it carries a `schema_version` (integer, monotonic) and its schema requires that field.
@@ -76,13 +85,13 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - [ ] P6-S4-T3 — Add a user-visible "refresh to update" state for an unsupported-newer version.
 - [ ] P6-S4-T4 — Extend `validate_data.py` to assert `schema_version` presence + monotonicity vs the committed baseline.
 **QA coverage:**
-- P6-S4-AC1 → `scripts/validate_data.py` (data — required schema_version) + `tests/feature/contract_catalogue.test.mjs::has_schema_version` (unit) — Planned
-- P6-S4-AC2 → `tests/feature/data_reader.test.mjs::rejects_newer_version` (unit) — Planned
-- P6-S4-AC3 → `tests/feature/data_reader.test.mjs::reads_supported_range` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test), data(validate_data).
+- P6-S4-AC1 → `scripts/validate_data.py` (data — required schema_version) + `tests/feature/contract_catalogue.test.mjs::has_schema_version` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P6-S4-AC2 → `tests/feature/data_reader.test.mjs::rejects_newer_version` (unit) — Planned  **[MISSING]**
+- P6-S4-AC3 → `tests/feature/data_reader.test.mjs::reads_supported_range` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `data/*.json`, `data/contracts/*.schema.json`, `scripts/validate_data.py`, `app/data.js`.
 
-### P6-S5 — Contract evolution: additive-by-default with a breaking-change gate   ·  Status: ⬜   ·  Est: M
+### P6-S5 — Contract evolution: additive-by-default with a breaking-change gate   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** contract changes to be additive by default and any breaking change to require a version bump **so that** model iteration ships without breaking a deployed frontend.
 **Acceptance criteria** (Given/When/Then):
 - P6-S5-AC1 — Given a new optional field is added to a contract, When validated against the prior schema, Then old readers still parse (additive change requires no version bump; `additionalProperties` policy is explicit per contract).
@@ -93,10 +102,10 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - [ ] P6-S5-T2 — Require a `schema_version` increment when a breaking change is detected; fail otherwise.
 - [ ] P6-S5-T3 — Document the additive-by-default policy in `docs/` so adapters inherit it.
 **QA coverage:**
-- P6-S5-AC1 → `tests/feature/schema_evolution.test.mjs::additive_no_bump` (unit) — Planned
-- P6-S5-AC2 → `tests/feature/schema_evolution.test.mjs::breaking_requires_bump` (unit) — Planned
-- P6-S5-AC3 → `tests/feature/schema_evolution.test.mjs::breaking_without_bump_fails` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P6-S5-AC1 → `tests/feature/schema_evolution.test.mjs::additive_no_bump` (unit) — Planned  **[MISSING]**
+- P6-S5-AC2 → `tests/feature/schema_evolution.test.mjs::breaking_requires_bump` (unit) — Planned  **[MISSING]**
+- P6-S5-AC3 → `tests/feature/schema_evolution.test.mjs::breaking_without_bump_fails` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new (`scripts/schema_diff.py`), `data/contracts/*.schema.json`, `tests/run_gate.sh`.
 
 ## Epic QA roll-up

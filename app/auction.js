@@ -56,7 +56,9 @@
  *   sale — the room model adapts to how THIS room actually bids.
  */
 
-import { mulberry32, rosterShape, startersTotal, scoreVsRoom } from './draft-sim.js';
+import {
+  mulberry32, rosterShape, startersTotal, fillStarters, scoreVsRoom,
+} from './draft-sim.js';
 import { rosterGeometry, positionDemand, replacementIndex } from './team-logic.js';
 
 export const DEFAULT_BUDGET = 200;
@@ -286,20 +288,71 @@ export function tendencyUpdate(current, paid, market) {
  * shape's derived cap (which is qb+1 for every shape the draft room can build,
  * and qb+2 for a SUPER_FLEX league), and RB/WR/TE get starters + flex + one
  * backup exactly as before. */
+/* R30 — K/DEF/DST ARE POSITIONS THIS TABLE MUST NAME.
+ *
+ * The cap table below had four keys. R27 made K and DEF draftable and this was
+ * not extended, so `caps[pos] || 0` read 0 for them and a kicker's entire
+ * allowance collapsed to the bench-slack term, `max(0, bench - 4)`. At the
+ * bench minimum of 4 that is ZERO, and the consequence was not a mispriced
+ * kicker but a room that could never finish: for {qb1,rb2,wr2,te1,flex1,
+ * bench4,k1,def1} the per-position capacity sums to 12 against a shape of 13,
+ * so `total >= geo.all.length` is unreachable for EVERY team. autoNominate
+ * eventually returns -1, team.js forces done, and the AUCTION RESULT card
+ * scores a three-of-thirteen roster as if the draft had completed. 64 of the
+ * 960 roster configs the settings grid can build were in this state — every
+ * one of them a bench-4 config seating a K or a DEF.
+ *
+ * The bench-slack term is deliberately NOT applied to K/DEF/DST: it exists so
+ * a deep bench can stockpile flex-eligible skill players, and nobody benches a
+ * second kicker. Their cap is the shape's own derived cap, which is what
+ * team-logic derivedCaps() has computed all along and this table simply never
+ * read. DST is listed alongside DEF because the two spellings are both live —
+ * a Sleeper league can seat either.
+ */
 function teamNeedsPos(team, pos, shape) {
   const counts = {};
   for (const p of team.players) counts[p.position] = (counts[p.position] || 0) + 1;
   const geo = rosterGeometry(shape);
   const nFlex = geo.flexSlots.length;
+  const capFor = (k) => (geo.caps[k] != null ? geo.caps[k] : (geo.demand[k] || 0));
   const caps = {
     QB: geo.caps.QB != null ? geo.caps.QB : (geo.demand.QB || 0) + 1,
     RB: (geo.demand.RB || 0) + nFlex + 1,
     WR: (geo.demand.WR || 0) + nFlex + 1,
     TE: (geo.demand.TE || 0) + 1,
+    K: capFor('K'),
+    DEF: capFor('DEF'),
+    DST: capFor('DST'),
   };
   const total = team.players.length;
   if (total >= geo.all.length) return false;
-  return (counts[pos] || 0) < (caps[pos] || 0) + Math.max(0, geo.bench.length - 4);
+  // An UNFILLED STARTER SLOT is a need in its own right, ahead of any bench
+  // arithmetic: a team that seats K1 and holds no kicker needs a kicker even
+  // when every other cap says it is full. Without this the room treated a
+  // kicker as generic bench slack — permitting two and demanding none.
+  if ((counts[pos] || 0) < (geo.demand[pos] || 0)) return true;
+
+  /* RESERVE THE LAST SEATS FOR THE STARTERS STILL OWED AT LATE POSITIONS.
+   *
+   * Gating only the NOMINATION was not enough, and the half-fix is instructive:
+   * a team fills most of its roster by WINNING other teams' nominations, not by
+   * nominating, so five of twelve teams still finished with a second tight end
+   * where their DEF seat should have been. The refusal has to be here, in the
+   * predicate both nomination and bidding consult.
+   *
+   * Once a team's open seats equal what it still owes at K/DEF/DST, nothing
+   * else is a need. If the K/DST feed is missing entirely the board holds no
+   * such player, the room runs out of legal nominations and stops — with every
+   * other seat filled, and scoreAuction naming the holes. That is a worse
+   * auction than one with a kicker feed, and an honest one; it is not the R30
+   * deadlock, which stopped rooms at three of thirteen with a full board. */
+  const isLate = LATE_POSITIONS.includes(pos);
+  const lateOwed = LATE_POSITIONS.reduce(
+    (s, k) => s + Math.max(0, (geo.demand[k] || 0) - (counts[k] || 0)), 0);
+  if (lateOwed > 0 && (geo.all.length - total) <= lateOwed) return false;
+
+  const benchSlack = isLate ? 0 : Math.max(0, geo.bench.length - 4);
+  return (counts[pos] || 0) < (caps[pos] || 0) + benchSlack;
 }
 
 /**
@@ -435,19 +488,98 @@ export function onTheNomination(a) {
   return a.nomIdx % a.leagueSize;
 }
 
-/** Opponent nomination model: best available by MARKET price among needs —
- * the consensus-driven room nominates the shiniest name it can roster. */
+/* R30 — positions a real room defers to the very end of the draft. */
+const LATE_POSITIONS = ['K', 'DEF', 'DST'];
+
+/**
+ * Opponent nomination model: best available by MARKET price among needs —
+ * the consensus-driven room nominates the shiniest name it can roster.
+ *
+ * R30 — WITH ONE EXCEPTION, OR THE KICKER SEAT IS NEVER FILLED. Ranking purely
+ * by market price cannot ever reach a kicker: K and DST carry no value over
+ * replacement by design, so marketDollars floors them at $1, and the 182
+ * nominatable offensive rows on the board cover all 180 roster slots before a
+ * $1 row is ever the highest-priced thing available. Measured across seeds
+ * 1/7/42/101/999/20260901 in a league seating K1 and DEF1: my team drafted a
+ * kicker or a defence exactly ZERO times, the whole 12-team room took 2 kickers
+ * and 0-2 defences of the 24 it owed, and the result card still announced
+ * "BEAT THE ROOM BY 235.3 PTS · rank 1/12" for a roster that cannot legally be
+ * started — because startersTotal() adds 0 for a slot it could not fill and
+ * says nothing about it.
+ *
+ * So once a team's remaining roster space has shrunk to exactly the starters it
+ * still owes at those positions, it stops deferring and nominates one. That is
+ * how the seat actually gets filled, and it is also how humans draft: last,
+ * but not never.
+ *
+ * The preference is deliberately NOT a hard restriction in teamNeedsPos. If the
+ * K/DST feed is missing the board carries no kickers at all, and a hard rule
+ * would leave every team unable to nominate anything — reintroducing the very
+ * deadlock this release removes. Preferring-if-available degrades to the old
+ * behaviour instead, and the unfilled slot is then reported rather than hidden.
+ */
 export function autoNominate(a) {
-  const team = a.teams[onTheNomination(a)];
-  let best = -1;
-  let bestVal = -1;
-  for (let i = 0; i < a.board.length; i += 1) {
-    if (a.taken.has(i) || !a.board[i].gsis_id) continue;
-    if (!teamNeedsPos(team, a.board[i].position, a.shape)) continue;
-    const m = a.market.get(String(a.board[i].gsis_id)) || MIN_BID;
-    if (m > bestVal) { bestVal = m; best = i; }
+  const geo = rosterGeometry(a.shape);
+
+  const forTeam = (team) => {
+    const counts = {};
+    for (const p of team.players) counts[p.position] = (counts[p.position] || 0) + 1;
+    const lateOwed = LATE_POSITIONS.reduce(
+      (s, k) => s + Math.max(0, (geo.demand[k] || 0) - (counts[k] || 0)), 0);
+    const mustGoLate = lateOwed > 0
+      && (geo.all.length - team.players.length) <= lateOwed;
+
+    /* lateOnly restricts to a late position this team still OWES A STARTER at,
+     * not merely to a late position. Ranking the late branch by market price
+     * alone bought a second kicker (K prices above DST) and left the DEF seat
+     * empty — the same hole in a different slot. */
+    const pick = (lateOnly) => {
+      let best = -1;
+      let bestVal = -1;
+      for (let i = 0; i < a.board.length; i += 1) {
+        if (a.taken.has(i) || !a.board[i].gsis_id) continue;
+        const pos = a.board[i].position;
+        if (lateOnly) {
+          if (!LATE_POSITIONS.includes(pos)) continue;
+          if ((counts[pos] || 0) >= (geo.demand[pos] || 0)) continue;
+        }
+        if (!teamNeedsPos(team, pos, a.shape)) continue;
+        const m = a.market.get(String(a.board[i].gsis_id)) || MIN_BID;
+        if (m > bestVal) { bestVal = m; best = i; }
+      }
+      return best;
+    };
+
+    if (mustGoLate) {
+      const late = pick(true);
+      if (late !== -1) return late;
+    }
+    return pick(false);
+  };
+
+  /* ROTATE PAST A TEAM THAT CANNOT NOMINATE ANYTHING.
+   *
+   * onTheNomination() skips teams whose rosters are FULL; it cannot know that a
+   * team with seats left has nothing legal to bid on. That case is real: with
+   * the K/DST feed missing, a team holding its last two seats for an owed K and
+   * DEF finds no such player on the board. Returning -1 from the team on the
+   * clock stopped the ENTIRE room — measured at rosters of 2, 6 and 11 of 13
+   * while the offensive board was still deep. Nobody else was blocked; one team
+   * was. So the clock moves on, the rest of the room finishes, and -1 is
+   * reserved for what it should always have meant: nobody can nominate
+   * anything. The blocked seats are then reported by scoreAuction rather than
+   * scored as a silent zero.
+   *
+   * When the board is complete the first hop always succeeds, so this is
+   * identical to the previous behaviour for every healthy auction. */
+  const start = onTheNomination(a);
+  for (let hop = 0; hop < a.leagueSize; hop += 1) {
+    const t = a.teams[(start + hop) % a.leagueSize];
+    if (t.players.length >= a.shape.size) continue;
+    const idx = forTeam(t);
+    if (idx !== -1) return idx;
   }
-  return best;
+  return -1;
 }
 
 export function nominate(a, boardIdx) {
@@ -673,7 +805,11 @@ export function scoreAuction(a) {
   // spending $150 of $185 is not the same efficiency as $150 of $200.
   const myStart = (a.teamBudgets || [])[a.mySlot - 1];
   const spent = (Number.isFinite(myStart) ? myStart : a.budget) - myTeam(a).budget;
-  return { ...sheet, spent,
+  // R30 — the starting slots I finished the auction unable to fill. `mine` adds
+  // a silent 0 for each of them, so without this the sheet reads like a clean
+  // win for a lineup that cannot legally be started.
+  const emptySlots = fillStarters(mine, a.shape, a.adjOf).empty;
+  return { ...sheet, spent, emptySlots,
     ptsPerDollar: spent > 0 ? Math.round((sheet.mine / spent) * 10) / 10 : 0 };
 }
 
