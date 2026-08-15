@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "parlays.schema.json",
   "title": "Weekly and per-game parlays",
-  "description": "Correlation-aware parlays with model EV and a conformal confidence tier. Produced by scripts/models/parlay_builder.py (>=3 per game and >=3 per week), validated by scripts/validate_data.py.",
+  "description": "Correlation-aware parlays with model EV and an ordinal (threshold-based, uncalibrated) confidence tier. Produced by scripts/models/parlay_builder.py (>=3 per game and >=3 per week), validated by scripts/validate_data.py.",
   "type": "object",
   "additionalProperties": false,
   "required": ["season", "week", "updated_utc", "parlays"],
@@ -63,13 +63,13 @@
                 },
                 "implied_prob": {
                   "type": "number",
-                  "description": "Sportsbook-implied probability (vig-inclusive).",
+                  "description": "DISPLAY ONLY market column: the book's de-vigged probability for this exact selection when a real price was fetched, otherwise model_prob re-vigged by the standard hold (no book price exists for that leg). Never an input to anything we produce.",
                   "minimum": 0,
                   "maximum": 1
                 },
                 "model_prob": {
                   "type": "number",
-                  "description": "Model probability for this leg.",
+                  "description": "OUR probability for this leg, computed without any market price (owner policy: market prices are display only). Moneyline = the game model's win probability; spread = that model's margin evaluated at the book's handicap. A market's de-vigged probability may never appear here - a market with no model of ours yields no leg at all.",
                   "minimum": 0,
                   "maximum": 1
                 }
@@ -82,7 +82,7 @@
           },
           "confidence_tier": {
             "type": "string",
-            "description": "Conformal-derived confidence band.",
+            "description": "Ordinal band from a HARD-CODED edge threshold, not a calibration: high >= 0.12, medium >= 0.04 on (combined model_prob - combined implied_prob) minus 0.01 per leg beyond two. Nothing about it is calibrated and it states NO coverage guarantee - scripts/harness/conformal.py plays no part in producing it. Read it as a ranking, never as a probability of covering.",
             "enum": ["high", "medium", "low"]
           },
           "correlation_note": {

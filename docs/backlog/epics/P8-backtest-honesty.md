@@ -3,6 +3,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter reuses this epic verbatim — the estimate-vs-measured flags, the baseline gates, the exit-code regression gate, and the prototype quarantine are the governance spine of the whole framework, independent of sport. An adapter re-authors only its concrete baselines (which market / which Elo) and the domain files a prototype is allowed to touch; the rules stay fixed.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **18 acceptance criteria**, **3 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **18%** (3/17 automatable). **2** name a test file that does not
+> exist; **12** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/proto_boundary.test.mjs`, `tests/feature/proto_math.test.mjs`. Stories with **nothing asserted at all**: P8-S3, P8-S4.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Make dishonesty structurally impossible and improvement provable. Every displayed number is either a flagged estimate or a measured result — never a guess wearing a measurement's clothes — and tests enforce the distinction from both languages. Every complexity increment must beat a dumb baseline (Elo or the market) on held-out log-loss or it is cut. The regression gate decides on exit codes, and unproven prototypes are quarantined off the product until they clear the gate.
 
@@ -11,7 +20,7 @@ This is where good intentions go to die quietly. The postmortems are the warning
 
 ## User stories
 
-### P8-S1 — Estimate-vs-measured flags enforced by tests   ·  Status: ✅   ·  Est: S
+### P8-S1 — Estimate-vs-measured flags enforced by tests   ·  Status: ✅ code shipped · ⚠ QA PARTIAL   ·  Est: S   ·  **QA: 1/4 ACs asserted (25%)**
 **As** the Analyst **I want** the honesty contract locked by tests in both Python and Node **so that** no code path — and no future refactor — can attach a measured score to an estimate or ship a measured row without its receipts.
 **Acceptance criteria** (Given/When/Then):
 - P8-S1-AC1 — Given `estimate=true` with a `brier`/`log_loss` present, When validated, Then it is rejected (`bad_est_scored`).
@@ -24,14 +33,14 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S1-T3 — Assert against the real committed data file, not only inline fixtures.
 - [ ] P8-S1-T4 — Treat absent and null scores identically.
 **QA coverage** (4 ACs):
-- P8-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done
-- P8-S1-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` — Done
-- P8-S1-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done
-- P8-S1-AC4 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` — Done
-  Coverage: 4/4 = 100%. Test types: unit(node:test) | data(validate_data).
+- P8-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P8-S1-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` — Done  **[TOOTHLESS · asserts-own-fixtures]**
+- P8-S1-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P8-S1-AC4 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` — Done  **[REAL]**
+  - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/feature/backtest_honesty.test.mjs`, `scripts/harness/honesty.py`, `data/game_predictions.json`.
 
-### P8-S2 — Baseline gates (beat Elo or the market)   ·  Status: 🟡   ·  Est: M
+### P8-S2 — Baseline gates (beat Elo or the market)   ·  Status: 🟡   ·  Est: M   ·  **QA: 1/4 ACs asserted (25%)**
 **As** the Modeler **I want** every complexity increment measured against a dumb baseline on held-out log-loss **so that** complexity that doesn't earn its keep is cut, not shipped.
 **Acceptance criteria** (Given/When/Then):
 - P8-S2-AC1 — Given a candidate model and the Elo/market baselines, When compared on the SAME held-out events, Then the candidate is retained only if its mean log-loss beats at least one baseline; otherwise it is cut.
@@ -45,14 +54,14 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S2-T4 — Assert new signals register at weight 0.0 in the signal registry.
 - [ ] P8-S2-T5 — Feed the gate real snapshot-resolved losses, not fixtures.
 **QA coverage** (4 ACs):
-- P8-S2-AC1 → `tests/feature/never_regress.test.mjs::beats a baseline` (backtest, leak-safe) — Planned
-- P8-S2-AC2 → `tests/feature/never_regress.test.mjs::margin 0.0015 tie/sub-margin keeps current` (unit) — Done
-- P8-S2-AC3 → `tests/feature/never_regress.test.mjs::negative margin raises` (unit) — Planned
-- P8-S2-AC4 → `tests/feature/signal_registry.test.mjs::new signals enter at weight 0` (unit) — Done
-  Coverage: 4/4 automatable = 100% (baseline-fit is fixture-fed until real snapshots land). Test types: unit(node:test) | backtest(leak-safe) | data(validate_data).
+- P8-S2-AC1 → `tests/feature/never_regress.test.mjs::beats a baseline` (backtest, leak-safe) — Planned  **[TOOTHLESS · unwritten-case]**
+- P8-S2-AC2 → `tests/feature/never_regress.test.mjs::margin 0.0015 tie/sub-margin keeps current` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P8-S2-AC3 → `tests/feature/never_regress.test.mjs::negative margin raises` (unit) — Planned  **[TOOTHLESS · reimplements-under-test]**
+- P8-S2-AC4 → `tests/feature/signal_registry.test.mjs::new signals enter at weight 0` (unit) — Done  **[REAL]**
+  - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/never_regress.py`, `scripts/optimize/optimize_weights.py`, `scripts/signals/registry.py`, `data/model_tuning.json`, `tests/feature/never_regress.test.mjs`, `tests/feature/signal_registry.test.mjs`.
 
-### P8-S3 — Exit-code regression gate   ·  Status: ✅   ·  Est: S
+### P8-S3 — Exit-code regression gate   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Operator **I want** the gate to decide pass/fail on exit codes in a fixed order **so that** a red suite can never be rationalized green off a colored summary, and no deploy proceeds red.
 **Acceptance criteria** (Given/When/Then):
 - P8-S3-AC1 — Given the gate runs, When steps execute, Then they run in order — `validate_data.py` → `smoke.sh` → `node --test tests/feature/*.mjs` — and any non-zero step sets overall failure and exits 1.
@@ -63,13 +72,13 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S3-T2 — Preserve step order and the aggregate `fail` flag.
 - [ ] P8-S3-T3 — Append the Playwright step only when the frontend lands (documented TODO in the gate).
 **QA coverage** (3 ACs):
-- P8-S3-AC1 → `tests/run_gate.sh` step ordering + `tests/smoke.sh` (smoke) — Done
-- P8-S3-AC2 → `tests/run_gate.sh` exit-code/stderr semantics (smoke) — Done
-- P8-S3-AC3 → CI `.github/workflows/ci.yml` runs the gate with no npm install (smoke) — Done
-  Coverage: 3/3 = 100%. Test types: smoke(bash) | data(validate_data) | unit(node:test).
+- P8-S3-AC1 → `tests/run_gate.sh` step ordering + `tests/smoke.sh` (smoke) — Done  **[TOOTHLESS · self-referential]**
+- P8-S3-AC2 → `tests/run_gate.sh` exit-code/stderr semantics (smoke) — Done  **[TOOTHLESS · self-referential]**
+- P8-S3-AC3 → CI `.github/workflows/ci.yml` runs the gate with no npm install (smoke) — Done  **[TOOTHLESS · self-referential]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/run_gate.sh`, `tests/smoke.sh`, `scripts/validate_data.py`, `.github/workflows/ci.yml`.
 
-### P8-S4 — Prototype quarantine   ·  Status: ⬜   ·  Est: M
+### P8-S4 — Prototype quarantine   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Modeler **I want** unproven work isolated in `scripts/proto/` and `data/proto/` with its math locked by tests but nothing reaching the product **so that** experiments can be developed safely without any path to the live UI until they pass the gate.
 **Acceptance criteria** (Given/When/Then):
 - P8-S4-AC1 — Given code under `scripts/proto/`, When the app or product data layer is scanned, Then no product module (`app/*`, `scripts/harness/*`, committed `data/*.json` outside `data/proto/`) imports or reads from `proto`.
@@ -82,14 +91,14 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S4-T3 — Lock any prototype's math with a dedicated `tests/feature/*` test.
 - [ ] P8-S4-T4 — Exclude `data/proto/` from the Netlify publish and from product schema validation.
 **QA coverage** (4 ACs):
-- P8-S4-AC1 → `tests/feature/proto_boundary.test.mjs::no product import of proto` (unit) — Planned
-- P8-S4-AC2 → `tests/feature/proto_math.test.mjs::locked constants` (unit) — Planned
-- P8-S4-AC3 → `tests/run_gate.sh` + review checklist (smoke + manual) — Planned (manual gate step)
-- P8-S4-AC4 → `scripts/validate_data.py::proto excluded` (data) — Planned
-  Coverage: 4/4 = 100% (AC3 has a manual review component; its gate-green precondition is automated). Test types: unit(node:test) | data(validate_data) | smoke(bash) | manual.
+- P8-S4-AC1 → `tests/feature/proto_boundary.test.mjs::no product import of proto` (unit) — Planned  **[MISSING]**
+- P8-S4-AC2 → `tests/feature/proto_math.test.mjs::locked constants` (unit) — Planned  **[MISSING]**
+- P8-S4-AC3 → `tests/run_gate.sh` + review checklist (smoke + manual) — Planned (manual gate step)  **[MANUAL]**
+- P8-S4-AC4 → `scripts/validate_data.py::proto excluded` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new — `scripts/proto/`, `data/proto/`, `tests/feature/proto_boundary.test.mjs`; touches `scripts/validate_data.py`, `tests/run_gate.sh`, `netlify.toml`.
 
-### P8-S5 — Feed staleness & measured-row governance   ·  Status: 🟡   ·  Est: S
+### P8-S5 — Feed staleness & measured-row governance   ·  Status: 🟡   ·  Est: S   ·  **QA: 1/3 ACs asserted (33%)**
 **As** the Operator **I want** the pipeline to fail loudly on stale or zero-output feeds and on measured rows missing scores **so that** the silent-scraper and frozen-analytics postmortems cannot repeat.
 **Acceptance criteria** (Given/When/Then):
 - P8-S5-AC1 — Given `data/pipeline_status.json`, When `validate_data.py` runs, Then a feed past its staleness threshold or reporting zero rows fails the gate (non-zero exit), not a silent pass.
@@ -100,8 +109,8 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S5-T2 — Run the honesty validator across every committed snapshot file, not just fixtures.
 - [ ] P8-S5-T3 — Document the race-safe merge in the cron workflows and assert final files parse.
 **QA coverage** (3 ACs):
-- P8-S5-AC1 → `scripts/validate_data.py::pipeline staleness/row-count` (data) — Planned
-- P8-S5-AC2 → `tests/feature/backtest_honesty.test.mjs` applied to `data/snapshots/*` (unit) — Planned
-- P8-S5-AC3 → `tests/smoke.sh::committed data parses` (smoke) + cron workflow config — Done (smoke) / Planned (cron)
-  Coverage: 3/3 = 100%. Test types: data(validate_data) | unit(node:test) | smoke(bash).
+- P8-S5-AC1 → `scripts/validate_data.py::pipeline staleness/row-count` (data) — Planned  **[TOOTHLESS · validator-lacks-the-check]**
+- P8-S5-AC2 → `tests/feature/backtest_honesty.test.mjs` applied to `data/snapshots/*` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P8-S5-AC3 → `tests/smoke.sh::committed data parses` (smoke) + cron workflow config — Done (smoke) / Planned (cron)  **[REAL]**
+  - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py`, `scripts/pipeline_status.py`, `data/pipeline_status.json`, `data/contracts/pipeline_status.schema.json`, `tests/feature/backtest_honesty.test.mjs`, `.github/workflows/{daily,gameday}.yml`.

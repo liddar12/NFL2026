@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter reuses the ensemble contract wholesale — the model interface (each model returns a full probability vector), the market-as-first-class-model treatment, the fitted hybrid blend, and the refit-on-cron stacker. It re-authors only the in-house model internals and which market venue it ingests (Kalshi/Polymarket/sportsbook); the blend, disagreement rule, and metrics are sport-agnostic.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **18 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/17 automatable). **16** name a test file that does not
+> exist; **1** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/ensemble.test.mjs`. Stories with **nothing asserted at all**: P3-S1, P3-S2, P3-S3, P3-S4, P3-S5.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Combine several models — one or more in-house models, plus the market itself ingested as a first-class model (not merely a benchmark) — into a fitted hybrid whose blend weights are learned and refit on a cron. Models are combined by blending full probability vectors and adopting the argmax on directional disagreement; point picks are never averaged. In practice the market typically earns the largest single weight, and the ensemble's job is to know exactly when and how much to deviate from it.
 
@@ -10,7 +19,7 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 
 ## User stories
 
-### P3-S1 — Every model returns a full probability vector   ·  Status: 🟡   ·  Est: M
+### P3-S1 — Every model returns a full probability vector   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** each model to expose a full, normalized probability vector over outcomes **so that** the ensemble blends distributions, not collapsed picks.
 **Acceptance criteria** (Given/When/Then):
 - P3-S1-AC1 — Given any registered model, When it predicts an event, Then it returns a probability vector over all outcomes that sums to 1 (±1e-6) with every entry in `[0,1]` — never a bare pick or a single scalar.
@@ -21,13 +30,13 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 - [ ] P3-S1-T2 — Add a contract check: sum-to-1, bounds, dimensionality.
 - [ ] P3-S1-T3 — Unit-test rejection of scalar/one-hot degenerate outputs.
 **QA coverage:**
-- P3-S1-AC1 → `tests/feature/ensemble.test.mjs::model_returns_normalized_vector` (unit) — Planned
-- P3-S1-AC2 → `tests/feature/ensemble.test.mjs::pick_only_model_must_emit_vector` (unit) — Planned
-- P3-S1-AC3 → `tests/feature/ensemble.test.mjs::all_models_pass_vector_contract` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P3-S1-AC1 → `tests/feature/ensemble.test.mjs::model_returns_normalized_vector` (unit) — Planned  **[MISSING]**
+- P3-S1-AC2 → `tests/feature/ensemble.test.mjs::pick_only_model_must_emit_vector` (unit) — Planned  **[MISSING]**
+- P3-S1-AC3 → `tests/feature/ensemble.test.mjs::all_models_pass_vector_contract` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `tests/feature/ensemble.test.mjs`.
 
-### P3-S2 — Market ingested as a first-class model   ·  Status: 🟡   ·  Est: L
+### P3-S2 — Market ingested as a first-class model   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** market prices (Kalshi/Polymarket/odds) converted to a de-vigged probability vector and registered as a model **so that** the fit can weight the market like any other model — including giving it the largest weight when earned.
 **Acceptance criteria** (Given/When/Then):
 - P3-S2-AC1 — Given raw market prices/odds as-of kickoff, When ingested, Then they are de-vigged into a normalized probability vector (sum-to-1 ±1e-6) and registered under a model id in the ensemble.
@@ -40,14 +49,14 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 - [ ] P3-S2-T3 — Enforce as-of-kickoff quote selection for leak-safety (ties into P2-S1).
 - [ ] P3-S2-T4 — Report per-model fitted weights (including market) to `data/meta.json`.
 **QA coverage:**
-- P3-S2-AC1 → `tests/feature/ensemble.test.mjs::market_devig_normalized` (unit) — Planned
-- P3-S2-AC2 → `tests/feature/ensemble.test.mjs::market_weight_is_fit_output_not_pinned` (unit) — Planned
-- P3-S2-AC3 → `tests/feature/ensemble.test.mjs::market_typically_largest_weight_reported` (unit) — Planned
-- P3-S2-AC4 → `tests/feature/ensemble.test.mjs::market_quote_asof_kickoff_no_leak` (backtest) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test), backtest(leak-safe).
+- P3-S2-AC1 → `tests/feature/ensemble.test.mjs::market_devig_normalized` (unit) — Planned  **[MISSING]**
+- P3-S2-AC2 → `tests/feature/ensemble.test.mjs::market_weight_is_fit_output_not_pinned` (unit) — Planned  **[MISSING]**
+- P3-S2-AC3 → `tests/feature/ensemble.test.mjs::market_typically_largest_weight_reported` (unit) — Planned  **[MISSING]**
+- P3-S2-AC4 → `tests/feature/ensemble.test.mjs::market_quote_asof_kickoff_no_leak` (backtest) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `data/meta.json`.
 
-### P3-S3 — Fitted hybrid blend of full vectors   ·  Status: 🟡   ·  Est: L
+### P3-S3 — Fitted hybrid blend of full vectors   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** the ensemble to combine models by weighted-blending their full probability vectors **so that** confidence is preserved and the output stays calibrated.
 **Acceptance criteria** (Given/When/Then):
 - P3-S3-AC1 — Given per-model vectors and fitted blend weights, When the ensemble predicts, Then output = normalized weighted sum of the *full vectors* (`Σ wᵢ·pᵢ`, renormalized), and the code path contains no averaging of collapsed picks.
@@ -60,14 +69,14 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 - [ ] P3-S3-T3 — Fit blend weights via the P2 optimizer (log-loss, leak-safe) — reuse, don't fork.
 - [ ] P3-S3-T4 — Unit-test that no code path collapses to picks before blending.
 **QA coverage:**
-- P3-S3-AC1 → `tests/feature/ensemble.test.mjs::blend_is_full_vector_weighted_sum` (unit) — Planned
-- P3-S3-AC2 → `tests/feature/ensemble.test.mjs::blend_weights_on_simplex_from_fit` (unit) — Planned
-- P3-S3-AC3 → `tests/feature/ensemble.test.mjs::blend_output_valid_prob_vector` (unit) — Planned
-- P3-S3-AC4 → `tests/feature/ensemble.test.mjs::blend_fit_uses_leaksafe_logloss` (backtest) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test), backtest(leak-safe).
+- P3-S3-AC1 → `tests/feature/ensemble.test.mjs::blend_is_full_vector_weighted_sum` (unit) — Planned  **[MISSING]**
+- P3-S3-AC2 → `tests/feature/ensemble.test.mjs::blend_weights_on_simplex_from_fit` (unit) — Planned  **[MISSING]**
+- P3-S3-AC3 → `tests/feature/ensemble.test.mjs::blend_output_valid_prob_vector` (unit) — Planned  **[MISSING]**
+- P3-S3-AC4 → `tests/feature/ensemble.test.mjs::blend_fit_uses_leaksafe_logloss` (backtest) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `data/meta.json`.
 
-### P3-S4 — Directional disagreement → take the max, never average   ·  Status: 🟡   ·  Est: M
+### P3-S4 — Directional disagreement → take the max, never average   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** a Modeler **I want** the ensemble to take the argmax (higher-conviction side) on directional disagreement rather than average opposing picks **so that** the output is never a mushy, worse-than-either 50%.
 **Acceptance criteria** (Given/When/Then):
 - P3-S4-AC1 — Given two models that pick opposite sides, When the ensemble resolves the direction, Then it adopts the argmax of the blended full vector (the higher-conviction directional call) and never returns the mean of the two point picks.
@@ -78,13 +87,13 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 - [ ] P3-S4-T2 — Add an explicit "never average point picks" guard/assertion in the disagreement path.
 - [ ] P3-S4-T3 — Unit-test the opposite-pick case (no 50% mush) and the agreement case (no flip).
 **QA coverage:**
-- P3-S4-AC1 → `tests/feature/ensemble.test.mjs::disagreement_takes_argmax_not_mean` (unit) — Planned
-- P3-S4-AC2 → `tests/feature/ensemble.test.mjs::no_mushy_coinflip_on_disagreement` (unit) — Planned
-- P3-S4-AC3 → `tests/feature/ensemble.test.mjs::agreement_no_spurious_flip` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P3-S4-AC1 → `tests/feature/ensemble.test.mjs::disagreement_takes_argmax_not_mean` (unit) — Planned  **[MISSING]**
+- P3-S4-AC2 → `tests/feature/ensemble.test.mjs::no_mushy_coinflip_on_disagreement` (unit) — Planned  **[MISSING]**
+- P3-S4-AC3 → `tests/feature/ensemble.test.mjs::agreement_no_spurious_flip` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `tests/feature/ensemble.test.mjs`.
 
-### P3-S5 — Refit-on-cron stacker   ·  Status: ⬜   ·  Est: M
+### P3-S5 — Refit-on-cron stacker   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** blend weights refit on a cron and adopted only through the NEVER REGRESS gate **so that** the ensemble improves over the season without ever shipping a worse blend.
 **Acceptance criteria** (Given/When/Then):
 - P3-S5-AC1 — Given new finished events (STATUS_FINAL only), When the stacker refits on cron, Then it recomputes blend weights on the leak-safe set and routes the candidate through the P2 NEVER REGRESS gate (margin 0.0015) before any write to `data/meta.json`.
@@ -97,9 +106,9 @@ Averaging point picks is the classic ensemble bug: two models that pick opposite
 - [ ] P3-S5-T3 — On gate-fail, no-write; report blocked. On pass, write weights + rollback line.
 - [ ] P3-S5-T4 — Smoke-test the ordered refit → gate → conditional-write path.
 **QA coverage:**
-- P3-S5-AC1 → `tests/feature/ensemble.test.mjs::stacker_refit_routes_never_regress` (unit) — Planned
-- P3-S5-AC2 → `tests/feature/ensemble.test.mjs::stacker_trains_on_final_only` (unit) — Planned
-- P3-S5-AC3 → `tests/smoke.sh::stacker_block_no_write` (smoke) — Planned
-- P3-S5-AC4 → manual (rollback drill) — documented; one `git revert`
-  Coverage: 3/4 automatable = 75% automated; AC4 manual-only. Automatable ACs covered: 3/3 = 100%. Test types: unit(node:test), smoke(bash), manual.
+- P3-S5-AC1 → `tests/feature/ensemble.test.mjs::stacker_refit_routes_never_regress` (unit) — Planned  **[MISSING]**
+- P3-S5-AC2 → `tests/feature/ensemble.test.mjs::stacker_trains_on_final_only` (unit) — Planned  **[MISSING]**
+- P3-S5-AC3 → `tests/smoke.sh::stacker_block_no_write` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P3-S5-AC4 → manual (rollback drill) — documented; one `git revert`  **[MANUAL]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `data/meta.json`, `.github/workflows/gameday.yml`, `tests/feature/ensemble.test.mjs`, `tests/smoke.sh`.

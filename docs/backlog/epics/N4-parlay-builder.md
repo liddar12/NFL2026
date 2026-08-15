@@ -2,6 +2,15 @@
 **Layer:** NFL Adapter   ·   **Status:** 🟡   ·   **Instantiates:** P3 (Multi-Model Ensemble)
 **Reuse:** A future adapter keeps the platform seams — edge = model_prob − implied_prob, the correlation-aware EV that never naively multiplies correlated legs, confidence tiering as a conformal proxy, and the "no fabricated positive edge without a real beatable line" honesty rule. It re-authors this file's NFL specifics: what counts as a same-game correlated pair (QB pass yards ↔ his WR receiving yards via shared game script) and the per-game/per-week volume targets.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **14 acceptance criteria**, **2 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **14%** (2/14 automatable). **0** name a test file that does not
+> exist; **12** name a file that exists but contains no assertion that bites. Stories with **nothing asserted at all**: N4-S2, N4-S3, N4-S4.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Emit at least three parlays per game AND at least three per week, each matching `data/contracts/parlays.schema.json` (`parlay_id, scope, game_id?, legs, model_ev, confidence_tier, correlation_note`). Parlays are assembled from edges — model probability exceeding market-implied probability. Same-game legs are treated as correlated (a shared game-script factor), so combined probability and EV use a correlation adjustment, never the naive independence product. Every parlay carries a model EV, a confidence tier, and an explicit correlation note.
 
@@ -10,7 +19,7 @@ Naive multiplication is the trap. A QB throwing for a big day and his WR going o
 
 ## User stories
 
-### N4-S1 — Volume: ≥3 parlays per game AND ≥3 per week   ·  Status: 🟡   ·  Est: M
+### N4-S1 — Volume: ≥3 parlays per game AND ≥3 per week   ·  Status: 🟡   ·  Est: M   ·  **QA: 2/4 ACs asserted (50%)**
 **As** the Analyst **I want** at least three same-game parlays for every game and at least three cross-game parlays for the week **so that** there is always a slate of options, ranked by edge.
 **Acceptance criteria** (Given/When/Then):
 - N4-S1-AC1 — Given a game with enough leg candidates, When the builder runs, Then it emits ≥3 parlays scoped to that game (`scope="game"`, `game_id` set).
@@ -23,14 +32,14 @@ Naive multiplication is the trap. A QB throwing for a big day and his WR going o
 - [ ] N4-S1-T3 — Shortfall handling + status note (no junk-leg padding).
 - [ ] N4-S1-T4 — Schema-validate all emitted parlays.
 **QA coverage:**
-- N4-S1-AC1 → `tests/feature/parlay_rules.test.mjs::at_least_three_per_game` (unit) — Done
-- N4-S1-AC2 → `tests/feature/parlay_rules.test.mjs::at_least_three_per_week` (unit) — Done
-- N4-S1-AC3 → `tests/feature/parlay_rules.test.mjs::shortfall_noted_not_padded` (unit) — Planned
-- N4-S1-AC4 → `scripts/validate_data.py::parlays_contract` (data) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test), data(validate_data).
+- N4-S1-AC1 → `tests/feature/parlay_rules.test.mjs::at_least_three_per_game` (unit) — Done  **[REAL]**
+- N4-S1-AC2 → `tests/feature/parlay_rules.test.mjs::at_least_three_per_week` (unit) — Done  **[REAL]**
+- N4-S1-AC3 → `tests/feature/parlay_rules.test.mjs::shortfall_noted_not_padded` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S1-AC4 → `scripts/validate_data.py::parlays_contract` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 50% — REAL 2/4 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/parlay_builder.py`, `data/contracts/parlays.schema.json`, `data/parlays.json`, `tests/feature/parlay_rules.test.mjs`, `data/pipeline_status.json`.
 
-### N4-S2 — Edge-driven leg selection   ·  Status: 🟡   ·  Est: M
+### N4-S2 — Edge-driven leg selection   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Analyst **I want** legs chosen by model-vs-implied edge **so that** parlays are built from genuine advantages, not arbitrary popular props.
 **Acceptance criteria** (Given/When/Then):
 - N4-S2-AC1 — Given a leg with `model_prob` and book `implied_prob`, When its edge is computed, Then `edge = model_prob − implied_prob` and only legs above a stated edge threshold are eligible.
@@ -41,13 +50,13 @@ Naive multiplication is the trap. A QB throwing for a big day and his WR going o
 - [ ] N4-S2-T2 — Eligibility threshold on edge.
 - [ ] N4-S2-T3 — Hold-derived implied prob for no-line legs (negative edge, honest).
 **QA coverage:**
-- N4-S2-AC1 → `tests/feature/parlay_rules.test.mjs::edge_definition` (unit) — Planned
-- N4-S2-AC2 → `tests/feature/parlay_rules.test.mjs::no_line_negative_edge` (unit) — Planned
-- N4-S2-AC3 → `tests/feature/parlay_rules.test.mjs::real_line_positive_edge` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test).
+- N4-S2-AC1 → `tests/feature/parlay_rules.test.mjs::edge_definition` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S2-AC2 → `tests/feature/parlay_rules.test.mjs::no_line_negative_edge` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S2-AC3 → `tests/feature/parlay_rules.test.mjs::real_line_positive_edge` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/parlay_builder.py`, `scripts/scrape/odds.py`.
 
-### N4-S3 — Correlation-aware same-game EV   ·  Status: 🟡   ·  Est: L
+### N4-S3 — Correlation-aware same-game EV   ·  Status: 🟡   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** the Modeler **I want** same-game combined probability computed with a correlation adjustment **so that** EV reflects the shared game-script dependence between legs instead of a false independence product.
 **Acceptance criteria** (Given/When/Then):
 - N4-S3-AC1 — Given a positively-correlated same-game pair (QB pass yards ↔ his WR receiving yards), When combined, Then the correlation-adjusted probability is HIGHER than the naive product `p1·p2`, and the difference from the naive product is asserted numerically.
@@ -60,14 +69,14 @@ Naive multiplication is the trap. A QB throwing for a big day and his WR going o
 - [ ] N4-S3-T3 — Independence (ρ=0) path for cross-game legs.
 - [ ] N4-S3-T4 — `model_ev` from adjusted probability; assert ≠ naive product for correlated legs.
 **QA coverage:**
-- N4-S3-AC1 → `tests/feature/parlay_rules.test.mjs::positive_corr_above_product` (unit) — Planned
-- N4-S3-AC2 → `tests/feature/parlay_rules.test.mjs::negative_corr_below_product` (unit) — Planned
-- N4-S3-AC3 → `tests/feature/parlay_rules.test.mjs::cross_game_independent` (unit) — Planned
-- N4-S3-AC4 → `tests/feature/parlay_rules.test.mjs::ev_uses_haircut_not_product` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test).
+- N4-S3-AC1 → `tests/feature/parlay_rules.test.mjs::positive_corr_above_product` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S3-AC2 → `tests/feature/parlay_rules.test.mjs::negative_corr_below_product` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S3-AC3 → `tests/feature/parlay_rules.test.mjs::cross_game_independent` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S3-AC4 → `tests/feature/parlay_rules.test.mjs::ev_uses_haircut_not_product` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · TOOTHLESS 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/parlay_builder.py`, `tests/feature/parlay_rules.test.mjs`.
 
-### N4-S4 — Confidence tier + correlation note per parlay   ·  Status: 🟡   ·  Est: S
+### N4-S4 — Confidence tier + correlation note per parlay   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Analyst **I want** each parlay tagged with a confidence tier and an explicit correlation note **so that** I can read its risk and dependence at a glance without re-deriving it.
 **Acceptance criteria** (Given/When/Then):
 - N4-S4-AC1 — Given a large edge on few legs, When tiered, Then `confidence_tier = "high"`; a thin edge or many legs yields "low" — a monotone, documented ordinal (a conformal-coverage proxy, not a probability).
@@ -78,8 +87,8 @@ Naive multiplication is the trap. A QB throwing for a big day and his WR going o
 - [ ] N4-S4-T2 — Non-trivial correlation note for same-game; "independent legs" for week.
 - [ ] N4-S4-T3 — Label tier as heuristic pending conformal certification.
 **QA coverage:**
-- N4-S4-AC1 → `tests/feature/parlay_rules.test.mjs::tier_monotone` (unit) — Planned
-- N4-S4-AC2 → `tests/feature/parlay_rules.test.mjs::correlation_note_present` (unit) — Planned
-- N4-S4-AC3 → `scripts/validate_data.py::parlays_contract` (data) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test), data(validate_data).
+- N4-S4-AC1 → `tests/feature/parlay_rules.test.mjs::tier_monotone` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S4-AC2 → `tests/feature/parlay_rules.test.mjs::correlation_note_present` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N4-S4-AC3 → `scripts/validate_data.py::parlays_contract` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/parlay_builder.py`, `scripts/harness/conformal.py`, `data/contracts/parlays.schema.json`.

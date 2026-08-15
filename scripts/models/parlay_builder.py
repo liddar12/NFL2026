@@ -43,11 +43,61 @@ implied probability from the model probability plus a standard hold — which yi
 slightly NEGATIVE single-leg edge (you pay the vig). We never fabricate a positive edge
 out of thin air; a positive edge requires a real, beatable line.
 
+## MARKET INDEPENDENCE (permanent owner policy — the reason this module was rewritten)
+
+"I don't want to use Vegas odds in my predictions. If I use them, I'd only want to show
+them. I want to operate independently of Vegas."
+
+A market price may be DISPLAYED; it may never be an INPUT to a number we produce. On a
+leg that means: the book's de-vigged probability goes to `implied_prob` (the IMPL column)
+and NOWHERE else. `model_prob` is ours or the leg does not ship.
+
+Until R30 this was inverted for spread and total legs: `market["spread"]["home_cover_prob"]`
+— The Odds API's de-vigged cover price — was passed as make_leg's third POSITIONAL
+argument, which is `model_prob`. `implied_prob=None` was passed alongside, so make_leg
+then FABRICATED the IMPL column back off it (mp * (1 + hold)). Both columns on the card
+were the same book number, one with the hold added on; the MODEL EV badge, the
+HIGH/MEDIUM/LOW tier and the combined probability were all functions of the book's price.
+All 16 spread legs in the shipped data/parlays.json were affected — three of them
+(TEN -3 0.4783, NYG +2.5 0.4892, MIN -1.5 0.4826) sat below 0.5, which the old seed
+formula could not produce, which is how it was caught.
+
+What replaced it, per market:
+
+  * SPREAD — priced by OUR margin model at the BOOK'S HANDICAP (`model_cover_prob`
+    below). The handicap is the terms of the bet, not a price: without a number there
+    is no cover bet to price at all. No line -> no spread leg.
+  * TOTAL — DROPPED. No scoring/total model exists anywhere in this repo (nothing
+    projects game or team points), so there is no honest way to produce P(over). The
+    book's `over_prob` is not available to borrow and a seed is not a model.
+  * The old `0.5 + (p_fav - 0.5) * 0.7` cover seed was DELETED, not kept as a fallback.
+    It was a placeholder wearing a model's clothes: a fixed shrink of the win
+    probability toward 0.5 that ignores the handicap entirely (it returns the same
+    number for -1.5 and -10.5) and was never fitted or backtested. Keeping it as a
+    fallback would have restored exactly the failure this fix exists to remove — a
+    number in the MODEL column that no model produced. A real margin model exists
+    (game_model.prob_from_margin); when it cannot be applied the leg is dropped.
+
 Deterministic, stdlib only, reads fixtures.
 """
 
 import itertools
 import math
+import os
+import sys
+from statistics import NormalDist
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", ".."))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+# `_MARGIN_SIGMA` is imported (private) on purpose: the margin<->probability mapping and
+# the sigma that defines it must be ONE constant. A local copy here would let the spread
+# leg drift away from the game model that produced the win probability it starts from.
+from scripts.models.game_model import (  # noqa: E402
+    _MARGIN_SIGMA, prob_from_margin,
+)
 
 # Standard two-way sportsbook hold applied to derive a placeholder implied probability
 # when no real line is supplied. ~4.5% is a typical NFL two-way hold.
@@ -78,6 +128,40 @@ _TIER_MED_EDGE = 0.04
 
 def _clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
+
+
+# ---------------------------------------------------------------------------
+# OUR spread-cover model (no market probability anywhere in it).
+# ---------------------------------------------------------------------------
+def model_home_margin(p_home):
+    """OUR model's expected home margin, in points, from OUR home win probability.
+
+    game_model maps a predicted margin to a win probability with the normal CDF of
+    (margin / sigma), sigma = 13.5 points (the long-run NFL final-margin spread). This
+    is that map run backwards: the margin whose normal CDF is our win probability. It
+    introduces no new information and no market information — it re-expresses the Elo/
+    composite blend in the units a handicap is quoted in, which is the only way to ask
+    "does this side cover THIS number" of a model that emits a win probability.
+    """
+    p = _clamp(float(p_home), 1e-4, 1.0 - 1e-4)
+    return NormalDist().inv_cdf(p) * _MARGIN_SIGMA
+
+
+def model_cover_prob(p_home, home_point):
+    """P(the HOME team covers `home_point`) under OUR margin model.
+
+    home_point is the home side's handicap as the book quotes it: -3.5 means the home
+    team lays 3.5, +2.5 means it receives 2.5. The home side covers when
+    (final margin + home_point) > 0, so with margin ~ Normal(model margin, sigma) the
+    cover probability is the same normal CDF game_model already uses, shifted by the
+    handicap.
+
+    Only the NUMBER comes from the book; the distribution is entirely ours. Pushes get
+    zero mass (the margin model is continuous), which slightly overstates both sides on
+    an integer line such as -3 — a known, documented approximation, not a hidden one.
+    """
+    margin = model_home_margin(p_home)
+    return prob_from_margin(margin + float(home_point))["home"]
 
 
 # ---------------------------------------------------------------------------
@@ -243,16 +327,20 @@ def derive_candidate_legs(game_pred, market=None, props=None):
     """Build a deterministic set of same-game candidate legs for one game.
 
     game_pred : a record from game_model.predict_game (has probs, home, away, game_id).
-    market    : optional real lines, any of:
+    market    : optional real lines (scrape/odds_api.fetch_markets shape), any of:
                   {"moneyline": {"home_prob":..,"away_prob":..},
-                   "spread": {"home_cover_prob":..,"selection":..},
+                   "spread": {"home_cover_prob":..,"away_cover_prob":..,
+                              "home_point":..,"home_selection":..,"away_selection":..},
                    "total":  {"over_prob":..,"line":..}}
-                Real implied probs, if present, are passed straight through.
+                Every probability in here is a BOOK price: it may only ever reach
+                `implied_prob` (the display-only IMPL column). `home_point` is the
+                handicap — the terms of the bet — and OUR model prices it.
     props     : optional list of real prop legs already in make_leg shape (dicts with
                 market/selection/model_prob and optionally implied_prob/_corr_tag/_side).
 
-    Always returns >=3 legs so the >=3-parlays-per-game invariant is satisfiable. The
-    game-derived legs are model seeds (documented); real `market`/`props` refine them.
+    Leg count is NOT fixed: a leg exists only where we have a model for it. Always at
+    least the favorite moneyline; the spread leg needs a real handicap to price; the
+    total leg is not emitted at all (no scoring model — see the module docstring).
     """
     probs = game_pred.get("probs", {"home": 0.5, "away": 0.5})
     home, away = game_pred.get("home", "HOME"), game_pred.get("away", "AWAY")
@@ -272,22 +360,38 @@ def derive_candidate_legs(game_pred, market=None, props=None):
     legs.append(make_leg("moneyline", "%s ML" % fav, p_fav, implied_prob=ml_implied,
                          corr_tag="moneyline", side=fav_side))
 
-    # 2) Spread cover for the favorite. Seed: covering is harder than winning, so shrink
-    #    the win prob toward 0.5. Real spread prob overrides the seed.
+    # 2) Spread cover on the side OUR model favors, priced by OUR margin model at the
+    #    book's handicap.
+    #
+    #    THE SIDE IS CHOSEN ONCE (fav_side, above) and the label, the probability and
+    #    the correlation side are all read off that one choice. Previously the label
+    #    came unconditionally from the home team while the probability came from
+    #    whichever side the model favored, so an away favorite produced a card that
+    #    named one team and priced the other (wrong on 3 of 16 shipped games) and a
+    #    `_side` that flipped the sign of the pair correlation as well.
+    #
+    #    No handicap -> NO LEG. The book's cover price is not a substitute for a model
+    #    and neither is a seed; a cover bet without a number is not a bet.
     spread = (market or {}).get("spread") or {}
-    p_cover = spread.get("home_cover_prob") if fav_is_home else spread.get("away_cover_prob")
-    if p_cover is None:
-        p_cover = 0.5 + (p_fav - 0.5) * 0.7   # documented seed
-    sel = spread.get("selection", "%s cover" % fav)
-    legs.append(make_leg("spread", sel, p_cover, implied_prob=None,
-                         corr_tag="spread", side=fav_side))
+    home_point = spread.get("home_point")
+    sel = spread.get("%s_selection" % fav_side)
+    if home_point is not None and sel:
+        p_cover_home = model_cover_prob(p_home, home_point)
+        p_cover = p_cover_home if fav_is_home else 1.0 - p_cover_home
+        # DISPLAY ONLY: the book's de-vigged cover probability for the SAME side, which
+        # is what the IMPL column is supposed to show. It never touches model_prob.
+        book_cover = (spread.get("home_cover_prob") if fav_is_home
+                      else spread.get("away_cover_prob"))
+        legs.append(make_leg("spread", sel, p_cover, implied_prob=book_cover,
+                             corr_tag="spread", side=fav_side))
 
-    # 3) Game total OVER. Seed at 0.5 (a fair line is ~50/50) unless a real prob given.
-    total = (market or {}).get("total") or {}
-    p_over = total.get("over_prob", 0.5)
-    over_sel = "Over %s" % total["line"] if total.get("line") is not None else "Over"
-    legs.append(make_leg("total", over_sel, p_over, implied_prob=None,
-                         corr_tag="total", side="over"))
+    # 3) Game total OVER — NOT EMITTED. There is no scoring/total model in this repo:
+    #    nothing projects game or team points, so we cannot produce P(over) ourselves.
+    #    The two numbers within reach were the book's `over_prob` (a market price — the
+    #    exact thing that must never be a model input) and a flat 0.5 seed (not a
+    #    model). Dropping the leg is the honest outcome and the owner's instruction.
+    #    Emitting it again requires a real scoring model, not a fallback; the gate check
+    #    validate_data.check_parlay_model_independence() reds if a total leg reappears.
 
     # 4+) Real prop legs (e.g. QB pass yards + his WR receiving yards) appended as-is.
     for prop in (props or []):
@@ -425,14 +529,16 @@ def build_game_parlays(game_pred, market=None, props=None):
     combos.sort()
 
     parlays = []
-    # Take the top distinct combos; guarantee at least 3 (the candidate set has >=3 legs
-    # => >=3 pairwise combos, so this always succeeds).
+    # Take the top distinct combos; guarantee at least 3. With a real slate the candidate
+    # set is the favorite ML + a priced spread + three prop legs, so there are plenty of
+    # pairs; a game with no handicap and no eligible props yields only the ML leg and the
+    # top-up loop below carries the >=3 invariant instead.
     for k, (_, _, i, j, pair) in enumerate(combos[:max(3, 3)]):
         pid = "%s-g%d" % (game_id, k + 1)
         parlays.append(_make_parlay(pid, "game", pair, game_id=game_id))
 
-    # If (pathologically) fewer than 3 combos existed, top up with single-strongest-leg
-    # parlays so the >=3 invariant still holds. (Not reached with >=3 candidate legs.)
+    # If fewer than 3 combos existed, top up with single-leg parlays so the >=3 invariant
+    # still holds. (Only reached when a game has fewer than 3 candidate legs.)
     idx = len(parlays)
     while len(parlays) < 3 and legs:
         pid = "%s-g%d" % (game_id, idx + 1)
@@ -543,6 +649,33 @@ def build_week_parlays_multi(game_preds, markets_by_game=None,
     return out
 
 
+def _report_unmodeled_markets(markets_by_game):
+    """Print ONE stderr line per market we were handed and did not price.
+
+    A missing model is skipped LOUDLY, never silently defaulted (house rule). The
+    pipeline log therefore says out loud, every run, that N total lines arrived and
+    produced no leg because no scoring model exists — so nobody re-discovers the gap by
+    noticing an absence.
+    """
+    totals = sum(1 for m in (markets_by_game or {}).values() if (m or {}).get("total"))
+    if totals:
+        print(
+            "parlay_builder: %d total (over/under) market(s) received and DROPPED — no "
+            "scoring model exists, and a book price is not a model probability." % totals,
+            file=sys.stderr,
+        )
+    unpriceable = sum(
+        1 for m in (markets_by_game or {}).values()
+        if (m or {}).get("spread") and (m or {})["spread"].get("home_point") is None
+    )
+    if unpriceable:
+        print(
+            "parlay_builder: %d spread market(s) carried no handicap (home_point) and "
+            "produced no leg — nothing to price against." % unpriceable,
+            file=sys.stderr,
+        )
+
+
 def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
     """Build the full parlay list for a slate: >=3 per game AND >=3 for the week.
 
@@ -558,6 +691,7 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
     """
     markets_by_game = markets_by_game or {}
     props_by_game = props_by_game or {}
+    _report_unmodeled_markets(markets_by_game)
 
     parlays = []
     for gp in game_preds:

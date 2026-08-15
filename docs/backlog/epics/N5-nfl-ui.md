@@ -5,6 +5,15 @@
 
 **Reuse:** A future adapter re-authors THIS epic end to end — the views, the team-identity tints, and the domain labels are NFL-specific. What it reuses from P7 is the shell, the token/design primitives, the contrast gate, and the `app/data.js` contract-reader pattern. The reusable seam is: views render *only* from validated `data/*.json` contracts through `app/render.js` primitives; swap the contracts + view copy and the presentation machinery carries over.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **22 acceptance criteria**, **2 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **9%** (2/22 automatable). **13** name a test file that does not
+> exist; **7** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/slate_view.test.mjs`, `tests/feature/parlays_view.test.mjs`, `tests/feature/status_gate.test.mjs` and 6 more. Stories with **nothing asserted at all**: N5-S1, N5-S2, N5-S3, N5-S6.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Instantiate the P7 shell as the NFL surface: three data-driven views — Slate (game model win-probability), Players (season projections with an 80% conformal interval), Parlays (per-leg model-vs-implied edge, correlation notes, tier) — plus the planned live in-game and game-detail views. Every surface renders only from validated contracts and shows honest states (`ESTIMATE`, "no signals weighted yet · day zero", `DATA · DEGRADED`) rather than inventing confidence. The UI is downstream of the harness: it never computes predictions, it displays what the pipeline locked.
 
@@ -13,7 +22,7 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 
 ## User stories
 
-### N5-S1 — Contract-reader wiring (single data source)   ·  Status: 🟡   ·  Est: S
+### N5-S1 — Contract-reader wiring (single data source)   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Analyst **I want** every view to read through `app/data.js` **so that** a contract change touches one file and no view fetches raw JSON.
 **Acceptance criteria:**
 - N5-S1-AC1 — Given any view, When it needs data, Then it calls an `app/data.js` getter (playerProjections/gamePredictions/parlays/meta/pipelineStatus) — no direct `fetch` of `/data/*` in view code.
@@ -24,13 +33,13 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S1-T2 — Enforce `{ __error }` marker on fetch/parse failure (no throw into views).
 - [ ] N5-S1-T3 — Add a unit test for the promise-dedupe and the error-marker path.
 **QA coverage:**
-- N5-S1-AC1 → `tests/smoke.sh::no-raw-data-fetch-in-views` (smoke) — Planned
-- N5-S1-AC2 → `tests/feature/data_reader.test.mjs::error-marker-on-bad-feed` (unit) — Planned
-- N5-S1-AC3 → `tests/feature/data_reader.test.mjs::promise-dedupe` (unit) — Planned
-- Coverage: 3/3 = 100%. Test types: unit(node:test) | smoke(bash).
+- N5-S1-AC1 → `tests/smoke.sh::no-raw-data-fetch-in-views` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- N5-S1-AC2 → `tests/feature/data_reader.test.mjs::error-marker-on-bad-feed` (unit) — Planned  **[MISSING]**
+- N5-S1-AC3 → `tests/feature/data_reader.test.mjs::promise-dedupe` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/data.js`, `app/main.js`.
 
-### N5-S2 — Slate view (game model win-prob meters)   ·  Status: 🟡   ·  Est: M
+### N5-S2 — Slate view (game model win-prob meters)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** the week's slate with a win-probability meter per game **so that** I see the model's read at a glance with its honesty state.
 **Acceptance criteria:**
 - N5-S2-AC1 — Given `data/game_predictions.json`, When the Slate renders, Then each game shows a two-sided win-prob meter whose segments sum to 100% and match the contract's probability vector (never a re-derived point pick).
@@ -43,14 +52,14 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S2-T3 — Apply AA-safe team tints from `app/teams.js`; wire honesty + degraded badges.
 - [ ] N5-S2-T4 — Add unit test (meter segments sum to 100, honest-state selection) + e2e render.
 **QA coverage:**
-- N5-S2-AC1 → `tests/feature/slate_view.test.mjs::meter-matches-vector` (unit) — Planned
-- N5-S2-AC2 → `tests/feature/slate_view.test.mjs::estimate-badge` (unit) — Planned
-- N5-S2-AC3 → `tests/feature/contrast_aa.test.mjs::slate-meter-and-tints` (contrast) — Planned
-- N5-S2-AC4 → `tests/web/slate.spec.mjs::degraded-state` (e2e-web) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | contrast(AA) | e2e-web.
+- N5-S2-AC1 → `tests/feature/slate_view.test.mjs::meter-matches-vector` (unit) — Planned  **[MISSING]**
+- N5-S2-AC2 → `tests/feature/slate_view.test.mjs::estimate-badge` (unit) — Planned  **[MISSING]**
+- N5-S2-AC3 → `tests/feature/contrast_aa.test.mjs::slate-meter-and-tints` (contrast) — Planned  **[TOOTHLESS · unwritten-case]**
+- N5-S2-AC4 → `tests/web/slate.spec.mjs::degraded-state` (e2e-web) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/views/slate.js` (new), `app/render.js` (new), `app/teams.js` (new), `app/data.js`, `data/game_predictions.json`.
 
-### N5-S3 — Players view (projection + 80% conformal interval)   ·  Status: 🟡   ·  Est: M
+### N5-S3 — Players view (projection + 80% conformal interval)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** each player's season projection shown with its 80% conformal interval **so that** I read a range, not a false-precision point.
 **Acceptance criteria:**
 - N5-S3-AC1 — Given `data/player_projections.json`, When a player renders, Then the point projection is shown WITH its 80% interval `[lo, hi]` from the contract (lo ≤ point ≤ hi), never a bare number.
@@ -63,14 +72,14 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S3-T3 — Wire `estimate` badge + position filter; AA-safe styling.
 - [ ] N5-S3-T4 — Unit-test interval invariants (lo ≤ point ≤ hi; missing-bound degrade) + e2e render.
 **QA coverage:**
-- N5-S3-AC1 → `tests/feature/players_view.test.mjs::interval-contains-point` (unit) — Planned
-- N5-S3-AC2 → `tests/feature/players_view.test.mjs::estimate-badge` (unit) — Planned
-- N5-S3-AC3 → `tests/feature/contrast_aa.test.mjs::interval-bar` (contrast) + `tests/web/players.spec.mjs::position-filter` (e2e-web) — Planned
-- N5-S3-AC4 → `tests/feature/players_view.test.mjs::missing-bound-degrade` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | contrast(AA) | e2e-web.
+- N5-S3-AC1 → `tests/feature/players_view.test.mjs::interval-contains-point` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N5-S3-AC2 → `tests/feature/players_view.test.mjs::estimate-badge` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- N5-S3-AC3 → `tests/feature/contrast_aa.test.mjs::interval-bar` (contrast) + `tests/web/players.spec.mjs::position-filter` (e2e-web) — Planned  **[TOOTHLESS · unwritten-case]**
+- N5-S3-AC4 → `tests/feature/players_view.test.mjs::missing-bound-degrade` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · TOOTHLESS 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/views/players.js` (new), `app/render.js` (new), `app/data.js`, `data/player_projections.json`.
 
-### N5-S4 — Parlays view (edge, correlation, tier)   ·  Status: 🟡   ·  Est: M
+### N5-S4 — Parlays view (edge, correlation, tier)   ·  Status: 🟡   ·  Est: M   ·  **QA: 1/4 ACs asserted (25%)**
 **As** an Analyst **I want** each parlay's legs with model-vs-implied edge, correlation notes, and a tier **so that** I judge whether the "edge" is real or noise.
 **Acceptance criteria:**
 - N5-S4-AC1 — Given `data/parlays.json`, When a parlay renders, Then each leg shows model prob, implied (market) prob, and their signed edge (model − implied), with edge sign color-coded (positive/negative tokens).
@@ -83,14 +92,14 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S4-T3 — Surface correlation notes; suppress naive-independent combined odds when correlated.
 - [ ] N5-S4-T4 — Unit-test edge math + ≥3/game floor + honest-state; add e2e render.
 **QA coverage:**
-- N5-S4-AC1 → `tests/feature/parlays_view.test.mjs::edge-model-minus-implied` (unit) — Planned
-- N5-S4-AC2 → `tests/feature/parlays_view.test.mjs::correlated-no-naive-odds` (unit) — Planned
-- N5-S4-AC3 → `tests/feature/parlay_rules.test.mjs::min-three-per-game` (unit, exists) — Done
-- N5-S4-AC4 → `tests/web/parlays.spec.mjs::tier-and-estimate` (e2e-web) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | e2e-web.
+- N5-S4-AC1 → `tests/feature/parlays_view.test.mjs::edge-model-minus-implied` (unit) — Planned  **[MISSING]**
+- N5-S4-AC2 → `tests/feature/parlays_view.test.mjs::correlated-no-naive-odds` (unit) — Planned  **[MISSING]**
+- N5-S4-AC3 → `tests/feature/parlay_rules.test.mjs::min-three-per-game` (unit, exists) — Done  **[REAL]**
+- N5-S4-AC4 → `tests/web/parlays.spec.mjs::tier-and-estimate` (e2e-web) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 25% — REAL 1/4 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/views/parlays.js` (new), `app/render.js` (new), `app/data.js`, `data/parlays.json`, `tests/feature/parlay_rules.test.mjs`.
 
-### N5-S5 — Team identity tints (AA-safe)   ·  Status: ⬜   ·  Est: S
+### N5-S5 — Team identity tints (AA-safe)   ·  Status: ⬜   ·  Est: S   ·  **QA: 1/3 ACs asserted (33%)**
 **As** a Modeler **I want** AA-safe per-team color tints in one module **so that** team identity reads on the dark theme without ever failing contrast.
 **Acceptance criteria:**
 - N5-S5-AC1 — Given `app/teams.js`, When a team tint is used as a surface/background, Then its paired text/graphic token meets AA (text ≥ 4.5:1, graphics ≥ 3:1) and is included in the P7-S5 pairing set.
@@ -101,13 +110,13 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S5-T2 — Add each tint pairing to the contrast test enumeration.
 - [ ] N5-S5-T3 — Neutral fallback for unknown teams; grep guard against raw hex.
 **QA coverage:**
-- N5-S5-AC1 → `tests/feature/contrast_aa.test.mjs::team-tints-checked` (contrast) — Planned
-- N5-S5-AC2 → `tests/feature/teams.test.mjs::unknown-team-fallback` (unit) — Planned
-- N5-S5-AC3 → `tests/smoke.sh::tints-are-tokens` (smoke) — Planned
-- Coverage: 3/3 = 100%. Test types: contrast(AA) | unit(node:test) | smoke(bash).
+- N5-S5-AC1 → `tests/feature/contrast_aa.test.mjs::team-tints-checked` (contrast) — Planned  **[REAL]**
+- N5-S5-AC2 → `tests/feature/teams.test.mjs::unknown-team-fallback` (unit) — Planned  **[MISSING]**
+- N5-S5-AC3 → `tests/smoke.sh::tints-are-tokens` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- **Coverage (measured 2026-08-15): 33% — REAL 1/3 · MISSING 1 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/teams.js` (new), `app/theme.css` (new), `tests/feature/contrast_aa.test.mjs`.
 
-### N5-S6 — Live in-game view + game detail   ·  Status: ⬜   ·  Est: L
+### N5-S6 — Live in-game view + game detail   ·  Status: ⬜   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Analyst **I want** a live in-game view and a per-game detail drill-down **so that** I can watch the model update against the live score — with FINAL-only results honored.
 **Acceptance criteria:**
 - N5-S6-AC1 — Given the live feed (N6 `/api/nfl`), When a game is in progress, Then the live view shows current score + game state as DISPLAY-ONLY and never renders it as a settled result (STATUS-gating: only FINAL settles — see N6).
@@ -120,9 +129,9 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S6-T3 — Enforce display-only vs settled rendering via the shared STATUS gate.
 - [ ] N5-S6-T4 — e2e for live→final transition and degraded fallback.
 **QA coverage:**
-- N5-S6-AC1 → `tests/feature/status_gate.test.mjs::live-is-display-only` (unit) — Planned
-- N5-S6-AC2 → `tests/web/game_detail.spec.mjs::detail-join` (e2e-web) — Planned
-- N5-S6-AC3 → `tests/web/live.spec.mjs::degraded-fallback` (e2e-web) — Planned
-- N5-S6-AC4 → `tests/feature/status_gate.test.mjs::final-settles` (unit) — Planned
-- Coverage: 4/4 = 100%. Test types: unit(node:test) | e2e-web.
+- N5-S6-AC1 → `tests/feature/status_gate.test.mjs::live-is-display-only` (unit) — Planned  **[MISSING]**
+- N5-S6-AC2 → `tests/web/game_detail.spec.mjs::detail-join` (e2e-web) — Planned  **[MISSING]**
+- N5-S6-AC3 → `tests/web/live.spec.mjs::degraded-fallback` (e2e-web) — Planned  **[MISSING]**
+- N5-S6-AC4 → `tests/feature/status_gate.test.mjs::final-settles` (unit) — Planned  **[MISSING]**
+- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/views/*` (new), `app/live-scores.js` (new, N6), `app/live-poller.js` (new, N6), `app/render.js` (new), `app/data.js`.

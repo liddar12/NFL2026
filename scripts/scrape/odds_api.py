@@ -4,8 +4,22 @@ Fetches h2h (moneyline), spreads, and totals for the NFL slate and returns them 
 by OUR schedule game_id, in the exact shape parlay_builder.derive_candidate_legs eats:
 
     {game_id: {"moneyline": {"home_prob":.., "away_prob":..},
-               "spread":    {"home_cover_prob":.., "selection":..},
+               "spread":    {"home_cover_prob":.., "away_cover_prob":..,
+                             "home_point":.., "home_selection":..,
+                             "away_selection":..},
                "total":     {"over_prob":.., "line":..}}}
+
+The spread block carries BOTH sides' selection strings and the home handicap as a
+NUMBER. It used to carry a single `selection` built unconditionally from the home
+team while the consumer picked its probability by whichever side OUR model favored —
+so whenever the model's favorite was the away team the card named one team and priced
+the other (R30 finding `model-slate-parlays-spread-selection-side-mismatch`: wrong on
+3 of 16 shipped games). Emitting both labels lets the consumer pick a side ONCE and
+read the label, the probability and the correlation side off that single choice.
+`home_point` is the handicap itself (-3.5 = home laying 3.5); the away label mirrors
+its sign. The handicap is the TERMS OF THE BET, not a price — our own margin model
+prices it (see parlay_builder.model_cover_prob), and the book's de-vigged
+`home_cover_prob`/`away_cover_prob` stay DISPLAY ONLY.
 
 Matching is done on (home, away) canonical team abbreviations via renames.normalize_team
 (the Odds API uses full "City Nickname" strings, which the RENAMES map already covers).
@@ -72,6 +86,15 @@ def _devig_pair(p_a_raw, p_b_raw):
     return p_a_raw / total, p_b_raw / total
 
 
+def _spread_selection(team, point):
+    """Format one side of a spread: ('KC', -3.5) -> 'KC -3.5'; ('BUF', 3.5) -> 'BUF +3.5'.
+
+    One formatter, called once per side, so the two labels can never disagree about the
+    sign convention (a home line of -3.5 IS an away line of +3.5).
+    """
+    return "%s %s%g" % (team, "+" if point > 0 else "", point)
+
+
 def _first_market(bookmakers, key):
     """First bookmaker market with `key` that carries outcomes, or None.
 
@@ -125,7 +148,9 @@ def parse_event(event, matcher):
                 "away_prob": round(pa, 4),
             }
 
-    # Spread: de-vig the two cover prices; selection names the home line, e.g. "KC -3.5".
+    # Spread: de-vig the two cover prices and label BOTH sides, e.g. "KC -3.5" and
+    # "BUF +3.5". A single home-only label is what let the consumer name one team and
+    # price the other; the caller now selects a side and reads that side's label.
     m = _first_market(books, "spreads")
     if m is not None:
         by_name = {o.get("name"): o for o in m["outcomes"]}
@@ -140,7 +165,11 @@ def parse_event(event, matcher):
             markets["spread"] = {
                 "home_cover_prob": round(ph, 4),
                 "away_cover_prob": round(pa, 4),
-                "selection": "%s %s%g" % (home, "+" if point > 0 else "", point),
+                # The handicap as a number: the bet's terms, which our own margin
+                # model needs in order to price the cover independently of the book.
+                "home_point": point,
+                "home_selection": _spread_selection(home, point),
+                "away_selection": _spread_selection(away, -point),
             }
 
     # Total: de-vig Over/Under prices; line is the posted total.

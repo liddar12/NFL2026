@@ -3,7 +3,11 @@
 This directory is two things at once:
 
 1. **The Gate-3 backlog for NFL2026** — epics → user stories → tasks, each with acceptance
-   criteria and ≥90% QA coverage.
+   criteria and a named test per criterion. **The ≥90% coverage this line used to claim was never
+   achieved:** measured against the filesystem on 2026-08-15, 18 of 309 acceptance criteria (6.1%)
+   are asserted by a test that exists, runs, and bites. See [`QA_COVERAGE.md`](./QA_COVERAGE.md) for
+   the method and the per-story breakdown, and [`epics/QA-debt.md`](./epics/QA-debt.md) for the work
+   to close it.
 2. **A reusable framework.** The backlog is split into a **Platform layer** (domain-agnostic
    epics — the actual framework) and an **NFL Adapter layer** (this season's instantiation). A
    future project — NBA, MLB, an F1 revival, or a Kalshi/Polymarket markets adapter — lifts the
@@ -16,6 +20,12 @@ log lives in [`DECISIONS.md`](./DECISIONS.md).
 
 ## Status legend
 `✅ Done` · `🟡 Partial` (skeleton/scaffold exists, not yet fed by real data) · `⬜ Planned`
+
+> **A status tag describes the CODE, never the tests.** Nine stories are `✅`; seven of them have
+> zero acceptance criteria asserted by anything (P5-S4, P6-S1, P7-S2, P7-S3, P8-S3, P9-S4, P9-S6).
+> Those now read `✅ code shipped · ⚠ QA UNVERIFIED`. Every story header carries a measured
+> `QA: n/m ACs asserted` field, and every AC→test mapping carries a measured
+> `[REAL]` / `[MISSING]` / `[TOOTHLESS · shape]` tag. Trust those, not the coverage prose.
 
 > **Branch note:** this backlog is based on `main`. The **design system + wired views** (epics P7 and
 > N5) were built and CI-verified in **PR #1**, now **merged to `main`** — so those files are present on
@@ -48,15 +58,23 @@ log lives in [`DECISIONS.md`](./DECISIONS.md).
 | [N5 · NFL UI (Slate / Players / Parlays / Live)](./epics/N5-nfl-ui.md) | 🟡 | P7 | The three wired views; team identity tints (AA-safe); honest estimate/day-zero/degraded states. |
 | [N6 · Live Scores Edge](./epics/N6-live-scores.md) | ⬜ | P5, P9 | Vercel `/api/nfl` (ESPN), STATUS-gating (only FINAL counts), RENAMES kept in sync. |
 
+### Cross-cutting
+| Epic | Status | What it is |
+|---|---|---|
+| [QA-DEBT · Close the coverage the backlog already claimed](./epics/QA-debt.md) | ⬜ | The measured gap between what `QA_COVERAGE.md` claimed and what the gate asserts. Ten stories, prioritised biggest-honesty-gap first: `sw.js`/`_headers` (8 ACs on two ✅ stories, currently 0 asserted), the data-reader boundary, driving the harness Python instead of JS mirrors, one source of truth for the signal registry, feed health that fails on zero rows. |
+
 ## Conventions
 
 - **IDs are stable and unique.** Story `P1-S2`, its criteria `P1-S2-AC1…`, its tasks `P1-S2-T1…`.
   The [QA matrix](./QA_COVERAGE.md) references these.
 - **Every acceptance criterion is objectively verifiable** — Given/When/Then, with numbers
   (log-loss margins, coverage %, contrast ratios, row-count/staleness thresholds, ≥3 parlays/game).
-- **QA coverage standard: ≥90%** of each story's acceptance criteria map to at least one named
-  automated test. Genuinely manual-only ACs (e.g. a deploy rollback drill) are flagged as such and
-  excluded from the denominator; the automatable remainder still clears 90%.
+- **QA coverage standard: ≥90%** of each story's acceptance criteria are asserted by an automated
+  test that fails when the criterion is violated. Genuinely manual-only ACs (e.g. a deploy rollback
+  drill) are flagged as such and excluded from the denominator. **This is the standard, not the
+  status: 0 of 87 stories meet it today** (best: P1-S5 and P6-S2 at 67%; 62 stories at 0%).
+  "Maps to a named test" is *not* the standard — that phrasing is what let 160 mappings naming
+  non-existent files be counted as coverage. Only a test that exists and bites counts.
 - **Test types:** `unit` (node:test) · `data` (`validate_data.py`) · `smoke` (bash) · `e2e-web` /
   `e2e-pwa` (Playwright) · `contrast` (WCAG-AA) · `backtest` (leak-safe) · `manual`.
 - **Traceability:** every story names the real files it touches, so the backlog maps onto the code.
@@ -81,5 +99,9 @@ models are plug-ins.** To start `NBA2027` (or a markets adapter):
 
 ## Related design docs
 - [`DECISIONS.md`](./DECISIONS.md) — dated decision log (Gate 1 architecture, Gate 2 design, invariants).
-- [`QA_COVERAGE.md`](./QA_COVERAGE.md) — the aggregate acceptance-criteria → test coverage matrix.
+- [`QA_COVERAGE.md`](./QA_COVERAGE.md) — the aggregate acceptance-criteria → test coverage matrix,
+  measured from the filesystem rather than asserted. Rewritten 2026-08-15; the prior version was false.
+- [`epics/QA-debt.md`](./epics/QA-debt.md) — the backlog that closes the measured gap.
+- [`../qa/R30_RCA_FINDINGS.md`](../qa/R30_RCA_FINDINGS.md) — the audit that found it
+  (`qa-coverage-rollup-counts-tests-that-do-not-exist` and six related findings).
 - `../PLATFORM_THESIS.md` · `../ARCHITECTURE.md` · `../EVALUATION_HARNESS.md` · `../SIGNAL_REGISTRY.md` · `../ROADMAP.md`

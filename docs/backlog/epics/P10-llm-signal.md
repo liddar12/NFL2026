@@ -2,6 +2,15 @@
 **Layer:** Platform   ·   **Status:** ⬜ Planned   ·   **Instantiates:** —
 **Reuse:** A future adapter reuses the entire quarantine → encode → backtest → promote pipeline and the "LLM output is just another signal at weight 0" contract wholesale; it re-authors only the *prompt templates* and which registered signals the encoder targets (here: coaching/coordinator/scheme/off-field factors). The gate, the honesty rules, and the promotion criterion are domain-agnostic.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **19 acceptance criteria**, **0 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **0%** (0/18 automatable). **11** name a test file that does not
+> exist; **7** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/llm_signal_promote.test.mjs`, `tests/feature/llm_signal_encode.test.mjs`, `tests/feature/llm_signal_quarantine.test.mjs`, `tests/feature/llm_signal_workflow.test.mjs`. Stories with **nothing asserted at all**: P10-S1, P10-S2, P10-S3, P10-S4, P10-S5.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Turn unstructured qualitative inputs the box score can't see — coordinator/head-coach changes, scheme changes, off-field issues (suspensions, holdouts, conduct) — into a **numeric signal** by encoding them with an LLM, and subject that signal to exactly the same discipline as every other factor: it enters the registry at `weight = 0.0` and is promoted *only* when it demonstrates out-of-sample lift on played events (beats the current weight vector on held-out log-loss by the NEVER-REGRESS margin, 0.0015). This is the "develop my AI's predictive ability" module built with backtest honesty: the LLM is a feature extractor, not an oracle, and its numbers are trusted only in proportion to measured performance on resolved games.
 
@@ -10,7 +19,7 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 
 ## User stories
 
-### P10-S1 — Quarantine the prototype (commits nothing to the product)   ·  Status: ⬜   ·  Est: M
+### P10-S1 — Quarantine the prototype (commits nothing to the product)   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**
 **As** an Operator **I want** the LLM signal developed entirely inside `scripts/proto/` and `data/proto/` **so that** an experimental, non-deterministic component cannot touch the shipping model, the regression gate, or `data/*.json` until it has earned promotion.
 **Acceptance criteria** (Given/When/Then):
 - P10-S1-AC1 — Given the prototype, When it runs, Then it reads and writes only under `scripts/proto/` and `data/proto/` and never modifies `data/meta.json`, `data/*.json` product files, or any `scripts/models/*` / `scripts/optimize/*` path.
@@ -23,14 +32,14 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 - [ ] P10-S1-T3 — Exclude `data/proto/` from `validate_data.py`'s product-contract scan.
 - [ ] P10-S1-T4 — Prove product-output invariance with and without the proto tree present.
 **QA coverage**:
-- P10-S1-AC1 → `tests/feature/llm_signal_quarantine.test.mjs::writes-only-under-proto` (unit) — Planned
-- P10-S1-AC2 → `tests/feature/llm_signal_quarantine.test.mjs::gate-is-network-free` (unit) + `tests/run_gate.sh` (smoke) — Planned
-- P10-S1-AC3 → `scripts/validate_data.py::proto_excluded` (data) — Planned
-- P10-S1-AC4 → `tests/feature/llm_signal_quarantine.test.mjs::product-output-invariant` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test) | data(validate_data) | smoke(bash).
+- P10-S1-AC1 → `tests/feature/llm_signal_quarantine.test.mjs::writes-only-under-proto` (unit) — Planned  **[MISSING]**
+- P10-S1-AC2 → `tests/feature/llm_signal_quarantine.test.mjs::gate-is-network-free` (unit) + `tests/run_gate.sh` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S1-AC3 → `scripts/validate_data.py::proto_excluded` (data) — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S1-AC4 → `tests/feature/llm_signal_quarantine.test.mjs::product-output-invariant` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 2 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new `scripts/proto/llm_signal/`, new `data/proto/`, `scripts/validate_data.py`, `tests/run_gate.sh`, new `tests/feature/llm_signal_quarantine.test.mjs`.
 
-### P10-S2 — Encode unstructured inputs into a deterministic numeric signal   ·  Status: ⬜   ·  Est: L
+### P10-S2 — Encode unstructured inputs into a deterministic numeric signal   ·  Status: ⬜   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** the LLM to convert qualitative inputs into a bounded, reproducible numeric value per event **so that** coaching/scheme/off-field information becomes a feature the optimizer can weigh, with the math locked by tests.
 **Acceptance criteria** (Given/When/Then):
 - P10-S2-AC1 — Given a qualitative input record (e.g. "new OC installs a faster passing scheme"; "WR suspended 3 games"), When the encoder runs, Then it emits a numeric value in a fixed bounded range (e.g. `[-1.0, 1.0]`) with a `direction` and a `confidence`, targeting a named registry signal (`coordinator_change`, `head_coach_change`, `scheme_fit`, `qb_coaching`, or `off_field`).
@@ -44,14 +53,14 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 - [ ] P10-S2-T4 — Unit-test the math on fixtures: bounds, neutral-on-malformed, determinism, off_field-vs-injury separation.
 - [ ] P10-S2-T5 — Record token/cost and model id per call into the backtest log for reproducibility.
 **QA coverage**:
-- P10-S2-AC1 → `tests/feature/llm_signal_encode.test.mjs::emits-bounded-value-for-named-signal` (unit) — Planned
-- P10-S2-AC2 → `tests/feature/llm_signal_encode.test.mjs::neutral-on-malformed` (unit) — Planned
-- P10-S2-AC3 → `tests/feature/llm_signal_encode.test.mjs::deterministic-given-response` (unit) — Planned
-- P10-S2-AC4 → `tests/feature/llm_signal_encode.test.mjs::off-field-not-double-counting-injury` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test) | data(schema contract). Note: the live-LLM call itself is manual/non-deterministic and is exercised via cached fixtures; the automatable math is 100% covered.
+- P10-S2-AC1 → `tests/feature/llm_signal_encode.test.mjs::emits-bounded-value-for-named-signal` (unit) — Planned  **[MISSING]**
+- P10-S2-AC2 → `tests/feature/llm_signal_encode.test.mjs::neutral-on-malformed` (unit) — Planned  **[MISSING]**
+- P10-S2-AC3 → `tests/feature/llm_signal_encode.test.mjs::deterministic-given-response` (unit) — Planned  **[MISSING]**
+- P10-S2-AC4 → `tests/feature/llm_signal_encode.test.mjs::off-field-not-double-counting-injury` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new `scripts/proto/llm_signal/encoder.py`, new `data/proto/llm_inputs.json` + cached responses, new `data/proto/llm_signal.schema.json`, new `tests/feature/llm_signal_encode.test.mjs`; targets registry signals in `scripts/signals/registry.py`.
 
-### P10-S3 — Enters at weight 0; promoted only on measured lift   ·  Status: ⬜   ·  Est: L
+### P10-S3 — Enters at weight 0; promoted only on measured lift   ·  Status: ⬜   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
 **As** a Modeler **I want** the LLM signal held at weight 0.0 until it beats the baseline on held-out log-loss **so that** the model gains from the LLM only when the LLM demonstrably helps — never because it sounds convincing.
 **Acceptance criteria** (Given/When/Then):
 - P10-S3-AC1 — Given the LLM-targeted signals, When the product model is built pre-promotion, Then their weights are exactly 0.0 in `data/meta.json` (the encoder producing values does NOT imply weight).
@@ -65,14 +74,14 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 - [ ] P10-S3-T4 — Emit a promotion report (incumbent vs candidate loss, margin, folds) to `data/proto/`.
 - [ ] P10-S3-T5 — Assert weights stay 0.0 in the product until a report shows a passing gate.
 **QA coverage**:
-- P10-S3-AC1 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) + `tests/feature/llm_signal_promote.test.mjs::zero-until-promoted` (unit) — Planned
-- P10-S3-AC2 → `tests/feature/llm_signal_promote.test.mjs::adopt-only-above-margin` (unit, backtest) reusing `scripts/optimize/never_regress.py` — Planned
-- P10-S3-AC3 → `tests/feature/llm_signal_promote.test.mjs::leak-safe-as-of` (unit, backtest) — Planned
-- P10-S3-AC4 → `tests/feature/llm_signal_promote.test.mjs::promotion-report-states-margin` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test) | backtest(leak-safe). 
+- P10-S3-AC1 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) + `tests/feature/llm_signal_promote.test.mjs::zero-until-promoted` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S3-AC2 → `tests/feature/llm_signal_promote.test.mjs::adopt-only-above-margin` (unit, backtest) reusing `scripts/optimize/never_regress.py` — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S3-AC3 → `tests/feature/llm_signal_promote.test.mjs::leak-safe-as-of` (unit, backtest) — Planned  **[MISSING]**
+- P10-S3-AC4 → `tests/feature/llm_signal_promote.test.mjs::promotion-report-states-margin` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 2 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new `scripts/proto/llm_signal/backtest.py`, `scripts/optimize/never_regress.py`, `scripts/optimize/optimize_weights.py`, `scripts/harness/snapshot.py`, `scripts/harness/metrics.py`, `data/meta.json`, new `tests/feature/llm_signal_promote.test.mjs`.
 
-### P10-S4 — Estimate-vs-measured honesty for LLM outputs   ·  Status: ⬜   ·  Est: M
+### P10-S4 — Estimate-vs-measured honesty for LLM outputs   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the System **I want** every LLM-derived prediction flagged as an estimate until its event resolves **so that** a fluent guess can never masquerade as a measured result.
 **Acceptance criteria** (Given/When/Then):
 - P10-S4-AC1 — Given an LLM-derived snapshot row for an unresolved event, When validated, Then `estimate == true` and `brier`/`log_loss` are absent or null (an estimate may never carry measured scores).
@@ -84,13 +93,13 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 - [ ] P10-S4-T3 — STATUS-gate the resolution step so only finals feed measured lift.
 - [ ] P10-S4-T4 — Add honesty assertions to the proto backtest test.
 **QA coverage**:
-- P10-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::estimate-has-no-scores` (unit) — Planned
-- P10-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::resolved-shows-receipts` (unit) — Planned
-- P10-S4-AC3 → `tests/feature/llm_signal_promote.test.mjs::final-only-scoring` (unit) — Planned
-  Coverage: 3/3 = 100%. Test types: unit(node:test) | backtest(leak-safe).
+- P10-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::estimate-has-no-scores` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::resolved-shows-receipts` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P10-S4-AC3 → `tests/feature/llm_signal_promote.test.mjs::final-only-scoring` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 1 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/honesty.py`, `scripts/harness/snapshot.py`, `tests/feature/backtest_honesty.test.mjs`, new `tests/feature/llm_signal_promote.test.mjs`.
 
-### P10-S5 — Manual-dispatch workflow; nothing ships without passing the gate   ·  Status: ⬜   ·  Est: M
+### P10-S5 — Manual-dispatch workflow; nothing ships without passing the gate   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
 **As** an Operator **I want** the LLM signal run only via a manual-dispatch workflow that commits nothing to the product unless the gate passes **so that** cost, non-determinism, and promotion stay under explicit human control.
 **Acceptance criteria** (Given/When/Then):
 - P10-S5-AC1 — Given the workflow, When triggered, Then it is `workflow_dispatch`-only (no `schedule:` trigger — LLM cost/non-determinism is not on a cron) and runs the encode→backtest→report pipeline into `data/proto/` only.
@@ -104,9 +113,9 @@ The temptation with an LLM is to let a fluent narrative override the model — t
 - [ ] P10-S5-T4 — Store cost/model-id/token usage as a run artifact.
 - [ ] P10-S5-T5 — Verify gate stays green with the workflow never having run.
 **QA coverage**:
-- P10-S5-AC1 → `tests/feature/llm_signal_workflow.test.mjs::dispatch-only-no-schedule` (unit, YAML lint) — Planned
-- P10-S5-AC2 → `tests/feature/llm_signal_workflow.test.mjs::no-promotion-commits-nothing` (unit) — Planned
-- P10-S5-AC3 → manual — confirmed promotion + deploy is a human handoff (race-safe merge, rollback stated); the *decision logic* (margin cleared → propose) is unit-tested via `llm_signal_promote.test.mjs::adopt-only-above-margin`.
-- P10-S5-AC4 → `tests/run_gate.sh` (smoke) — Planned
-  Coverage: 3/4 automatable ACs covered = 100% of automatable (AC3's ship step is manual-only by design; its decision logic is covered). Test types: unit(node:test) | smoke(bash) | manual.
+- P10-S5-AC1 → `tests/feature/llm_signal_workflow.test.mjs::dispatch-only-no-schedule` (unit, YAML lint) — Planned  **[MISSING]**
+- P10-S5-AC2 → `tests/feature/llm_signal_workflow.test.mjs::no-promotion-commits-nothing` (unit) — Planned  **[MISSING]**
+- P10-S5-AC3 → manual — confirmed promotion + deploy is a human handoff (race-safe merge, rollback stated); the *decision logic* (margin cleared → propose) is unit-tested via `llm_signal_promote.test.mjs::adopt-only-above-margin`.  **[MANUAL]**
+- P10-S5-AC4 → `tests/run_gate.sh` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new `.github/workflows/llm_signal.yml`, `scripts/proto/llm_signal/`, `data/proto/`, `data/meta.json`, `tests/run_gate.sh`, new `tests/feature/llm_signal_workflow.test.mjs`, new `tests/feature/llm_signal_promote.test.mjs`.

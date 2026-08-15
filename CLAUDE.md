@@ -107,9 +107,22 @@ Live data — hard-won rules (inherited from wc2026):
 
 The models & optimizer (core inherited asset — do not weaken):
 - J5L Composite: weighted blend of curated + Elo + signals; weights FITTED, not hand-set.
-- Market model: sportsbook/Kalshi/Polymarket odds ingested as a first-class model.
-- Hybrid: fitted blend of J5L / market / elo. Blend FULL probability vectors and take max on
-  disagreement — NEVER average point picks. Market typically earns the largest weight.
+- MARKET PRICES ARE DISPLAY-ONLY. Sportsbook / Kalshi / Polymarket odds, ADP and auction
+  values may be SHOWN beside our number, and may inform an OPPONENT MODEL (what the room
+  will pay). They must NEVER be an input to a projection, a model weight, a ranking or sort
+  order, or a parlay probability. The owner's rule, verbatim: "I don't want to use Vegas odds
+  in my predictions. If I use them, I'd only want to show them. I want to operate
+  independently of Vegas."
+  R30 — THIS SECTION USED TO SAY THE OPPOSITE ("market ingested as a first-class model",
+  "market typically earns the largest weight"), and that is not a harmless stale line: it is
+  the instruction that produced the defect. scripts/models/parlay_builder.py wrote The Odds
+  API's de-vigged cover probability straight into every spread leg's `model_prob`, so the
+  book's price WAS the parlay probability, the MODEL EV badge and the confidence tier — all
+  16 shipped legs, under our own label. Fixed in R30a, and the gate now fails the build if a
+  market number reaches a model column, because a rule only a reader can enforce is one the
+  next agent will read past.
+- Hybrid: fitted blend of J5L / elo / our own signals. Blend FULL probability vectors and take
+  max on disagreement — NEVER average point picks.
 - Stacker: alpha*z(J5L) + (1-alpha)*z(other), alpha refit every cron run.
 - Conformal layer: split-conformal safe sets at 85% and 70% coverage = the user-facing
   uncertainty layer (a set of plausible outcomes, not a false point estimate).
@@ -126,7 +139,9 @@ Backtest honesty (the discipline that matters most):
   log_loss. A test enforces this — the UI can never present estimates as measurements.
 - Validation unit = the event (game / player-week), never the season.
 - Baseline gate: every complexity increment must beat the simpler baseline (Elo, or the
-  market) on held-out log-loss or it is cut.
+  market) on held-out log-loss or it is cut. Comparing our accuracy AGAINST the market is
+  measurement and is encouraged; it is the one legitimate use of a book number, and it is
+  not the same thing as feeding one into a prediction.
 
 Feed-health monitoring (the silent-scraper 404 lesson):
 - data/pipeline_status.json tracks per-feed rows, age_hours, last_success_utc, status

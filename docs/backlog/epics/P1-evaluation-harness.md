@@ -3,6 +3,15 @@
 **Layer:** Platform   ·   **Status:** 🟡   ·   **Instantiates:** —
 **Reuse:** A future adapter (NBA/MLB/Kalshi) reuses this epic wholesale — the metrics, honesty contract, snapshot schema, and conformal layer are domain-agnostic. It re-authors only the *event producer* (what a "row" is: game vs player-week vs contract) and the RENAMES/normalization feeding `actual`. The validation unit — the event — never changes.
 
+> **QA reality (measured 2026-08-15) — read this before trusting any coverage figure below.**
+> Of this epic's **20 acceptance criteria**, **3 are asserted by a test that
+> exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
+> **15%** (3/20 automatable). **2** name a test file that does not
+> exist; **15** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/snapshot.test.mjs`. Stories with **nothing asserted at all**: P1-S2, P1-S3, P1-S4.
+> The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
+> hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
+> [`QA-debt.md`](./QA-debt.md).
+
 ## Goal
 Stand up the platform's #1 asset before any model is trusted: a point-in-time prediction archive plus the scoring layer that turns predictions into measured, comparable numbers. Every prediction is snapshotted with an information cutoff before its event resolves, then scored on resolution with proper metrics (log-loss, Brier, MAE, rank-correlation, calibration). Split-conformal safe sets are the user-facing honesty layer — a set of plausible outcomes with a coverage guarantee, not a false point estimate. The validation unit is the event, never the season.
 
@@ -11,7 +20,7 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 
 ## User stories
 
-### P1-S1 — Point-in-time snapshot archive   ·  Status: 🟡   ·  Est: M
+### P1-S1 — Point-in-time snapshot archive   ·  Status: 🟡   ·  Est: M   ·  **QA: 1/4 ACs asserted (25%)**
 **As** the Operator **I want** every prediction frozen with an explicit information cutoff before its event starts **so that** no post-event information can leak into the recorded number and the archive is a durable, auditable record from day one.
 **Acceptance criteria** (Given/When/Then):
 - P1-S1-AC1 — Given a call to `make_row(...)`, When the row is constructed, Then it is `resolved:false`, carries no `actual`/`brier`/`log_loss`, and defaults `estimate:true` unless the caller explicitly asserts `estimate=false`.
@@ -25,14 +34,14 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S1-T4 — Emit the first real snapshot file from `game_predictions.json` (all day-zero estimates).
 - [ ] P1-S1-T5 — Assert `resolve()` requires `probs` for measurable rows.
 **QA coverage** (5 automatable ACs targeted; 4 ACs listed):
-- P1-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::every honest snapshot shape passes` (unit) — Done
-- P1-S1-AC2 → `tests/feature/snapshot.test.mjs::as_of ordering rejected` (unit) — Planned
-- P1-S1-AC3 → `scripts/validate_data.py::snapshot schema loop` (data) + `tests/smoke.sh` — Done
-- P1-S1-AC4 → `tests/feature/snapshot.test.mjs::resolve requires probs` (unit) — Planned
-  Coverage: 4/4 = 100%. Test types: unit(node:test) | data(validate_data) | smoke(bash).
+- P1-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::every honest snapshot shape passes` (unit) — Done  **[TOOTHLESS · mirror+own-fixtures]**
+- P1-S1-AC2 → `tests/feature/snapshot.test.mjs::as_of ordering rejected` (unit) — Planned  **[MISSING]**
+- P1-S1-AC3 → `scripts/validate_data.py::snapshot schema loop` (data) + `tests/smoke.sh` — Done  **[REAL]**
+- P1-S1-AC4 → `tests/feature/snapshot.test.mjs::resolve requires probs` (unit) — Planned  **[MISSING]**
+  - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/snapshot.py`, `data/contracts/snapshot.schema.json`, `data/snapshots/`, `scripts/validate_data.py`, `tests/feature/backtest_honesty.test.mjs`.
 
-### P1-S2 — Event-level scoring metrics   ·  Status: 🟡   ·  Est: M
+### P1-S2 — Event-level scoring metrics   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/5 ACs asserted (0%)**
 **As** the Modeler **I want** proper, dependency-free scoring metrics computed per event **so that** two models can be compared on the same held-out events with numbers that agree to the bit across Python and Node.
 **Acceptance criteria** (Given/When/Then):
 - P1-S2-AC1 — Given `probs=[0.7,0.3]`, `true=0`, When scored, Then `log_loss == -ln(0.7)` and `brier == 0.18` exactly.
@@ -47,15 +56,15 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S2-T4 — Verify `_ranks` handles ties (average ranks) before `_pearson`.
 - [ ] P1-S2-T5 — Assert `y_true_idx` out-of-range raises `IndexError`.
 **QA coverage** (5 ACs):
-- P1-S2-AC1 → `tests/feature/metrics.test.mjs::brier ... equals exactly 0.18` + `::log_loss ... equals -ln(0.7)` (unit) — Done
-- P1-S2-AC2 → `tests/feature/metrics.test.mjs::log_loss ... confident-correct ~0` (unit) — Done
-- P1-S2-AC3 → `tests/feature/metrics.test.mjs::mae ... equals 7/3` + `::mae is 0 for identical` (unit) — Done
-- P1-S2-AC4 → `tests/feature/metrics.test.mjs::rank_corr/calibration_bins` (unit) — Planned
-- P1-S2-AC5 → `tests/feature/metrics.test.mjs::multiclass_log_loss mean over events` (unit) — Planned
-  Coverage: 5/5 = 100%. Test types: unit(node:test).
+- P1-S2-AC1 → `tests/feature/metrics.test.mjs::brier ... equals exactly 0.18` + `::log_loss ... equals -ln(0.7)` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S2-AC2 → `tests/feature/metrics.test.mjs::log_loss ... confident-correct ~0` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S2-AC3 → `tests/feature/metrics.test.mjs::mae ... equals 7/3` + `::mae is 0 for identical` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S2-AC4 → `tests/feature/metrics.test.mjs::rank_corr/calibration_bins` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P1-S2-AC5 → `tests/feature/metrics.test.mjs::multiclass_log_loss mean over events` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/5 · TOOTHLESS 5.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/metrics.py`, `tests/feature/metrics.test.mjs`.
 
-### P1-S3 — Split-conformal safe sets (85% / 70%)   ·  Status: 🟡   ·  Est: M
+### P1-S3 — Split-conformal safe sets (85% / 70%)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/5 ACs asserted (0%)**
 **As** the Analyst **I want** a set of plausible outcomes with a coverage guarantee instead of a single false point pick **so that** the UI communicates genuine uncertainty — a wider set means we are less sure.
 **Acceptance criteria** (Given/When/Then):
 - P1-S3-AC1 — Given calibration nonconformity scores (`1 - p_true`) and coverage `c`, When `calibrate` runs, Then the threshold is the `k`-th smallest score with `k = ceil((n+1)*c)` (finite-sample +1 correction).
@@ -69,15 +78,15 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S3-T3 — Feed conformal from resolved snapshot rows (real calibration set) rather than fixtures.
 - [ ] P1-S3-T4 — Guard `0 < coverage < 1` and raise otherwise.
 **QA coverage** (5 ACs):
-- P1-S3-AC1 → `tests/feature/conformal.test.mjs::calibrate at coverage 0.8 ... 9th smallest` (unit) — Done
-- P1-S3-AC2 → `tests/feature/conformal.test.mjs::too-few calibration points fall back` (unit) — Done
-- P1-S3-AC3 → `tests/feature/conformal.test.mjs::empirical coverage meets the 0.8 target` (unit) — Done
-- P1-S3-AC4 → `tests/feature/conformal.test.mjs::higher target coverage ... more inclusive` (unit) — Done
-- P1-S3-AC5 → `tests/feature/conformal.test.mjs::safe_set membership` (unit) — Planned
-  Coverage: 5/5 = 100%. Test types: unit(node:test).
+- P1-S3-AC1 → `tests/feature/conformal.test.mjs::calibrate at coverage 0.8 ... 9th smallest` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S3-AC2 → `tests/feature/conformal.test.mjs::too-few calibration points fall back` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S3-AC3 → `tests/feature/conformal.test.mjs::empirical coverage meets the 0.8 target` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S3-AC4 → `tests/feature/conformal.test.mjs::higher target coverage ... more inclusive` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S3-AC5 → `tests/feature/conformal.test.mjs::safe_set membership` (unit) — Planned  **[TOOTHLESS · reimplements-under-test]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/5 · TOOTHLESS 5.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/conformal.py`, `tests/feature/conformal.test.mjs`.
 
-### P1-S4 — Estimate-vs-measured honesty contract   ·  Status: 🟡   ·  Est: S
+### P1-S4 — Estimate-vs-measured honesty contract   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
 **As** the Analyst **I want** the harness to structurally forbid an estimate from carrying a measured score **so that** the frontend can never dress an unvalidated guess up as a backtested result. (Enforcement escalates in P8; the contract is produced correctly here.)
 **Acceptance criteria** (Given/When/Then):
 - P1-S4-AC1 — Given `estimate=true`, When validated, Then `brier`/`log_loss` must be absent or null; presence raises `HonestyError`.
@@ -88,13 +97,13 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S4-T2 — Treat absent and explicit-null identically as "no score".
 - [ ] P1-S4-T3 — Mirror the exact contract in the Node test (both languages lock it).
 **QA coverage** (3 ACs):
-- P1-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done
-- P1-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` (unit) — Done
-- P1-S4-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done
-  Coverage: 3/3 = 100%. Test types: unit(node:test).
+- P1-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` (unit) — Done  **[TOOTHLESS · asserts-own-fixtures]**
+- P1-S4-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done  **[TOOTHLESS · reimplements-under-test]**
+  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/honesty.py`, `tests/feature/backtest_honesty.test.mjs`.
 
-### P1-S5 — Contracts & data validation for snapshots   ·  Status: 🟡   ·  Est: S
+### P1-S5 — Contracts & data validation for snapshots   ·  Status: 🟡   ·  Est: S   ·  **QA: 2/3 ACs asserted (67%)**
 **As** the Operator **I want** every snapshot and prediction file validated against a JSON schema in the regression gate **so that** a malformed or dishonest row fails the gate on exit code before it can deploy.
 **Acceptance criteria** (Given/When/Then):
 - P1-S5-AC1 — Given `data/snapshots/*.json`, When `validate_data.py` runs, Then each file validates against `snapshot.schema.json` and the script exits non-zero on any violation.
@@ -105,8 +114,8 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S5-T2 — Ensure `game_predictions.schema.json` requires the `estimate` field.
 - [ ] P1-S5-T3 — Keep `run_gate.sh` gating on exit codes in order (validate → smoke → feature).
 **QA coverage** (3 ACs):
-- P1-S5-AC1 → `scripts/validate_data.py` (data) via `tests/run_gate.sh` step 1 — Done
-- P1-S5-AC2 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` (unit) — Done
-- P1-S5-AC3 → `tests/run_gate.sh` exit-code semantics (smoke) — Done
-  Coverage: 3/3 = 100%. Test types: data(validate_data) | unit(node:test) | smoke(bash).
+- P1-S5-AC1 → `scripts/validate_data.py` (data) via `tests/run_gate.sh` step 1 — Done  **[REAL]**
+- P1-S5-AC2 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` (unit) — Done  **[REAL]**
+- P1-S5-AC3 → `tests/run_gate.sh` exit-code semantics (smoke) — Done  **[TOOTHLESS · self-referential]**
+  - **Coverage (measured 2026-08-15): 67% — REAL 2/3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py`, `data/contracts/snapshot.schema.json`, `data/contracts/game_predictions.schema.json`, `tests/run_gate.sh`, `data/snapshots/`.
