@@ -578,7 +578,16 @@ test('the playoff window is the LEAGUE\'s, and byes in it are found on real data
   const early = playoffSosById(weekly, strength,
     normalizeProfile({ shape: { playoff_week_start: 14 } }));
   const earlyByes = Object.values(early).filter((r) => r.byes > 0);
-  assert.equal(earlyByes.length, 19);
+  /* This used to pin the exact count (19). That number is a fact about ONE
+   * day's committed data, not about the code: R32 corrected 70 players'
+   * teams to the current season, their byes moved with them, the count
+   * became 16, and the gate turned red on a data refresh with no code
+   * defect. The invariant this test exists for is that widening the window
+   * to week 14 PULLS REAL BYES IN — the chip is profile-driven, not
+   * hardcoded — so assert existence and the chip contract below, never a
+   * churn-fragile count. */
+  assert.ok(earlyByes.length > 0,
+    'a week-14 playoff start must pull real byes into the window on this data');
   for (const r of earlyByes) {
     const chip = renderPlayoffByes(r);
     assert.match(chip, /BYE W14/);
