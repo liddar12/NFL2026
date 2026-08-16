@@ -37,7 +37,18 @@ test('market_prices.json is pinned display-only with an explicit policy note', (
 test('sources carry honest statuses and row counts', () => {
   for (const src of ['kalshi', 'polymarket']) {
     assert.ok(doc.sources[src], `${src} source present`);
-    assert.ok(['ok', 'down'].includes(doc.sources[src].status));
+    /* R30b added the third state this assertion predated: a REACHABLE feed
+     * that delivered zero usable rows is 'degraded' — not 'ok' (a 0-row write
+     * is never silently ok) and not 'down' (the feed answered). This test
+     * allowed only the binary, so the first honest 'degraded' kalshi ever
+     * shipped turned the gate red for telling the truth. A degraded source
+     * must SAY WHY — the note is what the MODEL tab shows. */
+    assert.ok(['ok', 'degraded', 'down'].includes(doc.sources[src].status),
+      `${src} status ${doc.sources[src].status} is outside the vocabulary`);
+    if (doc.sources[src].status === 'degraded') {
+      assert.ok(String(doc.sources[src].note || '').length > 0,
+        `${src} is degraded with no note — the downgrade must say why`);
+    }
     assert.equal(typeof doc.sources[src].rows, 'number');
   }
 });
