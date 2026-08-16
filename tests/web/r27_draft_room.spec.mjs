@@ -83,7 +83,12 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await expect(t1).toHaveValue('200');
   });
 
-  test('an observed sale price is TYPED, and it is the number recorded', async ({ page }) => {
+  /* R34 — typing is now MANDATORY, so the R27 assertion ("typed wins over the
+   * seed") upgrades to the blank-required contract: the field opens EMPTY with
+   * our estimate as placeholder only, the buyer select opens on a no-buyer
+   * placeholder, and RECORD SALE stays disabled until BOTH are set. The
+   * recorded number is still exactly what was typed. */
+  test('a sale requires a SELECTED buyer and a TYPED price, and records the typed number', async ({ page }) => {
     await auctionSetup(page, { live: true });
     await page.click('[data-act="auc-start"]');
     await page.waitForSelector('.auc-poolchip');
@@ -91,13 +96,22 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await page.waitForSelector('.auc-soldrow');
 
     const price = page.locator('input.auc-soldprice');
+    const record = page.locator('[data-act="auc-sold"]');
     await expect(price).toHaveCount(1);
-    // T3 (index 2) pays $47 — a number no stepper would reach quickly from our
-    // own valuation, which is exactly why it has to be typeable.
+    // The price is NOT prefilled with our estimate — the estimate is a
+    // placeholder hint, and a blank submit is impossible (button disabled).
+    await expect(price).toHaveValue('');
+    expect(await price.getAttribute('placeholder')).toMatch(/^\d+\?$/);
+    await expect(page.locator('.auc-soldteam')).toHaveValue('');
+    await expect(record).toBeDisabled();
+    // A buyer alone is not enough…
     await page.selectOption('.auc-soldteam', '2');
+    await expect(record).toBeDisabled();
+    // …a typed price completes the capture. T3 (index 2) pays $47 — a number
+    // no stepper would reach quickly from our valuation.
     await price.fill('47');
-    await price.dispatchEvent('change');
-    await page.click('[data-act="auc-sold"]');
+    await expect(record).toBeEnabled();
+    await record.click();
 
     const zones = page.locator('.auc-zone');
     await expect(zones.filter({ hasText: 'T3' }).first()).toContainText('$153');

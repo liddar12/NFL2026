@@ -957,3 +957,79 @@ export function clearProfile(storage) {
     return false;
   }
 }
+
+/* --------------------------------------------------------------------------
+ * R34 — the PROFILE STASH: saved, not applied
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Where a profile that is SAVED BUT NOT APPLIED lives. RESTART SESSION reverts
+ * the ACTIVE profile (LEAGUE_KEY) to the app default so an imported league's
+ * scoring and shape stop driving every number — but the import itself was
+ * expensive to obtain (a network sync) and the owner's rule is that a restart
+ * must not cost it. So the applied profile is moved HERE, and a one-tap
+ * RE-APPLY writes it back to LEAGUE_KEY without re-downloading anything.
+ *
+ * DESIGN NOTE — why a second key rather than an `applied` flag inside
+ * LEAGUE_KEY: nfl2026.league.v1 IS the applied profile, read by loadProfile()
+ * on every mount, and every profile a user has already stored is a bare
+ * profile object under that key. Wrapping it would force a migration in the
+ * hottest read path for zero benefit; a sibling key means a returning user's
+ * stored profile loads byte-for-byte as before (locked by
+ * tests/feature/r34_reset_theme.test.mjs), and the stash's own shape is
+ * versioned independently: { version: 1, profile: <normalised profile> }.
+ */
+export const LEAGUE_STASH_KEY = 'nfl2026.leaguestash.v1';
+
+/** Stash schema version (independent of PROFILE_VERSION). */
+export const STASH_VERSION = 1;
+
+/**
+ * Park a profile as saved-not-applied (normalised first). Returns true on
+ * write, false when storage is blocked/absent. Never throws.
+ */
+export function stashProfile(profile, storage) {
+  const store = storage === undefined ? defaultStorage() : storage;
+  const wrapped = { version: STASH_VERSION, profile: normalizeProfile(profile) };
+  try {
+    store.setItem(LEAGUE_STASH_KEY, JSON.stringify(wrapped));
+    return true;
+  } catch (err2) {
+    return false;
+  }
+}
+
+/**
+ * The stashed profile, normalised — or NULL when nothing usable is stashed.
+ * Null, not DEFAULT_PROFILE: "no stash" and "a stashed default" are different
+ * claims, and the RE-APPLY control must only render for the first. A bare
+ * profile object (no {version, profile} wrapper) is accepted defensively —
+ * an unwrapped write must degrade to a working stash, not a lost league.
+ * NEVER throws.
+ */
+export function loadStashedProfile(storage) {
+  const store = storage === undefined ? defaultStorage() : storage;
+  let raw = null;
+  try {
+    raw = JSON.parse((store && store.getItem(LEAGUE_STASH_KEY)) || 'null');
+  } catch (err2) {
+    raw = null;
+  }
+  if (!isPlainObject(raw)) return null;
+  const inner = isPlainObject(raw.profile) ? raw.profile : raw;
+  // A wrapper with no usable profile inside — or a bare object that carries
+  // neither scoring nor shape — is corrupt, and corrupt reads as "no stash".
+  if (!isPlainObject(inner.scoring) && !isPlainObject(inner.shape)) return null;
+  return normalizeProfile(inner);
+}
+
+/** Forget the stash. Never throws. */
+export function clearStashedProfile(storage) {
+  const store = storage === undefined ? defaultStorage() : storage;
+  try {
+    store.removeItem(LEAGUE_STASH_KEY);
+    return true;
+  } catch (err2) {
+    return false;
+  }
+}

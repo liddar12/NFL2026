@@ -56,9 +56,9 @@ import {
   scoreVsRoom, ROSTER_BOUNDS, DEFAULT_ROSTER, ROOM_TYPES, ROOM_LABELS,
 } from '../draft-sim.js';
 import {
-  MIN_CALIBRATION_PICKS, appendMock, clearHistory, expectedGoneBy, historySummary,
-  loadHistory, migrateLegacy, noiseComparison, positionDrift, recordAuction,
-  recordDraft, roomCalibration,
+  MIN_CALIBRATION_PICKS, MOCKS_KEY, MOCKS_KEY_V1, appendMock, clearHistory,
+  expectedGoneBy, historySummary, loadHistory, migrateLegacy, noiseComparison,
+  positionDrift, recordAuction, recordDraft, roomCalibration,
 } from '../mocks.js';
 import {
   BUDGET_CHOICES, DEFAULT_BUDGET, createAuction, myTeam as aucMyTeam,
@@ -69,8 +69,9 @@ import {
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
 import {
-  FLEX_ELIGIBILITY, FLEX_TOKENS, LEAGUE_BOUNDS,
-  cloneProfile, isDefaultProfile, loadProfile, normalizeProfile, saveProfile,
+  FLEX_ELIGIBILITY, FLEX_TOKENS, LEAGUE_BOUNDS, LEAGUE_KEY, LEAGUE_STASH_KEY,
+  clearProfile, cloneProfile, isDefaultProfile, loadProfile, loadStashedProfile,
+  normalizeProfile, saveProfile, stashProfile,
   scoringMode, validateProfile, rosterSlots, slotAccepts, firstOpenSlot,
   rosterPositionsInPlay, slotEligiblePositions,
 } from '../league.js';
@@ -112,6 +113,199 @@ const TEARDOWN_KEY = '__nfl2026TeamTeardown';
 // read-only migration off the superseded key). This view never touches either
 // key inline: a record is written through appendMock() and read back through
 // loadHistory(), so there is exactly one definition of what a record IS.
+/* R34 — per-team STARTING BUDGETS + NAMES persist here. Before R34 the budgets
+ * were pure session state (draftCfg.teamBudgets, rebuilt null on every mount),
+ * so "the room the owner set up" evaporated on any reload — and RESTART
+ * SESSION's contract (keep budgets and names) is only meaningful if they
+ * survive one. Shape: { version: 1, budgets: number[]|null, names: string[]|null },
+ * both seat-indexed (0-based, seat i = team i+1). `null` budgets = "every team
+ * holds the league default" — the same not-stated meaning draftCfg.teamBudgets
+ * has always had. A names entry of '' means NOT TYPED (the display falls
+ * through to the Sleeper name, then T{n}); absent is not zero and blank is not
+ * a name. normalizeAuctionTeams() also accepts a bare array as budgets-only,
+ * so an unwrapped legacy write degrades to a working record, never a wipe. */
+const AUCTION_TEAMS_KEY = 'nfl2026.auctionteams.v1';
+export const AUCTION_TEAMS_VERSION = 1;
+/** Typed team names are capped so one name cannot wreck the ROOM ledger. */
+export const TEAM_NAME_MAX = 24;
+
+/* R34 — RESET ALL's explicit key list: every localStorage key this app writes,
+ * ENUMERATED (grep `nfl2026.` under app/), never a prefix wildcard over
+ * localStorage — other sites' keys on this origin-adjacent storage must be
+ * untouched. Keys defined by other modules are imported, not respelled, so a
+ * rename there cannot silently orphan a key here.
+ *
+ * DELIBERATELY EXCLUDED: nfl2026.unlock.v1 (app/gate.js). That key is ACCESS,
+ * not data — the owner's wipe list names league sync, budgets, names, history
+ * and room memory, and re-locking the device the owner is actively holding is
+ * not a reset they asked for. nfl2026.theme.v1 IS cleared: moot since R34 made
+ * HIG the only theme (nothing reads it), but harmless and it is our key. */
+export const RESET_ALL_KEYS = Object.freeze([
+  TEAM_KEY,          // roster slots
+  SCORING_KEY,       // scoring mode
+  AI_KEY,            // AI+ toggle
+  TAKEN_KEY,         // the TAKEN board
+  LEAGUE_KEY,        // the APPLIED league profile
+  LEAGUE_STASH_KEY,  // the saved-not-applied league (RESTART's shelf)
+  AUCTION_TEAMS_KEY, // per-team budgets + names
+  MOCKS_KEY,         // draft history + auction room memory (v2)
+  MOCKS_KEY_V1,      // the legacy history key the migration reads
+  'nfl2026.theme.v1', // the retired R31 theme choice
+]);
+
+/** The ambient localStorage, or null when unavailable/blocked. Same defensive
+ * idiom as app/league.js / app/mocks.js, local because this view is the one
+ * module that historically reached localStorage directly. */
+function ambientStorage() {
+  try {
+    const g = typeof globalThis === 'undefined' ? null : globalThis;
+    return g && g.localStorage ? g.localStorage : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/** RESET ALL's storage half: remove exactly RESET_ALL_KEYS, one by one, each
+ * in its own try (one blocked key must not shield the rest). Pure over an
+ * injected storage; returns false if any removal failed. */
+export function wipeAllAppStorage(storage) {
+  const store = storage === undefined ? ambientStorage() : storage;
+  let ok = true;
+  for (const key of RESET_ALL_KEYS) {
+    try { store.removeItem(key); } catch (err) { ok = false; }
+  }
+  return ok;
+}
+
+/** Normalise anything into the auction-teams record. Total, never throws. */
+export function normalizeAuctionTeams(raw) {
+  const out = { version: AUCTION_TEAMS_VERSION, budgets: null, names: null };
+  // Legacy/defensive: a bare array is budgets-only (the pre-versioned shape a
+  // caller would most plausibly have written).
+  const src = Array.isArray(raw) ? { budgets: raw } : raw;
+  if (!src || typeof src !== 'object') return out;
+  if (Array.isArray(src.budgets) && src.budgets.length > 0) {
+    // Entries pass through loosely here; app/auction.js normalizeTeamBudgets
+    // applies the money rules (blank = league default, never $0) at use, and
+    // both ends must agree that "not stated" survives the round trip as null.
+    out.budgets = src.budgets.map((b) => (b === null || b === undefined || b === ''
+      ? null
+      : (Number.isFinite(Number(b)) ? Math.round(Number(b)) : null)));
+  }
+  if (Array.isArray(src.names) && src.names.length > 0) {
+    out.names = src.names.map((n) => (typeof n === 'string'
+      ? n.trim().slice(0, TEAM_NAME_MAX)
+      : ''));
+    if (out.names.every((n) => n === '')) out.names = null; // all blank = none typed
+  }
+  return out;
+}
+
+/** Read the persisted budgets+names record (normalised). Never throws. */
+export function loadAuctionTeams(storage) {
+  const store = storage === undefined ? ambientStorage() : storage;
+  let raw = null;
+  try {
+    raw = JSON.parse((store && store.getItem(AUCTION_TEAMS_KEY)) || 'null');
+  } catch (err) {
+    raw = null;
+  }
+  return normalizeAuctionTeams(raw);
+}
+
+/** Persist budgets+names (normalised first). Returns true on write. */
+export function saveAuctionTeams(record, storage) {
+  const store = storage === undefined ? ambientStorage() : storage;
+  try {
+    store.setItem(AUCTION_TEAMS_KEY, JSON.stringify(normalizeAuctionTeams(record)));
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * R34 — what seat i (0-based) is CALLED, with the prefill precedence the owner
+ * specified: (1) a name the owner typed (persisted), (2) the synced Sleeper
+ * league's team name (team_name, else display_name — the fields
+ * importSleeperTeams' joined teams carry) when the sync has them, (3) the
+ * default T{n}. Returns { name, source: 'typed'|'sleeper'|'default' }.
+ *
+ * DISPLAY ONLY, and index-keyed ONLY: the auction engine never sees a name,
+ * and no caller may look a seat up BY name — duplicate names are legal and
+ * must keep working. Sleeper names map seat i -> the i-th synced roster
+ * (roster_id order) and are used only when the synced league has exactly
+ * leagueSize teams; mapping a 10-team sync onto a 12-team room would name
+ * seats that do not correspond to anything.
+ */
+export function auctionTeamName(i, { typedNames = null, sleeperTeams = null,
+                                     leagueSize = 0 } = {}) {
+  const typed = Array.isArray(typedNames) && typeof typedNames[i] === 'string'
+    ? typedNames[i].trim()
+    : '';
+  if (typed) return { name: typed.slice(0, TEAM_NAME_MAX), source: 'typed' };
+  if (Array.isArray(sleeperTeams) && sleeperTeams.length === leagueSize) {
+    const t = sleeperTeams[i];
+    const s = t && (t.team_name || t.display_name);
+    if (typeof s === 'string' && s.trim()) {
+      return { name: s.trim().slice(0, TEAM_NAME_MAX), source: 'sleeper' };
+    }
+  }
+  return { name: `T${i + 1}`, source: 'default' };
+}
+
+/**
+ * R34 — the LIVE sale capture's validation, factored pure so the contract is
+ * node-testable: recording a sale requires a SELECTED buyer AND a TYPED price
+ * (owner's words: "when you press take, you have to type in the auction value
+ * spent and select the team name it went to"). A blank price is refused —
+ * never recorded as $0 and never silently replaced by our estimate, because
+ * the estimate is our opinion and the log is a transcript of the room.
+ * Returns { ok:true, teamIdx, price } or { ok:false, reason }.
+ */
+export function validateSoldEntry({ buyerValue, priceValue } = {}) {
+  const buyerRaw = buyerValue == null ? '' : String(buyerValue).trim();
+  const teamIdx = buyerRaw === '' ? NaN : Number(buyerRaw);
+  if (!Number.isInteger(teamIdx) || teamIdx < 0) {
+    return { ok: false, reason: 'Pick the team that bought this player first — a sale without a buyer cannot be recorded.' };
+  }
+  const priceRaw = priceValue == null ? '' : String(priceValue).trim();
+  const price = priceRaw === '' ? NaN : Math.round(Number(priceRaw));
+  if (!Number.isFinite(price) || price < 0) {
+    return { ok: false, reason: 'Type the price the room actually paid. A blank price is not $0, and the estimate is a hint, not a recordable fact.' };
+  }
+  return { ok: true, teamIdx, price };
+}
+
+/**
+ * R34 — RESTART SESSION's storage half, factored pure (injected storage) so
+ * the keep/clear contract is node-testable. It:
+ *   - STASHES the applied league profile (saved-not-applied — the RE-APPLY
+ *     shelf) when one is applied, so the synced import survives WITHOUT a
+ *     re-download. An already-default profile stashes nothing, and an
+ *     existing stash is not overwritten with the default.
+ *   - CLEARS the applied profile (LEAGUE_KEY) — this is the fix for "reset
+ *     didn't clear the Omilia-US scoring": the imported league's scoring,
+ *     rules and shape stop applying because the profile reverts to default.
+ *   - REVERTS scoring to standard PPR (SCORING_KEY).
+ *   - CLEARS the roster (TEAM_KEY) and the TAKEN board (TAKEN_KEY).
+ * It does NOT touch: the stash it just wrote, draft history / auction room
+ * memory (MOCKS_KEY, MOCKS_KEY_V1), or per-team budgets + names
+ * (AUCTION_TEAMS_KEY) — the owner's KEEP list. Returns { stashed }.
+ */
+export function restartSessionStorage(storage) {
+  const store = storage === undefined ? ambientStorage() : storage;
+  let stashed = false;
+  const applied = loadProfile(store);
+  if (!isDefaultProfile(applied)) stashed = stashProfile(applied, store);
+  clearProfile(store);
+  try { store.setItem(SCORING_KEY, 'ppr'); } catch (err) { /* session-only */ }
+  for (const key of [TEAM_KEY, TAKEN_KEY]) {
+    try { store.removeItem(key); } catch (err) { /* session-only */ }
+  }
+  return { stashed };
+}
+
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
 // LIVE draft tap list: rows rendered at once (the list scrolls). Not a reach
 // limit — the filter beside it spans the whole board, so any untaken player is
@@ -1188,12 +1382,15 @@ export default async function mountTeam(el) {
   let auction = null;        // auction room state (createAuction) or null
   let auctionResult = null;  // scoreAuction sheet after a finished auction
   let bidAdj = 0;            // my +/- adjustment to the advised bid, per block
-  /* R27 — a typed observed sale price, or null to use the computed default.
-   * Cleared whenever the block changes or the -/+ chips move, so the field
-   * never keeps showing last player's number, and the chips stay meaningful
-   * (they nudge the ESTIMATE; typing states a FACT and wins until then). */
-  let soldTyped = null;
-  const soldPrice = (base) => (soldTyped == null ? base : soldTyped);
+  /* R27, rewritten R34 — the observed sale price is TYPED, MANDATORILY. The
+   * field starts EMPTY on every block (our estimate appears only as
+   * PLACEHOLDER text — the owner's explicit rule: never prefilled), and the
+   * -/+ chips nudge a price only once one has been typed. soldBuyer is the
+   * matching mandatory buyer selection. Both cleared whenever the block
+   * changes (resetSoldEntry), so nothing from the last player carries over. */
+  let soldTyped = null;   // typed price, or null = nothing typed yet
+  let soldBuyer = null;   // selected buyer seat (0-based), or null = none picked
+  function resetSoldEntry() { soldTyped = null; soldBuyer = null; }
   // A LIVE sale sellTo() refused (buyer's roster already full). Held so the
   // block zone can say WHY nothing happened instead of repainting unchanged.
   // Cleared at the top of every action, so it lives exactly one paint.
@@ -1231,6 +1428,45 @@ export default async function mountTeam(el) {
     ...seeded.cfg,
   };
   if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+
+  /* R34 — budgets + names come back from storage (nfl2026.auctionteams.v1).
+   * Until R34 the per-team budgets were session-only and silently reverted to
+   * a level room on every reload; persisting them is also what makes RESTART
+   * SESSION's "keeps per-team budgets and names" true, since RESTART re-mounts
+   * this view. Length drift (a stored 12-team array under a 10-team league) is
+   * already handled at use: effectiveTeamBudgets()/auctionTeamName() read by
+   * index and fall back per seat. */
+  const storedAucTeams = loadAuctionTeams();
+  if (storedAucTeams.budgets) draftCfg.teamBudgets = storedAucTeams.budgets;
+  /** Owner-typed team names, seat-indexed; '' = not typed (fallbacks apply). */
+  let teamNames = storedAucTeams.names || [];
+  function persistAuctionTeams() {
+    saveAuctionTeams({ budgets: draftCfg.teamBudgets, names: teamNames });
+  }
+  /** Seat i's display identity under the R34 precedence (typed > sleeper >
+   * default). rosterTeams is session state, so Sleeper names appear only
+   * after a sync this visit — exactly "when the roster sync has them". */
+  function seatName(i) {
+    return auctionTeamName(i, {
+      typedNames: teamNames,
+      sleeperTeams: rosterTeams,
+      leagueSize: draftCfg.leagueSize,
+    });
+  }
+  /** Seat label for the auction surfaces. My seat KEEPS the YOU marker: a
+   * typed/synced name joins it, never replaces it. Index-keyed display only —
+   * duplicate names stay unambiguous because nothing ever looks up BY name. */
+  function seatLabel(i, mySlot) {
+    const me = i === mySlot - 1;
+    const n = seatName(i);
+    if (!me) return n.name;
+    return n.source === 'default' ? 'YOU' : `${n.name} · YOU`;
+  }
+
+  /* R34 — the stashed (saved-not-applied) league, cached for the mount: only
+   * this view's own actions (RESTART / RE-APPLY / RESET ALL) move it, and
+   * each of those re-mounts, so a per-paint storage read would buy nothing. */
+  const stashedLeague = loadStashedProfile();
 
   /* R27 — the roster totals the settings card reports.
    *
@@ -1358,7 +1594,8 @@ export default async function mountTeam(el) {
   let rosterApplied = false;        // the plan on screen has already been written
   // Live strategy dials (auction) — flipping any re-plans the room in place.
   const strategy = { style: 'balanced', tempo: 'patient', enforce: true };
-  let resetArmed = false;    // two-step RESET confirm
+  let restartArmed = false;  // two-step RESTART SESSION confirm (R34)
+  let wipeArmed = false;     // two-step RESET ALL confirm (R34)
   let histArmed = false;     // two-step confirm before wiping draft history
 
   /* ---- R23-S1: draft history + LIVE-room calibration -------------------------
@@ -1419,6 +1656,19 @@ export default async function mountTeam(el) {
   // Per-mode derived maps, built once per mount (mode changes re-mount):
   //   adjById    id -> season points at the current scoring mode (EXACT)
   //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
+  //
+  // R34 RCA — "scores change when I flip AUCTION/SNAKE": they do not, and this
+  // map is why. `mode` here is the SCORING mode (ppr/half/std); draftCfg.mode
+  // (the draft FORMAT) is never an input to adjById, scaledById, the finder's
+  // SZN column, the slot chips, the STARTERS SEASON TOTAL or the
+  // best-available ordering — every one of those reads this map, built before
+  // draftCfg is even consulted. What DOES differ by format is MONEY, by
+  // design: auction mode adds the OURS/AUC dollar columns and, once a room is
+  // open, an affordability FILTER on the reco/best-pick panels (see
+  // recoBudget) — rows can drop, dollar chips appear, but no player's
+  // projected points ever move. If a points number is ever observed moving on
+  // a format flip, the bug is a new draftCfg.mode read in a scoring path, not
+  // in here.
   const playersById = new Map(seatable.map((p) => [String(p.gsis_id), p]));
   const adjById = new Map();
   const scaledById = new Map();
@@ -1591,6 +1841,14 @@ export default async function mountTeam(el) {
    * Prices are OUR dollars (the open room's `fair` map), not the market's: the
    * panel advises what I should do, and our own valuation is the app's answer
    * to that. Market price stays display-only, per the standing rule.
+   *
+   * R34 RCA — this is the ONLY draftCfg.mode consumer that changes what the
+   * panels SHOW (every other read is a label or a settings-card branch), and
+   * it is a FILTER, not a re-score: team-logic's affordableOnly() drops rows
+   * priced above my cap and leaves every surviving row's points/VOR
+   * byte-identical (locked by tests/feature/r34_reset_theme.test.mjs). It is
+   * also null unless an auction ROOM is open — flipping the FORMAT select
+   * alone changes no list at all.
    */
   function recoBudget() {
     if (!auction || draftCfg.mode !== 'auction') return null;
@@ -1717,8 +1975,18 @@ export default async function mountTeam(el) {
     renderLegend() +
     '<div class="team-toolbar">' +
       (aiInsights ? renderAiSeg(aiOn) : '') +
-      '<button type="button" class="sort-chip reset-btn" data-act="reset" ' +
-        'title="Clear the roster, the TAKEN board, and any draft in progress">RESET</button>' +
+      /* R34 — the single RESET is now TWO buttons, each saying plainly what it
+       * does (the titles are the owner's spec, verbatim). Both keep the
+       * two-tap arm/confirm pattern; arming one disarms the other, and any
+       * other action disarms both (see onAction). RESTART SESSION arms in the
+       * brand tone (it keeps the synced league + history); RESET ALL is the
+       * red, destructive factory wipe. */
+      '<button type="button" class="sort-chip reset-btn reset-btn--session" data-act="restart-session" ' +
+        'title="Clears the board, rosters and scoring back to standard PPR. Your synced league ' +
+        'stays saved — RE-APPLY brings it back in one tap.">RESTART SESSION</button>' +
+      '<button type="button" class="sort-chip reset-btn reset-btn--all" data-act="reset-all" ' +
+        'title="Erases everything: league sync, budgets, team names, draft history and room ' +
+        'memory. Cannot be undone.">RESET ALL</button>' +
     '</div>' +
     // Two-column grid on wide screens (iPad 13"): builder column (roster +
     // finder + reco) beside the summary. On phones it is a single column.
@@ -2352,6 +2620,25 @@ export default async function mountTeam(el) {
       !== JSON.stringify(asTheGridSeesIt);
   }
 
+  /* R34 — the SAVED, NOT APPLIED strip. Rendered only while a stashed league
+   * exists AND differs from the applied profile: after RE-APPLY the two are
+   * equal and the strip disappears on its own, so it can never advertise a
+   * restore that would change nothing. One tap, no network — the stash IS the
+   * synced import RESTART SESSION parked. */
+  function stashStripHtml() {
+    if (!stashedLeague) return '';
+    if (JSON.stringify(stashedLeague) === JSON.stringify(normalizeProfile(savedProfile))) {
+      return '';
+    }
+    return '<div class="lp-stash">'
+      + `<span class="lp-stash-txt">SAVED, NOT APPLIED · ${esc(stashedLeague.name)} · `
+      + `${stashedLeague.shape.teams} TEAMS · ${stashedLeague.shape.starters}+`
+      + `${stashedLeague.shape.bench} · ${esc(receptionLabel(stashedLeague))} — kept through `
+      + 'the restart; RE-APPLY restores it in one tap, nothing is re-downloaded.</span>'
+      + '<button type="button" class="lp-btn" data-act="league-reapply">RE-APPLY</button>'
+      + '</div>';
+  }
+
   /** The status block: what just happened, in the app's own plain language. */
   function leagueStatusHtml() {
     if (!leagueStatus || !leagueStatus.lines || leagueStatus.lines.length === 0) return '';
@@ -2596,6 +2883,7 @@ export default async function mountTeam(el) {
           + 'data-act="league-save">SAVE LEAGUE SETTINGS</button>'
         + `<div class="lp-saved${dirty ? ' lp-saved--dirty' : ''}">${esc(savedLine)}</div>`
       + '</div>'
+      + stashStripHtml()
       + leagueStatusHtml()
       + (seedNotes.length
         ? `<div class="lp-notes">${seedNotes.map((n) => `<div>${esc(n)}</div>`).join('')}</div>`
@@ -3116,14 +3404,27 @@ export default async function mountTeam(el) {
       const budgets = effectiveTeamBudgets();
       const level = budgets.every((b) => b === budgets[0]);
       const total = budgets.reduce((s, b) => s + b, 0);
+      /* R34 — each seat gains an editable NAME beside its budget. The VALUE is
+       * only ever what the owner typed (persisted, nfl2026.auctionteams.v1);
+       * the Sleeper fallback lives in the PLACEHOLDER so an untyped box shows
+       * what the room will call the team without claiming the owner said it.
+       * The cell is a div, not a label: a label may own one control and this
+       * tile now holds two, each carrying its own aria-label. */
       const boxes = budgets.map((b, i) => {
         const mine = i === draftCfg.mySlot - 1;
-        return '<label class="tb-cell">' +
+        const typed = typeof teamNames[i] === 'string' ? teamNames[i].trim() : '';
+        const fallback = auctionTeamName(i, {
+          typedNames: null, sleeperTeams: rosterTeams, leagueSize: draftCfg.leagueSize,
+        });
+        return '<div class="tb-cell">' +
           `<span class="tb-lbl${mine ? ' tb-lbl--me' : ''}">${mine ? 'YOU' : `T${i + 1}`}</span>` +
+          `<input class="tb-name" type="text" autocomplete="off" data-tname="${i}" ` +
+            `maxlength="${TEAM_NAME_MAX}" value="${esc(typed)}" placeholder="${esc(fallback.name)}" ` +
+            `aria-label="${mine ? 'Your' : `Team ${i + 1}`} name">` +
           `<input class="ds-num tb-num" type="number" inputmode="numeric" data-tbudget="${i}" ` +
             `min="${BUDGET_BOUNDS[0]}" max="${BUDGET_BOUNDS[1]}" step="1" value="${b}" ` +
             `aria-label="${mine ? 'Your' : `Team ${i + 1}`} starting budget">` +
-        '</label>';
+        '</div>';
       }).join('');
       return `<details class="tb-panel"${level ? '' : ' open'}>` +
         '<summary class="lp-summary">PER-TEAM BUDGETS' +
@@ -3276,12 +3577,14 @@ export default async function mountTeam(el) {
       // the log, the tendencies, the inflation base and (via recordAuction at
       // the end) the R32 memory. A refusal is reported, never swallowed.
       if (sellTo(auction, action.buyerIdx, action.amount, action.boardIdx) === null) {
+        // R34 — the buyer is NAMED here too (typed > synced > T{n}), the same
+        // seatLabel every other auction surface threads.
         return { ok: false,
-          reason: `T${action.buyerIdx + 1} has no open roster spot for Sleeper pick `
-            + `#${action.pick.pick_no} — record it by hand and tap RESOLVED.` };
+          reason: `${seatLabel(action.buyerIdx, auction.mySlot)} has no open roster spot for `
+            + `Sleeper pick #${action.pick.pick_no} — record it by hand and tap RESOLVED.` };
       }
       if (auction.block && auction.block.boardIdx === action.boardIdx) {
-        auction.block = null; bidAdj = 0; soldTyped = null;
+        auction.block = null; bidAdj = 0; resetSoldEntry();
       }
       if (auction.done) finishAuction();
       return { ok: true };
@@ -3574,7 +3877,10 @@ export default async function mountTeam(el) {
       const me = i === auction.mySlot - 1;
       return (
         `<div class="auc-team${me ? ' auc-team--me' : ''}${cap <= MIN_BID ? ' auc-team--broke' : ''}">` +
-          `<span class="auc-tname">${me ? 'YOU' : `T${i + 1}`}</span>` +
+          // R34 — seats carry NAMES now (typed > synced Sleeper > T{n}),
+          // display-threading only: the ledger still keys every seat by index,
+          // and my seat keeps its YOU marker beside a name (seatLabel).
+          `<span class="auc-tname">${esc(seatLabel(i, auction.mySlot))}</span>` +
           `<span>${dollar(t.budget)}</span>` +
           `<span class="cd-meta">max ${dollar(cap)}</span>` +
           `<span class="cd-meta">${esc(needs)}</span>` +
@@ -3603,28 +3909,37 @@ export default async function mountTeam(el) {
         ? `BID TO ${dollar(myMax)}, THEN OUT`
         : (strategy.enforce && myMax > 0 ? `ENFORCE TO ${dollar(myMax)} — don't win cheap for them` : 'NOT MY PLAYER — PASS');
       const threats = g.threats.length
-        ? `<div class="cd-meta">${g.threats.length} team${g.threats.length > 1 ? 's' : ''} can fight you: ${g.threats.map((t) => `T${t.team}(${dollar(t.estWill)})`).join(' ')}</div>`
+        ? `<div class="cd-meta">${g.threats.length} team${g.threats.length > 1 ? 's' : ''} can fight you: ${g.threats.map((t) => `${esc(seatLabel(t.team - 1, auction.mySlot))}(${dollar(t.estWill)})`).join(' ')}</div>`
         : '<div class="cd-meta">no credible threats at that number</div>';
-      const soldBase = Math.max(1, g.adjusted + bidAdj); // buyer cap applies at record time
+      const soldBase = Math.max(1, g.adjusted + bidAdj); // shown as a HINT only (R34)
       // The picker offers only teams that can legally take another player
       // (auction.js buyerOptions/canBuy). A team at shape.size is not an
       // option at all, so the manager cannot tap a sale the engine will refuse.
       const buyers = live ? buyerOptions(auction) : [];
+      /* R27 made the observed price TYPEABLE; R34 makes typing it MANDATORY,
+       * and the buyer selection with it (owner's words: "when you press take,
+       * you have to type in the auction value spent and select the team name
+       * it went to"). The price field starts EMPTY on every block — our
+       * estimate appears as PLACEHOLDER text only, never as a value, so a
+       * recorded price is always a fact the manager stated. The select opens
+       * on a no-buyer placeholder for the same reason. RECORD SALE stays
+       * disabled until BOTH are set (kept live by the input/change listeners
+       * below, no repaint), and a submit that slips through anyway is refused
+       * by validateSoldEntry — never recorded as $0 or as the seed. The -/+
+       * chips still correct a TYPED price by a dollar; with nothing typed
+       * they do nothing, because there is no fact to correct. */
       const soldControls = live
         ? '<div class="auc-soldrow">SOLD TO ' +
-          `<select class="ds-select auc-soldteam">${buyers.map((i) => `<option value="${i}">${i === auction.mySlot - 1 ? 'YOU' : `T${i + 1}`}</option>`).join('')}</select>` +
-          // R27 — the observed price is TYPED. It used to be a read-only span
-          // moved only by the -/+ chips, seeded from OUR adjusted valuation:
-          // fine for nudging a guess, wrong for recording a fact. A real room
-          // sells a player for $47 and the manager had to tap + eleven times
-          // from our $36 guess. The chips stay (they are the fastest way to
-          // correct by a dollar or two) and seed the field; typing overrides.
+          '<select class="ds-select auc-soldteam" aria-label="Team that bought this player">' +
+            `<option value=""${soldBuyer == null ? ' selected' : ''}>— pick buyer —</option>` +
+            `${buyers.map((i) => `<option value="${i}"${soldBuyer === i ? ' selected' : ''}>${esc(seatLabel(i, auction.mySlot))}</option>`).join('')}</select>` +
           ' FOR <span class="auc-soldwrap">$<input class="ds-num auc-soldprice" type="number" ' +
-            `inputmode="numeric" min="0" step="1" value="${soldPrice(soldBase)}" ` +
-            `data-price="${soldBase}" aria-label="Price this player actually sold for"></span>` +
+            `inputmode="numeric" min="0" step="1" value="${soldTyped == null ? '' : soldTyped}" ` +
+            `placeholder="${soldBase}?" aria-label="Price this player actually sold for — ` +
+            `our estimate is $${soldBase}; type what the room really paid"></span>` +
           '<button type="button" class="sort-chip" data-act="auc-price-minus">−</button>' +
           '<button type="button" class="sort-chip" data-act="auc-price-plus">+</button>' +
-          `<button type="button" class="cand-add" data-act="auc-sold"${buyers.length ? '' : ' disabled'}>RECORD SALE</button></div>`
+          `<button type="button" class="cand-add" data-act="auc-sold"${soldTyped != null && soldBuyer != null && buyers.length ? '' : ' disabled'}>RECORD SALE</button></div>`
         : '<div class="auc-bidrow">' +
           '<button type="button" class="sort-chip" data-act="auc-bid-minus">−</button>' +
           `<span class="auc-bidnum">${dollar(myMax)}</span>` +
@@ -3708,8 +4023,13 @@ export default async function mountTeam(el) {
         '</div>'
       );
     }).join('');
+    // R34 — a typed/synced name joins the MY BUILD header, KEEPING the YOU
+    // marker (seatLabel appends " · YOU" whenever a name replaces the bare
+    // default) — display only, the plan below stays index-driven.
+    const myName = seatName(auction.mySlot - 1);
     return (
-      '<div class="auc-zone auc-zone--build"><div class="auc-zhead">MY BUILD</div>' +
+      '<div class="auc-zone auc-zone--build"><div class="auc-zhead">MY BUILD' +
+        `${myName.source === 'default' ? '' : ` · ${esc(seatLabel(auction.mySlot - 1, auction.mySlot))}`}</div>` +
         `<div class="auc-budget">${dollar(me.budget)} LEFT <span class="cd-meta">of $${myStart} · max bid ${dollar(maxBid(me.budget, auction.shape.size - me.players.length))} · $1 bench x ${plan.benchDollars}</span></div>` +
         `<div class="auc-budgetbar"><span style="width:${Math.min(100, (spent / myStart) * 100).toFixed(0)}%"></span></div>` +
         rows +
@@ -3920,18 +4240,33 @@ export default async function mountTeam(el) {
     refreshHistory();
   }
 
+  /* R34 — the two reset buttons' arm/disarm repaint. State-driven (never
+   * toggled ad hoc on the event target) so a button can never LOOK armed
+   * while it is not, whichever path disarmed it. */
+  function paintResetButtons() {
+    const rs = el.querySelector('[data-act="restart-session"]');
+    if (rs) {
+      rs.textContent = restartArmed ? 'TAP AGAIN TO RESTART' : 'RESTART SESSION';
+      rs.classList.toggle('reset-btn--armed', restartArmed);
+    }
+    const ra = el.querySelector('[data-act="reset-all"]');
+    if (ra) {
+      ra.textContent = wipeArmed ? 'TAP AGAIN TO ERASE ALL' : 'RESET ALL';
+      ra.classList.toggle('reset-btn--armed', wipeArmed);
+    }
+  }
+
   function onAction(e) {
     const t = e.target.closest('[data-act]');
     if (!t || t.disabled || !el.contains(t)) return;
     const act = t.dataset.act;
     aucRefusal = '';           // any new action clears the last refusal notice
 
-    if (act !== 'reset' && resetArmed) {
-      // Any other action disarms the pending reset (no accidental wipes).
-      resetArmed = false;
-      const rb = el.querySelector('.reset-btn');
-      if (rb) { rb.textContent = 'RESET'; rb.classList.remove('reset-btn--armed'); }
-    }
+    /* R34 — two reset buttons, one arm at a time. Any other action disarms a
+     * pending confirm (no accidental wipes), and because each button is "any
+     * other action" for its sibling, arming one disarms the other. */
+    if (act !== 'restart-session' && restartArmed) { restartArmed = false; paintResetButtons(); }
+    if (act !== 'reset-all' && wipeArmed) { wipeArmed = false; paintResetButtons(); }
 
     if (act !== 'roster-apply' && rosterArmed) {
       // Same rule for the roster overwrite: the armed confirm survives nothing
@@ -3978,39 +4313,85 @@ export default async function mountTeam(el) {
     }
 
 
-    if (act === 'reset') {
-      // Two-step confirm: first tap arms, second tap wipes roster + taken +
-      // any draft in progress. Arm state resets on any other action.
-      if (!resetArmed) {
-        resetArmed = true;
-        t.textContent = 'TAP AGAIN TO CONFIRM';
-        t.classList.add('reset-btn--armed');
+    /* R34 — RESTART SESSION (replaces the single RESET, extended per the
+     * owner's spec). Clears: roster slots, TAKEN board, any draft/auction in
+     * progress + results, companion stopped, scoring mode back to standard
+     * PPR, and the ACTIVE league profile back to the app default — the fix
+     * for "reset didn't clear the Omilia-US scoring". KEEPS: the synced
+     * league (stashed saved-not-applied, restored by one-tap RE-APPLY without
+     * a re-download), draft history / auction room memory, and the per-team
+     * budgets + names. The storage half lives in restartSessionStorage()
+     * (pure, node-tested); the view half is a full RE-MOUNT — the same idiom
+     * league-save uses for a scoring change, and the structural form of the
+     * R30c lesson: rosterApplied, the OURS price memo, adjById and every
+     * other derived cache are rebuilt from the cleared storage rather than
+     * hand-cleared one by one (the hand-cleared list is what went stale). */
+    if (act === 'restart-session') {
+      if (!restartArmed) {
+        restartArmed = true;
+        paintResetButtons();
         return;
       }
-      resetArmed = false;
-      if (companion) companion.stop('RESET wiped the room.'); // R33
-      slotOrder().forEach((slot) => { roster.slots[slot] = null; });
-      taken.clear();
-      draft = null;
-      draftResult = null;
-      auction = null;
-      auctionResult = null;
-      saveRoster(roster);
-      saveTaken(taken);
-      // R30c — a wholesale roster wipe must also clear the Sleeper panel's
-      // applied state, the way buildRosterPlan/runRosterSync do. Leaving
-      // rosterApplied=true pinned rosterPlanHtml() to its post-apply branch:
-      // the panel kept reporting "Roster replaced … player(s) seated" under a
-      // roster RESET just emptied, and the FILL MY ROSTER offer the empty
-      // roster now qualifies for was unreachable — re-seating the already
-      // downloaded players needed a fresh network sync. Re-planning against
-      // the emptied slots restores that offer without any network.
-      rosterApplied = false;
-      rosterStatus = null;
-      if (rosterPlan) buildRosterPlan();
-      t.textContent = 'RESET';
-      t.classList.remove('reset-btn--armed');
-      paintAll();
+      restartArmed = false;
+      if (companion) companion.stop('RESTART SESSION wiped the room.'); // R33
+      const { stashed } = restartSessionStorage();
+      leagueFlash = {
+        tone: 'ok',
+        lines: ['Session restarted: roster, TAKEN board and any draft in progress cleared; '
+          + 'scoring back to standard PPR; league settings back to the app default. '
+          + 'Draft history and per-team budgets/names were kept.',
+        ...(stashed
+          ? ['Your synced league is SAVED, NOT APPLIED — press RE-APPLY below to '
+            + 'restore it in one tap, no re-download.']
+          : [])],
+      };
+      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+      return;
+    }
+
+    /* R34 — RESET ALL: the factory wipe. Everything RESTART clears PLUS the
+     * saved/stashed league, per-team budgets and names, and the draft
+     * history + auction room memory — the explicit RESET_ALL_KEYS list, never
+     * a wildcard over localStorage (other sites' keys must be untouched). */
+    if (act === 'reset-all') {
+      if (!wipeArmed) {
+        wipeArmed = true;
+        paintResetButtons();
+        return;
+      }
+      wipeArmed = false;
+      if (companion) companion.stop('RESET ALL wiped this device.'); // R33
+      wipeAllAppStorage();
+      leagueFlash = {
+        tone: 'ok',
+        lines: ['Factory reset: league sync, budgets, team names, draft history, room memory, '
+          + 'roster and the TAKEN board are all erased from this device.'],
+      };
+      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+      return;
+    }
+
+    /* R34 — RE-APPLY the stashed (saved-not-applied) league in one tap: write
+     * it back as the ACTIVE profile and re-mount, which re-prices the whole
+     * page under its scoring and shape. No network — the stash IS the synced
+     * import RESTART parked. */
+    if (act === 'league-reapply') {
+      const parked = loadStashedProfile();
+      if (!parked) return;
+      const wrote = saveProfile(parked);
+      const nextMode = scoringMode(parked);
+      if (nextMode !== 'custom') {
+        try { localStorage.setItem(SCORING_KEY, nextMode); } catch (err) { /* session-only */ }
+      }
+      leagueFlash = {
+        tone: wrote ? 'ok' : 'warn',
+        lines: [wrote
+          ? `Re-applied ${parked.name} · ${parked.shape.teams} teams · `
+            + `${parked.shape.starters}+${parked.shape.bench} · ${receptionLabel(parked)} — `
+            + 'every number on this page is re-priced under it.'
+          : 'Storage is blocked, so the league could not be re-applied to disk.'],
+      };
+      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
       return;
     }
 
@@ -4285,7 +4666,7 @@ export default async function mountTeam(el) {
 
     if (act === 'auc-cancel') {
       if (auction && auction.block) { auction.block = null; bidAdj = 0; }
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       paintAll();
       return;
     }
@@ -4296,6 +4677,7 @@ export default async function mountTeam(el) {
       // from "every team was typed and happens to match", which is what the
       // summary line reports.
       draftCfg.teamBudgets = null;
+      persistAuctionTeams();   // R34 — level-all persists too (names are kept)
       leagueStatus = null;
       paintDraft();
       paintCands();
@@ -4307,7 +4689,7 @@ export default async function mountTeam(el) {
       undoLastSale(auction);
       auctionResult = null;
       bidAdj = 0;
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       syncLiveRoom();
       paintAll();
       return;
@@ -4316,7 +4698,7 @@ export default async function mountTeam(el) {
     if (act === 'auc-start') {
       auctionResult = null;
       bidAdj = 0;
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       syncedOthers.clear();
       syncedMine.clear();
       auction = createAuction({
@@ -4370,7 +4752,7 @@ export default async function mountTeam(el) {
     if (act === 'auc-nom') {
       nominate(auction, Number(t.dataset.bi));
       bidAdj = 0;
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       paintAll();
       return;
     }
@@ -4379,22 +4761,30 @@ export default async function mountTeam(el) {
       const bi = autoNominate(auction);
       if (bi >= 0) { nominate(auction, bi); bidAdj = 0; }
       else { auction.done = true; }
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       if (auction.done) finishAuction();
       paintDraft();
       return;
     }
 
-    if (act === 'auc-bid-minus' || act === 'auc-price-minus') {
-      // A chip nudges the ESTIMATE, so it takes over from a typed figure —
-      // otherwise -/+ would appear dead after any typing.
-      if (act === 'auc-price-minus' && soldTyped != null) { soldTyped -= 1; paintDraft(); return; }
+    /* R34 — the price chips correct a TYPED price only. They used to nudge
+     * the seeded estimate; the estimate no longer prefills (typing is
+     * mandatory), so with nothing typed there is no fact to nudge and the
+     * chips deliberately do nothing rather than invent a starting number. */
+    if (act === 'auc-price-minus') {
+      if (soldTyped != null && soldTyped > 0) { soldTyped -= 1; paintDraft(); }
+      return;
+    }
+    if (act === 'auc-price-plus') {
+      if (soldTyped != null) { soldTyped += 1; paintDraft(); }
+      return;
+    }
+    if (act === 'auc-bid-minus') {
       bidAdj -= 1;
       paintDraft();
       return;
     }
-    if (act === 'auc-bid-plus' || act === 'auc-price-plus') {
-      if (act === 'auc-price-plus' && soldTyped != null) { soldTyped += 1; paintDraft(); return; }
+    if (act === 'auc-bid-plus') {
       bidAdj += 1;
       paintDraft();
       return;
@@ -4405,7 +4795,7 @@ export default async function mountTeam(el) {
       const { winnerIdx, price } = resolveBids(auction, Number(t.dataset.max) || 0);
       sellTo(auction, winnerIdx, price, auction.block.boardIdx);
       bidAdj = 0;
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       if (auction.done) finishAuction();
       syncLiveRoom();
       paintAll();
@@ -4414,26 +4804,32 @@ export default async function mountTeam(el) {
 
     if (act === 'auc-sold') {
       // LIVE: record the observed sale exactly as it happened in the real room.
+      // R34 — the capture is MANDATORY buyer + TYPED price. validateSoldEntry
+      // (pure, node-tested) refuses a missing buyer and a blank price — a
+      // blank is NEVER recorded as $0 and NEVER silently replaced with our
+      // estimate; the manager is told what is missing instead. The RECORD
+      // button is disabled until both are set, so these refusals are the
+      // keyboard/edge backstop, not the primary UX.
       const sel = el.querySelector('.auc-soldteam');
       const priceEl = el.querySelector('.auc-soldprice');
-      const options = buyerOptions(auction);
-      const teamIdx = sel && sel.value !== '' ? Number(sel.value)
-        : (options.length ? options[0] : -1);
-      // The TYPED value is the observed fact; data-price is the estimate it
-      // was seeded from. Read the field, fall back to the seed when it is
-      // blank or unparseable — a cleared box must not record a $0 sale.
-      const typed = priceEl ? Math.round(Number(priceEl.value)) : NaN;
-      const seed = priceEl ? Number(priceEl.dataset.price) : 1;
-      const base = Number.isFinite(typed) && typed >= 0 ? typed : seed;
-      // Clamp to what the BUYER can legally pay ($1 reserved per other open
-      // slot); sellTo's budget clamp backstops even this.
-      const buyer = auction.teams[teamIdx];
-      const price = buyer ? Math.max(0, Math.min(base,
+      const v = validateSoldEntry({
+        buyerValue: sel ? sel.value : '',
+        priceValue: priceEl ? priceEl.value : '',
+      });
+      if (!v.ok) {
+        aucRefusal = v.reason;
+        paintAll();
+        return;
+      }
+      // Clamp the TYPED price to what the BUYER can legally pay ($1 reserved
+      // per other open slot); sellTo's budget clamp backstops even this.
+      const buyer = auction.teams[v.teamIdx];
+      const price = buyer ? Math.max(0, Math.min(v.price,
         maxBid(buyer.budget, auction.shape.size - buyer.players.length))) : 0;
       // sellTo REFUSES a full buyer (returns null). Say so — a silent no-op
       // reads as a broken button, and the manager needs to pick another team.
-      if (!buyer || sellTo(auction, teamIdx, price, auction.block.boardIdx) === null) {
-        const who = teamIdx === auction.mySlot - 1 ? 'YOU' : `T${teamIdx + 1}`;
+      if (!buyer || sellTo(auction, v.teamIdx, price, auction.block.boardIdx) === null) {
+        const who = seatLabel(v.teamIdx, auction.mySlot);
         aucRefusal = buyer
           ? `${who} already filled all ${auction.shape.size} roster spots — that `
             + 'team cannot buy. Pick another buyer.'
@@ -4442,7 +4838,7 @@ export default async function mountTeam(el) {
         return;
       }
       bidAdj = 0;
-      soldTyped = null;   // the block changed — last player's typed price must not carry over
+      resetSoldEntry();   // the block changed — last player's typed entry must not carry over
       if (auction.done) finishAuction();
       syncLiveRoom();
       paintAll();
@@ -4536,13 +4932,54 @@ export default async function mountTeam(el) {
    * "200". An empty or unparseable box falls back to the league default rather
    * than to zero — a blank field means "I have not said", not "this team has
    * no money". */
+  /* R34 — the sale capture keeps RECORD SALE's disabled state live WITHOUT a
+   * repaint (a repaint would blur the field mid-entry). The price is tracked
+   * on `input` (see the shared input listener below) so the button enables as
+   * the manager types; the buyer select and the team-name field ride THIS
+   * delegated change listener rather than adding their own — the R25 listener
+   * budget counts every mount-scoped registration. The blank check is
+   * explicit because Number('') is 0 and a cleared box must mean "nothing
+   * typed", never "$0 typed" — the same trap the budget boxes document below. */
+  function updateSoldConfirm() {
+    const btn = el.querySelector('[data-act="auc-sold"]');
+    if (btn) btn.disabled = !(soldTyped != null && soldBuyer != null);
+  }
+  function readSoldPrice(input) {
+    const blank = String(input.value).trim() === '';
+    const n = Math.round(Number(input.value));
+    soldTyped = !blank && Number.isFinite(n) && n >= 0 ? n : null;
+    updateSoldConfirm();
+  }
+
   listen(el, 'change', (e) => {
-    // A typed observed sale price. `change` not `input`, same reason as the
-    // budgets: clamping mid-keystroke fights the user.
+    // R34 — the MANDATORY buyer selection for a live sale.
+    const buyerSel = e.target.closest('select.auc-soldteam');
+    if (buyerSel) {
+      const n = Number(buyerSel.value);
+      soldBuyer = buyerSel.value !== '' && Number.isInteger(n) && n >= 0 ? n : null;
+      updateSoldConfirm();
+      return;
+    }
+    // R34 — a typed team NAME commits on `change` (blur), persists alongside
+    // the budgets, and clears back to the fallback ladder when emptied.
+    const nameBox = e.target.closest('input[data-tname]');
+    if (nameBox) {
+      const idx = Number(nameBox.dataset.tname);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= draftCfg.leagueSize) return;
+      const next = teamNames.slice();
+      while (next.length < draftCfg.leagueSize) next.push('');
+      next[idx] = String(nameBox.value || '').trim().slice(0, TEAM_NAME_MAX);
+      teamNames = next;
+      persistAuctionTeams();
+      // A room in progress shows names on the ledger/buyer surfaces.
+      if (auction) paintDraft();
+      return;
+    }
+    // A typed observed sale price on commit (blur) — the input listener below
+    // already tracked it live; this re-checks the final value.
     const sold = e.target.closest('input.auc-soldprice');
     if (sold) {
-      const n = Math.round(Number(sold.value));
-      soldTyped = Number.isFinite(n) && n >= 0 ? n : null;
+      readSoldPrice(sold);
       return;                       // no repaint: repainting would blur the field
     }
     const box = e.target.closest('input[data-dnum], input[data-tbudget]');
@@ -4563,6 +5000,7 @@ export default async function mountTeam(el) {
       // with it — that is what "default" means. Once budgets are uneven the
       // per-team numbers are the truth and are left alone.
       if (wasLevel) draftCfg.teamBudgets = null;
+      persistAuctionTeams();   // R34 — budgets survive a reload now
       leagueStatus = null;
       if (!draft && !auction) paintDraft();
       paintCands();
@@ -4580,6 +5018,7 @@ export default async function mountTeam(el) {
     // held $200. The field must state what was actually stored.
     box.value = String(next[idx]);
     draftCfg.teamBudgets = next;
+    persistAuctionTeams();   // R34 — budgets survive a reload now
     leagueStatus = null;
     if (!draft && !auction) paintDraft();
     // OUR dollars are spread over the money in the room, so an uneven room
@@ -4620,8 +5059,12 @@ export default async function mountTeam(el) {
   });
 
   // Sleeper text fields: keep the typed value in closure state so the frequent
-  // setup-card repaint restores it instead of eating it.
+  // setup-card repaint restores it instead of eating it. R34 — the sale-price
+  // field shares this input listener (listener budget): tracking it per
+  // keystroke is what lets RECORD SALE enable while the manager types.
   listen(el, 'input', (e) => {
+    const sold = e.target.closest('input.auc-soldprice');
+    if (sold) { readSoldPrice(sold); return; }
     const f = e.target.closest('[data-lin]');
     if (!f) return;
     if (f.dataset.lin === 'sleeperId') sleeperId = f.value || '';

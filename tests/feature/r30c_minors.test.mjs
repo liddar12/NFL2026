@@ -82,19 +82,37 @@ test('k and def change the shape the key is built from (pure helper)', () => {
    2. RESET clears the Sleeper roster panel's applied claim
    ========================================================================== */
 
-test('RESET clears rosterApplied/rosterStatus and re-plans', () => {
-  /* The defect: RESET emptied the roster but left rosterApplied=true, so the
-   * panel kept saying "Roster replaced … seated" about a roster that no longer
-   * existed, and the no-network FILL MY ROSTER offer was unreachable. */
-  const branch = actBranch(prose(TEAM), 'reset', 'league-save');
-  assert.match(branch, /rosterApplied = false/,
-    'RESET must clear the applied flag, or rosterPlanHtml stays pinned to its '
-    + 'post-apply "Roster replaced" branch over an empty roster');
-  assert.match(branch, /rosterStatus = null/,
-    'RESET must clear the "N player(s) seated" status line');
-  assert.match(branch, /buildRosterPlan\(\)/,
-    'RESET must re-plan against the emptied slots so FILL MY ROSTER comes back '
-    + 'without a fresh network sync');
+test('a reset clears the applied-roster claim (now structurally, via re-mount)', () => {
+  /* The R30c defect: RESET emptied the roster but left rosterApplied=true, so
+   * the panel kept saying "Roster replaced … seated" about a roster that no
+   * longer existed, and the no-network FILL MY ROSTER offer was unreachable.
+   *
+   * UPDATED FOR R34 (this is a pin update, not a weakening): the single RESET
+   * became RESTART SESSION / RESET ALL, and both now finish with a full
+   * RE-MOUNT after clearing storage — the same idiom league-save uses for a
+   * scoring change. The re-mount rebuilds rosterApplied=false, rosterStatus,
+   * the OURS price memo and every other derived cache from cleared storage,
+   * which is the structural form of the R30c lesson: the original hand-cleared
+   * list is exactly what went stale. So the assertion moves from "the branch
+   * hand-clears these three states" to "both branches clear storage and
+   * re-mount" — the invariant (no stale applied claim after a reset) is
+   * unchanged, and the R34 suite covers the storage half. */
+  const src = prose(TEAM);
+  const restart = actBranch(src, 'restart-session', 'reset-all');
+  assert.match(restart, /restartSessionStorage\(\)/,
+    'RESTART must clear the session storage (roster, taken, scoring, profile)');
+  assert.match(restart, /mountTeam\(el\)/,
+    'RESTART must re-mount so rosterApplied/rosterStatus and every derived '
+    + 'cache are rebuilt — the stale-applied-claim defect cannot survive a '
+    + 'fresh mount over cleared storage');
+  const wipe = actBranch(src, 'reset-all', 'league-reapply');
+  assert.match(wipe, /wipeAllAppStorage\(\)/, 'RESET ALL clears everything');
+  assert.match(wipe, /mountTeam\(el\)/, 'RESET ALL re-mounts for the same reason');
+  // The stale claim itself must be unreachable: no reset path may leave the
+  // old in-place partial-clear behind (the R30c defect's shape).
+  assert.ok(!/act === 'reset'\)/.test(src),
+    'the single pre-R34 reset branch is gone — a third reset path must not '
+    + 'reintroduce the in-place partial clear');
 });
 
 /* ==========================================================================
