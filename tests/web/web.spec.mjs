@@ -767,9 +767,14 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     await expect(page.locator('.ds-sub-note').nth(1)).toContainText('14 ROUNDS');
     await expect(page.locator('.ds-start')).toContainText('14 ROUNDS');
     // The primary action uses the full card width (not a floating chip).
+    // R34 — measured against the card's CONTENT box rather than a 0.9 ratio:
+    // the always-on HIG theme pads the card 16px per side (vs 14px), which
+    // nudged the ratio to 0.898 without the button being any less full-width.
+    // Full-width-minus-padding is the actual claim, and 40px of allowance
+    // still fails a floating chip by hundreds of pixels.
     const card = await page.locator('.draftsim').boundingBox();
     const btn = await page.locator('.ds-start').boundingBox();
-    expect(btn.width).toBeGreaterThan(card.width * 0.9);
+    expect(btn.width).toBeGreaterThan(card.width - 40);
   });
 
   test('a draft runs: sim to my pick -> recommendations with survival -> pick works', async ({ page }) => {
@@ -794,7 +799,13 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     await expect(page.locator('.ds-start')).toHaveCount(1);
   });
 
-  test('RESET requires a second confirming tap and clears roster + taken', async ({ page }) => {
+  /* R34 — the single RESET became RESTART SESSION + RESET ALL, both two-tap.
+   * The pins move to the new reality (same invariants: two-tap, state
+   * untouched while armed, board cleared after): the roster/taken clear rides
+   * RESTART SESSION, which now REMOVES the storage keys and re-mounts, where
+   * the old reset wrote emptied shapes in place — so the storage assertions
+   * expect absent keys, plus the R34 scoring revert to standard PPR. */
+  test('RESTART SESSION requires a second confirming tap and clears roster + taken', async ({ page }) => {
     const proj = readData('player_projections.json');
     const rb = proj.players.find((p) => p.position === 'RB');
     await page.goto('/#/team');
@@ -807,21 +818,30 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     await page.waitForSelector('.cand .cand-taken', { timeout: 8000 });
     await page.locator('.cand .cand-taken').first().click();
 
-    // First tap arms; state is untouched.
-    await page.locator('.reset-btn').click();
-    await expect(page.locator('.reset-btn')).toContainText('CONFIRM');
+    const restart = page.locator('[data-act="restart-session"]');
+    const resetAll = page.locator('[data-act="reset-all"]');
+    // Arming one disarms the other — one pending confirm at a time.
+    await resetAll.click();
+    await expect(resetAll).toContainText('TAP AGAIN');
+    // First tap arms RESTART (and disarms RESET ALL); state is untouched.
+    await restart.click();
+    await expect(restart).toContainText('TAP AGAIN');
+    await expect(resetAll).toContainText('RESET ALL');
     await expect(page.locator('.slot-player').first()).toBeVisible();
-    // Second tap wipes roster, taken set, and persisted storage.
-    await page.locator('.reset-btn').click();
-    await expect(page.locator('.reset-btn')).toContainText('RESET');
+    // Second tap clears the board (the view re-mounts over cleared storage).
+    await restart.click();
+    await page.waitForSelector('.roster .slot', { timeout: 8000 });
+    await expect(page.locator('[data-act="restart-session"]')).toContainText('RESTART SESSION');
     expect(await page.locator('.slot-player').count()).toBe(0);
     expect(await page.locator('.cand--taken').count()).toBe(0);
     const stored = await page.evaluate(() => ({
       team: localStorage.getItem('nfl2026.team.v1'),
       taken: localStorage.getItem('nfl2026.taken.v1'),
+      scoring: localStorage.getItem('nfl2026.scoring.v1'),
     }));
-    expect(JSON.parse(stored.taken)).toEqual([]);
-    expect(Object.values(JSON.parse(stored.team).slots).every((v) => v === null)).toBe(true);
+    expect(stored.team).toBeNull();
+    expect(stored.taken).toBeNull();
+    expect(stored.scoring).toBe('ppr');
   });
 
   test('team page has no horizontal overflow with the new sections (402px)', async ({ page }) => {
@@ -1024,7 +1044,10 @@ test.describe('draft room <-> page sync (REL9.1, #/team)', () => {
     const gsis = await row.getAttribute('data-gsis');
     await row.locator('[data-act="auc-nom"]').click();
     await page.waitForSelector('[data-act="auc-sold"]', { timeout: 8000 });
-    // Sold to T1 (an opponent) at the shown price.
+    // Sold to T1 (an opponent). R34 — the capture is mandatory: pick the
+    // buyer AND type the price (nothing is preselected or prefilled).
+    await page.locator('.auc-soldteam').selectOption('0');
+    await page.locator('.auc-soldprice').fill('12');
     await page.locator('[data-act="auc-sold"]').click();
     await expect(page.locator(`.cand[data-gsis="${gsis}"]`)).toHaveClass(/cand--taken/);
     // Exact undo: the room AND the page state roll back.
@@ -1040,9 +1063,10 @@ test.describe('draft room <-> page sync (REL9.1, #/team)', () => {
     const name = raw.split('\n')[0].replace(/[\u25b2\u25bc]/g, '').trim();
     await row.locator('[data-act="auc-nom"]').click();
     await page.waitForSelector('.auc-soldteam', { timeout: 8000 });
-    // Record the sale to ME.
+    // Record the sale to ME. R34 — buyer selected, price typed (mandatory).
     const myIdx = await page.locator('.auc-soldteam option', { hasText: 'YOU' }).getAttribute('value');
     await page.locator('.auc-soldteam').selectOption(myIdx);
+    await page.locator('.auc-soldprice').fill('12');
     await page.locator('[data-act="auc-sold"]').click();
     // My roster now holds him: a filled slot renders his name.
     await expect(page.locator('.roster .slot-player', { hasText: name }).first()).toBeVisible();
@@ -1156,19 +1180,33 @@ test.describe('UI/UX audit pass (REL11)', () => {
   test('team lists share the roster-slot rhythm (REL11.2)', async ({ page }) => {
     await page.goto('/#/team');
     await waitForCards(page, '#t-cands .cand');
-    // Finder names use the slot-name type: 14px bold sans ink, not 12px mono.
+    // R34 — updated pin: HIG is now the ONLY theme, and its ladder puts the
+    // shared name type at Callout 16px / weight 590 (theme-hig.css styles
+    // .cd-name and .slot-player in ONE rule, which is the REL11.2 rhythm
+    // claim by construction). The old 14px/700 was the Broadcast value.
     const name = await page.locator('#t-cands .cand .cd-name').first().evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { size: cs.fontSize, weight: cs.fontWeight };
+      return { size: cs.fontSize, weight: cs.fontWeight, family: cs.fontFamily };
     });
-    expect(name.size).toBe('14px');
-    expect(Number(name.weight)).toBeGreaterThanOrEqual(700);
-    // Finder rows sit on the same card surface as roster slots.
-    const [candBg, slotBg] = await page.evaluate(() => [
-      getComputedStyle(document.querySelector('#t-cands .cand')).backgroundColor,
-      getComputedStyle(document.querySelector('.slot')).backgroundColor,
-    ]);
-    expect(candBg).toBe(slotBg);
+    expect(name.size).toBe('16px');
+    expect(Number(name.weight)).toBeGreaterThanOrEqual(590);
+    expect(name.family).not.toMatch(/mono|Menlo/i);   // a NAME, not a 12px mono cell
+    // R34 — surface pin updated with the theme: HIG deliberately TIERS the
+    // surfaces (slots are grouped-list insets on --surface-2, finder rows are
+    // list rows on --surface — see theme-hig.css "Insets INSIDE a card"), so
+    // the old cross-equality was a Broadcast fact. The rhythm claim that
+    // remains testable: every finder row wears ONE surface, every slot wears
+    // ONE surface, and both are REAL paints (never transparent fallbacks).
+    const surfaces = await page.evaluate(() => {
+      const bgs = (sel) => [...document.querySelectorAll(sel)].slice(0, 6)
+        .map((el) => getComputedStyle(el).backgroundColor);
+      return { cands: bgs('#t-cands .cand'), slots: bgs('.roster .slot') };
+    });
+    expect(new Set(surfaces.cands).size).toBe(1);
+    expect(new Set(surfaces.slots).size).toBe(1);
+    for (const bg of [surfaces.cands[0], surfaces.slots[0]]) {
+      expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    }
   });
 
   test('finder cards never touch: 8px rhythm between rows (REL11.3)', async ({ page }) => {

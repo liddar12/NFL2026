@@ -9,7 +9,8 @@
  *   3. Safe-area respected: under 59px top / 34px bottom insets the topbar clears
  *      the Dynamic Island, the tabbar clears the home indicator, and nothing
  *      overlaps the top inset band.
- *   4. Dark-only: color-scheme is dark, body ~= #0D1117, no [data-theme] toggle.
+ *   4. Themed: <html> carries data-theme="hig" on every boot (R34 — HIG is the
+ *      ONLY theme; the old dark-only/no-toggle contract is retired with it).
  *   5. Content renders from data (slate / players / parlays).
  *   6. Service worker registers (the pure cache-purger).
  *
@@ -211,30 +212,43 @@ test.describe('installed (standalone) PWA experience', () => {
     expect(geom.viewTop).toBeGreaterThanOrEqual(geom.topbarBottom - 1);
   });
 
-  test('is dark-only with no theme toggle', async ({ page }) => {
+  /* R34 — the "dark-only, no [data-theme]" contract is RETIRED: Apple HIG is
+   * now the ONLY theme, stamped unconditionally before first paint, and HIG
+   * declares `color-scheme: light dark` (the browser picks). The installed
+   * app must wear it exactly like the browser build — same attribute, same
+   * stylesheet winning, no switch to escape it. */
+  test('wears the HIG theme (the only theme), with no theme switch', async ({ page }) => {
     await page.goto(url('/'));
 
+    // The pre-paint stamp is present in standalone too.
+    const theme = await page.evaluate(
+      () => document.documentElement.getAttribute('data-theme'),
+    );
+    expect(theme).toBe('hig');
+
+    // The HIG token block actually applies: it re-points color-scheme from the
+    // base sheet's pinned `dark` to `light dark`.
     const colorScheme = await page.evaluate(
       () => getComputedStyle(document.documentElement).colorScheme,
     );
+    expect(colorScheme).toContain('light');
     expect(colorScheme).toContain('dark');
 
-    // Body background is the locked --bg (#0D1117 = rgb(13,17,23)), within tol.
+    // Body background is a real paint (the HIG --bg for the active scheme:
+    // #F2F2F7 light / near-black dark), never transparent/unstyled.
     const bodyBg = await page.evaluate(
       () => getComputedStyle(document.body).backgroundColor,
     );
     const [r, g, b] = rgbTriplet(bodyBg) || [];
-    expect(Math.abs(r - 13)).toBeLessThanOrEqual(4);
-    expect(Math.abs(g - 17)).toBeLessThanOrEqual(4);
-    expect(Math.abs(b - 23)).toBeLessThanOrEqual(4);
+    const isHigLight = Math.abs(r - 242) <= 4 && Math.abs(g - 242) <= 4 && Math.abs(b - 247) <= 4;
+    const isDark = r <= 40 && g <= 40 && b <= 40;
+    expect(isHigLight || isDark).toBe(true);
 
-    // Dark-ONLY: no theme-toggle hook anywhere.
-    const hasToggle = await page.evaluate(
-      () =>
-        document.documentElement.hasAttribute('data-theme') ||
-        document.querySelector('[data-theme]') !== null,
+    // No switch to leave the theme — the R31 control is gone.
+    const hasSwitch = await page.evaluate(
+      () => document.getElementById('theme-switch') !== null,
     );
-    expect(hasToggle).toBe(false);
+    expect(hasSwitch).toBe(false);
   });
 
   test('content renders from data (slate / players / parlays)', async ({ page }) => {

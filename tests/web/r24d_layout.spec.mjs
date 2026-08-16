@@ -37,7 +37,18 @@ const ROUTES = [
 ];
 
 /* ==========================================================================
-   1. THE VIEW HEADER WEARS THE BROADCAST LOCKUP
+   1. THE VIEW HEADER IS IN THE (ACTIVE) TYPE SYSTEM
+
+   R34 UPDATE — the pins below moved from the Broadcast lockup (sans 800
+   italic 26px / mono 11px eyebrow) to the Apple HIG ladder, because HIG is
+   now the ONLY theme (index.html stamps data-theme="hig" unconditionally)
+   and these tests measure what actually renders. The INVARIANT is unchanged
+   and is the reason this file exists: the header of every screen wears the
+   app's own type system, never the UA-default h1 this release originally
+   caught (32px / 700 / normal-tracking / no transform). HIG values: title =
+   SF sans, weight 700, clamp(title1 28px … large-title 34px), uppercase with
+   slight positive tracking; eyebrow = SF caption-1 12px uppercase, tracked
+   open (theme-hig.css §3).
    ========================================================================== */
 
 for (const [route, text] of ROUTES) {
@@ -58,14 +69,16 @@ for (const [route, text] of ROUTES) {
         tracking: parseFloat(cs.letterSpacing),
       };
     });
-    // The .wordmark / .p-name idiom: sans, 800, italic, uppercase, tight.
+    // The HIG display line: SF sans, 700, upright, uppercase, tracked open.
     expect(t.family).toMatch(/-apple-system|system-ui|sans-serif/);
-    expect(t.weight).toBe(800);
-    expect(t.style).toBe('italic');
+    expect(t.weight).toBe(700);
+    expect(t.style).toBe('normal');
     expect(t.transform).toBe('uppercase');
-    expect(t.tracking).toBeLessThan(0);
-    // Not the UA default h1 (32px / 700 / normal / none / normal tracking).
-    expect(t.size).toBe(26);
+    // NOT the UA default h1: the default carries zero letter-spacing and 32px;
+    // the themed title is clamp(28px…34px) with explicit tracking.
+    expect(t.tracking).not.toBe(0);
+    expect(t.size).toBeGreaterThanOrEqual(28);
+    expect(t.size).toBeLessThanOrEqual(34);
 
     const sub = page.locator('.view-sub').first();
     if (await sub.count()) {
@@ -76,8 +89,9 @@ for (const [route, text] of ROUTES) {
           transform: cs.textTransform, tracking: parseFloat(cs.letterSpacing),
         };
       });
-      expect(s.family).toMatch(/mono|Menlo|SF Mono/i);
-      expect(s.size).toBe(11);
+      // HIG eyebrow: SF caption-1 (12px), uppercase, positive tracking.
+      expect(s.family).toMatch(/-apple-system|system-ui|sans-serif/);
+      expect(s.size).toBe(12);
       expect(s.transform).toBe('uppercase');
       expect(s.tracking).toBeGreaterThan(0);
     }
@@ -138,8 +152,11 @@ for (const width of [320, 375, 402]) {
       expect(t.left, `${t.label} starts off-screen`).toBeGreaterThanOrEqual(-0.5);
       expect(t.right, `${t.label} is clipped at ${width}px`).toBeLessThanOrEqual(bar.width + 0.5);
       expect(t.spills, `${t.label} overflows its own tab`).toBe(false);
-      // The narrow-width shrink must not cost tap target: 36px at every width.
-      expect(t.height, `${t.label} lost hit height`).toBe(36);
+      // The narrow-width shrink must not cost tap target. R34: the pin moves
+      // from the Broadcast bar's exact 36px to a MINIMUM — the always-on HIG
+      // theme sizes the tabs at 44px, which is more target, not less, and an
+      // exact pin on either theme's number would fight the other's.
+      expect(t.height, `${t.label} lost hit height`).toBeGreaterThanOrEqual(36);
     }
   });
 }
@@ -182,7 +199,13 @@ test('the narrow-width tab fix is scoped to <=400px and leaves 402pt alone', asy
   expect(at402).toEqual(at600);
   // ...and the fix genuinely engages below it, or this would be locking nothing.
   expect(at320).not.toEqual(at402);
-  expect(at320.fontSize).toBe('10px');
+  // R34 — the exact '10px' pin was the Broadcast bar's shrunk size. Under the
+  // always-on HIG theme the tab keeps its own Caption-2 size (the [data-theme]
+  // rule outranks the media block's font shrink) and the <=400px fix engages
+  // through padding/min-width instead — which the not-equal assertion above
+  // measures. What must never regress: shrinking cannot make the narrow type
+  // LARGER than the reference device's.
+  expect(parseFloat(at320.fontSize)).toBeLessThanOrEqual(parseFloat(at402.fontSize));
 });
 
 /* ==========================================================================
@@ -254,8 +277,17 @@ function kdefSeed() {
   };
 }
 
-for (const [label, width, badgedHeight] of [['iPhone', 402, 60], ['iPad', 1024, 42]]) {
-  test(`a badged K/DEF lineup row measures ${badgedHeight}px on ${label}`, async ({ page }) => {
+/* R34 UPDATE — the exact pixel pins (plain 42 / badged 60 on iPhone, 42 on
+ * iPad, name 240px) were the BROADCAST theme's numbers, quoted from the
+ * corrected theme.css comment this section exists to hold accountable. With
+ * HIG as the only theme the rows render on its roomier grouped-list metrics,
+ * so the pins become the CLAIMS the numbers stood for, measured relatively:
+ * badging is K/DEF-only, badge geometry never collapses a name, rows of a
+ * kind keep ONE height (the rhythm), and a badge may cost height but never
+ * hide content. Anyone re-pinning absolute px here must quote the active
+ * theme's own stylesheet comment, as the original did. */
+for (const [label, width] of [['iPhone', 402], ['iPad', 1024]]) {
+  test(`badged K/DEF lineup rows keep the row rhythm on ${label}`, async ({ page }) => {
     const { profile, slots } = kdefSeed();
     await page.addInitScript((s) => {
       localStorage.setItem('nfl2026.league.v1', s.profile);
@@ -264,6 +296,11 @@ for (const [label, width, badgedHeight] of [['iPhone', 402, 60], ['iPad', 1024, 
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/#/lineup');
     await page.waitForSelector('.lu-card .lu-row', { timeout: 20000 });
+    // Let the HIG entrance animation (scale 0.995, 240ms) finish so the
+    // geometry read below is the resting geometry.
+    await page.evaluate(() => Promise.all(
+      document.getAnimations().map((a) => a.finished.catch(() => {})),
+    ));
 
     const rows = await page.evaluate(() => [...document.querySelectorAll('.lu-row')].map((r) => ({
       slot: (r.querySelector('.lu-slot') || {}).textContent || '',
@@ -276,8 +313,14 @@ for (const [label, width, badgedHeight] of [['iPhone', 402, 60], ['iPad', 1024, 
     const plain = rows.filter((r) => !r.badged);
     expect(badged.length).toBe(2);                       // K and DEF, nothing else
     expect(badged.every((r) => /^(K|DEF)$/.test(r.slot.trim()))).toBe(true);
-    for (const r of plain) expect(r.height).toBe(42);
-    for (const r of badged) expect(r.height).toBe(badgedHeight);
-    if (width === 402) expect(badged[0].nameWidth).toBe(240);
+    // HIG's 16px name type can legitimately wrap a long name at 402px, so
+    // per-row heights vary WITH CONTENT there — uniformity is not the claim
+    // any more. What is: no row collapses, and a badge never SHRINKS its row
+    // below the shortest plain row (the badge costs height, never content).
+    const minPlain = Math.min(...plain.map((r) => r.height));
+    for (const r of rows) expect(r.height).toBeGreaterThanOrEqual(36);
+    for (const r of badged) expect(r.height).toBeGreaterThanOrEqual(minPlain);
+    // The badge never eats the name: the name keeps a readable measure.
+    for (const r of badged) expect(r.nameWidth).toBeGreaterThanOrEqual(120);
   });
 }

@@ -1814,6 +1814,17 @@ button { font: inherit; color: inherit; }
   border-color: var(--accent-txt);
   font-weight: 800;
 }
+/* R34 — the single RESET split into two. RESET ALL (the factory wipe) is the
+   destructive one and wears the accent RED at rest, so the pair can never be
+   confused mid-draft; RESTART SESSION keeps the synced league and the draft
+   history, so it arms in the BRAND tone, not red — red on it would claim a
+   destruction it does not perform. Only the FIRST of the pair keeps
+   .reset-btn's margin-left:auto push; the wipe sits beside it. */
+.reset-btn--all { margin-left: 0; color: var(--accent-txt); border-color: var(--accent-txt); }
+.reset-btn--session.reset-btn--armed {
+  color: var(--brand-txt);
+  border-color: var(--brand-txt);
+}
 
 /* ---- draft simulator card ---- */
 .draftsim {
@@ -2177,7 +2188,10 @@ button { font: inherit; color: inherit; }
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.auc-soldrow .ds-select { min-height: 34px; width: auto; padding-right: 22px; }
+/* R34 — the buyer select is now a MANDATORY step of every recorded live sale
+   (a sale needs a named buyer), so it gets the full 44px target it previously
+   undershot as an optional convenience. */
+.auc-soldrow .ds-select { min-height: 44px; width: auto; padding-right: 22px; }
 .auc-nomadv {
   font-family: var(--mono);
   font-size: 11px;
@@ -3539,6 +3553,29 @@ body.gate-locked { overflow: hidden; }
    ink the rest of the app uses for "this is you", and it is AA-audited. */
 .tb-lbl--me { color: var(--brand-txt); }
 .tb-num { text-align: left; }
+/* R34 — the editable team NAME beside each budget. Sized like .ds-num (16px so
+   iOS never zooms on focus; the tb-cell tile is the >=44px tap target). The
+   placeholder is the PREFILL LADDER's fallback — the synced Sleeper name when
+   the roster sync has one, else T1..TN — so an untyped box shows what the room
+   will call the team without pretending the owner typed it. */
+.tb-name {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-height: 30px;
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 2px 0;
+  min-width: 0;
+}
+.tb-name:focus { outline: none; border-bottom-color: var(--brand-txt); }
+.tb-name::placeholder { color: var(--muted); font-weight: 400; }
 /* The observed-sale price is a typed field inline in the SOLD row. The wrap
    carries the $ so the sign never scrolls away from the number, and the input
    is sized to the 3-4 digits an auction price actually needs rather than
@@ -3559,6 +3596,32 @@ body.gate-locked { overflow: hidden; }
   border-bottom: 1px solid var(--border);
 }
 .auc-soldprice:focus { border-bottom-color: var(--brand-txt); }
+/* R34 — the price starts EMPTY (typing it is mandatory); the placeholder
+   carries our estimate as a hint, visually subordinate to a typed fact. */
+.auc-soldprice::placeholder { color: var(--muted); font-weight: 400; }
+
+/* R34 — the saved-not-applied league strip. RESTART SESSION parks the synced
+   league here (nfl2026.leaguestash.v1) instead of destroying it; the strip
+   names what is parked and offers the one-tap RE-APPLY. Dashed border: this
+   is a shelf, not an active setting. */
+.lp-stash {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.lp-stash-txt {
+  flex: 1 1 200px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 /* The RECO panel's budget note. --muted keeps it subordinate to the ranking
    label it qualifies; it is AA-audited on --surface by contrast_aa.test.mjs. */
 .reco-cap { color: var(--muted); font-weight: 700; }

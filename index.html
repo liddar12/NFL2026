@@ -24,83 +24,30 @@
   <!-- Favicon (also silences the browser's /favicon.ico auto-request). -->
   <link rel="icon" type="image/png" href="/icons/icon-192.png" />
 
-  <!-- theme.css owns ALL styling (dark-only Broadcast Gameday design system).
-       No inline styles, no CDN, no build step. The ?v= tag is stamped with the
-       commit SHA at Netlify build time (write-runtime-config.mjs) so a fresh
-       index.html can never pair with a stale-while-revalidate cached CSS. -->
+  <!-- theme.css is the BASE styling layer (the Broadcast Gameday design
+       system) that theme-hig.css overrides — see R34 below. No inline styles,
+       no CDN, no build step. The ?v= tag is stamped with the commit SHA at
+       Netlify build time (write-runtime-config.mjs) so a fresh index.html can
+       never pair with a stale-while-revalidate cached CSS. -->
   <link rel="stylesheet" href="/app/theme.css?v=dev" />
 
-  <!-- R31 — the ALTERNATIVE theme (Apple HIG). Loaded on every page load, but
-       INERT: every selector inside is scoped under html[data-theme="hig"], so
-       until the switch below sets that attribute this file matches nothing and
-       the Broadcast design ships byte-for-byte unchanged. Scoping it that way
-       (rather than swapping the <link> href at runtime) is also what makes the
-       switch instant — no second network round trip on the flip. Loaded AFTER
-       theme.css so the cascade order matches the specificity intent. -->
+  <!-- R34 — the Apple HIG theme, loaded on every page load. HIG is engineered
+       as an OVERRIDE LAYER: every selector inside is scoped under
+       html[data-theme="hig"] and outranks its theme.css counterpart by one
+       attribute selector, so it must load AFTER theme.css. Do not merge the
+       two sheets — the base file is the contract every class name is styled
+       against, and the override scoping is what the theme tests lock. -->
   <link rel="stylesheet" href="/app/theme-hig.css?v=dev" />
 
-  <!-- R31 — theme switch. This runs BEFORE first paint on purpose: reading the
-       stored choice from a module (deferred, executes after parse) would paint
-       one frame of the Broadcast theme first and then repaint, which is the
-       classic flash of the wrong theme. An inline head script is the only
-       thing that runs early enough, so this is the one place in the app where
-       script lives outside app/.
-
-       Storage contract: key "nfl2026.theme.v1", values "broadcast" (default)
-       and "hig". ABSENT / unreadable / any other value means the default, and
-       in the default case the attribute is REMOVED rather than set to a
-       falsy-ish value, so the DOM of an untouched app is identical to what it
-       was before this feature existed. Every localStorage access is wrapped:
-       Safari private mode throws on read AND write, and a theme switch is
-       never worth breaking the boot for (the app then simply does not
-       remember the choice across reloads). -->
-  <script>
-    (function () {
-      var KEY = 'nfl2026.theme.v1';
-      var HIG = 'hig';
-
-      function read() {
-        try { return localStorage.getItem(KEY); } catch (_) { return null; }
-      }
-      function apply(on) {
-        if (on) document.documentElement.setAttribute('data-theme', HIG);
-        else document.documentElement.removeAttribute('data-theme');
-      }
-
-      // Before first paint.
-      apply(read() === HIG);
-
-      // The control is static markup in the topbar, so it only exists once the
-      // body has parsed. Label it with the theme it is currently ON, which is
-      // what makes a single chip both a status readout and a switch.
-      function paint(btn, on) {
-        btn.textContent = on ? 'THEME · APPLE HIG' : 'THEME · BROADCAST';
-        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        btn.setAttribute(
-          'aria-label',
-          on
-            ? 'Theme: Apple HIG. Activate to switch back to Broadcast.'
-            : 'Theme: Broadcast. Activate to switch to Apple HIG.'
-        );
-      }
-      function wire() {
-        var btn = document.getElementById('theme-switch');
-        if (!btn) return;
-        paint(btn, read() === HIG);
-        btn.addEventListener('click', function () {
-          var on = document.documentElement.getAttribute('data-theme') !== HIG;
-          apply(on);
-          try { localStorage.setItem(KEY, on ? HIG : 'broadcast'); } catch (_) {}
-          paint(btn, on);
-        });
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', wire, { once: true });
-      } else {
-        wire();
-      }
-    })();
-  </script>
+  <!-- R34 — Apple HIG is the ONLY theme. The R31 switcher (a topbar button
+       plus a nfl2026.theme.v1 storage read) is retired by owner decision: the
+       attribute is stamped unconditionally, BEFORE first paint (an inline head
+       script is the only thing that runs early enough — a deferred module
+       would paint one Broadcast frame first, the classic wrong-theme flash).
+       No storage read, no try/catch, nothing that can fail the boot:
+       setAttribute on documentElement cannot throw. theme.css remains the
+       BASE LAYER that theme-hig.css overrides — see the link order above. -->
+  <script>document.documentElement.setAttribute('data-theme', 'hig');</script>
 
   <!-- R25 — TEAM is DISCOVERABLE without being EXECUTED.
        app/views/players.js used to `import { cfgFromProfile } from './team.js'`
@@ -125,12 +72,9 @@
   <div class="app">
     <header class="topbar">
       <div class="wordmark">NFL<span class="wm-accent">2026</span></div>
-      <!-- R31 theme switch. It wears class="wk" deliberately: that is the
-           topbar's existing chip idiom, already styled by theme.css, so the
-           control looks native in the DEFAULT theme without adding a single
-           rule to it. The label is written by the head script (it names the
-           active theme), so this is empty in source. -->
-      <button class="wk" id="theme-switch" type="button" aria-pressed="false"></button>
+      <!-- R34 — the R31 #theme-switch button lived here; removed with the
+           switcher (HIG is the only theme). The week chip keeps the topbar's
+           `wk` chip idiom. -->
       <div class="wk" id="week-chip">WK 1</div>
     </header>
 

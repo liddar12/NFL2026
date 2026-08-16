@@ -100,20 +100,18 @@ test.describe('R23-B2 · a LIVE sale can only be recorded against a team that ca
 
     // Fill T1 (index 0) by recording ten $1 sales to it. Ten is the roster
     // size, so the tenth is its last legal purchase.
+    // R34 — the picker now opens on a "— pick buyer —" placeholder (a sale
+    // requires an EXPLICIT buyer), so the option count is buyers + 1, and the
+    // price is TYPED into the (mandatorily empty) price field: the typed-price
+    // contract this room now enforces everywhere.
     for (let i = 0; i < 10; i += 1) {
       await page.locator('[data-act="auc-nom"]').first().click();
       await page.waitForSelector('.auc-soldrow', { timeout: 15000 });
       expect(await page.locator('.auc-soldteam option').count(),
-        `every team can still buy before T1's purchase #${i + 1}`).toBe(8);
+        `every team can still buy before T1's purchase #${i + 1}`).toBe(9);
       await page.locator('.auc-soldteam').selectOption('0');
-      // $1 apiece, so the ROSTER is what runs out, not the budget. (Set the
-      // displayed price directly rather than tapping − eighty times; the
-      // stepper itself is covered by the auction spec.)
-      await page.evaluate(() => {
-        const p = document.querySelector('.auc-soldprice');
-        p.dataset.price = '1';
-        p.textContent = '$1';
-      });
+      // $1 apiece, so the ROSTER is what runs out, not the budget.
+      await page.locator('.auc-soldprice').fill('1');
       await page.locator('[data-act="auc-sold"]').click();
       await page.waitForSelector('.auc-pool', { timeout: 15000 });
     }
@@ -124,13 +122,14 @@ test.describe('R23-B2 · a LIVE sale can only be recorded against a team that ca
     const values = await page.locator('.auc-soldteam option')
       .evaluateAll((os) => os.map((o) => o.value));
     expect(values).not.toContain('0');
-    expect(values.length).toBe(7);
+    expect(values.length).toBe(8);   // 7 buyers + the mandatory placeholder
 
     // And a sale to a team that CAN buy still works from the same block:
     // the SOLD counter in the header advances.
     const sold = async () => Number((await page.locator('.ds-status').innerText()).split('/')[0]);
     const before = await sold();
     await page.locator('.auc-soldteam').selectOption('1');
+    await page.locator('.auc-soldprice').fill('1');
     await page.locator('[data-act="auc-sold"]').click();
     await page.waitForSelector('.auc-pool', { timeout: 15000 });
     expect(await sold()).toBe(before + 1);
@@ -149,6 +148,9 @@ test.describe('R23-B2 · a LIVE sale can only be recorded against a team that ca
     // Force the refusal path the picker now prevents: hand T2 a full roster
     // behind the picker's back, then submit the stale option that is still in
     // the DOM. sellTo() returns null; the surface must SAY so.
+    // R34 — the capture requires a typed price and a committed buyer selection
+    // before RECORD SALE enables, so the ghost option is selected through a
+    // real change event and the price is typed like any live sale.
     await page.evaluate(() => {
       const opt = document.createElement('option');
       opt.value = '99';                     // a team index that does not exist
@@ -156,7 +158,9 @@ test.describe('R23-B2 · a LIVE sale can only be recorded against a team that ca
       const sel = document.querySelector('.auc-soldteam');
       sel.appendChild(opt);
       sel.value = '99';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
     });
+    await page.locator('.auc-soldprice').fill('1');
     await page.locator('[data-act="auc-sold"]').click();
 
     const refusal = page.locator('.auc-refusal');

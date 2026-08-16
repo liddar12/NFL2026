@@ -221,6 +221,12 @@ for (const [label, size] of [['iPhone', { width: 402, height: 874 }],
     await page.setViewportSize(size);
     await page.goto('/#/team');
     await page.waitForSelector('.roster .slot', { timeout: 15000 });
+    // R34 — measure at rest: the always-on HIG theme's entrance animation
+    // scales the fresh view from 0.995 for 240ms, and a mid-animation read
+    // shaves a min-height:44px control to ~43.87. The target IS 44px.
+    await page.evaluate(() => Promise.all(
+      document.getAnimations().map((a) => a.finished.catch(() => {})),
+    ));
     // The real control only renders after a Sleeper fetch this sandbox cannot
     // make, so its exact markup is mounted into the live page and measured with
     // the real cascade — the same technique the panel's own markup produces.

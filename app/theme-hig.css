@@ -872,6 +872,40 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   font-weight: 590;
 }
+/* R34 — two resets. RESET ALL is the destructive one and is RED AT REST, not
+   only when armed — HIG's destructive idiom (systemRed label on a plain
+   control), restyled here because this theme rebuilds the chip family above.
+   RESTART SESSION deliberately arms in the app's tint, NOT red: it keeps the
+   synced league and the draft history, so painting it destructive would
+   overstate what it does (owner's spec). */
+[data-theme="hig"] .reset-btn--all { color: var(--accent-txt); }
+[data-theme="hig"] .reset-btn--all.reset-btn--armed {
+  color: var(--accent-txt);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+[data-theme="hig"] .reset-btn--session.reset-btn--armed {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+}
+/* R34 — the per-team NAME field (auction budget editor). A prose name, so it
+   speaks SF rather than the mono the dollar boxes keep; the tb-cell tile is
+   the >=44pt target, exactly as it is for the budget input beside it. */
+[data-theme="hig"] .tb-name {
+  font-family: var(--sans);
+  font-weight: 510;
+}
+/* R34 — the saved-not-applied league strip (RE-APPLY). Same inset-row idiom as
+   the report rows around it. */
+[data-theme="hig"] .lp-stash {
+  background: var(--hig-fill-tertiary);
+  border: none;
+  border-radius: 10px;
+}
+[data-theme="hig"] .lp-stash-txt {
+  font-family: var(--sans);
+  font-size: var(--fs-caption1);
+  color: var(--muted);
+}
 
 /* Toggle-ish chips that mark a taken player / an active mode. */
 [data-theme="hig"] .cand-taken,
@@ -915,6 +949,17 @@
   color: var(--ink);
   min-height: 28px;
 }
+/* R34 — three controls the 28px .ds-select / 32px .auc-mini restyles above
+   silently shrank BELOW this theme's own 44pt rule once HIG became the only
+   theme (they outrank theme.css's targeted 44px rules by the [data-theme]
+   attribute). Each is a control the base theme deliberately grew: the
+   roster-sync MY TEAM picker (chooses which team gets overwritten), the LIVE
+   sale buyer select (now a MANDATORY step of every recorded sale), and the
+   destructive CLEAR HISTORY chip. Declared after the rules they correct, so
+   the tie on specificity falls this way. */
+[data-theme="hig"] .lp-rsel,
+[data-theme="hig"] .auc-soldrow .ds-select,
+[data-theme="hig"] .ds-hclear { min-height: 44px; }
 [data-theme="hig"] .finder-input,
 [data-theme="hig"] .lp-input,
 [data-theme="hig"] .lp-textarea,
@@ -1267,17 +1312,15 @@
 
 
 /* =============================================================================
-   10 · THE SWITCHER ITSELF
+   10 · THE WEEK CHIP
    ---------------------------------------------------------------------------
-   #theme-switch is the one piece of markup this work adds (index.html topbar).
-   It wears class="wk" so the DEFAULT theme styles it for free, out of the week
-   chip's own rules — no new component, no second stylesheet, and nothing about
-   the Broadcast theme changes except that one more chip now exists. Here it
-   becomes a proper HIG capsule button with a 44pt target.
+   R34 — the R31 #theme-switch button and its rules are GONE with the switcher
+   (HIG is the only theme; index.html stamps the attribute unconditionally).
+   The `wk` chip idiom stays: the topbar's week chip wears it, so the capsule
+   restyle below survives the switcher's removal.
    ========================================================================== */
 
-[data-theme="hig"] .wk,
-[data-theme="hig"] #theme-switch {
+[data-theme="hig"] .wk {
   font-family: var(--sans);
   font-size: var(--fs-footnote);
   font-weight: 590;
@@ -1291,26 +1334,6 @@
   min-height: 32px;
   display: inline-flex;
   align-items: center;
-}
-/* The topbar is justify-content:space-between with three children, which would
-   strand the switch in the middle of the bar. Pushing it right groups it with
-   the week chip so the left edge stays the wordmark alone — HIG's leading /
-   trailing navigation-bar split. (The Broadcast theme cannot get this without
-   editing theme.css, which is locked, so there it sits centered.) */
-[data-theme="hig"] #theme-switch {
-  margin-left: auto;
-  min-height: 44px;
-  cursor: pointer;
-  transition: background-color 180ms var(--hig-press),
-              transform 180ms var(--hig-press);
-}
-[data-theme="hig"] #theme-switch:active { transform: scale(0.96); }
-[data-theme="hig"] #theme-switch[aria-pressed="true"] {
-  color: var(--brand-txt);
-  background: var(--hig-tint-soft);
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-theme="hig"] #theme-switch:active { transform: none; }
 }
 
 

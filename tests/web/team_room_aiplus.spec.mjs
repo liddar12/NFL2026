@@ -281,6 +281,11 @@ test.describe('R23-S1 · draft history says what it is and what it cannot claim'
     await gotoTeam(page);
 
     const btn = page.locator('[data-act="hist-clear"]');
+    // R34 — measure at rest (the HIG entrance animation scales the fresh view
+    // from 0.995 for 240ms; a mid-animation read shaves 44px to ~43.8).
+    await page.evaluate(() => Promise.all(
+      document.getAnimations().map((a) => a.finished.catch(() => {})),
+    ));
     // Destructive control: a full 44px target, not the 32px draft-room chip.
     expect((await btn.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await btn.click();

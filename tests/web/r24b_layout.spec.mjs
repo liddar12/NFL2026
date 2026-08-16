@@ -198,6 +198,14 @@ test('the Compare "change" control meets the 44px minimum and still clears the s
   const { wr, rb } = pool();
   await page.goto(`/#/compare?a=${wr[0]}&b=${rb[0]}`);
   await page.waitForSelector('.cmp-swap', { timeout: 15000 });
+  // R34 — measure at rest: the always-on HIG theme's entrance animation scales
+  // the fresh view from 0.995 for 240ms, which shaved this min-height:44px
+  // control to a measured 43.87 when the box was read mid-animation. The
+  // target IS 44px; wait for the animation to finish before holding it to
+  // the rule.
+  await page.evaluate(() => Promise.all(
+    document.getAnimations().map((a) => a.finished.catch(() => {})),
+  ));
   const box = await page.locator('.cmp-swap').first().boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(box.width).toBeGreaterThanOrEqual(44);
