@@ -78,6 +78,11 @@ import {
   SLEEPER_API_BASE, buildSleeperPlayerIndex, crosswalkRoster, importFromPastedJson,
   importFromSleeper, importSleeperTeams, parseLeagueId, summarizeImport, unresolvedItems,
 } from '../sleeper.js';
+// R33 — the LIVE Sleeper draft companion. The module owns the polling, the
+// pick diffing and every honesty rule; this view only renders FROM its state
+// and routes its planned actions through the SAME take/sell functions a
+// manual tap uses, so the learning side effects are byte-identical.
+import { createCompanion, statusLine as companionStatus } from '../draft-live.js';
 
 const TEAM_KEY = 'nfl2026.team.v1';
 const SCORING_KEY = 'nfl2026.scoring.v1';
@@ -905,6 +910,16 @@ export default async function mountTeam(el) {
     if (teardown) opts.signal = teardown.signal;
     target.addEventListener(type, fn, opts);
   };
+  // R33 — the companion's poll timer is closure state, not a listener, so the
+  // abort signal cannot unbind it. Stop it explicitly when this mount is
+  // superseded, or a navigated-away TEAM tab would keep polling Sleeper every
+  // five seconds forever. `companion` is declared below; by the time any
+  // abort can fire, the mount body has long since executed.
+  if (teardown) {
+    teardown.signal.addEventListener('abort', () => {
+      if (companion) companion.stop('left the page');
+    });
+  }
   /** Has this mount been superseded? Guards work queued on a timer. */
   const retired = () => !!(teardown && teardown.signal.aborted);
 
@@ -1331,6 +1346,7 @@ export default async function mountTeam(el) {
   // ROSTER SYNC (R20-B4). All of it is session state: the roster itself is the
   // only thing that ever gets written, and only on a deliberate confirm.
   let sleeperIndex = null;          // buildSleeperPlayerIndex().index, cached for the mount
+  let companion = null;             // R33 — the live Sleeper draft companion, when armed
   let rosterTeams = null;           // importSleeperTeams().teams, or null before a sync
   let rosterTeamIdx = -1;           // which team in that list is mine
   let rosterCross = null;           // crosswalkRoster() output for that team
@@ -3198,6 +3214,153 @@ export default async function mountTeam(el) {
       '</div>';
   }
 
+  /* R33 — THE LIVE SLEEPER DRAFT COMPANION, view side.
+   *
+   * app/draft-live.js owns everything hard: the polling, the pick diffing,
+   * the slot maps, the refusal rules and the paused-not-corrupted clock
+   * check. This view contributes exactly three things: a description of the
+   * open room (companionRoomCtx), a router that applies each planned action
+   * through the SAME functions a manual tap calls (applyCompanionAction — so
+   * the tendency/calibration/memory side effects are byte-identical to hand
+   * entry), and the strip that renders the companion's state verbatim
+   * (companionHtml — the status line is the module's honesty surface, and
+   * this view does not editorialise it). */
+  function companionRoomCtx() {
+    const team = rosterTeams && rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
+    const hints = team
+      ? { rosterId: team.roster_id, userId: team.owner_id }
+      : {};
+    if (draft && draft.play === 'live' && !draft.done) {
+      return {
+        mode: 'snake',
+        mySlot: draft.mySlot,
+        leagueSize: draft.leagueSize,
+        roomPick: draft.pick,
+        board: draft.board,
+        isTaken: (bi) => draft.taken.has(bi),
+        canBuy: null,
+        slotHints: hints,
+        isDone: () => !!draft.done,
+      };
+    }
+    if (auction && auction.play === 'live' && !auction.done) {
+      return {
+        mode: 'auction',
+        mySlot: auction.mySlot,
+        leagueSize: auction.leagueSize,
+        roomPick: 0,
+        board: auction.board,
+        isTaken: (bi) => auction.taken.has(bi),
+        canBuy: (i) => !!auction.teams[i]
+          && auction.teams[i].players.length < auction.shape.size,
+        slotHints: hints,
+        isDone: () => !!auction.done,
+      };
+    }
+    return null;
+  }
+
+  function applyCompanionAction(action) {
+    if (action.type === 'my-pick' && draft) {
+      takeMyPick(draft, action.boardIdx);
+      if (draft.done) finishDraft();
+      return { ok: true };
+    }
+    if (action.type === 'opponent-pick' && draft) {
+      takeOpponentPickAt(draft, action.boardIdx);
+      if (draft.done) finishDraft();
+      return { ok: true };
+    }
+    if (action.type === 'sale' && auction) {
+      // The exact engine path the manual auc-sold handler takes: sellTo owns
+      // the log, the tendencies, the inflation base and (via recordAuction at
+      // the end) the R32 memory. A refusal is reported, never swallowed.
+      if (sellTo(auction, action.buyerIdx, action.amount, action.boardIdx) === null) {
+        return { ok: false,
+          reason: `T${action.buyerIdx + 1} has no open roster spot for Sleeper pick `
+            + `#${action.pick.pick_no} — record it by hand and tap RESOLVED.` };
+      }
+      if (auction.block && auction.block.boardIdx === action.boardIdx) {
+        auction.block = null; bidAdj = 0; soldTyped = null;
+      }
+      if (auction.done) finishAuction();
+      return { ok: true };
+    }
+    return { ok: false, reason: `no route for a ${action.type} action` };
+  }
+
+  function armCompanion() {
+    const leagueId = parseLeagueId(sleeperId);
+    if (!leagueId) {
+      aucRefusal = null;
+      compNote = 'Enter your Sleeper league id or URL in the SLEEPER field above, then ARM '
+        + '— the companion polls that league\'s draft.';
+      paintDraft();
+      return;
+    }
+    compNote = null;
+    if (!companion) {
+      companion = createCompanion({
+        leagueId,
+        getRoom: companionRoomCtx,
+        apply: applyCompanionAction,
+        getIndex: () => sleeperIndex,
+        setIndex: (idx) => { sleeperIndex = idx; },
+        buildIndex: buildSleeperPlayerIndex,
+        onChange: (c, applied) => {
+          if (retired()) { c.stop('left the page'); return; }
+          if (applied > 0) { syncLiveRoom(); paintAll(); return; }
+          // No pick applied: the strip alone repaints (status text, pending
+          // list, blocked reason) — a full paint every 5s poll would fight
+          // the manager's own typing in the live-take filter.
+          const strip = el.querySelector('#comp-strip');
+          if (strip) strip.outerHTML = companionHtml();
+        },
+      });
+    }
+    companion.arm();
+  }
+
+  let compNote = null;   // one-line arming hint when the league id is missing
+
+  function companionHtml() {
+    const ctx = companionRoomCtx();
+    if (!ctx) return '';
+    const st = companion ? companion.state : null;
+    const line = st ? companionStatus(st, Date.now())
+      : (compNote || 'OFF — picks are recorded by hand until you ARM.');
+    const armed = !!(st && st.armed);
+    let extra = '';
+    if (st && st.detectedSlot && st.detectedSlot !== ctx.mySlot) {
+      extra += `<div class="m-explain">Sleeper says your draft slot is ${st.detectedSlot}; `
+        + `this room is set to ${ctx.mySlot}. If Sleeper is right, EXIT and restart the `
+        + 'room with MY SLOT corrected — the companion will not silently re-seat you.</div>';
+    }
+    if (st && st.blocked) {
+      extra += `<div class="ds-sheet ds-sheet--warn">${esc(st.blocked.reason)} `
+        + `<button type="button" class="sort-chip" data-act="comp-ack" `
+        + `data-pickno="${st.blocked.pick.pick_no}">RESOLVED BY HAND</button></div>`;
+    }
+    if (st && st.pending.length) {
+      extra += st.pending.map((p) => (
+        `<div class="ds-sheet ds-sheet--warn">Pick #${p.pick.pick_no} `
+        + `${esc(p.pick.name || p.pick.player_id)}: ${esc(p.message
+          || (p.type === 'needs-price' ? 'Sleeper reported no price — record the sale by hand.'
+            : p.type === 'needs-buyer' ? 'The buyer could not be mapped — record the sale by hand.'
+              : 'unmatched'))} `
+        + `<button type="button" class="sort-chip" data-act="comp-ack" `
+        + `data-pickno="${p.pick.pick_no}">RESOLVED BY HAND</button></div>`
+      )).join('');
+    }
+    return '<div id="comp-strip">'
+      + '<div class="ds-sheet">'
+      + `<span id="companion-status">SLEEPER COMPANION: ${esc(line)}</span> `
+      + (armed
+        ? '<button type="button" class="sort-chip" data-act="comp-stop">DISARM</button>'
+        : '<button type="button" class="sort-chip" data-act="comp-arm">ARM</button>')
+      + '</div>' + extra + '</div>';
+  }
+
   function draftLiveHtml() {
     const clock = onTheClock(draft);
     const myTurn = clock === draft.mySlot - 1;
@@ -3302,6 +3465,10 @@ export default async function mountTeam(el) {
           ? '<button type="button" class="sort-chip auc-mini" data-act="draft-undo">UNDO</button> '
           : '') +
         '<button type="button" class="sort-chip" data-act="draft-close">EXIT</button></div>' +
+      // R33 — the companion strip renders only in a LIVE room (companionRoomCtx
+      // returns null otherwise), directly under the header so the ARM control
+      // and the sync status sit where the manager is already looking.
+      (draft.play === 'live' ? companionHtml() : '') +
       logTail + body
     );
   }
@@ -3566,6 +3733,10 @@ export default async function mountTeam(el) {
         `${auction.play === 'live' ? 'LIVE AUCTION' : 'AUCTION SIMULATOR'} · ${headBudget}</span> ` +
         `<span class="ds-status">${auction.log.length}/${auction.leagueSize * auction.shape.size} SOLD</span> ` +
         '<button type="button" class="sort-chip" data-act="auc-close">EXIT</button></div>' +
+      // R33 — LIVE auctions get the companion too: Sleeper's auction picks
+      // carry the winning bid, so armed sales flow through sellTo with the
+      // real buyer and the real dollars.
+      (auction.play === 'live' ? companionHtml() : '') +
       aucMemoryHtml() +
       aucToggles() +
       '<div class="auc-room">' + aucRoomZone() + aucBlockZone() + aucBuildZone() + '</div>'
@@ -3817,6 +3988,7 @@ export default async function mountTeam(el) {
         return;
       }
       resetArmed = false;
+      if (companion) companion.stop('RESET wiped the room.'); // R33
       slotOrder().forEach((slot) => { roster.slots[slot] = null; });
       taken.clear();
       draft = null;
@@ -4071,9 +4243,26 @@ export default async function mountTeam(el) {
     }
 
     if (act === 'draft-close') {
+      if (companion) companion.stop('The draft room was closed.');
       draft = null;
       draftResult = null;
       paintAll();
+      return;
+    }
+
+    /* R33 — the companion's three controls. ARM builds the controller once
+     * per mount and (re)arms it; DISARM stops the polling but keeps the room
+     * exactly as the applied picks left it; RESOLVED acknowledges a pick the
+     * manager handled by hand so the feed moves past it. */
+    if (act === 'comp-arm') { armCompanion(); return; }
+    if (act === 'comp-stop') {
+      if (companion) companion.stop('Disarmed — picks are recorded by hand again.');
+      paintDraft();
+      return;
+    }
+    if (act === 'comp-ack') {
+      if (companion) companion.acknowledge(Number(t.dataset.pickno));
+      paintDraft();
       return;
     }
 
@@ -4155,6 +4344,7 @@ export default async function mountTeam(el) {
     }
 
     if (act === 'auc-close') {
+      if (companion) companion.stop('The auction room was closed.');
       auction = null;
       auctionResult = null;
       paintAll();
