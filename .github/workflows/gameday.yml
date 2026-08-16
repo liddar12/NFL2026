@@ -74,6 +74,15 @@ jobs:
       # we lock BEFORE kickoff, never after.
       - name: Lock pre-kickoff probabilities
         if: ${{ github.event.inputs.mode != 'scores' }}
+        # ODDS_API_KEY was passed by daily.yml but NOT here, so every gameday
+        # window rebuilt the market feeds keyless: pipeline_status flipped
+        # odds_api to "unconfigured" and parlays.json shipped without spread
+        # legs — the 06:00 daily run would fix it and the next gameday window
+        # would break it again, a flap that read as "the odds feed is flaky"
+        # when it was one missing env line. Same optionality as daily.yml:
+        # an absent secret degrades honestly, never fails the run.
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
           python -m scripts.build_predictions
           # Archive a timestamped snapshot of the REAL game predictions as the locked,
