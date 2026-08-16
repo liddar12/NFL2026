@@ -12,6 +12,15 @@ name: daily-pipeline
 on:
   schedule:
     - cron: "0 6 * * *"   # 06:00 UTC daily (best-effort; see throttling note above)
+    # Owner-requested morning refresh: 10:00 America/Chicago. Cron is UTC-only,
+    # so this is 15:00 UTC during CDT and fires at 09:00 local once CST returns
+    # in November — accepted rather than papered over (GitHub cannot express
+    # timezones; an hour-early refresh in winter is harmless, a silent gap is
+    # not). ADDED alongside the 06:00 run, not replacing it: during draft week
+    # and the season, injuries/ADP move between 06:00 and mid-morning, and the
+    # pipeline is idempotent — a second run with unchanged sources commits
+    # nothing.
+    - cron: "0 15 * * *"  # 10:00 CDT / 09:00 CST daily (best-effort)
   workflow_dispatch: {}    # allow manual runs from the Actions tab
 
 # Only one pipeline commit in flight at a time; cancel a stale run if a new one starts.
