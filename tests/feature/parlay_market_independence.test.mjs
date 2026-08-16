@@ -307,7 +307,18 @@ test('shipped parlays.json: every spread leg is OUR number for the team it names
       checked += 1;
     }
   }
-  assert.ok(checked >= 16, `expected the full slate's spread legs, checked ${checked}`);
+  /* `checked >= 16` was a pin on one day's odds snapshot, and it broke the
+   * gate the first time the odds feed shipped a slate with no handicaps: the
+   * 2026-08-16T01:35Z refresh carried zero spread markets, the R30a builder
+   * honestly emitted zero spread legs (the line DEFINES a cover bet — no
+   * line, no leg, never a fabricated one), and this floor called that honesty
+   * a failure. The vacuous-pass risk it guarded against (a drifted market
+   * name silently skipping every leg) is covered exactly instead: every leg
+   * the document CALLS a spread must have been checked. */
+  const spreadLegs = doc.parlays
+    .flatMap((p) => p.legs).filter((l) => l.market === 'spread').length;
+  assert.equal(checked, spreadLegs,
+    `${spreadLegs} spread legs in the document but only ${checked} verified`);
 });
 
 test('shipped parlays.json carries no total leg (no scoring model exists)', () => {
