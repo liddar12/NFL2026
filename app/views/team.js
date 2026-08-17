@@ -53,7 +53,7 @@ import {
 import {
   rosterShape, createDraft, onTheClock, takeOpponentPick, takeMyPick,
   takeOpponentPickAt, undoLastPick, picksUntilMyNext, survivalProbabilities,
-  scoreVsRoom, ROSTER_BOUNDS, DEFAULT_ROSTER, ROOM_TYPES, ROOM_LABELS,
+  scoreVsRoom, startersTotal, ROSTER_BOUNDS, DEFAULT_ROSTER, ROOM_TYPES, ROOM_LABELS,
 } from '../draft-sim.js';
 import {
   MIN_CALIBRATION_PICKS, MOCKS_KEY, MOCKS_KEY_V1, appendMock, clearHistory,
@@ -4124,6 +4124,22 @@ export default async function mountTeam(el) {
       // it, above the roster, in the same place the score is claimed.
       emptySlotsHtml(r.emptySlots) +
       `<div class="ds-roster">${my}</div>` +
+      // R35 — WHO SPENT WHAT, BY NAME. The sheet above is aggregates; a room
+      // that just finished a real auction wants the ledger by the names R34
+      // put on the seats. Points via the same startersTotal every score in
+      // this card already uses; spend from the R27 per-team starting budgets.
+      // Sorted by points so the sheet reads as a standings table, my row
+      // marked the way seatLabel already marks it.
+      `<div class="ds-sheet">${auction.teams
+        .map((t, i) => ({
+          i,
+          pts: startersTotal(t.players, auction.shape, auction.adjOf),
+          spent: (Number.isFinite((auction.teamBudgets || [])[i])
+            ? auction.teamBudgets[i] : auction.budget) - t.budget,
+        }))
+        .sort((a, b) => b.pts - a.pts)
+        .map((row) => `${esc(seatLabel(row.i, auction.mySlot))} ${fix1(row.pts)} · ${dollar(row.spent)}`)
+        .join(' &nbsp;|&nbsp; ')}</div>` +
       // An auction has no pick order, so it can never calibrate ADP drift. The
       // in-room price model (inflation + per-team tendencies) already ran LIVE
       // during the auction itself — nothing is deferred to a later refit.

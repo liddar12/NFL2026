@@ -1390,3 +1390,14 @@
   font-size: var(--fs-footnote);
   color: var(--muted);
 }
+
+/* R35 — the ON MY ROSTER badge. The base sheet inks it with --brand, which in
+ * this theme is the fills-and-large-glyphs tier (3:1): an 11px badge is small
+ * text and must ride --brand-txt, the 4.5:1 tier HIG reserves for exactly
+ * this. Same rule that split the two tokens in the first place. */
+[data-theme="hig"] .p-lgx--mine {
+  border-color: var(--brand-txt);
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+  border-radius: 6px;
+}

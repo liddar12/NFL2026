@@ -148,16 +148,23 @@ test.describe('installed (standalone) PWA experience', () => {
     expect(standalone).toBe(true);
   });
 
-  test('theme-color meta and manifest are dark + standalone', async ({ page }) => {
+  test('theme-color meta and manifest match the HIG chrome', async ({ page }) => {
     await page.goto(url('/'));
 
-    // theme-color drives the iOS status-bar / task-switcher tint — must be --bg.
-    const themeColor = await page.evaluate(
-      () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
-    );
-    expect(themeColor).toBe('#0D1117');
+    /* R35 — the chrome follows the page it frames. HIG is scheme-aware, so the
+     * meta is TWO media-scoped tags: systemGroupedBackground (#F2F2F7) for
+     * light, systemBackground (#000000) for dark — the exact --bg tokens
+     * theme-hig.css paints the page with. The old single #0D1117 was the
+     * Broadcast --bg, which HIG never paints: a mismatched band above the app
+     * on iPadOS. */
+    const tags = await page.evaluate(() => [...document
+      .querySelectorAll('meta[name="theme-color"]')]
+      .map((m) => ({ media: m.getAttribute('media'), content: m.getAttribute('content') })));
+    expect(tags).toHaveLength(2);
+    expect(tags.find((t) => /light/.test(t.media || ''))?.content).toBe('#F2F2F7');
+    expect(tags.find((t) => /dark/.test(t.media || ''))?.content).toBe('#000000');
 
-    // The manifest link must resolve to valid JSON declaring a standalone, dark app.
+    // The manifest link must resolve to valid JSON declaring a standalone app.
     const manifestHref = await page.evaluate(
       () => document.querySelector('link[rel="manifest"]')?.getAttribute('href'),
     );
@@ -170,9 +177,12 @@ test.describe('installed (standalone) PWA experience', () => {
     }, manifestHref);
 
     expect(manifest.display).toBe('standalone');
-    // Dark theme_color: the locked --bg. (Also guards against a light manifest.)
-    expect(manifest.theme_color).toBe('#0D1117');
-    expect(manifest.background_color).toBe('#0D1117');
+    // The manifest cannot media-switch, so it carries HIG's dark
+    // systemBackground — the honest single choice for splash + install chrome.
+    expect(manifest.theme_color).toBe('#000000');
+    expect(manifest.background_color).toBe('#000000');
+    // And the copy stopped claiming "dark-only" when HIG went scheme-aware.
+    expect(manifest.description).not.toContain('dark-only');
   });
 
   test('safe-area insets are respected (Dynamic Island + home indicator)', async ({ page }) => {

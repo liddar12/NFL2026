@@ -380,6 +380,35 @@ export function renderPlayoffSos(report) {
  * chip on a player we have no completion count for would be a claim we cannot
  * support.
  */
+
+/* R35 — THE LAST VISIBLE LINK BETWEEN PLAYERS AND TEAM.
+ *
+ * The two tabs share every number by construction (the R30 parity tests), but
+ * nothing on a PLAYERS card said "this one is already on YOUR roster" — the
+ * owner had to hold thirteen names in their head while browsing three hundred.
+ * The badge reads the same nfl2026.team.v1 slots the TEAM page persists, at
+ * mount, defensively: a missing/corrupt entry is an empty set (no roster is
+ * not an error), and no write ever happens from this view — TEAM owns the
+ * roster, PLAYERS only reports it. */
+export function myRosterIds() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('nfl2026.team.v1') || 'null');
+    const slots = stored && typeof stored === 'object' ? stored.slots : null;
+    return new Set(Object.values(slots || {})
+      .filter((id) => id != null && String(id).trim() !== '').map(String));
+  } catch (err) {
+    return new Set();
+  }
+}
+
+/** The badge itself, or '' — same adorn-row citizenship as the league chip. */
+export function renderRosterBadge(onRoster) {
+  if (!onRoster) return '';
+  return '<span class="p-lgx p-lgx--mine" title="This player is seated on your roster '
+    + 'on the TEAM page.">'
+    + '<b>ON MY ROSTER</b></span>';
+}
+
 export function renderLeagueExtra(entry) {
   const pts = entry ? Number(entry.extra_pts) : NaN;
   if (!Number.isFinite(pts) || pts === 0) return '';
@@ -797,7 +826,11 @@ export default async function mountPlayers(el) {
 
   /** The R21-B2 adornment row for one player id, or '' when neither half has
    * anything honest to say. */
+  // R35 — read once per mount: browsing must not re-parse storage per card.
+  const rostered = myRosterIds();
+
   function extraRow(id) {
+    const mine = renderRosterBadge(rostered.has(id));
     const po = renderPlayoffSos(playoffOf(id));
     const lg = renderLeagueExtra(weeklyPriced.get(id));
     const val = renderValue({
@@ -808,7 +841,7 @@ export default async function mountPlayers(el) {
       board: marketBoardTeams,
       boardBudget: marketBoardBudget,
     });
-    return po + lg + val;
+    return mine + po + lg + val;
   }
 
   /** Sort key value for a player under the active sort. */
