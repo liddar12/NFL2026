@@ -3639,3 +3639,13 @@ body.gate-locked { overflow: hidden; }
   color: var(--ink);
 }
 .p-lgx b { font-weight: 800; }
+/* R35 — the ON MY ROSTER badge: same adorn-row citizenship as the league
+ * chip, tinted with the brand so a seated player is spottable at a scroll.
+ * --brand is the LARGE-text tier; an 11px badge needs weight, so the chip is
+ * a tinted border + brand ink at 800, not brand-on-surface small text. */
+.p-lgx--mine {
+  border: 1px solid var(--brand);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--brand);
+}

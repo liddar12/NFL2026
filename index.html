@@ -6,7 +6,13 @@
        the Dynamic Island / home indicator; theme.css re-insets it with the
        safe-area env() vars so nothing is occluded in standalone. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0D1117" />
+  <!-- R35 — the browser chrome matches the HIG page it now always frames:
+       systemGroupedBackground in light, systemBackground in dark (the exact
+       --bg tokens theme-hig.css paints the page with; a mismatched chrome
+       reads as a hairline band above the app on iPadOS). Two media-scoped
+       tags because one meta cannot express both schemes. -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F2F7" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
   <meta name="description" content="NFL2026 — Broadcast Gameday predictions, player projections, and model-EV parlays. Installable PWA." />
 
   <!-- Standalone PWA hints (iOS + Android). black-translucent lets our dark bg
