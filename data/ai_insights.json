@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-08-18T02:56:25Z",
+  "updated_utc": "2026-08-18T06:41:36Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -2056,9 +2056,9 @@
     },
     "espn-15818": {
       "trajectory_adj": {
-        "value": -0.0678,
+        "value": -0.0649,
         "source": "measured",
-        "why": "OLS slope -13.0 pts/yr over 5 seasons; WR age-curve residual -0.0029/yr (measured 2021-2025)",
+        "why": "OLS slope -13.0 pts/yr over 5 seasons; WR age-curve residual +0.0398/yr (measured 2021-2025)",
         "slope_pts_per_yr": -12.98,
         "seasons_observed": 5
       },
@@ -2069,13 +2069,13 @@
         "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
       },
       "cold_adj": {
-        "value": 0.25,
-        "source": "measured",
-        "why": "LAC won 100% of sub-32F games vs 54% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
+        "value": 0.0674,
+        "source": "ai_estimated",
+        "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
+        "n": 11,
         "weeks": [
-          10,
-          18
+          14,
+          17
         ]
       }
     },
