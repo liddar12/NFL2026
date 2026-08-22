@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "updated_utc": "2026-08-21T15:37:59Z",
+  "updated_utc": "2026-08-22T06:37:49Z",
   "model": {
     "name": "weekly_split_v1",
     "tilt_coef": 0.5,
@@ -9,15 +9,15 @@
     "notes": "Season projection split evenly across scheduled weeks, tilted by Elo matchup and home/away, then renormalized so non-bye weeks sum exactly to the season projection. TILT_COEF is a transparent prior the optimizer refits in-season.",
     "injury_shape": {
       "applied": true,
-      "statuses_used": 47
+      "statuses_used": 48
     },
     "availability": {
       "applied": true,
       "vocab_version": 1,
-      "unavailable": 1,
+      "unavailable": 2,
       "season_ending": 0,
       "min_weeks_rule": 4,
-      "season_points_removed": 10.26
+      "season_points_removed": 40.73
     }
   },
   "players": [
@@ -11981,48 +11981,52 @@
     {
       "gsis_id": "espn-3916433",
       "receptions_prior": 75.0,
+      "availability": {
+        "status": "QUESTIONABLE",
+        "class": "week"
+      },
       "weeks": [
         {
           "wk": 1,
           "opp": "CLE",
           "home": true,
           "bye": false,
-          "pts": 11.1
+          "pts": 10.16
         },
         {
           "wk": 2,
           "opp": "DEN",
           "home": false,
           "bye": false,
-          "pts": 9.24
+          "pts": 8.46
         },
         {
           "wk": 3,
           "opp": "NE",
           "home": true,
           "bye": false,
-          "pts": 9.58
+          "pts": 8.77
         },
         {
           "wk": 4,
           "opp": "CIN",
           "home": false,
           "bye": false,
-          "pts": 10.48
+          "pts": 10.66
         },
         {
           "wk": 5,
           "opp": "PHI",
           "home": true,
           "bye": false,
-          "pts": 10.32
+          "pts": 10.5
         },
         {
           "wk": 6,
           "opp": "HOU",
           "home": true,
           "bye": false,
-          "pts": 9.59
+          "pts": 9.76
         },
         {
           "wk": 7,
@@ -12036,77 +12040,77 @@
           "opp": "IND",
           "home": true,
           "bye": false,
-          "pts": 10.7
+          "pts": 10.89
         },
         {
           "wk": 9,
           "opp": "BAL",
           "home": false,
           "bye": false,
-          "pts": 10.01
+          "pts": 10.19
         },
         {
           "wk": 10,
           "opp": "TEN",
           "home": false,
           "bye": false,
-          "pts": 11.13
+          "pts": 11.33
         },
         {
           "wk": 11,
           "opp": "NYG",
           "home": false,
           "bye": false,
-          "pts": 10.69
+          "pts": 10.87
         },
         {
           "wk": 12,
           "opp": "TEN",
           "home": true,
           "bye": false,
-          "pts": 11.59
+          "pts": 11.79
         },
         {
           "wk": 13,
           "opp": "CHI",
           "home": false,
           "bye": false,
-          "pts": 9.81
+          "pts": 9.98
         },
         {
           "wk": 14,
           "opp": "PIT",
           "home": true,
           "bye": false,
-          "pts": 10.39
+          "pts": 10.57
         },
         {
           "wk": 15,
           "opp": "HOU",
           "home": false,
           "bye": false,
-          "pts": 9.21
+          "pts": 9.37
         },
         {
           "wk": 16,
           "opp": "DAL",
           "home": false,
           "bye": false,
-          "pts": 10.53
+          "pts": 10.71
         },
         {
           "wk": 17,
           "opp": "WAS",
           "home": true,
           "bye": false,
-          "pts": 11.13
+          "pts": 11.32
         },
         {
           "wk": 18,
           "opp": "IND",
           "home": false,
           "bye": false,
-          "pts": 10.28
+          "pts": 10.46
         }
       ]
     },
@@ -17031,8 +17035,13 @@
       "gsis_id": "espn-4877706",
       "receptions_prior": 41.0,
       "availability": {
-        "status": "DOUBTFUL",
-        "class": "week"
+        "status": "IR",
+        "class": "season",
+        "weeks_out": 4,
+        "out_for_season": false,
+        "confidence": "rule",
+        "evidence": null,
+        "season_points_lost": 30.47
       },
       "weeks": [
         {
@@ -17040,49 +17049,53 @@
           "opp": "BUF",
           "home": true,
           "bye": false,
-          "pts": 5.3
+          "pts": 0.0,
+          "avail": false
         },
         {
           "wk": 2,
           "opp": "CIN",
           "home": true,
           "bye": false,
-          "pts": 5.9
+          "pts": 0.0,
+          "avail": false
         },
         {
           "wk": 3,
           "opp": "IND",
           "home": false,
           "bye": false,
-          "pts": 5.56
+          "pts": 0.0,
+          "avail": false
         },
         {
           "wk": 4,
           "opp": "DAL",
           "home": true,
           "bye": false,
-          "pts": 8.47
+          "pts": 0.0,
+          "avail": false
         },
         {
           "wk": 5,
           "opp": "TEN",
           "home": false,
           "bye": false,
-          "pts": 8.61
+          "pts": 8.17
         },
         {
           "wk": 6,
           "opp": "JAX",
           "home": false,
           "bye": false,
-          "pts": 7.11
+          "pts": 6.75
         },
         {
           "wk": 7,
           "opp": "NYG",
           "home": true,
           "bye": false,
-          "pts": 8.6
+          "pts": 8.17
         },
         {
           "wk": 8,
@@ -17096,70 +17109,70 @@
           "opp": "LAC",
           "home": false,
           "bye": false,
-          "pts": 7.6
+          "pts": 7.22
         },
         {
           "wk": 10,
           "opp": "CLE",
           "home": false,
           "bye": false,
-          "pts": 8.24
+          "pts": 7.83
         },
         {
           "wk": 11,
           "opp": "IND",
           "home": true,
           "bye": false,
-          "pts": 8.27
+          "pts": 7.86
         },
         {
           "wk": 12,
           "opp": "BAL",
           "home": true,
           "bye": false,
-          "pts": 8.05
+          "pts": 7.65
         },
         {
           "wk": 13,
           "opp": "PIT",
           "home": false,
           "bye": false,
-          "pts": 7.72
+          "pts": 7.33
         },
         {
           "wk": 14,
           "opp": "WAS",
           "home": false,
           "bye": false,
-          "pts": 8.27
+          "pts": 7.85
         },
         {
           "wk": 15,
           "opp": "JAX",
           "home": true,
           "bye": false,
-          "pts": 7.4
+          "pts": 7.03
         },
         {
           "wk": 16,
           "opp": "PHI",
           "home": false,
           "bye": false,
-          "pts": 7.67
+          "pts": 7.28
         },
         {
           "wk": 17,
           "opp": "GB",
           "home": false,
           "bye": false,
-          "pts": 7.77
+          "pts": 7.38
         },
         {
           "wk": 18,
           "opp": "TEN",
           "home": true,
           "bye": false,
-          "pts": 8.96
+          "pts": 8.51
         }
       ]
     },
@@ -25148,34 +25161,38 @@
     {
       "gsis_id": "espn-4430034",
       "receptions_prior": 35.0,
+      "availability": {
+        "status": "QUESTIONABLE",
+        "class": "week"
+      },
       "weeks": [
         {
           "wk": 1,
           "opp": "CHI",
           "home": true,
           "bye": false,
-          "pts": 5.2
+          "pts": 4.77
         },
         {
           "wk": 2,
           "opp": "ATL",
           "home": false,
           "bye": false,
-          "pts": 5.23
+          "pts": 4.8
         },
         {
           "wk": 3,
           "opp": "CLE",
           "home": false,
           "bye": false,
-          "pts": 5.5
+          "pts": 5.04
         },
         {
           "wk": 4,
           "opp": "DET",
           "home": true,
           "bye": false,
-          "pts": 5.3
+          "pts": 5.4
         },
         {
           "wk": 5,
@@ -25189,91 +25206,91 @@
           "opp": "PHI",
           "home": false,
           "bye": false,
-          "pts": 5.06
+          "pts": 5.15
         },
         {
           "wk": 7,
           "opp": "TB",
           "home": true,
           "bye": false,
-          "pts": 5.58
+          "pts": 5.68
         },
         {
           "wk": 8,
           "opp": "GB",
           "home": false,
           "bye": false,
-          "pts": 5.14
+          "pts": 5.24
         },
         {
           "wk": 9,
           "opp": "DEN",
           "home": true,
           "bye": false,
-          "pts": 4.85
+          "pts": 4.94
         },
         {
           "wk": 10,
           "opp": "NO",
           "home": false,
           "bye": false,
-          "pts": 5.37
+          "pts": 5.47
         },
         {
           "wk": 11,
           "opp": "BAL",
           "home": true,
           "bye": false,
-          "pts": 5.32
+          "pts": 5.42
         },
         {
           "wk": 12,
           "opp": "TB",
           "home": false,
           "bye": false,
-          "pts": 5.36
+          "pts": 5.45
         },
         {
           "wk": 13,
           "opp": "MIN",
           "home": false,
           "bye": false,
-          "pts": 5.03
+          "pts": 5.12
         },
         {
           "wk": 14,
           "opp": "NO",
           "home": true,
           "bye": false,
-          "pts": 5.59
+          "pts": 5.69
         },
         {
           "wk": 15,
           "opp": "CIN",
           "home": true,
           "bye": false,
-          "pts": 5.61
+          "pts": 5.71
         },
         {
           "wk": 16,
           "opp": "PIT",
           "home": false,
           "bye": false,
-          "pts": 5.1
+          "pts": 5.19
         },
         {
           "wk": 17,
           "opp": "SEA",
           "home": true,
           "bye": false,
-          "pts": 4.6
+          "pts": 4.69
         },
         {
           "wk": 18,
           "opp": "ATL",
           "home": true,
           "bye": false,
-          "pts": 5.45
+          "pts": 5.55
         }
       ]
     },
@@ -26869,59 +26886,55 @@
     {
       "gsis_id": "espn-16737",
       "receptions_prior": 30.0,
-      "availability": {
-        "status": "QUESTIONABLE",
-        "class": "week"
-      },
       "weeks": [
         {
           "wk": 1,
           "opp": "LAR",
           "home": false,
           "bye": false,
-          "pts": 4.08
+          "pts": 4.45
         },
         {
           "wk": 2,
           "opp": "MIA",
           "home": true,
           "bye": false,
-          "pts": 4.87
+          "pts": 5.31
         },
         {
           "wk": 3,
           "opp": "ARI",
           "home": true,
           "bye": false,
-          "pts": 5.11
+          "pts": 5.58
         },
         {
           "wk": 4,
           "opp": "DEN",
           "home": true,
           "bye": false,
-          "pts": 4.72
+          "pts": 4.64
         },
         {
           "wk": 5,
           "opp": "SEA",
           "home": false,
           "bye": false,
-          "pts": 4.33
+          "pts": 4.25
         },
         {
           "wk": 6,
           "opp": "WAS",
           "home": true,
           "bye": false,
-          "pts": 5.49
+          "pts": 5.39
         },
         {
           "wk": 7,
           "opp": "ATL",
           "home": false,
           "bye": false,
-          "pts": 5.03
+          "pts": 4.94
         },
         {
           "wk": 8,
@@ -26935,70 +26948,70 @@
           "opp": "LV",
           "home": true,
           "bye": false,
-          "pts": 5.83
+          "pts": 5.73
         },
         {
           "wk": 10,
           "opp": "DAL",
           "home": false,
           "bye": false,
-          "pts": 5.19
+          "pts": 5.1
         },
         {
           "wk": 11,
           "opp": "MIN",
           "home": true,
           "bye": false,
-          "pts": 5.05
+          "pts": 4.96
         },
         {
           "wk": 12,
           "opp": "SEA",
           "home": true,
           "bye": false,
-          "pts": 4.51
+          "pts": 4.43
         },
         {
           "wk": 13,
           "opp": "NYG",
           "home": false,
           "bye": false,
-          "pts": 5.27
+          "pts": 5.18
         },
         {
           "wk": 14,
           "opp": "LAR",
           "home": true,
           "bye": false,
-          "pts": 4.72
+          "pts": 4.64
         },
         {
           "wk": 15,
           "opp": "LAC",
           "home": false,
           "bye": false,
-          "pts": 4.84
+          "pts": 4.75
         },
         {
           "wk": 16,
           "opp": "KC",
           "home": false,
           "bye": false,
-          "pts": 5.18
+          "pts": 5.09
         },
         {
           "wk": 17,
           "opp": "PHI",
           "home": true,
           "bye": false,
-          "pts": 5.08
+          "pts": 4.99
         },
         {
           "wk": 18,
           "opp": "ARI",
           "home": false,
           "bye": false,
-          "pts": 5.46
+          "pts": 5.36
         }
       ]
     },
@@ -30580,48 +30593,52 @@
     {
       "gsis_id": "espn-4686612",
       "receptions_prior": 30.0,
+      "availability": {
+        "status": "QUESTIONABLE",
+        "class": "week"
+      },
       "weeks": [
         {
           "wk": 1,
           "opp": "ARI",
           "home": true,
           "bye": false,
-          "pts": 4.61
+          "pts": 4.23
         },
         {
           "wk": 2,
           "opp": "LV",
           "home": true,
           "bye": false,
-          "pts": 4.74
+          "pts": 4.35
         },
         {
           "wk": 3,
           "opp": "BUF",
           "home": false,
           "bye": false,
-          "pts": 3.74
+          "pts": 3.43
         },
         {
           "wk": 4,
           "opp": "SEA",
           "home": false,
           "bye": false,
-          "pts": 3.49
+          "pts": 3.55
         },
         {
           "wk": 5,
           "opp": "DEN",
           "home": true,
           "bye": false,
-          "pts": 3.81
+          "pts": 3.88
         },
         {
           "wk": 6,
           "opp": "KC",
           "home": false,
           "bye": false,
-          "pts": 4.2
+          "pts": 4.28
         },
         {
           "wk": 7,
@@ -30635,77 +30652,77 @@
           "opp": "LAR",
           "home": false,
           "bye": false,
-          "pts": 3.66
+          "pts": 3.73
         },
         {
           "wk": 9,
           "opp": "HOU",
           "home": true,
           "bye": false,
-          "pts": 3.8
+          "pts": 3.87
         },
         {
           "wk": 10,
           "opp": "BAL",
           "home": false,
           "bye": false,
-          "pts": 3.99
+          "pts": 4.07
         },
         {
           "wk": 11,
           "opp": "NYJ",
           "home": true,
           "bye": false,
-          "pts": 4.71
+          "pts": 4.8
         },
         {
           "wk": 12,
           "opp": "NE",
           "home": true,
           "bye": false,
-          "pts": 3.79
+          "pts": 3.87
         },
         {
           "wk": 13,
           "opp": "TB",
           "home": false,
           "bye": false,
-          "pts": 4.16
+          "pts": 4.24
         },
         {
           "wk": 14,
           "opp": "LV",
           "home": false,
           "bye": false,
-          "pts": 4.55
+          "pts": 4.64
         },
         {
           "wk": 15,
           "opp": "SF",
           "home": true,
           "bye": false,
-          "pts": 3.91
+          "pts": 3.98
         },
         {
           "wk": 16,
           "opp": "MIA",
           "home": false,
           "bye": false,
-          "pts": 4.21
+          "pts": 4.29
         },
         {
           "wk": 17,
           "opp": "KC",
           "home": true,
           "bye": false,
-          "pts": 4.37
+          "pts": 4.46
         },
         {
           "wk": 18,
           "opp": "DEN",
           "home": false,
           "bye": false,
-          "pts": 3.66
+          "pts": 3.73
         }
       ]
     },
