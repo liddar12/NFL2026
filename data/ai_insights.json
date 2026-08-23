@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-08-23T01:37:12Z",
+  "updated_utc": "2026-08-23T03:05:22Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -5274,7 +5274,7 @@
       "trajectory_adj": {
         "value": 0.0272,
         "source": "measured",
-        "why": "OLS slope +5.5 pts/yr over 5 seasons; WR age-curve residual +0.5024/yr (measured 2021-2025)",
+        "why": "OLS slope +5.5 pts/yr over 5 seasons; WR age-curve residual +0.5337/yr (measured 2021-2025)",
         "slope_pts_per_yr": 5.45,
         "seasons_observed": 5
       },
@@ -5285,13 +5285,16 @@
         "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
       },
       "cold_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "no sub-32F sample for TB 2021-2025 - neutral (AI estimate)",
-        "n": 0,
+        "value": 0.202,
+        "source": "measured",
+        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 3,
         "weeks": [
-          9,
-          14
+          10,
+          13,
+          14,
+          16,
+          17
         ]
       }
     },
