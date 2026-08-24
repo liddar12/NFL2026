@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-08-24T03:09:41Z",
+  "updated_utc": "2026-08-24T06:56:39Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -7501,22 +7501,24 @@
       "trajectory_adj": {
         "value": 0.025,
         "source": "measured",
-        "why": "OLS slope +5.0 pts/yr over 4 seasons; RB age-curve residual +57.9691/yr (measured 2021-2025)",
+        "why": "OLS slope +5.0 pts/yr over 4 seasons; RB age-curve residual +57.9866/yr (measured 2021-2025)",
         "slope_pts_per_yr": 5.0,
         "seasons_observed": 4
       },
       "cold_adj": {
-        "value": 0.25,
+        "value": -0.25,
         "source": "measured",
-        "why": "WAS won 100% of sub-32F games vs 43% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 2,
+        "why": "CLE won 0% of sub-32F games vs 40% overall (7 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 7,
         "weeks": [
           8,
-          9,
           10,
-          11,
+          12,
+          13,
           14,
           15,
+          16,
+          17,
           18
         ]
       }
