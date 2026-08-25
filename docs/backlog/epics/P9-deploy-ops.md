@@ -6,7 +6,8 @@
 > Of this epic's **22 acceptance criteria**, **0 are asserted by a test that
 > exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
 > **0%** (0/18 automatable). **16** name a test file that does not
-> exist; **2** name a file that exists but contains no assertion that bites. **4** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/deploy_config.test.mjs`, `tests/feature/cron_racesafe.test.mjs`, `tests/feature/headers.test.mjs`, `tests/feature/live_status_gate.test.mjs` and 3 more. Stories with **nothing asserted at all**: P9-S1, P9-S2, P9-S3, P9-S4, P9-S5, P9-S6.
+> exist; **2** name a file that exists but contains no assertion that bites. **4** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/deploy_config.test.mjs`, `tests/feature/cron_racesafe.test.mjs`, `tests/feature/headers.test.mjs`, `tests/feature/live_status_gate.test.mjs` and 3 more. Stories with **nothing asserted at all**: P9-S1, P9-S2, P9-S3, P9-S4, P9-S5.
+> **Delta (2026-08-25, QA-D1/QA-D2):** P9-S6 is now REAL 4/4 via `tests/feature/qa_debt_p0.test.mjs` (the planned `sw_purge`/`headers` files landed there instead) — epic true coverage rises to **4/18 (22%)**. The other five stories are unchanged.
 > The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
 > hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
 > [`QA-debt.md`](./QA-debt.md).
@@ -111,7 +112,7 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
   - **Coverage (measured 2026-08-15): 0% — REAL 0/2 · MISSING 2 · manual 2 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new (`scripts/verify_prod.sh`, `docs/DEPLOY_CHECKLIST.md`), `netlify.toml`.
 
-### P9-S6 — Freshness by headers, not a caching service worker   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
+### P9-S6 — Freshness by headers, not a caching service worker   ·  Status: ✅   ·  Est: S   ·  **QA: 4/4 ACs asserted (100%, 2026-08-25)**
 **As** an Analyst **I want** a deploy to reach open tabs within minutes without a stale-SW bug **so that** users never run day-old JS or score off stale data.
 **Acceptance criteria** (Given/When/Then):
 - P9-S6-AC1 — Given `sw.js`, When it activates, Then it installs NO `fetch` handler and deletes every `nfl26-*` cache (pure cache-purger — the wc2026 stale-shell bug cannot recur).
@@ -119,15 +120,15 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
 - P9-S6-AC3 — Given `_headers`, When serving `/data/*`, Then `max-age=0, stale-while-revalidate=120` so the client never scores/displays stale results; `/index.html` and `/sw.js` are `max-age=0, must-revalidate`.
 - P9-S6-AC4 — Given `_headers`, When serving the site, Then baseline security headers are present (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`).
 **Tasks:**
-- [ ] P9-S6-T1 — Keep `sw.js` handler-free and purge-only; never reintroduce a caching SW.
-- [ ] P9-S6-T2 — Keep the `_headers` freshness matrix as specified; assert it in the gate.
-- [ ] P9-S6-T3 — Assert security headers exist.
+- [x] P9-S6-T1 — Keep `sw.js` handler-free and purge-only; never reintroduce a caching SW. *(enforced by qa_debt_p0 since 2026-08-25)*
+- [x] P9-S6-T2 — Keep the `_headers` freshness matrix as specified; assert it in the gate. *(qa_debt_p0 pins every block byte-for-byte, immutable art included)*
+- [x] P9-S6-T3 — Assert security headers exist. *(all four asserted with exact values)*
 **QA coverage:**
-- P9-S6-AC1 → `tests/feature/sw_purge.test.mjs::no_fetch_handler_purges_caches` (unit — parse sw.js) — Planned  **[MISSING]**
-- P9-S6-AC2 → `tests/feature/headers.test.mjs::app_freshness` (unit — parse _headers) — Planned  **[MISSING]**
-- P9-S6-AC3 → `tests/feature/headers.test.mjs::data_and_shell_freshness` (unit) — Planned  **[MISSING]**
-- P9-S6-AC4 → `tests/feature/headers.test.mjs::security_headers` (unit) — Planned  **[MISSING]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P9-S6-AC1 → `tests/feature/qa_debt_p0.test.mjs::sw.js registers NO fetch handler` + `::sw.js activate path purges nfl26-* caches and claims clients` (unit — parse `sw.js`)  **[REAL]**
+- P9-S6-AC2 → `tests/feature/qa_debt_p0.test.mjs::_headers: app code and manifest revalidate in the background` (unit — parse `_headers`)  **[REAL]**
+- P9-S6-AC3 → `tests/feature/qa_debt_p0.test.mjs::_headers: /data/* always revalidates; the shell and SW are never served stale` (unit)  **[REAL]**
+- P9-S6-AC4 → `tests/feature/qa_debt_p0.test.mjs::_headers: the /* block carries all four baseline security headers` (unit)  **[REAL]**
+  - **Coverage (measured 2026-08-25): 100% — REAL 4/4** (was 0/4 on 2026-08-15; closed by QA-D1/QA-D2, mutation-checked). Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `sw.js`, `_headers`.
 
 ## Epic QA roll-up

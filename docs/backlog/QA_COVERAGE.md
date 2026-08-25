@@ -71,6 +71,24 @@ The classification of all 309 mappings lives inline in the epic files: each mapp
 - Nine stories carry `Status: ✅`. **Seven have zero REAL coverage**: P5-S4, P6-S1, P7-S2, P7-S3,
   P8-S3, P9-S4, P9-S6. The other two — P6-S2 (2/3) and P8-S1 (1/4) — are partial.
 
+### Delta — 2026-08-25 (QA-debt release 1: QA-D1/D2/D3, all of P0)
+
+Re-measured by the same method over the four touched stories only; every other number above is the
+2026-08-15 snapshot, unchanged.
+
+- **P7-S3 0/4 → 4/4** and **P9-S6 0/4 → 4/4** — `tests/feature/qa_debt_p0.test.mjs` (new) parses
+  `sw.js`, `app/main.js` and `_headers` at source level in the `node --test` gate tier.
+  Mutation-checked before landing: an added `fetch` handler and a changed `/data/*` TTL each red the
+  gate. The wc2026 stale-shell postmortem is guarded for the first time.
+- **P6-S1 0/4 → 4/4** and **N5-S1 0/3 → 2/3** — no new code: `tests/feature/data_contract.test.mjs`
+  (R25-F2) already asserted these ACs, but the mappings named the never-authored
+  `data_reader.test.mjs`, so the 08-15 pass classified them MISSING by filename. The mappings now
+  point at the cases that bite. (Method note for the next re-measure: pass 2 keys on the mapping's
+  named file, so an AC covered under a *different* filename measures MISSING — re-point mappings
+  when a test lands somewhere other than planned.)
+- **Aggregate: REAL 18 → 32 of 297 automatable = 10.8%** (was 6.1%). ✅-stories with zero REAL
+  coverage: seven → **four** (P5-S4, P7-S2, P8-S3, P9-S4).
+
 ### The sharpest instances
 
 | Claim | Reality |

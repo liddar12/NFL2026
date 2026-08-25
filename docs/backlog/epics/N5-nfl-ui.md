@@ -9,7 +9,8 @@
 > Of this epic's **22 acceptance criteria**, **2 are asserted by a test that
 > exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
 > **9%** (2/22 automatable). **13** name a test file that does not
-> exist; **7** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/slate_view.test.mjs`, `tests/feature/parlays_view.test.mjs`, `tests/feature/status_gate.test.mjs` and 6 more. Stories with **nothing asserted at all**: N5-S1, N5-S2, N5-S3, N5-S6.
+> exist; **7** name a file that exists but contains no assertion that bites. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/slate_view.test.mjs`, `tests/feature/parlays_view.test.mjs`, `tests/feature/status_gate.test.mjs` and 6 more. Stories with **nothing asserted at all**: N5-S2, N5-S3, N5-S6.
+> **Delta (2026-08-25, QA-D3):** N5-S1 is now REAL 2/3 via `tests/feature/data_contract.test.mjs` (mappings re-pointed — the cases already existed); AC2's view-side `DATA · DEGRADED` rendering remains the one open item. Epic true coverage rises to **4/22 (18%)**.
 > The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
 > hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
 > [`QA-debt.md`](./QA-debt.md).
@@ -22,7 +23,7 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 
 ## User stories
 
-### N5-S1 — Contract-reader wiring (single data source)   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
+### N5-S1 — Contract-reader wiring (single data source)   ·  Status: 🟡   ·  Est: S   ·  **QA: 2/3 ACs asserted (67%, 2026-08-25)**
 **As** an Analyst **I want** every view to read through `app/data.js` **so that** a contract change touches one file and no view fetches raw JSON.
 **Acceptance criteria:**
 - N5-S1-AC1 — Given any view, When it needs data, Then it calls an `app/data.js` getter (playerProjections/gamePredictions/parlays/meta/pipelineStatus) — no direct `fetch` of `/data/*` in view code.
@@ -33,10 +34,10 @@ The UI is where a dishonest number does the most damage: a win-prob meter with n
 - [ ] N5-S1-T2 — Enforce `{ __error }` marker on fetch/parse failure (no throw into views).
 - [ ] N5-S1-T3 — Add a unit test for the promise-dedupe and the error-marker path.
 **QA coverage:**
-- N5-S1-AC1 → `tests/smoke.sh::no-raw-data-fetch-in-views` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
-- N5-S1-AC2 → `tests/feature/data_reader.test.mjs::error-marker-on-bad-feed` (unit) — Planned  **[MISSING]**
-- N5-S1-AC3 → `tests/feature/data_reader.test.mjs::promise-dedupe` (unit) — Planned  **[MISSING]**
-- **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- N5-S1-AC1 → `tests/feature/data_contract.test.mjs::fetch() happens only in app/data.js and app/kdst.js` (unit — walks all of `app/`, views included)  **[REAL]**
+- N5-S1-AC2 → `tests/feature/data_reader.test.mjs::error-marker-on-bad-feed` (unit) — Planned  **[MISSING]** *(the `{__error}` marker half is asserted by data_contract's getAll case; the view-side `DATA · DEGRADED` rendering is not — this AC stays open until a view-render case exists)*
+- N5-S1-AC3 → `tests/feature/data_contract.test.mjs::concurrent callers share ONE request per contract` (unit, fetch stub)  **[REAL]**
+- **Coverage (measured 2026-08-25): 67% — REAL 2/3 · MISSING 1** (was 0/3 on 2026-08-15; QA-D3 re-pointed the mappings at `data_contract.test.mjs`, which already asserted them). Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/data.js`, `app/main.js`.
 
 ### N5-S2 — Slate view (game model win-prob meters)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/4 ACs asserted (0%)**

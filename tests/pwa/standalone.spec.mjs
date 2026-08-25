@@ -384,7 +384,12 @@ test.describe('installed (standalone) PWA experience', () => {
     expect(standalone).toBe(true);
   });
 
-  test('service worker registers (cache-purger)', async ({ page }) => {
+  test('service worker registers and becomes active (readiness only)', async ({ page }) => {
+    // Asserts ONLY that registration succeeds and the SW activates. The claim
+    // that it is a pure cache-purger (no fetch handler, nfl26-* purge) is
+    // pinned at source level by tests/feature/qa_debt_p0.test.mjs — a page
+    // context cannot introspect the SW's handlers, so this title no longer
+    // pretends to check what it cannot (QA-D1-AC4).
     await page.goto(url('/'));
     // navigator.serviceWorker.ready resolves once the SW is active.
     const ready = await page.evaluate(async () => {
