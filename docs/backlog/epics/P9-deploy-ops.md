@@ -6,8 +6,9 @@
 > Of this epic's **22 acceptance criteria**, **0 are asserted by a test that
 > exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
 > **0%** (0/18 automatable). **16** name a test file that does not
-> exist; **2** name a file that exists but contains no assertion that bites. **4** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/deploy_config.test.mjs`, `tests/feature/cron_racesafe.test.mjs`, `tests/feature/headers.test.mjs`, `tests/feature/live_status_gate.test.mjs` and 3 more. Stories with **nothing asserted at all**: P9-S1, P9-S2, P9-S3, P9-S4, P9-S5.
-> **Delta (2026-08-25, QA-D1/QA-D2):** P9-S6 is now REAL 4/4 via `tests/feature/qa_debt_p0.test.mjs` (the planned `sw_purge`/`headers` files landed there instead) — epic true coverage rises to **4/18 (22%)**. The other five stories are unchanged.
+> exist; **2** name a file that exists but contains no assertion that bites. **4** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/deploy_config.test.mjs`, `tests/feature/cron_racesafe.test.mjs`, `tests/feature/headers.test.mjs`, `tests/feature/live_status_gate.test.mjs` and 3 more. Stories with **nothing asserted at all**: P9-S1, P9-S2, P9-S3, P9-S5.
+> **Delta (2026-08-25, QA-D1/QA-D2):** P9-S6 is now REAL 4/4 via `tests/feature/qa_debt_p0.test.mjs` (the planned `sw_purge`/`headers` files landed there instead) — epic true coverage rises to **4/18 (22%)**.
+> **Delta (2026-08-26, QA-D8):** P9-S4 is now REAL 2/2 via `tests/feature/gate_config.test.mjs` — the self-referential mappings (run_gate.sh/ci.yml as proof of themselves) are retired, and the step-4 skip semantics are stated on the story. Epic true coverage **6/18 (33%)**.
 > The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
 > hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
 > [`QA-debt.md`](./QA-debt.md).
@@ -76,21 +77,22 @@ A deploy with a red gate ships a known-broken build; a deploy with no rollback p
   - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `.github/workflows/daily.yml`, `.github/workflows/gameday.yml`, `scripts/validate_data.py`, `scripts/pipeline_status.py`.
 
-### P9-S4 — Regression 100% green before any deploy   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/2 ACs asserted (0%)**
+### P9-S4 — Regression 100% green before any deploy   ·  Status: ✅   ·  Est: S   ·  **QA: 2/2 automatable ACs asserted (100%, 2026-08-26)**
 **As** an Operator **I want** the full regression gate to pass before any deploy **so that** a red build never ships.
 **Acceptance criteria** (Given/When/Then):
 - P9-S4-AC1 — Given the gate, When run, Then it executes in order — `validate_data.py` → `smoke.sh` → `node --test tests/feature/*.mjs` — and fails fast on the first non-zero exit (gated on EXIT CODES, never on grepping colored summaries).
 - P9-S4-AC2 — Given CI on push/PR to `main`, When it runs `bash tests/run_gate.sh`, Then the job fails iff the gate returns non-zero, and installs NO external packages (zero-dep invariant).
+  > **Stated (2026-08-26, QA-D8-AC3):** locally, `run_gate.sh` step 4 SKIPS loudly when `@playwright/test` is absent, so a local "GATE RESULT: PASS (green)" covers steps 1–3 only — this is the deliberate zero-dep fast-gate semantics, not an oversight. The browser E2E is mandatory in CI via the separate `e2e` job, and a merge waits for BOTH check runs green. `gate_config.test.mjs` pins the skip block (loud, non-failing) and the job split.
 - P9-S4-AC3 — Given a deploy is requested, When the gate is not green, Then the deploy is blocked (precondition), and this is stated as policy in `docs/`.
 **Tasks:**
 - [ ] P9-S4-T1 — Keep `run_gate.sh` as the single source of truth for the gate order; CI calls only it.
 - [ ] P9-S4-T2 — Keep the gate stdlib-only (no pip/npm install in `ci.yml`).
 - [ ] P9-S4-T3 — Document "never deploy red" as a hard precondition.
 **QA coverage:**
-- P9-S4-AC1 → `tests/run_gate.sh` exit-code ordering, exercised on every CI run (smoke/meta) — Done  **[TOOTHLESS · self-referential]**
-- P9-S4-AC2 → `.github/workflows/ci.yml` runs `bash tests/run_gate.sh`, no install steps — Done  **[TOOTHLESS · self-referential]**
+- P9-S4-AC1 → `tests/feature/gate_config.test.mjs::run_gate.sh runs the four steps in the documented order` + `::gates every step on its EXIT CODE` (unit — parses the script from outside)  **[REAL — QA-D8 2026-08-26]**
+- P9-S4-AC2 → `tests/feature/gate_config.test.mjs::ci.yml's gate job invokes run_gate.sh and installs NOTHING first` + `::e2e job is the ONE place dependencies are installed` + `::runs on pushes to main and on pull requests` (unit)  **[REAL — QA-D8 2026-08-26]**
 - P9-S4-AC3 → manual (deploy-precondition policy) — Planned (documented policy)  **[MANUAL]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/2 · TOOTHLESS 2 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+  - **Coverage (measured 2026-08-26): 100% — REAL 2/2 · manual 1 (excluded).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/run_gate.sh`, `tests/smoke.sh`, `tests/feature/*.mjs`, `scripts/validate_data.py`, `.github/workflows/ci.yml`.
 
 ### P9-S5 — Rollback stated before deploy; verify on prod after   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/2 ACs asserted (0%)**

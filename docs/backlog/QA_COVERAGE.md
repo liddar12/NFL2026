@@ -115,6 +115,31 @@ substantially retired. Re-measured over the touched stories only:
   16 → 2 (the two P1-S2 unwritten-case leftovers aside, the mirrored modules are now executed);
   `hardcoded-literal` 2 → 0; `asserts-own-fixtures` 2 → 0.
 
+### Delta — 2026-08-26 (QA-debt release 3: QA-D7/D8/D9 — the P1 tier is closed)
+
+- **P5-S4 0/3 → 3/3, P8-S5-AC1 → REAL** — `check_pipeline_health` now enforces zero-row honesty
+  (rows 0 may not be `ok` off a reasoned, note-carrying allowlist) and a staleness ceiling for
+  `ok` feeds (48h; `environment` exempt with its closed-window reason), all asserted against
+  CONSTRUCTED documents in `--selftest`, not the committed file happening to be consistent.
+  The `validator-lacks-the-check` and `stale-and-unasserted` shapes are retired.
+- **P8-S3 0/3 → 3/3, P9-S4 0/2 → 2/2, P1-S5 2/3 → 3/3** — `tests/feature/gate_config.test.mjs`
+  parses `run_gate.sh` and `ci.yml` from the OUTSIDE (step order, exit-code discipline, zero-dep
+  gate job, e2e as the one installer, push+PR triggers). The `self-referential` shape is retired:
+  zero mappings now cite the artifact under test as its own proof. Step 4's skip-not-fail
+  semantics are stated on P9-S4 and pinned.
+- **P5-S6-AC2 → REAL** — the canonical JSON convention is settled to CLAUDE.md's
+  (`ensure_ascii=True, indent=2`, trailing newline, no `sort_keys`) and enforced BYTE-LEVEL in
+  `smoke.sh` over `data/*.json`, with the 11 compact-writer feeds allowlisted each with a
+  reason — and an allowlist entry for a file that is actually canonical is itself a failure.
+  The `no-formatting-check` shape is retired.
+- Mutation-checked: an install step snuck into the CI gate job, a disabled smoke step, a
+  dishonest-health fixture, a zero-row-ok fixture, and a re-sorted model_tuning.json each red
+  their check.
+- **Aggregate: REAL 55 → 66 of 297 automatable = 22.2%** (was 18.5%). ✅-stories with zero REAL
+  coverage: four → **one** (P7-S2). Retired TOOTHLESS shapes: `self-referential` 6 → 0,
+  `stale-and-unasserted` 1 → 0, `no-formatting-check` 1 → 0, `validator-lacks-the-check` 1 → 0.
+  **The epic's P0 and P1 tiers are both closed; QA-D10 (feature-adjacent P2 debt) remains.**
+
 ### The sharpest instances
 
 | Claim | Reality |

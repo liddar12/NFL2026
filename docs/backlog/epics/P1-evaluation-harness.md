@@ -116,6 +116,6 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 **QA coverage** (3 ACs):
 - P1-S5-AC1 → `scripts/validate_data.py` (data) via `tests/run_gate.sh` step 1 — Done  **[REAL]**
 - P1-S5-AC2 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` (unit) — Done  **[REAL]**
-- P1-S5-AC3 → `tests/run_gate.sh` exit-code semantics (smoke) — Done  **[TOOTHLESS · self-referential]**
-  - **Coverage (measured 2026-08-15): 67% — REAL 2/3 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P1-S5-AC3 → `tests/feature/gate_config.test.mjs::run_gate.sh gates every step on its EXIT CODE, never by grepping output` (unit — parses the script from outside)  **[REAL — QA-D8 2026-08-26]**
+  - **Coverage (measured 2026-08-26): 100% — REAL 3/3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py`, `data/contracts/snapshot.schema.json`, `data/contracts/game_predictions.schema.json`, `tests/run_gate.sh`, `data/snapshots/`.
