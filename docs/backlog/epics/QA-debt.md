@@ -1,5 +1,5 @@
 # QA-DEBT · Close the coverage the backlog already claimed
-**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** 🟡 — D1–D6 closed (P0 on 2026-08-25; D4/D5/D6 on 2026-08-26); D7–D10 open   ·   **Instantiates:** —
+**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** 🟡 — D1–D9 closed (P0 2026-08-25; D4–D6 and D7–D9 2026-08-26); only D10 (feature-adjacent P2 debt) open   ·   **Instantiates:** —
 **Reuse:** Every story here is a *shape* a future adapter will need too: drive the Python from the gate rather than mirroring it in JS, read the source of truth rather than a pasted literal, assert the deploy-surface files (`sw.js`, `_headers`) rather than describing them in prose. The specific file names are NFL2026's; the failure modes are the framework's.
 
 > **QA reality (measured 2026-08-15):** this epic exists *because* the measurement happened. It has no QA coverage of its own — it **is** the QA coverage. Progress is measured by re-running the method in [`../QA_COVERAGE.md`](../QA_COVERAGE.md) and watching the REAL count rise from **18/297**.
@@ -115,11 +115,11 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D7-AC2 — Given a `pipeline_status.json` whose `health` is rosier than its worst configured feed, When `validate_data.py` runs, Then it exits 1 naming the offending feed — asserted by a test that constructs such a document, not only by the fact that the committed file happens to be consistent.
 - QA-D7-AC3 — Given P5-S4-AC3's text ("`health` is honestly `degraded` … at least one feed is non-ok"), When this story lands, Then the AC is rewritten to state an invariant rather than a snapshot of a file that has since changed (committed `health` is `ok`, all 18 feeds `ok`, as of 2026-08-15).
 - QA-D7-AC4 — Given a staleness threshold per feed, When a feed's `updated_utc` is past it, Then the gate fails — the other half of P8-S5-AC1, also unimplemented.
-**Tasks:**
-- [ ] QA-D7-T1 — Add the `rows == 0` rule + allowlist to `check_pipeline_health`.
-- [ ] QA-D7-T2 — Downgrade a zero-row source at the writer (`scripts/build_markets.py:167`) so status and reality agree at the source.
-- [ ] QA-D7-T3 — Fixture-driven test for the dishonest-health and zero-row cases.
-- [ ] QA-D7-T4 — Rewrite P5-S4-AC3.
+**Tasks:** *(closed 2026-08-26 — the staleness half landed too: an `ok` feed's recorded age_hours may not exceed 48h, `environment` excepted with its closed-window reason)*
+- [x] QA-D7-T1 — Add the `rows == 0` rule + allowlist to `check_pipeline_health`. *(allowlisted zero also REQUIRES a note)*
+- [x] QA-D7-T2 — Downgrade a zero-row source at the writer. *(already done by R30's `source_record` in build_markets.py — kalshi ships `degraded` with a note today; the validator half now keeps the class dead from the other side)*
+- [x] QA-D7-T3 — Fixture-driven test for the dishonest-health and zero-row cases. *(five constructed-document selftest cases, red and green)*
+- [x] QA-D7-T4 — Rewrite P5-S4-AC3. *(now an invariant over any committed file, not a snapshot of one day's statuses)*
 **Traceability:** `scripts/validate_data.py`, `scripts/build_markets.py`, `scripts/build_predictions.py`, `data/pipeline_status.json`, `data/contracts/pipeline_status.schema.json`.
 
 ### QA-D8 — Retire the self-referential acceptance criteria   ·  Priority: P1   ·  Est: S
@@ -130,10 +130,10 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D8-AC2 — Given `.github/workflows/ci.yml`, When the gate runs, Then a test asserts it invokes `bash tests/run_gate.sh` and contains no dependency-install step before the fast gate — the property P8-S3-AC3 and P9-S4-AC2 assert in prose.
 - QA-D8-AC3 — Given step 4 skips loudly when `@playwright/test` is absent and still prints `GATE RESULT: PASS (green)` (`run_gate.sh:66-81`), When this story lands, Then that behaviour is either asserted as intended **or** changed — but it is stated explicitly in P9-S4, because "the gate was green" currently means something different locally than in CI.
 - QA-D8-AC4 — Given any remaining AC whose only named artifact is the artifact under test, When the matrix is regenerated, Then zero mappings classify as `self-referential`.
-**Tasks:**
-- [ ] QA-D8-T1 — Parse and assert `run_gate.sh` step order + exit-code semantics.
-- [ ] QA-D8-T2 — Parse and assert `ci.yml`.
-- [ ] QA-D8-T3 — State the skip-not-fail semantics in P9-S4.
+**Tasks:** *(closed 2026-08-26 — `tests/feature/gate_config.test.mjs`, mutation-checked: an install step snuck into the gate job and a disabled smoke step each red the gate)*
+- [x] QA-D8-T1 — Parse and assert `run_gate.sh` step order + exit-code semantics. *(order, `if "$@"`, no non-comment grep, red path exits 1)*
+- [x] QA-D8-T2 — Parse and assert `ci.yml`. *(gate job installs nothing; e2e is the one installer; push+PR triggers)*
+- [x] QA-D8-T3 — State the skip-not-fail semantics in P9-S4. *(asserted as intended: loud SKIP, non-failing, e2e mandatory in CI's separate job)*
 **Traceability:** `tests/run_gate.sh`, `.github/workflows/ci.yml`, `docs/backlog/epics/P8-backtest-honesty.md`, `docs/backlog/epics/P9-deploy-ops.md`.
 
 ### QA-D9 — Settle and enforce the canonical JSON write convention   ·  Priority: P1   ·  Est: S
@@ -143,9 +143,9 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D9-AC1 — Given the AC currently specifies `sort_keys=True`, When the convention is settled, Then it matches `CLAUDE.md:137` (`ensure_ascii=True`, `indent=2`, trailing newline; **no** `sort_keys`) — measured: with `sort_keys=True`, **35 of 36 `data/*.json` deviate** (only `dvp_positional_history.json` happens to match), so the AC as written has never been true.
 - QA-D9-AC2 — Given the settled convention, When each `data/**/*.json` is re-serialised and byte-compared, Then the gate fails on any deviation outside an explicit, named allowlist. Measured on 2026-08-15: **11 of 36 files deviate** (`epa_history`, `game_context`, `injury_history`, `market_baseline`, `player_usage`, `player_usage_history`, `player_usage_weekly`, `preseason_form`, `ros_backtest`, `weather_forecast`, `weather_history`) — these are the large compact feeds and are the allowlist candidates.
 - QA-D9-AC3 — Given the allowlist, When a file is added to it, Then the reason is recorded inline (size, write path) — an allowlist without reasons becomes the next silent exemption.
-**Tasks:**
-- [ ] QA-D9-T1 — Fix the AC text to match `CLAUDE.md`.
-- [ ] QA-D9-T2 — Re-serialise-and-diff check in `smoke.sh` with a reasoned allowlist.
+**Tasks:** *(closed 2026-08-26 — mutation-checked: rewriting model_tuning.json with indent=4 + sort_keys reds smoke)*
+- [x] QA-D9-T1 — Fix the AC text to match `CLAUDE.md`. *(ensure_ascii=True, indent=2, trailing newline, no sort_keys)*
+- [x] QA-D9-T2 — Re-serialise-and-diff check in `smoke.sh` with a reasoned allowlist. *(11 compact-writer feeds, each with builder + size; a stale allowlist entry for a canonical file is itself a failure)*
 **Traceability:** `tests/smoke.sh`, `scripts/validate_data.py`, `data/*.json`, `CLAUDE.md`.
 
 ### QA-D10 — Test debt for unbuilt modules, written with the feature   ·  Priority: P2   ·  Est: L

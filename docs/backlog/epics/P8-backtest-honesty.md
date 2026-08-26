@@ -72,9 +72,9 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S3-T2 — Preserve step order and the aggregate `fail` flag.
 - [ ] P8-S3-T3 — Append the Playwright step only when the frontend lands (documented TODO in the gate).
 **QA coverage** (3 ACs):
-- P8-S3-AC1 → `tests/run_gate.sh` step ordering + `tests/smoke.sh` (smoke) — Done  **[TOOTHLESS · self-referential]**
-- P8-S3-AC2 → `tests/run_gate.sh` exit-code/stderr semantics (smoke) — Done  **[TOOTHLESS · self-referential]**
-- P8-S3-AC3 → CI `.github/workflows/ci.yml` runs the gate with no npm install (smoke) — Done  **[TOOTHLESS · self-referential]**
+- P8-S3-AC1 → `tests/feature/gate_config.test.mjs::run_gate.sh runs the four steps in the documented order` (unit — parses the script from outside)  **[REAL — QA-D8 2026-08-26]**
+- P8-S3-AC2 → `tests/feature/gate_config.test.mjs::run_gate.sh gates every step on its EXIT CODE, never by grepping output` (unit)  **[REAL — QA-D8 2026-08-26]**
+- P8-S3-AC3 → `tests/feature/gate_config.test.mjs::ci.yml's gate job invokes run_gate.sh and installs NOTHING first` (unit — parses the workflow from outside)  **[REAL — QA-D8 2026-08-26]**
   - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/run_gate.sh`, `tests/smoke.sh`, `scripts/validate_data.py`, `.github/workflows/ci.yml`.
 
@@ -109,7 +109,7 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S5-T2 — Run the honesty validator across every committed snapshot file, not just fixtures.
 - [ ] P8-S5-T3 — Document the race-safe merge in the cron workflows and assert final files parse.
 **QA coverage** (3 ACs):
-- P8-S5-AC1 → `scripts/validate_data.py::pipeline staleness/row-count` (data) — Planned  **[TOOTHLESS · validator-lacks-the-check]**
+- P8-S5-AC1 → `scripts/validate_data.py::check_pipeline_health` rules 2–3 (zero-row + staleness ceilings, fixture-asserted in `--selftest`)  **[REAL — QA-D7 2026-08-26]**
 - P8-S5-AC2 → `tests/feature/backtest_honesty.test.mjs::the committed lock array passes honesty.assert_measured_rows` (unit — data/snapshots/2026_wk01_games_open.json, whole file)  **[REAL — QA-D4 2026-08-26]**
 - P8-S5-AC3 → `tests/smoke.sh::committed data parses` (smoke) + cron workflow config — Done (smoke) / Planned (cron)  **[REAL]**
   - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).

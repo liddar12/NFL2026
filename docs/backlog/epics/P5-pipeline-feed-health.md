@@ -79,21 +79,21 @@ The silent-zero-output-scraper postmortem (inherited from wc2026): a scraper 404
   - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/pipeline_status.py`, `data/pipeline_status.json`, `data/contracts/pipeline_status.schema.json`.
 
-### P5-S4 — Honest overall health = worst feed (may report "degraded")   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
+### P5-S4 — Honest overall health = worst feed (may report "degraded")   ·  Status: ✅   ·  Est: S   ·  **QA: 3/3 ACs asserted (100%, 2026-08-26)**
 **As** an Analyst **I want** the top-level `health` to equal the worst feed's status **so that** the pipeline can never claim "ok" while a feed is broken.
 **Acceptance criteria** (Given/When/Then):
 - P5-S4-AC1 — Given feeds with mixed statuses, When health is rolled up, Then `health` equals the worst-of via severity ok<stale<degraded<down.
 - P5-S4-AC2 — Given a committed `pipeline_status.json` whose `health` does not equal its worst feed, When `validate_data.py` runs, Then it exits 1 with a "dishonest health" message (`check_pipeline_health`).
-- P5-S4-AC3 — Given the shipped example file, When inspected, Then `health` is honestly `degraded` (not `ok`) and at least one feed is non-ok (smoke enforces this).
-  > **Correction (2026-08-15):** this AC is stale on two counts. (a) The committed `data/pipeline_status.json` today reads `health: "ok"` with all 18 feeds `ok`, so the state it describes no longer exists. (b) `smoke.sh` does **not** enforce it — it asserts only that `health` *mirrors* the worst configured feed status, which is P5-S4-AC1's rule, not this one. Rewrite the AC to express the invariant that is actually wanted (health may never be rosier than its worst feed, and a feed at `rows: 0` may not be `ok`) before writing a test for it — see QA-D7.
+- P5-S4-AC3 — Given ANY committed `data/pipeline_status.json` (whatever today's weather), When `validate_data.py` runs, Then a feed with `rows: 0` may not report `ok` (unless on the reasoned `_ZERO_ROW_OK` allowlist AND carrying a `note`), and an `ok` feed's recorded `age_hours` may not exceed the staleness ceiling (`_STALE_OK` excepted, with reasons) — an INVARIANT over every possible file, not a snapshot of one day's statuses.
+  > **Rewritten (2026-08-26, QA-D7):** the old AC described one day's file ("health is honestly degraded") and went stale the day the feeds healed; nothing enforced it either way. The invariant form above is enforced by `check_pipeline_health` and asserted fixture-driven in the validator selftest.
 **Tasks:**
 - [ ] P5-S4-T1 — Keep the severity map single-sourced across `pipeline_status.py` and `validate_data.py`.
 - [ ] P5-S4-T2 — Keep the honesty invariant in the gate so a dishonest hand-edit fails CI.
 **QA coverage:**
-- P5-S4-AC1 → `tests/feature/pipeline_status.test.mjs::health_is_worst_of` (unit) — Planned  **[MISSING]**
-- P5-S4-AC2 → `scripts/validate_data.py::check_pipeline_health` exercised by `tests/feature/validate_data.test.mjs::dishonest_health_fails` (data/unit) — Planned  **[TOOTHLESS · unwritten-case]**
-- P5-S4-AC3 → `tests/smoke.sh` (smoke — asserts health != "ok" and a non-ok feed exists) — Done  **[TOOTHLESS · stale-and-unasserted]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 1 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P5-S4-AC1 → `scripts/validate_data.py::check_pipeline_health` (data — health must equal worst-of on every committed doc; a fixture with a rosier health is asserted red in `--selftest`)  **[REAL — QA-D7 2026-08-26]**
+- P5-S4-AC2 → `scripts/validate_data.py --selftest` (fixture-driven: a constructed dishonest-health document is asserted to exit red, not merely the committed file happening to be consistent)  **[REAL — QA-D7 2026-08-26]**
+- P5-S4-AC3 → `scripts/validate_data.py::check_pipeline_health` rules 2–3 + five fixture selftest cases (zero-row-ok red, allowlisted-with-note ok, allowlisted-without-note red, stale-ok red, environment exemption ok)  **[REAL — QA-D7 2026-08-26]**
+  - **Coverage (measured 2026-08-26): 100% — REAL 3/3** (was 0/3). Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/pipeline_status.py`, `scripts/validate_data.py`, `data/pipeline_status.json`, `tests/smoke.sh`.
 
 ### P5-S5 — Frozen-analytics guard: every upstream signal must move game-to-game   ·  Status: ⬜   ·  Est: M   ·  **QA: 0/3 ACs asserted (0%)**
@@ -114,12 +114,12 @@ The silent-zero-output-scraper postmortem (inherited from wc2026): a scraper 404
   - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** new (`scripts/pipeline/frozen_guard.py`), consumes `data/snapshots/*`, feeds `scripts/pipeline_status.py`.
 
-### P5-S6 — Deterministic, canonical, minimal-diff pipeline writes   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
+### P5-S6 — Deterministic, canonical, minimal-diff pipeline writes   ·  Status: 🟡   ·  Est: S   ·  **QA: 1/3 ACs asserted (33%, 2026-08-26)**
 **As** an Operator **I want** every pipeline write to be deterministic and byte-stable **so that** git diffs reflect real data change, not formatting churn, and race-safe merges stay clean.
 **Acceptance criteria** (Given/When/Then):
 - P5-S6-AC1 — Given identical inputs and a pinned `as_of`, When the pipeline runs twice, Then all `data/*.json` outputs are byte-identical.
-- P5-S6-AC2 — Given any pipeline write, When inspected, Then it uses `ensure_ascii=True`, `indent=2`, `sort_keys=True`, and a trailing newline (matches on-disk convention).
-  > **Correction (2026-08-15):** the AC's own spec does not match the repo. `sort_keys=True` contradicts `CLAUDE.md:137`, whose convention list omits it, and **zero of 36 `data/*.json` are sort-key ordered**; re-serialising with just `ensure_ascii=True, indent=2` + trailing newline, **11 of 36 still differ** (the large compact feeds). The AC must be settled against reality — convention plus an explicit allowlist — before it can be tested. See QA-D9.
+- P5-S6-AC2 — Given any top-level `data/*.json`, When re-serialised with the settled convention — `ensure_ascii=True`, `indent=2`, trailing newline, **no** `sort_keys` (CLAUDE.md) — and byte-compared, Then it matches exactly, or sits on the reasoned compact-writer allowlist (11 multi-hundred-KB history feeds whose builders deliberately write tight); an allowlist entry for a file that is actually canonical is itself a failure.
+  > **Settled (2026-08-26, QA-D9):** the old text's `sort_keys=True` never matched a single file; the convention is CLAUDE.md's. Enforced byte-level in `tests/smoke.sh` ("canonical JSON write convention"); mutation-checked (re-writing model_tuning.json with indent=4 + sort_keys reds smoke).
 - P5-S6-AC3 — Given a re-run with no data change, When committed, Then `git diff --cached` is empty (the workflow's "no changes to commit" path is hit).
 **Tasks:**
 - [ ] P5-S6-T1 — Route every writer through a shared canonical-JSON dump helper.
@@ -127,10 +127,10 @@ The silent-zero-output-scraper postmortem (inherited from wc2026): a scraper 404
 - [ ] P5-S6-T3 — Add a determinism test that runs a builder twice and diffs bytes.
 **QA coverage:**
 - P5-S6-AC1 → `tests/feature/determinism.test.mjs::pipeline_byte_stable` (unit) — Planned  **[MISSING]**
-- P5-S6-AC2 → `tests/smoke.sh::parses` + `scripts/validate_data.py` (smoke/data — all JSON parses & validates) — Done  **[TOOTHLESS · no-formatting-check]**
+- P5-S6-AC2 → `tests/smoke.sh::canonical JSON write convention` (smoke — byte-level re-serialise diff over `data/*.json` with the reasoned allowlist)  **[REAL — QA-D9 2026-08-26]**
 - P5-S6-AC3 → `tests/feature/determinism.test.mjs::no_change_empty_diff` (unit) — Planned  **[MISSING]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
-**Traceability:** `scripts/pipeline_status.py` (`write_status`), `scripts/build_all.py`, `data/*.json`.
+  - **Coverage (measured 2026-08-26): 33% — REAL 1/3 · MISSING 2 (the two determinism cases still belong with P5-S6-T3).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+**Traceability:** `scripts/pipeline_status.py` (`write_status`), `scripts/build_all.py`, `data/*.json`, `tests/smoke.sh`.
 
 ## Epic QA roll-up
 Stories: 6. Automatable-AC coverage across the epic ≥ 90% (every story maps ≥90% of its automatable ACs to a named test; the single manual AC, P5-S2-AC2, is a Gate-2 wiring review by nature). New test files introduced by this epic: `tests/feature/{pipeline_status,pipeline_scrape,workflow_guards,frozen_guard,determinism,validate_data}.test.mjs`.

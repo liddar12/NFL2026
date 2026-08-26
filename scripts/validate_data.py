@@ -802,28 +802,77 @@ def check_game_context_join(context, corpus_dir, label="game_context.json"):
                               % (label, "\n  - ".join(problems)))
 
 
-def check_pipeline_health(status):
-    """Overall `health` must equal the worst CONFIGURED feed status.
+# QA-D7 (2026-08-26): feeds allowed to report `ok` with rows == 0 — each entry
+# must be a documented FACT, not a tolerated outage, and the check below demands
+# the row carry a `note` saying so.
+_ZERO_ROW_OK = frozenset({
+    # 0 regular-season finals before kickoff is a fact about the calendar
+    # (scripts/build_predictions.py stamps the explaining note).
+    "espn_results_2026",
+})
+# Feeds whose recorded age may exceed _MAX_OK_AGE_HOURS while still honestly
+# `ok`: environment measures the CLOSED 2021-2025 window and is deliberately
+# reused rather than rebuilt (build_predictions.py's ENVIRONMENT MODEL block) —
+# its content cannot go stale until the window definition changes.
+_STALE_OK = frozenset({"environment"})
+_MAX_OK_AGE_HOURS = 48.0
 
-    Honesty, not optics — with one carve-out: a feed that is 'unconfigured'
-    (needs a key / integration the owner has not turned on) is excluded from
-    the health roll-up, because "not set up" is a fact, not a failure. A feed
-    that WAS working and broke is degraded/down and still drags health. The UI
-    surfaces unconfigured feeds separately ("N awaiting config")."""
+
+def check_pipeline_health(status):
+    """The health panel may not be rosier than the feeds it summarizes.
+
+    Three rules:
+      1. Overall `health` equals the worst CONFIGURED feed status. Honesty, not
+         optics — with one carve-out: a feed that is 'unconfigured' (needs a
+         key / integration the owner has not turned on) is excluded from the
+         roll-up, because "not set up" is a fact, not a failure. A feed that
+         WAS working and broke is degraded/down and still drags health.
+      2. QA-D7: a feed with `rows: 0` may not report `ok` unless it is on the
+         explicit _ZERO_ROW_OK allowlist AND carries a `note` saying why zero
+         is a fact rather than an outage. Before this rule the committed file
+         shipped kalshi at rows 0, status "ok" under a green gate (R30 fixed
+         the writer; this is the validator's half, so the class stays dead).
+      3. QA-D7: a feed whose recorded `age_hours` exceeds _MAX_OK_AGE_HOURS
+         may not report `ok` (the staleness half of P8-S5-AC1), _STALE_OK
+         excepted. The age is the WRITER's recorded age at generation time —
+         no wall-clock read here, so the check is deterministic."""
     feeds = status.get("feeds", {})
     if not feeds:
         raise ValidationError("pipeline_status.json has no feeds")
-    configured = [f for f in feeds.values() if f["status"] != "unconfigured"]
+    configured = {k: f for k, f in feeds.items() if f["status"] != "unconfigured"}
     if not configured:
         raise ValidationError("pipeline_status.json: every feed unconfigured?")
-    worst = max(_STATUS_SEVERITY[f["status"]] for f in configured)
+    worst = max(_STATUS_SEVERITY[f["status"]] for f in configured.values())
     worst_label = next(k for k, v in _STATUS_SEVERITY.items() if v == worst)
     health = status.get("health")
+    problems = []
     if _STATUS_SEVERITY.get(health) != worst:
-        raise ValidationError(
-            "pipeline_status.json health %r is dishonest: worst configured feed "
-            "status is %r; health must reflect the worst configured feed (you "
-            "cannot report 'ok' while a feed is broken)" % (health, worst_label))
+        problems.append(
+            "health %r is dishonest: worst configured feed status is %r; health "
+            "must reflect the worst configured feed (you cannot report 'ok' "
+            "while a feed is broken)" % (health, worst_label))
+    for name, f in sorted(configured.items()):
+        if f.get("rows") == 0 and f["status"] == "ok":
+            if name not in _ZERO_ROW_OK:
+                problems.append(
+                    "%s: rows=0 but status 'ok' — a feed that delivered nothing "
+                    "may not count among the healthy (allowlist a documented "
+                    "fact in _ZERO_ROW_OK, or fix the writer)" % name)
+            elif not f.get("note"):
+                problems.append(
+                    "%s: zero rows is allowlisted 'ok' ONLY with a note stating "
+                    "why zero is a fact and not an outage" % name)
+        age = f.get("age_hours")
+        if (f["status"] == "ok" and isinstance(age, (int, float))
+                and age > _MAX_OK_AGE_HOURS and name not in _STALE_OK):
+            problems.append(
+                "%s: age_hours=%s exceeds %s but status is 'ok' — stale data "
+                "may not report healthy (add a reasoned _STALE_OK entry only "
+                "for content that genuinely cannot go stale)"
+                % (name, age, _MAX_OK_AGE_HOURS))
+    if problems:
+        raise ValidationError("pipeline_status.json health invariant:\n  - %s"
+                              % "\n  - ".join(problems))
 
 
 def check_kdst_honesty(kdst, projections):
@@ -1353,6 +1402,47 @@ def _selftest():
     i["injuries"].append({"team": "SF", "player": "AJ Hurt",
                           "status": "Active", "availability": "ACTIVE"})
     ok(w, p, i, why="mixed ACTIVE+QUESTIONABLE set is not enforced")
+
+    # ---- QA-D7: pipeline health honesty, fixture-driven (not merely the
+    # committed file happening to be consistent) --------------------------------
+    def mk_status(**feeds):
+        worst = max((_STATUS_SEVERITY[f["status"]] for f in feeds.values()
+                     if f["status"] != "unconfigured"), default=0)
+        return {"generated_utc": "2026-08-26T00:00:00Z",
+                "health": next(k for k, v in _STATUS_SEVERITY.items() if v == worst),
+                "feeds": feeds}
+
+    def health_red(doc, why):
+        try:
+            check_pipeline_health(doc)
+        except ValidationError:
+            return
+        raise AssertionError("check_pipeline_health did NOT catch: " + why)
+
+    fresh = {"rows": 10, "age_hours": 1.0, "last_success_utc": "x", "status": "ok"}
+    # Dishonest roll-up: a degraded feed under an 'ok' health.
+    doc = mk_status(a=dict(fresh), b={"rows": 10, "age_hours": 1.0,
+                                      "last_success_utc": "x", "status": "degraded"})
+    doc["health"] = "ok"
+    health_red(doc, "health 'ok' over a degraded feed")
+    # Zero rows may not be 'ok'...
+    health_red(mk_status(kalshi={"rows": 0, "age_hours": 0.0,
+                                 "last_success_utc": "x", "status": "ok"}),
+               "rows=0 reported 'ok' off the allowlist")
+    # ...unless allowlisted AND explained.
+    check_pipeline_health(mk_status(espn_results_2026={
+        "rows": 0, "age_hours": 0.0, "last_success_utc": "x", "status": "ok",
+        "note": "0 regular-season finals: the season has not started."}))
+    health_red(mk_status(espn_results_2026={"rows": 0, "age_hours": 0.0,
+                                            "last_success_utc": "x", "status": "ok"}),
+               "allowlisted zero-row feed with no note")
+    # Stale data may not be 'ok'...
+    health_red(mk_status(adp={"rows": 200, "age_hours": 500.0,
+                              "last_success_utc": "x", "status": "ok"}),
+               "age 500h reported 'ok'")
+    # ...except the closed-window environment artifact, by documented design.
+    check_pipeline_health(mk_status(environment={
+        "rows": 1359, "age_hours": 970.0, "last_success_utc": "x", "status": "ok"}))
 
     # FLAG-ONLY: a suspension of unannounced length blocks nothing and claims
     # nothing. build_weekly emits exactly {status, class} here, so the validator

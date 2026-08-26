@@ -61,6 +61,53 @@ while IFS= read -r -d '' json; do
     || fail "invalid JSON: $json"
 done < <(find data -name '*.json' -print0)
 
+echo "smoke: canonical JSON write convention (QA-D9)"
+# The repo's ONE on-disk convention (CLAUDE.md): ensure_ascii=True, indent=2,
+# trailing newline, NO sort_keys. Scope: top-level data/*.json — the surface the
+# crons rewrite and commit, where a non-canonical write turns every cron diff
+# into churn and a data-conflict merge into manual reconstruction. contracts/
+# and fixtures/ are hand-authored compact files the pipeline never rewrites;
+# reformatting them would be cosmetic churn (and snapshots are append-only
+# lock records). An allowlist entry needs a reason: these are the deliberately
+# COMPACT (separators, no indent) multi-hundred-KB history feeds whose builders
+# write them tight because indent=2 would inflate every cron commit ~25%.
+python3 - <<'PY' || fail "canonical JSON write convention"
+import glob, json, sys
+
+ALLOW = {  # path -> reason (all: compact-writer, size-driven; builder named)
+    "data/epa_history.json": "build_epa_history.py compact writer, 1.4 MB",
+    "data/game_context.json": "build_game_context.py compact writer, 3.2 MB",
+    "data/injury_history.json": "build_injury_history.py compact writer, 553 KB",
+    "data/market_baseline.json": "build_market_baseline.py compact writer, 38 KB",
+    "data/player_usage.json": "build_player_usage.py compact writer, 80 KB",
+    "data/player_usage_history.json": "build_player_usage_history.py compact writer, 236 KB",
+    "data/player_usage_weekly.json": "build_player_usage_weekly.py compact writer, 2.3 MB",
+    "data/preseason_form.json": "build_preseason.py compact writer (standalone, unwired)",
+    "data/ros_backtest.json": "backtest scripts' compact writer",
+    "data/weather_forecast.json": "build_weather_forecast.py compact writer",
+    "data/weather_history.json": "build_weather_history.py compact writer, 77 KB",
+}
+
+problems = []
+for path in sorted(glob.glob("data/*.json")):
+    raw = open(path, "rb").read()
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    canonical = (json.dumps(doc, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+    if raw != canonical and path not in ALLOW:
+        problems.append(f"{path}: not in the canonical write style "
+                        f"(ensure_ascii=True, indent=2, trailing newline, no "
+                        f"sort_keys) and not allowlisted — fix the writer, or "
+                        f"add a REASONED allowlist entry")
+    elif raw == canonical and path in ALLOW:
+        problems.append(f"{path}: allowlisted as compact but is actually "
+                        f"canonical — remove the stale entry so the allowlist "
+                        f"stays honest")
+for p in problems:
+    print("  * " + p, file=sys.stderr)
+sys.exit(1 if problems else 0)
+PY
+
 echo "smoke: core invariants"
 # One consolidated python check keeps the interpreter startup cost to a single call.
 python3 - <<'PY' || fail "core invariant check failed"
