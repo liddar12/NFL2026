@@ -1398,11 +1398,24 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
 
   /**
    * Serve data/player_weekly.json with `mutate(doc)` applied. `mutate` receives
-   * the REAL committed document, so the rest of the app keeps working on real
-   * numbers and only availability is under test.
+   * the REAL committed document — with one exception: every real-world
+   * availability block is stripped first, so the fixture flags applied by
+   * mutate() are the ONLY injuries in the served document. These tests assert
+   * rendering (chip vs ACTIVE, provenance, forced slots) for players picked by
+   * feed order, and the real feed moves daily — the 2026-08-25 pipeline
+   * refresh stamped the first RB and first WR QUESTIONABLE and the
+   * "healthy side is ACTIVE" assertions went red on committed data. Same
+   * failure class as the four earlier data-pin conversions: assert the
+   * invariant, never one day's feed.
    */
   async function withWeekly(page, mutate) {
     const doc = readData('player_weekly.json');
+    for (const p of doc.players) {
+      delete p.availability;
+      for (const w of p.weeks) {
+        if (!w.bye) w.avail = true;
+      }
+    }
     mutate(doc);
     await page.route('**/data/player_weekly.json', (route) => route.fulfill({
       status: 200,
