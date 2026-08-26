@@ -1156,6 +1156,44 @@ def check_weekly_availability(weekly, projections, injuries):
             problems.append("model.availability.season_points_removed %.2f != "
                             "%.2f summed over players" % (removed, points_lost))
 
+    # --- rule 6: NO DROPPED REPORTS (R36) ---------------------------------
+    # The converse of rule 4, added after the 2026-08-26 cutdown-week audit.
+    # Rule 4 stops a badge no feed backs; this stops the quieter failure the
+    # audit went looking for: a non-ACTIVE report row whose pool player never
+    # received a block — a reserve-list player projected fully healthy (the
+    # pre-Rel17 incident, and R32's offseason join gap, as a standing
+    # invariant instead of fixture pins). Mirrors the producer exactly
+    # (build_weekly -> availability.lookup_report: exact (team, name), else
+    # the unique-name fallback under the same guards; a view resolving ACTIVE
+    # stamps nothing). A key whose report rows MIX ACTIVE with a non-ACTIVE
+    # code is not enforced: the producer merges duplicate rows duration-first
+    # (availability._worse), so which code wins there depends on parsed
+    # durations this validator does not re-derive — enforcing only the
+    # unambiguous sets keeps this red only when a report was truly dropped.
+    # Measured at introduction: 317 non-ACTIVE rows, 54 joinable to the
+    # pool, 54 blocked (54/54).
+    weekly_avail = {pl.get("gsis_id"): pl.get("availability")
+                    for pl in weekly.get("players", [])}
+    for p in projections.get("players", []):
+        nm = _norm_name(p.get("name"))
+        codes = report.get((p.get("team"), nm))
+        if codes is None and nm not in proj_dup_names:
+            codes = report_by_name.get(nm)
+        if not codes or "ACTIVE" in codes:
+            continue
+        pid = p.get("gsis_id")
+        if pid not in weekly_avail:
+            problems.append(
+                "%s (%s %s): reported %s in data/injuries.json but has no row "
+                "in player_weekly.json at all"
+                % (pid, p.get("team"), p.get("name"), sorted(codes)))
+        elif not weekly_avail.get(pid):
+            problems.append(
+                "%s (%s %s): data/injuries.json reports %s but "
+                "player_weekly.json carries no availability block — the join "
+                "dropped a report and a hurt player is projected healthy"
+                % (pid, p.get("team"), p.get("name"), sorted(codes)))
+
     if problems:
         raise ValidationError("player_weekly.json availability invariant:\n  - %s"
                               % "\n  - ".join(problems))
@@ -1293,6 +1331,33 @@ def _selftest():
     w, p, i = _fixture(blocked=4, weeks_out=4)
     del w["players"][0]["availability"]
     red(w, p, i, "avail:false week with no availability block")
+
+    # Rule 6 (R36) — the converse of rule 4: a report the join dropped.
+    # Nothing is blocked and no orphan flag exists, so ONLY rule 6 can see it.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    red(w, p, i, "QUESTIONABLE report dropped — hurt player projected healthy")
+    # ...through the R32 name fallback as well (pool team lags the report's).
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    p["players"][0]["team"] = "TB"
+    red(w, p, i, "dropped report must be caught through the name fallback too")
+    # ...and for a hurt pool player with no weekly row at all.
+    w, p, i = _fixture(blocked=0, klass="week")
+    w["players"] = []
+    red(w, p, i, "hurt pool player absent from player_weekly entirely")
+    # An ACTIVE-only report stamps nothing — no block is the correct state.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    i["injuries"][0].update({"status": "Active", "availability": "ACTIVE"})
+    ok(w, p, i, why="ACTIVE report, no block — rule 6 must not fire")
+    # A mixed ACTIVE + non-ACTIVE set is producer-duration-dependent
+    # (availability._worse merges duration-first), so rule 6 stays silent.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    i["injuries"].append({"team": "SF", "player": "AJ Hurt",
+                          "status": "Active", "availability": "ACTIVE"})
+    ok(w, p, i, why="mixed ACTIVE+QUESTIONABLE set is not enforced")
 
     # FLAG-ONLY: a suspension of unannounced length blocks nothing and claims
     # nothing. build_weekly emits exactly {status, class} here, so the validator
@@ -1462,7 +1527,8 @@ def _selftest():
     validate_against_schema(_ok_degraded, _mp_schema, "market_prices.json")
 
     print("selftest OK: availability cross-file invariant catches renormalized "
-          "blocked weeks, duration/consequence drift, orphan flags and a dishonest "
+          "blocked weeks, duration/consequence drift, orphan flags, dropped "
+          "reports (a hurt pool player with no block) and a dishonest "
           "model summary; parlay legs reject a market price in model_prob, a "
           "mislabelled side, a total leg and a model/market collision; the six "
           "R30b keywords (minProperties/maxProperties/pattern/exclusiveMinimum/"
