@@ -6,7 +6,8 @@
 > Of this epic's **17 acceptance criteria**, **2 are asserted by a test that
 > exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
 > **12%** (2/16 automatable). **13** name a test file that does not
-> exist; **1** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/contract_catalogue.test.mjs`, `tests/feature/schema_evolution.test.mjs`, `tests/feature/validate_data.test.mjs`. Stories with **nothing asserted at all**: P6-S1, P6-S3, P6-S4, P6-S5.
+> exist; **1** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/data_reader.test.mjs`, `tests/feature/contract_catalogue.test.mjs`, `tests/feature/schema_evolution.test.mjs`, `tests/feature/validate_data.test.mjs`. Stories with **nothing asserted at all**: P6-S3, P6-S4, P6-S5.
+> **Delta (2026-08-25, QA-D3):** P6-S1 is now REAL 4/4 — the planned `data_reader.test.mjs` was never authored, but `tests/feature/data_contract.test.mjs` (R25-F2) already asserted all four properties; the 08-15 measurement keyed on the mapping's filename and counted them MISSING. Mappings re-pointed at the cases that bite; no new test code was needed. Epic true coverage rises to **6/16 (38%)**.
 > The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
 > hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
 > [`QA-debt.md`](./QA-debt.md).
@@ -19,7 +20,7 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 
 ## User stories
 
-### P6-S1 — Single client-side reader is the only path to data   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
+### P6-S1 — Single client-side reader is the only path to data   ·  Status: ✅   ·  Est: S   ·  **QA: 4/4 ACs asserted (100%, 2026-08-25)**
 **As** an Analyst **I want** every UI surface to read data through one module **so that** a contract change touches exactly one file and no page fetches raw JSON on its own.
 **Acceptance criteria** (Given/When/Then):
 - P6-S1-AC1 — Given any view under `app/views/*`, When it needs contract data, Then it imports a getter from `app/data.js` and never calls `fetch('/data/...')` directly.
@@ -27,15 +28,15 @@ If pages fetch raw JSON ad hoc, a schema change means hunting every `fetch()` in
 - P6-S1-AC3 — Given a fetch returns non-2xx, When the getter runs, Then it throws with the path + HTTP status and evicts the cache entry so a later call retries (no cached rejected promise).
 - P6-S1-AC4 — Given `getAll()` runs with one bad feed, When it settles, Then good contracts still resolve and the bad one is returned as `{__error}` (one bad feed never blanks the others).
 **Tasks:**
-- [ ] P6-S1-T1 — Keep one getter per contract; export names document the available contracts.
-- [ ] P6-S1-T2 — Guard against direct `/data/*` fetches outside `app/data.js` with a lint/grep check in the gate.
-- [ ] P6-S1-T3 — Keep the promise-cache + evict-on-failure semantics; cover both.
+- [x] P6-S1-T1 — Keep one getter per contract; export names document the available contracts. *(allowlist asserted by data_contract.test.mjs)*
+- [x] P6-S1-T2 — Guard against direct `/data/*` fetches outside `app/data.js` with a lint/grep check in the gate. *(landed stronger: `fetch()` anywhere in `app/` outside data.js/kdst.js fails)*
+- [x] P6-S1-T3 — Keep the promise-cache + evict-on-failure semantics; cover both. *(plus the identity-guard race the 2026-08 regression lock added)*
 **QA coverage:**
-- P6-S1-AC1 → `tests/feature/data_reader.test.mjs::no_raw_fetch_outside_reader` (unit — grep app/ for `/data/`) — Planned  **[MISSING]**
-- P6-S1-AC2 → `tests/feature/data_reader.test.mjs::dedupes_concurrent` (unit, fetch stub) — Planned  **[MISSING]**
-- P6-S1-AC3 → `tests/feature/data_reader.test.mjs::evicts_on_error` (unit) — Planned  **[MISSING]**
-- P6-S1-AC4 → `tests/feature/data_reader.test.mjs::getAll_isolates_failures` (unit) — Planned  **[MISSING]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 4.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P6-S1-AC1 → `tests/feature/data_contract.test.mjs::fetch() happens only in app/data.js and app/kdst.js` (unit — walks all of `app/`, stronger than the planned views-only grep)  **[REAL]**
+- P6-S1-AC2 → `tests/feature/data_contract.test.mjs::concurrent callers share ONE request per contract` (unit, fetch stub)  **[REAL]**
+- P6-S1-AC3 → `tests/feature/data_contract.test.mjs::a 404 rejects cleanly AND evicts, so an optional contract stays retryable` (unit — asserts path + status in the error and the retry hits the network)  **[REAL]**
+- P6-S1-AC4 → `tests/feature/data_contract.test.mjs::getAll degrades per-contract (allSettled, never all)` (unit)  **[REAL]**
+  - **Coverage (measured 2026-08-25): 100% — REAL 4/4** (was 0/4 on 2026-08-15: the measurement keyed on the never-authored `data_reader.test.mjs` while `data_contract.test.mjs` already asserted all four — QA-D3 re-pointed the mappings). Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/data.js`, `app/views/*`, `app/main.js`.
 
 ### P6-S2 — Every contract is schema-validated in the gate   ·  Status: ✅ code shipped · ⚠ QA PARTIAL   ·  Est: M   ·  **QA: 2/3 ACs asserted (67%)**

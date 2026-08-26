@@ -1,5 +1,5 @@
 # QA-DEBT · Close the coverage the backlog already claimed
-**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** ⬜   ·   **Instantiates:** —
+**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** 🟡 — D1/D2/D3 (all of P0) closed 2026-08-25; D4–D10 open   ·   **Instantiates:** —
 **Reuse:** Every story here is a *shape* a future adapter will need too: drive the Python from the gate rather than mirroring it in JS, read the source of truth rather than a pasted literal, assert the deploy-surface files (`sw.js`, `_headers`) rather than describing them in prose. The specific file names are NFL2026's; the failure modes are the framework's.
 
 > **QA reality (measured 2026-08-15):** this epic exists *because* the measurement happened. It has no QA coverage of its own — it **is** the QA coverage. Progress is measured by re-running the method in [`../QA_COVERAGE.md`](../QA_COVERAGE.md) and watching the REAL count rise from **18/297**.
@@ -31,10 +31,10 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D1-AC2 — Given `sw.js`, When the check runs, Then it asserts the activate path deletes caches prefixed `nfl26-` and calls `clients.claim()`; removing either reds the gate.
 - QA-D1-AC3 — Given the check is added to the fast gate (`smoke.sh` or a `node --test` feature file), When run on a clean box, Then it needs no npm install and no browser.
 - QA-D1-AC4 — Given `tests/pwa/standalone.spec.mjs:363` ("service worker registers (cache-purger)"), When reviewed, Then it is either renamed to what it actually asserts (`navigator.serviceWorker.ready` resolves) or extended to probe the active SW for a fetch handler — the current title claims a check it does not perform.
-**Tasks:**
-- [ ] QA-D1-T1 — stdlib source check on `sw.js` in the fast gate.
-- [ ] QA-D1-T2 — Assert the `nfl26-` purge + `clients.claim()` remain.
-- [ ] QA-D1-T3 — Rename or extend the misleading pwa spec title.
+**Tasks:** *(closed 2026-08-25 — `tests/feature/qa_debt_p0.test.mjs`, mutation-checked: an added fetch handler reds the gate)*
+- [x] QA-D1-T1 — stdlib source check on `sw.js` in the fast gate. *(node --test feature file: node builtins only, no browser — AC3 satisfied)*
+- [x] QA-D1-T2 — Assert the `nfl26-` purge + `clients.claim()` remain.
+- [x] QA-D1-T3 — Rename or extend the misleading pwa spec title. *(renamed to what it asserts: readiness; the purger property is pinned at source by qa_debt_p0)*
 **Traceability:** `sw.js`, `tests/smoke.sh`, `tests/pwa/standalone.spec.mjs`, `docs/backlog/epics/P7-pwa-design-system.md`, `docs/backlog/epics/P9-deploy-ops.md`.
 
 ### QA-D2 — `_headers` freshness matrix is pinned by a test   ·  Priority: P0   ·  Est: S
@@ -45,10 +45,10 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D2-AC2 — Given `_headers`, When parsed, Then `/data/*` is `public, max-age=0, stale-while-revalidate=120`, and `/index.html` and `/sw.js` are `public, max-age=0, must-revalidate`.
 - QA-D2-AC3 — Given `_headers`, When parsed, Then the `/*` block carries all four security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`).
 - QA-D2-AC4 — Given P7-S3-AC4 and P9-S6-AC3 currently pin **contradictory** policies for `/data/*` (`must-revalidate` vs `stale-while-revalidate=120`), When this story lands, Then one of them is rewritten so both agree with the shipped file, and the test pins the agreed text.
-**Tasks:**
-- [ ] QA-D2-T1 — stdlib `_headers` parser + per-block assertions in the fast gate.
-- [ ] QA-D2-T2 — Reconcile P7-S3-AC4 with P9-S6-AC3; delete the loser's wording.
-- [ ] QA-D2-T3 — Assert the four security headers.
+**Tasks:** *(closed 2026-08-25 — `tests/feature/qa_debt_p0.test.mjs`, mutation-checked: a changed TTL reds the gate)*
+- [x] QA-D2-T1 — stdlib `_headers` parser + per-block assertions in the fast gate. *(every block pinned byte-for-byte, immutable art included)*
+- [x] QA-D2-T2 — Reconcile P7-S3-AC4 with P9-S6-AC3; delete the loser's wording. *(P7-S3-AC4 was the loser — rewritten to match the shipped file and P9-S6-AC3)*
+- [x] QA-D2-T3 — Assert the four security headers. *(exact values, not presence)*
 **Traceability:** `_headers`, `tests/smoke.sh`, `docs/backlog/epics/P7-pwa-design-system.md`, `docs/backlog/epics/P9-deploy-ops.md`.
 
 ### QA-D3 — The data-reader boundary is enforced, not described   ·  Priority: P0   ·  Est: M
@@ -59,9 +59,9 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D3-AC2 — Given two callers request the same contract on one tick with a stubbed fetch, When both resolve, Then exactly one network call was issued (promise de-duplication).
 - QA-D3-AC3 — Given a stubbed non-2xx response, When the getter runs, Then it throws naming the path + HTTP status **and** the cache entry is evicted, so a second call retries rather than replaying a cached rejection.
 - QA-D3-AC4 — Given `getAll()` with one failing feed, When it settles, Then the good contracts still resolve and the bad one is `{__error}` — one bad feed never blanks the others.
-**Tasks:**
-- [ ] QA-D3-T1 — Source-scan assertion over `app/views/*`.
-- [ ] QA-D3-T2 — Fetch-stub tests for de-dupe, evict-on-error, and `getAll` isolation.
+**Tasks:** *(closed 2026-08-25 — NO new test code was needed: `tests/feature/data_contract.test.mjs` (R25-F2) already asserted all four ACs, and more besides. The 08-15 measurement keyed on the never-authored `data_reader.test.mjs` filename and counted the properties MISSING. The fix was re-pointing the P6-S1 and N5-S1 mappings at the cases that bite.)*
+- [x] QA-D3-T1 — Source-scan assertion over `app/views/*`. *(exists, stronger: `fetch()` anywhere in `app/` outside data.js/kdst.js fails)*
+- [x] QA-D3-T2 — Fetch-stub tests for de-dupe, evict-on-error, and `getAll` isolation. *(all present, plus the superseded-request identity-guard race)*
 **Traceability:** `app/data.js`, `app/views/*`, `docs/backlog/epics/P6-json-contract-data-layer.md`, `docs/backlog/epics/N5-nfl-ui.md`.
 
 ### QA-D4 — The harness Python is executed by the gate, not mirrored in JS   ·  Priority: P1   ·  Est: M

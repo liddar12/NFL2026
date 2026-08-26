@@ -9,7 +9,8 @@
 > Of this epic's **23 acceptance criteria**, **1 are asserted by a test that
 > exists, runs in the gate, and fails when the criterion is violated** — a true coverage of
 > **5%** (1/22 automatable). **13** name a test file that does not
-> exist; **8** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/tokens.test.mjs`, `tests/web/router.spec.mjs`, `tests/pwa/sw_purge.spec.mjs`, `tests/pwa/install.spec.mjs` and 5 more. Stories with **nothing asserted at all**: P7-S1, P7-S2, P7-S3, P7-S4, P7-S6.
+> exist; **8** name a file that exists but contains no assertion that bites. **1** are manual/ops ACs, excluded from the denominator. The absent files are `tests/feature/tokens.test.mjs`, `tests/web/router.spec.mjs`, `tests/pwa/sw_purge.spec.mjs`, `tests/pwa/install.spec.mjs` and 5 more. Stories with **nothing asserted at all**: P7-S1, P7-S2, P7-S4, P7-S6.
+> **Delta (2026-08-25, QA-D1/QA-D2):** P7-S3 is now REAL 4/4 via `tests/feature/qa_debt_p0.test.mjs` — epic true coverage rises to **5/22 (23%)**. The other four stories are unchanged.
 > The per-story `Coverage:` lines and the per-mapping tags below are measured, not asserted by
 > hand. Method: [`../QA_COVERAGE.md`](../QA_COVERAGE.md). Work to close the gap:
 > [`QA-debt.md`](./QA-debt.md).
@@ -59,24 +60,24 @@ The presentation layer is where a framework leaks its domain assumptions and whe
 - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · MISSING 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `app/main.js`, `index.html`.
 
-### P7-S3 — Pure cache-purger service worker   ·  Status: ✅ code shipped · ⚠ QA UNVERIFIED   ·  Est: S   ·  **QA: 0/4 ACs asserted (0%)**
+### P7-S3 — Pure cache-purger service worker   ·  Status: ✅   ·  Est: S   ·  **QA: 4/4 ACs asserted (100%, 2026-08-25)**
 **As** an Operator **I want** a service worker that caches NOTHING and purges any prior caches **so that** a deploy never leaves users running day-old JS (the wc2026 stale-shell postmortem).
 **Acceptance criteria:**
 - P7-S3-AC1 — Given `sw.js`, When inspected, Then it registers NO `fetch` handler (every request hits the network).
 - P7-S3-AC2 — Given a prior install that cached files, When the new SW activates, Then it deletes every cache keyed `nfl26-*` and calls `clients.claim()`.
 - P7-S3-AC3 — Given SW registration, When it fails, Then first paint is unaffected (registration is best-effort, `.catch` only warns).
-- P7-S3-AC4 — Given freshness is header-controlled, When `_headers` is read, Then app code uses short max-age + stale-while-revalidate and `/data/*` is `must-revalidate` (SW does not manage freshness).
-  > **Correction (2026-08-15):** this AC and P9-S6-AC3 pin **different** policies for the same path — here `/data/*` is `must-revalidate`, there it is `max-age=0, stale-while-revalidate=120`. The shipped `_headers` matches P9-S6-AC3 (`must-revalidate` is on `/index.html` and `/sw.js`). No test reads `_headers` at all, so nothing has ever caught the contradiction. Reconcile the two ACs before writing the check — see QA-D2.
+- P7-S3-AC4 — Given freshness is header-controlled, When `_headers` is read, Then app code uses short max-age + stale-while-revalidate (`/app/*` = `max-age=120, stale-while-revalidate=600`), `/data/*` is `max-age=0, stale-while-revalidate=120`, and `/index.html` + `/sw.js` are `max-age=0, must-revalidate` (SW does not manage freshness).
+  > **Reconciled (2026-08-25, QA-D2):** this AC previously pinned `/data/*` as `must-revalidate`, contradicting P9-S6-AC3 and the shipped file. Rewritten to match both; `tests/feature/qa_debt_p0.test.mjs` pins the agreed text byte-for-byte, so the contradiction class cannot recur unnoticed.
 **Tasks:**
-- [ ] P7-S3-T1 — Keep `sw.js` fetch-handler-free; retain `skipWaiting()` + activate-time purge.
+- [x] P7-S3-T1 — Keep `sw.js` fetch-handler-free; retain `skipWaiting()` + activate-time purge. *(enforced by qa_debt_p0 since 2026-08-25)*
 - [ ] P7-S3-T2 — Keep the `GET_VERSION` message probe for active-SW confirmation.
-- [ ] P7-S3-T3 — Add a smoke assertion that `sw.js` contains no `addEventListener('fetch'`.
+- [x] P7-S3-T3 — Add a smoke assertion that `sw.js` contains no `addEventListener('fetch'`. *(landed as a `node --test` gate case — same fast-gate tier, no npm, no browser)*
 **QA coverage:**
-- P7-S3-AC1 → `tests/smoke.sh::sw-has-no-fetch-handler` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
-- P7-S3-AC2 → `tests/pwa/sw_purge.spec.mjs::activate-deletes-caches` (e2e-pwa) — Planned  **[MISSING]**
-- P7-S3-AC3 → `tests/pwa/sw_purge.spec.mjs::registration-nonblocking` (e2e-pwa) — Planned  **[MISSING]**
-- P7-S3-AC4 → `tests/smoke.sh::headers-freshness-policy` (smoke) — Planned  **[TOOTHLESS · unwritten-case]**
-- **Coverage (measured 2026-08-15): 0% — REAL 0/4 · MISSING 2 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P7-S3-AC1 → `tests/feature/qa_debt_p0.test.mjs::sw.js registers NO fetch handler` (unit — parse `sw.js`)  **[REAL]**
+- P7-S3-AC2 → `tests/feature/qa_debt_p0.test.mjs::sw.js activate path purges nfl26-* caches and claims clients` (unit)  **[REAL]**
+- P7-S3-AC3 → `tests/feature/qa_debt_p0.test.mjs::SW registration is best-effort and cannot block first paint` (unit — parse `app/main.js`)  **[REAL]**
+- P7-S3-AC4 → `tests/feature/qa_debt_p0.test.mjs::_headers freshness cases` (unit — parse `_headers`)  **[REAL]**
+- **Coverage (measured 2026-08-25): 100% — REAL 4/4** (was 0/4 on 2026-08-15; closed by QA-D1/QA-D2, mutation-checked: an added fetch handler and a changed TTL both red the gate). Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `sw.js`, `_headers`, `index.html`.
 
 ### P7-S4 — Tokenized design system (dark theme)   ·  Status: ⬜   ·  Est: L   ·  **QA: 0/4 ACs asserted (0%)**
