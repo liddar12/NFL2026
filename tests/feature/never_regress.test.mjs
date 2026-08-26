@@ -96,6 +96,64 @@ test("negative margin is rejected (would admit regressions)", () => {
   assert.throws(() => shouldAdopt(0.8, 0.9, -0.001));
 });
 
+// --------------------------------------------------------------------------- //
+// QA-D6 — the adoption rule is asserted against the PYTHON that runs.          //
+// --------------------------------------------------------------------------- //
+
+test("scripts.optimize.never_regress.should_adopt: default-margin verdicts are pinned (QA-D6-AC1/AC3)", () => {
+  // No margin argument is passed: these drive the module's own default, so
+  // loosening the constant in never_regress.py flips a pinned verdict and
+  // reds the gate — while the value itself is never re-typed here.
+  const grid = [
+    [0.8329, 0.83],   // clear improvement             -> adopt
+    [0.8329, 0.832],  // improvement inside the margin -> keep
+    [0.8329, 0.8329], // exact tie                     -> keep
+    [0.8329, 0.84],   // regression                    -> keep
+  ];
+  const out = py(`
+from scripts.optimize import never_regress as nr
+grid = ${JSON.stringify(grid)}
+print(json.dumps([nr.should_adopt(cur, cand) for cur, cand in grid]))`);
+  assert.deepEqual(out, [true, false, false, false]);
+});
+
+test("Python margin boundary is strict, and the JS mirror agrees on the whole grid (QA-D6-AC2/AC3)", () => {
+  // Read the default margin FROM THE MODULE, build the boundary cases from it,
+  // and assert JS/Python parity everywhere — the two rules genuinely cannot
+  // diverge, and the boundary stays strict at whatever the module's margin is.
+  const out = py(`
+import inspect
+from scripts.optimize import never_regress as nr
+m = inspect.signature(nr.should_adopt).parameters["margin"].default
+cur = 0.8329
+grid = [
+    [cur, cur - m],           # exactly on the threshold -> keep (strict <)
+    [cur, cur - m - 1e-9],    # a hair past it           -> adopt
+    [cur, cur - m + 1e-9],    # a hair short of it       -> keep
+    [cur, cur], [cur, cur + 0.01], [cur, cur - 0.1],
+]
+neg_raises = False
+try:
+    nr.should_adopt(0.8, 0.9, -0.001)
+except ValueError:
+    neg_raises = True
+print(json.dumps({
+    "margin": m,
+    "grid": grid,
+    "verdicts": [nr.should_adopt(c, k) for c, k in grid],
+    "neg_raises": neg_raises,
+}))`);
+  assert.ok(out.margin > 0, "the module's default margin must be positive");
+  assert.deepEqual(out.verdicts, [false, true, false, false, false, true]);
+  for (let i = 0; i < out.grid.length; i++) {
+    const [cur, cand] = out.grid[i];
+    assert.equal(shouldAdopt(cur, cand, out.margin), out.verdicts[i],
+      `JS mirror diverges from Python at grid[${i}]`);
+  }
+  assert.equal(out.neg_raises, true,
+    "a negative margin must raise in the Python, exactly as the mirror throws");
+});
+
 test("data/model_tuning.json is consistent with should_adopt and NOT adopted", () => {
   const tuning = JSON.parse(
     readFileSync(new URL("../../data/model_tuning.json", import.meta.url), "utf8"),

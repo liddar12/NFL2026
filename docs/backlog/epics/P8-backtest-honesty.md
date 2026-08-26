@@ -33,9 +33,9 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S1-T3 — Assert against the real committed data file, not only inline fixtures.
 - [ ] P8-S1-T4 — Treat absent and null scores identically.
 **QA coverage** (4 ACs):
-- P8-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P8-S1-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` — Done  **[TOOTHLESS · asserts-own-fixtures]**
-- P8-S1-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P8-S1-AC1 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_est_scored — drives scripts/harness/honesty.py)  **[REAL — QA-D4 2026-08-26]**
+- P8-S1-AC2 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_measured_unscored — the tautological own-fixture case was deleted)  **[REAL — QA-D4 2026-08-26]**
+- P8-S1-AC3 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_leak — drives the Python)  **[REAL — QA-D4 2026-08-26]**
 - P8-S1-AC4 → `tests/feature/backtest_honesty.test.mjs::committed game_predictions.json are estimates` — Done  **[REAL]**
   - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `tests/feature/backtest_honesty.test.mjs`, `scripts/harness/honesty.py`, `data/game_predictions.json`.
@@ -55,8 +55,8 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S2-T5 — Feed the gate real snapshot-resolved losses, not fixtures.
 **QA coverage** (4 ACs):
 - P8-S2-AC1 → `tests/feature/never_regress.test.mjs::beats a baseline` (backtest, leak-safe) — Planned  **[TOOTHLESS · unwritten-case]**
-- P8-S2-AC2 → `tests/feature/never_regress.test.mjs::margin 0.0015 tie/sub-margin keeps current` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P8-S2-AC3 → `tests/feature/never_regress.test.mjs::negative margin raises` (unit) — Planned  **[TOOTHLESS · reimplements-under-test]**
+- P8-S2-AC2 → `tests/feature/never_regress.test.mjs::scripts.optimize.never_regress.should_adopt: default-margin verdicts are pinned` (unit — tie and sub-margin keep current, driven from the module)  **[REAL — QA-D6 2026-08-26]**
+- P8-S2-AC3 → `tests/feature/never_regress.test.mjs::Python margin boundary is strict, and the JS mirror agrees` (unit — negative margin asserted to raise in the Python)  **[REAL — QA-D6 2026-08-26]**
 - P8-S2-AC4 → `tests/feature/signal_registry.test.mjs::new signals enter at weight 0` (unit) — Done  **[REAL]**
   - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/optimize/never_regress.py`, `scripts/optimize/optimize_weights.py`, `scripts/signals/registry.py`, `data/model_tuning.json`, `tests/feature/never_regress.test.mjs`, `tests/feature/signal_registry.test.mjs`.
@@ -110,7 +110,7 @@ This is where good intentions go to die quietly. The postmortems are the warning
 - [ ] P8-S5-T3 — Document the race-safe merge in the cron workflows and assert final files parse.
 **QA coverage** (3 ACs):
 - P8-S5-AC1 → `scripts/validate_data.py::pipeline staleness/row-count` (data) — Planned  **[TOOTHLESS · validator-lacks-the-check]**
-- P8-S5-AC2 → `tests/feature/backtest_honesty.test.mjs` applied to `data/snapshots/*` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P8-S5-AC2 → `tests/feature/backtest_honesty.test.mjs::the committed lock array passes honesty.assert_measured_rows` (unit — data/snapshots/2026_wk01_games_open.json, whole file)  **[REAL — QA-D4 2026-08-26]**
 - P8-S5-AC3 → `tests/smoke.sh::committed data parses` (smoke) + cron workflow config — Done (smoke) / Planned (cron)  **[REAL]**
   - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/validate_data.py`, `scripts/pipeline_status.py`, `data/pipeline_status.json`, `data/contracts/pipeline_status.schema.json`, `tests/feature/backtest_honesty.test.mjs`, `.github/workflows/{daily,gameday}.yml`.

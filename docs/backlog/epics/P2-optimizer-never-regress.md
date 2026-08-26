@@ -93,7 +93,7 @@ Without leak-safety, a weight set "learns" from the outcome it is predicting and
 - [ ] P2-S4-T4 — Log verdict + deltas to `data/model_tuning.json`.
 - [ ] P2-S4-T5 — Unit-test the three boundary cases: below margin (reject), at margin (adopt), above margin (adopt); and a regression (candidate worse → reject).
 **QA coverage:**
-- P2-S4-AC1 → `tests/feature/never_regress.test.mjs::gate_requires_0_0015_margin` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P2-S4-AC1 → `tests/feature/never_regress.test.mjs::scripts.optimize.never_regress.should_adopt: default-margin verdicts are pinned` + `::Python margin boundary is strict, and the JS mirror agrees` (unit — the rule driven from the module; the optimizer's WRITE path stays with AC2/AC3)  **[REAL — QA-D6 2026-08-26]**
 - P2-S4-AC2 → `tests/feature/never_regress.test.mjs::gate_rejects_below_margin_no_write` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - P2-S4-AC3 → `tests/feature/never_regress.test.mjs::gate_adopts_at_and_above_margin_writes` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - P2-S4-AC4 → `tests/feature/never_regress.test.mjs::gate_asserts_same_set` (unit) — Planned  **[TOOTHLESS · unwritten-case]**

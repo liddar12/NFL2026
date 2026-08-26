@@ -32,7 +32,7 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S1-T3 — Add a `groups()` / count helper for downstream consumers and tests.
 - [ ] P4-S1-T4 — Assert stdlib-only imports (no third-party) so the registry loads in any environment.
 **QA coverage** (≥90% of ACs map to a named test):
-- P4-S1-AC1 → `tests/feature/signal_registry.test.mjs::count-and-groups` (unit) — Partial  **[TOOTHLESS · hardcoded-literal]**
+- P4-S1-AC1 → `tests/feature/signal_registry.test.mjs::the registry's stated shape holds at the source: 19/10/3 grouping, exact key-set` (unit — reads SIGNALS from registry.py)  **[REAL — QA-D5 2026-08-26]**
 - P4-S1-AC2 → `tests/feature/signal_registry.test.mjs::every registry signal is present at exactly 0.0` (unit) — Done  **[REAL]**
 - P4-S1-AC3 → `tests/feature/signal_registry.test.mjs::deterministic-order` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - P4-S1-AC4 → `tests/feature/signal_registry.test.mjs::non-empty-description` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
@@ -71,7 +71,7 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S3-T4 — Wire the mirror check into `tests/run_gate.sh` so a drift blocks the gate.
 **QA coverage**:
 - P4-S3-AC1 → `tests/feature/signal_registry.test.mjs::count matches (no missing, no extra)` (unit) — Done  **[REAL]**
-- P4-S3-AC2 → `tests/feature/signal_registry.test.mjs::no unexpected signals leaked into the weights map` (unit) — Done  **[TOOTHLESS · hardcoded-literal]**
+- P4-S3-AC2 → `tests/feature/signal_registry.test.mjs::meta.json weights carry the registry's signals — same SET and same ORDER` (unit — order-sensitive deep-compare against registry.py; both pasted mirrors deleted, validate_data.py now imports the registry)  **[REAL — QA-D5 2026-08-26]**
 - P4-S3-AC3 → `tests/feature/signal_registry.test.mjs::names-are-exact-strings` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
   - **Coverage (measured 2026-08-15): 33% — REAL 1/3 · TOOTHLESS 2.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `data/meta.json`, `tests/feature/signal_registry.test.mjs`, `tests/run_gate.sh`.
@@ -110,7 +110,7 @@ Without a registry, weights become folklore: numbers hand-tuned in a notebook, n
 - [ ] P4-S5-T4 — Document the markets-as-models framing and the day-zero all-0 state.
 **QA coverage**:
 - P4-S5-AC1 → `tests/feature/signal_registry.test.mjs::groups-are-the-three` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
-- P4-S5-AC2 → `tests/feature/signal_registry.test.mjs::doc-matches-registry` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
+- P4-S5-AC2 → `tests/feature/signal_registry.test.mjs::docs/SIGNAL_REGISTRY.md's name table matches the registry` (unit)  **[REAL — QA-D5 2026-08-26]**
 - P4-S5-AC3 → `tests/feature/signal_registry.test.mjs::group-contribution-sums` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
   - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/signals/registry.py`, `docs/SIGNAL_REGISTRY.md`, `data/meta.json`, `tests/feature/signal_registry.test.mjs`.

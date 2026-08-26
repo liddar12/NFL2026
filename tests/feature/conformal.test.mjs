@@ -10,9 +10,30 @@
 // meets the target — the honest uncertainty guarantee, locked.
 //
 // Node built-ins only.
+//
+// QA-D4 (2026-08-26): the mirror is no longer the only enforcer — the same
+// calibration set and eval events are driven through scripts/harness/
+// conformal.py itself and the two implementations are asserted equal.
+// NOTE (QA-D4-AC5): conformal.py is imported by no pipeline script yet
+// (scripts/build_all.py does not wire it); these tests lock the MODULE, and
+// P1-S3 carries the untested-in-production caveat until it is wired.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+function py(body) {
+  const out = execFileSync("python3", ["-"], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    env: { ...process.env, PYTHONPATH: REPO_ROOT },
+    input: `import json, sys\nsys.path.insert(0, ".")\n${body}\n`,
+  });
+  return JSON.parse(out.trim().split("\n").pop());
+}
 
 function calibrate(scores, coverage) {
   if (!(coverage > 0 && coverage < 1)) throw new Error("coverage in (0,1)");
@@ -89,4 +110,32 @@ test("too-few calibration points fall back to all-inclusive (threshold 1.0)", ()
   assert.equal(calibrate([0.2, 0.4], 0.99), 1.0);
   // At threshold 1.0 every class is included -> the true outcome is always covered.
   assert.equal(empiricalCoverage(EVAL, 1.0), 1.0);
+});
+
+// ---------------------------------------------------------------------------
+// QA-D4 — scripts/harness/conformal.py is executed by the gate.
+// ---------------------------------------------------------------------------
+
+test("Python calibrate/safe_set equal the JS mirror on the fixed sets (QA-D4-AC2)", () => {
+  const coverages = [0.7, 0.8, 0.85];
+  const out = py(`
+from scripts.harness import conformal
+cal = ${JSON.stringify(CAL)}
+events = ${JSON.stringify(EVAL.map((e) => e.probs))}
+coverages = ${JSON.stringify(coverages)}
+thresholds = [conformal.calibrate(cal, c) for c in coverages]
+print(json.dumps({
+    "thresholds": thresholds,
+    "small_n": conformal.calibrate([0.2, 0.4], 0.99),
+    "sets": [[conformal.safe_set(p, t) for p in events] for t in thresholds],
+}))`);
+  coverages.forEach((c, i) => {
+    assert.equal(out.thresholds[i], calibrate(CAL, c),
+      `threshold diverges at coverage ${c}`);
+    EVAL.forEach((e, j) => {
+      assert.deepEqual(out.sets[i][j], safeSet(e.probs, out.thresholds[i]),
+        `safe set diverges at coverage ${c}, event ${j}`);
+    });
+  });
+  assert.equal(out.small_n, 1.0, "small-n fallback must be all-inclusive in Python too");
 });

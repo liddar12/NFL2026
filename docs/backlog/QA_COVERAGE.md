@@ -89,6 +89,32 @@ Re-measured by the same method over the four touched stories only; every other n
 - **Aggregate: REAL 18 → 32 of 297 automatable = 10.8%** (was 6.1%). ✅-stories with zero REAL
   coverage: seven → **four** (P5-S4, P7-S2, P8-S3, P9-S4).
 
+### Delta — 2026-08-26 (QA-debt release 2: QA-D4/D5/D6)
+
+The `reimplements-under-test`, `asserts-own-fixtures` and `hardcoded-literal` classes are
+substantially retired. Re-measured over the touched stories only:
+
+- **P1-S2 0/5 → 3/5, P1-S3 0/5 → 5/5 (module), P1-S4 0/3 → 3/3** — `metrics.test.mjs`,
+  `conformal.test.mjs` and `backtest_honesty.test.mjs` now DRIVE the Python they used to
+  re-implement (`python3 -` drive-through, JS mirrors kept and asserted equal). The two
+  tautological honesty cases (filtering the file's own `HONEST` literal) are deleted.
+  P1-S3 carries the story-level caveat that `conformal.py` remains UNWIRED in production.
+- **P8-S1 1/4 → 4/4, P8-S2 +2 (AC2/AC3), P8-S5-AC2 closed** — the committed lock array
+  (`data/snapshots/2026_wk01_games_open.json`) passes `honesty.assert_measured_rows` in the
+  gate, whole-file.
+- **P4-S1-AC1, P4-S3-AC2, P4-S5-AC2 → REAL; P2-S4-AC1 → REAL; N2-S6-AC3 + N3-S6-AC3 → REAL** —
+  the registry is read from `scripts/signals/registry.py` on every run (set AND order), BOTH
+  pasted mirrors are gone (`signal_registry.test.mjs:16`'s `EXPECTED` and
+  `validate_data.py`'s `EXPECTED_SIGNALS` literal), and `docs/SIGNAL_REGISTRY.md`'s table is
+  compared against the source. `never_regress.should_adopt` verdicts are pinned against the
+  module's own default margin, boundary cases built from the module's value.
+- Every closure was **mutation-checked** before landing: `diff*diff -> abs(diff)` in
+  metrics.py, margin 0.0015 -> 0.005, an inverted honesty branch, and a renamed registry
+  signal each red the gate (the rename also exits `validate_data.py` 1).
+- **Aggregate: REAL 32 → 55 of 297 automatable = 18.5%** (was 10.8%). `reimplements-under-test`
+  16 → 2 (the two P1-S2 unwritten-case leftovers aside, the mirrored modules are now executed);
+  `hardcoded-literal` 2 → 0; `asserts-own-fixtures` 2 → 0.
+
 ### The sharpest instances
 
 | Claim | Reality |

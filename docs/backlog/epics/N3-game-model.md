@@ -124,6 +124,6 @@ The blend invariant is inherited from wc2026 and is the difference between hones
 **QA coverage:**
 - N3-S6-AC1 → `tests/feature/metrics.test.mjs::logloss_brier` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - N3-S6-AC2 → `tests/feature/backtest_honesty.test.mjs::no_lookahead` (backtest) — Planned  **[TOOTHLESS · unwritten-case]**
-- N3-S6-AC3 → `tests/feature/never_regress.test.mjs::margin_0_0015` (backtest) — Done  **[TOOTHLESS · reimplements-under-test]**
+- N3-S6-AC3 → `tests/feature/never_regress.test.mjs::scripts.optimize.never_regress.should_adopt: default-margin verdicts are pinned` (unit — drives the Python)  **[REAL — QA-D6 2026-08-26]**
 - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/game_model.py`, `scripts/harness/metrics.py`, `scripts/harness/snapshot.py`, `scripts/optimize/never_regress.py`.
