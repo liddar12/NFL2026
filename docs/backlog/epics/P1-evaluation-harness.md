@@ -41,7 +41,7 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
   - **Coverage (measured 2026-08-15): 25% — REAL 1/4 · MISSING 2 · TOOTHLESS 1.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/snapshot.py`, `data/contracts/snapshot.schema.json`, `data/snapshots/`, `scripts/validate_data.py`, `tests/feature/backtest_honesty.test.mjs`.
 
-### P1-S2 — Event-level scoring metrics   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/5 ACs asserted (0%)**
+### P1-S2 — Event-level scoring metrics   ·  Status: 🟡   ·  Est: M   ·  **QA: 3/5 ACs asserted (60%, 2026-08-26)**
 **As** the Modeler **I want** proper, dependency-free scoring metrics computed per event **so that** two models can be compared on the same held-out events with numbers that agree to the bit across Python and Node.
 **Acceptance criteria** (Given/When/Then):
 - P1-S2-AC1 — Given `probs=[0.7,0.3]`, `true=0`, When scored, Then `log_loss == -ln(0.7)` and `brier == 0.18` exactly.
@@ -56,15 +56,15 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S2-T4 — Verify `_ranks` handles ties (average ranks) before `_pearson`.
 - [ ] P1-S2-T5 — Assert `y_true_idx` out-of-range raises `IndexError`.
 **QA coverage** (5 ACs):
-- P1-S2-AC1 → `tests/feature/metrics.test.mjs::brier ... equals exactly 0.18` + `::log_loss ... equals -ln(0.7)` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S2-AC2 → `tests/feature/metrics.test.mjs::log_loss ... confident-correct ~0` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S2-AC3 → `tests/feature/metrics.test.mjs::mae ... equals 7/3` + `::mae is 0 for identical` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
+- P1-S2-AC1 → `tests/feature/metrics.test.mjs::scripts/harness/metrics.py computes the pinned constants` (unit — drives the Python; mutation-checked: diff*diff -> abs(diff) reds)  **[REAL — QA-D4 2026-08-26]**
+- P1-S2-AC2 → `tests/feature/metrics.test.mjs::JS mirror equals the Python on a shared input grid` (unit — includes the confident-correct [1.0, 0.0] case)  **[REAL — QA-D4 2026-08-26]**
+- P1-S2-AC3 → `tests/feature/metrics.test.mjs::scripts/harness/metrics.py computes the pinned constants` (mae 7/3 driven from the Python)  **[REAL — QA-D4 2026-08-26]**
 - P1-S2-AC4 → `tests/feature/metrics.test.mjs::rank_corr/calibration_bins` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - P1-S2-AC5 → `tests/feature/metrics.test.mjs::multiclass_log_loss mean over events` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/5 · TOOTHLESS 5.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+  - **Coverage (measured 2026-08-26): 60% — REAL 3/5 · TOOTHLESS 2 (rank_corr / calibration_bins / multiclass-mean cases still unwritten).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/metrics.py`, `tests/feature/metrics.test.mjs`.
 
-### P1-S3 — Split-conformal safe sets (85% / 70%)   ·  Status: 🟡   ·  Est: M   ·  **QA: 0/5 ACs asserted (0%)**
+### P1-S3 — Split-conformal safe sets (85% / 70%)   ·  Status: 🟡 module locked · ⚠ UNWIRED IN PRODUCTION (no pipeline script imports conformal.py; QA-D4-AC5)   ·  Est: M   ·  **QA: 5/5 module ACs asserted (2026-08-26); production wiring 0**
 **As** the Analyst **I want** a set of plausible outcomes with a coverage guarantee instead of a single false point pick **so that** the UI communicates genuine uncertainty — a wider set means we are less sure.
 **Acceptance criteria** (Given/When/Then):
 - P1-S3-AC1 — Given calibration nonconformity scores (`1 - p_true`) and coverage `c`, When `calibrate` runs, Then the threshold is the `k`-th smallest score with `k = ceil((n+1)*c)` (finite-sample +1 correction).
@@ -78,15 +78,15 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S3-T3 — Feed conformal from resolved snapshot rows (real calibration set) rather than fixtures.
 - [ ] P1-S3-T4 — Guard `0 < coverage < 1` and raise otherwise.
 **QA coverage** (5 ACs):
-- P1-S3-AC1 → `tests/feature/conformal.test.mjs::calibrate at coverage 0.8 ... 9th smallest` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S3-AC2 → `tests/feature/conformal.test.mjs::too-few calibration points fall back` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S3-AC3 → `tests/feature/conformal.test.mjs::empirical coverage meets the 0.8 target` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S3-AC4 → `tests/feature/conformal.test.mjs::higher target coverage ... more inclusive` (unit) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S3-AC5 → `tests/feature/conformal.test.mjs::safe_set membership` (unit) — Planned  **[TOOTHLESS · reimplements-under-test]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/5 · TOOTHLESS 5.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P1-S3-AC1 → `tests/feature/conformal.test.mjs::Python calibrate/safe_set equal the JS mirror on the fixed sets` (unit — thresholds driven from conformal.py)  **[REAL (module) — QA-D4 2026-08-26]**
+- P1-S3-AC2 → `tests/feature/conformal.test.mjs::Python calibrate/safe_set equal the JS mirror on the fixed sets` (small_n fallback asserted 1.0 in the Python)  **[REAL (module) — QA-D4 2026-08-26]**
+- P1-S3-AC3 → `tests/feature/conformal.test.mjs::empirical coverage meets the 0.8 target` + Python parity of every safe set (unit)  **[REAL (module) — QA-D4 2026-08-26]**
+- P1-S3-AC4 → `tests/feature/conformal.test.mjs::higher target coverage ... more inclusive` + Python parity of the 0.7/0.85 thresholds (unit)  **[REAL (module) — QA-D4 2026-08-26]**
+- P1-S3-AC5 → `tests/feature/conformal.test.mjs::Python calibrate/safe_set equal the JS mirror on the fixed sets` (membership per event, per coverage)  **[REAL (module) — QA-D4 2026-08-26]**
+  - **Coverage (measured 2026-08-26): 100% at module level — REAL 5/5, with the story-level caveat that conformal.py is UNWIRED in production (QA-D4-AC5).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/conformal.py`, `tests/feature/conformal.test.mjs`.
 
-### P1-S4 — Estimate-vs-measured honesty contract   ·  Status: 🟡   ·  Est: S   ·  **QA: 0/3 ACs asserted (0%)**
+### P1-S4 — Estimate-vs-measured honesty contract   ·  Status: 🟡   ·  Est: S   ·  **QA: 3/3 ACs asserted (100%, 2026-08-26)**
 **As** the Analyst **I want** the harness to structurally forbid an estimate from carrying a measured score **so that** the frontend can never dress an unvalidated guess up as a backtested result. (Enforcement escalates in P8; the contract is produced correctly here.)
 **Acceptance criteria** (Given/When/Then):
 - P1-S4-AC1 — Given `estimate=true`, When validated, Then `brier`/`log_loss` must be absent or null; presence raises `HonestyError`.
@@ -97,10 +97,10 @@ Without a leak-safe archive you cannot prove a model is good — you can only cl
 - [ ] P1-S4-T2 — Treat absent and explicit-null identically as "no score".
 - [ ] P1-S4-T3 — Mirror the exact contract in the Node test (both languages lock it).
 **QA coverage** (3 ACs):
-- P1-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_est_scored) — Done  **[TOOTHLESS · reimplements-under-test]**
-- P1-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::every measured+resolved row carries brier and log_loss` (unit) — Done  **[TOOTHLESS · asserts-own-fixtures]**
-- P1-S4-AC3 → `tests/feature/backtest_honesty.test.mjs::dishonest rows are rejected` (bad_leak) — Done  **[TOOTHLESS · reimplements-under-test]**
-  - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
+- P1-S4-AC1 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_est_scored — drives scripts/harness/honesty.py)  **[REAL — QA-D4 2026-08-26]**
+- P1-S4-AC2 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_measured_unscored — the own-fixture tautology was deleted)  **[REAL — QA-D4 2026-08-26]**
+- P1-S4-AC3 → `tests/feature/backtest_honesty.test.mjs::honesty.validate itself accepts HONEST and raises on DISHONEST` (bad_leak — drives the Python)  **[REAL — QA-D4 2026-08-26]**
+  - **Coverage (measured 2026-08-26): 100% — REAL 3/3 (was 0/3: every case re-implemented the module or asserted its own fixtures).** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/harness/honesty.py`, `tests/feature/backtest_honesty.test.mjs`.
 
 ### P1-S5 — Contracts & data validation for snapshots   ·  Status: 🟡   ·  Est: S   ·  **QA: 2/3 ACs asserted (67%)**

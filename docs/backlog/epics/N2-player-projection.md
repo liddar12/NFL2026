@@ -125,6 +125,6 @@ Signals in scope: injury status/history, QB accuracy delta, coordinator/HC chang
 **QA coverage:**
 - N2-S6-AC1 → `tests/feature/metrics.test.mjs::mae_and_rankcorr` (unit) — Planned  **[TOOTHLESS · unwritten-case]**
 - N2-S6-AC2 → `tests/feature/backtest_honesty.test.mjs::no_lookahead` (backtest) — Planned  **[TOOTHLESS · unwritten-case]**
-- N2-S6-AC3 → `tests/feature/never_regress.test.mjs::margin_0_0015` (backtest) — Done  **[TOOTHLESS · reimplements-under-test]**
+- N2-S6-AC3 → `tests/feature/never_regress.test.mjs::scripts.optimize.never_regress.should_adopt: default-margin verdicts are pinned` (unit — drives the Python)  **[REAL — QA-D6 2026-08-26]**
 - **Coverage (measured 2026-08-15): 0% — REAL 0/3 · TOOTHLESS 3.** Method + full matrix: [`../QA_COVERAGE.md`](../QA_COVERAGE.md).
 **Traceability:** `scripts/models/player_projection.py`, `scripts/harness/metrics.py`, `scripts/harness/snapshot.py`, `scripts/optimize/never_regress.py`.

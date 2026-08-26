@@ -1,5 +1,5 @@
 # QA-DEBT · Close the coverage the backlog already claimed
-**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** 🟡 — D1/D2/D3 (all of P0) closed 2026-08-25; D4–D10 open   ·   **Instantiates:** —
+**Layer:** Platform + Adapter (cross-cutting)   ·   **Status:** 🟡 — D1–D6 closed (P0 on 2026-08-25; D4/D5/D6 on 2026-08-26); D7–D10 open   ·   **Instantiates:** —
 **Reuse:** Every story here is a *shape* a future adapter will need too: drive the Python from the gate rather than mirroring it in JS, read the source of truth rather than a pasted literal, assert the deploy-surface files (`sw.js`, `_headers`) rather than describing them in prose. The specific file names are NFL2026's; the failure modes are the framework's.
 
 > **QA reality (measured 2026-08-15):** this epic exists *because* the measurement happened. It has no QA coverage of its own — it **is** the QA coverage. Progress is measured by re-running the method in [`../QA_COVERAGE.md`](../QA_COVERAGE.md) and watching the REAL count rise from **18/297**.
@@ -73,11 +73,11 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D4-AC3 — Given `scripts/harness/honesty.py`, When the gate runs, Then `honesty.validate` itself accepts each `HONEST` fixture and raises on each `DISHONEST` fixture — the rule is enforced by the module the stories name in Traceability, not by `validateRow` in the test file.
 - QA-D4-AC4 — Given `tests/feature/backtest_honesty.test.mjs:68` and `:74`, When reviewed, Then the two tautological cases (which filter the file's own `HONEST` literal and assert the literal has the keys it was written with) are deleted or replaced by assertions against real data; **no AC may map to a case that cannot fail.**
 - QA-D4-AC5 — Given `scripts/harness/conformal.py` is imported by no pipeline script (`scripts/build_all.py:395`), When P1-S3 is next reviewed, Then it is marked untested-in-production until the module is wired, rather than carrying conformal ACs as Done.
-**Tasks:**
-- [ ] QA-D4-T1 — `python3 -` drive-through for `metrics.py` with pinned constants.
-- [ ] QA-D4-T2 — Same for `conformal.calibrate` / `safe_set`.
-- [ ] QA-D4-T3 — Same for `honesty.validate` over both fixture sets, plus every row of `data/snapshots/2026_wk01_games_open.json` (the one committed lock array) — which is what P8-S5-AC2 asks for and nothing currently does.
-- [ ] QA-D4-T4 — Delete or rewrite the two tautological honesty cases; correct the AC→case names.
+**Tasks:** *(closed 2026-08-26 — mutation-checked: `diff*diff -> abs(diff)` in metrics.py, a loosened margin, and an inverted honesty branch each red the gate)*
+- [x] QA-D4-T1 — `python3 -` drive-through for `metrics.py` with pinned constants. *(plus a JS/Python parity grid)*
+- [x] QA-D4-T2 — Same for `conformal.calibrate` / `safe_set`. *(thresholds + every safe set parity-checked; P1-S3 now carries the UNWIRED-in-production caveat per AC5)*
+- [x] QA-D4-T3 — Same for `honesty.validate` over both fixture sets, plus every row of `data/snapshots/2026_wk01_games_open.json` via `assert_measured_rows` (closes P8-S5-AC2).
+- [x] QA-D4-T4 — Delete or rewrite the two tautological honesty cases; correct the AC→case names. *(both deleted; AC mappings re-pointed at the Python-driven cases)*
 **Traceability:** `scripts/harness/metrics.py`, `scripts/harness/conformal.py`, `scripts/harness/honesty.py`, `tests/feature/{metrics,conformal,backtest_honesty}.test.mjs`, `data/snapshots/`.
 
 ### QA-D5 — One source of truth for the signal registry   ·  Priority: P1   ·  Est: S
@@ -89,10 +89,10 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D5-AC3 — Given `scripts/validate_data.py:118-130` carries a second hardcoded `EXPECTED_SIGNALS`, When this story lands, Then it too is sourced from `scripts.signals.registry.SIGNALS`; **both** mirrors go, or the drift is only half-guarded.
 - QA-D5-AC4 — Given `docs/SIGNAL_REGISTRY.md`, When the gate runs, Then its name table is compared against the registry, so P4-S5-AC2 ("the doc is not stale") becomes a real check instead of a mapping to a `doc-matches-registry` case that does not exist.
 - QA-D5-AC5 — Given the registry, When inspected, Then the 19/10/3 player/game/market grouping and the exact `{group, weight, description}` key-set are asserted from the source — P4-S1-AC1's stated content, currently asserted nowhere.
-**Tasks:**
-- [ ] QA-D5-T1 — Read `SIGNALS` from Python; deep-compare set **and** order.
-- [ ] QA-D5-T2 — Remove both hardcoded mirrors.
-- [ ] QA-D5-T3 — Compare `docs/SIGNAL_REGISTRY.md` against the registry.
+**Tasks:** *(closed 2026-08-26 — mutation-checked: renaming `prior_perf` in registry.py reds signal_registry.test.mjs AND exits validate_data.py 1)*
+- [x] QA-D5-T1 — Read `SIGNALS` from Python; deep-compare set **and** order. *(order-sensitive deepEqual of the full key arrays)*
+- [x] QA-D5-T2 — Remove both hardcoded mirrors. *(test EXPECTED deleted; validate_data.py now imports the registry — its zero-local-imports rationale is retired on the record, and a guard test reds if a pasted literal returns)*
+- [x] QA-D5-T3 — Compare `docs/SIGNAL_REGISTRY.md` against the registry. *(names + groups, in registry order)*
 **Traceability:** `scripts/signals/registry.py`, `scripts/validate_data.py`, `tests/feature/signal_registry.test.mjs`, `data/meta.json`, `docs/SIGNAL_REGISTRY.md`.
 
 ### QA-D6 — NEVER-REGRESS is asserted against the Python that runs   ·  Priority: P1   ·  Est: S
@@ -102,9 +102,9 @@ Ordering principle below: **biggest honesty gap first** — a story that claimed
 - QA-D6-AC1 — Given `should_adopt` in `scripts/optimize/never_regress.py`, When the gate runs, Then the adopt / sub-margin / exact-tie / worse / strict-boundary / negative-margin cases are asserted against the **Python**, using the `py()` drive-through this file already has for `scripts.promote_signals`.
 - QA-D6-AC2 — Given the JS `shouldAdopt` mirror is retained for readability, When the gate runs, Then it is asserted equal to the Python on the same grid.
 - QA-D6-AC3 — Given the default margin constant, When changed in `never_regress.py`, Then the gate reds — the value must be read from the module, never re-typed in the test.
-**Tasks:**
-- [ ] QA-D6-T1 — Extend the existing `py()` helper to `scripts.optimize.never_regress`.
-- [ ] QA-D6-T2 — Read the margin constant from the module; assert JS/Python parity.
+**Tasks:** *(closed 2026-08-26 — mutation-checked: margin 0.0015 -> 0.005 in never_regress.py flips a pinned verdict and reds the gate)*
+- [x] QA-D6-T1 — Extend the existing `py()` helper to `scripts.optimize.never_regress`. *(default-margin verdicts pinned; adopt/sub-margin/tie/worse/strict-boundary/negative-margin all driven from the Python)*
+- [x] QA-D6-T2 — Read the margin constant from the module; assert JS/Python parity. *(boundary cases built FROM the module's margin, never re-typed)*
 **Traceability:** `scripts/optimize/never_regress.py`, `tests/feature/never_regress.test.mjs`, `docs/backlog/epics/P2-optimizer-never-regress.md`.
 
 ### QA-D7 — Feed health tells the truth about zero rows   ·  Priority: P1   ·  Est: S

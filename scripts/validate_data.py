@@ -124,23 +124,18 @@ OPTIONAL_DATA = frozenset([
     "preseason_form.json",
 ])
 
-# The signal registry, mirrored name-for-name from scripts/signals/registry.py.
-# Kept as a literal (not imported) so the validator has ZERO local imports and
-# runs even if the signals package is mid-edit. If registry.py changes, this and
-# data/meta.json must change with it — signal_registry.test.mjs guards meta.json.
-EXPECTED_SIGNALS = [
-    # player (19)
-    "prior_perf", "age_curve", "injury_status", "injury_history",
-    "ol_composite_vs_dl", "target_competition", "qb_accuracy_delta",
-    "qb_coaching", "coordinator_change", "head_coach_change", "scheme_fit",
-    "supporting_cast_delta", "one_on_one_matchup", "schedule_strength",
-    "home_away", "indoor_outdoor", "weather", "rest_days", "off_field",
-    # game (10)
-    "elo", "market_spread", "market_moneyline", "market_total", "j5l_composite",
-    "home_field", "rest_differential", "travel", "weather_game", "injury_impact",
-    # market (3)
-    "odds_api", "kalshi", "polymarket",
-]
+# The signal registry, imported from its single source of truth (QA-D5,
+# 2026-08-26). This was a pasted literal, with a stated rationale of "zero
+# local imports — runs even if the signals package is mid-edit". That property
+# was a blind spot, not robustness: renaming or reordering a signal in
+# registry.py redded nothing anywhere (this mirror and the one in
+# signal_registry.test.mjs were both order-blind and both hand-maintained).
+# If this import fails, the registry package is broken and the gate SHOULD
+# be red.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts.signals.registry import SIGNALS as _REGISTRY_SIGNALS  # noqa: E402
+
+EXPECTED_SIGNALS = list(_REGISTRY_SIGNALS)
 
 # Ordered severity for the pipeline-health honesty check.
 _STATUS_SEVERITY = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
