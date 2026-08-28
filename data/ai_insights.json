@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-08-28T07:20:53Z",
+  "updated_utc": "2026-08-28T18:14:15Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -5283,13 +5283,16 @@
         "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
       },
       "cold_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "no sub-32F sample for TB 2021-2025 - neutral (AI estimate)",
-        "n": 0,
+        "value": 0.202,
+        "source": "measured",
+        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 3,
         "weeks": [
-          9,
-          14
+          10,
+          13,
+          14,
+          16,
+          17
         ]
       }
     },
