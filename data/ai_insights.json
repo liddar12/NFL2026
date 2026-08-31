@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-08-31T12:47:53Z",
+  "updated_utc": "2026-08-31T20:44:02Z",
   "default": "off",
   "players": {
     "espn-3117251": {
@@ -6455,11 +6455,13 @@
         "seasons_observed": 3
       },
       "cold_adj": {
-        "value": 0.0674,
-        "source": "ai_estimated",
-        "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
-        "n": 11,
-        "weeks": []
+        "value": 0.25,
+        "source": "measured",
+        "why": "DAL won 100% of sub-32F games vs 59% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          18
+        ]
       }
     },
     "espn-3043116": {
