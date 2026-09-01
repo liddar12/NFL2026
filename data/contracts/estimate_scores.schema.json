@@ -1,0 +1,324 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "estimate_scores.schema.json",
+  "title": "Resolved estimate scores (R49 learning loop) - data/estimate_scores.json",
+  "description": "The ledger's locked (player, week) estimates joined to nflverse stats_player_week actual PPR points, with error metrics for the SHIPPED and the CANDIDATE estimate (MAE, bias = mean(estimate - actual), share of actuals inside the candidate band). HONESTY: weeks_resolved == 0 is a valid document that says so (`skipped` names why) and carries null metrics - an MAE is never invented. Written by scripts/resolve_estimates.py; read by scripts/harness/ledger_objective.py as the player-signal fit's objective source.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "source",
+    "scoring",
+    "ledger",
+    "weeks_resolved",
+    "players_scored",
+    "skipped",
+    "totals",
+    "by_position",
+    "weeks",
+    "resolved"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "scoring": {
+      "type": "string"
+    },
+    "ledger": {
+      "type": "string"
+    },
+    "weeks_resolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "players_scored": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Distinct players with >= 1 resolved week."
+    },
+    "rows_resolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unmatched_players": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Ledger players whose name+position never joined a stats row this season - skipped, never scored as 0."
+    },
+    "skipped": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Why nothing (or less) was resolved this run, in plain words; null when the run resolved normally."
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n",
+        "mae_shipped",
+        "mae_candidate",
+        "bias_shipped",
+        "bias_candidate",
+        "band_coverage"
+      ],
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mae_shipped": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "mae_candidate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "mae_baseline": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "bias_shipped": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "bias_candidate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "band_coverage": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "by_position": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n",
+          "mae_shipped",
+          "mae_candidate",
+          "bias_shipped",
+          "bias_candidate",
+          "band_coverage"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mae_shipped": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "mae_candidate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "mae_baseline": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bias_shipped": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bias_candidate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "band_coverage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "weeks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "week",
+          "rows_available",
+          "players_scored",
+          "mae_shipped",
+          "mae_candidate",
+          "bias_shipped",
+          "bias_candidate",
+          "band_coverage"
+        ],
+        "properties": {
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "rows_available": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "players_scored": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mae_shipped": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "mae_candidate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bias_shipped": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bias_candidate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "band_coverage": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "resolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gsis_id",
+          "week",
+          "position",
+          "baseline",
+          "shipped",
+          "candidate",
+          "low",
+          "high",
+          "actual",
+          "signals"
+        ],
+        "properties": {
+          "gsis_id": {
+            "type": "string"
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ]
+          },
+          "baseline": {
+            "type": "number",
+            "minimum": 0
+          },
+          "shipped": {
+            "type": "number",
+            "minimum": 0
+          },
+          "candidate": {
+            "type": "number",
+            "minimum": 0
+          },
+          "low": {
+            "type": "number",
+            "minimum": 0
+          },
+          "high": {
+            "type": "number",
+            "minimum": 0
+          },
+          "actual": {
+            "type": "number"
+          },
+          "dnp": {
+            "type": "boolean",
+            "description": "True when the player joined the season's stats but had no row that week (did not play) - actual is 0.0 by that fact, not by assumption."
+          },
+          "signals": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

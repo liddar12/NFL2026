@@ -86,6 +86,22 @@ def _kona_page(season, offset, limit=_PAGE, timeout=30):
             return json.load(resp)
 
 
+# R49 — games played rides the SAME actuals entry under statId "210" (the id
+# scripts/scrape/espn_history.py spot-checked: Hurts 15 in 2022, CMC 16 in 2023,
+# Mahomes 17 in 2022). It is what player_history.json writes as seasons.games
+# and what the games-normalized baseline divides by. Outside 1..18 = absent.
+_STAT_GAMES = "210"
+
+
+def games_or_none(stats):
+    """statId 210 as an int game count, or None when absent/implausible (>18, <=0)."""
+    raw = (stats or {}).get(_STAT_GAMES)
+    if raw is None:
+        return None
+    g = int(float(raw))
+    return g if 1 <= g <= 18 else None
+
+
 def _real_season_entry(player, season):
     """The measured full-season stat entry, or None if the player has no actuals.
     See the module docstring for why sourceId/splitType are checked explicitly."""
@@ -180,7 +196,7 @@ def fetch_fantasy_pool(season, min_rows=150):
     """Fantasy-relevant players with REAL `season` PPR totals, sorted desc.
 
     Returns list of {espn_id, name, position, pro_team_id, injury_status,
-    prior_season_points}. Loud if the pool is implausibly small.
+    prior_season_points, prior_games, ...}. Loud if the pool is implausibly small.
 
     REL17 — NORMALIZATION BOUNDARY. `injury_status` leaves this function as a
     CANONICAL code (scripts/availability.CODES) or None, never as ESPN's own
@@ -236,6 +252,9 @@ def fetch_fantasy_pool(season, min_rows=150):
                 "pro_team_id": p.get("proTeamId"),
                 "injury_status": code,
                 "prior_season_points": round(total, 2),
+                # R49 — the game count behind that total (statId 210, same
+                # entry). None when ESPN omits it: unknown, never 17, never 0.
+                "prior_games": games_or_none(_stats),
                 "receptions": round(receptions, 1),
                 "completions": round(completions, 1),
                 "pass_attempts": round(pass_attempts, 1),
@@ -475,6 +494,8 @@ def assemble_records(pool, ages, teams, current_pro_teams=None):
             "age": ages.get(p["espn_id"]),
             "injury_status": p["injury_status"],
             "prior_season_points": p["prior_season_points"],
+            # R49 — prior_games must survive this rebuild too (the R29 lesson).
+            "prior_games": p.get("prior_games"),
             "receptions": p["receptions"],
             # R29 — completions must survive THIS mapping too.
             #

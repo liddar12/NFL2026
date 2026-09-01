@@ -53,6 +53,11 @@ python3 scripts/build_game_context.py --selftest || fail "game context selftest"
 python3 scripts/build_dvp_positional.py --selftest || fail "dvp positional selftest"
 python3 scripts/build_scheme_history.py --selftest || fail "scheme history selftest"
 python3 scripts/build_kdst.py --selftest || fail "kdst projection selftest"
+# R49 — the learning ledger + the display-only Sleeper builder (pure cores).
+python3 scripts/build_sleeper_projections.py --selftest || fail "sleeper projections selftest"
+python3 scripts/build_estimate_ledger.py --selftest || fail "estimate ledger selftest"
+python3 scripts/resolve_estimates.py --selftest || fail "resolve estimates selftest"
+python3 scripts/fit_player_signals.py --selftest || fail "player signal fit selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.
@@ -84,6 +89,7 @@ ALLOW = {  # path -> reason (all: compact-writer, size-driven; builder named)
     "data/player_usage_weekly.json": "build_player_usage_weekly.py compact writer, 2.3 MB",
     "data/preseason_form.json": "build_preseason.py compact writer (standalone, unwired)",
     "data/ros_backtest.json": "backtest scripts' compact writer",
+    "data/sleeper_projections.json": "build_sleeper_projections.py compact writer, ~2.3 MB (3.97 MB at indent=2; display-only, lazily fetched)",
     "data/weather_forecast.json": "build_weather_forecast.py compact writer",
     "data/weather_history.json": "build_weather_history.py compact writer, 77 KB",
 }

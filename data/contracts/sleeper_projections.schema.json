@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sleeper_projections.schema.json",
+  "title": "Sleeper weekly projections (DISPLAY-ONLY reference, never a model input)",
+  "description": "R49 - Sleeper's own per-week projections for the season, reduced to this app's scoring universe (stat_keys) so app/league.js applyScoring can price each week under a league's own table and show it BESIDE our number. `display_only` is pinned true by enum: nothing here may feed a projection, a weight, a ranking or a parlay probability (scripts/validate_data.py check_market_price_fields scans it like every other document). app_id maps a Sleeper player to THIS app's pool id (espn-<id> for offence, the gsis id for kickers, DST-<TEAM> for defenses) and is null when no exact match exists - never guessed. Rows are kept iff at least one week carries pts_ppr. Produced by scripts/build_sleeper_projections.py on the daily runner; reference shape: tests/fixtures/sleeper_proj/sleeper_projections.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "season",
+    "source",
+    "display_only",
+    "stat_keys",
+    "players"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "season": {
+      "type": "integer",
+      "minimum": 2025
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "sleeper"
+      ]
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "display_only": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    },
+    "weeks_fetched": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 18
+      }
+    },
+    "stat_keys": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]+$"
+      }
+    },
+    "match": {
+      "type": "object",
+      "description": "The measured crosswalk outcome for this run - how many pool players Sleeper covers and by which exact method. Reported, never assumed.",
+      "additionalProperties": false,
+      "required": [
+        "pool_players",
+        "pool_matched",
+        "rows_kept",
+        "rows_dropped_no_pts_ppr",
+        "by_method"
+      ],
+      "properties": {
+        "pool_players": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pool_matched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_kept": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_dropped_no_pts_ppr": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_method": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unmatched_pool_sample": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sleeper_id",
+          "app_id",
+          "name",
+          "position",
+          "team",
+          "weeks"
+        ],
+        "properties": {
+          "sleeper_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "app_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "espn-<id> | gsis id (00-...) | DST-<TEAM> | null (no exact match)."
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE",
+              "K",
+              "DEF",
+              "FB"
+            ]
+          },
+          "team": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS",
+              null
+            ]
+          },
+          "weeks": {
+            "type": "object",
+            "description": "Week number (\"1\"..\"18\") -> {stat: value} restricted to stat_keys. A week appears only when Sleeper projected it (pts_ppr present).",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

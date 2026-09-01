@@ -105,7 +105,18 @@ SCHEMA_TO_DATA = {
     "preseason_form.schema.json": "preseason_form.json",
     # R45 — facts-only rookie starters (no projection field by contract).
     "rookie_starters.schema.json": "rookie_starters.json",
+    # R49 — Sleeper's own weekly projections, DISPLAY-ONLY (never a model input;
+    # check_market_price_fields scans it like every other doc). Runner-built.
+    "sleeper_projections.schema.json": "sleeper_projections.json",
+    # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
+    # honest document; an invented MAE is not).
+    "estimate_scores.schema.json": "estimate_scores.json",
 }
+
+# R49 — the estimate ledger lives per season under data/estimates/ (one file a
+# season, compact) and is validated like the snapshot directory below.
+ESTIMATES_DIR = os.path.join(DATA, "estimates")
+ESTIMATES_SCHEMA = "estimate_ledger.schema.json"
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -124,6 +135,9 @@ OPTIONAL_DATA = frozenset([
     # Written only by the standalone, unwired scripts/build_preseason.py —
     # validated strictly when present, but its absence cannot red a clone.
     "preseason_form.json",
+    # R49 — produced by the daily runner (network: api.sleeper.app). Deliberately
+    # NOT committed from the fixture: that would be fabricated provenance.
+    "sleeper_projections.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -1068,6 +1082,16 @@ def check_component_lines(weekly):
                               % "\n  - ".join(problems))
 
 
+# R49 — mirrors build_weekly.absence_in_total exactly (kept local so this
+# validator stays import-light and the rule is visible where it is enforced).
+_ABSENCE_IN_TOTAL_RULE = "prior_ppg_x_projected_games"
+
+
+def _absence_in_total(projection_row):
+    return (projection_row.get("baseline_rule") == _ABSENCE_IN_TOTAL_RULE
+            and int(projection_row.get("absence_weeks") or 0) > 0)
+
+
 def check_weekly_availability(weekly, projections, injuries):
     """Rel17: player_weekly.json's availability story must agree with itself.
 
@@ -1079,6 +1103,11 @@ def check_weekly_availability(weekly, projections, injuries):
          curve and the season total never moved. A player who will not take a
          snap must not carry 100% of his season points — and equally, a merely
          QUESTIONABLE player's total must still be preserved exactly.
+         R49: a projection row whose baseline_rule is the games-normalized rule
+         WITH a documented absence_weeks > 0 already excludes those games from
+         proj_points, so for that row the playable weeks must sum to proj_points
+         itself (build_weekly.absence_in_total) — subtracting the absence twice
+         would be the mirror-image defect.
       2. out_for_season => every non-bye pts is exactly 0.0.
       3. count(weeks with avail:false) == weeks_out, or every non-bye week when
          out_for_season. `weeks_out` is a DURATION STATEMENT and `avail:false` is
@@ -1155,14 +1184,19 @@ def check_weekly_availability(weekly, projections, injuries):
             problems.append("%s: in player_weekly.json but not in "
                             "player_projections.json" % pid)
         elif non_bye:
-            target = record["proj_points"] * (len(non_bye) - len(blocked)) / len(non_bye)
+            if _absence_in_total(record) and blocked:
+                target = record["proj_points"]
+                law = "proj %.2f (R49: absence already excluded from the total)" \
+                    % record["proj_points"]
+            else:
+                target = record["proj_points"] * (len(non_bye) - len(blocked)) / len(non_bye)
+                law = "proj %.2f * %d playable / %d non-bye" % (
+                    record["proj_points"], len(non_bye) - len(blocked), len(non_bye))
             total = sum(w.get("pts", 0.0) for w in non_bye)
             if abs(total - target) > 0.1:
                 problems.append(
-                    "%s: non-bye weeks sum to %.2f, expected %.2f (proj %.2f * %d "
-                    "playable / %d non-bye)"
-                    % (pid, total, target, record["proj_points"],
-                       len(non_bye) - len(blocked), len(non_bye)))
+                    "%s: non-bye weeks sum to %.2f, expected %.2f (%s)"
+                    % (pid, total, target, law))
 
         if not avail:
             continue
@@ -1666,6 +1700,29 @@ def _selftest():
         "note": "futures: champion event renamed"}
     validate_against_schema(_ok_degraded, _mp_schema, "market_prices.json")
 
+    # --- R49: absence already in the total must NOT be pro-rated again ---------
+    w, pr, inj = _fixture(blocked=4, weeks_out=4)
+    pr["players"][0].update({"baseline_rule": "prior_ppg_x_projected_games",
+                             "absence_weeks": 4, "projected_games": 13})
+    # The fixture's weeks sum to 100 * 13/17 (the old law); under the R49 rule
+    # the playable weeks must sum to the full 100.0, so this must be REJECTED...
+    try:
+        check_weekly_availability(w, pr, inj)
+        raise AssertionError("R49 row summing pro-rata must fail rule 1")
+    except ValidationError as exc:
+        assert "absence already excluded" in str(exc), exc
+    # ...and pass once the playable weeks carry the whole total.
+    share = round(100.0 / 13, 2)
+    for wk in w["players"][0]["weeks"]:
+        if not wk.get("bye") and wk.get("avail") is not False:
+            wk["pts"] = share
+    check_weekly_availability(w, pr, inj)
+    # A total-rule row with the same absence fields still takes the old law.
+    w2, pr2, inj2 = _fixture(blocked=4, weeks_out=4)
+    pr2["players"][0].update({"baseline_rule": "prior_season_points",
+                              "absence_weeks": 4})
+    check_weekly_availability(w2, pr2, inj2)
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -1735,6 +1792,19 @@ def main():
                 failures.append(str(exc))
         else:
             print("ok    no snapshot files to validate (data/snapshots/ empty)")
+
+    # 1c) R49 — estimate ledger files (data/estimates/<season>.json), when present.
+    if os.path.isdir(ESTIMATES_DIR):
+        led_files = [f for f in sorted(os.listdir(ESTIMATES_DIR)) if f.endswith(".json")]
+        if led_files:
+            try:
+                led_schema = _load(os.path.join(CONTRACTS, ESTIMATES_SCHEMA))
+                for f in led_files:
+                    validate_against_schema(_load(os.path.join(ESTIMATES_DIR, f)),
+                                            led_schema, "estimates/" + f)
+                    print("ok    estimates/%-30s vs %s" % (f, ESTIMATES_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
 
     # 2) Cross-file invariants.
     try:

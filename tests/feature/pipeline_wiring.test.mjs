@@ -52,6 +52,11 @@ const WIRED_BUILDERS = [
   'build_game_context.py',
   'build_dvp_positional.py',
   'build_scheme_history.py',
+  // R49 — the display-only Sleeper feed and the learning ledger's three steps.
+  'build_sleeper_projections.py',
+  'build_estimate_ledger.py',
+  'resolve_estimates.py',
+  'fit_player_signals.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {
