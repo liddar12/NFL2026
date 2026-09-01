@@ -3846,3 +3846,34 @@ body.gate-locked { overflow: hidden; }
 .gr-fold { margin: 12px 0; }
 .gr-fold > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; padding: 8px 0; }
 .gr-fold .gr-assumptions { padding: 4px 0 0; }
+
+/* ==========================================================================
+   R49 waiver wire — LINEUP's WAIVER WIRE card (app/views/lineup.js). Rows
+   reuse .lu-row / .lu-meta / .lu-pts and the segments reuse .sort-chip; only
+   the control strip, the position band, the fit line and the week label are
+   new. Nothing here is coloured alone: a gain carries a "+" and a drop cost a
+   "−" in the text.
+   ========================================================================== */
+.ww-ctl {
+  display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.ww-seg { display: flex; gap: 6px; }
+.ww-pos {
+  padding: 6px 14px; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; color: var(--brand-txt); background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.ww-fit {
+  display: block; margin-top: 2px; font-family: var(--mono); font-weight: 400;
+  font-size: 11px; color: var(--muted); letter-spacing: 0.02em;
+}
+.ww-gain { color: var(--pos-txt, var(--ink)); font-weight: 800; }
+.ww-pts { text-align: right; }
+.ww-pts .lu-meta { display: block; text-align: right; }
+.lu-wklabel {
+  padding: 0 14px 8px; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; color: var(--muted);
+}
+/* The WAIVER WIRE head names the league too — long enough to wrap at 402px. */
+.ww-card .lu-title { white-space: normal; line-height: 1.5; }
