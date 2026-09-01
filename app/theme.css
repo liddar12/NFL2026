@@ -3696,6 +3696,30 @@ body.gate-locked { overflow: hidden; }
 .gr-wk-game--open { color: var(--muted); font-style: italic; }
 .gr-final { font-size: 10px; font-weight: 700; color: var(--muted); }
 
+/* R48 grade standings — weekly-lineup disclosure + projected final standings. */
+.gr-card--team .gr-weeks { margin: 6px 0 8px; }
+.gr-weeks summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.gr-week { padding: 6px 0; border-top: 1px solid var(--bg-raise, rgba(127, 127, 127, 0.2)); }
+.gr-week-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--muted); }
+.gr-week-head b { font-variant-numeric: tabular-nums; }
+.gr-week-foot { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.gr-tag { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; }
+.gr-standings-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px; }
+.gr-standings { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.gr-standings th, .gr-standings td { padding: 5px 6px; text-align: right; white-space: nowrap; }
+.gr-standings th:nth-child(2), .gr-standings td:nth-child(2) { text-align: left; white-space: normal; }
+.gr-standings th { font-size: 10px; font-weight: 700; color: var(--muted); }
+.gr-standings tbody tr { border-top: 1px solid var(--bg-raise, rgba(127, 127, 127, 0.2)); }
+.gr-likely { font-size: 13px; margin-top: 8px; }
+
 /* R47 — the topbar LEAGUE chip (same idiom as .wk), the locked scoring seg,
  * and the K/DST card's no-interval line. */
 .lg {
@@ -3763,3 +3787,54 @@ body.gate-locked { overflow: hidden; }
   font-size: 11px;
   color: var(--muted);
 }
+
+/* R48 — no-K note under the roster grid (a league with no K slot says so). */
+.roster-note { grid-column: 1 / -1; padding: 8px 12px; font-family: var(--sans); font-size: 12px; color: var(--muted); }
+
+/* R48 league tab — the applied league, its scoring/roster diffs and the sync
+ * log (#/league, app/views/league.js). Reuses .card/.state/.gr-note; only the
+ * diff table, the diff lines and the sync entries are new. */
+.lgv { display: flex; flex-direction: column; gap: 12px; }
+/* Section titles are long by design ("SCORING · WHAT DIFFERS FROM STANDARD
+ * PPR"); at the browser's default h2 size they wrap to three lines on a phone. */
+.lgv-card h2 { font-size: 17px; line-height: 1.2; margin-bottom: 8px; }
+.lgv-name { font-size: 20px; font-weight: 700; margin: 2px 0 4px; }
+.lgv-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.lgv-scroll { overflow-x: auto; }
+.lgv-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lgv-tbl th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0 8px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.lgv-tbl td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.lgv-tbl tr:last-child td { border-bottom: 0; }
+.lgv-r { text-align: right; white-space: nowrap; }
+/* 3px, not 0: the italic "not scored" glyphs overhang their box and clip. */
+.lgv-tbl td.lgv-r:last-child, .lgv-tbl th.lgv-r:last-child { padding-right: 3px; }
+.lgv-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.lgv-absent { font-size: 11px; color: var(--muted); font-style: italic; }
+.lgv-label { display: block; }
+.lgv-key { font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--muted); }
+.lgv-lines { margin: 6px 0 0; padding-left: 18px; }
+.lgv-line { font-size: 13px; padding: 2px 0; }
+.lgv-positions { margin-top: 10px; font-size: 12px; }
+.lgv-code { font-family: var(--mono); font-size: 11px; word-break: break-word; }
+.lgv-empty { padding: 20px 12px; }
+.lgv-sync { padding: 8px 0; border-top: 1px solid var(--border); }
+.lgv-sync:first-of-type { border-top: 0; }
+.lgv-sync-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lgv-kind {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--brand-txt);
+}
+.lgv-when { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.lgv-sync-league { font-size: 13px; margin-top: 2px; }

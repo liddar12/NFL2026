@@ -68,12 +68,13 @@ import {
   normalizeTeamBudgets, totalRoomMoney,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
+import { recordSync, scoringDiff, shapeDiff, SYNC_LOG_KEY } from '../synclog.js';
 import {
   FLEX_ELIGIBILITY, FLEX_TOKENS, LEAGUE_BOUNDS, LEAGUE_KEY, LEAGUE_STASH_KEY,
   clearProfile, cloneProfile, isDefaultProfile, loadProfile, loadStashedProfile,
   normalizeProfile, saveProfile, stashProfile,
   scoringMode, validateProfile, rosterSlots, slotAccepts, firstOpenSlot,
-  rosterPositionsInPlay, slotEligiblePositions, saveLeagueId, LEAGUE_ID_KEY,
+  rosterPositionsInPlay, slotEligiblePositions, saveLeagueId, loadLeagueId, LEAGUE_ID_KEY,
 } from '../league.js';
 import {
   SLEEPER_API_BASE, buildSleeperPlayerIndex, crosswalkRoster, importFromPastedJson,
@@ -129,6 +130,42 @@ export const AUCTION_TEAMS_VERSION = 1;
 /** Typed team names are capped so one name cannot wreck the ROOM ledger. */
 export const TEAM_NAME_MAX = 24;
 
+/* R48 — WHICH SLEEPER ROSTER IS MINE. There is no login, so the only way the
+ * app can know which of a league's rosters to seat is to be told once. The
+ * answer is remembered per league id ({ [league_id]: roster_id }) so the next
+ * SYNC NOW is one press with no picker. RESET ALL clears it. */
+export const MY_ROSTER_KEY = 'nfl2026.myroster.v1';
+function myRosterStorage(storage) {
+  if (storage !== undefined) return storage;
+  try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch (err) { return null; }
+}
+export function loadMyRosterMap(storage) {
+  const store = myRosterStorage(storage);
+  try {
+    const raw = store && store.getItem(MY_ROSTER_KEY);
+    const v = raw ? JSON.parse(raw) : null;
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  } catch (err) { return {}; }
+}
+export function rememberedRosterId(leagueId, storage) {
+  const v = loadMyRosterMap(storage)[String(leagueId || '')];
+  return Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null;
+}
+export function saveMyRoster(leagueId, rosterId, storage) {
+  const store = myRosterStorage(storage);
+  const key = String(leagueId || '');
+  if (!store || !key) return false;
+  const map = loadMyRosterMap(store);
+  if (rosterId == null) delete map[key]; else map[key] = Number(rosterId);
+  try { store.setItem(MY_ROSTER_KEY, JSON.stringify(map)); return true; } catch (err) { return false; }
+}
+
+/* R48 — ONE PRESS DOES IT ALL. SYNC NOW saves the league settings and then
+ * remounts this view (the roster shape changed under it). The remount reads
+ * this flag and continues straight into the roster sync for the same league,
+ * so settings, rosters and the seated team all land from a single press. */
+let pendingAutoRoster = null;
+
 /* R34 — RESET ALL's explicit key list: every localStorage key this app writes,
  * ENUMERATED (grep `nfl2026.` under app/), never a prefix wildcard over
  * localStorage — other sites' keys on this origin-adjacent storage must be
@@ -148,6 +185,8 @@ export const RESET_ALL_KEYS = Object.freeze([
   LEAGUE_KEY,        // the APPLIED league profile
   LEAGUE_STASH_KEY,  // the saved-not-applied league (RESTART's shelf)
   LEAGUE_ID_KEY,     // R47 — the remembered Sleeper league id
+  MY_ROSTER_KEY,     // R48 — which Sleeper roster is mine, per league
+  SYNC_LOG_KEY,      // R48 — the LEAGUE tab's sync log
   AUCTION_TEAMS_KEY, // per-team budgets + names
   MOCKS_KEY,         // draft history + auction room memory (v2)
   MOCKS_KEY_V1,      // the legacy history key the migration reads
@@ -1584,7 +1623,10 @@ export default async function mountTeam(el) {
   let importLines = [];             // summarizeImport() plain-language lines
   let importUnresolved = [];        // unresolvedItems() — the honesty list
   let importProfile = null;         // the profile that import produced
-  let sleeperId = '';               // league id / URL typed into the sync field
+  // R48 — seeded from the remembered league (R47 saves it on every sync). The
+  // R47 remount after SYNC NOW used to reset this to '' and SYNC ROSTER then
+  // refused with "enter your league id first" — the owner's RCA.
+  let sleeperId = loadLeagueId() || '';  // league id / URL typed into the sync field
   let pasteText = '';               // pasted league JSON
   let pasteOpen = false;            // <details> disclosure state
   let syncBusy = false;             // a SYNC NOW request is in flight
@@ -2158,7 +2200,14 @@ export default async function mountTeam(el) {
         '</div>'
       );
     });
-    el.querySelector('#t-roster').innerHTML = rows.join('');
+    // R48-D — a league that fields no K slot says so where the slot would be,
+    // instead of leaving "where is my kicker" unanswered.
+    const noK = !rosterPositionsInPlay(savedProfile).includes('K');
+    const noKNote = noK
+      ? '<div class="roster-note" role="note">This league fields no K slot — no kicker is '
+        + 'seated or scored here.</div>'
+      : '';
+    el.querySelector('#t-roster').innerHTML = rows.join('') + noKNote;
   }
 
   // Per-id derived-value memo caches. weekly / teamStrength / history are static
@@ -2801,10 +2850,12 @@ export default async function mountTeam(el) {
       : '';
     return (
       '<div class="ds-sub"><span>SLEEPER ROSTER</span>'
-        + '<span class="ds-sub-note">MANUAL SYNC ONLY</span></div>'
+        + '<span class="ds-sub-note">RUNS WITH SYNC NOW · NO POLLING</span></div>'
       + '<div class="m-explain">Pull the players actually on your Sleeper team into the roster '
-        + 'above, so it stops needing hand entry. Uses the same league id as the settings sync. '
-        + 'It runs ONLY when you press the button — there is no polling and no background '
+        + 'above, so it stops needing hand entry. SYNC NOW above runs this step for you after '
+        + 'it saves the league settings; the first time, pick which team is yours and it is '
+        + 'remembered on this device (RESET ALL forgets it). SYNC ROSTER re-runs just this '
+        + 'step. There is no polling and no background '
         + 'refresh. A Sleeper roster carries player ids and no names, so the first press also '
         // R30c — this said "kept for this visit", but the cache (sleeperIndex)
         // lives in the mount closure and the router re-mounts this view on
@@ -3164,17 +3215,109 @@ export default async function mountTeam(el) {
 
     rosterTeams = teamsRes.teams;
     rosterBusy = false;
-    if (rosterTeams.length === 1) {
-      rosterTeamIdx = 0;
+    // R48 — a remembered pick (this device told us once which roster is
+    // theirs) or a one-roster league selects itself and, when the roster on
+    // this page is still empty, seats the team without a second press.
+    const remembered = rememberedRosterId(leagueId);
+    const rememberedIdx = remembered == null
+      ? -1 : rosterTeams.findIndex((t) => Number(t.roster_id) === remembered);
+    if (rememberedIdx >= 0 || rosterTeams.length === 1) {
+      rosterTeamIdx = rememberedIdx >= 0 ? rememberedIdx : 0;
       buildRosterPlan();
-      notes.unshift('This league has one roster, so it was selected for you. Check the plan '
-        + 'below before confirming.');
+      notes.unshift(rememberedIdx >= 0
+        ? `${rosterTeams[rosterTeamIdx].label} is remembered as your team on this device.`
+        : 'This league has one roster, so it was selected for you.');
+      rosterStatus = { tone: teamsRes.users_error ? 'warn' : 'ok', lines: notes };
+      // Seat without a second press whenever doing so can drop nobody: an
+      // empty roster, or a plan whose only effect is to add or re-seat.
+      if (rosterPlan && (rosterFilledCount() === 0 || rosterPlan.dropped.length === 0)) {
+        if (applyRosterPlan({ auto: true })) return;
+      }
+      notes.push('Check the plan below before confirming — it removes players seated now.');
     } else {
-      notes.unshift(`${rosterTeams.length} teams read. Pick yours — nothing is written until `
-        + 'you confirm.');
+      notes.unshift(`${rosterTeams.length} teams read. PICK YOUR TEAM below to finish the sync — `
+        + 'it is remembered on this device, so the next SYNC NOW needs no pick.');
     }
     rosterStatus = { tone: teamsRes.users_error ? 'warn' : 'ok', lines: notes };
     paintDraft();
+  }
+
+  /** How many roster slots hold a player right now. */
+  function rosterFilledCount() {
+    return Object.values(roster.slots).filter(Boolean).length;
+  }
+
+  /**
+   * Seat the planned Sleeper roster. `auto` (R48) is the one-press path: it
+   * writes only when the plan drops nobody (an empty roster, or adds and
+   * re-seats only), so it can never remove a hand-added player. The manual
+   * path keeps its deliberate second tap when a plan would remove players.
+   */
+  function applyRosterPlan({ auto = false } = {}) {
+    if (!rosterPlan || rosterApplied || !rosterCross) return false;
+    const fresh = planRosterSync({
+      resolved: orderedRosterPlayers(rosterCross),
+      currentSlots: roster.slots,
+      profile: savedProfile,
+      playersById,
+    });
+    const unchanged = JSON.stringify(fresh) === JSON.stringify(rosterPlan);
+    rosterPlan = fresh;
+    if (!unchanged && !auto) {
+      rosterArmed = false;
+      rosterStatus = {
+        tone: 'warn',
+        lines: ['Your roster or league shape changed since this plan was drawn, so it was '
+          + 'recalculated. Read what will be removed, then confirm again.'],
+      };
+      paintDraft();
+      return false;
+    }
+    const filledNow = rosterFilledCount();
+    if (filledNow > 0 && !rosterArmed && !(auto && rosterPlan.dropped.length === 0)) {
+      if (auto) { paintDraft(); return false; }
+      // DELIBERATE CONFIRM. The panel already names every player that goes;
+      // this second tap is the user saying they read it.
+      rosterArmed = true;
+      paintDraft();
+      return false;
+    }
+    rosterArmed = false;
+    slotOrder().forEach((slot) => {
+      roster.slots[slot] = rosterPlan.slots[slot] || null;
+    });
+    saveRoster(roster);
+    selectedSlot = null;
+    rosterApplied = true;
+    const team = rosterTeams && rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
+    const leagueId = parseLeagueId(sleeperId);
+    if (team && leagueId) saveMyRoster(leagueId, team.roster_id);
+    try {
+      recordSync({
+        kind: 'roster',
+        league_id: leagueId,
+        league_name: savedProfile.name,
+        changes: [
+          `${team ? team.label : 'Roster'}: ${rosterPlan.after_count} player(s) seated, `
+            + `${rosterPlan.dropped.length} removed${auto ? ' (one-press sync)' : ''}`,
+          ...(rosterPlan.unplaced.length ? [`${rosterPlan.unplaced.length} matched but no slot left`] : []),
+          ...(rosterMissed.length ? [`${rosterMissed.length} not in this app's player pool`] : []),
+        ],
+      });
+      try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
+    } catch (err) { /* the log is a convenience; the seat stands without it */ }
+    rosterStatus = {
+      tone: 'ok',
+      lines: [`${auto ? 'Synced: ' : ''}roster ${auto ? 'seated' : 'replaced'} from Sleeper`
+        + `${team ? ` (${team.label})` : ''}: ${rosterPlan.after_count} player(s) seated, `
+        + `${rosterPlan.dropped.length} removed. LINEUP and GRADE now read this roster.`,
+      ...(rosterPlan.unplaced.length > 0 || rosterMissed.length > 0
+        ? ['The players listed below as unmatched or unseated were NOT added — they are '
+          + 'still yours in Sleeper, this app just has no slot or no projection for them.']
+        : [])],
+    };
+    paintAll();
+    return true;
   }
 
   /** Fold an ImportResult into the panel: it stages, it never saves. */
@@ -4547,13 +4690,33 @@ export default async function mountTeam(el) {
             try { localStorage.setItem(SCORING_KEY, nextMode); } catch (err) { /* session-only */ }
           }
           saveLeagueId(idText);
+          // R48 — the LEAGUE tab's log: what this sync applied, in plain lines.
+          try {
+            const diffs = scoringDiff(importProfile);
+            const shapeLines = shapeDiff(importProfile).lines;
+            recordSync({
+              kind: 'settings',
+              league_id: parseLeagueId(idText),
+              league_name: importProfile.name,
+              changes: [
+                `${importProfile.shape.teams} teams · ${importProfile.shape.starters} starters + `
+                  + `${importProfile.shape.bench} bench · ${receptionLabel(importProfile)}`,
+                `${diffs.length} scoring key(s) differ from standard PPR`,
+                ...shapeLines,
+                `Scoring mode ${nextMode === 'custom' ? 'left on the toggle (custom rec value)' : `locked to ${nextMode.toUpperCase()}`}`,
+              ],
+            });
+          } catch (err) { /* the log is a convenience; the sync stands without it */ }
           try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
+          // R48 — the remount below continues into the roster sync (one press).
+          pendingAutoRoster = parseLeagueId(idText);
           leagueFlash = {
             tone: wrote ? 'ok' : 'warn',
             lines: [wrote
               ? `Synced and SAVED ${importProfile.name} · ${importProfile.shape.teams} teams · `
                 + `${importProfile.shape.starters}+${importProfile.shape.bench} · `
                 + `${receptionLabel(importProfile)} — every tab now prices under this league. `
+                + 'Reading the rosters next; pick your team once and it is remembered. '
                 + 'Edit below and press SAVE LEAGUE SETTINGS only to override it.'
               : 'Imported, but storage is blocked, so the league could not be saved to disk — '
                 + 'it applies to this page only.'],
@@ -4601,54 +4764,7 @@ export default async function mountTeam(el) {
     }
 
     if (act === 'roster-apply') {
-      if (!rosterPlan || rosterApplied || !rosterCross) return;
-      // Re-plan against the roster and profile AS THEY ARE NOW. If anything
-      // moved since the plan was drawn (a player added by hand, a league shape
-      // saved), the confirm on screen no longer describes what would happen —
-      // so it is redrawn and re-armed rather than executed.
-      const fresh = planRosterSync({
-        resolved: orderedRosterPlayers(rosterCross),
-        currentSlots: roster.slots,
-        profile: savedProfile,
-        playersById,
-      });
-      const unchanged = JSON.stringify(fresh) === JSON.stringify(rosterPlan);
-      rosterPlan = fresh;
-      if (!unchanged) {
-        rosterArmed = false;
-        rosterStatus = {
-          tone: 'warn',
-          lines: ['Your roster or league shape changed since this plan was drawn, so it was '
-            + 'recalculated. Read what will be removed, then confirm again.'],
-        };
-        paintDraft();
-        return;
-      }
-      const filledNow = Object.values(roster.slots).filter(Boolean).length;
-      if (filledNow > 0 && !rosterArmed) {
-        // DELIBERATE CONFIRM. The panel already names every player that goes;
-        // this second tap is the user saying they read it.
-        rosterArmed = true;
-        paintDraft();
-        return;
-      }
-      rosterArmed = false;
-      slotOrder().forEach((slot) => {
-        roster.slots[slot] = rosterPlan.slots[slot] || null;
-      });
-      saveRoster(roster);
-      selectedSlot = null;
-      rosterApplied = true;
-      rosterStatus = {
-        tone: 'ok',
-        lines: [`Roster replaced from Sleeper: ${rosterPlan.after_count} player(s) seated, `
-          + `${rosterPlan.dropped.length} removed.`,
-        ...(rosterPlan.unplaced.length > 0 || rosterMissed.length > 0
-          ? ['The players listed below as unmatched or unseated were NOT added — they are '
-            + 'still yours in Sleeper, this app just has no slot or no projection for them.']
-          : [])],
-      };
-      paintAll();
+      applyRosterPlan({ auto: false });
       return;
     }
 
@@ -5116,6 +5232,14 @@ export default async function mountTeam(el) {
     rosterTeamIdx = Number.isInteger(n) && n >= 0 && rosterTeams && n < rosterTeams.length
       ? n : -1;
     buildRosterPlan();
+    // R48 — the pick is the one thing a login would have told us. Remember it
+    // for this league, and when nothing is seated yet, seat the team now.
+    const picked = rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
+    const pickedLeague = parseLeagueId(sleeperId);
+    if (picked && pickedLeague) saveMyRoster(pickedLeague, picked.roster_id);
+    if (picked && rosterPlan && (rosterFilledCount() === 0 || rosterPlan.dropped.length === 0)) {
+      if (applyRosterPlan({ auto: true })) return;
+    }
     paintDraft();
   });
 
@@ -5236,4 +5360,19 @@ export default async function mountTeam(el) {
   }
 
   paintAll();
+
+  // R48 — ONE PRESS DOES IT ALL: SYNC NOW saved the league and remounted this
+  // view; carry straight on into the roster read for that same league.
+  if (pendingAutoRoster && pendingAutoRoster === parseLeagueId(sleeperId)) {
+    pendingAutoRoster = null;
+    Promise.resolve(runRosterSync()).catch((err) => {
+      rosterBusy = false;
+      rosterStatus = {
+        tone: 'err',
+        lines: [`The roster sync failed: ${err && err.message ? err.message : String(err)}`,
+          'Nothing on your roster was changed. Press SYNC ROSTER to try again.'],
+      };
+      paintDraft();
+    });
+  }
 }

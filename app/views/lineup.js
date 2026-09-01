@@ -553,6 +553,13 @@ export default async function mountLineup(el) {
       + 'same every week except a bye. Treat it as a baseline, not a matchup call.</div>'
     );
 
+    // R48-D — a league with no K slot says so on the card (the owner's RCA
+    // asked where the kicker was; the answer is "this league has no K slot").
+    const noKNote = rosterPositionsInPlay(profile).includes('K') ? '' : (
+      '<div class="lu-kdstnote">This league fields no K slot — no kicker is seated or '
+      + 'scored here.</div>'
+    );
+
     // Start/sit moves — honest net gain of going optimal, with the START set
     // (each into the slot it fills) and the SIT set. No misleading 1:1 pairing:
     // an incoming WR and an outgoing RB don't compete, only the net matters.
@@ -723,6 +730,7 @@ export default async function mountLineup(el) {
         + starterHtml
         + partialHtml
         + kdstNote
+        + noKNote
       + '</section>'
       + '<section class="card lu-card">'
         + '<div class="m-head">START / SIT MOVES</div>'

@@ -151,9 +151,12 @@ test.describe('R20-B4 — Sleeper roster sync', () => {
       const missText = (await missRow.innerText()).split('—').slice(1).join('—').trim();
       expect(missText.length).toBeGreaterThan(20);
 
-      // Nothing is overwritten (the roster was empty), so one deliberate tap.
-      await expect(report).toContainText('nothing is overwritten');
-      await report.locator('[data-act="roster-apply"]').click();
+      // R48 — nothing could be overwritten (the roster was empty), so picking
+      // the team seated it on the spot: no confirm tap, the report says what
+      // it DID, and no apply button is left to press.
+      await expect(report).toContainText('WHAT THIS DID');
+      await expect(page.locator('#t-draft')).toContainText('roster seated from Sleeper');
+      expect(await page.locator('[data-act="roster-apply"]').count()).toBe(0);
 
       // The real roster now holds the Sleeper players, in profile slot ids.
       await page.waitForSelector('.roster .slot-player', { timeout: 10000 });
