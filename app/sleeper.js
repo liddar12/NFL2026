@@ -2408,3 +2408,27 @@ export async function importSleeperTeams(idOrUrl, opts) {
     error: null,
   };
 }
+
+/* --------------------------------------------------------------------------
+ * R49 — the NFL state (current week)
+ * ------------------------------------------------------------------------ */
+
+/** GET url for Sleeper's NFL state: { week, season, season_type, display_week, ... }. */
+export function stateEndpoint() {
+  return `${SLEEPER_API_BASE}/state/nfl`;
+}
+
+/**
+ * GET the current NFL week from Sleeper. Same shape as every other fetcher
+ * here — { ok, payload, status, url, error } — and never throws. The caller
+ * (TEAM's roster sync) treats a failure as silence: the week simply stays
+ * unknown, and LINEUP keeps its own default rather than inventing one.
+ */
+export async function fetchSleeperState(opts) {
+  return sleeperGetJson(stateEndpoint(), isPlainObject(opts) ? opts : {}, {
+    noFetch: 'This browser has no fetch, so the NFL week cannot be read.',
+    missing: 'Sleeper published no NFL state.',
+    missingDetail: null,
+    hint: 'try again later',
+  });
+}

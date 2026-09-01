@@ -121,6 +121,8 @@ const LAZY_ONLY_MODULES = [
   'app/synclog.js', //       R48 — its sync log + diff engine, reachable only from the view
   'app/grade-weekly.js', // R48 — weekly-optimal season engine, reachable only from the grade view
   'app/sleeper-proj.js', // R49 — Sleeper's display-only estimate, lazy after first paint (players/grade)
+  'app/waivers.js', //       R49 — waiver-wire engine (BEST FIT / BEST AVAILABLE), lineup view only
+  'app/league-rosters.js', // R49 — league rosters + NFL week memory, reachable from team/lineup only
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must

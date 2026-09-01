@@ -73,16 +73,37 @@
  *      grid and the sentence's three child nodes were being laid out as three
  *      CELLS ("Switching to the optimal   +8.8 pts   this week." with "lineup
  *      adds" wrapped underneath). It is prose in a block row now.
+ *
+ * R49 — THE WAIVER WIRE, FROM THE LEAGUE'S OWN ROSTERS. TEAM's Sleeper sync
+ * now remembers every roster in the league (app/league-rosters.js) and
+ * Sleeper's current NFL week. This view:
+ *   1. defaults the WK selector to that week when the regular season is in
+ *      progress (1..18) and says "current week per Sleeper" under the bar; the
+ *      selector still offers every week, and without the record the default
+ *      is what it always was;
+ *   2. draws a WAIVER WIRE card after START/SIT: BEST FIT (the unrostered
+ *      players who RAISE my optimal lineup — bestLineup with minus without —
+ *      each with the least-cost drop) and BEST AVAILABLE (top 5 per position),
+ *      each over THIS WEEK and REST OF SEASON. Every number is the SAME
+ *      derivation the roster rows use (playerRow: league table, byes and
+ *      documented unavailable weeks at 0, K/DEF via the kdst index) — the
+ *      engine in app/waivers.js never re-prices anything;
+ *   3. refuses to fabricate: with no saved rosters the card says to sync on
+ *      TEAM; rosters saved for another league say so; no market input exists.
  */
 
 import {
   getPlayerProjections, getPlayerWeekly, getGamePredictions, getScheduleFull,
 } from '../data.js';
 import { teamTint, teamName } from '../render.js';
-import { loadProfile, rosterSlots, rosterPositionsInPlay } from '../league.js';
+import { loadProfile, rosterSlots, rosterPositionsInPlay, loadLeagueId } from '../league.js';
 import {
-  bestLineup, startSitSwaps, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
+  bestLineup, startSitSwaps, canonPosition, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
 } from '../lineup.js';
+// R49 — the league's rosters + Sleeper's week (written by TEAM's sync) and the
+// pure waiver-wire engine. Both are lazy by construction: this view is.
+import { loadLeagueRosters, loadNflWeek, defaultLineupWeek } from '../league-rosters.js';
+import { freeAgents, bestAvailable, bestFit } from '../waivers.js';
 import {
   getKdstProjections, shapeKdst, fedPositions, teamByeWeeks,
 } from '../kdst.js';
@@ -245,6 +266,12 @@ export default async function mountLineup(el) {
     const w = Number(predsRes.value.week);
     if (Number.isFinite(w)) currentWk = Math.min(WEEKS, Math.max(1, Math.round(w)));
   }
+  // R49 — "this week" is Sleeper's current NFL week when TEAM's sync stored
+  // one for the REGULAR season within 1..18. Anything else (no sync, pre- or
+  // post-season, a corrupt record) leaves the default above exactly as it was.
+  const sleeperWk = defaultLineupWeek(loadNflWeek(), WEEKS);
+  const wkFromSleeper = sleeperWk != null;
+  if (wkFromSleeper) currentWk = sleeperWk;
 
   // The one case the cheap test above cannot see: a roster id that resolves
   // through NEITHER feed. It may be a K or a D/ST parked on a BENCH slot under a
@@ -314,15 +341,56 @@ export default async function mountLineup(el) {
       `<span class="view-sub">START / SIT · ${esc(scoringMode.toUpperCase())} · <span class="est">ESTIMATE</span></span>` +
     '</header>' +
     weekBar(currentWk) +
+    (wkFromSleeper
+      ? `<div class="lu-wklabel">WK ${currentWk} · current week per Sleeper</div>`
+      : '') +
     '<div id="lineup-body"></div>';
 
   const body = el.querySelector('#lineup-body');
 
+  /* R49 — WAIVER WIRE state and inputs (mount-scoped; paint() re-reads them).
+   * The pool is what this view already loaded: the projection players plus
+   * this league's scorable K/DEF rows — no new contract fetch. */
+  let wwSeg = 'fit';    // 'fit' | 'available'
+  let wwHz = 'week';    // 'week' | 'ros'
+  let lastWk = currentWk;
+  const leagueId = loadLeagueId();
+  const leagueRosters = loadLeagueRosters(leagueId);
+  const otherRosters = leagueRosters ? null : loadLeagueRosters(null);
+  const fedSet = new Set(['QB', 'RB', 'WR', 'TE', ...feeds.map(canonPosition)]);
+  const wwPositions = [];
+  for (const pos of rosterPositionsInPlay(profile)) {
+    const c = canonPosition(pos);
+    if (fedSet.has(c) && !wwPositions.includes(c)) wwPositions.push(c);
+  }
+  const poolRows = players
+    .map((p) => ({
+      id: String(p.gsis_id), name: p.name, team: p.team || '',
+      position: canonPosition(p.position),
+    }))
+    .concat([...kdstById.values()].filter((e) => !e.unscored)
+      .map((e) => ({ id: String(e.id), name: e.name, team: e.team, position: canonPosition(e.pos) })))
+    .filter((r) => wwPositions.includes(r.position));
+  // Segment / horizon taps re-render the card alone. `body` is created once
+  // per mount and replaced wholesale by the next mount, so nothing leaks.
+  body.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-wseg],[data-whz]');
+    if (!btn || !body.contains(btn)) return;
+    if (btn.dataset.wseg) wwSeg = btn.dataset.wseg === 'available' ? 'available' : 'fit';
+    if (btn.dataset.whz) wwHz = btn.dataset.whz === 'ros' ? 'ros' : 'week';
+    const card = body.querySelector('#ww-card');
+    if (card) card.outerHTML = renderWaivers(lastWk);
+  });
+
   if (!slots || rosterIds.length === 0) {
-    body.innerHTML =
+    const noRoster =
       '<div class="state">No roster yet. Build one in the <a href="#/team">Team</a> tab — '
       + 'add players to your starting slots and bench, and your best weekly lineup shows up here.</div>';
-    wireWeekBar(el, () => {});
+    // R49 — the waiver wire still answers "who is unrostered" without a roster
+    // (BEST AVAILABLE), and says plainly why BEST FIT has nothing to compare.
+    const paintEmpty = (wk) => { lastWk = wk; body.innerHTML = noRoster + renderWaivers(wk); };
+    wireWeekBar(el, paintEmpty);
+    paintEmpty(currentWk);
     return;
   }
 
@@ -417,7 +485,153 @@ export default async function mountLineup(el) {
     return ` ${out}`;
   }
 
+  /* ---- R49 — WAIVER WIRE ------------------------------------------------ */
+
+  // playerRow memo per (id, week): the ROS sum walks every remaining week of
+  // every pool player, and bestFit re-asks for the same rows per candidate.
+  const _pr = new Map();
+  const _fit = new Map();   // bestFit per week — a segment tap must not re-run it
+  const rowAt = (id, w) => {
+    const k = `${id}|${w}`;
+    if (!_pr.has(k)) _pr.set(k, playerRow(id, w));
+    return _pr.get(k);
+  };
+  /** Is there ANY weekly number behind this id? Absent is null, never 0. */
+  const priced = (id) => {
+    if (kdstById.has(id)) return !kdstById.get(id).unscored;
+    const w = weeklyById.get(id);
+    return !!(w && Array.isArray(w.weeks) && w.weeks.length);
+  };
+  const weekPtsOf = (id, w) => (priced(id) ? rowAt(id, w).pts : null);
+  const rosPtsOf = (id, w) => {
+    if (!priced(id)) return null;
+    let sum = 0;
+    for (let x = w; x <= WEEKS; x += 1) sum += rowAt(id, x).pts;
+    return sum;
+  };
+  const byeOf = (id) => {
+    const kd = kdstById.get(id);
+    if (kd) {
+      const b = byeByTeam.get(String(kd.team).toUpperCase());
+      return Number.isFinite(b) ? Number(b) : null;
+    }
+    const w = weeklyById.get(id);
+    const hit = (w && Array.isArray(w.weeks)) ? w.weeks.find((x) => x && x.bye === true) : null;
+    return hit ? Number(hit.wk) : null;
+  };
+  const rowsFor = (ids, w) => ids.map((id) => {
+    const r = rowAt(id, w);
+    return { id, pos: r.pos, pts: r.pts, onBye: r.onBye, playable: r.avail.playable };
+  });
+
+  function waiverRow(r, wk, extra) {
+    const a = rowAt(r.id, wk);
+    const chip = renderAvailChip(a.avail, { sm: true });
+    const byeTxt = r.bye == null ? '' : (r.bye === wk ? ' <span class="lu-bye" title="On bye this week">BYE</span>' : ` · BYE ${r.bye}`);
+    const main = wwHz === 'ros' ? r.ros_pts : r.week_pts;
+    const sub = wwHz === 'ros' ? `WK ${wk} ${fix1(r.week_pts)}` : `ROS ${fix1(r.ros_pts)}`;
+    return (
+      `<div class="lu-row${r.bye === wk ? ' lu-row--bye' : ''}" data-wwid="${esc(r.id)}">`
+      + `<span class="lu-slot">${esc(r.position)}</span>`
+      + `<span class="lu-name">${esc(r.name)}${chip ? ` ${chip}` : ''} `
+        + `<span class="lu-meta"><span style="color:${teamTint(r.team)}">${esc(r.team)}</span>${byeTxt}</span>`
+        + (extra || '') + '</span>'
+      + `<span class="lu-pts ww-pts">${fix1(main)}<span class="lu-meta">${esc(sub)}</span></span>`
+      + '</div>'
+    );
+  }
+
+  function renderWaivers(wk) {
+    const leagueName = profile && profile.name ? profile.name : 'LEAGUE';
+    const head = `<div class="m-head"><span class="lu-title">WAIVER WIRE · ${esc(leagueName)} · WK ${wk} · `
+      + '<span class="est">ESTIMATE</span></span></div>';
+    const open = '<section class="card lu-card ww-card" id="ww-card">' + head;
+    if (!leagueRosters) {
+      const why = otherRosters
+        ? `The Sleeper rosters saved on this device are for league ${esc(otherRosters.league_id)}, `
+          + `not the league applied here${leagueId ? ` (${esc(leagueId)})` : ''}. Press SYNC NOW on `
+          + '<a href="#/team">TEAM</a> to read this league\'s rosters.'
+        : 'Sync your Sleeper league on <a href="#/team">TEAM</a> to see who is unrostered';
+      return `${open}<div class="state">${why}</div></section>`;
+    }
+    const rostered = leagueRosters.rostered_app_ids.concat(rosterIds);
+    const fas = freeAgents(poolRows, rostered).map((r) => ({ ...r, bye: byeOf(r.id) }));
+    const avail = bestAvailable({
+      freeAgents: fas,
+      week: wk,
+      weekPointsOf: (r) => weekPtsOf(r.id, wk),
+      rosPointsOf: (r) => rosPtsOf(r.id, wk),
+      positions: wwPositions,
+      limit: 5,
+    });
+    const seg = (key, label, on) => (
+      `<button type="button" class="sort-chip${on ? ' sort-chip--active' : ''}" `
+      + `data-${key}="${label.k}" aria-pressed="${on ? 'true' : 'false'}">${label.t}</button>`
+    );
+    const controls = '<div class="ww-ctl">'
+      + '<div class="ww-seg" role="group" aria-label="Waiver view">'
+        + seg('wseg', { k: 'fit', t: 'BEST FIT' }, wwSeg === 'fit')
+        + seg('wseg', { k: 'available', t: 'BEST AVAILABLE' }, wwSeg === 'available')
+      + '</div>'
+      + '<div class="ww-seg" role="group" aria-label="Horizon">'
+        + seg('whz', { k: 'week', t: 'THIS WEEK' }, wwHz === 'week')
+        + seg('whz', { k: 'ros', t: 'REST OF SEASON' }, wwHz === 'ros')
+      + '</div></div>';
+    const rowById = new Map();
+    for (const pos of avail.positions) {
+      for (const r of avail.week[pos]) rowById.set(r.id, r);
+      for (const r of avail.ros[pos]) rowById.set(r.id, r);
+    }
+    let listHtml;
+    if (wwSeg === 'available') {
+      const lists = wwHz === 'ros' ? avail.ros : avail.week;
+      listHtml = avail.positions.map((pos) => {
+        const rows = lists[pos] || [];
+        if (!rows.length) return '';
+        return `<div class="ww-pos">${esc(pos)} · TOP ${rows.length} BY ${wwHz === 'ros' ? `WEEKS ${wk}–${WEEKS}` : `WEEK ${wk}`}</div>`
+          + rows.map((r) => waiverRow(r, wk)).join('');
+      }).join('') || '<div class="state">No unrostered player at a position this league starts.</div>';
+    } else if (rosterIds.length === 0) {
+      listHtml = '<div class="state">No roster yet — seat one on <a href="#/team">TEAM</a> and BEST FIT '
+        + 'shows who raises your optimal lineup. BEST AVAILABLE works now.</div>';
+    } else {
+      // Candidates: the top 5 per position by week AND by ROS (union), so the
+      // engine scores ~10 per position instead of the whole pool.
+      const cands = [...rowById.values()];
+      if (!_fit.has(wk)) {
+        _fit.set(wk, bestFit({
+          roster: rosterIds, freeAgents: cands, week: wk, profile, feeds, rowsFor, lastWeek: WEEKS, limit: 5,
+        }));
+      }
+      const fit = _fit.get(wk);
+      const list = fit[wwHz];
+      const nameOf = (id) => { const r = rowAt(id, wk); return r ? r.name : id; };
+      const hzWord = wwHz === 'ros' ? `over weeks ${wk}–${WEEKS}` : `in week ${wk}`;
+      listHtml = list.length === 0
+        ? `<div class="state">${esc(fit.note[wwHz] || '')}.</div>`
+        : list.map((f) => {
+          const r = rowById.get(f.candidate);
+          const dropTxt = f.drop
+            ? ` · drop <b>${esc(nameOf(f.drop))}</b> (costs ${fix1(f.drop_cost)} ${esc(hzWord)})`
+            : '';
+          const extra = `<span class="ww-fit"><span class="ww-gain">+${fix1(f.gain)}</span> to your optimal lineup ${esc(hzWord)}${dropTxt}</span>`;
+          return waiverRow(r, wk, extra);
+        }).join('');
+    }
+    const at = leagueRosters.at ? new Date(leagueRosters.at) : null;
+    const atTxt = at && !Number.isNaN(at.getTime()) ? at.toISOString().slice(0, 10) : 'the last sync';
+    const note = '<div class="lu-kdstnote">'
+      + `Unrostered = this app\'s pool minus every roster in ${esc(leagueName)} as read on ${esc(atTxt)} `
+      + `(${leagueRosters.teams.length} teams, ${leagueRosters.rostered_app_ids.length} rostered). `
+      + `Points are this league\'s table with byes and documented unavailable weeks at 0; ROS sums weeks ${wk}–${WEEKS}. `
+      + 'Estimates only — no price, ADP or ownership input anywhere. BEST FIT gain = your optimal lineup '
+      + 'with the player minus without him; the drop is the rostered player whose removal costs least '
+      + '(a starter only when nothing sits on the bench).</div>';
+    return open + controls + listHtml + note + '</section>';
+  }
+
   function paint(wk) {
+    lastWk = wk;
     const rows = rosterIds.map((id) => playerRow(id, wk));
     // `playable` MUST ride into both pure helpers — mapping down to {id,pos,pts}
     // is what silently dropped availability before Rel17.
@@ -736,6 +950,7 @@ export default async function mountLineup(el) {
         + '<div class="m-head">START / SIT MOVES</div>'
         + movesHtml
       + '</section>'
+      + renderWaivers(wk)
       + '<section class="card lu-card">'
         + '<div class="m-head">BENCH</div>'
         + (benchHtml || '<div class="state">No bench players.</div>')
