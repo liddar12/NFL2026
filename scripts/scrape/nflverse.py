@@ -272,3 +272,13 @@ def fetch_depth_charts_release(season, min_rows=500):
     signals a partial pull."""
     url = f"{_RELEASE_BASE}/depth_charts/depth_charts_{int(season)}.csv"
     return fetch_release_csv(url, f"depth_charts_release_{season}", min_rows=min_rows)
+
+
+def fetch_player_stats_week_release(season, min_rows=5000):
+    """Weekly per-player offence stat lines (stats_player_week_{season}.csv) —
+    one row per player-week with passing/rushing/receiving yardage, the input
+    for measured per-game bonus counts (R44b). Requests-only: the daily runner
+    does not carry nfl_data_py, and this table must never depend on it. A full
+    season is ~19k rows; under `min_rows` is a partial pull."""
+    url = f"{_RELEASE_BASE}/stats_player/stats_player_week_{int(season)}.csv"
+    return fetch_release_csv(url, f"stats_player_week_{season}", min_rows=min_rows)

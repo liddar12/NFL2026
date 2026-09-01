@@ -116,50 +116,61 @@ _COMPONENT_IDS = {
 }
 
 
+# ESPN's default-PPR points per unit, by statId — the table leaguedefaults/3's
+# appliedTotal is computed with. Includes the SCORED ids outside the Sleeper
+# component map (53 receptions, 101/102 return TDs) because the verification
+# below must reproduce the WHOLE total, not just the mapped slice.
+_ESPN_DEFAULT_PPR = {
+    "3": 0.04, "4": 4.0, "19": 2.0, "20": -2.0,
+    "24": 0.1, "25": 6.0, "26": 2.0,
+    "42": 0.1, "43": 6.0, "44": 2.0, "53": 1.0,
+    "72": -2.0, "101": 6.0, "102": 6.0,
+}
+
+
 def extract_components(entry):
     """{components, base_applied_pts} from one kona actuals entry, or None.
 
     components        {sleeper_key: season quantity} for the mapped statIds.
-    base_applied_pts  what ESPN's OWN default-PPR table paid for exactly those
-                      mapped ids (from `appliedStats`) — the client's delta is
+    base_applied_pts  what ESPN's default-PPR table pays for exactly those
+                      mapped ids — the client's delta is
                       league_value(components) - base_applied_pts, so ids
                       outside the map (receptions, return TDs, ...) cancel by
                       construction and are never re-priced.
 
-    SELF-VERIFYING, per the module's statId discipline: `appliedStats` must be
-    present and sum to `appliedTotal` within 0.5 (ESPN's own arithmetic — if
-    that identity fails we do not understand the payload and claim nothing).
-    Returns None on any doubt: an absent component line is unknown, never a
-    zero-filled fabrication.
+    SELF-VERIFYING, per the module's statId discipline — REVISED R44b: the
+    kona_player_info view carries no `appliedStats` (measured live 2026-09-01;
+    the first cut required it and shipped 0-of-395), so the check is now that
+    valuing the RAW stats under _ESPN_DEFAULT_PPR reproduces ESPN's own
+    `appliedTotal` within 1.0 (measured 60/60 across the 2025 top-60 live).
+    A player whose total involves any id outside that table — a fumble-return
+    TD, a rule we have wrong — fails the identity and ships NOTHING: an absent
+    component line is unknown, never a zero-filled fabrication.
     """
     if not entry:
         return None
     stats = entry.get("stats") or {}
-    applied = entry.get("appliedStats") or {}
-    if not stats or not applied:
+    if not stats:
         return None
     try:
-        applied_sum = sum(float(v or 0.0) for v in applied.values())
         total = float(entry.get("appliedTotal") or 0.0)
+        calc = sum(v * float(stats.get(sid) or 0.0) for sid, v in _ESPN_DEFAULT_PPR.items())
     except (TypeError, ValueError):
         return None
-    if abs(applied_sum - total) > 0.5:
+    if abs(calc - total) > 1.0:
         return None
     components = {}
     base = 0.0
     for sid, key in _COMPONENT_IDS.items():
-        if sid in stats:
-            try:
-                qty = float(stats[sid] or 0.0)
-            except (TypeError, ValueError):
-                continue
-            if qty:
-                components[key] = round(qty, 1)
-        if sid in applied:
-            try:
-                base += float(applied[sid] or 0.0)
-            except (TypeError, ValueError):
-                return None
+        if sid not in stats:
+            continue
+        try:
+            qty = float(stats[sid] or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if qty:
+            components[key] = round(qty, 1)
+            base += _ESPN_DEFAULT_PPR.get(sid, 0.0) * qty
     if not components:
         return None
     return {"components": components, "base_applied_pts": round(base, 2)}
