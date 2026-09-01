@@ -345,18 +345,29 @@ test('the market value cell never appears on a line that calls an engine', () =>
   assert.ok(TEAM_SRC.includes('class="ms-badge"'));
 });
 
-test('the roster sync writes the roster key and nothing else', () => {
-  // saveRoster() owns nfl2026.team.v1. The sync path must not reach for the
-  // league profile, the scoring key or the taken board.
+test('the roster sync writes the roster key and the remembered team, nothing else', () => {
+  // saveRoster() owns nfl2026.team.v1; saveMyRoster() (R48) owns
+  // nfl2026.myroster.v1. The sync path must not reach for the league profile,
+  // the scoring key or the taken board. R48 moved the body of the
+  // 'roster-apply' handler into applyRosterPlan() so the one-press path and
+  // the manual confirm share it.
+  const applyStart = TEAM_SRC.indexOf('function applyRosterPlan(');
   const applyBlock = TEAM_SRC.slice(
-    TEAM_SRC.indexOf("if (act === 'roster-apply')"),
-    TEAM_SRC.indexOf("if (act === 'draft-start')"),
+    applyStart, TEAM_SRC.indexOf('/** Fold an ImportResult into the panel', applyStart),
   );
-  assert.ok(applyBlock.length > 200, 'roster-apply handler not found');
+  assert.ok(applyBlock.length > 200, 'applyRosterPlan not found');
   assert.ok(applyBlock.includes('saveRoster(roster)'));
+  assert.ok(applyBlock.includes('saveMyRoster(leagueId, team.roster_id)'));
   assert.ok(!/saveProfile|saveTaken|localStorage\.setItem/.test(applyBlock));
   // And it cannot write without an armed confirm when the roster is not empty.
   assert.ok(applyBlock.includes('filledNow > 0 && !rosterArmed'));
+  // The auto (one-press) path never arms itself past a non-empty roster.
+  assert.ok(applyBlock.includes('if (auto) { paintDraft(); return false; }'));
+  const handler = TEAM_SRC.slice(
+    TEAM_SRC.indexOf("if (act === 'roster-apply')"),
+    TEAM_SRC.indexOf("if (act === 'draft-start')"),
+  );
+  assert.ok(handler.includes('applyRosterPlan({ auto: false })'));
 });
 
 /* ==========================================================================

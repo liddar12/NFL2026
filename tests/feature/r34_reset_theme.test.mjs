@@ -87,6 +87,7 @@ test('RESET_ALL_KEYS enumerates every nfl2026.* data key, and only ours', () => 
     'nfl2026.league.v1', 'nfl2026.leaguestash.v1', 'nfl2026.auctionteams.v1',
     'nfl2026.mockhistory.v2', 'nfl2026.mocklocks.v1', 'nfl2026.theme.v1',
     'nfl2026.league_id.v1',                          // R47: the remembered Sleeper league id
+    'nfl2026.myroster.v1',                           // R48: which Sleeper roster is mine, per league
   ];
   assert.deepEqual([...RESET_ALL_KEYS].sort(), expected.sort(),
     'the wipe list must name exactly the app\'s data keys — a new nfl2026.* '
