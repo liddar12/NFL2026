@@ -149,6 +149,25 @@ def _stamp_rookies(projected, fetch=None):
     return stamped, rookies
 
 
+def _carry_rookie_flags(src_records, dst_records):
+    """Copy `rookie` flags from one record list onto another, by gsis_id, IN
+    PLACE on dst. R41b (2026-09-01 incident): the injury re-projection pass
+    rebuilds every record through project_players — fresh dicts with no
+    `rookie` key — and rewrites player_projections.json, so the run whose log
+    said "349 of 395 stamped" shipped a file with ZERO flags. The rewrite's
+    order guard already proves the two lists carry identical gsis_ids, so
+    carrying the same run's stamp across is honest and costs no second fetch.
+    A dst record whose id has no flag in src stays unstamped (unknown, never
+    false). Returns how many flags were carried."""
+    flags = {p["gsis_id"]: p["rookie"] for p in src_records if "rookie" in p}
+    carried = 0
+    for p in dst_records:
+        if p["gsis_id"] in flags:
+            p["rookie"] = flags[p["gsis_id"]]
+            carried += 1
+    return carried
+
+
 def _nflverse_reached(ol_src):
     """Did the o-line build actually reach nflverse snap counts? Keyed on the
     PRECISE writer token, not bare substrings. R41 (2026-09-01): the old check
@@ -578,6 +597,10 @@ def main():
                 # is a real regression and refusing the rewrite is the honest response.
                 if [p["gsis_id"] for p in reprojected[:300]] == \
                         [p["gsis_id"] for p in projected[:300]]:
+                    # R41b — project_players built these records fresh, so the
+                    # rookie stamp from the N2 block is not on them; without
+                    # this carry the rewrite below ships a flagless file.
+                    _carry_rookie_flags(projected, reprojected)
                     projected = reprojected
                     _write(os.path.join(DATA, "player_projections.json"), {
                         "season": SEASON, "updated_utc": now,

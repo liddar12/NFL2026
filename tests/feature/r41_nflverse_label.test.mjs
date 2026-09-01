@@ -10,9 +10,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 function py(body) {
@@ -43,4 +44,42 @@ print(json.dumps([_nflverse_reached(s) for s in cases]))`);
   CASES.forEach(([src, want], i) => {
     assert.equal(out[i], want, `misclassified: ${src.slice(0, 60)}`);
   });
+});
+
+/* R41b — the injury re-projection pass rebuilds every record fresh, so the
+ * rookie stamp must be CARRIED onto the rebuilt list or the rewrite ships a
+ * flagless file. Incident (2026-09-01, daily run 79): the log said
+ * "349 of 395 stamped" while the committed player_projections.json carried
+ * zero `rookie` fields — the second write silently undid the first. */
+
+test("_carry_rookie_flags moves the stamp by id and leaves unknowns unknown", () => {
+  const out = py(`
+from scripts.build_predictions import _carry_rookie_flags
+src = [
+    {"gsis_id": "a", "rookie": True},
+    {"gsis_id": "b", "rookie": False},
+    {"gsis_id": "c"},                    # unstamped in src stays unstamped
+]
+dst = [{"gsis_id": "a"}, {"gsis_id": "b"}, {"gsis_id": "c"}, {"gsis_id": "d"}]
+carried = _carry_rookie_flags(src, dst)
+print(json.dumps({
+    "carried": carried,
+    "a": dst[0].get("rookie"),
+    "b": dst[1].get("rookie"),
+    "c_has": "rookie" in dst[2],
+    "d_has": "rookie" in dst[3],
+}))`);
+  assert.equal(out.carried, 2);
+  assert.equal(out.a, true);
+  assert.equal(out.b, false);
+  assert.equal(out.c_has, false, "no flag in src -> unknown stays ABSENT, never false");
+  assert.equal(out.d_has, false, "an id src never saw stays unstamped");
+});
+
+test("the injury re-projection branch carries the flags before it rewrites", () => {
+  const src = readFileSync(join(REPO_ROOT, "scripts/build_predictions.py"), "utf8");
+  assert.match(src,
+    /_carry_rookie_flags\(projected, reprojected\)\s*\n\s*projected = reprojected/,
+    "the carry must happen on the reprojected list BEFORE it replaces projected "
+    + "— that rewrite is what shipped the flagless file");
 });
