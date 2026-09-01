@@ -409,6 +409,44 @@ export function renderRosterBadge(onRoster) {
     + '<b>ON MY ROSTER</b></span>';
 }
 
+/* R40 — HONEST ABSENCE, made visible. The projection engine prices
+ * prior-season production; a rookie has none, so he carries NO projection and
+ * no rank — absent, never a fabricated number. Before this, a high-ADP rookie
+ * (Jeremiyah Love, ADP 27) was simply invisible on PLAYERS: silent omission
+ * reads as "not draft-relevant", which is a quiet lie. This strip names every
+ * top-100-ADP skill player the pool does not carry and says WHY. ADP is the
+ * drafter market — display/opponent-model only, per the market policy. */
+export function unrankedHighAdp(adpPlayers, projPlayers, limit = 100) {
+  const norm = (s) => String(s || '').replace(/\./g, '').toLowerCase()
+    .replace(/\b(iii|ii|iv|jr|sr|v)\b/g, '').replace(/\s+/g, ' ').trim();
+  const pool = new Set((projPlayers || []).map((p) => norm(p && p.name)));
+  const SKILL = new Set(['QB', 'RB', 'WR', 'TE']);
+  return (adpPlayers || [])
+    .filter((r) => r && SKILL.has(String(r.position || '').toUpperCase())
+      && Number.isFinite(Number(r.adp)) && Number(r.adp) <= limit
+      && !pool.has(norm(r.name)))
+    .sort((a, b) => Number(a.adp) - Number(b.adp))
+    .map((r) => ({
+      name: String(r.name || ''), position: String(r.position || '').toUpperCase(),
+      team: String(r.team || ''), adp: Number(r.adp),
+    }));
+}
+
+export function renderUnranked(rows) {
+  if (!rows || !rows.length) return '';
+  return '<div class="unranked">'
+    + '<div class="unranked-head">NOT IN RANKINGS · NO PRIOR-SEASON DATA</div>'
+    + rows.map((r) => (
+      `<div class="unranked-row"><b>${esc(r.name)}</b> · ${esc(r.position)} `
+      + `${esc(r.team)} · drafters take at ADP ${esc(r.adp.toFixed(1))}`
+      + '<span class="ms-badge">MARKET · DISPLAY ONLY</span></div>'
+    )).join('')
+    + '<div class="unranked-why">No prior-season production → no projection and '
+    + 'no rank. Absent is not zero: these players enter the rankings when real '
+    + '2026 usage exists, never from a market price.</div>'
+    + '</div>';
+}
+
 export function renderLeagueExtra(entry) {
   const pts = entry ? Number(entry.extra_pts) : NaN;
   if (!Number.isFinite(pts) || pts === 0) return '';
@@ -684,6 +722,7 @@ export default async function mountPlayers(el) {
     });
   }
   const hasValue = auctionById.size > 0;
+  const unrankedRows = adpDoc ? unrankedHighAdp(adpDoc.players, players) : [];
 
   let scoring = hasWeekly ? loadScoring() : 'ppr';
   const PAGE = 60;              // initial cards + SHOW MORE step (phone perf)
@@ -927,7 +966,8 @@ export default async function mountPlayers(el) {
     (hasAi && aiOn
       ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
       : '') +
-    '<div id="players-list" class="card-list"></div>';
+    '<div id="players-list" class="card-list"></div>' +
+    renderUnranked(unrankedRows);
   paintList();
 
   // Wire the filter chips (event delegation on the filter row).

@@ -97,11 +97,26 @@ def main():
 
     as_of = dt.datetime.now(dt.timezone.utc).date()
     teams = {}
+    # R40 (2026-09-01): one dead roster page degrades ONE team, loudly — same
+    # posture as build_oline/fetch_roster_ages, capped at the contract floor
+    # (teams.minProperties 30 -> at most 2 skips; a 3rd raises).
+    skipped = []
     for ab in abbrevs:
-        front, secondary = fetch_team_defenders(ab)
+        try:
+            front, secondary = fetch_team_defenders(ab)
+        except FeedError as exc:
+            skipped.append(ab)
+            print(f"[warn] defense: {ab} skipped — {exc}", file=sys.stderr)
+            time.sleep(_SLEEP_S)
+            continue
         teams[ab] = team_metrics(front, secondary, as_of)
         print(f"  {ab}: front {teams[ab]['n_front']}, secondary {teams[ab]['n_secondary']}")
         time.sleep(_SLEEP_S)
+    if len(skipped) > 2:
+        raise FeedError(
+            f"defense: {len(skipped)} of {len(abbrevs)} roster pages failed "
+            f"({', '.join(skipped)}) — an outage, not a glitch; the contract "
+            f"floor (30 teams) could not be met honestly.")
 
     z = {m: _zscores({ab: teams[ab][m] for ab in teams}) for m in BLEND}
     for ab, m in teams.items():
@@ -114,7 +129,8 @@ def main():
     doc = {
         "season": 2026,
         "updated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": "espn_roster (front + secondary size/experience blend, documented prior)",
+        "source": "espn_roster (front + secondary size/experience blend, documented prior)"
+                  + (f" (skipped: {', '.join(skipped)} — roster page unreachable this run)" if skipped else ""),
         "teams": teams,
         "params": {
             "applied": False,

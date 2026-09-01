@@ -277,16 +277,36 @@ def main():
     as_of = dt.datetime.now(dt.timezone.utc).date()
     rosters_by_team = {}
     teams = {}
+    # R40 (2026-09-01): one dead roster page degrades ONE team, loudly — the
+    # same posture as espn_players.fetch_roster_ages (R39), tightened to the
+    # contract's floor: teams.minProperties is 30, so at most 2 skips can
+    # still write a valid doc; a 3rd failure is an ESPN outage and raises.
+    # The skipped team is named in `source`, and z-scores rank the teams
+    # that answered — absent, never fabricated.
+    skipped = []
     for ab in abbrevs:
-        linemen = fetch_team_linemen(ab)
+        try:
+            linemen = fetch_team_linemen(ab)
+        except FeedError as exc:
+            skipped.append(ab)
+            print(f"[warn] oline: {ab} skipped — {exc}", file=sys.stderr)
+            time.sleep(_SLEEP_S)
+            continue
         rosters_by_team[ab] = linemen
         teams[ab] = team_raw_metrics(linemen, as_of)
         print(f"  {ab}: {teams[ab]['n_linemen']} OL")
         time.sleep(_SLEEP_S)
+    if len(skipped) > 2:
+        raise FeedError(
+            f"oline: {len(skipped)} of {len(abbrevs)} roster pages failed "
+            f"({', '.join(skipped)}) — an outage, not a glitch; the contract "
+            f"floor (30 teams) could not be met honestly.")
 
     # continuity refinement: real 2025 snap shares when the release CSV is
     # reachable; otherwise the ESPN experience proxy, stated in `source`.
     source = "espn_roster + nflverse_snap_counts_2025"
+    if skipped:
+        source += f" (skipped: {', '.join(skipped)} — roster page unreachable this run)"
     try:
         refined = refine_continuity_with_snaps(teams, rosters_by_team)
         if refined < len(teams):

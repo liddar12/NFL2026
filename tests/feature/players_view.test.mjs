@@ -70,9 +70,13 @@ test('MARKET_BADGE is byte-identical to the badge app/views/model.js emits', () 
 });
 
 test('players.js does not invent a second display-only badge class', () => {
-  // The only badge ELEMENT this view emits is the shared .ms-badge one.
-  assert.deepEqual(SRC.match(/<span class="[a-z0-9 -]*badge[a-z0-9 -]*"/g),
-    ['<span class="ms-badge"']);
+  // Every badge ELEMENT this view emits is the shared .ms-badge one — the
+  // COUNT may grow (R40's UNRANKED strip reuses it, which is the point of a
+  // shared convention), but a second class name is how the convention forks.
+  const badges = SRC.match(/<span class="[a-z0-9 -]*badge[a-z0-9 -]*"/g) || [];
+  assert.ok(badges.length >= 1, 'the view must carry the display-only badge');
+  assert.deepEqual([...new Set(badges)], ['<span class="ms-badge"'],
+    'a badge class other than ms-badge appeared');
 });
 
 /* ---- playoff SoS chip ----------------------------------------------------- */
