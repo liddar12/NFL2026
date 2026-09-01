@@ -185,10 +185,47 @@ export function buildLeague(text, pool) {
 export const DEFAULT_SHAPE = Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1 });
 const FLEX_POS = new Set(['RB', 'WR', 'TE']);
 
+/** Flex-token eligibility — mirrors app/league.js FLEX_ELIGIBILITY (canon
+ *  positions; DST folds into DEF via canonPos). A token absent here is a
+ *  dedicated slot that takes its own position exactly. */
+export const FLEX_ACCEPTS = Object.freeze({
+  FLEX: Object.freeze(['RB', 'WR', 'TE']),
+  WRRB_FLEX: Object.freeze(['WR', 'RB']),
+  RB_TE_FLEX: Object.freeze(['RB', 'TE']),
+  REC_FLEX: Object.freeze(['WR', 'TE']),
+  SUPER_FLEX: Object.freeze(['QB', 'RB', 'WR', 'TE']),
+});
+
+/** DEF and DST are one position graded by the same contract rows. */
+export function canonPos(pos) {
+  const p = String(pos || '').toUpperCase();
+  return p === 'DST' ? 'DEF' : p;
+}
+
+/**
+ * A league's starter tokens -> a grading shape (R43). Counts every non-bench
+ * token, folding DST into DEF; flex tokens keep their own identity so
+ * eligibility survives. Empty/absent input falls back to DEFAULT_SHAPE, so a
+ * user with no saved league grades exactly as before.
+ */
+export function shapeFromRoster(rosterPositions) {
+  const shape = {};
+  (Array.isArray(rosterPositions) ? rosterPositions : []).forEach((raw) => {
+    const token = String(raw || '').toUpperCase().trim();
+    if (!token || token === 'BN') return;
+    const key = FLEX_ACCEPTS[token] ? token : canonPos(token);
+    shape[key] = (shape[key] || 0) + 1;
+  });
+  return Object.keys(shape).length ? shape : { ...DEFAULT_SHAPE };
+}
+
 /**
  * Optimal starting lineup by projected points for `shape`. `projOf(p)` maps a
  * pool row to points. Unfillable slots are honest: 0 points + an EMPTY entry.
- * K/DEF are out of scope here (separate contract; the view says so).
+ * R43: any league shape — K/DEF/DST and every flex token — is gradable; the
+ * pool decides what can actually fill a slot (a pool without K rows still
+ * reports K as EMPTY, never invents one). Dedicated slots fill before flex
+ * slots so a flex never steals a starter a dedicated slot needs.
  */
 export function gradeTeam(players, projOf, shape = DEFAULT_SHAPE) {
   const rows = (players || [])
@@ -199,7 +236,7 @@ export function gradeTeam(players, projOf, shape = DEFAULT_SHAPE) {
   let total = 0;
   const takeBest = (accepts, slot) => {
     for (const r of rows) {
-      const pos = String(r.p.position || '').toUpperCase();
+      const pos = canonPos(r.p.position);
       if (used.has(r.p.gsis_id) || !accepts(pos)) continue;
       used.add(r.p.gsis_id);
       starters.push({ slot, name: r.p.name, position: pos, pts: r.pts });
@@ -209,12 +246,17 @@ export function gradeTeam(players, projOf, shape = DEFAULT_SHAPE) {
     starters.push({ slot, name: null, position: null, pts: 0, empty: true });
     return false;
   };
-  for (const [pos, n] of Object.entries(shape)) {
-    if (pos === 'FLEX') continue;
-    for (let i = 0; i < n; i++) takeBest((x) => x === pos, `${pos}${n > 1 ? i + 1 : ''}`);
+  const entries = Object.entries(shape);
+  for (const [token, n] of entries) {
+    if (FLEX_ACCEPTS[token]) continue;
+    const want = canonPos(token);
+    for (let i = 0; i < n; i++) takeBest((x) => x === want, `${token}${n > 1 ? i + 1 : ''}`);
   }
-  for (let i = 0; i < (shape.FLEX || 0); i++) {
-    takeBest((x) => FLEX_POS.has(x), 'FLEX');
+  for (const [token, n] of entries) {
+    const ok = FLEX_ACCEPTS[token];
+    if (!ok) continue;
+    const set = new Set(ok);
+    for (let i = 0; i < n; i++) takeBest((x) => set.has(x), token);
   }
   const bench = rows.filter((r) => !used.has(r.p.gsis_id)).length;
   return { starters, total: Math.round(total * 10) / 10, bench };
@@ -245,31 +287,41 @@ export function letterFor(pct) {
  * k, 2N-1-k, 2N+k, ... — the plainest honest opponent model, no ADP, no
  * market). Deterministic.
  */
-export function syntheticFieldTotals(pool, projOf, leagueSize = 10, rounds = 8,
+export function syntheticFieldTotals(pool, projOf, leagueSize = 10, rounds = null,
   shape = DEFAULT_SHAPE) {
+  // NEED-AWARE snake: each seat takes the highest-ranked player it can still
+  // roster. Caps derive from the SHAPE (R43): a position's cap is its
+  // dedicated slots plus every flex slot that accepts it — for DEFAULT_SHAPE
+  // that is exactly the original QB 1 / RB 3 / WR 3 / TE 2 over 8 rounds
+  // (starters + 1). A straight-down snake can overdraft one position into an
+  // unfillable lineup — a strawman field would flatter every pasted team,
+  // which is its own kind of dishonest.
+  const CAPS = {};
+  let starterCount = 0;
+  for (const [token, n] of Object.entries(shape)) {
+    starterCount += n;
+    const positions = FLEX_ACCEPTS[token] || [canonPos(token)];
+    for (const pos of positions) CAPS[pos] = (CAPS[pos] || 0) + n;
+  }
+  const nRounds = rounds || starterCount + 1;
+  const wanted = new Set(Object.keys(CAPS));
   const ranked = (pool || [])
-    .filter((p) => FLEX_POS.has(String(p.position || '').toUpperCase())
-      || String(p.position || '').toUpperCase() === 'QB')
+    .filter((p) => wanted.has(canonPos(p.position)))
     .slice()
     .sort((a, b) => (Number(projOf(b)) || 0) - (Number(projOf(a)) || 0));
-  // NEED-AWARE snake: each seat takes the highest-ranked player it can still
-  // roster (caps QB 1 / RB 3 / WR 3 / TE 2 over 8 rounds). A straight-down
-  // snake can overdraft one position into an unfillable lineup — a strawman
-  // field would flatter every pasted team, which is its own kind of dishonest.
-  const CAPS = { QB: 1, RB: 3, WR: 3, TE: 2 };
   const rosters = Array.from({ length: leagueSize }, () => []);
-  const counts = Array.from({ length: leagueSize }, () => ({ QB: 0, RB: 0, WR: 0, TE: 0 }));
+  const counts = Array.from({ length: leagueSize }, () => ({}));
   const takenIdx = new Set();
-  for (let r = 0; r < rounds; r++) {
+  for (let r = 0; r < nRounds; r++) {
     const order = [...Array(leagueSize).keys()];
     if (r % 2 === 1) order.reverse();
     for (const k of order) {
       for (let i = 0; i < ranked.length; i++) {
         if (takenIdx.has(i)) continue;
-        const pos = String(ranked[i].position || '').toUpperCase();
+        const pos = canonPos(ranked[i].position);
         if ((counts[k][pos] || 0) >= (CAPS[pos] || 0)) continue;
         takenIdx.add(i);
-        counts[k][pos] += 1;
+        counts[k][pos] = (counts[k][pos] || 0) + 1;
         rosters[k].push(ranked[i]);
         break;
       }
