@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rookie_starters",
+  "description": "R45 (owner's pick: facts only, never invented points): rookies (roster years_exp == 0) listed at pos_rank 1 in the LATEST nflverse depth-chart snapshot, with team schedule FACTS (SOS on the app's 1..5 scale, bye week). Deliberately carries NO projection field of any kind - a rookie's points stay absent until real 2026 usage exists.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "updated_utc",
+    "snapshot_utc",
+    "source",
+    "players"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer"
+    },
+    "updated_utc": {
+      "type": "string"
+    },
+    "snapshot_utc": {
+      "type": "string",
+      "description": "The depth-chart snapshot (dt) these listings come from."
+    },
+    "source": {
+      "type": "string"
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gsis_id",
+          "name",
+          "team",
+          "position",
+          "slot",
+          "role_unsettled"
+        ],
+        "properties": {
+          "gsis_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team": {
+            "type": "string",
+            "minLength": 2
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE",
+              "K"
+            ]
+          },
+          "slot": {
+            "type": "string"
+          },
+          "role_unsettled": {
+            "type": "boolean",
+            "description": "true for RBs (owner rule): a listed RB1 is a depth-chart fact, not a workload claim - committee/handcuff territory."
+          },
+          "sos": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Team strength-of-schedule on the same 1..5 scale the player cards use; null when opponents are unrated (unknown, never 3.0)."
+          },
+          "bye_week": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 18
+          }
+        }
+      }
+    }
+  }
+}

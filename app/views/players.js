@@ -38,6 +38,7 @@
 import {
   getPlayerProjections, getPlayerWeekly, getAiInsights,
   getPlayerHistory, getTeamStrength, getGamePredictions, getAdp,
+  getRookieStarters,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel, scoringAdjust, extraPtsOf,
@@ -444,6 +445,38 @@ export function renderUnranked(rows) {
     + '<div class="unranked-why">No prior-season production → no projection and '
     + 'no rank. Absent is not zero: these players enter the rankings when real '
     + '2026 usage exists, never from a market price.</div>'
+    + '</div>';
+}
+
+/* R45 (owner's pick: FACTS ONLY, never invented points) — the rookies-only
+ * view's second half. The ranked list can honestly hold zero rookies before
+ * real 2026 usage exists; this strip shows who has actually EARNED a
+ * depth-chart rank-1 slot, with team facts (SOS on the card scale, bye) and
+ * deliberately NO projection, SOS-sorted so the reader still gets an order.
+ * An RB is marked ROLE UNSETTLED (committee/handcuff rule): a listed RB1 is a
+ * depth-chart fact, not a workload claim. */
+export function renderRookieStarters(doc) {
+  const rows = doc && Array.isArray(doc.players) ? doc.players : [];
+  if (!rows.length) return '';
+  const snap = doc.snapshot_utc ? String(doc.snapshot_utc).slice(0, 10) : null;
+  return '<div class="unranked rst">'
+    + '<div class="unranked-head">ROOKIE DEPTH-CHART STARTERS · FACTS ONLY</div>'
+    + rows.map((r) => (
+      `<div class="unranked-row"><b>${esc(r.name)}</b> · ${esc(r.position)} `
+      + `${esc(r.team)} · depth-chart rank 1`
+      + (r.sos != null ? ` · SOS ${esc(Number(r.sos).toFixed(1))}/5` : '')
+      + (r.bye_week != null ? ` · BYE W${esc(r.bye_week)}` : '')
+      + (r.role_unsettled
+        ? '<span class="ms-badge">ROLE UNSETTLED</span>'
+        : '<span class="ms-badge">STARTER LISTED</span>')
+    + '</div>'
+    )).join('')
+    + '<div class="unranked-why">Facts from nflverse depth charts'
+    + (snap ? ` (snapshot ${esc(snap)})` : '') + '. NO point projection is shown '
+    + 'or made: a rookie has no measured NFL production, and this app does not '
+    + 'invent numbers. RBs are marked ROLE UNSETTLED — a depth listing is not a '
+    + 'workload claim in committee/handcuff backfields. Projections begin with '
+    + 'real 2026 usage.</div>'
     + '</div>';
 }
 
@@ -973,7 +1006,15 @@ export default async function mountPlayers(el) {
         + (more > 0
           ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
           : '')
-      : '<div class="state">No players at that position.</div>';
+      : (rookiesOnly
+        ? '<div class="state">No RANKED rookies yet — a rookie has no measured '
+          + 'NFL production, so no projection and no rank until real 2026 usage '
+          + 'exists. The depth-chart starters below are the facts we do have.</div>'
+        : '<div class="state">No players at that position.</div>');
+    // R45: the facts strip is a rookies-only surface — visible exactly when
+    // the filter that asks about rookies is on.
+    const rsEl = el.querySelector('#rookie-starters');
+    if (rsEl) rsEl.hidden = !rookiesOnly;
   }
 
   el.innerHTML =
@@ -988,14 +1029,31 @@ export default async function mountPlayers(el) {
       ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
       : '') +
     '<div id="players-list" class="card-list"></div>' +
+    '<div id="rookie-starters" hidden></div>' +
     renderUnranked(unrankedRows);
   paintList();
 
+  // R45 — the facts strip is fetched LAZILY on the first filter toggle: the
+  // rookies-only surface is the only reader, and the #/players cold budget
+  // (8 contracts, tests/perf/budget.spec.mjs) is a reviewed ceiling this
+  // strip has no business raising. 404-graceful: an older deploy without the
+  // file simply shows no strip.
+  let rsFetched = false;
   const rk = el.querySelector('#rookies-only');
   if (rk) {
     rk.addEventListener('change', () => {
       rookiesOnly = rk.checked;
       shownCap = PAGE;
+      if (rookiesOnly && !rsFetched) {
+        rsFetched = true;
+        getRookieStarters().then((doc) => {
+          const rsHost = el.querySelector('#rookie-starters');
+          if (rsHost) {
+            rsHost.innerHTML = renderRookieStarters(doc);
+            rsHost.hidden = !rookiesOnly;
+          }
+        }).catch(() => { /* absent feed -> no strip, never a blank view */ });
+      }
       paintList();
     });
   }

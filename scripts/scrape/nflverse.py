@@ -282,3 +282,13 @@ def fetch_player_stats_week_release(season, min_rows=5000):
     season is ~19k rows; under `min_rows` is a partial pull."""
     url = f"{_RELEASE_BASE}/stats_player/stats_player_week_{int(season)}.csv"
     return fetch_release_csv(url, f"stats_player_week_{season}", min_rows=min_rows)
+
+
+def fetch_depth_charts_release(season, min_rows=1000):
+    """Daily depth-chart snapshots (depth_charts_{season}.csv): one row per
+    listed player per snapshot date (`dt`), with gsis_id and pos_rank. The
+    caller filters to the LATEST dt. Requests-only, same reason as
+    fetch_player_stats_week_release. A season file is tens of thousands of
+    rows; under `min_rows` is a partial pull."""
+    url = f"{_RELEASE_BASE}/depth_charts/depth_charts_{int(season)}.csv"
+    return fetch_release_csv(url, f"depth_charts_release_{season}", min_rows=min_rows)
