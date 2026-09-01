@@ -185,25 +185,53 @@ def fetch_fantasy_pool(season, min_rows=150):
     return pool
 
 
-def fetch_roster_ages(teams):
+def fetch_roster_ages(teams, get_json=None, max_failed_teams=4):
     """{espn_athlete_id: age} across all 32 rosters.
 
-    `teams` is espn.fetch_teams()'s output (carries each team's espn_id). A single
-    failed roster page fails the whole pull loudly — a partial age map would silently
-    disable the age signal for some teams only, which is worse than failing.
+    `teams` is espn.fetch_teams()'s output (carries each team's espn_id).
+
+    FAILURE POSTURE (revised 2026-09-01): one failed roster page DEGRADES that
+    one team — loudly, its players' ages simply ABSENT (absent, never
+    fabricated; assemble_records already tolerates a missing age) — instead of
+    failing the whole pull. The original all-or-nothing rule ("a partial age
+    map would silently disable the age signal for some teams") priced the
+    wrong side of the trade once this call sat on the daily build's critical
+    path: on 2026-09-01 ESPN 404'd ONE team's roster page for 20+ minutes and
+    two consecutive daily runs died during Week-1 prep — injuries, ADP and
+    projections for all 32 teams blocked by an enrichment whose signal
+    (age_curve) carries weight 0.0. The partial map is not silent: every
+    skipped team is named on stderr, MORE THAN `max_failed_teams` failures is
+    still a hard FeedError (that is an ESPN outage, not a glitch), and the
+    volume floor still applies to the teams that did answer.
     """
+    get_json = get_json or _get_json
     ages = {}
+    failed = []
     for ab, t in sorted(teams.items()):
-        data = _get_json(_ROSTER_URL.format(tid=t["espn_id"]))
-        groups = data.get("athletes") or []
-        if not groups:
-            raise FeedError(f"roster for {ab} returned no athlete groups")
+        try:
+            data = get_json(_ROSTER_URL.format(tid=t["espn_id"]))
+            groups = data.get("athletes") or []
+            if not groups:
+                raise FeedError(f"roster for {ab} returned no athlete groups")
+        except FeedError as exc:
+            failed.append(ab)
+            print(f"[warn] roster ages: {ab} skipped — {exc} — that team's "
+                  f"players carry NO age (absent, never fabricated)",
+                  file=sys.stderr)
+            continue
         for grp in groups:
             for item in grp.get("items") or []:
                 if item.get("age") is not None:
                     ages[str(item.get("id"))] = int(item["age"])
-    if len(ages) < 800:  # 32 teams x ~53 rostered, most carry an age
-        raise FeedError(f"roster ages: only {len(ages)} entries — pull looks broken.")
+    if len(failed) > max_failed_teams:
+        raise FeedError(
+            f"roster ages: {len(failed)} of {len(teams)} team pages failed "
+            f"({', '.join(failed)}) — that is an outage, not a glitch; refusing "
+            f"a mostly-empty age map.")
+    ok_teams = len(teams) - len(failed)
+    if len(ages) < 25 * ok_teams:  # ~53 rostered per answering team, most aged
+        raise FeedError(f"roster ages: only {len(ages)} entries from {ok_teams} "
+                        f"answering team page(s) — pull looks broken.")
     return ages
 
 
