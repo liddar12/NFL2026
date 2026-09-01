@@ -86,6 +86,7 @@ test('RESET_ALL_KEYS enumerates every nfl2026.* data key, and only ours', () => 
     'nfl2026.team.v1', 'nfl2026.scoring.v1', 'nfl2026.ai.v1', 'nfl2026.taken.v1',
     'nfl2026.league.v1', 'nfl2026.leaguestash.v1', 'nfl2026.auctionteams.v1',
     'nfl2026.mockhistory.v2', 'nfl2026.mocklocks.v1', 'nfl2026.theme.v1',
+    'nfl2026.league_id.v1',                          // R47: the remembered Sleeper league id
   ];
   assert.deepEqual([...RESET_ALL_KEYS].sort(), expected.sort(),
     'the wipe list must name exactly the app\'s data keys — a new nfl2026.* '
@@ -139,29 +140,39 @@ test('restartSessionStorage: clears the session, keeps the KEEP list', () => {
     }),
     'nfl2026.ai.v1': 'on',                         // not in RESTART's clear list
   });
-  const { stashed } = restartSessionStorage(store);
-  assert.equal(stashed, true, 'a non-default applied profile must be stashed');
+  const { stashed, kept } = restartSessionStorage(store);
+  // R47 (owner's pick "one sync = whole session"): RESTART keeps the league
+  // APPLIED — it is no longer parked as a stash; only RESET ALL clears it.
+  assert.equal(stashed, false, 'nothing is stashed — the league stays applied');
+  assert.equal(kept, true, 'a non-default applied profile is reported as kept');
 
-  // CLEARED: the active profile (back to default), scoring (back to PPR),
-  // roster, TAKEN board. This is the "reset didn't clear the Omilia-US
-  // scoring" fix: after restart the app loads the DEFAULT profile.
-  assert.deepEqual(loadProfile(store), normalizeProfile(DEFAULT_PROFILE),
-    'the ACTIVE profile must revert to the app default');
-  assert.equal(store.getItem('nfl2026.scoring.v1'), 'ppr');
+  // CLEARED: roster and TAKEN board.
   assert.equal(store.getItem('nfl2026.team.v1'), null);
   assert.equal(store.getItem('nfl2026.taken.v1'), null);
 
-  // KEPT: history, budgets+names, and the synced league — as a stash.
+  // KEPT: the applied league (and its scoring mode), history, budgets+names.
+  assert.deepEqual(loadProfile(store), normalizeProfile(OMILIA),
+    'the ACTIVE profile survives a restart');
+  assert.equal(store.getItem('nfl2026.scoring.v1'), 'half',
+    'the scoring toggle stays on the league\'s rec mode');
   assert.equal(store.getItem(MOCKS_KEY), '[{"version":2,"kind":"snake"}]');
   assert.equal(store.getItem(MOCKS_KEY_V1), '[]');
   const teams = loadAuctionTeams(store);
   assert.deepEqual(teams.budgets, [185, 200]);
   assert.deepEqual(teams.names, ['Hawks', '']);
-  const parked = loadStashedProfile(store);
-  assert.ok(parked, 'the synced league must survive as a stash');
-  assert.equal(parked.name, 'Omilia-US');
-  assert.deepEqual(parked, normalizeProfile(OMILIA),
-    'the stash is the import itself — RE-APPLY needs no re-download');
+  assert.equal(loadStashedProfile(store), null, 'no stash is written by a restart');
+});
+
+test('restartSessionStorage: with the default profile the toggle returns to PPR', () => {
+  const store = fakeStorage({
+    'nfl2026.scoring.v1': 'std',
+    'nfl2026.team.v1': '{"slots":{"QB1":"00-1"}}',
+  });
+  const { stashed, kept } = restartSessionStorage(store);
+  assert.equal(stashed, false);
+  assert.equal(kept, false);
+  assert.equal(store.getItem('nfl2026.scoring.v1'), 'ppr');
+  assert.equal(store.getItem('nfl2026.team.v1'), null);
 });
 
 test('restartSessionStorage: a default profile stashes nothing and does not clobber an existing stash', () => {

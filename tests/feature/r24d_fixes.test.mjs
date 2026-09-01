@@ -151,8 +151,9 @@ test('caps: the app\'s OWN fallback set still gets the R19 bye/injury bump', () 
   assert.equal(derived.caps.QB, 3);
   // Same for the draft-sim path, whose base caps are POSITION_CAPS directly.
   assert.equal(rosterGeometry(rosterShape({ qb: 2 })).caps.QB, 3);
-  // And the frozen no-shape geometry is unchanged.
-  assert.deepEqual(rosterGeometry(null).caps, { ...POSITION_CAPS });
+  // And the frozen no-shape geometry gets the same bump for the K and DEF it
+  // now starts (R47): a starter plus one bye/injury backup each.
+  assert.deepEqual(rosterGeometry(null).caps, { ...POSITION_CAPS, K: 2, DEF: 2 });
 });
 
 test('caps: a league restating the default set keeps the default behaviour', () => {
@@ -182,7 +183,7 @@ function room() {
   }
   return createAuction({
     leagueSize: 4, mySlot: 2, budget: 200,
-    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 }, // 11 slots
+    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4, k: 0, def: 0 }, // 11 slots (R47 seats K/DEF by default; this room is offence-only)
     boardRows: rows,
     adjPointsById: new Map(rows.map((r, i) => [String(r.gsis_id), 320 - i * 3.5])),
     seed: 11,

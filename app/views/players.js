@@ -42,7 +42,7 @@ import {
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel, scoringAdjust, extraPtsOf,
-  withLeagueExtras } from '../team-logic.js';
+  withLeagueExtras, scoringLockedToLeague } from '../team-logic.js';
 import { rosPoints, gamesLeft } from '../ros.js';
 import { playoffSos, playoffWindow } from '../playoffs.js';
 import { loadProfile } from '../league.js';
@@ -92,7 +92,8 @@ function teamModule() {
   else setTimeout(warm, 800);
 })();
 
-const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'];
+// R47 — K and DEF are first-class positions on PLAYERS (owner's pick).
+const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
 const SCORING_KEY = 'nfl2026.scoring.v1';
 const SCORING_SET = new Set(['ppr', 'half', 'std']);
@@ -781,6 +782,43 @@ export default async function mountPlayers(el) {
   let sortDir = 'desc';
   const hasRookieFlag = players.some((p) => typeof p.rookie === 'boolean');
   let rookiesOnly = false;
+  // R47 — the scoring toggle is LOCKED to the saved league's rec value
+  // (team-logic loadScoringMode is league-aware); the seg renders disabled.
+  const scoringLocked = scoringLockedToLeague();
+
+  /* R47 — K and DEF on PLAYERS. Rows come from the K/DST contract, priced
+   * under the SAVED league profile by app/kdst.js (a league-scored season
+   * total — never through the offence conversion, exactly as TEAM/LINEUP/
+   * GRADE seat them). Fetched LAZILY on the first K/DEF chip tap so the
+   * #/players cold-load budget (8 contracts, a reviewed ceiling) does not
+   * move. An unscored row (the league prices none of its stats) is refused a
+   * card — no honest number, no card. */
+  let kdstRows = [];
+  let kdstState = 'idle'; // idle | loading | ready | failed
+  async function ensureKdst() {
+    if (kdstState !== 'idle') return;
+    kdstState = 'loading';
+    try {
+      const kdst = await import('../kdst.js');
+      const doc = await kdst.getKdstProjections();
+      const idx = kdst.shapeKdst(doc, profile);
+      const rows = [];
+      for (const pos of ['K', 'DEF']) {
+        for (const e of idx.byPosition[pos] || []) {
+          if (e.unscored) continue;
+          rows.push({
+            gsis_id: e.id, name: e.name, team: e.team, position: pos,
+            proj_points: e.seasonPoints, kdst: e,
+          });
+        }
+      }
+      kdstRows = rows;
+      kdstState = 'ready';
+    } catch (err) {
+      kdstState = 'failed';
+    }
+    paintList();
+  }
 
   /** trajectory_adj insight for a player id (ai_insights first, else history). */
   function trajFor(id) {
@@ -969,9 +1007,11 @@ export default async function mountPlayers(el) {
 
   // Render the card list for the active filter + sort into #players-list.
   function paintList() {
+    // R47 — the K/DST rows join the pool once loaded (ALL includes them too).
+    const pool = kdstRows.length ? players.concat(kdstRows) : players;
     let base = (active === 'ALL'
-      ? players
-      : players.filter((p) => String(p.position).toUpperCase() === active));
+      ? pool
+      : pool.filter((p) => String(p.position).toUpperCase() === active));
     // rookie !== true excludes both veterans AND unstamped unknowns — a player
     // whose status we do not know must not appear under a filter that asserts it.
     if (rookiesOnly) base = base.filter((p) => p.rookie === true);
@@ -1010,7 +1050,12 @@ export default async function mountPlayers(el) {
         ? '<div class="state">No RANKED rookies yet — a rookie has no measured '
           + 'NFL production, so no projection and no rank until real 2026 usage '
           + 'exists. The depth-chart starters below are the facts we do have.</div>'
-        : '<div class="state">No players at that position.</div>');
+        : ((active === 'K' || active === 'DEF') && kdstState !== 'ready'
+          ? (kdstState === 'failed'
+            ? '<div class="state">K/DST projections did not load this visit — nothing '
+              + 'is shown rather than a made-up number. Reload to retry.</div>'
+            : '<div class="state state--loading">Loading K/DST projections…</div>')
+          : '<div class="state">No players at that position.</div>'));
     // R45: the facts strip is a rookies-only surface — visible exactly when
     // the filter that asks about rookies is on.
     const rsEl = el.querySelector('#rookie-starters');
@@ -1020,13 +1065,13 @@ export default async function mountPlayers(el) {
   el.innerHTML =
     head +
     renderLegend({ window: teamStrength && hasWeekly ? playoffWk : null, hasValue }) +
-    (hasWeekly ? renderScoreSeg(scoring) : '') +
+    (hasWeekly ? renderScoreSeg(scoring, scoringLocked) : '') +
     (hasAi ? aiSegRow(aiOn) : '') +
     filterRow(active) +
     (hasRookieFlag ? rookieRow(rookiesOnly) : '') +
     sortRow(sortKey, sortDir) +
     (hasAi && aiOn
-      ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
+      ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — the LEAGUE-PRICED projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
       : '') +
     '<div id="players-list" class="card-list"></div>' +
     '<div id="rookie-starters" hidden></div>' +
@@ -1066,6 +1111,8 @@ export default async function mountPlayers(el) {
       if (!btn) return;
       active = btn.dataset.pos;
       shownCap = PAGE;
+      // R47 — first K/DEF tap pulls the K/DST contract (lazy, once).
+      if ((active === 'K' || active === 'DEF') && kdstState === 'idle') ensureKdst();
       pf.querySelectorAll('.pf-chip').forEach((c) => {
         const on = c === btn;
         c.classList.toggle('pf-chip--active', on);
@@ -1101,6 +1148,8 @@ export default async function mountPlayers(el) {
     seg.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-scoring]');
       if (!btn) return;
+      // R47 — locked to the saved league's rec value: the toggle is inert.
+      if (scoringLocked) return;
       const mode = btn.dataset.scoring;
       if (!SCORING_SET.has(mode) || mode === scoring) return;
       scoring = mode;

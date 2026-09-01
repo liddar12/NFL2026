@@ -241,13 +241,16 @@ test('BEST PICK NOW respects the ceiling too (owner call)', () => {
    D. K AND DEF ARE DRAFTABLE, AT THE $1 TIER
    ========================================================================== */
 
-test('the sim shape seats K and DEF only when the league asks for them', () => {
-  const classic = rosterShape(null);
-  assert.ok(!classic.starters.includes('K1'), 'the default shape is unchanged');
+test('the sim shape seats K and DEF by default (R47) and drops them only when the league says so', () => {
+  const dflt = rosterShape(null);
+  assert.ok(dflt.starters.includes('K1') && dflt.starters.includes('DEF1'), 'the default seats both');
+  assert.equal(dflt.size, 15);
+  assert.equal(DEFAULT_ROSTER.k, 1);
+  assert.equal(DEFAULT_ROSTER.def, 1);
+  const classic = rosterShape({ k: 0, def: 0 });
+  assert.ok(!classic.starters.includes('K1'), 'a league without a K slot has none');
   assert.ok(!classic.starters.includes('DEF1'));
   assert.equal(classic.size, 13);
-  assert.equal(DEFAULT_ROSTER.k, 0);
-  assert.equal(DEFAULT_ROSTER.def, 0);
   assert.ok(!('K' in classic.starterDemand), 'no phantom K demand for a league without one');
 
   const kdef = rosterShape({ k: 1, def: 1 });

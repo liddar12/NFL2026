@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   bestLineup, startSitSwaps, lineupGeometry, isProjectedPosition, canonPosition,
-  LINEUP_SLOTS, PROJECTED_POSITIONS, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
+  LINEUP_SLOTS, OFFENSE_SLOTS, PROJECTED_POSITIONS, WARN_FORCED_UNAVAILABLE, WARN_NO_PROJECTION,
   __selftest,
 } from '../../app/lineup.js';
 import { DEFAULT_PROFILE, normalizeProfile, applyScoring } from '../../app/league.js';
@@ -21,7 +21,17 @@ import {
   __selftest as kdstSelftest,
 } from '../../app/kdst.js';
 
-/** A 9-starter league: QB RB RB WR WR TE FLEX K DEF + 6 bench. */
+/** The pre-R47 seven-starter league: QB RB RB WR WR TE FLEX + 6 bench (no K, no DEF). */
+const SEVEN = normalizeProfile({
+  shape: {
+    roster_positions: [
+      'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+      'BN', 'BN', 'BN', 'BN', 'BN', 'BN',
+    ],
+  },
+});
+
+/** A 9-starter league: QB RB RB WR WR TE FLEX K DEF + 6 bench (R47: this IS the default). */
 const NINE = normalizeProfile({
   shape: {
     roster_positions: [
@@ -58,8 +68,12 @@ test('bestLineup fills dedicated slots then the best leftover FLEX', () => {
   assert.equal(slots.FLEX, 'rbC'); // 13 > wrC 9 — best flex-eligible leftover
   assert.equal(total, 22 + 20 + 15 + 18 + 11 + 7 + 13);
   assert.deepEqual(bench.sort(), ['wrC']);
-  // every starter slot is a legal position
-  for (const s of LINEUP_SLOTS) assert.ok(slots[s], `${s} filled`);
+  // every offensive starter slot is a legal position
+  for (const s of OFFENSE_SLOTS) assert.ok(slots[s], `${s} filled`);
+  // R47: the default league seats K1 and DEF1 too — empty (no feed passed), never a 0.
+  assert.ok('K1' in slots && 'DEF1' in slots, 'K1/DEF1 present in the default geometry');
+  assert.equal(slots.K1, null);
+  assert.equal(slots.DEF1, null);
 });
 
 test('bye/zero-projection players sink to the bench, never start', () => {
@@ -114,13 +128,25 @@ test('startSitSwaps reports zero net gain when the lineup is already optimal', (
  * the warnings channel under their OWN reason code.
  * ------------------------------------------------------------------------- */
 
-test('the default geometry is byte-for-byte the legacy seven slots', () => {
+test('R47: the default geometry is the nine slots — seven offence + K1 + DEF1', () => {
   const geo = lineupGeometry();
   assert.deepEqual(geo.map((g) => g.slot), [...LINEUP_SLOTS]);
-  assert.ok(geo.every((g) => g.projected), 'every default slot has a feed');
+  assert.deepEqual([...LINEUP_SLOTS], [...OFFENSE_SLOTS, 'K1', 'DEF1']);
+  assert.ok(geo.filter((g) => OFFENSE_SLOTS.includes(g.slot)).every((g) => g.projected),
+    'every offensive slot has a feed');
+  assert.deepEqual(geo.filter((g) => !g.projected).map((g) => g.slot), ['K1', 'DEF1'],
+    'K1/DEF1 are unprojected until the kdst feed is passed');
   assert.deepEqual(lineupGeometry(DEFAULT_PROFILE).map((g) => g.slot), [...LINEUP_SLOTS]);
-  // ...and an omitted profile must not conjure warnings out of nowhere.
-  assert.deepEqual(bestLineup(ROSTER()).warnings, []);
+  // An omitted profile warns ONLY about the two unfed slots, by reason code.
+  assert.deepEqual(bestLineup(ROSTER()).warnings, [
+    { slot: 'K1', id: null, reason: WARN_NO_PROJECTION },
+    { slot: 'DEF1', id: null, reason: WARN_NO_PROJECTION },
+  ]);
+  // A league with no K/DEF slot is still byte-for-byte the legacy seven.
+  const seven = lineupGeometry(SEVEN);
+  assert.deepEqual(seven.map((g) => g.slot), [...OFFENSE_SLOTS]);
+  assert.ok(seven.every((g) => g.projected), 'every seven-slot has a feed');
+  assert.deepEqual(bestLineup(ROSTER(), SEVEN).warnings, []);
 });
 
 test('K and DEF are known to have no projection feed', () => {
@@ -252,22 +278,35 @@ test('kdst self-check passes', () => {
 
 /* ---- backward compatibility: nothing moves without a league profile ---- */
 
-test('R20 changes NOTHING for a user with no league profile', () => {
+test('R47: with no league profile, a connected K/DST feed STARTS the K and DEF', () => {
   const before = bestLineup(ROSTER());
   // Same call with the K/DST feed connected and K/DST players on the roster:
-  // the default league starts neither, so the answer is identical.
+  // the default league now seats K1 and DEF1, so both fill and both score.
   const after = bestLineup(KD_ROSTER(), undefined, FEEDS);
   assert.deepEqual(after.slotIds, [...LINEUP_SLOTS]);
+  assert.equal(after.slotCount, 9);
+  assert.equal(after.projectedSlots, 9);
+  assert.equal(after.slots.K1, 'kA');
+  assert.equal(after.slots.DEF1, 'dA');
+  assert.equal(Math.round((after.total - before.total) * 10) / 10, 17.7);
+  for (const s of OFFENSE_SLOTS) assert.equal(after.slots[s], before.slots[s], s);
+  assert.deepEqual(after.warnings, []);
+  assert.ok(after.bench.includes('kB'), 'the backup kicker benches');
+  // And the geometry helper reports every default slot fed.
+  assert.deepEqual(lineupGeometry(undefined, FEEDS).map((g) => g.slot), [...LINEUP_SLOTS]);
+  assert.ok(lineupGeometry(undefined, FEEDS).every((g) => g.projected));
+});
+
+test('a league with NO K/DEF slot is untouched by the feed (pre-R47 behaviour kept)', () => {
+  const before = bestLineup(ROSTER(), SEVEN);
+  const after = bestLineup(KD_ROSTER(), SEVEN, FEEDS);
+  assert.deepEqual(after.slotIds, [...OFFENSE_SLOTS]);
   assert.equal(after.slotCount, 7);
   assert.equal(after.projectedSlots, 7);
   assert.equal(after.total, before.total);
-  for (const s of LINEUP_SLOTS) assert.equal(after.slots[s], before.slots[s], s);
+  for (const s of OFFENSE_SLOTS) assert.equal(after.slots[s], before.slots[s], s);
   assert.deepEqual(after.warnings, []);
-  // The K and DEF the default league cannot start are on the bench, not lost.
   for (const id of ['kA', 'kB', 'dA']) assert.ok(after.bench.includes(id), id);
-  // And the geometry helper is untouched either way.
-  assert.deepEqual(lineupGeometry(undefined, FEEDS).map((g) => g.slot), [...LINEUP_SLOTS]);
-  assert.ok(lineupGeometry(undefined, FEEDS).every((g) => g.projected));
 });
 
 test('PROJECTED_POSITIONS still describes player_projections.json alone', () => {
@@ -290,7 +329,7 @@ test('with the feed connected, K and DEF fill and the count becomes 9 of 9', () 
   assert.ok(l.bench.includes('kB'), 'the backup kicker benches');
   // The seven offensive slots are assigned exactly as they were before.
   const seven = bestLineup(ROSTER());
-  for (const s of LINEUP_SLOTS) assert.equal(l.slots[s], seven.slots[s], s);
+  for (const s of OFFENSE_SLOTS) assert.equal(l.slots[s], seven.slots[s], s);
   // And the total is the old total plus exactly the two new starters.
   assert.equal(Math.round((l.total - seven.total) * 10) / 10, 17.7);
 });
@@ -300,7 +339,9 @@ test('the coverage count is read off the lineup, never hardcoded', () => {
   assert.equal(cover(bestLineup(KD_ROSTER(), NINE)), '7 of 9');              // no feed
   assert.equal(cover(bestLineup(KD_ROSTER(), NINE, { feeds: ['K'] })), '8 of 9');
   assert.equal(cover(bestLineup(KD_ROSTER(), NINE, FEEDS)), '9 of 9');
-  assert.equal(cover(bestLineup(ROSTER())), '7 of 7');                       // default league
+  assert.equal(cover(bestLineup(ROSTER())), '7 of 9');                       // default league, no feed
+  assert.equal(cover(bestLineup(KD_ROSTER(), undefined, FEEDS)), '9 of 9');  // default league, fed
+  assert.equal(cover(bestLineup(ROSTER(), SEVEN)), '7 of 7');                // a no-K/DEF league
 });
 
 test('the unprojected path stays reachable and correct when the feed is gone', () => {

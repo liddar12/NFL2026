@@ -3696,6 +3696,37 @@ body.gate-locked { overflow: hidden; }
 .gr-wk-game--open { color: var(--muted); font-style: italic; }
 .gr-final { font-size: 10px; font-weight: 700; color: var(--muted); }
 
+/* R47 — the topbar LEAGUE chip (same idiom as .wk), the locked scoring seg,
+ * and the K/DST card's no-interval line. */
+.lg {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.lg--on { color: var(--brand-txt); }
+.scoreseg--locked button[disabled] { opacity: 0.55; cursor: not-allowed; }
+.scoreseg-lock {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-left: 8px;
+  align-self: center;
+}
+.interval--na .lbl { color: var(--muted); font-style: italic; }
+
 /* R41 — the ROOKIES ONLY filter checkbox (PLAYERS + TEAM finder). */
 .rookie-filter {
   display: inline-flex;

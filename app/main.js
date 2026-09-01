@@ -12,6 +12,7 @@
  */
 
 import { getPipelineStatus, getGamePredictions } from './data.js';
+import { loadProfile, isDefaultProfile, loadLeagueId, leagueChipText } from './league.js';
 import { renderHealth, healthMod } from './render.js';
 import { ensureUnlocked } from './gate.js';
 import mountSlate from './views/slate.js';
@@ -188,6 +189,29 @@ async function renderHealthChip() {
   }
 }
 
+/* R47 — THE LEAGUE CHIP: every tab states which league's scoring the numbers
+ * are priced under, so alignment is auditable at a glance. Repainted on boot,
+ * on every route change, and whenever a sync saves a league (the
+ * 'nfl2026:league' event TEAM and GRADE dispatch). */
+function renderLeagueChip() {
+  const el = document.getElementById('league-chip');
+  if (!el) return;
+  try {
+    const profile = loadProfile();
+    const id = loadLeagueId();
+    const on = !isDefaultProfile(profile);
+    el.textContent = leagueChipText(profile, id);
+    el.className = `lg ${on ? 'lg--on' : 'lg--none'}`;
+    el.title = on
+      ? `Every projection on every tab is priced under ${profile.name}'s scoring table`
+        + (id ? ` (Sleeper league ${id})` : '') + '. RESET ALL on TEAM clears it.'
+      : 'No league saved: standard PPR and the default roster shape. Sync a league on TEAM or GRADE.';
+  } catch (err) {
+    el.textContent = 'NO LEAGUE · STD PPR';
+    el.className = 'lg lg--none';
+  }
+}
+
 /** Update the topbar week chip from the game-predictions contract. */
 async function renderWeekChip() {
   const el = document.getElementById('week-chip');
@@ -222,6 +246,7 @@ function boot() {
   ensureUnlocked().then(() => {
     renderHealthChip();
     renderWeekChip();
+    renderLeagueChip();
     renderRoute();
     registerServiceWorker();
   });
@@ -229,6 +254,9 @@ function boot() {
 
 // Router wiring: re-render on every hash change; bootstrap once on load.
 window.addEventListener('hashchange', renderRoute);
+// R47 — the LEAGUE chip follows every route change and every league sync.
+window.addEventListener('hashchange', renderLeagueChip);
+window.addEventListener('nfl2026:league', renderLeagueChip);
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', boot, { once: true });
 } else {

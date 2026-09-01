@@ -163,7 +163,11 @@ test('a league with NO K/DEF slot is handed the offence-only pool, unchanged', (
   assert.match(TEAM_SRC, /rosterPositionsInPlay\(savedProfile\)\.filter\(isKdstPosition\)/);
   // ...and the crosswalk reads that pool rather than the raw projections.
   assert.match(TEAM_SRC, /crosswalkRoster\(rosterTeams\[rosterTeamIdx\], seatable,/);
+  // R47: the DEFAULT league seats K1/DEF1, so the gate fires for it; a league
+  // whose roster names no K/DEF token is the one handed the offence-only pool.
   const dflt = normalizeProfile(null);
-  assert.deepEqual(rosterSlots(dflt).all.filter((s) => /^(K|DEF|DST)\d*$/.test(s)), [],
-    'the default league fields no K/DEF slot, so nothing above can fire for it');
+  assert.deepEqual(rosterSlots(dflt).all.filter((s) => /^(K|DEF|DST)\d*$/.test(s)), ['K1', 'DEF1']);
+  const seven = normalizeProfile({ shape: { roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'] } });
+  assert.deepEqual(rosterSlots(seven).all.filter((s) => /^(K|DEF|DST)\d*$/.test(s)), [],
+    'a league with no K/DEF token fields no K/DEF slot, so nothing above can fire for it');
 });

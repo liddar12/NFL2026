@@ -83,8 +83,8 @@ function mkWeeklyMap(pool) {
 
 /* ---- replacementLevel ------------------------------------------------------- */
 
-test('STARTER_DEMAND contract: QB 1, RB 2, WR 2, TE 1', () => {
-  assert.deepEqual({ ...STARTER_DEMAND }, { QB: 1, RB: 2, WR: 2, TE: 1 });
+test('STARTER_DEMAND contract: QB 1, RB 2, WR 2, TE 1, K 1, DEF 1 (R47)', () => {
+  assert.deepEqual({ ...STARTER_DEMAND }, { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 });
 });
 
 test('replacementLevel: (demand+1)th best; FLEX adds +1 to the best RB/WR/TE position', () => {

@@ -225,7 +225,7 @@ test.describe('R27 — the draft room knows what money is in it', () => {
     await expect(page.locator('select[data-dcfg="k"]')).toHaveCount(1);
     await expect(page.locator('select[data-dcfg="def"]')).toHaveCount(1);
     // Default league seats neither, and the roster summary agrees.
-    await expect(page.locator('.draftsim')).toContainText('7 STARTERS');
+    await expect(page.locator('.draftsim')).toContainText('9 STARTERS'); // R47: K + DEF seated by default
     await page.selectOption('select[data-dcfg="k"]', '1');
     await page.selectOption('select[data-dcfg="def"]', '1');
     // Two more starters, two more rounds — the room will run them.

@@ -61,7 +61,7 @@ test('DEFAULT profile -> draft config -> profile is byte-for-byte the default', 
   assert.deepEqual(carried, []);
   assert.deepEqual(clamped, []);
   assert.deepEqual(cfg, {
-    qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6,
+    qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6, k: 1, def: 1, defToken: 'DEF',
     leagueSize: 12, flexType: 'FLEX', keepers: false, maxKeepers: 0,
   });
   const back = profileFromCfg(cfg, DEFAULT_PROFILE, carried);
@@ -224,7 +224,7 @@ test('zero flex slots leaves the eligibility map empty', () => {
   const { cfg, carried } = cfgFromProfile(DEFAULT_PROFILE);
   const back = profileFromCfg({ ...cfg, flex: 0 }, DEFAULT_PROFILE, carried);
   assert.deepEqual(back.shape.flex_eligibility, {});
-  assert.equal(back.shape.starters, 6);
+  assert.equal(back.shape.starters, 8); // QB RB RB WR WR TE K DEF
 });
 
 /* ==========================================================================
@@ -537,13 +537,13 @@ test('an imported draft_rounds survives a round trip through the panel', () => {
 });
 
 test('a draft_rounds that was tracking the roster keeps tracking it', () => {
-  // DEFAULT_PROFILE: 13 rounds, 13 slots — the value is not an explicit league
+  // DEFAULT_PROFILE: 15 rounds, 15 slots — the value is not an explicit league
   // setting, so growing the bench moves it, and that is not an override.
   const { cfg, carried } = cfgFromProfile(DEFAULT_PROFILE);
-  assert.equal(DEFAULT_PROFILE.shape.draft_rounds, 13);
+  assert.equal(DEFAULT_PROFILE.shape.draft_rounds, 15);
   const back = profileFromCfg({ ...cfg, bench: 7 }, DEFAULT_PROFILE, carried);
-  assert.equal(back.shape.roster_positions.length, 14);
-  assert.equal(back.shape.draft_rounds, 14);
+  assert.equal(back.shape.roster_positions.length, 16);
+  assert.equal(back.shape.draft_rounds, 16);
   assert.equal(draftRoundsOverride({ ...cfg, bench: 7 }, DEFAULT_PROFILE, carried), null);
 });
 

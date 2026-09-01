@@ -159,8 +159,8 @@ test('seating a player leaves the draft setup card alone; changing the draft con
   expect(await page.evaluate((b) => b === document.querySelector('#t-draft .ds-start'), startBtn)).toBe(true);
 
   // A real draft-config change must still repaint the card.
-  await expect(page.locator('#t-draft .ds-start')).toContainText('13 ROUNDS'); // 7 starters + 6 bench
+  await expect(page.locator('#t-draft .ds-start')).toContainText('15 ROUNDS'); // 9 starters + 6 bench (R47)
   await page.selectOption('#t-draft select[data-dcfg="bench"]', '8');
-  await expect(page.locator('#t-draft .ds-start')).toContainText('15 ROUNDS'); // 7 starters + 8 bench
+  await expect(page.locator('#t-draft .ds-start')).toContainText('17 ROUNDS'); // 9 starters + 8 bench (R47)
   expect(await page.evaluate(() => document.getElementById('t-draft').innerHTML)).not.toBe(before);
 });

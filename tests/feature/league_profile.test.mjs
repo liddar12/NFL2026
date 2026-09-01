@@ -87,7 +87,7 @@ test('DEFAULT roster slots equal team-logic STARTER_SLOTS / BENCH_SLOTS / SLOT_O
   assert.deepEqual(slots.starters, [...STARTER_SLOTS]);
   assert.deepEqual(slots.bench, [...BENCH_SLOTS]);
   assert.deepEqual(slots.all, [...SLOT_ORDER]);
-  assert.equal(slots.all.length, 13);
+  assert.equal(slots.all.length, 15);
 });
 
 test('DEFAULT position caps equal team-logic POSITION_CAPS', () => {
@@ -111,14 +111,14 @@ test('DEFAULT slot eligibility matches team-logic slotEligible for every slot', 
   });
 });
 
-test('DEFAULT is PPR, 7 starters + 6 bench, 13 draft rounds, no keepers', () => {
+test('DEFAULT is PPR, 9 starters (K/DEF seated, R47) + 6 bench, 15 draft rounds, no keepers', () => {
   assert.equal(scoringMode(DEFAULT_PROFILE), 'ppr');
   assert.equal(DEFAULT_PROFILE.scoring.rec, 1);
-  assert.equal(DEFAULT_PROFILE.shape.starters, 7);
+  assert.equal(DEFAULT_PROFILE.shape.starters, 9);
   assert.equal(DEFAULT_PROFILE.shape.bench, 6);
-  assert.equal(rosterSize(DEFAULT_PROFILE), 13);
+  assert.equal(rosterSize(DEFAULT_PROFILE), 15);
   assert.equal(DEFAULT_PROFILE.shape.teams, 12);
-  assert.equal(DEFAULT_PROFILE.shape.draft_rounds, 13);
+  assert.equal(DEFAULT_PROFILE.shape.draft_rounds, 15);
   assert.equal(DEFAULT_PROFILE.shape.keepers_enabled, false);
   assert.equal(DEFAULT_PROFILE.shape.max_keepers, 0);
   assert.equal(DEFAULT_PROFILE.shape.playoff_week_start, 15);
@@ -238,12 +238,12 @@ test('normalizeProfile drops unknown roster tokens, and falls back when none sur
     [...DEFAULT_PROFILE.shape.roster_positions], 'a roster with no starters is unusable');
 
   const empty = normalizeProfile({ shape: { roster_positions: [] } });
-  assert.equal(empty.shape.starters, 7);
+  assert.equal(empty.shape.starters, 9);
 
   const tooBig = normalizeProfile({
     shape: { roster_positions: new Array(200).fill('RB') },
   });
-  assert.equal(tooBig.shape.starters, 7, 'absurd roster rejected, default kept');
+  assert.equal(tooBig.shape.starters, 9, 'absurd roster rejected, default kept');
 });
 
 test('normalizeProfile lowercases/uppercases tokens defensively', () => {
@@ -274,7 +274,7 @@ test('normalizeProfile clamps every scalar to LEAGUE_BOUNDS', () => {
   });
   assert.equal(junk.shape.teams, 12);
   assert.equal(junk.shape.playoff_week_start, 15);
-  assert.equal(junk.shape.draft_rounds, 13, 'unset draft_rounds tracks roster size');
+  assert.equal(junk.shape.draft_rounds, 15, 'unset draft_rounds tracks roster size');
 });
 
 test('normalizeProfile derives draft_rounds from roster size when unset', () => {
@@ -374,7 +374,7 @@ test('normalizeProfile never lets null / "" / booleans coerce into a value', () 
   });
   assert.deepEqual(p.scoring, { pass_td: 4 });
   assert.equal(p.shape.teams, 12);
-  assert.equal(p.shape.draft_rounds, 13);
+  assert.equal(p.shape.draft_rounds, 15);
   assert.equal(p.shape.playoff_week_start, 15);
   assert.deepEqual(p.shape.position_caps, { TE: 1 });
 });
@@ -504,7 +504,7 @@ test('firstOpenSlot scans starters before bench', () => {
   assert.equal(firstOpenSlot('RB', slots, p), 'FLEX');
   slots.FLEX = 'c';
   assert.equal(firstOpenSlot('RB', slots, p), 'BN1');
-  assert.equal(firstOpenSlot('K', slots, p), null, 'no K slot, no K bench in this league');
+  assert.equal(firstOpenSlot('K', slots, p), 'K1', 'R47: the default league seats a kicker at K1');
   assert.equal(firstOpenSlot('RB', {}, p), 'RB1', 'an empty slot map is fine');
   assert.equal(firstOpenSlot('RB', null, p), 'RB1');
 });
@@ -513,8 +513,8 @@ test('cloneProfile deep-copies', () => {
   const a = normalizeProfile(null);
   const b = cloneProfile(a);
   b.shape.roster_positions.push('BN');
-  assert.equal(a.shape.roster_positions.length, 13);
-  assert.equal(b.shape.roster_positions.length, 14);
+  assert.equal(a.shape.roster_positions.length, 15);
+  assert.equal(b.shape.roster_positions.length, 16);
 });
 
 /* ==========================================================================

@@ -15,7 +15,7 @@
  *
  * HONESTY CONTRACT:
  *   - DEFAULT_PROFILE reproduces TODAY'S behaviour exactly: PPR reception
- *     scoring, 7 starters (QB1 RB1 RB2 WR1 WR2 TE1 FLEX) + 6 bench (BN1..BN6),
+ *     scoring, 9 starters (QB1 RB1 RB2 WR1 WR2 TE1 FLEX K1 DEF1) + 6 bench (BN1..BN6),
  *     and the current caps {QB:2, DEF:1, DST:1, K:1}. An unconfigured user sees
  *     no change whatsoever.
  *   - applyScoring() is EXACT per-stat arithmetic: sum(stat x points-per-stat).
@@ -233,8 +233,12 @@ export const LEAGUE_BOUNDS = Object.freeze({
  * ------------------------------------------------------------------------ */
 
 /** roster_positions producing exactly QB1 RB1 RB2 WR1 WR2 TE1 FLEX + BN1..BN6. */
-const DEFAULT_ROSTER_POSITIONS = Object.freeze([
-  'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+// R47 (owner's pick: K and DEF are FIRST-CLASS everywhere) — the default
+// league is the standard 9-starter shape. Before R47 the default had no K/DEF
+// slot, and every view derived K/DEF presence from the saved profile's slots,
+// so an unconfigured user never saw a kicker or a defence anywhere.
+export const DEFAULT_ROSTER_POSITIONS = Object.freeze([
+  'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
   'BN', 'BN', 'BN', 'BN', 'BN', 'BN',
 ]);
 
@@ -251,11 +255,11 @@ export const DEFAULT_PROFILE = deepFreeze({
   shape: {
     teams: 12,
     roster_positions: [...DEFAULT_ROSTER_POSITIONS],
-    starters: 7,
+    starters: 9,
     bench: 6,
     flex_eligibility: { FLEX: ['WR', 'RB', 'TE'] },
     position_caps: { QB: 2, DEF: 1, DST: 1, K: 1 },
-    draft_rounds: 13,
+    draft_rounds: 15,
     keepers_enabled: false,
     max_keepers: 0,
     playoff_week_start: 15,
@@ -572,7 +576,7 @@ export function validateProfile(raw) {
   let bench = null;
   if (s.roster_positions == null) {
     errors.push(err('shape.roster_positions', 'roster_positions_missing',
-      'No "roster_positions" — the default QB/RB/RB/WR/WR/TE/FLEX + 6 bench roster is used.',
+      'No "roster_positions" — the default QB/RB/RB/WR/WR/TE/FLEX/K/DEF + 6 bench roster is used.',
       s.roster_positions, 'warning'));
   } else if (!Array.isArray(s.roster_positions)) {
     errors.push(err('shape.roster_positions', 'roster_positions_not_an_array',
@@ -947,6 +951,34 @@ export function saveProfile(profile, storage) {
   }
 }
 
+/* R47 — THE SYNCED LEAGUE ID. One Sleeper sync anywhere (TEAM's SYNC NOW or
+ * GRADE's LOAD LEAGUE) saves the profile AND remembers which league it came
+ * from, so every page can say "LEAGUE: Omilia-US · scoring applied" and the
+ * GRADE loader can prefill. RESET ALL clears it; RESTART SESSION keeps it. */
+export const LEAGUE_ID_KEY = 'nfl2026.league_id.v1';
+
+export function saveLeagueId(id, storage) {
+  const store = storage === undefined ? defaultStorage() : storage;
+  const text = id == null ? '' : String(id).trim();
+  try {
+    if (!text) store.removeItem(LEAGUE_ID_KEY);
+    else store.setItem(LEAGUE_ID_KEY, text);
+    return true;
+  } catch (err2) {
+    return false;
+  }
+}
+
+export function loadLeagueId(storage) {
+  const store = storage === undefined ? defaultStorage() : storage;
+  try {
+    const v = store && store.getItem(LEAGUE_ID_KEY);
+    return typeof v === 'string' && v.trim() ? v.trim() : null;
+  } catch (err2) {
+    return null;
+  }
+}
+
 /** Forget the stored profile (back to DEFAULT). Never throws. */
 export function clearProfile(storage) {
   const store = storage === undefined ? defaultStorage() : storage;
@@ -1032,4 +1064,13 @@ export function clearStashedProfile(storage) {
   } catch (err2) {
     return false;
   }
+}
+
+/**
+ * R47 — the topbar league chip's text: one line that states, on every page,
+ * which league (if any) every projection is priced under.
+ */
+export function leagueChipText(profile, leagueId) {
+  if (!profile || isDefaultProfile(profile)) return 'NO LEAGUE · STD PPR';
+  return `LEAGUE: ${profile.name} · SCORING APPLIED${leagueId ? ' · SLEEPER' : ''}`;
 }

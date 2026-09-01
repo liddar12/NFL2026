@@ -62,12 +62,20 @@ import {
   normalizeProfile, rosterSlots, slotToken, slotEligiblePositions, FLEX_ELIGIBILITY,
 } from './league.js';
 
-export const LINEUP_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
+/**
+ * R47: the DEFAULT geometry seats K1 and DEF1 (app/league.js
+ * DEFAULT_ROSTER_POSITIONS). Both are `projected` only while the kdst feed is
+ * connected (opts.feeds) — an empty slot with WARN_NO_PROJECTION otherwise.
+ */
+export const LINEUP_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX', 'K1', 'DEF1']);
+/** The pre-R47 seven offensive slots — the geometry a no-K/DEF league still has. */
+export const OFFENSE_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
 
 /**
  * Positions the projection model actually covers. Mirrors app/team-logic.js's
  * MODELED list and the contents of data/player_projections.json. K / DEF / DST
- * are deliberately absent: no feed exists yet, and inventing one is fabrication.
+ * are deliberately absent: they ride the SEPARATE kdst contract (opts.feeds),
+ * never this file, and inventing a feed for them would be fabrication.
  */
 export const PROJECTED_POSITIONS = Object.freeze(['QB', 'RB', 'WR', 'TE']);
 
@@ -124,7 +132,7 @@ function feedSet(opts) {
  * `projected` is false when NO eligible position has a projection feed. With no
  * `opts` that is exactly a K or DEF slot; pass `opts.feeds` and those slots
  * become projected — and stay unprojected the moment the feed is gone.
- * Pass nothing at all for the historical seven-slot geometry.
+ * Pass nothing at all for the DEFAULT geometry (nine slots since R47).
  */
 export function lineupGeometry(profile, opts) {
   const p = normalizeProfile(profile);
@@ -293,7 +301,7 @@ export function __selftest() {
     { id: 'te1', pos: 'TE', pts: 8 },
     { id: 'rbBye', pos: 'RB', pts: 0, onBye: true },
   ];
-  const l = bestLineup(players);
+  const l = bestLineup(players, SEVEN_PROFILE);
   // FLEX should take rb3 (12) — the best leftover flex-eligible — over wr2(10)/te leftovers.
   if (l.slots.FLEX !== 'rb3') throw new Error('FLEX picks best leftover');
   if (l.slots.QB1 !== 'qb1' || l.slots.RB1 !== 'rb1' || l.slots.RB2 !== 'rb2') throw new Error('dedicated slots');
@@ -301,7 +309,7 @@ export function __selftest() {
   // 8 players, 7 start (rb3 flexes) -> only the bye RB is benched.
   if (l.bench.length !== 1 || !l.bench.includes('rbBye')) throw new Error('bench remainder');
   // Start/sit: manager wrongly starts rbBye (0) over rb3 (12) at FLEX.
-  const ss = startSitSwaps(['qb1', 'rb1', 'rb2', 'wr1', 'wr2', 'te1', 'rbBye'], players, 5);
+  const ss = startSitSwaps(['qb1', 'rb1', 'rb2', 'wr1', 'wr2', 'te1', 'rbBye'], players, 5, SEVEN_PROFILE);
   if (!ss.start.includes('rb3') || !ss.sit.includes('rbBye') || ss.netGain !== 12) {
     throw new Error('start/sit net gain');
   }
@@ -314,7 +322,7 @@ export function __selftest() {
     { id: 'wrA', pos: 'WR', pts: 15 }, { id: 'wrB', pos: 'WR', pts: 11 },
     { id: 'teA', pos: 'TE', pts: 7 },
   ];
-  const h = bestLineup(hurt);
+  const h = bestLineup(hurt, SEVEN_PROFILE);
   if (h.slots.RB1 !== 'rbOk') throw new Error('available RB outranks the unavailable one');
   // Only two RBs and one cannot play: RB2 is FORCED, filled and flagged, never empty.
   if (h.slots.RB2 !== 'rbIR') throw new Error('forced slot is filled, not emptied');
@@ -328,13 +336,18 @@ export function __selftest() {
     { id: 'wrA', pos: 'WR', pts: 15 }, { id: 'wrB', pos: 'WR', pts: 11 },
     { id: 'teA', pos: 'TE', pts: 7 },
     { id: 'wrIR', pos: 'WR', pts: 12.4, playable: false }, { id: 'teOk', pos: 'TE', pts: 4 },
-  ]);
+  ], SEVEN_PROFILE);
   if (flex.slots.FLEX !== 'teOk') throw new Error('FLEX prefers an available player');
   if (flex.warnings.length !== 0) throw new Error('a benched unavailable player is not a warning');
 
   // R19-B5 — a 9-starter K/DEF league. Both extra slots exist, hold nobody, are
   // worth nothing, and say why. The seven projected slots are untouched.
+  // R47: this IS the default geometry now — bestLineup(players) must agree.
   const nine = bestLineup(players, KDEF_PROFILE);
+  const dflt = bestLineup(players);
+  if (JSON.stringify(dflt.slots) !== JSON.stringify(nine.slots) || dflt.slotCount !== 9) {
+    throw new Error('the default geometry seats K1 and DEF1');
+  }
   if (nine.slotCount !== 9 || nine.projectedSlots !== 7) throw new Error('nine slots, seven projected');
   if (nine.slots.K1 !== null || nine.slots.DEF1 !== null) throw new Error('unprojected slots hold nobody');
   if (nine.total !== l.total) throw new Error('an unprojected slot adds no points');
@@ -360,7 +373,7 @@ export function __selftest() {
   if (Math.round((fed.total - l.total) * 10) / 10 !== 17.7) throw new Error('K/DEF add their points');
   if (!fed.bench.includes('k2')) throw new Error('the backup kicker benches');
   // The seven offensive slots are untouched by the new feed.
-  for (const s of LINEUP_SLOTS) if (fed.slots[s] !== l.slots[s]) throw new Error('offense unmoved');
+  for (const s of OFFENSE_SLOTS) if (fed.slots[s] !== l.slots[s]) throw new Error('offense unmoved');
 
   // ...and with the feed GONE (a 404, an empty contract) the honest-degradation
   // path is byte-for-byte what it was: empty, worthless, warned.
@@ -382,6 +395,16 @@ export function __selftest() {
   if (dst.slots.DST1 !== 'd1') throw new Error('a DST slot takes a DEF row');
   return true;
 }
+
+/** The pre-R47 seven-starter league (no K, no DEF) for __selftest. */
+const SEVEN_PROFILE = {
+  shape: {
+    roster_positions: [
+      'QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+      'BN', 'BN', 'BN', 'BN', 'BN', 'BN',
+    ],
+  },
+};
 
 /** A 9-starter league (QB RB RB WR WR TE FLEX K DEF + 6 bench) for __selftest. */
 const KDEF_PROFILE = {

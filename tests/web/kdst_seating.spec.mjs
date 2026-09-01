@@ -251,7 +251,7 @@ for (const [label, size] of [['iPhone', { width: 402, height: 874 }],
    5. BACKWARD COMPATIBILITY — none of this exists without a K/DEF league
    ========================================================================== */
 
-test('with NO league saved the Team page is exactly what it was', async ({ page }) => {
+test('R47: with NO league saved the Team page already seats K and DEF', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.removeItem('nfl2026.league.v1');
     localStorage.removeItem('nfl2026.team.v1');
@@ -259,12 +259,14 @@ test('with NO league saved the Team page is exactly what it was', async ({ page 
   await page.goto('/#/team');
   await page.waitForSelector('.roster .slot', { timeout: 15000 });
 
+  // The default roster seats K1 and DEF1, so both chips are offered up front.
   const chips = await page.locator('.finder-posfilter .pf-chip').allInnerTexts();
-  expect(chips).toEqual(['ALL', 'QB', 'RB', 'WR', 'TE']);
+  expect(chips).toEqual(['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
+  expect(await page.locator('.roster .slot').count()).toBe(15);
 
-  // A kicker's name finds nothing: this league does not field one, so offering
-  // him would be offering a player who can never take a slot.
+  // A kicker's name FINDS him: this league fields one, so he can take K1.
   const kicker = readData('kdst_projections.json').kickers[0].name.split(' ').pop();
   await page.fill('#t-find', kicker);
-  await expect(page.locator('#t-cands')).toContainText('No players match');
+  await expect(page.locator('#t-cands')).not.toContainText('No players match');
+  await expect(page.locator('#t-cands')).toContainText(kicker);
 });

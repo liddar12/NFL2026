@@ -82,6 +82,9 @@ const smallRoom = async (page) => {
   await page.locator('.ds-select[data-dcfg="leagueSize"]').selectOption('8');
   await page.locator('.ds-select[data-dcfg="flex"]').selectOption('0');
   await page.locator('.ds-select[data-dcfg="bench"]').selectOption('4');
+  // R47 seats K and DEF by default; this room stays the ten-slot offence-only one.
+  await page.locator('.ds-select[data-dcfg="k"]').selectOption('0');
+  await page.locator('.ds-select[data-dcfg="def"]').selectOption('0');
 };
 
 /* ==========================================================================

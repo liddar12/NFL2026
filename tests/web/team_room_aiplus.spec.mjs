@@ -215,6 +215,9 @@ test.describe('R23-S1 · draft history says what it is and what it cannot claim'
     await page.locator('.ds-select[data-dcfg="leagueSize"]').selectOption('8');
     await page.locator('.ds-select[data-dcfg="flex"]').selectOption('0');
     await page.locator('.ds-select[data-dcfg="bench"]').selectOption('4');
+    // R47 seats K and DEF by default; keep this the ten-round offence-only room.
+    await page.locator('.ds-select[data-dcfg="k"]').selectOption('0');
+    await page.locator('.ds-select[data-dcfg="def"]').selectOption('0');
     await page.locator('.ds-start').click();
     await page.locator('[data-act="draft-sim"]').click();
     await page.waitForSelector('.ds-cand', { timeout: 15000 });
