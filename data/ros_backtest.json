@@ -1,10 +1,10 @@
 {
  "__meta__": {
-  "generated_utc": "2026-09-01T12:12:16Z",
+  "generated_utc": "2026-09-01T23:37:07Z",
   "method": "deployed_engine_season_rank_correlation",
   "granularity": "season",
   "baseline": "prior_season_points (last year's finish)",
-  "note": "Walk-forward: season S projected from seasons <= S-1 only, through the DEPLOYED engine (scripts.models.player_projection.project_player), whose week-1 RoS total is identical to the value app/ros.js renders. Written by scripts/backtest_player.py; the retired scripts/backtest_ros.py proxy formula now appears only as a baseline in data/player_backtest.json. At day-zero weights proj_points == prior_season_points, so rho_ros and rho_lastyear are the SAME NUMBERS by construction and no position can beat the baseline until a signal earns weight."
+  "note": "Walk-forward: season S projected from seasons <= S-1 only, through the DEPLOYED engine (scripts.models.player_projection.project_player), whose week-1 RoS total is identical to the value app/ros.js renders. Written by scripts/backtest_player.py; the retired scripts/backtest_ros.py proxy formula now appears only as a baseline in data/player_backtest.json. At day-zero weights proj_points == prior_season_points under the shipped total rule (R49: the games-normalized rule is the CANDIDATE baseline, gated by player_backtest.json baseline_gate), so rho_ros and rho_lastyear are the SAME NUMBERS by construction and no position can beat the baseline until a signal earns weight."
  },
  "per_season": [
   {

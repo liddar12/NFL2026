@@ -127,6 +127,14 @@ jobs:
       - name: Player-level walk-forward backtest
         run: python -m scripts.backtest_player
 
+      # R49 — the player-signal fit on the RESOLVED estimate ledger. Reads
+      # data/estimate_scores.json; refuses (exit 0, nothing written) until at
+      # least one 2026 week has resolved, and even then --propose only ARCHIVES
+      # the walk-forward verdict into data/model_tuning.json history — applying a
+      # weight is the same deliberate human act as the game-family gate above.
+      - name: Player-signal walk-forward fit (PROPOSE only; adoption is manual)
+        run: python scripts/fit_player_signals.py --propose
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

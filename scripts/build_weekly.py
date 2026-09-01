@@ -49,6 +49,16 @@ when at least one player was actually shaped / actually blocked.
 
 INVARIANT: output player order mirrors data/player_projections.json exactly
 (same ids, same order) — the app zips the two files by index.
+
+R49 — ABSENCE ALREADY IN THE TOTAL. When a projection row was built under the
+games-normalized baseline (`baseline_rule` == "prior_ppg_x_projected_games") with a
+documented `absence_weeks` > 0, its proj_points ALREADY excludes the blocked games
+(prior_ppg x (17 - absence)). Mechanic (b) then zeroes the same weeks but
+renormalizes the playable weeks to the FULL season number instead of a pro-rata
+share — otherwise the absence would be subtracted twice. `season_points_lost` on
+such a row is the projection's own per-game rate times the weeks zeroed, so the
+headline still says how many points the absence cost. Rows under the total rule
+(the shipped rule today) are byte-identical to the pre-R49 split.
 """
 
 import json
@@ -238,8 +248,20 @@ def team_schedule(schedule_games):
     return sched
 
 
+# R49 — the projection rule whose season total already excludes documented absence.
+ABSENCE_IN_TOTAL_RULE = "prior_ppg_x_projected_games"
+
+
+def absence_in_total(projection_row):
+    """True iff this projection row's proj_points already excludes its blocked
+    games (R49 games-normalized rule with a documented absence). Pure."""
+    return (projection_row.get("baseline_rule") == ABSENCE_IN_TOTAL_RULE
+            and int(projection_row.get("absence_weeks") or 0) > 0)
+
+
 def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
-                 unavailable_weeks=0, first_week=1, round_dp=2):
+                 unavailable_weeks=0, first_week=1, round_dp=2,
+                 absence_in_total=False):
     """18 week rows {wk, opp, home, bye, pts} for one player.
 
     Pass round_dp=None to skip the final rounding (the injury test asserts the
@@ -262,6 +284,12 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
 
     At unavailable_weeks=0 this is numerically identical to the pre-Rel17 split,
     path for path, and emits no `avail` key at all.
+
+    absence_in_total (R49): the caller states that `season_proj` ALREADY excludes
+    the blocked games (games-normalized baseline). The blocked weeks are still
+    zeroed, but the playable weeks renormalize to the FULL season_proj rather than
+    a pro-rata share, so the absence is not subtracted twice. Ignored when nothing
+    is blocked.
     """
     sched = sched_by_team.get(team, {})
     team_elo = elos.get(team, ELO_INIT)
@@ -297,7 +325,10 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
 
     # Renormalize the playable weeks to the availability-adjusted target. With no
     # blocked weeks the target IS the season projection and this is the old law.
-    target = (season_proj * len(available) / n_total) if n_total else 0.0
+    if absence_in_total and blocked:
+        target = season_proj
+    else:
+        target = (season_proj * len(available) / n_total) if n_total else 0.0
     total = sum(rows[i]["pts"] for i in available)
     scale = (target / total) if total > 0 else 0.0
     for i in available:
@@ -342,9 +373,11 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         pid = p["gsis_id"]
         view = unavail.get(pid)
         n_block, confidence = blocked_week_count(view)
+        in_total = absence_in_total(p)
         weeks = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
                              injury_mult=mults.get(pid, 1.0),
-                             unavailable_weeks=n_block, first_week=first_week)
+                             unavailable_weeks=n_block, first_week=first_week,
+                             absence_in_total=in_total)
         row = {
             "gsis_id": pid,
             "receptions_prior": round(float(receptions_by_id.get(pid, 0.0) or 0.0), 1),
@@ -381,7 +414,16 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                 # The five season keys ride ONLY on a player whose weeks really were
                 # zeroed. A flagged-but-unblocked row (a suspension of unstated
                 # length) states nothing about duration, so it claims nothing.
-                lost = round(p["proj_points"] - sum(w["pts"] for w in weeks), 2)
+                if in_total:
+                    # R49: the total already excludes these games, so the loss
+                    # is stated at the projection's own per-game rate (or the
+                    # prior rate when every game is gone), never re-subtracted.
+                    pg = p.get("projected_games") or 0
+                    per_game = (p["proj_points"] / pg) if pg else \
+                        float(p.get("prior_ppg") or 0.0)
+                    lost = round(per_game * actually_blocked, 2)
+                else:
+                    lost = round(p["proj_points"] - sum(w["pts"] for w in weeks), 2)
                 # weeks_out here is what we DID (the count of weeks actually
                 # zeroed), not what the report said — injuries.json records the
                 # report. That keeps the duration statement and its applied
@@ -489,6 +531,23 @@ def selftest():
                          round_dp=None)
     assert all(abs(a["pts"] - b["pts"]) < 1e-9 for a, b in zip(both, plain)), \
         "the injury multiplier must not be spent on weeks the player cannot play"
+
+    # --- R49: absence already in the total is NOT subtracted twice ---------------
+    in_total = player_weeks(130.0, "SFX", sched_by_team, elos, unavailable_weeks=2,
+                            round_dp=None, absence_in_total=True)
+    assert abs(sum(w["pts"] for w in in_total if not w["bye"]) - 130.0) < 1e-6, \
+        "absence_in_total must renormalize the playable weeks to the FULL total"
+    assert [w["wk"] for w in in_total if w.get("avail") is False] == [1, 3]
+    same_as_old = player_weeks(130.0, "SFX", sched_by_team, elos, round_dp=None,
+                               absence_in_total=True)
+    plain = player_weeks(130.0, "SFX", sched_by_team, elos, round_dp=None)
+    assert same_as_old == plain, "with nothing blocked the flag must be a no-op"
+    assert absence_in_total({"baseline_rule": "prior_ppg_x_projected_games",
+                             "absence_weeks": 4}) is True
+    assert absence_in_total({"baseline_rule": "prior_season_points",
+                             "absence_weeks": 4}) is False, \
+        "the total rule still takes the pro-rata law"
+    assert absence_in_total({"baseline_rule": "prior_ppg_x_projected_games"}) is False
 
     # --- blocked_week_count -------------------------------------------------------
     assert blocked_week_count(None) == (0, None)

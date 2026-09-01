@@ -1,10 +1,11 @@
 {
   "__meta__": {
-    "generated_utc": "2026-09-01T12:12:16Z",
+    "generated_utc": "2026-09-01T23:37:07Z",
     "method": "walk_forward_season_holdout",
     "granularity": "season",
     "engine": "scripts.models.player_projection.project_player",
     "engine_path": "espn_players.build_player_records -> project_player -> build_weekly.player_weeks -> app/ros.js rosPoints(from_week=1)",
+    "baseline_rule_scored": "prior_season_points",
     "substrate": "data/player_history.json (season totals 2021-2025)",
     "eval_seasons": [
       2022,
@@ -504,5 +505,120 @@
       "weather"
     ],
     "note": "MEASURED, not declared. Only baseline_fed + deployed_inputs_fire + candidate_inputs_fire carry any player-level evidence here; substrate_missing needs a richer committed history and registry_only has no engine branch at all. At day-zero weights (all 0.0) none of this can change proj_points."
+  },
+  "baseline_gate": {
+    "shipped_rule": "prior_season_points",
+    "candidate_rule": "prior_ppg_x_projected_games",
+    "adopted_for_shipped": false,
+    "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5847 -> 0.6032, pooled MAE 59.4697 -> 60.7557 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
+    "pooled_rho_total_rule": 0.5847,
+    "pooled_rho_ppg_rule": 0.6032,
+    "pooled_mae_total_rule": 59.4697,
+    "pooled_mae_ppg_rule": 60.7557,
+    "per_position": {
+      "QB": {
+        "n": 115,
+        "rho_total_rule": 0.4206,
+        "rho_ppg_rule": 0.4171,
+        "mae_total_rule": 85.629,
+        "mae_ppg_rule": 85.628
+      },
+      "RB": {
+        "n": 155,
+        "rho_total_rule": 0.5686,
+        "rho_ppg_rule": 0.6557,
+        "mae_total_rule": 63.667,
+        "mae_ppg_rule": 59.882
+      },
+      "WR": {
+        "n": 282,
+        "rho_total_rule": 0.6468,
+        "rho_ppg_rule": 0.66,
+        "mae_total_rule": 55.099,
+        "mae_ppg_rule": 58.636
+      },
+      "TE": {
+        "n": 153,
+        "rho_total_rule": 0.6101,
+        "rho_ppg_rule": 0.585,
+        "mae_total_rule": 43.611,
+        "mae_ppg_rule": 46.853
+      }
+    }
+  },
+  "candidate_2025": {
+    "season": 2025,
+    "players": 240,
+    "baseline_mae": 59.454,
+    "candidate_mae": 54.082,
+    "shipped_mae": 56.138,
+    "baseline_rho": 0.6646,
+    "candidate_rho": 0.6698,
+    "shipped_rho": 0.6281,
+    "band_coverage": 0.3708,
+    "band_rule": "+/- one band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; treated as one sd, an estimate of spread, not a measurement",
+    "signals_evaluated": [
+      "injury_history"
+    ],
+    "signals_not_evaluable": [
+      "age_curve",
+      "coordinator_change",
+      "head_coach_change",
+      "home_away",
+      "indoor_outdoor",
+      "injury_status",
+      "off_field",
+      "ol_composite_vs_dl",
+      "one_on_one_matchup",
+      "qb_accuracy_delta",
+      "qb_coaching",
+      "rest_days",
+      "schedule_strength",
+      "scheme_fit",
+      "supporting_cast_delta",
+      "target_competition",
+      "weather"
+    ],
+    "by_position": {
+      "QB": {
+        "n": 35,
+        "baseline_mae": 78.181,
+        "candidate_mae": 66.925,
+        "shipped_mae": 80.834,
+        "band_coverage": 0.4,
+        "sleeper_mae": 42.592,
+        "sleeper_n": 35
+      },
+      "RB": {
+        "n": 57,
+        "baseline_mae": 57.79,
+        "candidate_mae": 53.627,
+        "shipped_mae": 53.662,
+        "band_coverage": 0.4211,
+        "sleeper_mae": 17.001,
+        "sleeper_n": 56
+      },
+      "WR": {
+        "n": 100,
+        "baseline_mae": 59.536,
+        "candidate_mae": 54.083,
+        "shipped_mae": 53.73,
+        "band_coverage": 0.35,
+        "sleeper_mae": 20.529,
+        "sleeper_n": 100
+      },
+      "TE": {
+        "n": 48,
+        "baseline_mae": 47.604,
+        "candidate_mae": 45.258,
+        "shipped_mae": 46.085,
+        "band_coverage": 0.3333,
+        "sleeper_mae": 16.121,
+        "sleeper_n": 48
+      }
+    },
+    "sleeper_mae": 22.048,
+    "sleeper_players": 239,
+    "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 330 history players matched by {'espn_id': 110, 'name_position': 188, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction."
   }
 }

@@ -160,6 +160,9 @@ const CONTRACT_ALLOWLIST = new Set([
   // ROOKIES ONLY toggle (never on a cold route load).
   'rookie_starters.json',
   'schedule_full.json',
+  // R49 — Sleeper's own weekly projections, DISPLAY-ONLY (never a model input),
+  // fetched LAZILY on the first "vs Sleeper" reveal — never on a cold route load.
+  'sleeper_projections.json',
   'team_strength.json',
 ]);
 
