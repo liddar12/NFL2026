@@ -346,11 +346,43 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
   const norm = (s) => String(s || '').replace(/\./g, '').toLowerCase()
     .split(/\s+/).filter(Boolean).join(' ');
   const report = new Map();
+  const byName = new Map();
+  const nameTeams = new Map();
   for (const r of injuries.injuries) {
     const key = `${r.team}|${norm(r.player)}`;
     if (!report.has(key)) report.set(key, []);
     report.get(key).push(r);
+    const n = norm(r.player);
+    if (!nameTeams.has(n)) nameTeams.set(n, new Set());
+    nameTeams.get(n).add(r.team);
+    if (!byName.has(n)) byName.set(n, []);
+    byName.get(n).push(r);
   }
+  // R39 (2026-09-01): the R32 offseason-mover name fallback, mirrored — this
+  // test joined on exact (team, name) only while the producer and validator
+  // both fall back to a UNIQUE report name (availability.lookup_report;
+  // validator rule 4 mirrored it in R33). The gap sat latent until a mover
+  // (pool team = last season's, report team = current) carried a season IR
+  // flag in a committed data run and this file called the producer's honest
+  // block an orphan. Same guards as the producer: a report name on two teams
+  // never matches by name, and a pool-duplicated name never falls back.
+  const poolDups = new Set();
+  {
+    const seen = new Set();
+    for (const pr of proj.players) {
+      const n = norm(pr.name);
+      if (seen.has(n)) poolDups.add(n);
+      seen.add(n);
+    }
+  }
+  const lookupRows = (team, name) => {
+    const n = norm(name);
+    const exact = report.get(`${team}|${n}`);
+    if (exact) return exact;
+    if (poolDups.has(n)) return undefined;
+    if ((nameTeams.get(n) || new Set()).size !== 1) return undefined;
+    return byName.get(n);
+  };
 
   let blocked = 0;
   let ending = 0;
@@ -363,7 +395,7 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       return;
     }
     // NO ORPHAN FLAGS: the app can never show an IR badge that no feed backs.
-    const rows = report.get(`${proj.players[i].team}|${norm(proj.players[i].name)}`);
+    const rows = lookupRows(proj.players[i].team, proj.players[i].name);
     assert.ok(rows, `${p.gsis_id}: flagged ${a.status} with no row in injuries.json`);
     assert.ok(rows.some((r) => r.availability === a.status),
       `${p.gsis_id}: flagged ${a.status} but the feed says ` +
