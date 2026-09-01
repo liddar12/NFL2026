@@ -153,6 +153,9 @@ const CONTRACT_ALLOWLIST = new Set([
   'player_projections.json',
   'player_weekly.json',
   'playoff_odds.json',
+  // R45 — facts-only rookie starters, ~1 KB, fetched LAZILY on the first
+  // ROOKIES ONLY toggle (never on a cold route load).
+  'rookie_starters.json',
   'schedule_full.json',
   'team_strength.json',
 ]);

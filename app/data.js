@@ -38,6 +38,7 @@ const PATHS = Object.freeze({
   playoffOdds: '/data/playoff_odds.json',
   modelTuning: '/data/model_tuning.json',
   adp: '/data/adp.json',
+  rookieStarters: '/data/rookie_starters.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -108,6 +109,10 @@ export const getModelTuning = (opts) => loadJson(PATHS.modelTuning, opts);
 // ADP (drafter consensus): draft-simulator opponent board + value flags ONLY —
 // never blended into projections. Same 404-graceful pattern.
 export const getAdp = (opts) => loadJson(PATHS.adp, opts);
+// R45: facts-only rookie depth-chart starters (no projection field by
+// contract). Same 404-graceful pattern: absent on an older deploy -> the
+// rookies-only strip simply doesn't render the section.
+export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
 
 /**
  * Load the five core contracts at once. Uses allSettled so one bad feed does

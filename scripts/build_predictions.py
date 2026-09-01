@@ -230,6 +230,100 @@ def _components_by_id(players_in, bonus_by_name=None):
     return out
 
 
+_DC_STARTER_POSITIONS = ("QB", "RB", "WR", "TE", "K")
+# Mirrors app/team-logic.js SOS_ELO_PER_POINT — the 1..5 schedule-difficulty
+# scale every player card uses. Kept in sync by the R45 gate test.
+_SOS_ELO_PER_POINT = 25.0
+
+
+def _team_sos_and_bye(schedule_games, ratings):
+    """{team: {sos, bye_week}} on the same 1..5 scale the player cards show.
+    Pure; a team with no rated opponents carries sos None (unknown, never 3)."""
+    opps = {}
+    weeks_played = {}
+    for g in schedule_games:
+        wk = g.get("week")
+        for me, them in ((g.get("home"), g.get("away")),
+                         (g.get("away"), g.get("home"))):
+            if not me or not them:
+                continue
+            opps.setdefault(me, []).append(them)
+            if isinstance(wk, int):
+                weeks_played.setdefault(me, set()).add(wk)
+    out = {}
+    for team, opp_list in opps.items():
+        rated = [float(ratings[o]) for o in opp_list if o in ratings]
+        sos = None
+        if rated:
+            raw = 3.0 + ((sum(rated) / len(rated)) - 1500.0) / _SOS_ELO_PER_POINT
+            sos = round(max(1.0, min(5.0, raw)), 1)
+        bye = next((w for w in range(1, 19) if w not in weeks_played.get(team, set())),
+                   None)
+        out[team] = {"sos": sos, "bye_week": bye}
+    return out
+
+
+def _rookie_starters(schedule_games, ratings, fetch_dc=None, fetch_roster=None):
+    """FACTS-ONLY rookie starters (R45, owner's pick): rookies (roster
+    years_exp == 0) listed at pos_rank 1 in the LATEST nflverse depth-chart
+    snapshot, with their team's SOS and bye — and NO point estimate of any
+    kind. An RB is marked role_unsettled per the owner's committee/handcuff
+    rule: a listed RB1 is a fact about the depth chart, not a workload claim.
+
+    Guarded like every enrichment: any feed failure returns None (the caller
+    keeps the last-good file and marks the feed degraded, loudly)."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    fetch_dc = fetch_dc or (lambda: nflverse.fetch_depth_charts_release(SEASON))
+    fetch_roster = fetch_roster or (lambda: nflverse.fetch_roster_release(SEASON))
+    try:
+        dc_rows = fetch_dc()
+        roster_rows = fetch_roster()
+    except Exception as exc:  # noqa: BLE001 — degrade, never fabricate
+        print(f"[warn] rookie starters skipped — nflverse feed unreachable: {exc}",
+              file=sys.stderr)
+        return None
+    rookies = {}
+    for r in roster_rows:
+        gid = (r.get("gsis_id") or "").strip()
+        try:
+            if gid and int(float(r.get("years_exp"))) == 0:
+                rookies[gid] = r
+        except (TypeError, ValueError):
+            continue
+    latest = max((r.get("dt") or "" for r in dc_rows), default="")
+    if not latest:
+        print("[warn] rookie starters skipped — depth-chart snapshot carries no dt",
+              file=sys.stderr)
+        return None
+    team_facts = _team_sos_and_bye(schedule_games, ratings)
+    players = []
+    for r in dc_rows:
+        if r.get("dt") != latest or r.get("pos_abb") not in _DC_STARTER_POSITIONS:
+            continue
+        if str(r.get("pos_rank")) != "1":
+            continue
+        gid = (r.get("gsis_id") or "").strip()
+        if gid not in rookies:
+            continue
+        team = (r.get("team") or "").strip()
+        facts = team_facts.get(team, {})
+        players.append({
+            "gsis_id": gid,
+            "name": r.get("player_name") or gid,
+            "team": team,
+            "position": r.get("pos_abb"),
+            "slot": r.get("pos_slot") or r.get("pos_abb"),
+            # The owner's rule: RB depth listings are committee/handcuff
+            # territory — the card must state the role is UNSETTLED rather
+            # than implying a locked starter's workload.
+            "role_unsettled": r.get("pos_abb") == "RB",
+            "sos": facts.get("sos"),
+            "bye_week": facts.get("bye_week"),
+        })
+    players.sort(key=lambda p: (p["position"], p["team"], p["gsis_id"]))
+    return {"snapshot_utc": latest, "players": players}
+
+
 def _carry_rookie_flags(src_records, dst_records):
     """Copy `rookie` flags from one record list onto another, by gsis_id, IN
     PLACE on dst. R41b (2026-09-01 incident): the injury re-projection pass
@@ -979,6 +1073,31 @@ def main():
         first_week=wk, completions_by_id=completions_by_id,
         components_by_id=components_by_id)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
+
+    # R45 — FACTS-ONLY rookie starters (owner's pick: facts, never invented
+    # points). Guarded enrichment: a feed failure keeps the last-good file and
+    # marks the feed degraded, loudly.
+    rs = _rookie_starters(predicted, ratings)
+    if rs is not None:
+        _write(os.path.join(DATA, "rookie_starters.json"), {
+            "season": SEASON, "updated_utc": now,
+            "snapshot_utc": rs["snapshot_utc"],
+            "source": f"nflverse_depth_charts_{SEASON} (latest snapshot, pos_rank 1) "
+                      f"+ nflverse_rosters_{SEASON} (years_exp == 0)",
+            "players": rs["players"],
+        })
+        feeds["rookie_starters"] = {"rows": len(rs["players"]), "age_hours": 0.0,
+                                    "last_success_utc": now, "status": "ok"}
+        if not rs["players"]:
+            feeds["rookie_starters"]["note"] = (
+                "0 rookies hold a depth-chart rank-1 slot in the latest "
+                "snapshot — a fact about the league, not an outage.")
+        unsettled = sum(1 for p in rs["players"] if p["role_unsettled"])
+        print(f"rookie starters: {len(rs['players'])} depth-chart rank-1 rookies "
+              f"({unsettled} RB role-unsettled) — facts only, no invented points")
+    else:
+        feeds["rookie_starters"] = {"rows": 0, "age_hours": 999.0,
+                                    "last_success_utc": None, "status": "degraded"}
 
     # === PARLAYS (moved from the early slot — needs weekly + projections) ========
     # Real odds when ODDS_API_KEY is set; graceful model-seeded fallback when not.

@@ -103,6 +103,8 @@ SCHEMA_TO_DATA = {
     # and unwired (see its docstring), but the committed artifact still gets the
     # same gate as every other data/ file.
     "preseason_form.schema.json": "preseason_form.json",
+    # R45 — facts-only rookie starters (no projection field by contract).
+    "rookie_starters.schema.json": "rookie_starters.json",
 }
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
@@ -809,6 +811,9 @@ _ZERO_ROW_OK = frozenset({
     # 0 regular-season finals before kickoff is a fact about the calendar
     # (scripts/build_predictions.py stamps the explaining note).
     "espn_results_2026",
+    # R45 — 0 rookies at depth-chart rank 1 is a fact about the league's depth
+    # charts, not an outage (the writer stamps the explaining note).
+    "rookie_starters",
 })
 # Feeds whose recorded age may exceed _MAX_OK_AGE_HOURS while still honestly
 # `ok`: environment measures the CLOSED 2021-2025 window and is deliberately

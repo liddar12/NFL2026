@@ -98,6 +98,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     '/data/player_weekly.json', '/data/ai_insights.json', '/data/player_history.json',
     '/data/team_strength.json', '/data/market_prices.json', '/data/playoff_odds.json',
     '/data/model_tuning.json', '/data/adp.json',
+    // R45 — facts-only rookie starters (schema'd, validated; no projection
+    // field by contract), read by the PLAYERS rookies-only strip.
+    '/data/rookie_starters.json',
     // app/kdst.js — the one contract loaded outside data.js, same cache pattern
     '/data/kdst_projections.json',
   ]);
