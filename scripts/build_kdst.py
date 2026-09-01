@@ -128,6 +128,9 @@ TEAM_WEEK_COLUMNS = (
     "special_teams_tds", "def_sacks", "def_interceptions", "def_tds",
     "def_safeties", "def_punt_blocks", "def_pat_blocks", "def_fg_blocks",
     "fumble_recovery_opp",
+    # R46 (owner's pick: measure what the data supports) — three more
+    # defensive counting columns stats_team_week actually carries.
+    "def_tackles_for_loss", "def_fumbles_forced", "def_pass_defended",
 )
 GAMES_COLUMNS = ("game_id", "home_team", "away_team", "home_score", "away_score")
 
@@ -157,6 +160,20 @@ YDS_ALLOW_KEYS = (
     "yds_allow_300_349", "yds_allow_350_399", "yds_allow_400_449",
     "yds_allow_450_499", "yds_allow_500_549", "yds_allow_550p",
 )
+
+# R46 — Sleeper keys MEASURED from columns stats_team_week and games.csv
+# really carry (owner's pick over estimation: measured beats estimated).
+# Same contract note as YDS_ALLOW_KEYS: not in league.js SCORING_FIELDS;
+# league.js applies unknown scoring keys exactly like known ones, so a
+# Sleeper league importing them scores correctly with no app change.
+#   pts_allow      LINEAR points allowed (Sleeper prices it per point) — the
+#                  same per-game score the pts_allow_* tiers already bucket.
+#   ff             whole-team forced fumbles (def_fumbles_forced) — the same
+#                  whole-team attribution note as fum_rec: a league also
+#                  scoring def_st_ff is mis-attributed, not under-counted.
+#   tkl_loss       def_tackles_for_loss.
+#   def_pass_def   def_pass_defended.
+MEASURED_EXTRA_DEF_KEYS = ("pts_allow", "ff", "tkl_loss", "def_pass_def")
 
 # Points-allowed tier boundaries: (key, inclusive_max). Last is the open top.
 _PTS_TIERS = (
@@ -199,7 +216,10 @@ UNMODELLED_KEYS = (
         "position": "DEF",
         "reason": "stats_team_week reports def_fumbles_forced for the whole "
                   "team; special-teams forced fumbles are not separable from "
-                  "defensive ones at weekly granularity.",
+                  "defensive ones at weekly granularity. The modelled DEF "
+                  "`ff` IS that whole-team column (R46), so special-teams "
+                  "forced fumbles are already counted inside ff: a league "
+                  "scoring both keys is mis-attributed, not under-counted.",
     },
     {
         "key": "def_st_fum_rec",
@@ -451,7 +471,7 @@ def aggregate_defenses(team_rows_by_season, scores_by_game, team_names=None):
     if not seasons:
         return [], []
     weights = _season_weights(seasons)
-    all_keys = DEF_KEYS + YDS_ALLOW_KEYS
+    all_keys = DEF_KEYS + YDS_ALLOW_KEYS + MEASURED_EXTRA_DEF_KEYS
 
     acc = {}
     skipped = []
@@ -531,6 +551,13 @@ def aggregate_defenses(team_rows_by_season, scores_by_game, team_names=None):
                               + _num(r, "def_pat_blocks")
                               + _num(r, "def_fg_blocks"))
             t[_tier(pts_allowed, _PTS_TIERS)] += 1.0
+            # R46 — the measured extras. pts_allow is the LINEAR form of the
+            # same number the tier above buckets; the other three are direct
+            # stats_team_week columns (required by TEAM_WEEK_COLUMNS).
+            t["pts_allow"] += float(pts_allowed)
+            t["ff"] += _num(r, "def_fumbles_forced")
+            t["tkl_loss"] += _num(r, "def_tackles_for_loss")
+            t["def_pass_def"] += _num(r, "def_pass_defended")
             yds_allowed = (_num(opp_row, "passing_yards")
                            + _num(opp_row, "sack_yards_lost")
                            + _num(opp_row, "rushing_yards"))
@@ -682,7 +709,8 @@ def build(selftest=False):
                          "real league profile.",
         "modelled_keys": {
             "K": list(KICKER_KEYS),
-            "DEF": list(DEF_KEYS) + list(YDS_ALLOW_KEYS),
+            "DEF": list(DEF_KEYS) + list(YDS_ALLOW_KEYS)
+                   + list(MEASURED_EXTRA_DEF_KEYS),
         },
         "unmodelled_keys": [dict(k) for k in UNMODELLED_KEYS],
         "partial_scoring": {"K": False, "DEF": True},
