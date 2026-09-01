@@ -63,6 +63,16 @@ test('R48: the remembered roster round-trips per league and is wiped by RESET AL
   assert.deepEqual(loadMyRosterMap(bad), {});
   assert.equal(saveMyRoster('', 4, store), false, 'no league id, nothing written');
   assert.ok(RESET_ALL_KEYS.includes(MY_ROSTER_KEY));
+  assert.ok(RESET_ALL_KEYS.includes('nfl2026.synclog.v1'), 'RESET ALL clears the LEAGUE tab log too');
+});
+
+test('R48-B wiring: both syncs write the LEAGUE tab log', () => {
+  const sync = TEAM_SRC.slice(TEAM_SRC.indexOf("act === 'sleeper-sync'"), TEAM_SRC.indexOf("act === 'sleeper-paste'"));
+  assert.match(sync, /recordSync\(\{\s*kind: 'settings'/);
+  assert.match(sync, /scoring key\(s\) differ from standard PPR/);
+  const start = TEAM_SRC.indexOf('function applyRosterPlan(');
+  const block = TEAM_SRC.slice(start, TEAM_SRC.indexOf('/** Fold an ImportResult into the panel', start));
+  assert.match(block, /recordSync\(\{\s*kind: 'roster'/);
 });
 
 test('R48: the roster read selects a remembered team and seats it when nobody would be dropped', () => {

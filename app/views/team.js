@@ -68,6 +68,7 @@ import {
   normalizeTeamBudgets, totalRoomMoney,
 } from '../auction.js';
 import { TEAMS } from '../teams.js';
+import { recordSync, scoringDiff, shapeDiff, SYNC_LOG_KEY } from '../synclog.js';
 import {
   FLEX_ELIGIBILITY, FLEX_TOKENS, LEAGUE_BOUNDS, LEAGUE_KEY, LEAGUE_STASH_KEY,
   clearProfile, cloneProfile, isDefaultProfile, loadProfile, loadStashedProfile,
@@ -185,6 +186,7 @@ export const RESET_ALL_KEYS = Object.freeze([
   LEAGUE_STASH_KEY,  // the saved-not-applied league (RESTART's shelf)
   LEAGUE_ID_KEY,     // R47 — the remembered Sleeper league id
   MY_ROSTER_KEY,     // R48 — which Sleeper roster is mine, per league
+  SYNC_LOG_KEY,      // R48 — the LEAGUE tab's sync log
   AUCTION_TEAMS_KEY, // per-team budgets + names
   MOCKS_KEY,         // draft history + auction room memory (v2)
   MOCKS_KEY_V1,      // the legacy history key the migration reads
@@ -3290,6 +3292,20 @@ export default async function mountTeam(el) {
     const team = rosterTeams && rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
     const leagueId = parseLeagueId(sleeperId);
     if (team && leagueId) saveMyRoster(leagueId, team.roster_id);
+    try {
+      recordSync({
+        kind: 'roster',
+        league_id: leagueId,
+        league_name: savedProfile.name,
+        changes: [
+          `${team ? team.label : 'Roster'}: ${rosterPlan.after_count} player(s) seated, `
+            + `${rosterPlan.dropped.length} removed${auto ? ' (one-press sync)' : ''}`,
+          ...(rosterPlan.unplaced.length ? [`${rosterPlan.unplaced.length} matched but no slot left`] : []),
+          ...(rosterMissed.length ? [`${rosterMissed.length} not in this app's player pool`] : []),
+        ],
+      });
+      try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
+    } catch (err) { /* the log is a convenience; the seat stands without it */ }
     rosterStatus = {
       tone: 'ok',
       lines: [`${auto ? 'Synced: ' : ''}roster ${auto ? 'seated' : 'replaced'} from Sleeper`
@@ -4674,6 +4690,23 @@ export default async function mountTeam(el) {
             try { localStorage.setItem(SCORING_KEY, nextMode); } catch (err) { /* session-only */ }
           }
           saveLeagueId(idText);
+          // R48 — the LEAGUE tab's log: what this sync applied, in plain lines.
+          try {
+            const diffs = scoringDiff(importProfile);
+            const shapeLines = shapeDiff(importProfile).lines;
+            recordSync({
+              kind: 'settings',
+              league_id: parseLeagueId(idText),
+              league_name: importProfile.name,
+              changes: [
+                `${importProfile.shape.teams} teams · ${importProfile.shape.starters} starters + `
+                  + `${importProfile.shape.bench} bench · ${receptionLabel(importProfile)}`,
+                `${diffs.length} scoring key(s) differ from standard PPR`,
+                ...shapeLines,
+                `Scoring mode ${nextMode === 'custom' ? 'left on the toggle (custom rec value)' : `locked to ${nextMode.toUpperCase()}`}`,
+              ],
+            });
+          } catch (err) { /* the log is a convenience; the sync stands without it */ }
           try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
           // R48 — the remount below continues into the roster sync (one press).
           pendingAutoRoster = parseLeagueId(idText);
