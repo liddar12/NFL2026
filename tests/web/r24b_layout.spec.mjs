@@ -28,6 +28,9 @@ const readData = (rel) =>
 
 const KDEF_ROSTER = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF',
   'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
+/** The pre-R47 offence-only league (no K, no DEF). */
+const SEVEN_ROSTER = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX',
+  'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
 
 /** Ids out of the committed projections, by position. */
 function pool() {
@@ -136,16 +139,32 @@ for (const [label, profile] of [['a default league', null], ['a K/DEF league', {
    3. THE 59KB K/DST CONTRACT IS NOT FETCHED WHEN IT CANNOT BE USED
    ========================================================================== */
 
-test('a default-profile lineup never requests the K/DST contract', async ({ page }) => {
+test('a league with NO K/DEF slot never requests the K/DST contract', async ({ page }) => {
+  // R47: the DEFAULT league seats K1/DEF1, so it DOES fetch the contract; the
+  // league that never asks for it is one whose roster names no K/DEF token.
   const asked = [];
   page.on('request', (r) => { if (r.url().includes('kdst_projections.json')) asked.push(r.url()); });
-  await seed(page, { slots: mixedRoster() });
+  await seed(page, {
+    profile: { version: 1, name: 'Offence Only', shape: { teams: 12, roster_positions: [...SEVEN_ROSTER] } },
+    slots: mixedRoster(),
+  });
   await page.goto('/#/lineup');
   await page.waitForSelector('.lu-row', { timeout: 15000 });
   // The card is fully painted (7 starter rows) and the contract was never asked for.
   expect(await page.locator('.lu-card').first().locator('.lu-row').count()).toBe(7);
   await page.waitForTimeout(500);
   expect(asked).toEqual([]);
+});
+
+test('R47: a default-profile lineup requests the K/DST contract once and paints nine rows', async ({ page }) => {
+  const asked = [];
+  page.on('request', (r) => { if (r.url().includes('kdst_projections.json')) asked.push(r.url()); });
+  await seed(page, { slots: mixedRoster() });
+  await page.goto('/#/lineup');
+  await page.waitForSelector('.lu-row', { timeout: 15000 });
+  expect(await page.locator('.lu-card').first().locator('.lu-row').count()).toBe(9);
+  await page.waitForTimeout(500);
+  expect(asked.length).toBe(1);
 });
 
 test('a K/DEF lineup still requests it, and still seats the kicker', async ({ page }) => {
@@ -174,7 +193,12 @@ test('a K parked on a BENCH slot survives a league that dropped the position', a
   const doc = readData('kdst_projections.json');
   const slots = mixedRoster();
   slots.BN6 = doc.kickers[0].player_id;
-  await seed(page, { slots });
+  // R47: the default league seats a K, so "a league that dropped the position"
+  // has to be spelled out — an offence-only roster.
+  await seed(page, {
+    profile: { version: 1, name: 'Offence Only', shape: { teams: 12, roster_positions: [...SEVEN_ROSTER] } },
+    slots,
+  });
   await page.goto('/#/lineup');
   await page.waitForSelector('.lu-row--bench', { timeout: 15000 });
   const bench = await page.locator('.lu-card').last().innerText();

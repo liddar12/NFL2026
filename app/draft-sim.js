@@ -63,7 +63,8 @@ export const ROSTER_BOUNDS = Object.freeze({
   k: [0, 1], def: [0, 1],
 });
 export const DEFAULT_ROSTER = Object.freeze({
-  qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6, k: 0, def: 0,
+  // R47 — the default league fields K and DEF (owner's pick: first-class).
+  qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 6, k: 1, def: 1,
 });
 
 const _clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 0)));

@@ -119,7 +119,8 @@ test('rosterGeometry(): no shape reproduces the frozen slots, caps and demand', 
   assert.deepEqual(geo.starters, [...STARTER_SLOTS]);
   assert.deepEqual(geo.bench, [...BENCH_SLOTS]);
   assert.deepEqual(geo.all, [...SLOT_ORDER]);
-  assert.deepEqual(geo.caps, { ...POSITION_CAPS });
+  // R47: K and DEF are started by default, so each gets a starter + one backup.
+  assert.deepEqual(geo.caps, { ...POSITION_CAPS, K: 2, DEF: 2 });
   assert.deepEqual(geo.demand, { ...STARTER_DEMAND });
   assert.equal(geo.legacy, true);
   assert.deepEqual(rosterGeometry(undefined).all, [...SLOT_ORDER]);
@@ -237,9 +238,12 @@ test('a 9-starter K+DEF league keeps all 15 slots and its K/DEF eligibility', ()
   assert.equal(slotEligible('DEF', 'DEF1', P_K_DEF), true);
   assert.equal(slotEligible('K', 'BN1', P_K_DEF), true, 'bench holds a bye-week kicker');
   assert.equal(slotEligible('K', 'FLEX', P_K_DEF), false, 'a K never fills the FLEX');
-  // The frozen geometry has no such slot at all — this is the bug.
-  assert.equal(slotEligible('K', 'K1'), false);
-  assert.equal(SLOT_ORDER.includes('K1'), false);
+  // R47: the frozen geometry seats K1/DEF1 too — the pre-R47 gap is closed.
+  assert.equal(slotEligible('K', 'K1'), true);
+  assert.equal(slotEligible('DEF', 'DEF1'), true);
+  assert.equal(slotEligible('K', 'BN1'), true, 'default bench holds a bye-week kicker');
+  assert.equal(slotEligible('K', 'FLEX'), false);
+  assert.ok(SLOT_ORDER.includes('K1') && SLOT_ORDER.includes('DEF1'));
 });
 
 test('neediestOpenSlot(): an open K1 is a real open STARTER, not a bench slot', () => {
@@ -252,8 +256,8 @@ test('neediestOpenSlot(): an open K1 is a real open STARTER, not a bench slot', 
   };
   const roster = slotsFor(geo, filled);
   assert.equal(neediestOpenSlot(roster, pool, weekly, 'ppr', P_K_DEF), 'K1');
-  assert.equal(neediestOpenSlot(roster, pool, weekly, 'ppr'), 'BN1',
-    'the frozen geometry cannot see K1/DEF1 and falls through to the bench');
+  assert.equal(neediestOpenSlot(roster, pool, weekly, 'ppr'), 'K1',
+    'R47: the frozen geometry seats K1/DEF1 and answers like the profile');
 });
 
 test('fitScore(): a starter in QB2 counts as a starter (the frozen 13 slots missed it)', () => {
@@ -322,8 +326,9 @@ test('replacementIndex(): league-wide rank = round(demand x teams) - 1, floored 
 });
 
 test('positionDemand(): the classic FLEX spreads {RB .45, WR .45, TE .10}', () => {
-  assert.deepEqual(positionDemand(rosterShape(null)), { QB: 1, RB: 2.45, WR: 2.45, TE: 1.1 });
-  assert.deepEqual(positionDemand(DEFAULT_PROFILE), { QB: 1, RB: 2.45, WR: 2.45, TE: 1.1 });
+  // R47: the default league demands one K and one DEF as well.
+  assert.deepEqual(positionDemand(rosterShape(null)), { QB: 1, RB: 2.45, WR: 2.45, TE: 1.1, K: 1, DEF: 1 });
+  assert.deepEqual(positionDemand(DEFAULT_PROFILE), { QB: 1, RB: 2.45, WR: 2.45, TE: 1.1, K: 1, DEF: 1 });
   assert.deepEqual(positionDemand(P_2QB), { QB: 2, RB: 2.45, WR: 2.45, TE: 1.1 });
   // A K+DEF league demands one of each; the FLEX never leaks into them.
   const kd = positionDemand(P_K_DEF);

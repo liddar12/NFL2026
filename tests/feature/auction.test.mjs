@@ -40,7 +40,7 @@ function newAuction(overrides = {}) {
   const rows = board();
   return createAuction({
     leagueSize: 4, mySlot: 2, budget: 200,
-    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 }, // 11 slots
+    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4, k: 0, def: 0 }, // 11 slots (R47 seats K/DEF by default; this room is offence-only)
     boardRows: rows, adjPointsById: adjMap(rows), seed: 11, ...overrides,
   });
 }

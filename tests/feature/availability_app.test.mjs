@@ -214,6 +214,11 @@ test('chip HTML escapes its evidence-free fields — no injection through a feed
 
 /* ---- F3 — the optimizer never silently auto-starts an unavailable player ---- */
 
+/** The pre-R47 seven-starter league — these tests are about availability, not
+ * the K1/DEF1 slots the default league seats since R47 (those warn
+ * no_projection_feed until the kdst feed is passed, which is a different fact). */
+const SEVEN = { shape: { roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'] } };
+
 const ROSTER = () => ([
   { id: 'qb', pos: 'QB', pts: 21 },
   { id: 'rbStar', pos: 'RB', pts: 18 }, { id: 'rbIR', pos: 'RB', pts: 12.4, playable: false },
@@ -224,7 +229,7 @@ const ROSTER = () => ([
 ]);
 
 test('an available 4.0 beats an unavailable 12.4 for the same slot', () => {
-  const { slots, bench, warnings } = bestLineup(ROSTER());
+  const { slots, bench, warnings } = bestLineup(ROSTER(), SEVEN);
   assert.equal(slots.RB1, 'rbStar');
   assert.equal(slots.RB2, 'rbScrub', 'the IR back does NOT take RB2 on points');
   assert.ok(bench.includes('rbIR'), 'he is on the bench, where a manager expects him');
@@ -249,7 +254,7 @@ test('a forced start is FILLED and FLAGGED — never empty, never silent', () =>
     { id: 'wrA', pos: 'WR', pts: 15 }, { id: 'wrB', pos: 'WR', pts: 13 }, { id: 'wrC', pos: 'WR', pts: 6 },
     { id: 'te', pos: 'TE', pts: 8 },
   ];
-  const { slots, warnings } = bestLineup(players);
+  const { slots, warnings } = bestLineup(players, SEVEN);
   assert.equal(slots.RB1, 'rbIR1');
   assert.equal(slots.RB2, 'rbIR2');
   assert.equal(warnings.length, 2, 'one warning per forced slot');
@@ -276,12 +281,12 @@ test('rosters with NO playable flags behave exactly as before Rel17', () => {
     { id: 'wrA', pos: 'WR', pts: 18 }, { id: 'wrB', pos: 'WR', pts: 11 }, { id: 'wrC', pos: 'WR', pts: 9 },
     { id: 'te', pos: 'TE', pts: 7 },
   ];
-  const l = bestLineup(players);
+  const l = bestLineup(players, SEVEN);
   assert.equal(l.slots.FLEX, 'rbC');
   assert.equal(l.total, 22 + 20 + 15 + 18 + 11 + 7 + 13);
   assert.deepEqual(l.warnings, []);
   // playable:true is identical to absent.
-  const l2 = bestLineup(players.map((p) => ({ ...p, playable: true })));
+  const l2 = bestLineup(players.map((p) => ({ ...p, playable: true })), SEVEN);
   assert.deepEqual(l2.slots, l.slots);
   assert.equal(l2.total, l.total);
 });

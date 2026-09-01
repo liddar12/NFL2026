@@ -19,8 +19,12 @@
 
 import { getPlayerProjections, getPlayerWeekly } from '../data.js';
 import { projSeason, myRosterIds } from './players.js';
-import { loadScoringMode, withLeagueExtras } from '../team-logic.js';
-import { loadProfile, rosterPositionsInPlay } from '../league.js';
+import { loadScoringMode, withLeagueExtras, SCORING_KEY } from '../team-logic.js';
+import { scoringMode } from '../league.js';
+import {
+  loadProfile, rosterPositionsInPlay, saveProfile, saveLeagueId, loadLeagueId,
+  isDefaultProfile, normalizeProfile,
+} from '../league.js';
 import {
   getKdstProjections, shapeKdst, isKdstPosition, canonKdstPosition,
 } from '../kdst.js';
@@ -92,7 +96,29 @@ function weeklyTableHtml(table) {
 
 /* --------------------------------------------------------------- Sleeper */
 
-async function loadSleeperLeague(idText, pool, projOf, shape, out) {
+/* R47 — a LOAD on this tab is a league sync for the WHOLE session: the
+ * league's settings are saved (profile + scoring lock + league id) exactly
+ * as TEAM's SYNC NOW saves them, then this view remounts so its shape, pool
+ * and pricing are the league's before grading. `pendingAutoload` carries the
+ * LOAD across that remount so the user presses nothing twice. */
+let pendingAutoload = false;
+
+async function syncLeagueSettings(sleeper, idText) {
+  const imported = await sleeper.importFromSleeper(idText);
+  if (!imported.ok || !imported.profile) return { changed: false, name: null };
+  const next = normalizeProfile(imported.profile);
+  const changed = JSON.stringify(next) !== JSON.stringify(loadProfile());
+  if (changed) saveProfile(next);
+  const mode = scoringMode(next);
+  if (mode !== 'custom') {
+    try { localStorage.setItem(SCORING_KEY, mode); } catch (err) { /* session-only */ }
+  }
+  saveLeagueId(idText);
+  try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
+  return { changed, name: next.name };
+}
+
+async function loadSleeperLeague(idText, pool, projOf, shape, out, remount) {
   out.innerHTML = '<div class="state state--loading">Reading your league from Sleeper — '
     + 'rosters, schedule and its player list (several MB)…</div>';
   // Lazy on purpose: none of this rides the paste path or the boot path.
@@ -105,6 +131,15 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out) {
     return;
   }
   const meta = gradeLeague.leagueMeta(leagueRes.payload);
+  // R47 — save the league for every tab FIRST (pre-draft leagues carry their
+  // settings already); if the saved profile changed, remount so this view's
+  // shape/pool/pricing are the league's, then continue the load automatically.
+  const synced = await syncLeagueSettings(sleeper, idText);
+  if (synced.changed && typeof remount === 'function') {
+    pendingAutoload = true;
+    remount();
+    return;
+  }
   if (meta.preDraft) {
     out.innerHTML = `<div class="state">“${esc(meta.name)}” is ${esc(meta.status)} on Sleeper. `
       + 'Rosters and the weekly schedule appear once your draft has run — load again after '
@@ -173,6 +208,10 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out) {
   const totals = graded.map((g) => g.grade.total);
 
   const notes = [];
+  if (!isDefaultProfile(loadProfile())) {
+    notes.push(`League settings saved: "${meta.name}" scoring and roster shape apply on every `
+      + 'tab this session (RESET ALL on TEAM clears them).');
+  }
   notes.push(`Real schedule from Sleeper: weeks 1–${endWeek}`
     + (meta.playoffWeekStart ? '' : ' (playoff start missing on Sleeper — 14 assumed)')
     + `; playoffs ${meta.playoffTeams || '?'} team(s).`);
@@ -318,10 +357,23 @@ export default async function mountGrade(el) {
       leagueOut.innerHTML = '<div class="state">Paste your Sleeper league id or URL first.</div>';
       return;
     }
-    loadSleeperLeague(idText, pool, projOf, shape, leagueOut).catch((err) => {
+    loadSleeperLeague(idText, pool, projOf, shape, leagueOut, () => mountGrade(el)).catch((err) => {
       leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
     });
   });
+  // R47 — the remembered league prefills the box; after a settings sync the
+  // load continues on its own.
+  const remembered = loadLeagueId();
+  if (remembered) {
+    el.querySelector('#gr-league-id').value = remembered;
+    if (pendingAutoload) {
+      pendingAutoload = false;
+      loadSleeperLeague(remembered, pool, projOf, shape, leagueOut, () => mountGrade(el))
+        .catch((err) => {
+          leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
+        });
+    }
+  }
 
   const out = el.querySelector('#gr-out');
   el.querySelector('#gr-go').addEventListener('click', () => {

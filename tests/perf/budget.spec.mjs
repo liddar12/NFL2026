@@ -170,7 +170,11 @@ const ROUTES = [
   { hash: '#/players', name: 'players', contracts: 8 },
   { hash: '#/parlays', name: 'parlays', contracts: 4 },
   { hash: '#/team', name: 'team', contracts: 9 },
-  { hash: '#/lineup', name: 'lineup', contracts: 5 },
+  // R47 — the DEFAULT league now fields K and DEF (owner's pick: first-class
+  // everywhere), so LINEUP's conditional second-wave kdst fetch is live on a
+  // cold default load: 5 -> 6, measured 3x byte-identical. PLAYERS stays at 8
+  // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
+  { hash: '#/lineup', name: 'lineup', contracts: 6 },
   { hash: '#/model', name: 'model', contracts: 6 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
 ];
@@ -187,6 +191,16 @@ const VIEW_NODE_CEILING = 5000;
 // was +10.0 per Team mount, perfectly linear and unbounded. 3 leaves room for
 // one or two more legitimately-permanent registrations without ever tolerating
 // a per-mount leak.
+//
+// R47: the sample is taken AFTER a forced garbage collection. JSEventListeners
+// counts listener wrappers still on the heap, and a listener unbound by its
+// mount's AbortController lingers there until the next GC — so the raw metric
+// is a sawtooth (18 -> 33 -> 48 -> 18 ...) whose final reading depends on
+// where the collector happened to be, not on whether anything leaked. R47 made
+// the Team mount heavier (K/DEF rows are seated by default), which shifted
+// that cadence and read as +4.5/lap on a build with no leak at all: with the
+// collector forced first the same build is flat at 18/18 for all ten laps.
+// A real leak (a listener nothing ever unbinds) survives GC and still fails.
 const LISTENER_GROWTH_PER_LAP_CEILING = 3;
 const LISTENER_LAPS = 10;
 
@@ -377,11 +391,12 @@ test.describe('R25 performance budget — per-route cold contract counts', () =>
 
       expect(got.length, `#/${r.name} cold contracts: ${got.sort().join(', ')}`)
         .toBeLessThanOrEqual(r.contracts);
-      // R24's win, re-locked: the K/DST projections (74 rows, 58 kB) are only
-      // ever needed by the draft builder. On the default 7-starter league there
-      // are no K/DEF seats at all, so no other route may pull them — and
-      // lineup.js's conditional second-wave await must stay dormant.
-      if (r.name !== 'team') {
+      // R24's win, re-scoped by R47: the K/DST projections (74 rows, 58 kB)
+      // are pulled only by routes that SEAT K/DEF — the draft builder and,
+      // now that the default league fields K and DEF, the lineup card. The
+      // slate/players/parlays/model/compare routes still never pull them
+      // (PLAYERS fetches them lazily on a K/DEF chip tap, never on cold load).
+      if (r.name !== 'team' && r.name !== 'lineup') {
         expect(got, `#/${r.name} must not fetch kdst_projections.json`)
           .not.toContain('kdst_projections.json');
       }
@@ -404,7 +419,11 @@ test('navigating away and back does not leak event listeners', async ({ browser 
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Performance.enable');
+  await cdp.send('HeapProfiler.enable');
   const listeners = async () => {
+    // Count what SURVIVES a collection: unbound-but-uncollected wrappers are
+    // garbage, not a leak (see LISTENER_GROWTH_PER_LAP_CEILING).
+    await cdp.send('HeapProfiler.collectGarbage');
     const { metrics } = await cdp.send('Performance.getMetrics');
     return metrics.find((m) => m.name === 'JSEventListeners').value;
   };

@@ -234,7 +234,7 @@ test.describe('team builder (#/team)', () => {
     await page.goto('/#/team');
     await page.waitForSelector('.roster .slot', { timeout: 8000 });
     // The contract roster: QB,RB,RB,WR,WR,TE,FLEX + 6 bench = 13 slots.
-    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.roster .slot').count()).toBe(15); // R47: K1 + DEF1 seated by default
 
     // Add the QB via the finder — he fills QB1.
     await page.fill('.finder-input', qb.name);
@@ -759,13 +759,13 @@ test.describe('draft simulator + RESET (REL6, #/team)', () => {
     // a Sleeper import: a hand-built league could not state that it seats one,
     // while the roster panel rendered the slot and the room drafted it.
     expect(await page.locator('.ds-grid--roster .ds-field').count()).toBe(8);
-    // Default shape QB+2RB+2WR+TE+FLEX+6 = 13 rounds, echoed live in the note
-    // and on the start button; bumping BENCH to 7 re-counts both to 14.
-    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('13 ROUNDS');
-    await expect(page.locator('.ds-start')).toContainText('13 ROUNDS');
+    // Default shape QB+2RB+2WR+TE+FLEX+K+DEF+6 = 15 rounds (R47), echoed live in
+    // the note and on the start button; bumping BENCH to 7 re-counts both to 16.
+    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('15 ROUNDS');
+    await expect(page.locator('.ds-start')).toContainText('15 ROUNDS');
     await page.locator('.ds-select[data-dcfg="bench"]').selectOption('7');
-    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('14 ROUNDS');
-    await expect(page.locator('.ds-start')).toContainText('14 ROUNDS');
+    await expect(page.locator('.ds-sub-note').nth(1)).toContainText('16 ROUNDS');
+    await expect(page.locator('.ds-start')).toContainText('16 ROUNDS');
     // The primary action uses the full card width (not a floating chip).
     // R34 — measured against the card's CONTENT box rather than a 0.9 ratio:
     // the always-on HIG theme pads the card 16px per side (vs 14px), which
@@ -1300,9 +1300,9 @@ test.describe('weekly lineup + compare (REL15)', () => {
     await page.goto('/#/lineup');
     await page.waitForSelector('.lu-card', { timeout: 8000 });
     await expect(page.locator('.tabbar .tab[data-tab="lineup"]')).toHaveCount(1);
-    // Exactly 7 starter rows (QB/RB/RB/WR/WR/TE/FLEX) in the optimal-lineup card.
+    // Exactly 9 starter rows (QB/RB/RB/WR/WR/TE/FLEX + K1/DEF1, R47) in the optimal-lineup card.
     const starters = await page.locator('.lu-card').first().locator('.lu-row').count();
-    expect(starters).toBe(7);
+    expect(starters).toBe(9);
     // A projected total renders, and the start/sit section is present.
     await expect(page.locator('.lu-total').first()).toContainText('pts');
     expect(await page.locator('.lu-move, .lu-optimal').count()).toBeGreaterThanOrEqual(1);
@@ -1471,7 +1471,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
 
     // The 7-starter lock is PRESERVED — demotion fills the slot from elsewhere.
     const optimalCard = page.locator('.lu-card').first();
-    expect(await optimalCard.locator('.lu-row').count()).toBe(7);
+    expect(await optimalCard.locator('.lu-row').count()).toBe(9); // R47: K1 + DEF1 rows
     // ...and the IR receiver is not one of them.
     expect(await optimalCard.innerText()).not.toContain(nameOf(wr[0]));
 
@@ -1552,7 +1552,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
 
     const optimalCard = page.locator('.lu-card').first();
     // Still exactly 7 starter rows — the slot is FILLED, not emptied.
-    expect(await optimalCard.locator('.lu-row').count()).toBe(7);
+    expect(await optimalCard.locator('.lu-row').count()).toBe(9); // R47: K1 + DEF1 rows
     // One shouting banner per forced slot, and the row does NOT recede.
     expect(await page.locator('.lu-forced').count()).toBe(2);
     expect(await optimalCard.locator('.lu-row--forced').count()).toBe(2);
@@ -1637,7 +1637,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     await page.addInitScript((r) => localStorage.setItem('nfl2026.team.v1', r), JSON.stringify({ slots }));
     await page.goto('/#/lineup');
     await page.waitForSelector('.lu-card', { timeout: 8000 });
-    expect(await page.locator('.lu-card').first().locator('.lu-row').count()).toBe(7);
+    expect(await page.locator('.lu-card').first().locator('.lu-row').count()).toBe(9); // R47
     expect(await page.locator('.av-chip').count()).toBe(0);
     expect(await page.locator('.lu-forced, .lu-swapnote, .lu-gap').count()).toBe(0);
     await expect(page.locator('.lu-total').first()).toContainText('pts');
@@ -1670,12 +1670,12 @@ test.describe('router: concurrent mounts', () => {
     await page.goto('/');
     await page.goto('/#/team');
     await page.waitForSelector('.roster .slot', { timeout: 8000 });
-    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.roster .slot').count()).toBe(15); // R47: K1 + DEF1 seated by default
 
     // Well past the held feed: the late boot mount must have been dropped, not
     // painted. Assert BOTH directions — team still there, slate never arrived.
     await page.waitForTimeout(2500);
-    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.roster .slot').count()).toBe(15); // R47: K1 + DEF1 seated by default
     expect(await page.locator('.wkbar').count()).toBe(0);
     expect(await page.locator('.tabbar .tab--active').getAttribute('data-tab')).toBe('team');
   });
@@ -1708,12 +1708,12 @@ test.describe('R19 League Profile — shape reaches the surfaces (P1 lock)', () 
     (p) => localStorage.setItem('nfl2026.league.v1', p), JSON.stringify(profile),
   );
 
-  test('with NO profile the grid is byte-for-byte the historical 13 slots', async ({ page }) => {
+  test('with NO profile the grid is the R47 default 15 slots (K1/DEF1 seated)', async ({ page }) => {
     // Backward compatibility is the load-bearing requirement: an unconfigured
     // user must see exactly what they saw before this release.
     await page.goto('/#/team');
     await page.waitForSelector('.roster .slot', { timeout: 8000 });
-    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.roster .slot').count()).toBe(15); // R47: K1 + DEF1 seated by default
   });
 
   test('the roster grid is built from the profile, not a frozen 13-slot constant', async ({ page }) => {

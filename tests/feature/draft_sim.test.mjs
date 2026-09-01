@@ -46,13 +46,17 @@ function adjMap(rows) {
 
 /* ---- roster shape ------------------------------------------------------------ */
 
-test('rosterShape: defaults reproduce the classic 13-slot shape', () => {
+test('rosterShape: defaults reproduce the R47 15-slot shape (K and DEF seated)', () => {
   const s = rosterShape(null);
   assert.deepEqual(s.config, DEFAULT_ROSTER);
-  assert.deepEqual(s.starters, ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
+  assert.deepEqual(s.starters, ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX', 'K1', 'DEF1']);
   assert.equal(s.bench.length, 6);
-  assert.equal(s.size, 13);
-  assert.deepEqual(s.starterDemand, { QB: 1, RB: 2, WR: 2, TE: 1 });
+  assert.equal(s.size, 15);
+  assert.deepEqual(s.starterDemand, { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 });
+  // The pre-R47 classic shape is still one explicit config away.
+  const classic = rosterShape({ k: 0, def: 0 });
+  assert.deepEqual(classic.starters, ['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
+  assert.equal(classic.size, 13);
 });
 
 test('rosterShape: values clamp to documented bounds', () => {
@@ -118,7 +122,7 @@ function runFullDraft(roomType) {
   const rows = board60();
   const draft = createDraft({
     leagueSize: 4, mySlot: 2, roomType,
-    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 }, // 11 rounds
+    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4, k: 0, def: 0 }, // 11 rounds (offence-only board)
     boardRows: rows, adjPointsById: adjMap(rows), seed: 7,
   });
   while (!draft.done) {
@@ -395,7 +399,7 @@ function runRoom(roomType, extra = {}) {
     leagueSize: 8,
     mySlot: 2,
     roomType,
-    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4 }, // 11 rounds
+    rosterConfig: { qb: 1, rb: 2, wr: 2, te: 1, flex: 1, bench: 4, k: 0, def: 0 }, // 11 rounds (offence-only board)
     boardRows: rows,
     adjPointsById: adjMap160(rows),
     seed: 11,

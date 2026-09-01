@@ -304,7 +304,7 @@ test.describe('installed (standalone) PWA experience', () => {
     await page.goto(url('/#/team'));
     await page.waitForSelector('.roster .slot', { timeout: 8000 });
     // Contract roster: QB,RB,RB,WR,WR,TE,FLEX + 6 bench = 13 slots.
-    expect(await page.locator('.roster .slot').count()).toBe(13);
+    expect(await page.locator('.roster .slot').count()).toBe(15); // R47: K1 + DEF1 seated by default
     // REL2 finder + reco controls render inside the standalone window.
     expect(await page.locator('.finder-posfilter .pf-chip').count()).toBeGreaterThanOrEqual(1);
     expect(await page.locator('.finder-sortseg .sort-chip').count()).toBeGreaterThanOrEqual(1);

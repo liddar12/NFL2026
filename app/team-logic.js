@@ -29,6 +29,7 @@
 import {
   normalizeProfile, rosterSlots, slotEligiblePositions, rosterPositionsInPlay,
   FLEX_ELIGIBILITY, BENCH_TOKEN, applyScoring, isDefaultProfile,
+  loadProfile, scoringMode,
 } from './league.js';
 
 /* --------------------------------------------------------------------------
@@ -36,17 +37,20 @@ import {
  * ------------------------------------------------------------------------ */
 
 /** Starter slots in display/priority order (the weekly-total lineup). */
-export const STARTER_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX']);
+export const STARTER_SLOTS = Object.freeze(['QB1', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'FLEX', 'K1', 'DEF1']);
 
 /** Bench slots. */
 export const BENCH_SLOTS = Object.freeze(['BN1', 'BN2', 'BN3', 'BN4', 'BN5', 'BN6']);
 
-/** All 13 slots, starters first — the "first eligible open slot" scan order. */
+/** All 15 slots, starters first — the "first eligible open slot" scan order. */
 export const SLOT_ORDER = Object.freeze([...STARTER_SLOTS, ...BENCH_SLOTS]);
 
-// Modeled positions only. No K / D-ST — the projection model does not cover
-// them and we never fake numbers for them.
+// Positions the offence projection model covers (data/player_projections.json).
 const MODELED = Object.freeze(['QB', 'RB', 'WR', 'TE']);
+// Positions the DEFAULT roster geometry seats. R47: K and DEF are first-class
+// everywhere — they ride the kdst contract (app/kdst.js), never an offence
+// conversion, and a missing feed is still shown as an empty slot, never a 0.
+const ROSTERED = Object.freeze(['QB', 'RB', 'WR', 'TE', 'K', 'DEF']);
 const FLEX_TAKES = Object.freeze(['RB', 'WR', 'TE']);
 
 /* --------------------------------------------------------------------------
@@ -245,7 +249,7 @@ function legacyGeometry() {
   const eligibility = {};
   SLOT_ORDER.forEach((slot) => {
     if (slot === 'FLEX') eligibility[slot] = [...FLEX_TAKES];
-    else if (BENCH_SLOTS.includes(slot)) eligibility[slot] = [...MODELED];
+    else if (BENCH_SLOTS.includes(slot)) eligibility[slot] = [...ROSTERED];
     else eligibility[slot] = [slot.replace(/\d+$/, '')];
   });
   _legacyGeo = {
@@ -255,10 +259,14 @@ function legacyGeometry() {
     bench: [...BENCH_SLOTS],
     all: [...SLOT_ORDER],
     eligibility,
-    positions: [...MODELED],
+    positions: [...ROSTERED],
     demand: { ...STARTER_DEMAND },
     flexSlots: [{ slot: 'FLEX', token: 'FLEX', positions: [...FLEX_TAKES] }],
-    caps: { ...POSITION_CAPS },
+    // R47: the default league STARTS a K and a DEF, so the app-default caps are
+    // derived exactly as profileGeometry derives them (a starter plus one
+    // bye/injury backup) — legacy and DEFAULT_PROFILE must answer alike.
+    caps: derivedCaps(POSITION_CAPS, STARTER_DEMAND,
+      [{ slot: 'FLEX', token: 'FLEX', positions: [...FLEX_TAKES] }], undefined),
   };
   return _legacyGeo;
 }
@@ -523,23 +531,57 @@ export function withLeagueExtras(weeklyById, profile) {
  * Returns null — unknown, never zero — when the entry carries no verified
  * component line; the caller falls back to the pass_cmp-only path.
  */
+/** ESPN's default-PPR points per unit for the component keys — the table the
+ *  projection totals encode. MIRRORS scripts/scrape/espn_players.py
+ *  _ESPN_DEFAULT_PPR (id -> value) by Sleeper key; the producer's
+ *  base_applied_pts is recomputed from it here as an integrity check. */
+export const ESPN_BASE_PPR = Object.freeze({
+  pass_yd: 0.04, pass_td: 4, pass_2pt: 2, pass_int: -2,
+  rush_yd: 0.1, rush_td: 6, rush_2pt: 2,
+  rec_yd: 0.1, rec_td: 6, rec_2pt: 2,
+  fum_lost: -2,
+});
+
 export function componentDelta(entry, profile) {
   const comps = entry && entry.league_components;
   const base = entry ? Number(entry.base_applied_pts) : NaN;
   if (!comps || typeof comps !== 'object' || !Number.isFinite(base)) return null;
-  // 'rec' can never appear in league_components (the pipeline's id map
-  // excludes statId 53) — the delete is belt-and-braces against a future
-  // producer change silently double-pricing receptions.
-  const stats = { ...comps };
-  delete stats.rec;
+  const p = normalizeProfile(profile);
+  const table = p && p.scoring ? p.scoring : {};
+  // R47 — PER-KEY repricing. A key the league table carries is repriced
+  // (league value - ESPN base value) x quantity; a key the table does NOT
+  // carry keeps its base value — "no rule stated" is not "pays zero". The
+  // first cut valued the whole line under the league table and subtracted
+  // the whole base, which read a partial table as paying nothing for every
+  // absent stat (a pass_cmp-only table sent Josh Allen -205). Receptions
+  // never appear here (statId 53 is outside the producer's map) and stay
+  // on the mode toggle.
+  let delta = 0;
+  let baseCheck = 0;
+  for (const [k, qtyRaw] of Object.entries(comps)) {
+    if (k === 'rec') continue;
+    const qty = Number(qtyRaw);
+    if (!Number.isFinite(qty)) continue;
+    const baseVal = ESPN_BASE_PPR[k] || 0;
+    baseCheck += baseVal * qty;
+    if (!Object.prototype.hasOwnProperty.call(table, k)) continue;
+    const leagueVal = Number(table[k]);
+    if (!Number.isFinite(leagueVal)) continue;
+    delta += (leagueVal - baseVal) * qty;
+  }
+  // The producer stamped what ESPN's table paid for these ids; if our mirror
+  // of that table disagrees by more than rounding, the two sides have
+  // drifted and the honest answer is "unknown", never a number.
+  if (Math.abs(baseCheck - base) > 1.0) return null;
   const bg = entry.bonus_games;
   if (bg && typeof bg === 'object') {
     for (const [k, n] of Object.entries(bg)) {
-      if (Number.isFinite(Number(n))) stats[k] = Number(n);
+      const games = Number(n);
+      const v = Number(table[k]);
+      if (Number.isFinite(games) && Number.isFinite(v)) delta += v * games;
     }
   }
-  const league = applyScoring(stats, profile);
-  return Math.round((league - base) * 100) / 100;
+  return Math.round(delta * 100) / 100;
 }
 
 /**
@@ -591,11 +633,35 @@ const SCORING_SET = new Set(['ppr', 'half', 'std']);
 
 /** The persisted scoring mode; unknown/unreadable falls to 'ppr'. */
 export function loadScoringMode() {
+  // R47 — THE LEAGUE WINS. With a saved (non-default) league whose rec value
+  // maps to a mode, that mode is the scoring mode on every page: the toggle
+  // showed one number while the league table said another, and the two
+  // could drift the moment a user tapped the toggle after a sync. A league
+  // with a 'custom' rec value (e.g. 0.75) falls through to the stored toggle.
+  // RESET ALL clears the profile, which unlocks the toggle again.
+  try {
+    const league = loadProfile();
+    if (!isDefaultProfile(league)) {
+      const m = scoringMode(league);
+      if (SCORING_SET.has(m)) return m;
+    }
+  } catch (err) { /* storage blocked — fall through to the toggle */ }
   try {
     const v = localStorage.getItem(SCORING_KEY);
     return SCORING_SET.has(v) ? v : 'ppr';
   } catch (err) {
     return 'ppr'; // storage blocked (private mode) — session default
+  }
+}
+
+/** R47 — true when the scoring mode is locked to a saved league (the toggle
+ *  must render disabled and say so). */
+export function scoringLockedToLeague() {
+  try {
+    const league = loadProfile();
+    return !isDefaultProfile(league) && SCORING_SET.has(scoringMode(league));
+  } catch (err) {
+    return false;
   }
 }
 
@@ -624,8 +690,8 @@ export function byeWeek(playerWeekly) {
 
 /**
  * Can a player at `position` legally occupy `slot`? FLEX takes RB/WR/TE;
- * bench takes any MODELED position (QB/RB/WR/TE — never K/D-ST, not modeled).
- * Unknown slot or unmodeled position -> false.
+ * bench takes any ROSTERED position (QB/RB/WR/TE/K/DEF — R47 seats K and DEF
+ * in the default geometry). Unknown slot or unrostered position -> false.
  *
  * With a `shape` the answer comes from THAT roster's slots instead: a league
  * that starts a K has a K1 slot and a bench that accepts kickers. Eligibility
@@ -639,7 +705,7 @@ export function slotEligible(position, slot, shape) {
     const allowed = rosterGeometry(shape).eligibility[s];
     return Array.isArray(allowed) && allowed.includes(pos);
   }
-  if (!MODELED.includes(pos)) return false;
+  if (!ROSTERED.includes(pos)) return false;
   if (s === 'FLEX') return FLEX_TAKES.includes(pos);
   if (BENCH_SLOTS.includes(s)) return true;
   if (STARTER_SLOTS.includes(s)) return s.replace(/\d+$/, '') === pos;
@@ -1284,7 +1350,7 @@ export function trendLabel(traj) {
  * positionDemand() spreads each flex slot by FLEX_WIN_SHARE instead — the same
  * spread app/auction.js uses, so the two engines agree.
  */
-export const STARTER_DEMAND = Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1 });
+export const STARTER_DEMAND = Object.freeze({ QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 });
 
 /** Scarcity threshold: at or below this many startable (at-or-above the
  * replacement level) players left at a position, bestPickNow adds a

@@ -373,16 +373,21 @@ export function renderPlayerCard(player, opts) {
         '</div>' +
       '</div>' +
       adorn +
-      '<div class="interval">' +
-        '<div class="lbl">80% conformal range</div>' +
-        '<div class="iv-scale">' +
-          '<div class="iv-band"></div>' +
-          `<div class="iv-pt" style="left:${pctLeft.toFixed(1)}%"></div>` +
-        '</div>' +
-        '<div class="iv-ends">' +
-          `<span>${esc(fix1(low))}</span><span>${esc(fix1(high))}</span>` +
-        '</div>' +
-      '</div>' +
+      // R47 — a K/DST contract row carries a league-priced season total but
+      // no conformal interval; say so instead of painting NaN ends.
+      (Number.isFinite(low) && Number.isFinite(high)
+        ? '<div class="interval">' +
+          '<div class="lbl">80% conformal range</div>' +
+          '<div class="iv-scale">' +
+            '<div class="iv-band"></div>' +
+            `<div class="iv-pt" style="left:${pctLeft.toFixed(1)}%"></div>` +
+          '</div>' +
+          '<div class="iv-ends">' +
+            `<span>${esc(fix1(low))}</span><span>${esc(fix1(high))}</span>` +
+          '</div>' +
+        '</div>'
+        : '<div class="interval interval--na"><div class="lbl">no conformal range — '
+          + 'K/DST contract, priced under your league\'s scoring table</div></div>') +
       `<div class="sigs">${renderSignals(player.signals_used)}</div>` +
       '<div class="estimate">' +
         '<span class="em">ESTIMATE</span> preseason — not yet measured' +
@@ -457,16 +462,24 @@ export const SCORING_MODES = ['ppr', 'half', 'std'];
  * Only rendered when player_weekly.json is available — the conversion needs
  * receptions_prior, so without it the view is honestly PPR-only.
  */
-export function renderScoreSeg(active) {
+export function renderScoreSeg(active, locked = false) {
+  // R47 — `locked`: the mode is pinned to the saved league's rec value
+  // (team-logic loadScoringMode), so the buttons render disabled and the seg
+  // says why. RESET ALL unlocks it.
   const btns = SCORING_MODES.map((mode) => {
     const on = mode === active;
     return (
-      `<button type="button" data-scoring="${mode}"` +
+      `<button type="button" data-scoring="${mode}"${locked ? ' disabled' : ''}` +
         `${on ? ' class="scoreseg--active"' : ''} aria-pressed="${on ? 'true' : 'false'}">` +
         `${mode.toUpperCase()}</button>`
     );
   }).join('');
-  return `<div class="scoreseg" role="group" aria-label="Scoring format">${btns}</div>`;
+  const lock = locked
+    ? '<span class="scoreseg-lock" title="Scoring follows your saved league\'s reception '
+      + 'value. RESET ALL on TEAM unlocks the toggle.">LOCKED TO LEAGUE</span>'
+    : '';
+  return `<div class="scoreseg${locked ? ' scoreseg--locked' : ''}" role="group" `
+    + `aria-label="Scoring format">${btns}${lock}</div>`;
 }
 
 /**

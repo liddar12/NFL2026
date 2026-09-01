@@ -2,7 +2,7 @@
  *
  * Orchestrates the fit engine (app/team-logic.js — pure, node-tested) against
  * the projection + weekly contracts and paints four sections:
- *   .roster        13 slots (QB1..FLEX starters, BN1..BN6 bench) — tap an empty
+ *   .roster        15 slots (QB1..FLEX, K1, DEF1 starters, BN1..BN6 bench) — tap an empty
  *                  slot to target recommendations, tap a filled one to remove
  *   .finder        substring search (name/team/pos) over the player pool; ADD
  *                  fills the first eligible open slot (FLEX RB/WR/TE, bench any)
@@ -73,7 +73,7 @@ import {
   clearProfile, cloneProfile, isDefaultProfile, loadProfile, loadStashedProfile,
   normalizeProfile, saveProfile, stashProfile,
   scoringMode, validateProfile, rosterSlots, slotAccepts, firstOpenSlot,
-  rosterPositionsInPlay, slotEligiblePositions,
+  rosterPositionsInPlay, slotEligiblePositions, saveLeagueId, LEAGUE_ID_KEY,
 } from '../league.js';
 import {
   SLEEPER_API_BASE, buildSleeperPlayerIndex, crosswalkRoster, importFromPastedJson,
@@ -147,6 +147,7 @@ export const RESET_ALL_KEYS = Object.freeze([
   TAKEN_KEY,         // the TAKEN board
   LEAGUE_KEY,        // the APPLIED league profile
   LEAGUE_STASH_KEY,  // the saved-not-applied league (RESTART's shelf)
+  LEAGUE_ID_KEY,     // R47 — the remembered Sleeper league id
   AUCTION_TEAMS_KEY, // per-team budgets + names
   MOCKS_KEY,         // draft history + auction room memory (v2)
   MOCKS_KEY_V1,      // the legacy history key the migration reads
@@ -295,15 +296,18 @@ export function validateSoldEntry({ buyerValue, priceValue } = {}) {
  */
 export function restartSessionStorage(storage) {
   const store = storage === undefined ? ambientStorage() : storage;
-  let stashed = false;
+  // R47 (owner's pick: "RESTART SESSION keeps the league"): the applied
+  // profile and the remembered league id are NOT touched — only the board,
+  // the roster and the TAKEN list reset. Scoring stays locked to the league
+  // (team-logic loadScoringMode is league-aware), so the toggle key reverting
+  // to 'ppr' here only matters once RESET ALL has cleared the profile.
   const applied = loadProfile(store);
-  if (!isDefaultProfile(applied)) stashed = stashProfile(applied, store);
-  clearProfile(store);
-  try { store.setItem(SCORING_KEY, 'ppr'); } catch (err) { /* session-only */ }
+  const kept = !isDefaultProfile(applied);
+  try { store.setItem(SCORING_KEY, kept ? scoringMode(applied) : 'ppr'); } catch (err) { /* session-only */ }
   for (const key of [TEAM_KEY, TAKEN_KEY]) {
     try { store.removeItem(key); } catch (err) { /* session-only */ }
   }
-  return { stashed };
+  return { stashed: false, kept };
 }
 
 const FINDER_CAP = 25; // candidate rows rendered before the "refine search" hint
@@ -654,12 +658,12 @@ export function cfgFromProfile(profile) {
   const wanted = {
     qb: counts.QB, rb: counts.RB, wr: counts.WR, te: counts.TE, flex, bench,
   };
-  // Only present when the league actually seats one. A default league would
-  // otherwise carry k: 0 / def: 0 forever, which is a different object from the
-  // one every caller and saved config has always seen — the cfg is compared
-  // byte-for-byte against the default in tests and round-tripped into storage.
-  if (kCount > 0) wanted.k = kCount;
-  if (defCount > 0) wanted.def = defCount;
+  // R47 — ALWAYS present. The default roster now seats one K and one DEF, so
+  // a league that fields neither must say `k: 0 / def: 0` explicitly: left
+  // absent, the DEFAULT_ROSTER spread underneath would re-seat them and the
+  // setup card would read as UNSAVED against a profile that never changed.
+  wanted.k = kCount;
+  wanted.def = defCount;
   const cfg = {};
   const clamped = [];
   Object.keys(wanted).forEach((key) => {
@@ -3271,7 +3275,7 @@ export default async function mountTeam(el) {
     if (draftCfg.roomType === 'aiplus') {
       if (isDefaultProfile(savedProfile)) {
         notes += '<div class="ds-rk-warn">NO LEAGUE PROFILE SAVED — AI+ is running the '
-          + 'default: 12 teams, QB/RB/RB/WR/WR/TE/FLEX + 6 bench, full PPR (1.0 per '
+          + 'default: 12 teams, QB/RB/RB/WR/WR/TE/FLEX/K/DEF + 6 bench, full PPR (1.0 per '
           + 'reception). That is a standard PPR room, not yours. Set or import your '
           + 'league below and press SAVE LEAGUE SETTINGS to have AI+ model it.</div>';
       } else {
@@ -4386,16 +4390,15 @@ export default async function mountTeam(el) {
       }
       restartArmed = false;
       if (companion) companion.stop('RESTART SESSION wiped the room.'); // R33
-      const { stashed } = restartSessionStorage();
+      const { kept } = restartSessionStorage();
       leagueFlash = {
         tone: 'ok',
-        lines: ['Session restarted: roster, TAKEN board and any draft in progress cleared; '
-          + 'scoring back to standard PPR; league settings back to the app default. '
+        lines: ['Session restarted: roster, TAKEN board and any draft in progress cleared. '
           + 'Draft history and per-team budgets/names were kept.',
-        ...(stashed
-          ? ['Your synced league is SAVED, NOT APPLIED — press RE-APPLY below to '
-            + 'restore it in one tap, no re-download.']
-          : [])],
+        ...(kept
+          ? ['Your synced league stays SAVED and APPLIED — scoring and roster shape are '
+            + 'unchanged on every tab. RESET ALL is the button that clears it.']
+          : ['No league is saved, so scoring is standard PPR and the default shape applies.'])],
       };
       Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
       return;
@@ -4531,6 +4534,32 @@ export default async function mountTeam(el) {
       Promise.resolve(importFromSleeper(idText)).then((res) => {
         syncBusy = false;
         applyImport(res);
+        /* R47 — ONE SYNC = WHOLE SESSION (owner's pick). A successful Sleeper
+         * import is SAVED and applied immediately: the profile (scoring table,
+         * roster shape incl. K/DEF), the scoring mode locked to the league's
+         * rec value, and the league id itself — so every tab reprices under
+         * it from this moment, with no separate SAVE press. SAVE LEAGUE
+         * SETTINGS remains the manual-edit path; RESET ALL clears it all. */
+        if (res && res.ok && importProfile) {
+          const wrote = saveProfile(importProfile);
+          const nextMode = scoringMode(importProfile);
+          if (nextMode !== 'custom') {
+            try { localStorage.setItem(SCORING_KEY, nextMode); } catch (err) { /* session-only */ }
+          }
+          saveLeagueId(idText);
+          try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
+          leagueFlash = {
+            tone: wrote ? 'ok' : 'warn',
+            lines: [wrote
+              ? `Synced and SAVED ${importProfile.name} · ${importProfile.shape.teams} teams · `
+                + `${importProfile.shape.starters}+${importProfile.shape.bench} · `
+                + `${receptionLabel(importProfile)} — every tab now prices under this league. `
+                + 'Edit below and press SAVE LEAGUE SETTINGS only to override it.'
+              : 'Imported, but storage is blocked, so the league could not be saved to disk — '
+                + 'it applies to this page only.'],
+          };
+          Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+        }
       }).catch((err) => {
         syncBusy = false;
         leagueStatus = {

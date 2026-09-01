@@ -90,8 +90,9 @@ test('caps: the boundary is >=, checked either side of it', () => {
 });
 
 test('BACKWARD COMPATIBILITY: the app-default paths are byte-for-byte unchanged', () => {
-  // No LeagueProfile saved -> no shape at all -> the frozen caps, untouched.
-  assert.deepEqual(rosterGeometry(null).caps, { ...POSITION_CAPS });
+  // No LeagueProfile saved -> no shape at all -> the frozen caps, with the R19
+  // bump for the K and DEF the default league starts since R47.
+  assert.deepEqual(rosterGeometry(null).caps, { ...POSITION_CAPS, K: 2, DEF: 2 });
   // A profile that states no caps -> normalizeProfile fills POSITION_CAPS, and
   // the default set is raised as R19 intended.
   assert.equal(geom(TWO_QB, null).caps.QB, 3);

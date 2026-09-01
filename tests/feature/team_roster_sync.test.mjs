@@ -370,12 +370,14 @@ test('the roster sync writes the roster key and nothing else', () => {
  * ======================================================================== */
 
 test('a position the league does not roster AT ALL says so, not "taken"', () => {
-  // DEFAULT_PROFILE has no K token — not in the starters, and the bench only
-  // takes positions the roster actually plays.
+  // A league with no K token — not in the starters, and the bench only takes
+  // positions the roster actually plays. (R47: DEFAULT_PROFILE seats a K, so
+  // the no-K league is spelled out here.)
+  const NO_K = { shape: { roster_positions: ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'] } };
   const plan = planRosterSync({
     resolved: [{ player_id: 'k1', name: 'K One', position: 'K', starter: true }],
     currentSlots: {},
-    profile: DEFAULT_PROFILE,
+    profile: NO_K,
     playersById: new Map(),
   });
   assert.equal(plan.assigned.length, 0);
