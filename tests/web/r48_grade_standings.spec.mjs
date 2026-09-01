@@ -78,6 +78,12 @@ test.describe('R48-C — GRADE: weekly-optimal lineups and projected final stand
       const first = page.locator('.gr-card--team').first();
       await expect(first.locator('details.gr-weeks summary')).toBeVisible();
       await expect(first).toContainText('projected season pts from weekly optimal lineups');
+      // R48b (owner RCA "cards without player names"): the starters are ON the card.
+      await expect(first).toContainText('SEASON-OPTIMAL STARTERS');
+      expect(await first.locator('.gr-slot').count()).toBeGreaterThanOrEqual(9);
+      // ...and the standings card is the LAST child of the output.
+      const lastClass = await page.locator('#gr-league-out > *').last().getAttribute('class');
+      expect(lastClass).toContain('gr-card--standings');
       await first.locator('details.gr-weeks summary').click();
       await expect(first.locator('.gr-week').first()).toBeVisible();
       await expect(first.locator('.gr-week').first()).toContainText('WK 1');

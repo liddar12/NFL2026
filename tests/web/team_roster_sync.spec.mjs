@@ -109,7 +109,7 @@ async function syncAndPickMyTeam(page) {
   await enterLeagueId(page);
   await page.locator('[data-act="roster-sync"]').click();
   await page.waitForSelector('select[data-rcfg="team"]', { timeout: 20000 });
-  await page.locator('select[data-rcfg="team"]').selectOption('0');
+  await page.locator('select[data-rcfg="team"]').first().selectOption('0');
   await page.waitForSelector('.lp-report--roster', { timeout: 10000 });
 }
 
@@ -138,7 +138,7 @@ test.describe('R20-B4 — Sleeper roster sync', () => {
       await syncAndPickMyTeam(page);
 
       // The picker offers the league's teams by their Sleeper names.
-      await expect(page.locator('select[data-rcfg="team"]'))
+      await expect(page.locator('select[data-rcfg="team"]').first())
         .toContainText('Gridiron Degenerates');
 
       // The preview names the kicker this app has no projection for.
