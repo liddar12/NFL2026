@@ -3679,6 +3679,23 @@ body.gate-locked { overflow: hidden; }
 .gr-note { margin: 10px 0; font-size: 12px; color: var(--muted); }
 .gr-assumptions { margin-top: 14px; font-size: 11px; color: var(--muted); }
 
+/* R42 — the Sleeper league loader + week-by-week schedule table. */
+.gr-league-row { display: flex; gap: 8px; align-items: stretch; margin: 10px 0; }
+.gr-input--id { min-height: 44px; height: 44px; margin: 0; flex: 1; }
+.gr-wk { padding: 6px 0; border-top: 1px solid var(--bg-raise, rgba(127, 127, 127, 0.2)); }
+.gr-wk-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+.gr-wk-game {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.gr-wk-game b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gr-wk-game--open { color: var(--muted); font-style: italic; }
+.gr-final { font-size: 10px; font-weight: 700; color: var(--muted); }
+
 /* R41 — the ROOKIES ONLY filter checkbox (PLAYERS + TEAM finder). */
 .rookie-filter {
   display: inline-flex;

@@ -377,3 +377,156 @@ export function simulateLeague(teams, {
     avgWins: Math.round((winsSum[i] / sims) * 10) / 10,
   }));
 }
+
+/* -------------------------------------------- scheduled simulation (R42) */
+
+/** Standard normal CDF via the Abramowitz–Stegun erf approximation
+ *  (|error| < 1.5e-7) — deterministic, no lookup tables. */
+export function normCdf(x) {
+  // Φ(x) = (1 + erf(x/√2)) / 2 — the polynomial approximates erf, so it is
+  // evaluated at x/√2, not x (the first draft got this wrong and its own
+  // Φ(1.96)≈0.975 fixture caught it).
+  const z = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * z);
+  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t
+    - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
+  return x >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
+}
+
+/** P(team A outscores team B in one week), under the same documented variance
+ *  prior the Monte Carlo draws from. Closed form, so the week-by-week table
+ *  and the season sim cannot disagree about what a matchup is worth. */
+export function winProb(meanA, meanB, { sdFrac = SD_FRAC, sdMin = SD_MIN } = {}) {
+  const a = Math.max(1, Number(meanA) || 1);
+  const b = Math.max(1, Number(meanB) || 1);
+  const sa = Math.max(sdFrac * a, sdMin);
+  const sb = Math.max(sdFrac * b, sdMin);
+  return normCdf((a - b) / Math.hypot(sa, sb));
+}
+
+/**
+ * Monte Carlo a fantasy season on the league's REAL schedule.
+ *
+ * `weeks`: [{week, games: [{a, b, aPts, bPts, final}], unscheduled}] where
+ * a/b index into `teams`. A `final` game contributes its actual result —
+ * locked wins and points, nothing simulated. A non-final game is simulated
+ * from the same variance prior as simulateLeague. A week flagged
+ * `unscheduled` (Sleeper has not published its pairings yet) falls back to
+ * one random pairing per sim — the caller must SAY that on the page.
+ * A team with no game in a scheduled week simply idles (no points, no win).
+ *
+ * Playoffs: top `playoffSlots` by wins (points tiebreak), same seeded
+ * bracket as simulateLeague (6 slots -> two byes).
+ * Returns [{name, playoff, title, avgWins}] in input order. ESTIMATE.
+ */
+export function simulateLeagueScheduled(teams, weeks, {
+  sims = 2000, seed = 20260901, playoffSlots = null,
+  sdFrac = SD_FRAC, sdMin = SD_MIN,
+} = {}) {
+  const n = (teams || []).length;
+  if (n < 2) return (teams || []).map((t) => ({ name: t.name, playoff: null, title: null, avgWins: null }));
+  const slots = playoffSlots || (n >= 8 ? 6 : Math.max(2, Math.floor(n / 2)));
+  const rng = mulberry32(seed);
+  const means = teams.map((t) => Math.max(1, Number(t.weeklyMean) || 1));
+  const sds = means.map((m) => Math.max(sdFrac * m, sdMin));
+  const score = (i) => Math.max(0, means[i] + sds[i] * normal(rng));
+
+  // The locked base: final games count once, outside the sim loop.
+  const baseWins = new Array(n).fill(0);
+  const basePts = new Array(n).fill(0);
+  const weekList = Array.isArray(weeks) ? weeks : [];
+  for (const wk of weekList) {
+    for (const g of (wk.games || [])) {
+      if (!g.final) continue;
+      const ap = Number(g.aPts) || 0;
+      const bp = Number(g.bPts) || 0;
+      basePts[g.a] += ap; basePts[g.b] += bp;
+      if (ap >= bp) baseWins[g.a] += 1; else baseWins[g.b] += 1;
+    }
+  }
+
+  const madePlayoffs = new Array(n).fill(0);
+  const wonTitle = new Array(n).fill(0);
+  const winsSum = new Array(n).fill(0);
+
+  for (let s = 0; s < sims; s++) {
+    const wins = [...baseWins];
+    const pts = [...basePts];
+    for (const wk of weekList) {
+      if (wk.unscheduled) {
+        // Sleeper has not published this week's pairings — random pairing,
+        // same as the schedule-blind sim, and said out loud by the caller.
+        const order = [...Array(n).keys()];
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+        for (let i = 0; i + 1 < order.length; i += 2) {
+          const a = order[i]; const b = order[i + 1];
+          const sa = score(a); const sb = score(b);
+          pts[a] += sa; pts[b] += sb;
+          if (sa >= sb) wins[a] += 1; else wins[b] += 1;
+        }
+        continue;
+      }
+      for (const g of (wk.games || [])) {
+        if (g.final) continue;
+        const sa = score(g.a); const sb = score(g.b);
+        pts[g.a] += sa; pts[g.b] += sb;
+        if (sa >= sb) wins[g.a] += 1; else wins[g.b] += 1;
+      }
+    }
+    const seeds = [...Array(n).keys()]
+      .sort((a, b) => wins[b] - wins[a] || pts[b] - pts[a] || a - b)
+      .slice(0, slots);
+    for (const t of seeds) madePlayoffs[t] += 1;
+    let field = seeds;
+    if (slots === 6) {
+      const g1 = score(field[2]) >= score(field[5]) ? field[2] : field[5];
+      const g2 = score(field[3]) >= score(field[4]) ? field[3] : field[4];
+      field = [field[0], field[1], g1, g2];
+    }
+    while (field.length > 1) {
+      const nxt = [];
+      for (let i = 0; i < field.length / 2; i++) {
+        const a = field[i]; const b = field[field.length - 1 - i];
+        nxt.push(score(a) >= score(b) ? a : b);
+      }
+      field = nxt;
+    }
+    wonTitle[field[0]] += 1;
+    for (let i = 0; i < n; i++) winsSum[i] += wins[i];
+  }
+  return teams.map((t, i) => ({
+    name: t.name,
+    playoff: Math.round((madePlayoffs[i] / sims) * 1000) / 1000,
+    title: Math.round((wonTitle[i] / sims) * 1000) / 1000,
+    avgWins: Math.round((winsSum[i] / sims) * 10) / 10,
+  }));
+}
+
+/**
+ * The week-by-week table: every scheduled matchup with either its FINAL
+ * result (never a probability — a played game is a fact) or the closed-form
+ * win probability from the same prior the season sim draws from.
+ * Returns [{week, unscheduled, games: [{a, b, aName, bName, final,
+ * aPts, bPts, pA}]}]; pA is null on a final game.
+ */
+export function weeklyWinTable(teams, weeks, opts) {
+  const list = Array.isArray(teams) ? teams : [];
+  return (Array.isArray(weeks) ? weeks : []).map((wk) => ({
+    week: wk.week,
+    unscheduled: Boolean(wk.unscheduled),
+    games: (wk.games || []).map((g) => ({
+      a: g.a,
+      b: g.b,
+      aName: list[g.a] ? list[g.a].name : `#${g.a}`,
+      bName: list[g.b] ? list[g.b].name : `#${g.b}`,
+      final: Boolean(g.final),
+      aPts: g.final ? (Number(g.aPts) || 0) : null,
+      bPts: g.final ? (Number(g.bPts) || 0) : null,
+      pA: g.final ? null
+        : winProb(list[g.a] && list[g.a].weeklyMean, list[g.b] && list[g.b].weeklyMean, opts),
+    })),
+  }));
+}
