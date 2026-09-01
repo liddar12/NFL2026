@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "updated_utc": "2026-09-01T12:11:36Z",
+  "updated_utc": "2026-09-01T18:28:48Z",
   "source": "nflverse release CSVs (stats_player_week / stats_team_week) + nfldata games.csv scores",
   "seasons_used": [
     2023,
@@ -48,7 +48,11 @@
       "yds_allow_400_449",
       "yds_allow_450_499",
       "yds_allow_500_549",
-      "yds_allow_550p"
+      "yds_allow_550p",
+      "pts_allow",
+      "ff",
+      "tkl_loss",
+      "def_pass_def"
     ]
   },
   "unmodelled_keys": [
@@ -62,7 +66,7 @@
       "key": "def_st_ff",
       "label": "Special-teams forced fumble",
       "position": "DEF",
-      "reason": "stats_team_week reports def_fumbles_forced for the whole team; special-teams forced fumbles are not separable from defensive ones at weekly granularity."
+      "reason": "stats_team_week reports def_fumbles_forced for the whole team; special-teams forced fumbles are not separable from defensive ones at weekly granularity. The modelled DEF `ff` IS that whole-team column (R46), so special-teams forced fumbles are already counted inside ff: a league scoring both keys is mis-attributed, not under-counted."
     },
     {
       "key": "def_st_fum_rec",
@@ -1141,7 +1145,11 @@
         "yds_allow_400_449": 0.83,
         "yds_allow_450_499": 1.0,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.5
+        "yds_allow_550p": 0.5,
+        "pts_allow": 328.0,
+        "ff": 11.67,
+        "tkl_loss": 82.0,
+        "def_pass_def": 80.0
       },
       "proj_points": 145.46
     },
@@ -1181,7 +1189,11 @@
         "yds_allow_400_449": 2.0,
         "yds_allow_450_499": 0.67,
         "yds_allow_500_549": 0.33,
-        "yds_allow_550p": 0.5
+        "yds_allow_550p": 0.5,
+        "pts_allow": 335.67,
+        "ff": 11.33,
+        "tkl_loss": 82.83,
+        "def_pass_def": 85.5
       },
       "proj_points": 140.55
     },
@@ -1221,7 +1233,11 @@
         "yds_allow_400_449": 1.17,
         "yds_allow_450_499": 0.0,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 330.33,
+        "ff": 13.17,
+        "tkl_loss": 95.0,
+        "def_pass_def": 86.67
       },
       "proj_points": 135.32
     },
@@ -1261,7 +1277,11 @@
         "yds_allow_400_449": 1.5,
         "yds_allow_450_499": 1.0,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 337.5,
+        "ff": 16.67,
+        "tkl_loss": 95.0,
+        "def_pass_def": 70.33
       },
       "proj_points": 133.84
     },
@@ -1301,7 +1321,11 @@
         "yds_allow_400_449": 1.67,
         "yds_allow_450_499": 1.17,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 363.17,
+        "ff": 19.0,
+        "tkl_loss": 84.5,
+        "def_pass_def": 84.0
       },
       "proj_points": 126.98
     },
@@ -1341,7 +1365,11 @@
         "yds_allow_400_449": 1.67,
         "yds_allow_450_499": 0.83,
         "yds_allow_500_549": 0.17,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 334.83,
+        "ff": 16.0,
+        "tkl_loss": 73.67,
+        "def_pass_def": 87.33
       },
       "proj_points": 126.2
     },
@@ -1381,7 +1409,11 @@
         "yds_allow_400_449": 1.67,
         "yds_allow_450_499": 0.5,
         "yds_allow_500_549": 0.33,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 357.0,
+        "ff": 14.83,
+        "tkl_loss": 86.33,
+        "def_pass_def": 64.17
       },
       "proj_points": 119.99
     },
@@ -1421,7 +1453,11 @@
         "yds_allow_400_449": 2.67,
         "yds_allow_450_499": 0.83,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 364.5,
+        "ff": 10.5,
+        "tkl_loss": 67.83,
+        "def_pass_def": 78.0
       },
       "proj_points": 118.17
     },
@@ -1461,7 +1497,11 @@
         "yds_allow_400_449": 1.67,
         "yds_allow_450_499": 2.5,
         "yds_allow_500_549": 0.5,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 394.0,
+        "ff": 13.83,
+        "tkl_loss": 69.5,
+        "def_pass_def": 73.33
       },
       "proj_points": 115.82
     },
@@ -1501,7 +1541,11 @@
         "yds_allow_400_449": 0.5,
         "yds_allow_450_499": 0.67,
         "yds_allow_500_549": 0.67,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 336.67,
+        "ff": 10.17,
+        "tkl_loss": 82.33,
+        "def_pass_def": 84.83
       },
       "proj_points": 114.04
     },
@@ -1541,7 +1585,11 @@
         "yds_allow_400_449": 4.0,
         "yds_allow_450_499": 0.67,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.33
+        "yds_allow_550p": 0.33,
+        "pts_allow": 374.83,
+        "ff": 9.17,
+        "tkl_loss": 76.0,
+        "def_pass_def": 92.17
       },
       "proj_points": 111.46
     },
@@ -1581,7 +1629,11 @@
         "yds_allow_400_449": 2.33,
         "yds_allow_450_499": 1.67,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 366.0,
+        "ff": 13.67,
+        "tkl_loss": 73.17,
+        "def_pass_def": 79.17
       },
       "proj_points": 111.15
     },
@@ -1621,7 +1673,11 @@
         "yds_allow_400_449": 1.5,
         "yds_allow_450_499": 0.5,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 394.83,
+        "ff": 13.83,
+        "tkl_loss": 110.5,
+        "def_pass_def": 67.83
       },
       "proj_points": 109.96
     },
@@ -1661,7 +1717,11 @@
         "yds_allow_400_449": 1.17,
         "yds_allow_450_499": 1.17,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.33
+        "yds_allow_550p": 0.33,
+        "pts_allow": 378.67,
+        "ff": 10.83,
+        "tkl_loss": 81.0,
+        "def_pass_def": 87.0
       },
       "proj_points": 106.52
     },
@@ -1701,7 +1761,11 @@
         "yds_allow_400_449": 2.5,
         "yds_allow_450_499": 0.33,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 351.0,
+        "ff": 11.0,
+        "tkl_loss": 78.33,
+        "def_pass_def": 59.5
       },
       "proj_points": 105.66
     },
@@ -1741,7 +1805,11 @@
         "yds_allow_400_449": 1.5,
         "yds_allow_450_499": 0.83,
         "yds_allow_500_549": 1.5,
-        "yds_allow_550p": 0.33
+        "yds_allow_550p": 0.33,
+        "pts_allow": 386.33,
+        "ff": 14.0,
+        "tkl_loss": 68.17,
+        "def_pass_def": 86.67
       },
       "proj_points": 104.52
     },
@@ -1781,7 +1849,11 @@
         "yds_allow_400_449": 2.0,
         "yds_allow_450_499": 1.67,
         "yds_allow_500_549": 0.33,
-        "yds_allow_550p": 0.33
+        "yds_allow_550p": 0.33,
+        "pts_allow": 388.0,
+        "ff": 14.33,
+        "tkl_loss": 80.5,
+        "def_pass_def": 65.5
       },
       "proj_points": 103.75
     },
@@ -1821,7 +1893,11 @@
         "yds_allow_400_449": 2.17,
         "yds_allow_450_499": 0.5,
         "yds_allow_500_549": 0.5,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 403.67,
+        "ff": 13.17,
+        "tkl_loss": 83.17,
+        "def_pass_def": 76.5
       },
       "proj_points": 103.52
     },
@@ -1861,7 +1937,11 @@
         "yds_allow_400_449": 3.33,
         "yds_allow_450_499": 0.83,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 398.5,
+        "ff": 10.67,
+        "tkl_loss": 76.33,
+        "def_pass_def": 63.0
       },
       "proj_points": 96.88
     },
@@ -1901,7 +1981,11 @@
         "yds_allow_400_449": 0.83,
         "yds_allow_450_499": 1.17,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 321.67,
+        "ff": 11.5,
+        "tkl_loss": 78.5,
+        "def_pass_def": 65.67
       },
       "proj_points": 96.02
     },
@@ -1941,7 +2025,11 @@
         "yds_allow_400_449": 3.33,
         "yds_allow_450_499": 1.5,
         "yds_allow_500_549": 0.17,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 417.5,
+        "ff": 13.83,
+        "tkl_loss": 84.5,
+        "def_pass_def": 70.0
       },
       "proj_points": 95.87
     },
@@ -1981,7 +2069,11 @@
         "yds_allow_400_449": 1.83,
         "yds_allow_450_499": 0.0,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 360.0,
+        "ff": 12.17,
+        "tkl_loss": 75.17,
+        "def_pass_def": 68.83
       },
       "proj_points": 94.69
     },
@@ -2021,7 +2113,11 @@
         "yds_allow_400_449": 3.5,
         "yds_allow_450_499": 2.0,
         "yds_allow_500_549": 0.5,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 464.0,
+        "ff": 13.83,
+        "tkl_loss": 78.0,
+        "def_pass_def": 56.67
       },
       "proj_points": 93.77
     },
@@ -2061,7 +2157,11 @@
         "yds_allow_400_449": 2.67,
         "yds_allow_450_499": 0.17,
         "yds_allow_500_549": 1.83,
-        "yds_allow_550p": 0.5
+        "yds_allow_550p": 0.5,
+        "pts_allow": 454.67,
+        "ff": 12.0,
+        "tkl_loss": 62.0,
+        "def_pass_def": 76.67
       },
       "proj_points": 87.58
     },
@@ -2101,7 +2201,11 @@
         "yds_allow_400_449": 2.0,
         "yds_allow_450_499": 1.67,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 380.5,
+        "ff": 12.5,
+        "tkl_loss": 66.33,
+        "def_pass_def": 66.0
       },
       "proj_points": 87.17
     },
@@ -2141,7 +2245,11 @@
         "yds_allow_400_449": 3.17,
         "yds_allow_450_499": 1.5,
         "yds_allow_500_549": 0.17,
-        "yds_allow_550p": 0.17
+        "yds_allow_550p": 0.17,
+        "pts_allow": 425.67,
+        "ff": 13.0,
+        "tkl_loss": 88.17,
+        "def_pass_def": 72.0
       },
       "proj_points": 85.32
     },
@@ -2181,7 +2289,11 @@
         "yds_allow_400_449": 1.83,
         "yds_allow_450_499": 0.67,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 415.83,
+        "ff": 9.33,
+        "tkl_loss": 91.67,
+        "def_pass_def": 62.33
       },
       "proj_points": 80.0
     },
@@ -2221,7 +2333,11 @@
         "yds_allow_400_449": 4.17,
         "yds_allow_450_499": 0.5,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 445.33,
+        "ff": 11.5,
+        "tkl_loss": 81.17,
+        "def_pass_def": 67.67
       },
       "proj_points": 77.52
     },
@@ -2261,7 +2377,11 @@
         "yds_allow_400_449": 2.67,
         "yds_allow_450_499": 0.67,
         "yds_allow_500_549": 0.0,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 453.5,
+        "ff": 9.0,
+        "tkl_loss": 84.17,
+        "def_pass_def": 58.33
       },
       "proj_points": 76.38
     },
@@ -2301,7 +2421,11 @@
         "yds_allow_400_449": 4.83,
         "yds_allow_450_499": 1.17,
         "yds_allow_500_549": 0.5,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 442.17,
+        "ff": 12.5,
+        "tkl_loss": 75.67,
+        "def_pass_def": 68.0
       },
       "proj_points": 76.35
     },
@@ -2341,7 +2465,11 @@
         "yds_allow_400_449": 3.17,
         "yds_allow_450_499": 0.0,
         "yds_allow_500_549": 0.33,
-        "yds_allow_550p": 0.33
+        "yds_allow_550p": 0.33,
+        "pts_allow": 437.33,
+        "ff": 8.0,
+        "tkl_loss": 63.33,
+        "def_pass_def": 65.33
       },
       "proj_points": 75.33
     },
@@ -2381,7 +2509,11 @@
         "yds_allow_400_449": 2.67,
         "yds_allow_450_499": 0.17,
         "yds_allow_500_549": 0.5,
-        "yds_allow_550p": 0.0
+        "yds_allow_550p": 0.0,
+        "pts_allow": 446.17,
+        "ff": 13.17,
+        "tkl_loss": 74.67,
+        "def_pass_def": 72.5
       },
       "proj_points": 70.96
     }
