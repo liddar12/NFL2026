@@ -26,6 +26,11 @@ const PLAYER_INDEX = readFix('sleeper_pti', 'player_index_trimmed.json');
 const MATCHUPS = {};
 for (let w = 1; w <= 14; w++) MATCHUPS[w] = readFix('sleeper_pti', `matchups_${w}.json`);
 const SLEEPER_PROJ = readFix('sleeper_proj', 'sleeper_projections.json');
+// R49 follow-up — the committed meta decides which number OURS is; the spec
+// reads it at runtime so it passes under either mode.
+const META = JSON.parse(readFileSync(new URL('../../data/meta.json', import.meta.url), 'utf8'));
+const CANDIDATE_MODE = Boolean(META.projection_baseline && META.projection_baseline.shipped
+  && META.projection_baseline.shipped.mode === 'candidate');
 
 const json = (route, body, status = 200) => route.fulfill({
   status, contentType: 'application/json', body,
@@ -128,9 +133,63 @@ test.describe('R49 — Sleeper\'s estimate beside OURS (display-only)', () => {
       const line = (await card.locator('.p-est').first().innerText()).replace(/\s+/g, ' ');
       expect(line).toMatch(/OURS \d+\.\d/);
       expect(line).toMatch(/SLEEPER (\d+\.\d|—)/);
-      // The week line names the week and both engines.
-      await expect(card.locator('.p-est--wk')).toHaveText(/WK \d+ · OURS (\d+\.\d|—)( · SCENARIO (\d+\.\d|—))? · SLEEPER (\d+\.\d|—)/);
+      // The week line names the week and both engines (GATED or SCENARIO when the record carries it).
+      await expect(card.locator('.p-est--wk')).toHaveText(/WK \d+ · OURS (\d+\.\d|—)( · (GATED|SCENARIO) (\d+\.\d|—))? · SLEEPER (\d+\.\d|—)/);
+      // Never both labels on one card, whatever the mode.
+      expect(/GATED/.test(line) && /SCENARIO/.test(line)).toBe(false);
+      if (CANDIDATE_MODE) expect(line).toMatch(/OURS \d+\.\d scenario/);
+      else expect(line).not.toMatch(/GATED/);
     });
+
+  test('owner override (meta routed to candidate mode): OURS (scenario) · GATED · SLEEPER, no SCENARIO cell', async ({ page }) => {
+    await mockProjections(page, true);
+    // A deterministic candidate-mode meta and a projection doc whose first
+    // records carry the gated_* fields the pipeline writes in that mode.
+    const meta = JSON.parse(JSON.stringify(META));
+    meta.projection_baseline = meta.projection_baseline || {};
+    meta.projection_baseline.shipped = {
+      mode: 'candidate', owner_override: true, decided_utc: '2026-09-02T01:00:00Z',
+      reason: 'spec fixture', backtest_2025: { gated_mae: 59.454, candidate_mae: 54.082, band_coverage_after_calibration: 0.8 },
+    };
+    await page.route('**/data/meta.json', (r) => json(r, JSON.stringify(meta)));
+    const proj = JSON.parse(readFileSync(new URL('../../data/player_projections.json', import.meta.url), 'utf8'));
+    proj.players.forEach((p) => {
+      const base = Number(p.proj_points) || 0;
+      p.gated_points = Math.round(base * 1.1 * 10) / 10;
+      p.gated_low = Number(p.low);
+      p.gated_high = Number(p.high);
+      p.gated_rule = 'prior_season_points';
+      p.candidate_points = base;
+      p.candidate_signals = { injury: -0.05 };
+    });
+    await page.route('**/data/player_projections.json', (r) => json(r, JSON.stringify(proj)));
+
+    await page.goto('/#/players');
+    await page.waitForSelector('.card.player', { timeout: 15000 });
+    const card = page.locator('.card.player').first();
+    await expect(card.locator('.p-est').first()).toBeVisible({ timeout: 15000 });
+    const line = (await card.locator('.p-est').first().innerText()).replace(/\s+/g, ' ');
+    expect(line).toMatch(/OURS \d+\.\d scenario · ±\d+\.\d GATED \d+\.\d \+10%/);
+    expect(line).toMatch(/SLEEPER (\d+\.\d|—)/);
+    expect(line).not.toMatch(/SCENARIO/);
+    await expect(card.locator('.pe-moves')).toHaveText(/Scenario moves in OURS: injury −5%/);
+    await expect(card.locator('.p-est--wk')).toHaveText(/WK \d+ · OURS (\d+\.\d|—) · GATED (\d+\.\d|—) · SLEEPER (\d+\.\d|—)/);
+
+    // MODEL states the mode plainly.
+    await page.goto('/#/model');
+    await expect(page.locator('.m-baseline')).toContainText('SHIPPED = SCENARIO by owner override (decided 2026-09-02)', { timeout: 15000 });
+    await expect(page.locator('.m-baseline')).toContainText('MAE 2025 gated 59.454 · scenario 54.082; band calibrated to 80.0%');
+
+    // GRADE: the team line reads OURS (scenario) · GATED, no SCENARIO sum.
+    await loadLeague(page);
+    const est = page.locator('.gr-card--team').first().locator('.gr-est');
+    await expect(est).toContainText('OURS');
+    await expect(est).toContainText('(scenario)');
+    await expect(est).toContainText('GATED');
+    await expect(est).not.toContainText('SCENARIO');
+    await expect(page.locator('.gr-standings thead th.gr-est-th')).toHaveText('SLEEPER PF', { timeout: 15000 });
+    await expect(page.locator('#gr-league-out .gr-assumptions')).toContainText('shipped by owner override of the gate');
+  });
 
   test('404 (no projection file yet): nothing Sleeper-related renders and no error state appears', async ({ page }) => {
     await mockProjections(page, false);

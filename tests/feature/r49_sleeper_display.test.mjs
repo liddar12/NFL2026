@@ -24,6 +24,7 @@ import { normalizeProfile, applyScoring, DEFAULT_PROFILE } from '../../app/leagu
 import {
   shapeSleeper, rosSleeper, sleeperWeek, sumSleeper, gapReason, deltaPct, fmtDelta,
   scenarioOf, scenarioMoves, fmtMoves, __selftest, SLEEPER_PROJ_PATH, GAP_THRESHOLD,
+  gatedOf, shippedMode,
 } from '../../app/sleeper-proj.js';
 import { renderEstimateRow, withEstimateRow } from '../../app/views/players.js';
 import {
@@ -243,6 +244,141 @@ test('R49: scenarioMoves lists the biggest moves (capped to three, zeros dropped
   assert.equal(fmtMoves([]), '');
   assert.equal(fmtMoves(scenarioMoves({ candidate_signals: { target_competition: -0.05 } })),
     'target competition −5%');
+});
+
+/* ------------------------------------------- R49 follow-up: shipped mode */
+
+// The owner-override shape: proj_points/low/high ARE the candidate, gated_*
+// carries the previous gate-conforming number, candidate_* remains.
+const OVERRIDE_REC = {
+  gsis_id: 'espn-9', name: 'Override Back', position: 'RB', team: 'SF',
+  proj_points: 176, low: 150, high: 202,
+  candidate_points: 176, candidate_low: 150, candidate_high: 202,
+  gated_points: 200, gated_low: 150, gated_high: 250, gated_rule: 'prior_season_points',
+  candidate_signals: { injury: -0.12, teammates: 0.06 },
+};
+const META_CANDIDATE = {
+  projection_baseline: {
+    rule: 'prior_ppg_x_projected_games', shipped_rule: 'prior_season_points',
+    shipped: {
+      mode: 'candidate', owner_override: true, decided_utc: '2026-09-02T01:00:00Z',
+      reason: 'Owner override: ship the scenario; the gate keeps scoring.',
+      backtest_2025: { gated_mae: 59.454, candidate_mae: 54.082, band_coverage_after_calibration: 0.8 },
+    },
+  },
+};
+const META_GATED = {
+  projection_baseline: {
+    rule: 'prior_ppg_x_projected_games', shipped_rule: 'prior_season_points',
+    shipped: { mode: 'gated', owner_override: false },
+  },
+};
+
+test('R49 override: shippedMode reads the mode and names the rule OURS actually follows', () => {
+  const c = shippedMode(META_CANDIDATE);
+  assert.equal(c.mode, 'candidate');
+  assert.equal(c.ownerOverride, true);
+  assert.equal(c.decidedUtc, '2026-09-02T01:00:00Z');
+  assert.equal(c.oursRule, 'prior_ppg_x_projected_games', 'candidate mode: OURS follows the candidate rule');
+  assert.deepEqual(c.backtest, META_CANDIDATE.projection_baseline.shipped.backtest_2025);
+  const g = shippedMode(META_GATED);
+  assert.equal(g.mode, 'gated');
+  assert.equal(g.oursRule, 'prior_season_points', 'gated mode: OURS follows the shipped rule, never the candidate one');
+  // Absent key / older meta / garbage -> gated, today's layout.
+  assert.equal(shippedMode({ projection_baseline: { rule: 'x' } }).mode, 'gated');
+  assert.equal(shippedMode({}).mode, 'gated');
+  assert.equal(shippedMode(null).mode, 'gated');
+  assert.equal(shippedMode({ projection_baseline: { shipped: { mode: 'weird' } } }).mode, 'gated');
+});
+
+test('R49 override: gatedOf prices gated_* exactly as scenarioOf prices candidate_*; absent -> null', () => {
+  const g = gatedOf(OVERRIDE_REC, { shipped: 176, extra: 0 });
+  assert.equal(g.points, 200);
+  assert.equal(g.sd, 50);
+  assert.equal(g.approx, false);
+  const half = gatedOf(OVERRIDE_REC, { shipped: 88, extra: 0 }); // ratio 0.5
+  assert.equal(half.points, 100);
+  assert.equal(half.sd, 25);
+  assert.equal(gatedOf(CANDIDATE_REC, { shipped: 200 }), null, 'no gated_points -> nothing');
+  assert.equal(gatedOf(null, { shipped: 1 }), null);
+});
+
+test('R49 override: renderEstimateRow in candidate mode — OURS (scenario ±sd) · GATED · SLEEPER, no SCENARIO cell, moves explain OURS', () => {
+  const html = renderEstimateRow({
+    mode: 'candidate', ours: 176, oursSd: 26,
+    scenario: { points: 176, sd: 26 }, // passed by a careless caller: must NOT show twice
+    gated: { points: 200, sd: 50, approx: false },
+    sleeperLoaded: true, sleeper: 190,
+    week: 2, oursWk: 10, gatedWk: 11.4, sleeperWk: 12,
+    moves: 'injury −12% · teammates +6%',
+  });
+  assert.match(html, /OURS<\/span><b class="pe-us">176\.0<\/b><span class="pe-meta">scenario · ±26\.0<\/span>/);
+  assert.match(html, /GATED<\/span><b class="pe-gt">200\.0<\/b><span class="pe-meta">\+14% · ±50\.0<\/span>/);
+  assert.match(html, /SLEEPER<\/span><b class="pe-sl">190\.0<\/b><span class="pe-meta">\+8%<\/span>/);
+  assert.doesNotMatch(html, /pe-sc|>SCENARIO</, 'SCENARIO is never shown twice');
+  assert.match(html, /WK 2 · OURS 10\.0 · GATED 11\.4 · SLEEPER 12\.0/);
+  assert.match(html, /Scenario moves in OURS: injury −12% · teammates \+6%/);
+  assert.match(html, /owner override/);
+  // Absent gated fields render nothing gated (not an em dash).
+  const noGated = renderEstimateRow({ mode: 'candidate', ours: 176, sleeperLoaded: true, sleeper: 190, week: 2, oursWk: 10 });
+  assert.doesNotMatch(noGated, /pe-gt|GATED/, 'no gated cell, no GATED word anywhere (title included)');
+  assert.match(noGated, /OURS<\/span><b class="pe-us">176\.0<\/b>/);
+  // Gated mode / absent mode: today's layout, untouched.
+  const gated = renderEstimateRow({ mode: 'gated', ours: 200, scenario: { points: 176, sd: 26 }, gated: { points: 200 }, sleeperLoaded: false });
+  assert.match(gated, /SCENARIO<\/span><b class="pe-sc">176\.0/);
+  assert.doesNotMatch(gated, /GATED/);
+});
+
+test('R49 override: GRADE team line and sums follow the mode', () => {
+  const players = [OVERRIDE_REC, { gsis_id: 'espn-2', name: 'No Gated', position: 'WR', proj_points: 150 }];
+  const starters = [
+    { slot: 'RB', id: 'espn-9', name: 'Override Back', pts: 176 },
+    { slot: 'WR', id: 'espn-2', name: 'No Gated', pts: 150 },
+  ];
+  const g = scenarioTeamSum(players, starters, sleeperProj, new Map(), 'gated');
+  assert.equal(g.points, 200);
+  assert.equal(g.covered, 1);
+  assert.equal(g.total, 2);
+  const html = renderTeamEstimate({ ours: 326, gated: g, mode: 'candidate', teamIndex: 1 });
+  assert.match(html, /^<div class="gr-est">OURS <b>326\.0<\/b> \(scenario\) · GATED <b>200\.0<\/b> −39% · 1\/2 gated<span class="gr-est-sl" data-team="1" hidden>/);
+  assert.doesNotMatch(html, /SCENARIO/);
+  // Gated mode keeps the SCENARIO wording; a gated sum passed in that mode is ignored.
+  const s = scenarioTeamSum(players, starters, sleeperProj, new Map());
+  assert.equal(s.points, 176);
+  const html2 = renderTeamEstimate({ ours: 326, scenario: s, gated: g, mode: 'gated', teamIndex: 0 });
+  assert.match(html2, /SCENARIO <b>176\.0<\/b>/);
+  assert.doesNotMatch(html2, /GATED|\(scenario\)/);
+});
+
+test('R49 override: the MODEL baseline card states the mode plainly; gated mode keeps the existing text', () => {
+  const c = baselineCard(META_CANDIDATE);
+  assert.match(c, /SHIPPED<\/span><span class="mp-val">SCENARIO by owner override/);
+  assert.match(c, /SHIPPED = SCENARIO by owner override \(decided 2026-09-02\): the gate keeps scoring GATED vs SCENARIO on resolved weeks; MAE 2025 gated 59\.454 · scenario 54\.082; band calibrated to 80\.0%\./);
+  assert.match(c, /Owner override: ship the scenario; the gate keeps scoring\./);
+  assert.match(c, /OURS on PLAYERS and GRADE IS this scenario candidate/);
+  assert.doesNotMatch(c, /labelled candidate, not adopted/);
+  const g = baselineCard(META_GATED);
+  assert.doesNotMatch(g, /SHIPPED = SCENARIO/);
+  assert.match(g, /labelled candidate, not adopted/);
+  // Missing backtest numbers render em dashes, never NaN.
+  const thin = baselineCard({ projection_baseline: { rule: 'r', shipped: { mode: 'candidate' } } });
+  assert.match(thin, /SCENARIO by the gate \(decided —\)/);
+  assert.match(thin, /MAE 2025 gated — · scenario —; band calibrated to —\./);
+  assert.doesNotMatch(thin, /NaN/);
+});
+
+test('R49 override: PLAYERS and GRADE read the shipped mode from meta (lazily) and pass it through', () => {
+  const players = readSrc('../../app/views/players.js');
+  assert.match(players, /shipped = mod\.shippedMode\(metaDoc\)/);
+  assert.match(players, /baselineRule = shipped\.oursRule/, 'the gap reason cites the rule OURS follows');
+  assert.match(players, /mode: shipped\.mode,/);
+  assert.match(players, /gated: gt,/);
+  const grade = readSrc('../../app/views/grade.js');
+  assert.match(grade, /getMeta\(\), \/\/ R49 follow-up/, 'meta rides the LOAD path');
+  const mount = grade.slice(grade.indexOf('export default async function mountGrade'));
+  assert.doesNotMatch(mount, /getMeta/, 'never the cold mount');
+  assert.match(grade, /shipped\.mode === 'candidate' \? 'gated' : 'scenario'/);
+  assert.match(grade, /shipped by owner override of the gate/);
 });
 
 /* ------------------------------------------------------- PLAYERS render */

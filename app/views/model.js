@@ -622,7 +622,9 @@ function playoffsCard(odds, markets) {
  * omitted, not painted empty. Pure — unit-tested with and without the keys.
  */
 
-const dash = (v, digits = 2) => (Number.isFinite(Number(v)) ? Number(v).toFixed(digits) : '—');
+// null/undefined is ABSENT — Number(null) is 0, and 0.000 is a number-shaped lie.
+const dash = (v, digits = 2) => (v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(digits) : '—');
+const pctOr = (v) => (v == null ? '—' : fmtPct(v));
 
 /** "PROJECTION BASELINE" — the rule every shipped projection starts from. */
 export function baselineCard(meta) {
@@ -637,18 +639,41 @@ export function baselineCard(meta) {
   ].filter(Boolean).join(' · ');
   const cand = pb.candidate && typeof pb.candidate === 'object' ? pb.candidate : null;
   const sigs = cand && Array.isArray(cand.signals_applied) ? cand.signals_applied : [];
+  // R49 follow-up — the shipped MODE, stated plainly. 'candidate' = the
+  // owner overrode the gate and OURS is the scenario; anything else keeps
+  // today's text (the candidate is labelled candidate, not adopted).
+  const sh = pb.shipped && typeof pb.shipped === 'object' ? pb.shipped : null;
+  const candidateMode = Boolean(sh && sh.mode === 'candidate');
+  let shippedHtml = '';
+  if (candidateMode) {
+    const bt = sh.backtest_2025 && typeof sh.backtest_2025 === 'object' ? sh.backtest_2025 : null;
+    const when = sh.decided_utc ? String(sh.decided_utc).slice(0, 10) : '—';
+    const by = sh.owner_override === true ? 'by owner override' : 'by the gate';
+    shippedHtml =
+      `<div class="mp-row"><span class="mp-name">SHIPPED</span><span class="mp-val">SCENARIO ${esc(by)}</span></div>`
+      + `<div class="m-explain">SHIPPED = SCENARIO ${esc(by)} (decided ${esc(when)}): the gate keeps `
+        + 'scoring GATED vs SCENARIO on resolved weeks; MAE 2025 gated '
+        + `${esc(dash(bt && bt.gated_mae, 3))} · scenario ${esc(dash(bt && bt.candidate_mae, 3))}; `
+        + `band calibrated to ${pctOr(bt && bt.band_coverage_after_calibration)}.</div>`
+      + (sh.reason ? `<div class="mp-src">${esc(sh.reason)}</div>` : '');
+  }
   return (
     '<div class="mp-row"><span class="mp-name">PROJECTION BASELINE</span>'
       + `<span class="mp-val">${esc(rule)}</span></div>`
     + (src ? `<div class="mp-src">${esc(src)}</div>` : '')
+    + shippedHtml
     + (cand
       ? '<div class="mp-row"><span class="mp-name">SCENARIO CANDIDATE</span>'
         + `<span class="mp-val">${sigs.length ? esc(sigs.join(', ')) : '—'}</span></div>`
         + (cand.sd_rule ? `<div class="mp-src">band: ${esc(cand.sd_rule)}</div>` : '')
       : '')
-    + '<div class="m-explain">Every shipped projection starts from this documented rule. '
-      + 'SCENARIO (shown beside OURS on PLAYERS and GRADE) is the candidate with every raw '
-      + 'signal applied at full strength — labelled candidate, not adopted.</div>'
+    + (candidateMode
+      ? '<div class="m-explain">OURS on PLAYERS and GRADE IS this scenario candidate — every '
+        + 'raw signal applied at full strength. GATED, shown beside it, is the number the gate '
+        + 'would have shipped.</div>'
+      : '<div class="m-explain">Every shipped projection starts from this documented rule. '
+        + 'SCENARIO (shown beside OURS on PLAYERS and GRADE) is the candidate with every raw '
+        + 'signal applied at full strength — labelled candidate, not adopted.</div>')
   );
 }
 
