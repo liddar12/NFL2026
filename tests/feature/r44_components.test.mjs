@@ -37,6 +37,9 @@ function py(body) {
 /* ------------------------------------------------- producer: extraction */
 
 test("extract_components: verified line in, correct keys and base out; doubt in, None out", () => {
+  // R44b contract: the kona view carries no appliedStats (measured live), so
+  // verification is REPRODUCTION — valuing the raw stats under ESPN's default
+  // PPR table must land on ESPN's own appliedTotal within 1.0.
   const out = py(`
 from scripts.scrape.espn_players import extract_components
 good = {
@@ -44,29 +47,29 @@ good = {
     "appliedTotal": 300.0,
     "stats": {"0": 520, "1": 350, "3": 4000, "4": 30, "20": 10,
               "23": 40, "24": 200, "25": 2, "53": 5, "58": 8, "42": 30},
-    # ESPN's own default-PPR payments for those ids (+ rec 53 at 1.0, rec_yd .1):
-    "appliedStats": {"3": 160.0, "4": 120.0, "20": -20.0, "24": 20.0,
-                     "25": 12.0, "53": 5.0, "42": 3.0, "1": 0.0, "0": 0.0},
 }
-bad_sum = dict(good, appliedStats={"3": 500.0})          # arithmetic broken
-no_applied = {"appliedTotal": 100.0, "stats": {"3": 1000}}
+# The same stat line with a total our table cannot reproduce — a scored id we
+# do not know about (e.g. a fumble-return TD). Must ship NOTHING, not a guess.
+unknown_id = dict(good, appliedTotal=306.0)
+no_stats = {"appliedTotal": 100.0, "stats": {}}
 print(json.dumps({
     "good": extract_components(good),
-    "bad_sum": extract_components(bad_sum),
-    "no_applied": extract_components(no_applied),
+    "unknown_id": extract_components(unknown_id),
+    "no_stats": extract_components(no_stats),
     "none": extract_components(None),
 }))`);
   const g = out.good;
   assert.ok(g, "the verified entry extracts");
-  // rec (53) must NOT be a component; its applied pts must NOT be in base.
+  // rec (53) must NOT be a component and its value must NOT be in base.
   assert.equal(g.components.rec, undefined, "receptions never enter the component line");
   assert.equal(g.components.pass_td, 30);
   assert.equal(g.components.pass_cmp, 350);
   assert.equal(g.components.rec_tgt, 8);
-  // base = mapped applied only: 160+120-20+20+12+3 (+0+0), NOT the 5.0 for rec.
+  // base = mapped ids under the default table: 160+120-20+20+12+3 — not rec's 5.
   assert.equal(g.base_applied_pts, 295.0);
-  assert.equal(out.bad_sum, null, "appliedStats that do not sum to appliedTotal -> no claim");
-  assert.equal(out.no_applied, null);
+  assert.equal(out.unknown_id, null,
+    "a total the known table cannot reproduce means an id we have wrong -> no claim");
+  assert.equal(out.no_stats, null);
   assert.equal(out.none, null);
 });
 

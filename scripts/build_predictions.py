@@ -172,7 +172,10 @@ def _bonus_games_by_name(fetch=None):
     without bonus counts (absent = unmeasured, never zero games)."""
     from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
     from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
-    fetch = fetch or (lambda: nflverse.fetch_weekly_stats(PRIOR_SEASON))
+    # R44b — the RELEASE CSV, not nfl_data_py: the daily runner installs only
+    # requests, and run 81 proved the heavy path degrades every single run
+    # ("nfl_data_py is not installed"), which made this counter dead code.
+    fetch = fetch or (lambda: nflverse.fetch_player_stats_week_release(PRIOR_SEASON))
     try:
         rows = fetch()
     except Exception as exc:  # noqa: BLE001 — degrade to unmeasured, loudly
