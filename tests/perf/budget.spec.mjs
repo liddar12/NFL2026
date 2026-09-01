@@ -119,6 +119,7 @@ const LAZY_ONLY_MODULES = [
   'app/grade-league.js', // R42 — Sleeper league -> engine inputs, ditto
   'app/views/league.js', // R48 — the LEAGUE tab, needed by #/league only
   'app/synclog.js', //       R48 — its sync log + diff engine, reachable only from the view
+  'app/grade-weekly.js', // R48 — weekly-optimal season engine, reachable only from the grade view
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must
