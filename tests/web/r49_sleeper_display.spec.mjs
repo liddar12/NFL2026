@@ -87,7 +87,8 @@ test.describe('R49 — Sleeper\'s estimate beside OURS (display-only)', () => {
       await expect(pfCells).toHaveCount(10);
       const texts = await pfCells.allInnerTexts();
       for (const t of texts) expect(t.trim()).toMatch(/^\d+\.\d( \(\d+\/\d+\))?$/);
-      expect(texts.some((t) => Number(t) > 0)).toBe(true);
+      // parseFloat: a cell may carry the "(n/N)" coverage suffix, which Number() rejects.
+      expect(texts.some((t) => parseFloat(t) > 0)).toBe(true);
 
       // Every team card: "SLEEPER <n> <delta> · n/N projected" beside OURS.
       const cards = page.locator('.gr-card--team');

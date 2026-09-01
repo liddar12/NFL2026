@@ -163,6 +163,9 @@ const CONTRACT_ALLOWLIST = new Set([
   // ROOKIES ONLY toggle (never on a cold route load).
   'rookie_starters.json',
   'schedule_full.json',
+  // R49 — Sleeper's display-only weekly projections (~1 MB), fetched in the
+  // idle phase after first paint on PLAYERS/GRADE, never on a mount's critical path.
+  'sleeper_projections.json',
   'team_strength.json',
 ]);
 
