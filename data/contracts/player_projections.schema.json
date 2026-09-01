@@ -5,7 +5,11 @@
   "description": "Per-player point projection by position. Keyed on nflverse gsis_id. Produced by scripts/models/player_projection.py, validated by scripts/validate_data.py.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["season", "updated_utc", "players"],
+  "required": [
+    "season",
+    "updated_utc",
+    "players"
+  ],
   "properties": {
     "season": {
       "type": "integer",
@@ -36,21 +40,56 @@
             "type": "string",
             "description": "Canonical nflverse player key, e.g. '00-0034796'."
           },
-          "name": { "type": "string" },
+          "name": {
+            "type": "string"
+          },
           "team": {
             "type": "string",
             "description": "Canonical nflverse team abbreviation.",
             "enum": [
-              "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
-              "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
-              "LV", "LAC", "LAR", "MIA", "MIN", "NE", "NO", "NYG",
-              "NYJ", "PHI", "PIT", "SF", "SEA", "TB", "TEN", "WAS"
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
             ]
           },
           "position": {
             "type": "string",
             "description": "Fantasy-relevant positions modeled first.",
-            "enum": ["QB", "RB", "WR", "TE"]
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ]
           },
           "proj_points": {
             "type": "number",
@@ -67,7 +106,13 @@
           "signals_used": {
             "type": "array",
             "description": "Names of signals that contributed non-zero weight to this projection.",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
+          },
+          "rookie": {
+            "type": "boolean",
+            "description": "nflverse roster years_exp == 0, joined by canonical name. ABSENT when nflverse was unreachable or the name was ambiguous - unknown is never false (R41)."
           }
         }
       }

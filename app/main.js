@@ -33,6 +33,19 @@ async function mountTeam(el) {
   return mod.default(el);
 }
 
+/** Lazy GRADE mount (paste-anything team grader) — same pattern as team. */
+async function mountGrade(el) {
+  let mod;
+  try {
+    mod = await import('./views/grade.js');
+  } catch (err) {
+    console.warn('[nfl2026] grade view failed to load:', err);
+    el.innerHTML = '<div class="state">Team grade unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
 /** Lazy MODEL mount (transparency dashboard) — same pattern as the team view. */
 async function mountModel(el) {
   let mod;
@@ -81,6 +94,7 @@ const ROUTES = {
   '#/team': { mount: mountTeam, tab: 'team', name: 'Team' },
   '#/lineup': { mount: mountLineup, tab: 'lineup', name: 'Lineup' },
   '#/model': { mount: mountModel, tab: 'model', name: 'Model' },
+  '#/grade': { mount: mountGrade, tab: 'grade', name: 'Grade' },
   // No tab: reached by action + deep link; reads its picks from the hash query.
   '#/compare': { mount: mountCompare, tab: null, name: 'Compare' },
 };

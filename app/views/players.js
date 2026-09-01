@@ -570,6 +570,21 @@ function filterRow(active) {
   return `<div class="posfilter" role="group" aria-label="Filter by position">${chips}</div>`;
 }
 
+/* R41 — ROOKIES ONLY. Rendered ONLY when at least one record carries the
+ * nflverse-sourced `rookie` boolean: an unstamped pool (feed unreachable, or a
+ * deploy predating the flag) means rookie status is UNKNOWN, and a filter over
+ * unknowns would silently show an empty league — hiding the control is the
+ * honest state (same feature-detection pattern as hasWeekly/hasAi). */
+function rookieRow(on) {
+  return (
+    '<label class="rookie-filter">'
+    + `<input type="checkbox" id="rookies-only"${on ? ' checked' : ''} /> `
+    + '<span>ROOKIES ONLY</span>'
+    + '<span class="rookie-filter-note">nflverse experience = 0</span>'
+    + '</label>'
+  );
+}
+
 /** The BASE/AI+ segmented toggle (shared pattern with the TEAM tab). */
 function aiSegRow(on) {
   const btn = (label, active, val) => (
@@ -731,6 +746,8 @@ export default async function mountPlayers(el) {
   let aiOn = hasAi ? loadAiPref() : false;
   let sortKey = 'proj';
   let sortDir = 'desc';
+  const hasRookieFlag = players.some((p) => typeof p.rookie === 'boolean');
+  let rookiesOnly = false;
 
   /** trajectory_adj insight for a player id (ai_insights first, else history). */
   function trajFor(id) {
@@ -919,9 +936,12 @@ export default async function mountPlayers(el) {
 
   // Render the card list for the active filter + sort into #players-list.
   function paintList() {
-    const base = (active === 'ALL'
+    let base = (active === 'ALL'
       ? players
       : players.filter((p) => String(p.position).toUpperCase() === active));
+    // rookie !== true excludes both veterans AND unstamped unknowns — a player
+    // whose status we do not know must not appear under a filter that asserts it.
+    if (rookiesOnly) base = base.filter((p) => p.rookie === true);
     // Decorate–sort–undecorate: compute each player's sort key ONCE (n calls),
     // then sort by the cached number — instead of recomputing sortVal (which can
     // do SoS/trend/model work) O(n log n) times inside the comparator.
@@ -962,6 +982,7 @@ export default async function mountPlayers(el) {
     (hasWeekly ? renderScoreSeg(scoring) : '') +
     (hasAi ? aiSegRow(aiOn) : '') +
     filterRow(active) +
+    (hasRookieFlag ? rookieRow(rookiesOnly) : '') +
     sortRow(sortKey, sortDir) +
     (hasAi && aiOn
       ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
@@ -969,6 +990,15 @@ export default async function mountPlayers(el) {
     '<div id="players-list" class="card-list"></div>' +
     renderUnranked(unrankedRows);
   paintList();
+
+  const rk = el.querySelector('#rookies-only');
+  if (rk) {
+    rk.addEventListener('change', () => {
+      rookiesOnly = rk.checked;
+      shownCap = PAGE;
+      paintList();
+    });
+  }
 
   // Wire the filter chips (event delegation on the filter row).
   const pf = el.querySelector('.posfilter');

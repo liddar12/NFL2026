@@ -41,9 +41,21 @@ test('document identity: season, timestamps, source, estimate flag', () => {
   assert.equal(doc.estimate, true);
 });
 
-test('all 32 canonical teams present, exactly', () => {
+test('every present team is canonical; a missing team is NAMED as skipped, never silent', () => {
+  // R41 realignment: R40's per-team skip made 30-31 teams a LEGITIMATE state
+  // (schema floor 30; one dead ESPN roster page degrades one team). The
+  // invariant is not "exactly 32" — it is "no team vanishes silently": every
+  // canonical team is either present or named in `source` as skipped.
   const abbrs = Object.keys(doc.teams).sort();
-  assert.deepEqual(abbrs, [...CANONICAL_TEAMS].sort());
+  const canon = new Set(CANONICAL_TEAMS);
+  assert.ok(abbrs.every((ab) => canon.has(ab)),
+    'a non-canonical team key appeared');
+  assert.ok(abbrs.length >= 30, `only ${abbrs.length} teams — below the contract floor`);
+  const missing = [...canon].filter((ab) => !(ab in doc.teams));
+  for (const ab of missing) {
+    assert.ok(doc.source.includes(ab),
+      `${ab} is absent from teams but not named as skipped in source — silent absence`);
+  }
 });
 
 test('every team: numeric fields finite and inside sane NFL ranges', () => {

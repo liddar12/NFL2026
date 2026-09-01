@@ -145,7 +145,7 @@ for (const width of [320, 375, 402]) {
       };
     });
 
-    expect(bar.tabs.length).toBe(6);
+    expect(bar.tabs.length).toBe(7); // R41: + Grade
     // Before the fix: 376px of content in a 320px bar.
     expect(bar.scrollWidth).toBeLessThanOrEqual(Math.ceil(bar.width));
     for (const t of bar.tabs) {
@@ -161,11 +161,11 @@ for (const width of [320, 375, 402]) {
   });
 }
 
-test('the narrow-width tab fix is scoped to <=400px and leaves 402pt alone', async ({ page }) => {
-  // WHAT THIS LOCKS: the R24-D fix is a `@media (max-width: 400px)` block that
-  // shrinks the tab's font-size, letter-spacing and padding and drops
-  // min-width. The claim worth testing is that it does NOT reach the 402pt
-  // reference device.
+test('the narrow-width tab bands engage below 460px and leave wide viewports alone', async ({ page }) => {
+  // WHAT THIS LOCKS (R41 revision): two `@media` bands (<=460, <=400) shrink
+  // the tab's font-size, letter-spacing and padding and drop min-width so
+  // SEVEN tabs fit every supported width. The claim worth testing is that the
+  // bands engage exactly below their cuts and wide viewports are untouched.
   //
   // It deliberately does NOT assert rendered pixel widths. The first cut of
   // this test pinned [63, 74, 74, 63, 63, 63] and went red on CI at
@@ -191,14 +191,24 @@ test('the narrow-width tab fix is scoped to <=400px and leaves 402pt alone', asy
   const at402 = await props();
   await page.setViewportSize({ width: 600, height: 874 });
   const at600 = await props();
+  await page.setViewportSize({ width: 800, height: 874 });
+  const at800 = await props();
   await page.setViewportSize({ width: 320, height: 700 });
   const at320 = await props();
 
-  // 402pt sits on the wide side of the breakpoint: identical to a comfortably
-  // wide viewport, so the reference device is untouched by the fix.
-  expect(at402).toEqual(at600);
-  // ...and the fix genuinely engages below it, or this would be locking nothing.
-  expect(at320).not.toEqual(at402);
+  // R41 re-scope: SEVEN tabs no longer fit the 402pt reference at the wide
+  // styling, so the 400px breakpoint became two bands (<=400, <=460) and the
+  // reference device deliberately takes the mid band. Under the always-on HIG
+  // theme the [data-theme] tab rule outranks the bands' font/padding (the R34
+  // note below), so the OPERATIVE part of the fix is min-width:0 — the flex
+  // columns divide the bar instead of a label pushing the row off screen. What
+  // this locks: min-width releases exactly at and below 460 (320 and 402
+  // both), the wide styling is stable above it (600 == 800), and the type
+  // never grows as the viewport shrinks.
+  expect(at600).toEqual(at800);
+  expect(at320.minWidth).toBe('0px');
+  expect(at402.minWidth).toBe('0px');
+  expect(at600.minWidth).not.toBe('0px');
   // R34 — the exact '10px' pin was the Broadcast bar's shrunk size. Under the
   // always-on HIG theme the tab keeps its own Caption-2 size (the [data-theme]
   // rule outranks the media block's font shrink) and the <=400px fix engages
@@ -206,6 +216,7 @@ test('the narrow-width tab fix is scoped to <=400px and leaves 402pt alone', asy
   // measures. What must never regress: shrinking cannot make the narrow type
   // LARGER than the reference device's.
   expect(parseFloat(at320.fontSize)).toBeLessThanOrEqual(parseFloat(at402.fontSize));
+  expect(parseFloat(at402.fontSize)).toBeLessThanOrEqual(parseFloat(at600.fontSize));
 });
 
 /* ==========================================================================

@@ -106,6 +106,61 @@ def current_week(schedule):
     return max(by_week)
 
 
+def _stamp_rookies(projected, fetch=None):
+    """Stamp `rookie` (nflverse roster years_exp == 0) onto projection records
+    IN PLACE, joined by canonical name. R41 (owner ask): the PLAYERS/TEAM
+    rookies-only filter needs an authoritative flag, and the pool's
+    prior-production sort cannot supply one honestly.
+
+    Honesty rules: an AMBIGUOUS name (two roster rows, different experience)
+    is left unstamped — unknown, never guessed; on ANY feed failure every
+    record stays unstamped (absent means "rookie status unknown", never
+    false), and the UI hides the filter when no record carries the field.
+    Returns (stamped, rookies) for the log line."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    fetch = fetch or (lambda: nflverse.fetch_roster_release(SEASON))
+    try:
+        rows = fetch()
+    except Exception as exc:  # noqa: BLE001 — degrade to unstamped, loudly
+        print(f"[warn] rookie stamp skipped — nflverse rosters unreachable: {exc}",
+              file=sys.stderr)
+        return 0, 0
+    exp = {}
+    ambiguous = set()
+    for r in rows:
+        n = canonical_player_name(r.get("full_name") or r.get("player_name") or "")
+        if not n:
+            continue
+        try:
+            ye = int(float(r.get("years_exp")))
+        except (TypeError, ValueError):
+            continue
+        if n in exp and exp[n] != ye:
+            ambiguous.add(n)
+        exp[n] = ye
+    stamped = rookies = 0
+    for p in projected:
+        n = canonical_player_name(p.get("name") or "")
+        if n in exp and n not in ambiguous:
+            p["rookie"] = exp[n] == 0
+            stamped += 1
+            rookies += int(p["rookie"])
+    return stamped, rookies
+
+
+def _nflverse_reached(ol_src):
+    """Did the o-line build actually reach nflverse snap counts? Keyed on the
+    PRECISE writer token, not bare substrings. R41 (2026-09-01): the old check
+    ("nflverse" in src and "unreachable" not in src) broke the moment R40's
+    per-team skip note added "roster page unreachable" to a source whose snap
+    counts had refined FINE — nflverse reported degraded on a healthy run.
+    The refined path always carries "nflverse_snap_counts_2025"; the ESPN-only
+    fallback never does (it reads "espn_roster only (nflverse snap counts
+    unreachable ...)")."""
+    return "nflverse_snap_counts_2025" in (ol_src or "")
+
+
 def main():
     now = _utc_now()
     feeds = {}
@@ -436,6 +491,9 @@ def main():
     projected = project_players(players_in, ctx={"teams": teams_fixture})
     projected = [p for p in projected if p["proj_points"] > 0]
     projected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
+    n_stamped, n_rookies = _stamp_rookies(projected)
+    print(f"rookie flags: {n_stamped} of {len(projected)} stamped from nflverse "
+          f"rosters ({n_rookies} rookies); unstamped = unknown, never false")
     _write(os.path.join(DATA, "player_projections.json"), {
         "season": SEASON, "updated_utc": now, "players": projected[:300],
     })
@@ -644,7 +702,7 @@ def main():
     try:
         with open(os.path.join(DATA, "oline_composite.json"), encoding="utf-8") as fh:
             ol_src = json.load(fh).get("source", "")
-        nv_ok = "nflverse" in ol_src and "unreachable" not in ol_src
+        nv_ok = _nflverse_reached(ol_src)
         feeds["nflverse"] = (
             {"rows": 32, "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
             if nv_ok else
