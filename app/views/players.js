@@ -38,14 +38,14 @@
 import {
   getPlayerProjections, getPlayerWeekly, getAiInsights,
   getPlayerHistory, getTeamStrength, getGamePredictions, getAdp,
-  getRookieStarters,
+  getRookieStarters, getMeta,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel, scoringAdjust, extraPtsOf,
-  withLeagueExtras, scoringLockedToLeague } from '../team-logic.js';
+  withLeagueExtras, scoringLockedToLeague, weeklyPoints } from '../team-logic.js';
 import { rosPoints, gamesLeft } from '../ros.js';
 import { playoffSos, playoffWindow } from '../playoffs.js';
-import { loadProfile } from '../league.js';
+import { loadProfile, isDefaultProfile, normalizeProfile } from '../league.js';
 import { fairDollars, DEFAULT_BUDGET } from '../auction.js';
 import { rosterShape } from '../draft-sim.js';
 /* R25-F3 — THE BOOT EDGE.
@@ -563,6 +563,89 @@ export function withExtraRow(cardHtml, extras) {
   return `${cardHtml.slice(0, i)}<div class="p-adorn p-adorn--value">${extras}</div>${cardHtml.slice(i)}`;
 }
 
+/* --------------------------------------------------------------------------
+ * R49 — OURS · SCENARIO · SLEEPER on every card (display-only, never an input)
+ * ------------------------------------------------------------------------ */
+
+/** The anchor the estimate rows are spliced in front of: after the card's own
+ * projection lines (number, adornments, conformal band), before the signals. */
+const ESTIMATE_ANCHOR = '<div class="sigs">';
+
+/**
+ * Compose a rendered card with the R49 estimate rows. Same contract as
+ * withExtraRow: no anchor -> the card is returned untouched, never broken.
+ */
+export function withEstimateRow(cardHtml, rowsHtml) {
+  if (!rowsHtml) return cardHtml;
+  const i = String(cardHtml).indexOf(ESTIMATE_ANCHOR);
+  if (i < 0) return cardHtml;
+  return `${cardHtml.slice(0, i)}${rowsHtml}${cardHtml.slice(i)}`;
+}
+
+/**
+ * The compact estimate rows, PURE (unit-tested with a candidate-carrying
+ * record and the absent case):
+ *   line 1  OURS <season> · SCENARIO <candidate> ±<sd> <delta> · SLEEPER <season> <delta>
+ *   line 2  WK n · OURS x · SCENARIO y · SLEEPER z      (this week)
+ *   line 3  the biggest scenario moves (capped to three) — when any
+ *   line 4  the gapReason line — when the gap exceeds 20%
+ * Deltas are vs OURS. An absent SCENARIO renders nothing (older data). An
+ * absent Sleeper DOC renders nothing Sleeper-related (the runner may not have
+ * produced the file yet); a doc that lacks THIS player renders an em dash —
+ * never 0.0. A "≈" marks a scenario scaled through league-rule extras (an
+ * approximation the legend explains). Returns '' when there is nothing to say.
+ */
+export function renderEstimateRow(o = {}) {
+  // null/undefined is ABSENT (Number(null) is 0 — the one lie this row must
+  // never tell), so every value passes through isNum before it is shown.
+  const isNum = (v) => v != null && Number.isFinite(Number(v));
+  const ours = isNum(o.ours) ? Number(o.ours) : null;
+  const haveOurs = ours !== null;
+  const sc = o.scenario && isNum(o.scenario.points) ? o.scenario : null;
+  const slLoaded = o.sleeperLoaded === true;
+  if (!sc && !slLoaded) return '';
+  const delta = (v) => {
+    if (!haveOurs || !isNum(v) || ours === 0) return '';
+    const raw = ((Number(v) - ours) / Math.abs(ours)) * 100;
+    const pct = Math.round(Math.abs(raw)); // symmetric: −37.5 -> −38, +37.5 -> +38
+    return pct === 0 ? '0%' : `${raw > 0 ? '+' : '−'}${pct}%`;
+  };
+  const cell = (lbl, val, meta, cls) => (
+    `<span class="pe-lbl">${lbl}</span>`
+    + (val == null
+      ? `<b class="${cls} pe-none">—</b>`
+      : `<b class="${cls}">${esc(val)}</b>`)
+    + (meta ? `<span class="pe-meta">${esc(meta)}</span>` : '')
+  );
+  let line1 = cell('OURS', haveOurs ? fix1(ours) : null, '', 'pe-us');
+  if (sc) {
+    const sd = isNum(sc.sd) ? `±${fix1(sc.sd)}` : '';
+    const d = delta(sc.points);
+    line1 += cell('SCENARIO', `${sc.approx ? '≈' : ''}${fix1(sc.points)}`,
+      [sd, d].filter(Boolean).join(' · '), 'pe-sc');
+  }
+  if (slLoaded) {
+    const have = isNum(o.sleeper);
+    line1 += cell('SLEEPER', have ? fix1(o.sleeper) : null, have ? delta(o.sleeper) : '', 'pe-sl');
+  }
+  const title = 'OURS is this app\'s projection in your scoring. SCENARIO is the '
+    + 'self-learning candidate (every raw signal applied at full strength, backtested, '
+    + 'NOT adopted) in the same units. SLEEPER is Sleeper\'s own projection priced under '
+    + 'your scoring table — shown for comparison, never an input. Deltas are vs OURS.';
+  let html = `<div class="p-est" title="${esc(title)}">${line1}</div>`;
+  const wk = Number(o.week);
+  if (Number.isFinite(wk) && (isNum(o.oursWk) || slLoaded)) {
+    const f = (v) => (isNum(v) ? fix1(v) : '—');
+    let wkLine = `WK ${wk} · OURS ${f(o.oursWk)}`;
+    if (sc) wkLine += ` · SCENARIO ${f(o.scenarioWk)}`;
+    if (slLoaded) wkLine += ` · SLEEPER ${f(o.sleeperWk)}`;
+    html += `<div class="p-est p-est--wk">${esc(wkLine)}</div>`;
+  }
+  if (sc && o.moves) html += `<div class="pe-moves">SCENARIO moves: ${esc(o.moves)}</div>`;
+  if (slLoaded && o.reason) html += `<div class="pe-reason">${esc(o.reason)}</div>`;
+  return html;
+}
+
 /** A compact glossary so no acronym or arrow is ever unexplained; the same
  * collapsible <details> pattern the TEAM tab uses, owned locally (render.js is
  * integrator-owned, and this view's markup is its own). Static markup, placed
@@ -585,6 +668,8 @@ function renderLegend(opts = {}) {
           ? '<span class="legend-item"><b>OURS / AUC</b> our own auction price (value over replacement from our projections) beside the market\'s — AUC is ESPN\'s average winning bid, shown for comparison only and never used to make a number</span>'
           : '') +
         '<span class="legend-item"><b>BYE</b> the week this player has no game (scores 0)</span>' +
+        // R49 — the three-engine row. Sleeper and the candidate are shown, never used.
+        '<span class="legend-item"><b>OURS · SCENARIO · SLEEPER</b> OURS is our shipped projection in your scoring. SCENARIO is the self-learning candidate — every raw signal applied at full strength, backtested, NOT adopted; it moves the shipped number only after it clears never-regress. SLEEPER is Sleeper\'s own (non-AI) projection priced under your scoring table. Both are comparison only, never an input; deltas are vs OURS. An em dash means that engine does not project the player — not zero. ≈ marks a SCENARIO scaled by candidate ÷ shipped through league-rule extras (a proportional assumption, exact only when nothing is converted).</span>' +
         '<span class="legend-item"><b>AI+</b> AI re-rank by 5-yr trajectory (bounded ±25%, labeled ESTIMATE)</span>' +
         '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
       '</div>' +
@@ -820,6 +905,91 @@ export default async function mountPlayers(el) {
     paintList();
   }
 
+  /* R49 — SLEEPER'S ESTIMATE (and the SCENARIO candidate) beside OURS on
+   * every card. Owner's decision: display-only, never an input. The doc is
+   * ~1 MB (every pool player x 18 weeks of stat lines), so it is fetched
+   * LAZILY AFTER THE FIRST PAINT — never inside the mount's allSettled — and
+   * the list repaints once when it lands. meta.json rides the same idle
+   * phase: its projection_baseline.rule is the only cause the gap reason
+   * may cite. 404 is a normal state (the daily runner may not have produced
+   * the file yet): the cards simply carry no Sleeper cell. The shaped index
+   * is priced under the SAVED league; with no league saved it follows the
+   * PPR/HALF/STD toggle so the two numbers stay in one unit. */
+  let sleeperMod = null;
+  let sleeperDoc = null;
+  let baselineRule = null;
+  let sleeperState = 'idle'; // idle | loading | ready | failed
+  const _sleeperIdx = new Map(); // scoring mode -> shapeSleeper(...)
+  function sleeperIndex() {
+    if (!sleeperMod || !sleeperDoc) return null;
+    if (_sleeperIdx.has(scoring)) return _sleeperIdx.get(scoring);
+    let prof = profile;
+    if (isDefaultProfile(profile) && scoring !== 'ppr') {
+      prof = normalizeProfile({
+        ...profile,
+        scoring: { ...profile.scoring, rec: scoring === 'half' ? 0.5 : 0 },
+      });
+    }
+    const idx = sleeperMod.shapeSleeper(sleeperDoc, prof);
+    _sleeperIdx.set(scoring, idx.ok ? idx : null);
+    return _sleeperIdx.get(scoring);
+  }
+  async function ensureSleeper() {
+    if (sleeperState !== 'idle') return;
+    sleeperState = 'loading';
+    try {
+      const [mod, metaDoc] = await Promise.all([
+        import('../sleeper-proj.js'),
+        getMeta().catch(() => null),
+      ]);
+      sleeperMod = mod;
+      const pb = metaDoc && metaDoc.projection_baseline;
+      baselineRule = pb && typeof pb.rule === 'string' && pb.rule.trim() ? pb.rule.trim() : null;
+      sleeperDoc = await mod.getSleeperProjections();
+      sleeperState = 'ready';
+    } catch (err) {
+      sleeperState = 'failed';
+    }
+    // The module alone unlocks the SCENARIO cells; the doc adds Sleeper's.
+    if (sleeperMod) paintList();
+  }
+
+  /** The R49 rows for one pool record, or '' before the lazy module lands. */
+  function estimateRows(p) {
+    if (!sleeperMod) return '';
+    const id = String(p.gsis_id);
+    const w = weeklyPriced.get(id);
+    const base = Number(p.proj_points);
+    // OURS = the league-priced shipped number (BASE — the AI+ re-rank is a
+    // display toggle and must not leak into the candidate's pricing ratio).
+    const shipped = p.kdst ? (Number(p.proj_points) || 0) : projSeason(p, w, scoring);
+    const sc = p.kdst ? null : sleeperMod.scenarioOf(p, { shipped, extra: extraPtsOf(w) });
+    const idx = sleeperIndex();
+    const sl = idx ? (idx.byAppId.get(id) || null) : null;
+    if (!sc && !idx) return '';
+    let oursWk = null;
+    if (w && Array.isArray(w.weeks)) {
+      const wi = w.weeks.findIndex((x) => Number(x && x.wk) === currentWk);
+      if (wi >= 0) {
+        const conv = weeklyPoints(w, shipped, base);
+        oursWk = Number.isFinite(Number(conv[wi])) ? Number(conv[wi]) : null;
+      }
+    }
+    const scRatio = sc && shipped > 0 ? sc.points / shipped : null;
+    return renderEstimateRow({
+      ours: shipped,
+      scenario: sc,
+      sleeperLoaded: Boolean(idx),
+      sleeper: sl ? sl.season : null,
+      week: currentWk,
+      oursWk,
+      scenarioWk: sc && oursWk != null && scRatio != null ? oursWk * scRatio : null,
+      sleeperWk: sl ? sleeperMod.sleeperWeek(sl, currentWk) : null,
+      moves: sc ? sleeperMod.fmtMoves(sleeperMod.scenarioMoves(p, 3)) : '',
+      reason: idx ? sleeperMod.gapReason(shipped, sl ? sl.season : null, { baselineRule }) : '',
+    });
+  }
+
   /** trajectory_adj insight for a player id (ai_insights first, else history). */
   function trajFor(id) {
     if (aiInsights && aiInsights[id] && aiInsights[id].trajectory_adj) {
@@ -1039,9 +1209,9 @@ export default async function mountPlayers(el) {
           // Show the RoS value chip when ranking by rest-of-season, so the sort
           // is legible (you see the number you sorted on), not just re-ordered.
           const ros = sortKey === 'ros' ? rosOf(id) : null;
-          return withExtraRow(renderPlayerCard(m.player, {
+          return withEstimateRow(withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta, ros,
-          }), extraRow(id));
+          }), extraRow(id)), estimateRows(p));
         }).join('')
         + (more > 0
           ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
@@ -1077,6 +1247,15 @@ export default async function mountPlayers(el) {
     '<div id="rookie-starters" hidden></div>' +
     renderUnranked(unrankedRows);
   paintList();
+
+  // R49 — Sleeper's estimate lands AFTER the first paint (idle), never on the
+  // critical path; the cards repaint once. Same idle/timeout shape as the
+  // module warm at the top of this file (Safari has no requestIdleCallback).
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(() => { ensureSleeper(); }, { timeout: 2000 });
+  } else {
+    setTimeout(() => { ensureSleeper(); }, 800);
+  }
 
   // R45 — the facts strip is fetched LAZILY on the first filter toggle: the
   // rookies-only surface is the only reader, and the #/players cold budget

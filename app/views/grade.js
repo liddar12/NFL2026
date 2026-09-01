@@ -110,6 +110,129 @@ function weeklyTableHtml(table) {
     + rows + '</article>';
 }
 
+/* ---------------------------------------------------------- R49 estimates
+ * OURS · SCENARIO · SLEEPER on the league cards and the standings. Sleeper's
+ * numbers are Sleeper's own projections priced under THIS league's scoring
+ * (app/sleeper-proj.js) — shown for comparison, never an input; the SCENARIO
+ * sum is the self-learning candidate for the same starters. Where an engine
+ * lacks a player, that player contributes nothing and the cell says n/N.
+ * The Sleeper doc is fetched lazily AFTER the league paints and only the
+ * affected cells are repainted; 404 (no file yet) leaves them hidden. */
+
+const round1 = (n) => Math.round(n * 10) / 10;
+
+/** "+3%" / "−12%" / '' — the other engine relative to OURS. */
+function deltaTxt(ours, other) {
+  if (ours == null || other == null) return '';
+  const a = Number(ours);
+  const b = Number(other);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return '';
+  const raw = ((b - a) / Math.abs(a)) * 100;
+  const pct = Math.round(Math.abs(raw)); // symmetric: −37.5 -> −38
+  return pct === 0 ? '0%' : `${raw > 0 ? '+' : '−'}${pct}%`;
+}
+
+/**
+ * The SCENARIO sum for a team's season-optimal starters: each starter's
+ * candidate priced exactly as its shipped number was (sleeper-proj
+ * scenarioOf on the starter's own OURS points). Starters with no candidate
+ * add nothing and are reported in covered/total. null when none carries one
+ * (older data). Pure.
+ */
+export function scenarioTeamSum(players, starters, mod, weeklyById) {
+  const byId = new Map((players || []).map((p) => [String(p.gsis_id), p]));
+  const live = (starters || []).filter((st) => st && !st.empty && st.id != null);
+  let points = 0;
+  let covered = 0;
+  let approx = false;
+  for (const st of live) {
+    const rec = byId.get(String(st.id));
+    if (!rec || rec.kdst) continue;
+    const w = weeklyById instanceof Map ? weeklyById.get(String(st.id)) : null;
+    const extra = w && Number.isFinite(Number(w.extra_pts)) ? Number(w.extra_pts) : 0;
+    const sc = mod.scenarioOf(rec, { shipped: st.pts, extra });
+    if (!sc) continue;
+    points += sc.points;
+    covered += 1;
+    if (sc.approx) approx = true;
+  }
+  if (!covered) return null;
+  return { points: round1(points), covered, total: live.length, approx };
+}
+
+/**
+ * Sleeper's sums for one team: the season (same starters as the season-optimal
+ * list), every weekly lineup, and the regular-season PF (sum of the weekly
+ * sums). Each carries covered/total so the view can say "8/9 projected". Pure.
+ */
+export function sleeperTeamSummary(mod, idx, starters, weeks) {
+  const ids = (starters || []).filter((st) => st && !st.empty && st.id != null).map((st) => String(st.id));
+  const season = mod.sumSleeper(idx.byAppId, ids, null);
+  const wkRows = (weeks || []).map((d) => {
+    const wids = d.lineup.geometry.map((g) => d.lineup.slots[g.slot]).filter(Boolean).map(String);
+    return { week: d.week, ...mod.sumSleeper(idx.byAppId, wids, d.week) };
+  });
+  const scored = wkRows.filter((r) => r.points != null);
+  return {
+    season,
+    weeks: wkRows,
+    pf: {
+      points: scored.length ? round1(scored.reduce((sum, r) => sum + r.points, 0)) : null,
+      covered: wkRows.reduce((sum, r) => sum + r.covered, 0),
+      total: wkRows.reduce((sum, r) => sum + r.total, 0),
+    },
+  };
+}
+
+/** The card's OURS · SCENARIO line with the (hidden until it lands) SLEEPER cell. */
+export function renderTeamEstimate({ ours, scenario, teamIndex }) {
+  const o = Number(ours);
+  let html = `<div class="gr-est">OURS <b>${Number.isFinite(o) ? o.toFixed(1) : '—'}</b>`;
+  if (scenario && scenario.points != null && Number.isFinite(Number(scenario.points))) {
+    html += ` · SCENARIO <b>${scenario.approx ? '≈' : ''}${Number(scenario.points).toFixed(1)}</b>`
+      + ` ${deltaTxt(o, scenario.points)} · ${scenario.covered}/${scenario.total} candidates`;
+  }
+  html += `<span class="gr-est-sl" data-team="${teamIndex}" hidden></span></div>`;
+  return html;
+}
+
+/** Repaint ONLY the Sleeper cells once the doc has landed. `teams` is
+ *  [{ ours, starters, weeks }] in card order. */
+export function fillSleeperCells(out, mod, idx, teams) {
+  teams.forEach((t, i) => {
+    const sum = sleeperTeamSummary(mod, idx, t.starters, t.weeks);
+    const cell = out.querySelector(`.gr-est-sl[data-team="${i}"]`);
+    if (cell) {
+      const s = sum.season;
+      cell.innerHTML = s.points == null
+        ? ' · SLEEPER <b>—</b> · 0/' + s.total + ' projected'
+        : ` · SLEEPER <b>${s.points.toFixed(1)}</b> ${deltaTxt(t.ours, s.points)}`
+          + ` · ${s.covered}/${s.total} projected`;
+      cell.hidden = false;
+    }
+    sum.weeks.forEach((wk) => {
+      const c = out.querySelector(`.gr-est-wk[data-team="${i}"][data-wk="${wk.week}"]`);
+      if (!c) return;
+      c.textContent = wk.points == null
+        ? `SLEEPER — · 0/${wk.total}`
+        : `SLEEPER ${wk.points.toFixed(1)} · ${wk.covered}/${wk.total}`;
+      c.hidden = false;
+    });
+    const tr = out.querySelector(`.gr-standings tbody tr[data-team="${i}"]`);
+    if (tr && !tr.querySelector('.gr-est-pf')) {
+      const pf = sum.pf;
+      const txt = pf.points == null ? '—' : pf.points.toFixed(1);
+      const cov = pf.covered === pf.total ? '' : ` (${pf.covered}/${pf.total})`;
+      tr.insertAdjacentHTML('beforeend',
+        `<td class="gr-est-pf" title="Sleeper's points for OUR weekly optimal starters, regular season; ${pf.covered}/${pf.total} starter-weeks projected">${txt}${cov}</td>`);
+    }
+  });
+  const head = out.querySelector('.gr-standings thead tr');
+  if (head && !head.querySelector('.gr-est-th')) {
+    head.insertAdjacentHTML('beforeend', '<th class="gr-est-th">SLEEPER PF</th>');
+  }
+}
+
 /**
  * R48 — the Sleeper-league team card. The letter grade stays; the number under
  * it is the season total of WEEKLY optimal lineups (the bench substituted every
@@ -117,7 +240,7 @@ function weeklyTableHtml(table) {
  * EMPTY — never a fabricated 0.0; a player with no projection shows an em dash.
  */
 function leagueTeamCard(t, info) {
-  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade } = info;
+  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario } = info;
   // R48b (owner RCA: "cards without player names"): the season-optimal
   // starters are ON the card, as they were before R48 — name, slot, season
   // points — and the weekly lineups stay one tap away underneath.
@@ -159,6 +282,7 @@ function leagueTeamCard(t, info) {
       d.noProjection.length ? `No projection: ${names(d.noProjection)}` : '',
     ].filter(Boolean).join(' · ');
     return `<div class="gr-week"><div class="gr-week-head"><span>WK ${d.week}</span>`
+      + `<span class="gr-est-wk" data-team="${teamIndex}" data-wk="${d.week}" hidden></span>`
       + `<b>${d.total.toFixed(1)}</b></div>${slots}`
       + (foot ? `<div class="gr-week-foot">${foot}</div>` : '')
       + '</div>';
@@ -177,6 +301,7 @@ function leagueTeamCard(t, info) {
     + ` · bench ${bench}</div>`
     + simRow
     + '<div class="gr-sub">SEASON-OPTIMAL STARTERS · projected season pts</div>'
+    + renderTeamEstimate({ ours: grade ? grade.total : null, scenario, teamIndex })
     + starterHtml
     + `<details class="gr-weeks"><summary>Weekly lineups with the bench substituted · ${weekCount} weeks</summary>`
     + weekHtml + '</details>'
@@ -190,7 +315,7 @@ function leagueTeamCard(t, info) {
 function standingsHtml(season) {
   if (!season || !Array.isArray(season.standings) || !season.standings.length) return '';
   const rows = season.standings.map((s) => (
-    `<tr><td>${s.rank}</td><td>${esc(s.name)}</td>`
+    `<tr data-team="${s.index}"><td>${s.rank}</td><td>${esc(s.name)}</td>`
     + `<td>${s.wins.toFixed(1)}-${s.losses.toFixed(1)}</td>`
     + `<td>${s.pf.toFixed(1)}</td><td>${s.pa.toFixed(1)}</td>`
     + `<td>${pct(s.playoff)}</td><td>${pct(s.regSeasonTitle)}</td><td>${pct(s.title)}</td></tr>`
@@ -237,9 +362,10 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   out.innerHTML = '<div class="state state--loading">Reading your league from Sleeper — '
     + 'rosters, schedule and its player list (several MB)…</div>';
   // Lazy on purpose: none of this rides the paste path or the boot path.
-  const [sleeper, gradeLeague, draftLive, gradeWeekly] = await Promise.all([
+  const [sleeper, gradeLeague, draftLive, gradeWeekly, sleeperProj] = await Promise.all([
     import('../sleeper.js'), import('../grade-league.js'), import('../draft-live.js'),
     import('../grade-weekly.js'),
+    import('../sleeper-proj.js'), // R49 — display-only estimates, LOAD path only
   ]);
   const leagueRes = await sleeper.fetchSleeperLeague(idText);
   if (!leagueRes.ok) {
@@ -346,6 +472,11 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     graded.map((g, ti) => ({ name: g.team.label, weeklyMean: table[ti].totals[wi] })), [wk],
   )[0]);
   const totals = table.map((t) => t.seasonTotal);
+  // R49 — the SCENARIO candidate for each team's season-optimal starters
+  // (null on data that carries no candidate fields).
+  const scenarioByTeam = graded.map((g) => scenarioTeamSum(
+    g.players, g.grade.starters, sleeperProj, engineCtx.weeklyById,
+  ));
 
   const notes = [];
   if (!isDefaultProfile(loadProfile())) {
@@ -378,6 +509,18 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   if (!engineCtx.hasK) notes.push("This league fields no K slot, so no kicker is graded.");
   notes.push("AI = our projections; AI+ = priced under your league's scoring table; self-learning signals are at weight 0 until they clear never-regress, so they move nothing here yet."
     + ' No market input anywhere. Every number is an ESTIMATE.');
+  notes.push("Sleeper's numbers are Sleeper's own projections priced under this league's "
+    + 'scoring — shown for comparison, never an input. They appear once the daily Sleeper '
+    + 'projection file exists; a player Sleeper does not project adds nothing and the cell '
+    + 'reads n/N projected. SLEEPER PF in the standings is Sleeper\'s points for OUR weekly '
+    + 'optimal starters over the regular season.');
+  if (scenarioByTeam.some(Boolean)) {
+    notes.push('SCENARIO is the self-learning candidate (every raw signal applied at full '
+      + 'strength, backtested, NOT adopted) for the same starters, priced as OURS × '
+      + '(candidate ÷ shipped) per player — a proportional assumption, marked ≈ when '
+      + 'league-rule extras are in play. It moves the shipped number only after it clears '
+      + 'never-regress.');
+  }
   problems.forEach((p) => notes.push(p));
 
   out.innerHTML =
@@ -393,6 +536,8 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
         sim: season.teams[i],
         weeks: table[i].weeks,
         weekCount: weeks.length,
+        teamIndex: i,
+        scenario: scenarioByTeam[i],
       },
     )).join('')
     // R48b — the cards carry the detail; the week-by-week table and the
@@ -403,6 +548,22 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     + `<details class="gr-fold"><summary>How this is computed · ${notes.length} note(s)</summary>`
     + `<div class="gr-assumptions">${notes.map((n) => `<div class="gr-note">${esc(n)}</div>`).join('')}</div></details>`
     + standingsHtml(season);
+
+  // R49 — Sleeper's estimate lands AFTER the league has painted (idle), and
+  // repaints only its own cells. A later LOAD replaces `out`'s content; the
+  // token makes a stale fill a no-op instead of a mismatched one.
+  const token = {};
+  out._r49 = token;
+  const fill = () => sleeperProj.getSleeperProjections().then((doc) => {
+    if (out._r49 !== token) return;
+    const idx = sleeperProj.shapeSleeper(doc, loadProfile());
+    if (!idx.ok) return; // no file yet (404) — nothing Sleeper-related renders
+    fillSleeperCells(out, sleeperProj, idx, graded.map((g, i) => ({
+      ours: g.grade.total, starters: g.grade.starters, weeks: table[i].weeks,
+    })));
+  }).catch(() => { /* display-only: a failure paints nothing */ });
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(fill, { timeout: 2000 });
+  else setTimeout(fill, 400);
 }
 
 /* ----------------------------------------------------------------- mount */

@@ -120,6 +120,7 @@ const LAZY_ONLY_MODULES = [
   'app/views/league.js', // R48 — the LEAGUE tab, needed by #/league only
   'app/synclog.js', //       R48 — its sync log + diff engine, reachable only from the view
   'app/grade-weekly.js', // R48 — weekly-optimal season engine, reachable only from the grade view
+  'app/sleeper-proj.js', // R49 — Sleeper's display-only estimate, lazy after first paint (players/grade)
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must
@@ -170,7 +171,13 @@ const CONTRACT_ALLOWLIST = new Set([
 // counts are also the concurrency.
 const ROUTES = [
   { hash: '#/', name: 'slate', contracts: 3 },
-  { hash: '#/players', name: 'players', contracts: 8 },
+  // R49 — 8 -> 10: Sleeper's display-only estimate (sleeper_projections.json,
+  // ~1 MB) and meta.json (the baseline rule the gap reason cites) are fetched
+  // AFTER the first paint via requestIdleCallback, never inside the mount's
+  // allSettled, so first paint is unchanged; they still land inside this
+  // test's 2.5 s window. Owner's decision: Sleeper's number beside OURS on
+  // every card, so there is no user gesture to hang the fetch on.
+  { hash: '#/players', name: 'players', contracts: 10 },
   { hash: '#/parlays', name: 'parlays', contracts: 4 },
   { hash: '#/team', name: 'team', contracts: 9 },
   // R47 — the DEFAULT league now fields K and DEF (owner's pick: first-class

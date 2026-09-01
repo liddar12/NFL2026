@@ -528,7 +528,19 @@ test('no file in app/ still calls a stored mock a "learning record"', () => {
   for (const f of appSources()) {
     if (f === 'app/mocks.js') continue;
     const src = readFileSync(join(REPO_ROOT, f), 'utf8');
-    for (const re of banned) if (re.test(src)) offenders.push(`${f} :: ${re}`);
+    for (const re of banned) {
+      // R49 — app/views/model.js renders meta.learning_record: the REAL record
+      // the self-learning loop writes (weeks resolved, players scored, MAE and
+      // bias on resolved 2026 weeks). The phrase is exact there — and only
+      // there, and only that phrase. It must read the meta key, not a mock.
+      if (f === 'app/views/model.js' && re.source === 'learning record') {
+        assert.ok(/meta\.learning_record/.test(src), 'model.js names the record by its meta key');
+        assert.ok(!/mock/i.test(src.slice(src.indexOf('learningCard'), src.indexOf('/* ---- mount'))),
+          'the LEARNING RECORD card never mentions mocks');
+        continue;
+      }
+      if (re.test(src)) offenders.push(`${f} :: ${re}`);
+    }
   }
   assert.deepEqual(offenders, [],
     'mock drafts do not refit anything. They are HISTORY, plus (LIVE rooms only) '
