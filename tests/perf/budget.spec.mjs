@@ -114,6 +114,8 @@ const LAZY_ONLY_MODULES = [
   'app/sleeper.js', // 85 kB, only reachable from team.js
   'app/kdst.js',
   'app/mocks.js',
+  'app/views/grade.js', // R41 — paste grader, needed by #/grade only
+  'app/grade.js', //       R41 — its pure engine, reachable only from the view
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must

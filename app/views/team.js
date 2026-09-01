@@ -1216,6 +1216,11 @@ export default async function mountTeam(el) {
 
   // Finder + reco control state (REL2).
   let finderPos = 'ALL';      // ALL/QB/RB/WR/TE
+  // R41 — rookies-only, rendered only when the nflverse flag exists in data
+  // (unstamped pool = rookie status UNKNOWN; a filter over unknowns would show
+  // an empty board, so the control hides — the PLAYERS tab does the same).
+  const hasRookieFlag = players.some((p) => typeof p.rookie === 'boolean');
+  let finderRookies = false;
   let finderSort = 'pts';     // pts | trend | bye
   let finderDir = 'desc';
   let recoSort = 'fit';       // fit (Best AI Pick / Best fit) | available (Best available)
@@ -2007,6 +2012,9 @@ export default async function mountTeam(el) {
             'placeholder="SEARCH NAME · TEAM · POS" aria-label="Search player pool">' +
           '<div class="finder-controls">' +
             `${finderPosRow(finderPos, kdstChips)}${finderSortRow(finderSort, finderDir)}` +
+            (hasRookieFlag
+              ? `<label class="rookie-filter"><input type="checkbox" id="t-rookies-only"${finderRookies ? ' checked' : ''} /> <span>ROOKIES ONLY</span></label>`
+              : '') +
             `<button type="button" class="sort-chip taken-toggle" data-act="taken-filter" aria-pressed="false">${hideTaken ? 'SHOW TAKEN' : 'HIDE TAKEN'}</button>` +
           '</div>' +
           valueLegendHtml() +
@@ -2207,6 +2215,7 @@ export default async function mountTeam(el) {
       if (rostered.has(pid)) return false;
       if (hideTaken && taken.has(pid)) return false; // hide-taken view removes them
       if (finderPos !== 'ALL' && String(p.position).toUpperCase() !== finderPos) return false;
+      if (finderRookies && p.rookie !== true) return false;
       if (!q) return true;
       return `${p.name} ${p.team} ${p.position}`.toLowerCase().includes(q);
     });
@@ -5105,6 +5114,12 @@ export default async function mountTeam(el) {
   }, true);
 
   // Finder + reco controls (delegated on el so they survive every repaint).
+  listen(el, 'change', (e) => {
+    if (e.target && e.target.id === 't-rookies-only') {
+      finderRookies = e.target.checked;
+      paintCands();
+    }
+  });
   listen(el, 'click', (e) => {
     const posBtn = e.target.closest('button[data-fpos]');
     if (posBtn) {

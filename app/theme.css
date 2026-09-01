@@ -329,25 +329,29 @@ button { font: inherit; color: inherit; }
   transition: color 120ms ease;
 }
 /* R24-D — THE CLIPPED SIXTH TAB, on narrow phones.
-   Six tabs (Slate, Players, Parlays, Team, Lineup, Model) at 13px measure 376px
-   of content. A flex item defaults to min-width:auto, so none of them would
-   shrink below its own label, and .tabbar is fixed — it can neither wrap nor
-   scroll. At an iPhone SE's 320px viewport the row therefore ran 56px past the
-   screen and MODEL was cut in half.
-   The fix is scoped to narrow widths only: 10px labels with no extra tracking
-   and 2px side padding measure ~47px, so six of them fit inside 320 with room
-   to spare, and min-width:0 lets the six columns divide the bar evenly instead
-   of one long label pushing the rest out. Everything at 401px and up — the
-   402pt iPhone 16 Pro reference device included — is untouched and renders
-   byte-for-byte what it always has. The vertical padding grows 8px -> 10px to
-   absorb the shorter line box, so the tab keeps EXACTLY the 36px hit height it
-   has at 402 — a narrow phone loses no tap target for the fix. */
-@media (max-width: 400px) {
+   R41 re-measure — SEVEN tabs now (Slate, Players, Parlays, Team, Lineup,
+   Model, Grade). A flex item defaults to min-width:auto, so no tab shrinks
+   below its own label, and .tabbar is fixed — it can neither wrap nor scroll.
+   At 13px the seven labels measure ~434px of content: they no longer fit even
+   the 402pt iPhone 16 Pro reference, so the R24d six-tab fix (10px under
+   400px only) is retuned into two bands:
+     <= 400px : 9px labels, 1px side padding -> ~41px/tab, 7 fit in 320.
+     <= 460px : 12px labels, 2px side padding -> ~56px/tab, 7 fit in 402.
+   Vertical padding grows as the line box shrinks so every band keeps the same
+   36px hit height — no width loses a tap target. 461px+ renders the original
+   13px styling. */
+@media (max-width: 460px) {
   .tab {
     min-width: 0;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0;
-    padding: 10px 2px;
+    padding: 9px 2px;
+  }
+}
+@media (max-width: 400px) {
+  .tab {
+    font-size: 9px;
+    padding: 11px 1px;
   }
 }
 /* active tab (route match) — brand underline + brighter label.
@@ -3649,6 +3653,45 @@ body.gate-locked { overflow: hidden; }
   padding: 1px 6px;
   color: var(--brand);
 }
+
+/* R41 — TEAM GRADE view. */
+.gr-input {
+  width: 100%;
+  min-height: 180px;
+  font: 13px/1.5 ui-monospace, Menlo, monospace;
+  background: var(--bg-raise, transparent);
+  color: inherit;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+}
+.gr-card { margin-top: 12px; }
+.gr-head { display: flex; align-items: center; justify-content: space-between; }
+.gr-grade { font-size: 26px; font-weight: 700; }
+.gr-total { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+.gr-sim { font-size: 13px; margin-bottom: 8px; }
+.gr-slot { display: flex; gap: 10px; padding: 3px 0; font-size: 13px; }
+.gr-pos { width: 44px; color: var(--muted); }
+.gr-pts { margin-left: auto; font-variant-numeric: tabular-nums; }
+.gr-slot--empty .gr-empty { color: var(--muted); font-style: italic; }
+.gr-unmatched { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.gr-note { margin: 10px 0; font-size: 12px; color: var(--muted); }
+.gr-assumptions { margin-top: 14px; font-size: 11px; color: var(--muted); }
+
+/* R41 — the ROOKIES ONLY filter checkbox (PLAYERS + TEAM finder). */
+.rookie-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.rookie-filter input { width: 18px; height: 18px; }
+.rookie-filter-note { color: var(--muted); font-size: 10px; }
 
 /* R40 — the NOT IN RANKINGS strip (honest absence, below the player list). */
 .unranked {

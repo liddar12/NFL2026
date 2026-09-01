@@ -16,9 +16,13 @@ import { readFileSync } from 'node:fs';
 const read = (rel) =>
   JSON.parse(readFileSync(new URL(`../../data/${rel}`, import.meta.url), 'utf8'));
 
-test('defense_composite: 32 teams, weight-0 pinned, composites centered', () => {
+test('defense_composite: full-or-named-skip teams, weight-0 pinned, composites centered', () => {
   const doc = read('defense_composite.json');
-  assert.equal(Object.keys(doc.teams).length, 32);
+  // R41: >=30 with any absence NAMED in source (R40 per-team skip) — see the
+  // oline contract test for the rationale.
+  const n = Object.keys(doc.teams).length;
+  assert.ok(n >= 30 && n <= 32, `team count ${n} outside the contract floor`);
+  if (n < 32) assert.match(doc.source, /skipped: /);
   assert.equal(doc.params.applied, false);
   assert.equal(doc.params.weight, 0.0);
   const comps = Object.values(doc.teams).map((t) => t.composite);
