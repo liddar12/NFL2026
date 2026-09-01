@@ -117,6 +117,8 @@ const LAZY_ONLY_MODULES = [
   'app/views/grade.js', // R41 — paste grader, needed by #/grade only
   'app/grade.js', //       R41 — its pure engine, reachable only from the view
   'app/grade-league.js', // R42 — Sleeper league -> engine inputs, ditto
+  'app/views/league.js', // R48 — the LEAGUE tab, needed by #/league only
+  'app/synclog.js', //       R48 — its sync log + diff engine, reachable only from the view
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must
@@ -177,6 +179,10 @@ const ROUTES = [
   { hash: '#/lineup', name: 'lineup', contracts: 6 },
   { hash: '#/model', name: 'model', contracts: 6 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
+  // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
+  // LEAGUE tab reads the saved profile, the league id and the sync log from
+  // localStorage and nothing else, so a per-route count here would be 0 and
+  // the allowlist walk below already fails any /data/ request it ever makes.
 ];
 
 // DOM ceiling per route. Measured on the default profile: players 3,279
