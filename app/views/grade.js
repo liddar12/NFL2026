@@ -117,7 +117,18 @@ function weeklyTableHtml(table) {
  * EMPTY — never a fabricated 0.0; a player with no projection shows an em dash.
  */
 function leagueTeamCard(t, info) {
-  const { seasonTotal, pctile, bench, sim, weeks, weekCount } = info;
+  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade } = info;
+  // R48b (owner RCA: "cards without player names"): the season-optimal
+  // starters are ON the card, as they were before R48 — name, slot, season
+  // points — and the weekly lineups stay one tap away underneath.
+  const starterHtml = (grade && Array.isArray(grade.starters) ? grade.starters : []).map((st) => (
+    `<div class="gr-slot${st.empty ? ' gr-slot--empty' : ''}">`
+    + `<span class="gr-pos">${esc(st.slot)}</span>`
+    + (st.empty
+      ? '<span class="gr-empty">EMPTY — nobody on the roster can fill this slot</span>'
+      : `<span>${esc(st.name)}</span><span class="gr-pts">${st.pts.toFixed(1)}</span>`)
+    + '</div>'
+  )).join('');
   const simRow = sim && sim.playoff != null
     ? `<div class="gr-sim">PLAYOFFS ${pct(sim.playoff)} · TITLE ${pct(sim.title)} · `
       + `${sim.avgWins} avg wins · PF ${sim.pf.toFixed(1)} / PA ${sim.pa.toFixed(1)} `
@@ -165,7 +176,9 @@ function leagueTeamCard(t, info) {
     + (pctile == null ? '' : ` · ${pctile}th percentile`)
     + ` · bench ${bench}</div>`
     + simRow
-    + `<details class="gr-weeks"><summary>Tap for weekly lineups · ${weekCount} weeks</summary>`
+    + '<div class="gr-sub">SEASON-OPTIMAL STARTERS · projected season pts</div>'
+    + starterHtml
+    + `<details class="gr-weeks"><summary>Weekly lineups with the bench substituted · ${weekCount} weeks</summary>`
     + weekHtml + '</details>'
     + un + extra
     + '</article>'
@@ -376,14 +389,20 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
         seasonTotal: totals[i],
         pctile: percentile(totals[i], totals),
         bench: g.grade.bench,
+        grade: g.grade,
         sim: season.teams[i],
         weeks: table[i].weeks,
         weekCount: weeks.length,
       },
     )).join('')
-    + weeklyTableHtml(wkTable)
-    + standingsHtml(season)
-    + `<div class="gr-assumptions">${notes.map((n) => esc(n)).join(' ')}</div>`;
+    // R48b — the cards carry the detail; the week-by-week table and the
+    // method notes are one tap away; the standings are the LAST thing on the
+    // page (owner's spec) and never buried under either.
+    + `<details class="gr-fold"><summary>Week by week · every matchup, ${weeks.length} weeks</summary>`
+    + weeklyTableHtml(wkTable) + '</details>'
+    + `<details class="gr-fold"><summary>How this is computed · ${notes.length} note(s)</summary>`
+    + `<div class="gr-assumptions">${notes.map((n) => `<div class="gr-note">${esc(n)}</div>`).join('')}</div></details>`
+    + standingsHtml(season);
 }
 
 /* ----------------------------------------------------------------- mount */

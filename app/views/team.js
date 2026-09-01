@@ -2044,6 +2044,10 @@ export default async function mountTeam(el) {
     '<div class="team-grid">' +
       '<div class="team-col team-col--build">' +
         '<section class="draftsim" id="t-draft" aria-label="Draft simulator"></section>' +
+        // R48b — the Sleeper sync's NEXT STEP and RESULT live right above the
+        // roster they act on, not inside the settings card far below (owner
+        // RCA: "picked a team, it went to show the league data instead").
+        '<div id="t-syncbar" aria-live="polite"></div>' +
         // R30c — role="list", NOT listbox. The old listbox/option markup
         // announced "Roster slots, list box, 13 items" — a selectable widget —
         // while nothing responded to arrow keys, the container was not
@@ -3235,11 +3239,26 @@ export default async function mountTeam(el) {
       }
       notes.push('Check the plan below before confirming — it removes players seated now.');
     } else {
-      notes.unshift(`${rosterTeams.length} teams read. PICK YOUR TEAM below to finish the sync — `
-        + 'it is remembered on this device, so the next SYNC NOW needs no pick.');
+      notes.unshift(`${rosterTeams.length} teams read. PICK YOUR TEAM (banner above the roster) `
+        + 'to finish the sync — it is remembered on this device, so the next SYNC NOW needs no pick.');
     }
     rosterStatus = { tone: teamsRes.users_error ? 'warn' : 'ok', lines: notes };
     paintDraft();
+    // The next step is above the roster grid: bring it on screen.
+    scrollToSyncBar();
+  }
+
+  /** R48b — put the sync banner (and the roster under it) on screen. */
+  function scrollToSyncBar() {
+    const bar = el.querySelector('#t-syncbar');
+    if (!bar || typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
+    try {
+      // Land the banner just under the sticky topbar, never behind it.
+      const topbar = document.querySelector('.topbar');
+      const offset = (topbar ? topbar.getBoundingClientRect().height : 0) + 8;
+      const top = bar.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    } catch (err) { /* no-op: scrolling is a courtesy */ }
   }
 
   /** How many roster slots hold a player right now. */
@@ -3306,6 +3325,9 @@ export default async function mountTeam(el) {
       });
       try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
     } catch (err) { /* the log is a convenience; the seat stands without it */ }
+    // The RESULT is the roster itself: after the paint below, show it rather
+    // than the settings card the picker used to sit under.
+    setTimeout(scrollToSyncBar, 0);
     rosterStatus = {
       tone: 'ok',
       lines: [`${auto ? 'Synced: ' : ''}roster ${auto ? 'seated' : 'replaced'} from Sleeper`
@@ -4376,6 +4398,7 @@ export default async function mountTeam(el) {
   }
 
   function paintDraft() {
+    paintSyncBar();
     const box = el.querySelector('#t-draft');
     if (!box) return;
     const focusKey = draftFocusKey(box);
@@ -4401,8 +4424,49 @@ export default async function mountTeam(el) {
     if (rebuilt) restoreDraftFocus(box, focusKey);
   }
 
+  /**
+   * R48b — the sync banner beside the roster grid. Three states, one place:
+   * reading (busy), PICK YOUR TEAM (teams read, none chosen — the picker is
+   * here, in the same viewport as the roster it fills), and the RESULT of a
+   * seat (how many, from which team, what did not match). Empty otherwise.
+   */
+  function syncBarHtml() {
+    if (rosterBusy) {
+      return '<div class="lp-status lp-status--ok sync-bar" role="status">'
+        + '<div class="lp-status-line">Reading your Sleeper rosters — the roster below fills '
+        + 'when they land.</div></div>';
+    }
+    if (rosterTeams && rosterTeamIdx < 0) {
+      const opts = ['<option value="-1" selected>— pick your team —</option>']
+        .concat(rosterTeams.map((t, i) => `<option value="${i}">${esc(t.label)}</option>`)).join('');
+      return '<div class="lp-status lp-status--warn sync-bar" role="status">'
+        + '<div class="lp-status-line"><b>ONE STEP LEFT — PICK YOUR TEAM.</b> The league settings '
+        + `are saved; ${rosterTeams.length} rosters were read. Choose yours and it is seated below `
+        + 'and remembered on this device.</div>'
+        + '<label class="lp-field lp-field--grow sync-bar-pick"><span class="ds-lbl">MY TEAM</span>'
+        + `<select class="ds-select lp-rsel" data-rcfg="team">${opts}</select></label>`
+        + '</div>';
+    }
+    if (rosterApplied && rosterPlan) {
+      const team = rosterTeams && rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
+      const total = rosterPlan.after_count + rosterPlan.unplaced.length + rosterMissed.length;
+      return '<div class="lp-status lp-status--ok sync-bar" role="status">'
+        + `<div class="lp-status-line"><b>SEATED FROM SLEEPER${team ? ` · ${esc(team.label)}` : ''}.</b> `
+        + `${rosterPlan.after_count} of ${total} player(s) are in the roster below`
+        + (rosterMissed.length ? `; ${rosterMissed.length} have no projection in this app and are named in the SLEEPER ROSTER panel` : '')
+        + (rosterPlan.unplaced.length ? `; ${rosterPlan.unplaced.length} had no slot left` : '')
+        + '. LINEUP, LEAGUE and GRADE read this roster now.</div></div>';
+    }
+    return '';
+  }
+  function paintSyncBar() {
+    const bar = el.querySelector('#t-syncbar');
+    if (bar) bar.innerHTML = syncBarHtml();
+  }
+
   function paintAll() {
     paintDraft();
+    paintSyncBar();
     paintRoster();
     paintCands();
     paintReco();

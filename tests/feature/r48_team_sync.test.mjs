@@ -81,7 +81,11 @@ test('R48: the roster read selects a remembered team and seats it when nobody wo
   assert.match(run, /rosterTeams\.findIndex\(\(t\) => Number\(t\.roster_id\) === remembered\)/);
   assert.match(run, /rosterFilledCount\(\) === 0 \|\| rosterPlan\.dropped\.length === 0/);
   assert.match(run, /applyRosterPlan\(\{ auto: true \}\)/);
-  assert.match(run, /PICK YOUR TEAM below to finish the sync/);
+  assert.match(run, /PICK YOUR TEAM \(banner above the roster\)/);
+  assert.match(run, /scrollToSyncBar\(\);/, 'the next step is brought on screen');
+  assert.match(TEAM_SRC, /id="t-syncbar"/, 'the banner slot sits above the roster grid');
+  assert.match(TEAM_SRC, /ONE STEP LEFT — PICK YOUR TEAM\./);
+  assert.match(TEAM_SRC, /SEATED FROM SLEEPER/);
   // The picker remembers the choice and seats on the spot under the same rule.
   const picker = TEAM_SRC.slice(TEAM_SRC.indexOf("sel.dataset.rcfg !== 'team'"), TEAM_SRC.indexOf('// League-profile selects'));
   assert.match(picker, /saveMyRoster\(pickedLeague, picked\.roster_id\)/);

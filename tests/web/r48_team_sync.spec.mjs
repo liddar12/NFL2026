@@ -44,14 +44,20 @@ test('one press: settings saved, rosters read, pick once, roster seated, LINEUP 
   // Settings landed and the view remounted WITH the id still in the field.
   await expect(page.locator('#league-chip')).toContainText('P.T.I.', { timeout: 15000 });
   await expect(page.locator('#t-draft input[data-lin="sleeperId"]')).toHaveValue(LEAGUE_ID);
-  // The roster read ran on its own: ten teams to pick from.
-  await expect(page.locator('select[data-rcfg="team"]')).toBeVisible({ timeout: 30000 });
-  expect(await page.locator('select[data-rcfg="team"] option').count()).toBe(11);
+  // The roster read ran on its own: ten teams to pick from — IN THE BANNER
+  // above the roster grid (R48b: the next step sits beside what it fills).
+  const banner = page.locator('#t-syncbar .sync-bar');
+  await expect(banner).toBeVisible({ timeout: 30000 });
+  await expect(banner).toContainText('ONE STEP LEFT — PICK YOUR TEAM');
+  expect(await page.locator('#t-syncbar select[data-rcfg="team"] option').count()).toBe(11);
   await expect(page.locator('#t-draft')).toContainText('PICK YOUR TEAM');
   expect(await page.locator('.roster .slot-player').count()).toBe(0);
 
-  // Picking seats the team on the spot (empty roster -> nothing can be dropped).
-  await page.locator('select[data-rcfg="team"]').selectOption('3');
+  // Picking seats the team on the spot (empty roster -> nothing can be dropped),
+  // and the banner turns into the RESULT, right above the roster it filled.
+  await page.locator('#t-syncbar select[data-rcfg="team"]').selectOption('3');
+  await expect(banner).toContainText('SEATED FROM SLEEPER', { timeout: 15000 });
+  await expect(banner).toContainText('12 of 14');
   await expect(page.locator('#t-draft')).toContainText('roster seated from Sleeper', { timeout: 15000 });
   const seated = await page.locator('.roster .slot-player').count();
   expect(seated).toBeGreaterThanOrEqual(12);     // 14 rostered, 2 have no projection
