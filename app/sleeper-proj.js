@@ -287,20 +287,62 @@ export function gapReason(ours, sleeper, ctx = {}) {
  *
  * Returns null when the record carries no candidate_points (older data).
  */
-export function scenarioOf(p, { shipped, extra = 0 } = {}) {
-  const c = num(p && p.candidate_points);
+export function scenarioOf(p, opts) {
+  return altOf(p, 'candidate', opts);
+}
+
+/**
+ * R49 follow-up — the GATED number: when the owner overrides the gate and
+ * ships the SCENARIO candidate, every record keeps the previous
+ * gate-conforming projection as gated_points/gated_low/gated_high. Priced
+ * into the card's units exactly as scenarioOf prices the candidate. null
+ * when the record carries no gated_points (gated mode / older data).
+ */
+export function gatedOf(p, opts) {
+  return altOf(p, 'gated', opts);
+}
+
+function altOf(p, prefix, { shipped, extra = 0 } = {}) {
+  const c = num(p && p[`${prefix}_points`]);
   if (c === null) return null;
   const base = num(p.proj_points);
   const s = num(shipped);
   const ratio = (base !== null && base > 0 && s !== null) ? s / base : 1;
-  const lo = num(p.candidate_low);
-  const hi = num(p.candidate_high);
+  const lo = num(p[`${prefix}_low`]);
+  const hi = num(p[`${prefix}_high`]);
   const sdRaw = (lo !== null && hi !== null && hi >= lo) ? (hi - lo) / 2 : null;
   return {
     points: round2(c * ratio),
     sd: sdRaw === null ? null : round2(sdRaw * ratio),
     ratio,
     approx: ratio !== 1 && Number(extra) !== 0,
+  };
+}
+
+/**
+ * R49 follow-up — WHICH number ships, from meta.projection_baseline.shipped:
+ *   { mode: 'candidate' | 'gated', ownerOverride, decidedUtc, reason,
+ *     backtest: { gated_mae, candidate_mae, band_coverage_after_calibration } | null,
+ *     oursRule }
+ * 'candidate' means proj_points IS the SCENARIO candidate (an explicit owner
+ * override of the gate) and gated_* carries the gate-conforming number.
+ * An absent key, or anything but 'candidate', is 'gated' — today's layout.
+ * `oursRule` names the rule OURS actually follows (the candidate rule in
+ * candidate mode, the shipped_rule otherwise) so a gap reason never cites
+ * the wrong baseline. Pure, never throws.
+ */
+export function shippedMode(meta) {
+  const pb = meta && isObj(meta.projection_baseline) ? meta.projection_baseline : null;
+  const sh = pb && isObj(pb.shipped) ? pb.shipped : null;
+  const mode = sh && sh.mode === 'candidate' ? 'candidate' : 'gated';
+  const rule = (k) => (pb && typeof pb[k] === 'string' && pb[k].trim() ? pb[k].trim() : null);
+  return {
+    mode,
+    ownerOverride: Boolean(sh && sh.owner_override === true),
+    decidedUtc: sh && typeof sh.decided_utc === 'string' ? sh.decided_utc : null,
+    reason: sh && typeof sh.reason === 'string' ? sh.reason : '',
+    backtest: sh && isObj(sh.backtest_2025) ? sh.backtest_2025 : null,
+    oursRule: mode === 'candidate' ? rule('rule') : (rule('shipped_rule') || null),
   };
 }
 

@@ -601,9 +601,14 @@ export function renderEstimateRow(o = {}) {
   const isNum = (v) => v != null && Number.isFinite(Number(v));
   const ours = isNum(o.ours) ? Number(o.ours) : null;
   const haveOurs = ours !== null;
-  const sc = o.scenario && isNum(o.scenario.points) ? o.scenario : null;
+  // R49 follow-up — mode 'candidate': OURS IS the scenario (owner override);
+  // the SCENARIO cell is never shown twice, GATED takes its place (when the
+  // record carries it — absent renders nothing), and the moves explain OURS.
+  const candidateMode = o.mode === 'candidate';
+  const sc = !candidateMode && o.scenario && isNum(o.scenario.points) ? o.scenario : null;
+  const gt = candidateMode && o.gated && isNum(o.gated.points) ? o.gated : null;
   const slLoaded = o.sleeperLoaded === true;
-  if (!sc && !slLoaded) return '';
+  if (!sc && !gt && !slLoaded && !(candidateMode && o.moves)) return '';
   const delta = (v) => {
     if (!haveOurs || !isNum(v) || ours === 0) return '';
     const raw = ((Number(v) - ours) / Math.abs(ours)) * 100;
@@ -617,7 +622,15 @@ export function renderEstimateRow(o = {}) {
       : `<b class="${cls}">${esc(val)}</b>`)
     + (meta ? `<span class="pe-meta">${esc(meta)}</span>` : '')
   );
-  let line1 = cell('OURS', haveOurs ? fix1(ours) : null, '', 'pe-us');
+  const oursMeta = candidateMode
+    ? ['scenario', isNum(o.oursSd) ? `±${fix1(o.oursSd)}` : ''].filter(Boolean).join(' · ')
+    : '';
+  let line1 = cell('OURS', haveOurs ? fix1(ours) : null, oursMeta, 'pe-us');
+  if (gt) {
+    const sd = isNum(gt.sd) ? `±${fix1(gt.sd)}` : '';
+    line1 += cell('GATED', `${gt.approx ? '≈' : ''}${fix1(gt.points)}`,
+      [delta(gt.points), sd].filter(Boolean).join(' · '), 'pe-gt');
+  }
   if (sc) {
     const sd = isNum(sc.sd) ? `±${fix1(sc.sd)}` : '';
     const d = delta(sc.points);
@@ -628,20 +641,27 @@ export function renderEstimateRow(o = {}) {
     const have = isNum(o.sleeper);
     line1 += cell('SLEEPER', have ? fix1(o.sleeper) : null, have ? delta(o.sleeper) : '', 'pe-sl');
   }
-  const title = 'OURS is this app\'s projection in your scoring. SCENARIO is the '
-    + 'self-learning candidate (every raw signal applied at full strength, backtested, '
-    + 'NOT adopted) in the same units. SLEEPER is Sleeper\'s own projection priced under '
+  const title = (candidateMode
+    ? 'OURS is the SCENARIO candidate — every raw signal applied at full strength — '
+      + 'shipped by owner override of the gate, in your scoring. '
+      + (gt ? 'GATED is the number the gate would have shipped, in the same units. ' : '')
+    : 'OURS is this app\'s projection in your scoring. SCENARIO is the '
+      + 'self-learning candidate (every raw signal applied at full strength, backtested, '
+      + 'NOT adopted) in the same units. ')
+    + 'SLEEPER is Sleeper\'s own projection priced under '
     + 'your scoring table — shown for comparison, never an input. Deltas are vs OURS.';
   let html = `<div class="p-est" title="${esc(title)}">${line1}</div>`;
   const wk = Number(o.week);
   if (Number.isFinite(wk) && (isNum(o.oursWk) || slLoaded)) {
     const f = (v) => (isNum(v) ? fix1(v) : '—');
     let wkLine = `WK ${wk} · OURS ${f(o.oursWk)}`;
+    if (gt) wkLine += ` · GATED ${f(o.gatedWk)}`;
     if (sc) wkLine += ` · SCENARIO ${f(o.scenarioWk)}`;
     if (slLoaded) wkLine += ` · SLEEPER ${f(o.sleeperWk)}`;
     html += `<div class="p-est p-est--wk">${esc(wkLine)}</div>`;
   }
   if (sc && o.moves) html += `<div class="pe-moves">SCENARIO moves: ${esc(o.moves)}</div>`;
+  if (candidateMode && o.moves) html += `<div class="pe-moves">Scenario moves in OURS: ${esc(o.moves)}</div>`;
   if (slLoaded && o.reason) html += `<div class="pe-reason">${esc(o.reason)}</div>`;
   return html;
 }
@@ -669,7 +689,8 @@ function renderLegend(opts = {}) {
           : '') +
         '<span class="legend-item"><b>BYE</b> the week this player has no game (scores 0)</span>' +
         // R49 — the three-engine row. Sleeper and the candidate are shown, never used.
-        '<span class="legend-item"><b>OURS · SCENARIO · SLEEPER</b> OURS is our shipped projection in your scoring. SCENARIO is the self-learning candidate — every raw signal applied at full strength, backtested, NOT adopted; it moves the shipped number only after it clears never-regress. SLEEPER is Sleeper\'s own (non-AI) projection priced under your scoring table. Both are comparison only, never an input; deltas are vs OURS. An em dash means that engine does not project the player — not zero. ≈ marks a SCENARIO scaled by candidate ÷ shipped through league-rule extras (a proportional assumption, exact only when nothing is converted).</span>' +
+        '<span class="legend-item"><b>OURS · SCENARIO · SLEEPER</b> OURS is our shipped projection in your scoring. SCENARIO is the self-learning candidate — every raw signal applied at full strength, backtested; it becomes the shipped number only when it clears never-regress or by an explicit owner override. SLEEPER is Sleeper\'s own (non-AI) projection priced under your scoring table. Both are comparison only, never an input; deltas are vs OURS. An em dash means that engine does not project the player — not zero. ≈ marks a number scaled by its ratio to the shipped one through league-rule extras (a proportional assumption, exact only when nothing is converted).</span>' +
+        '<span class="legend-item"><b>OURS (scenario) · GATED</b> when the owner has overridden the gate, OURS IS the scenario candidate and GATED is the number the gate would have shipped — the gate keeps scoring the two against resolved weeks.</span>' +
         '<span class="legend-item"><b>AI+</b> AI re-rank by 5-yr trajectory (bounded ±25%, labeled ESTIMATE)</span>' +
         '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
       '</div>' +
@@ -918,6 +939,7 @@ export default async function mountPlayers(el) {
   let sleeperMod = null;
   let sleeperDoc = null;
   let baselineRule = null;
+  let shipped = { mode: 'gated' }; // R49 follow-up — which number OURS is
   let sleeperState = 'idle'; // idle | loading | ready | failed
   const _sleeperIdx = new Map(); // scoring mode -> shapeSleeper(...)
   function sleeperIndex() {
@@ -943,8 +965,10 @@ export default async function mountPlayers(el) {
         getMeta().catch(() => null),
       ]);
       sleeperMod = mod;
-      const pb = metaDoc && metaDoc.projection_baseline;
-      baselineRule = pb && typeof pb.rule === 'string' && pb.rule.trim() ? pb.rule.trim() : null;
+      // The rule OURS actually follows: the candidate's in candidate mode,
+      // the shipped_rule otherwise — never the candidate's rule for a gated OURS.
+      shipped = mod.shippedMode(metaDoc);
+      baselineRule = shipped.oursRule;
       sleeperDoc = await mod.getSleeperProjections();
       sleeperState = 'ready';
     } catch (err) {
@@ -962,31 +986,46 @@ export default async function mountPlayers(el) {
     const base = Number(p.proj_points);
     // OURS = the league-priced shipped number (BASE — the AI+ re-rank is a
     // display toggle and must not leak into the candidate's pricing ratio).
-    const shipped = p.kdst ? (Number(p.proj_points) || 0) : projSeason(p, w, scoring);
-    const sc = p.kdst ? null : sleeperMod.scenarioOf(p, { shipped, extra: extraPtsOf(w) });
+    const shippedPts = p.kdst ? (Number(p.proj_points) || 0) : projSeason(p, w, scoring);
+    const candidateMode = shipped.mode === 'candidate';
+    const extra = extraPtsOf(w);
+    const sc = (p.kdst || candidateMode) ? null : sleeperMod.scenarioOf(p, { shipped: shippedPts, extra });
+    const gt = (p.kdst || !candidateMode) ? null : sleeperMod.gatedOf(p, { shipped: shippedPts, extra });
     const idx = sleeperIndex();
     const sl = idx ? (idx.byAppId.get(id) || null) : null;
-    if (!sc && !idx) return '';
+    const moves = (p.kdst || (!sc && !candidateMode)) ? '' : sleeperMod.fmtMoves(sleeperMod.scenarioMoves(p, 3));
+    if (!sc && !gt && !idx && !moves) return '';
+    // In candidate mode OURS carries its own band (low/high ARE the candidate's).
+    const ratio = base > 0 ? shippedPts / base : 1;
+    const lo = Number(p.low);
+    const hi = Number(p.high);
+    const oursSd = candidateMode && Number.isFinite(lo) && Number.isFinite(hi) && hi >= lo
+      ? ((hi - lo) / 2) * ratio : null;
     let oursWk = null;
     if (w && Array.isArray(w.weeks)) {
       const wi = w.weeks.findIndex((x) => Number(x && x.wk) === currentWk);
       if (wi >= 0) {
-        const conv = weeklyPoints(w, shipped, base);
+        const conv = weeklyPoints(w, shippedPts, base);
         oursWk = Number.isFinite(Number(conv[wi])) ? Number(conv[wi]) : null;
       }
     }
-    const scRatio = sc && shipped > 0 ? sc.points / shipped : null;
+    const scRatio = sc && shippedPts > 0 ? sc.points / shippedPts : null;
+    const gtRatio = gt && shippedPts > 0 ? gt.points / shippedPts : null;
     return renderEstimateRow({
-      ours: shipped,
+      mode: shipped.mode,
+      ours: shippedPts,
+      oursSd,
       scenario: sc,
+      gated: gt,
       sleeperLoaded: Boolean(idx),
       sleeper: sl ? sl.season : null,
       week: currentWk,
       oursWk,
       scenarioWk: sc && oursWk != null && scRatio != null ? oursWk * scRatio : null,
+      gatedWk: gt && oursWk != null && gtRatio != null ? oursWk * gtRatio : null,
       sleeperWk: sl ? sleeperMod.sleeperWeek(sl, currentWk) : null,
-      moves: sc ? sleeperMod.fmtMoves(sleeperMod.scenarioMoves(p, 3)) : '',
-      reason: idx ? sleeperMod.gapReason(shipped, sl ? sl.season : null, { baselineRule }) : '',
+      moves,
+      reason: idx ? sleeperMod.gapReason(shippedPts, sl ? sl.season : null, { baselineRule }) : '',
     });
   }
 

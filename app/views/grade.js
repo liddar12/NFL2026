@@ -26,7 +26,7 @@
  */
 
 import {
-  getPlayerProjections, getPlayerWeekly, getScheduleFull, getGamePredictions,
+  getPlayerProjections, getPlayerWeekly, getScheduleFull, getGamePredictions, getMeta,
 } from '../data.js';
 import { projSeason, myRosterIds } from './players.js';
 import { loadScoringMode, withLeagueExtras, SCORING_KEY } from '../team-logic.js';
@@ -139,7 +139,10 @@ function deltaTxt(ours, other) {
  * add nothing and are reported in covered/total. null when none carries one
  * (older data). Pure.
  */
-export function scenarioTeamSum(players, starters, mod, weeklyById) {
+export function scenarioTeamSum(players, starters, mod, weeklyById, which = 'scenario') {
+  // R49 follow-up — which='gated' sums the gate-conforming number instead
+  // (candidate mode: OURS is the scenario, GATED replaces the SCENARIO sum).
+  const priceOf = which === 'gated' ? mod.gatedOf : mod.scenarioOf;
   const byId = new Map((players || []).map((p) => [String(p.gsis_id), p]));
   const live = (starters || []).filter((st) => st && !st.empty && st.id != null);
   let points = 0;
@@ -150,7 +153,7 @@ export function scenarioTeamSum(players, starters, mod, weeklyById) {
     if (!rec || rec.kdst) continue;
     const w = weeklyById instanceof Map ? weeklyById.get(String(st.id)) : null;
     const extra = w && Number.isFinite(Number(w.extra_pts)) ? Number(w.extra_pts) : 0;
-    const sc = mod.scenarioOf(rec, { shipped: st.pts, extra });
+    const sc = priceOf(rec, { shipped: st.pts, extra });
     if (!sc) continue;
     points += sc.points;
     covered += 1;
@@ -185,12 +188,15 @@ export function sleeperTeamSummary(mod, idx, starters, weeks) {
 }
 
 /** The card's OURS · SCENARIO line with the (hidden until it lands) SLEEPER cell. */
-export function renderTeamEstimate({ ours, scenario, teamIndex }) {
+export function renderTeamEstimate({ ours, scenario, gated, mode, teamIndex }) {
   const o = Number(ours);
-  let html = `<div class="gr-est">OURS <b>${Number.isFinite(o) ? o.toFixed(1) : '—'}</b>`;
-  if (scenario && scenario.points != null && Number.isFinite(Number(scenario.points))) {
-    html += ` · SCENARIO <b>${scenario.approx ? '≈' : ''}${Number(scenario.points).toFixed(1)}</b>`
-      + ` ${deltaTxt(o, scenario.points)} · ${scenario.covered}/${scenario.total} candidates`;
+  const candidateMode = mode === 'candidate';
+  let html = `<div class="gr-est">OURS <b>${Number.isFinite(o) ? o.toFixed(1) : '—'}</b>`
+    + (candidateMode ? ' (scenario)' : '');
+  const alt = candidateMode ? gated : scenario;
+  if (alt && alt.points != null && Number.isFinite(Number(alt.points))) {
+    html += ` · ${candidateMode ? 'GATED' : 'SCENARIO'} <b>${alt.approx ? '≈' : ''}${Number(alt.points).toFixed(1)}</b>`
+      + ` ${deltaTxt(o, alt.points)} · ${alt.covered}/${alt.total} ${candidateMode ? 'gated' : 'candidates'}`;
   }
   html += `<span class="gr-est-sl" data-team="${teamIndex}" hidden></span></div>`;
   return html;
@@ -240,7 +246,7 @@ export function fillSleeperCells(out, mod, idx, teams) {
  * EMPTY — never a fabricated 0.0; a player with no projection shows an em dash.
  */
 function leagueTeamCard(t, info) {
-  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario } = info;
+  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario, gated, mode } = info;
   // R48b (owner RCA: "cards without player names"): the season-optimal
   // starters are ON the card, as they were before R48 — name, slot, season
   // points — and the weekly lineups stay one tap away underneath.
@@ -301,7 +307,7 @@ function leagueTeamCard(t, info) {
     + ` · bench ${bench}</div>`
     + simRow
     + '<div class="gr-sub">SEASON-OPTIMAL STARTERS · projected season pts</div>'
-    + renderTeamEstimate({ ours: grade ? grade.total : null, scenario, teamIndex })
+    + renderTeamEstimate({ ours: grade ? grade.total : null, scenario, gated, mode, teamIndex })
     + starterHtml
     + `<details class="gr-weeks"><summary>Weekly lineups with the bench substituted · ${weekCount} weeks</summary>`
     + weekHtml + '</details>'
@@ -416,7 +422,11 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   // R48 — the NFL schedule (K/DEF byes) and the live week (availability) ride
   // the LOAD, not the boot. Both are optional: no schedule means no bye claim
   // for a defence, no live week means week 1 — never an invented number.
-  const [schedRes, predsRes] = await Promise.allSettled([getScheduleFull(), getGamePredictions()]);
+  const [schedRes, predsRes, metaRes] = await Promise.allSettled([
+    getScheduleFull(), getGamePredictions(),
+    getMeta(), // R49 follow-up — which number OURS is (LOAD path, not the cold mount)
+  ]);
+  const shipped = sleeperProj.shippedMode(metaRes.status === 'fulfilled' ? metaRes.value : null);
   const byeByTeam = teamByeWeeks(schedRes.status === 'fulfilled' ? schedRes.value : null);
   let currentWk = 1;
   if (predsRes.status === 'fulfilled' && predsRes.value && predsRes.value.week != null) {
@@ -474,8 +484,11 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   const totals = table.map((t) => t.seasonTotal);
   // R49 — the SCENARIO candidate for each team's season-optimal starters
   // (null on data that carries no candidate fields).
+  // In candidate mode OURS already is the scenario: the GATED sum sits beside
+  // it instead (nothing is shown twice).
   const scenarioByTeam = graded.map((g) => scenarioTeamSum(
     g.players, g.grade.starters, sleeperProj, engineCtx.weeklyById,
+    shipped.mode === 'candidate' ? 'gated' : 'scenario',
   ));
 
   const notes = [];
@@ -514,7 +527,15 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     + 'projection file exists; a player Sleeper does not project adds nothing and the cell '
     + 'reads n/N projected. SLEEPER PF in the standings is Sleeper\'s points for OUR weekly '
     + 'optimal starters over the regular season.');
-  if (scenarioByTeam.some(Boolean)) {
+  if (shipped.mode === 'candidate') {
+    notes.push('OURS is the SCENARIO candidate (every raw signal applied at full strength) '
+      + 'shipped by owner override of the gate'
+      + (shipped.decidedUtc ? ` (decided ${String(shipped.decidedUtc).slice(0, 10)})` : '')
+      + '. GATED is the number the gate would have shipped for the same starters, priced '
+      + 'as OURS × (gated ÷ shipped) per player — a proportional assumption, marked ≈ when '
+      + 'league-rule extras are in play. The gate keeps scoring GATED vs SCENARIO on '
+      + 'resolved weeks.');
+  } else if (scenarioByTeam.some(Boolean)) {
     notes.push('SCENARIO is the self-learning candidate (every raw signal applied at full '
       + 'strength, backtested, NOT adopted) for the same starters, priced as OURS × '
       + '(candidate ÷ shipped) per player — a proportional assumption, marked ≈ when '
@@ -537,7 +558,9 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
         weeks: table[i].weeks,
         weekCount: weeks.length,
         teamIndex: i,
-        scenario: scenarioByTeam[i],
+        mode: shipped.mode,
+        scenario: shipped.mode === 'candidate' ? null : scenarioByTeam[i],
+        gated: shipped.mode === 'candidate' ? scenarioByTeam[i] : null,
       },
     )).join('')
     // R48b — the cards carry the detail; the week-by-week table and the
