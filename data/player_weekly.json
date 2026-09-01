@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "updated_utc": "2026-09-01T16:52:56Z",
+  "updated_utc": "2026-09-01T17:49:38Z",
   "model": {
     "name": "weekly_split_v1",
     "tilt_coef": 0.5,
@@ -9,7 +9,7 @@
     "notes": "Season projection split evenly across scheduled weeks, tilted by Elo matchup and home/away, then renormalized so non-bye weeks sum exactly to the season projection. TILT_COEF is a transparent prior the optimizer refits in-season.",
     "injury_shape": {
       "applied": true,
-      "statuses_used": 51
+      "statuses_used": 52
     },
     "availability": {
       "applied": true,
@@ -7068,41 +7068,45 @@
     {
       "gsis_id": "espn-4239993",
       "receptions_prior": 59.0,
+      "availability": {
+        "status": "QUESTIONABLE",
+        "class": "week"
+      },
       "weeks": [
         {
           "wk": 1,
           "opp": "TB",
           "home": true,
           "bye": false,
-          "pts": 12.94
+          "pts": 11.85
         },
         {
           "wk": 2,
           "opp": "HOU",
           "home": false,
           "bye": false,
-          "pts": 10.79
+          "pts": 9.87
         },
         {
           "wk": 3,
           "opp": "PIT",
           "home": false,
           "bye": false,
-          "pts": 11.83
+          "pts": 10.83
         },
         {
           "wk": 4,
           "opp": "JAX",
           "home": true,
           "bye": false,
-          "pts": 11.2
+          "pts": 11.39
         },
         {
           "wk": 5,
           "opp": "MIA",
           "home": false,
           "bye": false,
-          "pts": 12.59
+          "pts": 12.8
         },
         {
           "wk": 6,
@@ -7116,84 +7120,84 @@
           "opp": "BAL",
           "home": false,
           "bye": false,
-          "pts": 11.87
+          "pts": 12.08
         },
         {
           "wk": 8,
           "opp": "TEN",
           "home": true,
           "bye": false,
-          "pts": 13.94
+          "pts": 14.18
         },
         {
           "wk": 9,
           "opp": "ATL",
           "home": false,
           "bye": false,
-          "pts": 12.15
+          "pts": 12.35
         },
         {
           "wk": 10,
           "opp": "PIT",
           "home": true,
           "bye": false,
-          "pts": 12.31
+          "pts": 12.53
         },
         {
           "wk": 11,
           "opp": "WAS",
           "home": false,
           "bye": false,
-          "pts": 12.8
+          "pts": 13.02
         },
         {
           "wk": 12,
           "opp": "NO",
           "home": true,
           "bye": false,
-          "pts": 12.98
+          "pts": 13.2
         },
         {
           "wk": 13,
           "opp": "CLE",
           "home": false,
           "bye": false,
-          "pts": 12.76
+          "pts": 12.98
         },
         {
           "wk": 14,
           "opp": "KC",
           "home": true,
           "bye": false,
-          "pts": 13.06
+          "pts": 13.28
         },
         {
           "wk": 15,
           "opp": "CAR",
           "home": false,
           "bye": false,
-          "pts": 12.49
+          "pts": 12.7
         },
         {
           "wk": 16,
           "opp": "IND",
           "home": false,
           "bye": false,
-          "pts": 12.24
+          "pts": 12.45
         },
         {
           "wk": 17,
           "opp": "BAL",
           "home": true,
           "bye": false,
-          "pts": 12.36
+          "pts": 12.57
         },
         {
           "wk": 18,
           "opp": "CLE",
           "home": true,
           "bye": false,
-          "pts": 13.28
+          "pts": 13.51
         }
       ]
     },
