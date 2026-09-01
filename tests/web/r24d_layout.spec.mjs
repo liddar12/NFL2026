@@ -145,7 +145,7 @@ for (const width of [320, 375, 402]) {
       };
     });
 
-    expect(bar.tabs.length).toBe(7); // R41: + Grade
+    expect(bar.tabs.length).toBe(8); // R41: + Grade; R48: + League
     // Before the fix: 376px of content in a 320px bar.
     expect(bar.scrollWidth).toBeLessThanOrEqual(Math.ceil(bar.width));
     for (const t of bar.tabs) {

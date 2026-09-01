@@ -173,8 +173,9 @@ export const SCORING_FIELDS = Object.freeze([
 const KNOWN_SCORING_KEYS = Object.freeze(SCORING_FIELDS.map((f) => f.key));
 const SCORING_ORDER = new Map(KNOWN_SCORING_KEYS.map((k, i) => [k, i]));
 
-/** Standard full-PPR scoring — the DEFAULT profile's scoring table. */
-const DEFAULT_SCORING = Object.freeze({
+/** Standard full-PPR scoring — the DEFAULT profile's scoring table.
+ * R48 — exported (unchanged) so app/synclog.js can diff a league against it. */
+export const DEFAULT_SCORING = Object.freeze({
   pass_yd: 0.04,
   pass_td: 4,
   pass_int: -1,

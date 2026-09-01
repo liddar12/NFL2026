@@ -1,6 +1,6 @@
 /* app/main.js — app entry: hash router, health chip, tab state, SW.
  *
- * Wires the four views (slate/players/parlays/team) to a hash router, paints the
+ * Wires the views (slate/players/parlays/team/league/...) to a hash router, paints the
  * pipeline-health chip once, keeps the tab bar's active state + ARIA in sync,
  * and registers the pure cache-purger service worker (best-effort). No
  * framework, no build step, dependency-free (platform fetch + DOM only).
@@ -42,6 +42,20 @@ async function mountGrade(el) {
   } catch (err) {
     console.warn('[nfl2026] grade view failed to load:', err);
     el.innerHTML = '<div class="state">Team grade unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
+
+/** Lazy LEAGUE mount (R48 — the applied league, its diffs, the sync log).
+ * Same pattern as grade. Reads storage only; fetches no contract. */
+async function mountLeague(el) {
+  let mod;
+  try {
+    mod = await import('./views/league.js');
+  } catch (err) {
+    console.warn('[nfl2026] league view failed to load:', err);
+    el.innerHTML = '<div class="state">League view unavailable — the view failed to load.</div>';
     return;
   }
   return mod.default(el);
@@ -93,6 +107,7 @@ const ROUTES = {
   '#/players': { mount: mountPlayers, tab: 'players', name: 'Players' },
   '#/parlays': { mount: mountParlays, tab: 'parlays', name: 'Parlays' },
   '#/team': { mount: mountTeam, tab: 'team', name: 'Team' },
+  '#/league': { mount: mountLeague, tab: 'league', name: 'League' },
   '#/lineup': { mount: mountLineup, tab: 'lineup', name: 'Lineup' },
   '#/model': { mount: mountModel, tab: 'model', name: 'Model' },
   '#/grade': { mount: mountGrade, tab: 'grade', name: 'Grade' },
