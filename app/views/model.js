@@ -616,6 +616,74 @@ function playoffsCard(odds, markets) {
   );
 }
 
+/* ---- R49: projection baseline + learning record -----------------------------
+ * Both read data/meta.json keys the pipeline writes (projection_baseline,
+ * learning_record). An older meta without them renders NOTHING — the cards are
+ * omitted, not painted empty. Pure — unit-tested with and without the keys.
+ */
+
+const dash = (v, digits = 2) => (Number.isFinite(Number(v)) ? Number(v).toFixed(digits) : '—');
+
+/** "PROJECTION BASELINE" — the rule every shipped projection starts from. */
+export function baselineCard(meta) {
+  const pb = meta && meta.projection_baseline;
+  if (!pb || typeof pb !== 'object') return '';
+  const rule = typeof pb.rule === 'string' && pb.rule.trim() ? pb.rule.trim() : '—';
+  const src = [
+    Number.isFinite(Number(pb.season_games)) ? `${pb.season_games} season games` : '',
+    pb.games_source ? `games from ${pb.games_source}` : '',
+    pb.absence_source ? `absence from ${pb.absence_source}` : '',
+    pb.changed_utc ? `changed ${String(pb.changed_utc).slice(0, 10)}` : '',
+  ].filter(Boolean).join(' · ');
+  const cand = pb.candidate && typeof pb.candidate === 'object' ? pb.candidate : null;
+  const sigs = cand && Array.isArray(cand.signals_applied) ? cand.signals_applied : [];
+  return (
+    '<div class="mp-row"><span class="mp-name">PROJECTION BASELINE</span>'
+      + `<span class="mp-val">${esc(rule)}</span></div>`
+    + (src ? `<div class="mp-src">${esc(src)}</div>` : '')
+    + (cand
+      ? '<div class="mp-row"><span class="mp-name">SCENARIO CANDIDATE</span>'
+        + `<span class="mp-val">${sigs.length ? esc(sigs.join(', ')) : '—'}</span></div>`
+        + (cand.sd_rule ? `<div class="mp-src">band: ${esc(cand.sd_rule)}</div>` : '')
+      : '')
+    + '<div class="m-explain">Every shipped projection starts from this documented rule. '
+      + 'SCENARIO (shown beside OURS on PLAYERS and GRADE) is the candidate with every raw '
+      + 'signal applied at full strength — labelled candidate, not adopted.</div>'
+  );
+}
+
+/** "LEARNING RECORD" — what the self-learning loop has actually scored. */
+export function learningCard(meta) {
+  const lr = meta && meta.learning_record;
+  if (!lr || typeof lr !== 'object') return '';
+  const weeks = Number(lr.weeks_resolved);
+  const resolved = Number.isFinite(weeks) && weeks > 0;
+  const sigs = Array.isArray(lr.signals_with_weight) ? lr.signals_with_weight.filter(Boolean) : [];
+  const row = (name, val) => (
+    `<div class="mp-row"><span class="mp-name">${name}</span><span class="mp-val">${val}</span></div>`
+  );
+  const bt = lr.backtest_2025 && typeof lr.backtest_2025 === 'object' ? lr.backtest_2025 : null;
+  return (
+    row('WEEKS RESOLVED', esc(Number.isFinite(weeks) ? String(weeks) : '—'))
+    + row('PLAYERS SCORED', esc(Number.isFinite(Number(lr.players_scored)) ? String(lr.players_scored) : '—'))
+    + row('MAE (PPR)', resolved ? esc(dash(lr.mae_ppr)) : '—')
+    + row('BIAS (PPR)', resolved ? esc(dash(lr.bias_ppr)) : '—')
+    + row('SIGNALS WITH WEIGHT', sigs.length ? esc(sigs.join(', ')) : 'none yet')
+    + (resolved
+      ? ''
+      : '<div class="m-explain">No 2026 week has resolved yet — nothing has been scored, '
+        + 'so no signal has earned weight.</div>')
+    + (bt
+      ? `<div class="mp-src">BACKTEST 2025 · baseline MAE ${esc(dash(bt.baseline_mae))} · `
+        + `candidate MAE ${esc(dash(bt.candidate_mae))} · band coverage ${fmtPct(bt.band_coverage)}`
+        + (Number.isFinite(Number(bt.players)) ? ` · ${esc(bt.players)} players` : '')
+        + '</div>'
+      : '')
+    + '<div class="m-explain">SCENARIO is the candidate the self-learning loop backtests; it '
+      + 'moves the shipped number only after it clears never-regress.</div>'
+  );
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountModel(el) {
@@ -664,5 +732,8 @@ export default async function mountModel(el) {
     card('CALIBRATION · PREDICTED vs ACTUAL', calibrationCard(tuning), 'm-cal', 'measured') +
     card('SEASON LOCKS', locksCard(tuning), 'm-locks') +
     card('PLAYOFF ODDS — OURS vs THE MARKETS', playoffsCard(odds, markets), 'm-playoffs', 'estimate') +
-    card('SIGNAL REGISTRY', signalsCard(meta), 'm-signals');
+    card('SIGNAL REGISTRY', signalsCard(meta), 'm-signals') +
+    // R49 — both omitted entirely on an older meta (the painters return '').
+    (baselineCard(meta) ? card('PROJECTION BASELINE', baselineCard(meta), 'm-baseline', 'estimate') : '') +
+    (learningCard(meta) ? card('LEARNING RECORD', learningCard(meta), 'm-learning', 'measured') : '');
 }

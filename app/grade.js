@@ -239,11 +239,13 @@ export function gradeTeam(players, projOf, shape = DEFAULT_SHAPE) {
       const pos = canonPos(r.p.position);
       if (used.has(r.p.gsis_id) || !accepts(pos)) continue;
       used.add(r.p.gsis_id);
-      starters.push({ slot, name: r.p.name, position: pos, pts: r.pts });
+      // R49 — the id rides along so a display layer (Sleeper's estimate for
+      // the same starters) can address the row; nothing here reads it.
+      starters.push({ slot, id: r.p.gsis_id, name: r.p.name, position: pos, pts: r.pts });
       total += r.pts;
       return true;
     }
-    starters.push({ slot, name: null, position: null, pts: 0, empty: true });
+    starters.push({ slot, id: null, name: null, position: null, pts: 0, empty: true });
     return false;
   };
   const entries = Object.entries(shape);

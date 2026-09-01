@@ -3846,3 +3846,36 @@ body.gate-locked { overflow: hidden; }
 .gr-fold { margin: 12px 0; }
 .gr-fold > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; padding: 8px 0; }
 .gr-fold .gr-assumptions { padding: 4px 0 0; }
+
+/* R49 sleeper estimate — OURS · SCENARIO · SLEEPER beside every number
+   (display-only). Mono, tabular, muted labels; the ink is the number. */
+.p-est {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.p-est b { color: var(--ink); font-weight: 800; }
+.p-est .pe-us { color: var(--brand-txt); }
+.p-est .pe-none { color: var(--muted); font-weight: 400; }
+.pe-lbl { text-transform: uppercase; letter-spacing: 0.06em; }
+.pe-meta { font-weight: 400; }
+.p-est--wk { margin-top: 2px; font-weight: 400; }
+.pe-moves, .pe-reason { margin-top: 2px; font-size: 11px; color: var(--muted); }
+.gr-est {
+  margin: 0 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.gr-est b { color: var(--ink); }
+.gr-est-wk { font-weight: 400; margin-left: auto; padding-right: 10px; }
+.gr-est-sl[hidden], .gr-est-wk[hidden] { display: none; }

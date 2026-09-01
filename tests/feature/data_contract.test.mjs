@@ -103,6 +103,11 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     '/data/rookie_starters.json',
     // app/kdst.js — the one contract loaded outside data.js, same cache pattern
     '/data/kdst_projections.json',
+    // R49 — app/sleeper-proj.js: Sleeper's own projections, DISPLAY ONLY
+    // (the doc declares display_only:true and the reader refuses one that
+    // does not). Fetched lazily after first paint by PLAYERS/GRADE; 404 is a
+    // normal state. Same promise-cache pattern as kdst.js.
+    '/data/sleeper_projections.json',
   ]);
   for (const [p, files] of referenced) {
     assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);
@@ -130,10 +135,12 @@ test('every data/ file outside the allowlist is a pipeline artifact — unmentio
   }
 });
 
-test('fetch() happens only in app/data.js and app/kdst.js', () => {
+test('fetch() happens only in app/data.js, app/kdst.js and app/sleeper-proj.js', () => {
   // If a view could call fetch directly, the allowlist above would not bind it.
+  // R49 — sleeper-proj.js is the third contract reader (one path, lazy, 404-graceful).
+  const READERS = ['app/data.js', 'app/kdst.js', 'app/sleeper-proj.js'];
   const offenders = appSources()
-    .filter(([rel, src]) => /\bfetch\s*\(/.test(src) && !['app/data.js', 'app/kdst.js'].includes(rel))
+    .filter(([rel, src]) => /\bfetch\s*\(/.test(src) && !READERS.includes(rel))
     .map(([rel]) => rel);
   assert.deepEqual(offenders, [], `fetch() outside the contract readers: ${offenders.join(', ')}`);
 });
