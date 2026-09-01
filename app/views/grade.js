@@ -20,9 +20,13 @@
 import { getPlayerProjections, getPlayerWeekly } from '../data.js';
 import { projSeason, myRosterIds } from './players.js';
 import { loadScoringMode } from '../team-logic.js';
+import { loadProfile, rosterPositionsInPlay } from '../league.js';
+import {
+  getKdstProjections, shapeKdst, isKdstPosition, canonKdstPosition,
+} from '../kdst.js';
 import {
   buildLeague, gradeTeam, percentile, letterFor, syntheticFieldTotals,
-  simulateLeague, simulateLeagueScheduled, weeklyWinTable, DEFAULT_SHAPE,
+  simulateLeague, simulateLeagueScheduled, weeklyWinTable, shapeFromRoster,
 } from '../grade.js';
 
 function esc(v) {
@@ -88,7 +92,7 @@ function weeklyTableHtml(table) {
 
 /* --------------------------------------------------------------- Sleeper */
 
-async function loadSleeperLeague(idText, pool, projOf, out) {
+async function loadSleeperLeague(idText, pool, projOf, shape, out) {
   out.innerHTML = '<div class="state state--loading">Reading your league from Sleeper — '
     + 'rosters, schedule and its player list (several MB)…</div>';
   // Lazy on purpose: none of this rides the paste path or the boot path.
@@ -142,13 +146,17 @@ async function loadSleeperLeague(idText, pool, projOf, out) {
     const real = unres.filter((u) => !kdef.includes(u));
     return {
       team,
-      grade: gradeTeam(players, projOf),
+      grade: gradeTeam(players, projOf, shape),
       unmatched: [
         ...real.map((u) => `${u.sleeper_name || u.sleeper_id} (${u.code})`),
         ...missing.map((n) => `${n} (matched id not in pool)`),
       ],
+      // R43: with a saved league that scores K/DEF, those ids resolve into the
+      // pool and this list is empty. It fills only when the league profile is
+      // missing or prices no K/DEF stat — say the cause, not "separate contract".
       note: kdef.length
-        ? `${kdef.length} K/DEF matched but not graded (separate contract).` : '',
+        ? `${kdef.length} K/DEF not graded — your saved league profile fields or `
+          + 'prices no K/DEF. Import and save your league on the TEAM tab, then reload.' : '',
     };
   });
 
@@ -203,12 +211,60 @@ export default async function mountGrade(el) {
     el.innerHTML = '<div class="state">Grades unavailable — the projection feed did not load.</div>';
     return;
   }
-  const pool = projRes.value.players || [];
+  const offencePool = projRes.value.players || [];
   const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
   const weeklyById = new Map(((weekly && weekly.players) || []).map((p) => [String(p.gsis_id), p]));
   const scoring = loadScoringMode();
-  // ONE scoring conversion app-wide: the same projSeason PLAYERS ranks with.
-  const projOf = (p) => projSeason(p, weeklyById.get(String(p.gsis_id)), scoring);
+
+  /* R43 — the CONNECTED LEAGUE decides the lineup shape, and when it fields
+   * K/DEF/DST those positions join the pool as contract rows whose numbers
+   * app/kdst.js has already recomputed under the league's OWN scoring table.
+   * No saved league -> DEFAULT shape, offence-only pool, exactly as before. */
+  const profile = loadProfile();
+  const starterTokens = ((profile && profile.shape && profile.shape.roster_positions) || [])
+    .filter((t) => String(t).toUpperCase() !== 'BN');
+  const shape = shapeFromRoster(starterTokens);
+  const kdstSeatTokens = rosterPositionsInPlay(profile).filter(isKdstPosition);
+  const kdstRows = [];
+  let kdstNote = '';
+  if (kdstSeatTokens.length) {
+    let kdstDoc = null;
+    try { kdstDoc = await getKdstProjections(); } catch (err) { kdstDoc = null; }
+    const kdstIndex = shapeKdst(kdstDoc, profile);
+    const usedCanon = new Set();
+    for (const token of kdstSeatTokens) {
+      const canon = canonKdstPosition(token);
+      if (usedCanon.has(canon)) continue;
+      usedCanon.add(canon);
+      for (const e of kdstIndex.byPosition[canon] || []) {
+        // An UNSCORED row cannot be valued under this league's table — no
+        // honest number, no seat (same refusal the TEAM page makes).
+        if (e.unscored) continue;
+        kdstRows.push({
+          gsis_id: e.id, name: e.name, team: e.team,
+          position: canon, proj_points: e.seasonPoints, kdst: e,
+        });
+      }
+    }
+    if (!kdstRows.length) {
+      kdstNote = kdstIndex.ok || kdstIndex.unscoredPositions.length
+        ? 'Your league fields K/DEF but its scoring table prices none of their stats, '
+          + 'so those slots grade as EMPTY rather than with an invented number.'
+        : 'Your league fields K/DEF but the K/DEF projection feed did not load, so '
+          + 'those slots grade as EMPTY this visit.';
+    } else if (kdstIndex.unscoredPositions.length) {
+      kdstNote = `${kdstIndex.unscoredPositions.join('/')} rows exist but your scoring `
+        + 'prices none of their stats — that position grades EMPTY, never invented.';
+    }
+  }
+  const pool = kdstRows.length ? offencePool.concat(kdstRows) : offencePool;
+
+  // ONE scoring conversion app-wide: the same projSeason PLAYERS ranks with —
+  // except a K/DEF contract row, whose number is ALREADY the league's own
+  // (app/kdst.js applyScoring) and must not ride the offence conversion.
+  const projOf = (p) => (p.kdst
+    ? (Number(p.proj_points) || 0)
+    : projSeason(p, weeklyById.get(String(p.gsis_id)), scoring));
 
   el.innerHTML =
     '<section class="card">'
@@ -235,8 +291,15 @@ export default async function mountGrade(el) {
     + '<button type="button" id="gr-go" class="btn">PARSE &amp; GRADE</button>'
     + '<div id="gr-out"></div>'
     + '<div class="gr-assumptions">Assumptions, out loud: lineup shape '
-    + `${esc(Object.entries(DEFAULT_SHAPE).map(([k, v]) => `${k}×${v}`).join(' '))} `
-    + '(K/DEF excluded — separate contract); single team is ranked against a synthetic '
+    + `${esc(Object.entries(shape).map(([k, v]) => `${k}×${v}`).join(' '))} `
+    + (starterTokens.length
+      ? '(from your saved league'
+        + (kdstRows.length ? '; K/DEF graded under your league\'s own scoring table). '
+          : '). ')
+      : '(no league saved — the default shape; connect your league on TEAM to grade '
+        + 'your real slots, K/DEF included). ')
+    + (kdstNote ? `${esc(kdstNote)} ` : '')
+    + 'Single team is ranked against a synthetic '
     + 'snake-draft field built from OUR ranking; 4+ teams runs a 2,000-season Monte '
     + 'Carlo with weekly sd = max(22% of mean, 12) — a documented prior, not a fit. '
     + 'The paste path has no schedule, so its weekly pairings are RANDOM; the Sleeper '
@@ -250,7 +313,7 @@ export default async function mountGrade(el) {
       leagueOut.innerHTML = '<div class="state">Paste your Sleeper league id or URL first.</div>';
       return;
     }
-    loadSleeperLeague(idText, pool, projOf, leagueOut).catch((err) => {
+    loadSleeperLeague(idText, pool, projOf, shape, leagueOut).catch((err) => {
       leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
     });
   });
@@ -268,11 +331,11 @@ export default async function mountGrade(el) {
         + 'the player pool and no team blocks were detected.</div>';
       return;
     }
-    const graded = league.teams.map((t) => ({ t, grade: gradeTeam(t.players, projOf) }));
+    const graded = league.teams.map((t) => ({ t, grade: gradeTeam(t.players, projOf, shape) }));
     const totals = graded.map((g) => g.grade.total);
     const field = graded.length >= 4
       ? totals
-      : syntheticFieldTotals(pool, projOf);
+      : syntheticFieldTotals(pool, projOf, 10, null, shape);
     const sims = graded.length >= 4
       ? simulateLeague(graded.map((g) => ({
         name: g.t.name,

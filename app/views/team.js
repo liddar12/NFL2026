@@ -3050,6 +3050,33 @@ export default async function mountTeam(el) {
     // slot passes exactly `players`, so that report is unchanged for it.
     rosterCross = crosswalkRoster(rosterTeams[rosterTeamIdx], seatable, { index: sleeperIndex });
     rosterMissed = unmatchedRosterPlayers(rosterCross);
+    // R43 (owner RCA): a K/DEF on the Sleeper roster that lands in the missed
+    // list because THIS PAGE handed over no K/DEF rows is a league-profile
+    // state, not a matching failure — name the state and its one-step fix
+    // instead of letting "not in this app's player set" imply the player is
+    // unknown. kdstRows is empty in exactly two honest cases: the saved
+    // profile fields no K/DEF slot, or it fields one its scoring cannot price.
+    if (kdstRows.length === 0) {
+      const missedKdst = rosterMissed.filter((u) => {
+        const p = String(u.sleeper_position || '').toUpperCase();
+        return p === 'K' || p === 'DEF' || p === 'DST';
+      });
+      if (missedKdst.length) {
+        const cause = kdstSeatTokens.length
+          ? 'your league\'s scoring table prices no K/DEF stat, so there is no honest '
+            + 'number to seat them with'
+          : 'your saved league profile fields no K/DEF slot';
+        rosterStatus = {
+          tone: 'err',
+          lines: [
+            ...(rosterStatus && Array.isArray(rosterStatus.lines) ? rosterStatus.lines : []),
+            `${missedKdst.length} K/DEF from this Sleeper roster cannot seat: ${cause}. `
+            + 'Import your league from Sleeper in the LEAGUE panel above, SAVE it, then '
+            + 'sync the roster again.',
+          ],
+        };
+      }
+    }
     rosterPlan = planRosterSync({
       resolved: orderedRosterPlayers(rosterCross),
       currentSlots: roster.slots,
