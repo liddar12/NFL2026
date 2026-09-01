@@ -19,7 +19,7 @@
 
 import { getPlayerProjections, getPlayerWeekly } from '../data.js';
 import { projSeason, myRosterIds } from './players.js';
-import { loadScoringMode } from '../team-logic.js';
+import { loadScoringMode, withLeagueExtras } from '../team-logic.js';
 import { loadProfile, rosterPositionsInPlay } from '../league.js';
 import {
   getKdstProjections, shapeKdst, isKdstPosition, canonKdstPosition,
@@ -213,7 +213,7 @@ export default async function mountGrade(el) {
   }
   const offencePool = projRes.value.players || [];
   const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-  const weeklyById = new Map(((weekly && weekly.players) || []).map((p) => [String(p.gsis_id), p]));
+  const weeklyRaw = new Map(((weekly && weekly.players) || []).map((p) => [String(p.gsis_id), p]));
   const scoring = loadScoringMode();
 
   /* R43 — the CONNECTED LEAGUE decides the lineup shape, and when it fields
@@ -221,6 +221,11 @@ export default async function mountGrade(el) {
    * app/kdst.js has already recomputed under the league's OWN scoring table.
    * No saved league -> DEFAULT shape, offence-only pool, exactly as before. */
   const profile = loadProfile();
+  // R44 — the SAME league-extras stamping every other surface applies (R29's
+  // one-place rule; GRADE was the one view missing it, so a pass_cmp league
+  // graded its quarterbacks light). Since R44 this carries the FULL component
+  // delta: 6-pt passing TDs, interceptions, 2-pt, fumbles, yardage bonuses.
+  const weeklyById = withLeagueExtras(weeklyRaw, profile);
   const starterTokens = ((profile && profile.shape && profile.shape.roster_positions) || [])
     .filter((t) => String(t).toUpperCase() !== 'BN');
   const shape = shapeFromRoster(starterTokens);

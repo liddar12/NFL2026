@@ -28,7 +28,7 @@
 
 import {
   normalizeProfile, rosterSlots, slotEligiblePositions, rosterPositionsInPlay,
-  FLEX_ELIGIBILITY, BENCH_TOKEN,
+  FLEX_ELIGIBILITY, BENCH_TOKEN, applyScoring, isDefaultProfile,
 } from './league.js';
 
 /* --------------------------------------------------------------------------
@@ -479,15 +479,67 @@ export function scoringAdjust(seasonPpr, receptions, mode, extraPts) {
  */
 export function withLeagueExtras(weeklyById, profile) {
   const rate = passCmpRate(profile);
-  if (!(weeklyById instanceof Map) || !rate) return weeklyById;
+  // R44 — the component delta requires a SAVED league (isDefaultProfile is
+  // the gate): the default profile's table is not the base the projections
+  // encode (ESPN default PPR), so pricing it would move every unconfigured
+  // user's numbers. Default profile + no pass_cmp -> identical Map, exactly
+  // the pre-R29 behaviour.
+  const priceComponents = !isDefaultProfile(profile);
+  if (!(weeklyById instanceof Map) || (!rate && !priceComponents)) return weeklyById;
   const out = new Map();
   for (const [id, entry] of weeklyById) {
+    if (priceComponents) {
+      const delta = componentDelta(entry, profile);
+      if (delta !== null) {
+        out.set(id, delta ? { ...entry, extra_pts: delta } : entry);
+        continue;
+      }
+    }
+    // The R29 fallback: a player without a verified component line still gets
+    // the pass_cmp rule priced from completions_prior — narrower, never wrong.
     const cmp = entry && Number(entry.completions_prior);
-    out.set(id, Number.isFinite(cmp) && cmp > 0
+    out.set(id, rate && Number.isFinite(cmp) && cmp > 0
       ? { ...entry, extra_pts: Math.round(cmp * rate * 100) / 100 }
       : entry);
   }
   return out;
+}
+
+/**
+ * R44 — THE FULL LEAGUE DELTA, from the verified component stat line.
+ *
+ * delta = applyScoring(league_components + bonus_games, league table)
+ *         - base_applied_pts
+ *
+ * where base_applied_pts is what ESPN's OWN default-PPR table paid for exactly
+ * those component ids (stamped by the pipeline from the same kona entry the
+ * projection total came from). Receptions are excluded on BOTH sides by
+ * construction — they stay on the PPR/HALF/STD mode toggle — so a catch is
+ * never priced twice. Every rule the league scores that a component feeds
+ * (6-pt passing TDs, completions, interceptions, 2-pt conversions, fumbles,
+ * per-game yardage bonuses) lands in this one number, which rides the SAME
+ * extra_pts slot R29 threaded through every surface.
+ *
+ * Returns null — unknown, never zero — when the entry carries no verified
+ * component line; the caller falls back to the pass_cmp-only path.
+ */
+export function componentDelta(entry, profile) {
+  const comps = entry && entry.league_components;
+  const base = entry ? Number(entry.base_applied_pts) : NaN;
+  if (!comps || typeof comps !== 'object' || !Number.isFinite(base)) return null;
+  // 'rec' can never appear in league_components (the pipeline's id map
+  // excludes statId 53) — the delete is belt-and-braces against a future
+  // producer change silently double-pricing receptions.
+  const stats = { ...comps };
+  delete stats.rec;
+  const bg = entry.bonus_games;
+  if (bg && typeof bg === 'object') {
+    for (const [k, n] of Object.entries(bg)) {
+      if (Number.isFinite(Number(n))) stats[k] = Number(n);
+    }
+  }
+  const league = applyScoring(stats, profile);
+  return Math.round((league - base) * 100) / 100;
 }
 
 /**

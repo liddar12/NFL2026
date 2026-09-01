@@ -99,6 +99,72 @@ def _real_season_entry(player, season):
     return None
 
 
+# R44 — Sleeper scoring key <- ESPN statId, for the season COMPONENT stat line.
+# This repo has been burned by assumed ESPN statIds before (build_kdst's kicker
+# decode reconciled 33/42 and was rejected), so extract_components() below
+# VERIFIES every extraction against ESPN's own appliedStats arithmetic and a
+# row that fails ships NOTHING — an id map error cannot fabricate a stat line.
+# Receptions (statId 53) are deliberately NOT here: they already ride
+# `receptions` and the client's PPR/HALF/STD mode conversion; putting them in
+# the component delta too would double-price every catch.
+_COMPONENT_IDS = {
+    "0": "pass_att", "1": "pass_cmp", "3": "pass_yd", "4": "pass_td",
+    "19": "pass_2pt", "20": "pass_int",
+    "23": "rush_att", "24": "rush_yd", "25": "rush_td", "26": "rush_2pt",
+    "42": "rec_yd", "43": "rec_td", "44": "rec_2pt", "58": "rec_tgt",
+    "72": "fum_lost",
+}
+
+
+def extract_components(entry):
+    """{components, base_applied_pts} from one kona actuals entry, or None.
+
+    components        {sleeper_key: season quantity} for the mapped statIds.
+    base_applied_pts  what ESPN's OWN default-PPR table paid for exactly those
+                      mapped ids (from `appliedStats`) — the client's delta is
+                      league_value(components) - base_applied_pts, so ids
+                      outside the map (receptions, return TDs, ...) cancel by
+                      construction and are never re-priced.
+
+    SELF-VERIFYING, per the module's statId discipline: `appliedStats` must be
+    present and sum to `appliedTotal` within 0.5 (ESPN's own arithmetic — if
+    that identity fails we do not understand the payload and claim nothing).
+    Returns None on any doubt: an absent component line is unknown, never a
+    zero-filled fabrication.
+    """
+    if not entry:
+        return None
+    stats = entry.get("stats") or {}
+    applied = entry.get("appliedStats") or {}
+    if not stats or not applied:
+        return None
+    try:
+        applied_sum = sum(float(v or 0.0) for v in applied.values())
+        total = float(entry.get("appliedTotal") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if abs(applied_sum - total) > 0.5:
+        return None
+    components = {}
+    base = 0.0
+    for sid, key in _COMPONENT_IDS.items():
+        if sid in stats:
+            try:
+                qty = float(stats[sid] or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if qty:
+                components[key] = round(qty, 1)
+        if sid in applied:
+            try:
+                base += float(applied[sid] or 0.0)
+            except (TypeError, ValueError):
+                return None
+    if not components:
+        return None
+    return {"components": components, "base_applied_pts": round(base, 2)}
+
+
 def fetch_fantasy_pool(season, min_rows=150):
     """Fantasy-relevant players with REAL `season` PPR totals, sorted desc.
 
@@ -162,6 +228,10 @@ def fetch_fantasy_pool(season, min_rows=150):
                 "receptions": round(receptions, 1),
                 "completions": round(completions, 1),
                 "pass_attempts": round(pass_attempts, 1),
+                # R44 — the full mapped component line, or None when the entry
+                # fails extract_components()'s self-verification. None survives
+                # every mapping downstream: unknown, never zero.
+                "components": extract_components(entry),
             })
         if len(rows) < _PAGE:
             break
@@ -408,6 +478,10 @@ def assemble_records(pool, ages, teams, current_pro_teams=None):
             # stat fetch_fantasy_pool collects reaches the record.
             "completions": p["completions"],
             "pass_attempts": p["pass_attempts"],
+            # R44 — the component line survives this rebuild for the same
+            # reason completions must (the R29 lesson above); None rides
+            # through as None, never coerced to an empty claim.
+            "components": p.get("components"),
         })
     if fallbacks:
         # LOUD, not fatal: each name here still carries a canonical team (last

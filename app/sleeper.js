@@ -1336,13 +1336,18 @@ export function summarizeImport(result) {
       + `${report.roster.starters} starters, ${report.roster.bench} bench.`);
   }
   // Say what is TRUE, not what is flattering. "N rules mapped" reads as "your
-  // scoring is now in effect", but at this release only the reception value
-  // reaches a projection — a 6-point-passing-TD league still sees 4-point
-  // numbers. Overstating this is worse than the gap itself, because the user
-  // cannot tell the difference by looking at the number.
-  lines.push(`${report.scoring.mapped.length} scoring rule(s) recognised — of these, `
-    + 'only the reception value currently changes a projection. Full per-stat '
-    + 'scoring arrives with the component projections.');
+  // scoring is now in effect" — and since R44 that is MOSTLY true: every rule
+  // a verified component stat line feeds reprices projections through the
+  // league delta (team-logic componentDelta). But not every rule has a
+  // component (40+/50+ yard long-play bonuses, pick-six thrown), and a player
+  // whose kona entry failed self-verification still rides the narrower
+  // pass_cmp-only path. The summary states the boundary rather than implying
+  // the entire table is live for every player.
+  lines.push(`${report.scoring.mapped.length} scoring rule(s) recognised — receptions `
+    + 'ride your scoring mode, and every rule a verified component feeds (yardage, '
+    + 'TDs, completions, interceptions, 2-pt conversions, fumbles, per-game yardage '
+    + 'bonuses) reprices projections. A rule with no component behind it (e.g. '
+    + '40+-yard play bonuses) is kept and shown but adds nothing yet.');
 
   const unresolved = unresolvedItems(report);
   if (unresolved.length > 0) {

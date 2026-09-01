@@ -1094,11 +1094,14 @@ test('summarizeImport describes a successful import without overclaiming', () =>
   assert.match(text, /112 item\(s\) could not be applied/);
   assert.equal(/Every value in the payload was understood/.test(text), false);
   // The whole point of this test is the word "overclaiming". RECOGNISING a
-  // scoring rule is not the same as APPLYING it: at this release only the
-  // reception value reaches a projection, so a 6-point-passing-TD league still
-  // sees 4-point numbers. The summary must say so rather than implying the
-  // entire scoring table is already live.
-  assert.match(text, /only the reception value currently changes a projection/);
+  // scoring rule is not the same as APPLYING it. R44 made component-fed rules
+  // real — a 6-point-passing-TD league now sees 6-point numbers through the
+  // league delta — but rules with no component behind them (40+-yard play
+  // bonuses, pick-six thrown) still add nothing, and the summary must state
+  // that boundary rather than implying the entire table is live.
+  assert.match(text, /every rule a verified component feeds/);
+  assert.match(text, /adds nothing yet/,
+    'the unpriced remainder must stay named — silence here is the old overclaim');
   assert.equal(/scoring rule\(s\) mapped to this app/.test(text), false);
 });
 
