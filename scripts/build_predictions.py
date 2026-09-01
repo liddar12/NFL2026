@@ -149,6 +149,84 @@ def _stamp_rookies(projected, fetch=None):
     return stamped, rookies
 
 
+_BONUS_THRESHOLDS = (
+    # (weekly stat field, threshold, Sleeper bonus key). Thresholds are
+    # CUMULATIVE, matching Sleeper's semantics: a 425-yard passing game counts
+    # for both the 300 and the 400 bonus.
+    ("passing_yards", 300.0, "bonus_pass_yd_300"),
+    ("passing_yards", 400.0, "bonus_pass_yd_400"),
+    ("rushing_yards", 100.0, "bonus_rush_yd_100"),
+    ("rushing_yards", 200.0, "bonus_rush_yd_200"),
+    ("receiving_yards", 100.0, "bonus_rec_yd_100"),
+    ("receiving_yards", 200.0, "bonus_rec_yd_200"),
+)
+
+
+def _bonus_games_by_name(fetch=None):
+    """{canonical player name: {sleeper bonus key: game count}} measured from
+    PRIOR_SEASON regular-season weekly stat lines (nflverse). R44: a per-game
+    yardage bonus cannot be priced from a season total — only from the games.
+
+    Honesty rules match _stamp_rookies: an AMBIGUOUS name (two players) is
+    dropped — never guessed; ANY feed failure returns {} so every player ships
+    without bonus counts (absent = unmeasured, never zero games)."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    fetch = fetch or (lambda: nflverse.fetch_weekly_stats(PRIOR_SEASON))
+    try:
+        rows = fetch()
+    except Exception as exc:  # noqa: BLE001 — degrade to unmeasured, loudly
+        print(f"[warn] bonus-game counts skipped — nflverse weekly stats "
+              f"unreachable: {exc}", file=sys.stderr)
+        return {}
+    by_name = {}
+    ids_by_name = {}
+    ambiguous = set()
+    for r in rows:
+        if str(r.get("season_type") or "REG") != "REG":
+            continue
+        n = canonical_player_name(r.get("player_display_name")
+                                  or r.get("player_name") or "")
+        if not n:
+            continue
+        pid = str(r.get("player_id") or "")
+        if n in ids_by_name and ids_by_name[n] != pid:
+            ambiguous.add(n)
+        ids_by_name[n] = pid
+        counts = by_name.setdefault(n, {})
+        for field, threshold, key in _BONUS_THRESHOLDS:
+            try:
+                v = float(r.get(field) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if v >= threshold:
+                counts[key] = counts.get(key, 0) + 1
+    for n in ambiguous:
+        by_name.pop(n, None)
+    return {n: c for n, c in by_name.items() if c}
+
+
+def _components_by_id(players_in, bonus_by_name=None):
+    """{gsis_id: {components, base_applied_pts[, bonus_games]}} for the weekly
+    feed. Only records whose kona entry passed extract_components() appear —
+    a player without a verified component line ships NOTHING (the client falls
+    back to the R29 pass_cmp path, which is honest but narrower)."""
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    out = {}
+    for r in players_in:
+        comp = r.get("components")
+        if not comp:
+            continue
+        entry = {"components": dict(comp["components"]),
+                 "base_applied_pts": comp["base_applied_pts"]}
+        if bonus_by_name:
+            bg = bonus_by_name.get(canonical_player_name(r.get("name") or ""))
+            if bg:
+                entry["bonus_games"] = dict(bg)
+        out[r["gsis_id"]] = entry
+    return out
+
+
 def _carry_rookie_flags(src_records, dst_records):
     """Copy `rookie` flags from one record list onto another, by gsis_id, IN
     PLACE on dst. R41b (2026-09-01 incident): the injury re-projection pass
@@ -882,9 +960,21 @@ def main():
     # can be priced exactly instead of having ~0.5 x 350 points a season quietly
     # omitted from every starting quarterback.
     completions_by_id = {r["gsis_id"]: r.get("completions", 0.0) for r in players_in}
+    # R44 — the FULL component stat line (kona, self-verified against ESPN's
+    # own appliedStats arithmetic) plus measured per-game yardage-bonus counts
+    # (nflverse weekly lines), so the client can price EVERY league scoring
+    # rule a component feeds instead of receptions + pass_cmp alone. Both
+    # halves degrade to absence, never to zero-filled claims.
+    bonus_by_name = _bonus_games_by_name()
+    components_by_id = _components_by_id(players_in, bonus_by_name)
+    n_bonus = sum(1 for v in components_by_id.values() if v.get("bonus_games"))
+    print(f"league components: {len(components_by_id)} of {len(players_in)} "
+          f"players carry a verified stat line ({n_bonus} with measured "
+          f"bonus-game counts); absent = unverified, never zero")
     weekly_doc = build_weekly.build_weekly_document(
         projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
-        first_week=wk, completions_by_id=completions_by_id)
+        first_week=wk, completions_by_id=completions_by_id,
+        components_by_id=components_by_id)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
 
     # === PARLAYS (moved from the early slot — needs weekly + projections) ========

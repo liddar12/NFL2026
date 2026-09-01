@@ -312,7 +312,7 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
 def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           season, updated_utc, injuries=None,
                           injuries_path=INJURIES_PATH, first_week=1,
-                          completions_by_id=None):
+                          completions_by_id=None, components_by_id=None):
     """The full player_weekly.json document. Pure given its inputs.
 
     projections: player_projections.json's `players` list (order is preserved).
@@ -362,6 +362,18 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         _cmp = float((completions_by_id or {}).get(pid, 0.0) or 0.0)
         if _cmp > 0:
             row["completions_prior"] = round(_cmp, 1)
+        # R44 — the verified component stat line, by the same emit-only-when-
+        # known rule: a player whose kona entry failed self-verification (or a
+        # build without the feed) ships NO component fields and is byte-
+        # identical to the pre-R44 document. league_components and
+        # base_applied_pts travel TOGETHER — the client's delta needs both,
+        # and one without the other would be an unusable half-claim.
+        _comp = (components_by_id or {}).get(pid)
+        if _comp and _comp.get("components") and _comp.get("base_applied_pts") is not None:
+            row["league_components"] = dict(_comp["components"])
+            row["base_applied_pts"] = _comp["base_applied_pts"]
+            if _comp.get("bonus_games"):
+                row["bonus_games"] = dict(_comp["bonus_games"])
         if view is not None:
             block = {"status": view["status"], "class": view["class"]}
             actually_blocked = sum(1 for w in weeks if w.get("avail") is False)

@@ -137,6 +137,27 @@
             "minimum": 0,
             "description": "R28/R29 \u2014 prior-season pass completions (ESPN raw statId 1), for a league that scores Sleeper pass_cmp. OPTIONAL and OMITTED when zero or unknown: a non-passer carries no key at all, because a 0 here would be a measurement rather than a silence. Not in `required` for the same reason."
           },
+          "league_components": {
+            "type": "object",
+            "description": "R44: prior-season component stat line (Sleeper scoring keys -> season quantity), extracted from the kona actuals entry ONLY when it passed self-verification against ESPN's own appliedStats arithmetic. ABSENT when unverified - unknown is never a zero-filled claim. Travels together with base_applied_pts.",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "minProperties": 1
+          },
+          "base_applied_pts": {
+            "type": "number",
+            "description": "R44: what ESPN's own default-PPR table paid for exactly the mapped component ids (receptions excluded - they stay on the mode toggle). The client's league delta is applyScoring(league_components) - base_applied_pts."
+          },
+          "bonus_games": {
+            "type": "object",
+            "description": "R44: measured prior-season game counts at Sleeper bonus thresholds (bonus_pass_yd_300/400, bonus_rush_yd_100/200, bonus_rec_yd_100/200), counted from nflverse weekly lines with cumulative-threshold semantics. ABSENT when unmeasured, never zero.",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minProperties": 1
+          },
           "availability": {
             "type": "object",
             "additionalProperties": false,

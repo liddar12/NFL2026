@@ -1013,6 +1013,56 @@ _AVAIL_CODES = frozenset([
 ])
 
 
+def check_component_lines(weekly):
+    """R44: the component stat lines in player_weekly.json must agree with
+    themselves. Four rules:
+
+      1. league_components and base_applied_pts travel TOGETHER — one without
+         the other is an unusable half-claim the client cannot price honestly.
+      2. bonus_games rides only on a row that carries a component line.
+      3. completions_prior and league_components.pass_cmp come from the SAME
+         kona entry, so when both are present they must agree (+/-0.6) — a
+         drift here means the two extraction paths have diverged.
+      4. pass_cmp <= pass_att when both are present, and every counting stat
+         (td/int/2pt/cmp/att/tgt) is non-negative. Yardage may legitimately
+         be negative and is not sign-checked.
+    """
+    problems = []
+    counting = ("pass_td", "pass_int", "pass_2pt", "pass_cmp", "pass_att",
+                "rush_att", "rush_td", "rush_2pt", "rec_td", "rec_2pt",
+                "rec_tgt", "fum_lost")
+    for row in weekly.get("players", []):
+        pid = row.get("gsis_id")
+        comps = row.get("league_components")
+        base = row.get("base_applied_pts")
+        if (comps is None) != (base is None):
+            problems.append(f"{pid}: league_components and base_applied_pts "
+                            "must both be present or both absent")
+            continue
+        if comps is None:
+            if row.get("bonus_games") is not None:
+                problems.append(f"{pid}: bonus_games without a component line")
+            continue
+        cmp_prior = row.get("completions_prior")
+        cmp_comp = comps.get("pass_cmp")
+        if cmp_prior is not None and cmp_comp is not None \
+                and abs(float(cmp_prior) - float(cmp_comp)) > 0.6:
+            problems.append(f"{pid}: completions_prior {cmp_prior} != "
+                            f"components.pass_cmp {cmp_comp} — same source, "
+                            "diverged extraction")
+        if comps.get("pass_cmp") is not None and comps.get("pass_att") is not None \
+                and float(comps["pass_cmp"]) > float(comps["pass_att"]) + 0.01:
+            problems.append(f"{pid}: pass_cmp {comps['pass_cmp']} exceeds "
+                            f"pass_att {comps['pass_att']}")
+        for key in counting:
+            v = comps.get(key)
+            if v is not None and float(v) < 0:
+                problems.append(f"{pid}: counting stat {key} is negative ({v})")
+    if problems:
+        raise ValidationError("player_weekly.json component-line invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
 def check_weekly_availability(weekly, projections, injuries):
     """Rel17: player_weekly.json's availability story must agree with itself.
 
@@ -1700,6 +1750,11 @@ def main():
             _load(inj_path) if os.path.exists(inj_path) else None,
         )
         print("ok    player_weekly.json availability cross-file invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_component_lines(_load(os.path.join(DATA, "player_weekly.json")))
+        print("ok    player_weekly.json component-line invariant (R44)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:
