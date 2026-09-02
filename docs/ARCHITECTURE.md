@@ -11,7 +11,7 @@ first adapter. The evaluation harness is the load-bearing core — models are pl
 | **nflverse** (`nfl_data_py`) | rosters, weekly stats, schedules, IDs | `scripts/scrape/nflverse.py` | Canonical player key = `gsis_id`; canonical team = nflverse abbrev. |
 | **ESPN** | live scores, schedule, injuries | `scripts/scrape/espn.py` | Real-time; STATUS_FINAL only counts. Names normalized via `RENAMES`. |
 | **Odds API / Kalshi / Polymarket** | spreads, moneylines, totals, market probs | `scripts/scrape/odds.py` | Free-tier budgeted. Market is a first-class model, not just a benchmark. |
-| **Open-Meteo** | wind / temp / precip per stadium | `scripts/scrape/weather_fetch.py` | Only affects outdoor/retractable-open roofs. |
+| **Open-Meteo** | wind / temp / precip per stadium | `scripts/build_weather_forecast.py` (forecast) / `scripts/build_weather_history.py` (history) | Only affects outdoor/retractable-open roofs. |
 
 Every scraper imports its heavy dependency **inside** the fetch function and wraps the import
 so a missing package raises one clear line, never a bare module-top `ImportError`. The

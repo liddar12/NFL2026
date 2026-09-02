@@ -426,7 +426,7 @@ function loadScoring() {
  * Pure and exported so the retention rule is node-testable without a DOM or
  * localStorage.
  */
-export function sanitizeRosterSlots(stored, order, validIds, retainSlots = null) {
+function sanitizeRosterSlots(stored, order, validIds, retainSlots = null) {
   const slots = Object.fromEntries(order.map((s) => [s, null]));
   const retain = retainSlots || new Set();
   const seen = new Set();
@@ -847,7 +847,7 @@ export function importSummaryRows(profile) {
  * selectors). Every other line passes through untouched: the first line of a
  * failure report is the true error and must stay first.
  */
-export function honestImportFailureLines(lines) {
+function honestImportFailureLines(lines) {
   return (Array.isArray(lines) ? lines : []).map((l) => (
     /^Next: Start from standard PPR/.test(String(l))
       ? 'Next: check the paste and import again — the whole /league/{id} response, '
@@ -867,7 +867,7 @@ export function honestImportFailureLines(lines) {
  * BUILD read the default and so opened an uneven room with a partly-filled
  * spend bar and a plan for money I do not have.
  */
-export function aucStartingBudget(a) {
+function aucStartingBudget(a) {
   const myStart = (a && a.teamBudgets ? a.teamBudgets : [])[a.mySlot - 1];
   return Number.isFinite(myStart) ? myStart : a.budget;
 }
@@ -880,7 +880,7 @@ export function aucStartingBudget(a) {
  * winning bid". The legend must state the same restatement the cell performs,
  * in the same three cases the cell's own title distinguishes.
  */
-export function aucLegendAucText(userBudget, mktBudget) {
+function aucLegendAucText(userBudget, mktBudget) {
   if (!mktBudget) {
     return 'AUC = ESPN\'s average winning bid, shown as published — ESPN does not '
       + 'publish this board\'s budget, so it cannot be restated in yours. ';
@@ -900,7 +900,7 @@ export function aucLegendAucText(userBudget, mktBudget) {
  * the single most prominent figure on the page read as complete while the
  * rows it was built from admitted they were not.
  */
-export function partialKdstStarters(starterIds, playersById) {
+function partialKdstStarters(starterIds, playersById) {
   return (Array.isArray(starterIds) ? starterIds : [])
     .map((id) => playersById.get(String(id)))
     .filter((p) => p && p.kdst && p.kdst.partial);

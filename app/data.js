@@ -150,4 +150,3 @@ export function clearCache() {
 }
 
 // Re-export config so callers can reach liveApi/env without a second import.
-export { RUNTIME_CONFIG };

@@ -101,13 +101,13 @@ test('a reset clears the applied-roster claim (now structurally, via re-mount)',
   const restart = actBranch(src, 'restart-session', 'reset-all');
   assert.match(restart, /restartSessionStorage\(\)/,
     'RESTART must clear the session storage (roster, taken, scoring, profile)');
-  assert.match(restart, /mountTeam\(el\)/,
+  assert.match(restart, /remount\(\)/,
     'RESTART must re-mount so rosterApplied/rosterStatus and every derived '
     + 'cache are rebuilt — the stale-applied-claim defect cannot survive a '
     + 'fresh mount over cleared storage');
   const wipe = actBranch(src, 'reset-all', 'league-reapply');
   assert.match(wipe, /wipeAllAppStorage\(\)/, 'RESET ALL clears everything');
-  assert.match(wipe, /mountTeam\(el\)/, 'RESET ALL re-mounts for the same reason');
+  assert.match(wipe, /remount\(\)/, 'RESET ALL re-mounts for the same reason');
   // The stale claim itself must be unreachable: no reset path may leave the
   // old in-place partial-clear behind (the R30c defect's shape).
   assert.ok(!/act === 'reset'\)/.test(src),

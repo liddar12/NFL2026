@@ -120,6 +120,10 @@ def js_inventory():
         for name in modules.get(m, {}).get("exports", ()):
             if re.search(re.escape(alias) + r"\.\s*" + re.escape(name) + r"\b", src):
                 uses[m][name].add(f)
+    # Tests import some modules through COMPUTED dynamic imports (a cache-busted
+    # file URL), which no regex can resolve. A test file that names the module's
+    # basename and the export as a bare word is counted as a test consumer.
+    test_texts = {f: read(f) for f in walk(("tests",), (".mjs", ".js"))}
     dead, test_only, orphans = [], [], []
     for m, info in sorted(modules.items()):
         rel = os.path.relpath(m, ROOT)
@@ -130,6 +134,10 @@ def js_inventory():
             who = {c for c in uses[m].get(name, set()) if c != m}
             src = read(m)
             internal = len(re.findall(r"\b" + re.escape(name) + r"\b", src)) > 1
+            if not who:
+                base = os.path.basename(m)
+                who = {t for t, txt in test_texts.items()
+                       if base in txt and re.search(r"\b" + re.escape(name) + r"\b", txt)}
             if not who:
                 dead.append({"module": rel, "export": name, "used_internally": internal})
             elif all(os.path.relpath(c, ROOT).startswith("tests/") for c in who):

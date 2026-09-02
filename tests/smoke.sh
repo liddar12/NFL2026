@@ -65,6 +65,8 @@ python3 scripts/fit_player_signals.py --selftest || fail "player signal fit self
 python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"
 python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
+# R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
+python3 scripts/audit_dead_code.py --selftest || fail "dead-code scanner selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.

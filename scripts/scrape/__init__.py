@@ -17,7 +17,6 @@ Modules:
   nflverse.py      -- weekly stats / rosters / depth charts / snap counts (nfl_data_py)
   espn.py          -- schedule / scores / injuries (ESPN public JSON, requests)
   odds.py          -- Odds API + Kalshi implied probabilities, free-tier budgeted
-  weather_fetch.py -- Open-Meteo keyless forecast for a stadium lat/lon
 """
 
 # Re-export the pure, dependency-free helpers so callers can do

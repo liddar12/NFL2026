@@ -248,7 +248,7 @@ test('both buttons are two-tap, and each branch does its half', () => {
   assert.match(restart, /restartArmed = true/, 'first tap arms RESTART');
   assert.match(restart, /companion\.stop\(/, 'RESTART stops the companion (R30c/R33)');
   assert.match(restart, /restartSessionStorage\(\)/, 'RESTART runs the pure storage half');
-  assert.match(restart, /mountTeam\(el\)/,
+  assert.match(restart, /remount\(\)/,
     'RESTART re-mounts — the structural form of the R30c state-clear lesson: '
     + 'rosterApplied, the OURS price memo and every derived cache are rebuilt '
     + 'from cleared storage instead of hand-cleared one by one');
@@ -257,7 +257,7 @@ test('both buttons are two-tap, and each branch does its half', () => {
   assert.match(wipe, /wipeArmed = true/, 'first tap arms RESET ALL');
   assert.match(wipe, /companion\.stop\(/, 'RESET ALL stops the companion');
   assert.match(wipe, /wipeAllAppStorage\(\)/, 'RESET ALL wipes the enumerated keys');
-  assert.match(wipe, /mountTeam\(el\)/, 'RESET ALL re-mounts');
+  assert.match(wipe, /remount\(\)/, 'RESET ALL re-mounts');
 
   // Arming one disarms the other; any other action disarms both.
   assert.match(src, /act !== 'restart-session' && restartArmed/,

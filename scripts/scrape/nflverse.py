@@ -30,30 +30,6 @@ class FeedError(RuntimeError):
     stale. Never swallow this into a silent empty write."""
 
 
-def _require_nfl_data_py():
-    """Import nfl_data_py on demand with a single, actionable error line.
-
-    Kept out of module top-level ON PURPOSE: the regression gate imports scaffold
-    modules but must run with no pip install, so a missing nfl_data_py may only ever
-    surface when someone actually calls a fetcher — not at import time.
-    """
-    try:
-        import nfl_data_py as nfl  # noqa: PLC0415 (intentional in-function import)
-    except ImportError as exc:  # pragma: no cover - exercised only off the gate
-        raise FeedError(
-            "nfl_data_py is not installed. Install it in the pipeline runner only: "
-            "`pip install nfl_data_py`. It must NEVER be a gate dependency."
-        ) from exc
-    return nfl
-
-
-def _records(frame):
-    """Convert a pandas DataFrame to a list of plain dicts without importing pandas at
-    module scope. `to_dict(orient="records")` is a DataFrame method, so we rely on the
-    object the caller already holds."""
-    return frame.to_dict(orient="records")
-
-
 def _assert_rows(name, rows, min_rows):
     """LOUD row-count gate. A feed that returns fewer than `min_rows` is treated as a
     failure, not as legitimately-empty data."""
@@ -172,14 +148,6 @@ def iter_pbp_release(season):
         yield row
     if n < 30000:
         raise FeedError(f"nflverse pbp {season}: only {n} plays streamed — partial season.")
-
-
-def fetch_depth_charts_release(season, min_rows=500):
-    """Weekly depth charts from the release CSV (depth_charts_{season}.csv).
-    Carries club_code/position/depth_team/full_name per week; under `min_rows`
-    signals a partial pull."""
-    url = f"{_RELEASE_BASE}/depth_charts/depth_charts_{int(season)}.csv"
-    return fetch_release_csv(url, f"depth_charts_release_{season}", min_rows=min_rows)
 
 
 def fetch_player_stats_week_release(season, min_rows=5000):

@@ -77,12 +77,12 @@ const RECORD_RECHECK_EVERY = 12;
 
 /** Abort ceilings. The picks list is small; the player dump is ~5MB. */
 const PICKS_TIMEOUT_MS = 10000;
-export const INDEX_TIMEOUT_MS = 45000;
+const INDEX_TIMEOUT_MS = 45000;
 
 /** Sleeper's whole-league player dump — fetched HERE (not by the view: the
  * view is contractually limited to one Sleeper fetch, the roster sync's) and
  * only when the mount has not already cached it from a roster sync. */
-export const PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
+const PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
 
 /* --------------------------------------------------------------------------
  * Shared GET — same CORS discipline as app/sleeper.js sleeperGetJson()
@@ -98,7 +98,7 @@ export const PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
  * error } and never throws. `fetchImpl` is injectable so unit tests and the
  * e2e stub never touch the network.
  */
-export async function getJson(url, fetchImpl, timeoutMs) {
+async function getJson(url, fetchImpl, timeoutMs) {
   const doFetch = typeof fetchImpl === 'function'
     ? fetchImpl
     : (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
