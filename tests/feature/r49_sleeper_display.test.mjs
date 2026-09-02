@@ -26,7 +26,7 @@ import {
   scenarioOf, scenarioMoves, fmtMoves, __selftest, SLEEPER_PROJ_PATH, GAP_THRESHOLD,
   gatedOf, shippedMode,
 } from '../../app/sleeper-proj.js';
-import { renderEstimateRow, withEstimateRow } from '../../app/views/players.js';
+import { renderEstimateRow, withEstimateRow } from '../../app/sleeper-proj.js';
 import {
   scenarioTeamSum, sleeperTeamSummary, renderTeamEstimate,
 } from '../../app/views/grade.js';
@@ -541,8 +541,11 @@ test('R49: PLAYERS renders the estimate row and fetches Sleeper LAZILY after the
   const fan = src.slice(src.indexOf('await Promise.allSettled(['), src.indexOf('teamModule(),'));
   assert.doesNotMatch(fan, /getSleeperProjections|sleeper-proj|getMeta/);
   assert.match(src, /requestIdleCallback\(\(\) => \{ ensureSleeper\(\); \}/, 'after first paint, idle');
-  assert.match(src, /withEstimateRow\(withExtraRow\(renderPlayerCard/, 'the row is on every card');
-  assert.match(src, /export function renderEstimateRow/);
+  assert.match(src, /withEstimateRowLazy\(withExtraRow\(renderPlayerCard/, 'the row is on every card');
+  // The renderers live in the LAZY module (boot-graph byte budget), not here.
+  assert.doesNotMatch(src, /export function renderEstimateRow/);
+  assert.match(readSrc('../../app/sleeper-proj.js'), /export function renderEstimateRow/);
+  assert.match(readSrc('../../app/sleeper-proj.js'), /export function withEstimateRow/);
   assert.match(src, /OURS · SCENARIO · SLEEPER/, 'the legend explains the three engines');
 });
 

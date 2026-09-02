@@ -567,104 +567,10 @@ export function withExtraRow(cardHtml, extras) {
  * R49 — OURS · SCENARIO · SLEEPER on every card (display-only, never an input)
  * ------------------------------------------------------------------------ */
 
-/** The anchor the estimate rows are spliced in front of: after the card's own
- * projection lines (number, adornments, conformal band), before the signals. */
-const ESTIMATE_ANCHOR = '<div class="sigs">';
-
-/**
- * Compose a rendered card with the R49 estimate rows. Same contract as
- * withExtraRow: no anchor -> the card is returned untouched, never broken.
- */
-export function withEstimateRow(cardHtml, rowsHtml) {
-  if (!rowsHtml) return cardHtml;
-  const i = String(cardHtml).indexOf(ESTIMATE_ANCHOR);
-  if (i < 0) return cardHtml;
-  return `${cardHtml.slice(0, i)}${rowsHtml}${cardHtml.slice(i)}`;
-}
-
-/**
- * The compact estimate rows, PURE (unit-tested with a candidate-carrying
- * record and the absent case):
- *   line 1  OURS <season> · SCENARIO <candidate> ±<sd> <delta> · SLEEPER <season> <delta>
- *   line 2  WK n · OURS x · SCENARIO y · SLEEPER z      (this week)
- *   line 3  the biggest scenario moves (capped to three) — when any
- *   line 4  the gapReason line — when the gap exceeds 20%
- * Deltas are vs OURS. An absent SCENARIO renders nothing (older data). An
- * absent Sleeper DOC renders nothing Sleeper-related (the runner may not have
- * produced the file yet); a doc that lacks THIS player renders an em dash —
- * never 0.0. A "≈" marks a scenario scaled through league-rule extras (an
- * approximation the legend explains). Returns '' when there is nothing to say.
- */
-export function renderEstimateRow(o = {}) {
-  // null/undefined is ABSENT (Number(null) is 0 — the one lie this row must
-  // never tell), so every value passes through isNum before it is shown.
-  const isNum = (v) => v != null && Number.isFinite(Number(v));
-  const ours = isNum(o.ours) ? Number(o.ours) : null;
-  const haveOurs = ours !== null;
-  // R49 follow-up — mode 'candidate': OURS IS the scenario (owner override);
-  // the SCENARIO cell is never shown twice, GATED takes its place (when the
-  // record carries it — absent renders nothing), and the moves explain OURS.
-  const candidateMode = o.mode === 'candidate';
-  const sc = !candidateMode && o.scenario && isNum(o.scenario.points) ? o.scenario : null;
-  const gt = candidateMode && o.gated && isNum(o.gated.points) ? o.gated : null;
-  const slLoaded = o.sleeperLoaded === true;
-  if (!sc && !gt && !slLoaded && !(candidateMode && o.moves)) return '';
-  const delta = (v) => {
-    if (!haveOurs || !isNum(v) || ours === 0) return '';
-    const raw = ((Number(v) - ours) / Math.abs(ours)) * 100;
-    const pct = Math.round(Math.abs(raw)); // symmetric: −37.5 -> −38, +37.5 -> +38
-    return pct === 0 ? '0%' : `${raw > 0 ? '+' : '−'}${pct}%`;
-  };
-  const cell = (lbl, val, meta, cls) => (
-    `<span class="pe-lbl">${lbl}</span>`
-    + (val == null
-      ? `<b class="${cls} pe-none">—</b>`
-      : `<b class="${cls}">${esc(val)}</b>`)
-    + (meta ? `<span class="pe-meta">${esc(meta)}</span>` : '')
-  );
-  const oursMeta = candidateMode
-    ? ['scenario', isNum(o.oursSd) ? `±${fix1(o.oursSd)}` : ''].filter(Boolean).join(' · ')
-    : '';
-  let line1 = cell('OURS', haveOurs ? fix1(ours) : null, oursMeta, 'pe-us');
-  if (gt) {
-    const sd = isNum(gt.sd) ? `±${fix1(gt.sd)}` : '';
-    line1 += cell('GATED', `${gt.approx ? '≈' : ''}${fix1(gt.points)}`,
-      [delta(gt.points), sd].filter(Boolean).join(' · '), 'pe-gt');
-  }
-  if (sc) {
-    const sd = isNum(sc.sd) ? `±${fix1(sc.sd)}` : '';
-    const d = delta(sc.points);
-    line1 += cell('SCENARIO', `${sc.approx ? '≈' : ''}${fix1(sc.points)}`,
-      [sd, d].filter(Boolean).join(' · '), 'pe-sc');
-  }
-  if (slLoaded) {
-    const have = isNum(o.sleeper);
-    line1 += cell('SLEEPER', have ? fix1(o.sleeper) : null, have ? delta(o.sleeper) : '', 'pe-sl');
-  }
-  const title = (candidateMode
-    ? 'OURS is the SCENARIO candidate — every raw signal applied at full strength — '
-      + 'shipped by owner override of the gate, in your scoring. '
-      + (gt ? 'GATED is the number the gate would have shipped, in the same units. ' : '')
-    : 'OURS is this app\'s projection in your scoring. SCENARIO is the '
-      + 'self-learning candidate (every raw signal applied at full strength, backtested, '
-      + 'NOT adopted) in the same units. ')
-    + 'SLEEPER is Sleeper\'s own projection priced under '
-    + 'your scoring table — shown for comparison, never an input. Deltas are vs OURS.';
-  let html = `<div class="p-est" title="${esc(title)}">${line1}</div>`;
-  const wk = Number(o.week);
-  if (Number.isFinite(wk) && (isNum(o.oursWk) || slLoaded)) {
-    const f = (v) => (isNum(v) ? fix1(v) : '—');
-    let wkLine = `WK ${wk} · OURS ${f(o.oursWk)}`;
-    if (gt) wkLine += ` · GATED ${f(o.gatedWk)}`;
-    if (sc) wkLine += ` · SCENARIO ${f(o.scenarioWk)}`;
-    if (slLoaded) wkLine += ` · SLEEPER ${f(o.sleeperWk)}`;
-    html += `<div class="p-est p-est--wk">${esc(wkLine)}</div>`;
-  }
-  if (sc && o.moves) html += `<div class="pe-moves">SCENARIO moves: ${esc(o.moves)}</div>`;
-  if (candidateMode && o.moves) html += `<div class="pe-moves">Scenario moves in OURS: ${esc(o.moves)}</div>`;
-  if (slLoaded && o.reason) html += `<div class="pe-reason">${esc(o.reason)}</div>`;
-  return html;
-}
+/* R49 — the estimate rows (withEstimateRow / renderEstimateRow) live in the
+ * lazily imported app/sleeper-proj.js: they are only ever needed once that
+ * module has landed, and keeping them out of this boot-path module keeps the
+ * static boot graph under its byte budget (tests/perf/budget.spec.mjs). */
 
 /** A compact glossary so no acronym or arrow is ever unexplained; the same
  * collapsible <details> pattern the TEAM tab uses, owned locally (render.js is
@@ -978,6 +884,11 @@ export default async function mountPlayers(el) {
     if (sleeperMod) paintList();
   }
 
+  /** Splice the R49 rows into a card — a no-op until the lazy module lands. */
+  function withEstimateRowLazy(cardHtml, rowsHtml) {
+    return rowsHtml && sleeperMod ? sleeperMod.withEstimateRow(cardHtml, rowsHtml) : cardHtml;
+  }
+
   /** The R49 rows for one pool record, or '' before the lazy module lands. */
   function estimateRows(p) {
     if (!sleeperMod) return '';
@@ -1011,7 +922,7 @@ export default async function mountPlayers(el) {
     }
     const scRatio = sc && shippedPts > 0 ? sc.points / shippedPts : null;
     const gtRatio = gt && shippedPts > 0 ? gt.points / shippedPts : null;
-    return renderEstimateRow({
+    return sleeperMod.renderEstimateRow({
       mode: shipped.mode,
       ours: shippedPts,
       oursSd,
@@ -1248,7 +1159,7 @@ export default async function mountPlayers(el) {
           // Show the RoS value chip when ranking by rest-of-season, so the sort
           // is legible (you see the number you sorted on), not just re-ordered.
           const ros = sortKey === 'ros' ? rosOf(id) : null;
-          return withEstimateRow(withExtraRow(renderPlayerCard(m.player, {
+          return withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta, ros,
           }), extraRow(id)), estimateRows(p));
         }).join('')
