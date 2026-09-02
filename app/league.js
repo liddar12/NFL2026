@@ -1015,7 +1015,7 @@ export function clearProfile(storage) {
 export const LEAGUE_STASH_KEY = 'nfl2026.leaguestash.v1';
 
 /** Stash schema version (independent of PROFILE_VERSION). */
-export const STASH_VERSION = 1;
+const STASH_VERSION = 1;
 
 /**
  * Park a profile as saved-not-applied (normalised first). Returns true on

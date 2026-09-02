@@ -194,35 +194,3 @@ def _first_h2h(book, home_name, away_name):
 _KALSHI_URL = "https://api.elections.kalshi.com/trade-api/v2/markets"
 
 
-def fetch_kalshi(budget, series_ticker="KXNFLGAME", timeout=20):
-    """Fetch Kalshi NFL game-winner contracts and return implied probabilities.
-
-    Kalshi 'yes' prices are in cents (0..100) = an implied probability already, no de-vig
-    needed (it's an exchange midpoint, not a book line). Returns list[dict]:
-    {ticker, title, prob_yes}. Budgeted like the Odds API so a loop can't get us
-    throttled. Public read endpoint — no key required for market listing.
-    """
-    budget.check(cost=1)
-    requests = _require_requests()
-    resp = requests.get(_KALSHI_URL, params={"series_ticker": series_ticker, "status": "open"}, timeout=timeout)
-    if resp.status_code != 200:
-        raise FeedError(f"Kalshi returned HTTP {resp.status_code}.")
-    budget.spend(cost=1)
-    markets = (resp.json() or {}).get("markets") or []
-    if not markets:
-        raise FeedError("Kalshi returned 0 markets — outage or no open NFL contracts.")
-    out = []
-    for m in markets:
-        yes_cents = m.get("yes_bid") if m.get("yes_bid") is not None else m.get("last_price")
-        if yes_cents is None:
-            continue
-        out.append(
-            {
-                "ticker": m.get("ticker"),
-                "title": m.get("title"),
-                "prob_yes": round(float(yes_cents) / 100.0, 6),  # cents -> probability
-            }
-        )
-    if not out:
-        raise FeedError("Kalshi returned markets but none carried a usable price.")
-    return out

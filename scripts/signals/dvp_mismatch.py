@@ -112,22 +112,6 @@ def _blank():
 # window arithmetic                                                            #
 # --------------------------------------------------------------------------- #
 
-def _prev_totals(team_weeks):
-    """`(games, {pos: ppr})` summed over ALL weeks of a season, per side.
-
-    Used for the prior season only, which is complete before the season being
-    priced kicks off.
-    """
-    out = {"g": 0, "off": _blank(), "def": _blank()}
-    for wk in (team_weeks or {}).values():
-        out["g"] += int(wk.get("g") or 0)
-        for side in ("off", "def"):
-            src = wk.get(side) or {}
-            for p in POSITIONS:
-                out[side][p] += float(src.get(p) or 0.0)
-    return out
-
-
 def _cumulative_by_week(team_weeks):
     """`{week: totals-strictly-before-week}` for one team-season.
 

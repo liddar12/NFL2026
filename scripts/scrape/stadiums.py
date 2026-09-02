@@ -221,12 +221,6 @@ for _ab, _s in STADIUMS.items():
         f"{_ab}: cold_region only applies to open-air venues"
 
 
-def outdoor_teams():
-    """Sorted abbrevs whose home venue is fully open air (weather-join eligible).
-    Retractables are excluded on purpose: the roof state per game is unknowable here."""
-    return sorted(ab for ab, s in STADIUMS.items() if s["roof"] == "open")
-
-
 def dome_teams():
     """Sorted abbrevs whose home venue is a fixed dome (strict — retractables are NOT
     dome teams for the dome-teams-in-cold split; they practice/play exposed at times)."""

@@ -64,8 +64,8 @@ test.describe('R48-C — GRADE: weekly-optimal lineups and projected final stand
       await page.locator('#gr-league-id').fill(LEAGUE_ID);
       await page.locator('#gr-load').click();
 
-      // The league sync may remount the view once (settings saved) and then
-      // continue the load on its own; the standings are the last thing painted.
+      // R52 — the league sync re-derives the view's context IN PLACE (no
+      // remount) and the same load continues; the standings are painted last.
       const rows = page.locator('.gr-standings tbody tr');
       await expect(rows).toHaveCount(10, { timeout: 60000 });
 
@@ -77,19 +77,27 @@ test.describe('R48-C — GRADE: weekly-optimal lineups and projected final stand
       await expect(likely.nth(0)).toHaveText(/Most likely regular-season winner: .+ \(\d+%\)/);
       await expect(likely.nth(1)).toHaveText(/Most likely champion: .+ \(\d+%\)/);
 
-      // Every card carries the weekly-lineups disclosure and the new headline number.
+      // Every card carries the per-week disclosure and the headline number,
+      // labelled as what it is (R52): the weekly-optimal total the standings use.
       const first = page.locator('.gr-card--team').first();
       await expect(first.locator('details.gr-weeks summary')).toBeVisible();
+      await expect(first).toContainText('WEEKLY-OPTIMAL TOTAL');
       await expect(first).toContainText('projected season pts from weekly optimal lineups');
-      // R48b (owner RCA "cards without player names"): the starters are ON the card.
+      // R48b (owner RCA "cards without player names"): the season-optimal
+      // starters stay on the card, one tap away, labelled NOT the standings number.
       await expect(first).toContainText('SEASON-OPTIMAL STARTERS');
-      expect(await first.locator('.gr-slot').count()).toBeGreaterThanOrEqual(9);
+      await expect(first.locator('details.gr-season summary')).toContainText('not the standings number');
+      expect(await first.locator('details.gr-season .gr-slot').count()).toBeGreaterThanOrEqual(9);
       // ...and the standings card is the LAST child of the output.
       const lastClass = await page.locator('#gr-league-out > *').last().getAttribute('class');
       expect(lastClass).toContain('gr-card--standings');
       await first.locator('details.gr-weeks summary').click();
       await expect(first.locator('.gr-week').first()).toBeVisible();
       await expect(first.locator('.gr-week').first()).toContainText('WK 1');
+      // R52 — the per-week view: STARTERS then BENCH, every roster row placed.
+      await expect(first.locator('.gr-week').first()).toContainText('STARTERS');
+      await expect(first.locator('.gr-week').first()).toContainText('BENCH');
+      expect(await first.locator('.gr-week').first().locator('.gr-slot--bench').count()).toBeGreaterThan(0);
 
       // Standings columns: rank, team, W-L, PF, PA, playoff %, reg #1 %, title %.
       const head = await page.locator('.gr-standings thead th').allInnerTexts();

@@ -23,6 +23,15 @@
  *     never by an offence conversion; an unfillable slot is EMPTY, never 0.0.
  *   - self-learning signals are at weight 0 and move nothing here (labelled).
  *   - ESTIMATE, everywhere, out loud. No market input anywhere.
+ *
+ * R52 — ONE press, ONE pass (owner RCA: LOAD sometimes painted nothing).
+ *   Everything this view derives from the saved league profile lives in
+ *   deriveLeagueContext(); a LOAD that changes the saved profile re-derives
+ *   that context IN PLACE and carries on with the payloads it already holds —
+ *   no remount, no flag, no second pass, no second player dump. A mount
+ *   sequence (mountSeq) plus `isConnected` drops every late write from a
+ *   superseded mount or an abandoned LOAD, so a stale load never paints into
+ *   a panel the user has moved on from. See docs/GRADE_LOAD.md.
  */
 
 import {
@@ -204,7 +213,7 @@ export function renderTeamEstimate({ ours, scenario, gated, mode, teamIndex }) {
 
 /** Repaint ONLY the Sleeper cells once the doc has landed. `teams` is
  *  [{ ours, starters, weeks }] in card order. */
-export function fillSleeperCells(out, mod, idx, teams) {
+function fillSleeperCells(out, mod, idx, teams) {
   teams.forEach((t, i) => {
     const sum = sleeperTeamSummary(mod, idx, t.starters, t.weeks);
     const cell = out.querySelector(`.gr-est-sl[data-team="${i}"]`);
@@ -239,18 +248,73 @@ export function fillSleeperCells(out, mod, idx, teams) {
   }
 }
 
+/** One roster row's honesty tag: BYE / OUT / NO PROJECTION / SEASON AVG. */
+function rowTag(r) {
+  if (r.onBye) return ' <span class="gr-tag">BYE</span>';
+  if (!r.playable) return ' <span class="gr-tag">OUT</span>';
+  if (!r.projected) return ' <span class="gr-tag">NO PROJECTION</span>';
+  if (r.seasonAvg) return ' <span class="gr-tag">SEASON AVG</span>';
+  return '';
+}
+
+/**
+ * R52 — one week of the per-week view: STARTERS (slot · name · pts) then
+ * BENCH (name · pts). A seated player whom Sleeper lists on its bench carries
+ * SUB when `sleeperStarters` (the app ids of Sleeper's own starters, from the
+ * roster payload) is known; when it is not, nothing is marked. An unfillable
+ * slot is EMPTY and adds nothing. Pure string builder.
+ */
+export function weekLineupHtml(d, { teamIndex, sleeperStarters } = {}) {
+  const rowById = new Map(d.rows.map((r) => [r.id, r]));
+  const seated = new Set();
+  const canMarkSub = sleeperStarters instanceof Set;
+  const slots = d.lineup.geometry.map((g) => {
+    const id = d.lineup.slots[g.slot];
+    const r = id ? rowById.get(id) : null;
+    if (!r) {
+      return `<div class="gr-slot gr-slot--empty"><span class="gr-pos">${esc(g.slot)}</span>`
+        + '<span class="gr-empty">EMPTY — nobody on the roster can fill this slot</span></div>';
+    }
+    seated.add(r.id);
+    const sub = canMarkSub && !sleeperStarters.has(String(r.id))
+      ? ' <span class="gr-tag gr-tag--sub" title="Sleeper lists this player on the bench">SUB</span>'
+      : '';
+    return `<div class="gr-slot"><span class="gr-pos">${esc(g.slot)}</span>`
+      + `<span>${esc(r.name)}${sub}${rowTag(r)}</span>`
+      + `<span class="gr-pts">${r.projected ? r.pts.toFixed(1) : '—'}</span></div>`;
+  }).join('');
+  const bench = d.rows.filter((r) => !seated.has(r.id)).map((r) => (
+    `<div class="gr-slot gr-slot--bench"><span class="gr-pos">BN</span>`
+    + `<span>${esc(r.name)}${rowTag(r)}</span>`
+    + `<span class="gr-pts">${r.projected ? r.pts.toFixed(1) : '—'}</span></div>`
+  )).join('');
+  return `<div class="gr-week"><div class="gr-week-head"><span>WK ${d.week}</span>`
+    + (teamIndex == null ? '' : `<span class="gr-est-wk" data-team="${teamIndex}" data-wk="${d.week}" hidden></span>`)
+    + `<b>${d.total.toFixed(1)}</b></div>`
+    + '<div class="gr-week-sub">STARTERS</div>' + slots
+    + '<div class="gr-week-sub">BENCH</div>'
+    + (bench || '<div class="gr-slot gr-slot--bench"><span class="gr-empty">nobody on the bench</span></div>')
+    + '</div>';
+}
+
 /**
  * R48 — the Sleeper-league team card. The letter grade stays; the number under
  * it is the season total of WEEKLY optimal lineups (the bench substituted every
- * week), and the disclosure lists each week's lineup. An unfillable slot reads
- * EMPTY — never a fabricated 0.0; a player with no projection shows an em dash.
+ * week) — the number the standings use — and the disclosure is the per-week
+ * view (starters, bench, SUB). An unfillable slot reads EMPTY — never a
+ * fabricated 0.0; a player with no projection shows an em dash.
+ * R52 — the header says what the number IS; the season-optimal starters (a
+ * different lineup, whose sum the standings do NOT use) sit in their own fold
+ * with the R49 OURS · SCENARIO · SLEEPER line that prices exactly them.
  */
 function leagueTeamCard(t, info) {
-  const { seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario, gated, mode } = info;
-  // R48b (owner RCA: "cards without player names"): the season-optimal
-  // starters are ON the card, as they were before R48 — name, slot, season
-  // points — and the weekly lineups stay one tap away underneath.
-  const starterHtml = (grade && Array.isArray(grade.starters) ? grade.starters : []).map((st) => (
+  const {
+    seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario, gated, mode,
+    sleeperStarters,
+  } = info;
+  const seasonStarters = grade && Array.isArray(grade.starters) ? grade.starters : [];
+  const starterCount = seasonStarters.length;
+  const starterHtml = seasonStarters.map((st) => (
     `<div class="gr-slot${st.empty ? ' gr-slot--empty' : ''}">`
     + `<span class="gr-pos">${esc(st.slot)}</span>`
     + (st.empty
@@ -263,36 +327,7 @@ function leagueTeamCard(t, info) {
       + `${sim.avgWins} avg wins · PF ${sim.pf.toFixed(1)} / PA ${sim.pa.toFixed(1)} `
       + '<span class="ms-badge">ESTIMATE</span></div>'
     : '';
-  const weekHtml = weeks.map((d) => {
-    const rowById = new Map(d.rows.map((r) => [r.id, r]));
-    const names = (ids) => ids.map((id) => esc((rowById.get(id) || { name: id }).name)).join(', ');
-    const slots = d.lineup.geometry.map((g) => {
-      const id = d.lineup.slots[g.slot];
-      const r = id ? rowById.get(id) : null;
-      if (!r) {
-        return `<div class="gr-slot gr-slot--empty"><span class="gr-pos">${esc(g.slot)}</span>`
-          + '<span class="gr-empty">EMPTY — nobody on the roster can fill this slot</span></div>';
-      }
-      let tag = '';
-      if (r.onBye) tag = ' <span class="gr-tag">BYE</span>';
-      else if (!r.playable) tag = ' <span class="gr-tag">OUT</span>';
-      else if (!r.projected) tag = ' <span class="gr-tag">NO PROJECTION</span>';
-      else if (r.seasonAvg) tag = ' <span class="gr-tag">SEASON AVG</span>';
-      return `<div class="gr-slot"><span class="gr-pos">${esc(g.slot)}</span>`
-        + `<span>${esc(r.name)}${tag}</span>`
-        + `<span class="gr-pts">${r.projected ? r.pts.toFixed(1) : '—'}</span></div>`;
-    }).join('');
-    const foot = [
-      d.byes.length ? `Bye: ${names(d.byes)}` : '',
-      d.unavailable.length ? `Out: ${names(d.unavailable)}` : '',
-      d.noProjection.length ? `No projection: ${names(d.noProjection)}` : '',
-    ].filter(Boolean).join(' · ');
-    return `<div class="gr-week"><div class="gr-week-head"><span>WK ${d.week}</span>`
-      + `<span class="gr-est-wk" data-team="${teamIndex}" data-wk="${d.week}" hidden></span>`
-      + `<b>${d.total.toFixed(1)}</b></div>${slots}`
-      + (foot ? `<div class="gr-week-foot">${foot}</div>` : '')
-      + '</div>';
-  }).join('');
+  const weekHtml = weeks.map((d) => weekLineupHtml(d, { teamIndex, sleeperStarters })).join('');
   const un = t.unmatched.length
     ? '<div class="gr-unmatched"><b>NOT MATCHED (not graded, never guessed):</b> '
       + t.unmatched.map((l) => esc(l)).join(' · ') + '</div>'
@@ -302,15 +337,22 @@ function leagueTeamCard(t, info) {
     '<article class="card gr-card gr-card--team">'
     + `<header class="gr-head"><h3>${esc(t.name)}</h3>`
     + `<span class="gr-grade">${esc(letterFor(pctile))}</span></header>`
-    + `<div class="gr-total">${seasonTotal.toFixed(1)} projected season pts from weekly optimal lineups`
+    + '<div class="gr-sub">WEEKLY-OPTIMAL TOTAL · best legal lineup each week, bench substituted</div>'
+    + `<div class="gr-total"><b>${seasonTotal.toFixed(1)}</b> projected season pts from weekly optimal lineups`
     + (pctile == null ? '' : ` · ${pctile}th percentile`)
     + ` · bench ${bench}</div>`
     + simRow
-    + '<div class="gr-sub">SEASON-OPTIMAL STARTERS · projected season pts</div>'
-    + renderTeamEstimate({ ours: grade ? grade.total : null, scenario, gated, mode, teamIndex })
-    + starterHtml
-    + `<details class="gr-weeks"><summary>Weekly lineups with the bench substituted · ${weekCount} weeks</summary>`
+    + `<details class="gr-weeks"><summary>Week by week · starters, bench and SUBs · ${weekCount} weeks`
+    + (sleeperStarters instanceof Set ? '' : ' · SUB not marked (Sleeper\'s starters unknown)')
+    + '</summary>'
     + weekHtml + '</details>'
+    // R49's OURS · SCENARIO · SLEEPER line prices the season-optimal starters
+    // and stays on the card (a display-only comparison); the starters it
+    // prices are one tap away, labelled as NOT the standings number.
+    + '<div class="gr-sub">SEASON-OPTIMAL STARTERS · one fixed lineup all season · NOT what the standings use</div>'
+    + renderTeamEstimate({ ours: grade ? grade.total : null, scenario, gated, mode, teamIndex })
+    + `<details class="gr-season"><summary>Season-optimal starters · ${starterCount} slots · not the standings number</summary>`
+    + starterHtml + '</details>'
     + un + extra
     + '</article>'
   );
@@ -344,11 +386,9 @@ function standingsHtml(season) {
 
 /* R47 — a LOAD on this tab is a league sync for the WHOLE session: the
  * league's settings are saved (profile + scoring lock + league id) exactly
- * as TEAM's SYNC NOW saves them, then this view remounts so its shape, pool
- * and pricing are the league's before grading. `pendingAutoload` carries the
- * LOAD across that remount so the user presses nothing twice. */
-let pendingAutoload = false;
-
+ * as TEAM's SYNC NOW saves them. R52 — the view then re-derives its own
+ * context in place (deriveLeagueContext) and the SAME load carries on; no
+ * remount, no pending flag. */
 async function syncLeagueSettings(sleeper, idText) {
   const imported = await sleeper.importFromSleeper(idText);
   if (!imported.ok || !imported.profile) return { changed: false, name: null };
@@ -364,52 +404,80 @@ async function syncLeagueSettings(sleeper, idText) {
   return { changed, name: next.name };
 }
 
-async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx) {
-  out.innerHTML = '<div class="state state--loading">Reading your league from Sleeper — '
-    + 'rosters, schedule and its player list (several MB)…</div>';
+/** "2.1 MB" — bytes to one decimal; never a number for an unknown size. */
+function mbText(bytes) {
+  const b = Number(bytes);
+  return Number.isFinite(b) && b >= 0 ? `${(b / 1e6).toFixed(1)} MB` : '';
+}
+
+/**
+ * The Sleeper LOAD, one pass. `host` is the mount's contract:
+ *   host.ctx()            the CURRENT league context (deriveLeagueContext);
+ *   host.rederive()       re-derive it from the saved profile, in place;
+ *   host.stale()          true once this write must be dropped (a newer
+ *                         mount, a newer LOAD, or the panel left the DOM).
+ * Every DOM write after an await goes through `paint`, which asks stale()
+ * first. A stale load ends silently (one console.debug), never in the DOM.
+ */
+async function loadSleeperLeague(idText, out, host) {
+  const paint = (html) => {
+    if (host.stale()) { console.debug('grade: stale LOAD dropped'); return false; }
+    out.innerHTML = html;
+    return true;
+  };
+  if (!paint('<div class="state state--loading">Reading your league from Sleeper — '
+    + 'rosters, schedule and results so far…</div>')) return;
   // Lazy on purpose: none of this rides the paste path or the boot path.
-  const [sleeper, gradeLeague, draftLive, gradeWeekly, sleeperProj] = await Promise.all([
-    import('../sleeper.js'), import('../grade-league.js'), import('../draft-live.js'),
+  const [sleeper, gradeLeague, gradeWeekly, sleeperProj] = await Promise.all([
+    import('../sleeper.js'), import('../grade-league.js'),
     import('../grade-weekly.js'),
     import('../sleeper-proj.js'), // R49 — display-only estimates, LOAD path only
   ]);
   const leagueRes = await sleeper.fetchSleeperLeague(idText);
   if (!leagueRes.ok) {
-    out.innerHTML = `<div class="state">${esc(leagueRes.error.message)}</div>`;
+    paint(`<div class="state">${esc(leagueRes.error.message)}</div>`);
     return;
   }
   const meta = gradeLeague.leagueMeta(leagueRes.payload);
   // R47 — save the league for every tab FIRST (pre-draft leagues carry their
-  // settings already); if the saved profile changed, remount so this view's
-  // shape/pool/pricing are the league's, then continue the load automatically.
+  // settings already). R52 — if the saved profile changed, this view's shape,
+  // pool and pricing become the league's RIGHT HERE and the load continues.
   const synced = await syncLeagueSettings(sleeper, idText);
-  if (synced.changed && typeof remount === 'function') {
-    pendingAutoload = true;
-    remount();
-    return;
-  }
+  if (host.stale()) { console.debug('grade: stale LOAD dropped'); return; }
+  if (synced.changed) await host.rederive();
+  if (host.stale()) { console.debug('grade: stale LOAD dropped'); return; }
   if (meta.preDraft) {
-    out.innerHTML = `<div class="state">“${esc(meta.name)}” is ${esc(meta.status)} on Sleeper. `
+    paint(`<div class="state">“${esc(meta.name)}” is ${esc(meta.status)} on Sleeper. `
       + 'Rosters and the weekly schedule appear once your draft has run — load again after '
-      + 'it. Until then, the paste box below grades any lineup you give it.</div>';
+      + 'it. Until then, the paste box below grades any lineup you give it.</div>');
     return;
   }
   const teamsRes = await sleeper.importSleeperTeams(idText);
   if (!teamsRes.ok || !teamsRes.teams.length) {
-    out.innerHTML = `<div class="state">${esc((teamsRes.error && teamsRes.error.message)
-      || 'Sleeper returned no teams for that league.')}</div>`;
+    paint(`<div class="state">${esc((teamsRes.error && teamsRes.error.message)
+      || 'Sleeper returned no teams for that league.')}</div>`);
     return;
   }
-  const dumpRes = await draftLive.getJson(
-    draftLive.PLAYER_INDEX_URL, undefined, draftLive.INDEX_TIMEOUT_MS,
-  );
+  // R52 — the player dump is read ONCE per session (app/sleeper.js memo) and
+  // streamed with a progress line; a cached hit says so.
+  if (!paint('<div class="state state--loading">Reading Sleeper\'s player list… '
+    + '<span id="gr-dump-progress"></span></div>')) return;
+  const dumpRes = await sleeper.loadSleeperPlayerIndex({
+    onProgress: ({ bytes }) => {
+      if (host.stale()) return;
+      const p = out.querySelector('#gr-dump-progress');
+      if (p) p.textContent = mbText(bytes);
+    },
+  });
   if (!dumpRes.ok) {
-    out.innerHTML = '<div class="state">Sleeper\'s player list did not load '
-      + `(${esc(dumpRes.error)}), so rosters cannot be matched to our projections. `
-      + 'Try again, or use the paste box below.</div>';
+    paint('<div class="state">Sleeper\'s player list did not load '
+      + `(${esc(dumpRes.error && dumpRes.error.message)}), so rosters cannot be matched to `
+      + 'our projections. Try again, or use the paste box below.</div>');
     return;
   }
-  const index = sleeper.buildSleeperPlayerIndex(dumpRes.payload).index;
+  const { index } = dumpRes;
+  if (!paint('<div class="state state--loading">Reading Sleeper\'s player list… '
+    + `${dumpRes.cached ? 'cached' : esc(mbText(dumpRes.bytes))} · reading the schedule…</div>`)) return;
 
   const endWeek = (meta.playoffWeekStart || 14) - 1;
   const weekNums = Array.from({ length: endWeek }, (_, i) => i + 1);
@@ -426,6 +494,7 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     getScheduleFull(), getGamePredictions(),
     getMeta(), // R49 follow-up — which number OURS is (LOAD path, not the cold mount)
   ]);
+  if (host.stale()) { console.debug('grade: stale LOAD dropped'); return; }
   const shipped = sleeperProj.shippedMode(metaRes.status === 'fulfilled' ? metaRes.value : null);
   const byeByTeam = teamByeWeeks(schedRes.status === 'fulfilled' ? schedRes.value : null);
   let currentWk = 1;
@@ -434,6 +503,9 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
   }
 
+  // The context is read ONCE here, after every await that could have changed
+  // it, so grading, the paste path and the notes all price under one league.
+  const { pool, projOf, shape, engineCtx: baseCtx } = host.ctx();
   const poolById = new Map(pool.map((p) => [String(p.gsis_id), p]));
   const graded = teamsRes.teams.map((team) => {
     const cw = sleeper.crosswalkPlayerIds(team.players, pool, { index });
@@ -442,12 +514,22 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     const kdef = unres.filter((u) => u.code === 'position_not_projected'
       && (u.sleeper_position === 'K' || u.sleeper_position === 'DEF'));
     const real = unres.filter((u) => !kdef.includes(u));
+    // R52 — Sleeper's OWN starters (roster payload `starters`, Sleeper ids)
+    // mapped to app ids through the same crosswalk: the SUB marker's source.
+    // No starters list on the payload -> null -> nothing is marked.
+    const sleeperStarterIds = Array.isArray(team.starters)
+      ? new Set(team.starters.map((id) => String(id))) : null;
+    const sleeperStarters = sleeperStarterIds
+      ? new Set(cw.resolved.filter((r) => sleeperStarterIds.has(String(r.sleeper_id)))
+        .map((r) => String(r.player_id)))
+      : null;
     return {
       team,
       // EVERY resolved player — starters AND bench — is what the weekly
       // optimizer seats from (R48). gradeTeam's season-optimal lineup keeps
       // the honest bench count for the card.
       players,
+      sleeperStarters,
       grade: gradeTeam(players, projOf, shape),
       unmatched: [
         ...real.map((u) => `${u.sleeper_name || u.sleeper_id} (${u.code})`),
@@ -468,7 +550,7 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   // R48 — WEEKLY OPTIMAL LINEUPS from the FULL roster, derived exactly as the
   // LINEUP view derives a week (app/grade-weekly.js), then the season sim on
   // each week's OWN mean. The bench is substituted every week, automatically.
-  const engineCtx = { ...(ctx || {}), byeByTeam, currentWk };
+  const engineCtx = { ...baseCtx, byeByTeam, currentWk };
   const table = gradeWeekly.seasonTable(
     graded.map((g) => ({ name: g.team.label, players: g.players })), weeks, engineCtx,
   );
@@ -514,6 +596,10 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     + '(starters and bench), so a bench player covers a bye or an unavailable starter; an '
     + 'unfillable slot is EMPTY and adds nothing. Weekly sd = max(22% of that week\'s mean, '
     + '12) — a documented prior, not a fit.');
+  notes.push('SUB marks a seated player whom Sleeper lists on the bench in its CURRENT '
+    + 'roster (the starters list Sleeper published at load time — it does not know past or '
+    + 'future weeks). The season-optimal starters fold is one fixed lineup for the whole '
+    + 'season; the standings never use its sum.');
   if (engineCtx.feeds && engineCtx.feeds.length) {
     notes.push('K/DEF have no weekly split in their projection feed, so each week is the '
       + 'season projection spread evenly across games (season ÷ 17), zeroed on the team\'s '
@@ -544,7 +630,7 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   }
   problems.forEach((p) => notes.push(p));
 
-  out.innerHTML =
+  const painted = paint(
     `<div class="gr-note">“${esc(meta.name)}” loaded: ${graded.length} teams, `
     + `${notes.length} note(s) below.</div>`
     + graded.map((g, i) => leagueTeamCard(
@@ -561,6 +647,7 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
         mode: shipped.mode,
         scenario: shipped.mode === 'candidate' ? null : scenarioByTeam[i],
         gated: shipped.mode === 'candidate' ? scenarioByTeam[i] : null,
+        sleeperStarters: g.sleeperStarters,
       },
     )).join('')
     // R48b — the cards carry the detail; the week-by-week table and the
@@ -570,7 +657,9 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
     + weeklyTableHtml(wkTable) + '</details>'
     + `<details class="gr-fold"><summary>How this is computed · ${notes.length} note(s)</summary>`
     + `<div class="gr-assumptions">${notes.map((n) => `<div class="gr-note">${esc(n)}</div>`).join('')}</div></details>`
-    + standingsHtml(season);
+    + standingsHtml(season),
+  );
+  if (!painted) return;
 
   // R49 — Sleeper's estimate lands AFTER the league has painted (idle), and
   // repaints only its own cells. A later LOAD replaces `out`'s content; the
@@ -578,7 +667,7 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   const token = {};
   out._r49 = token;
   const fill = () => sleeperProj.getSleeperProjections().then((doc) => {
-    if (out._r49 !== token) return;
+    if (out._r49 !== token || host.stale()) return;
     const idx = sleeperProj.shapeSleeper(doc, loadProfile());
     if (!idx.ok) return; // no file yet (404) — nothing Sleeper-related renders
     fillSleeperCells(out, sleeperProj, idx, graded.map((g, i) => ({
@@ -589,27 +678,31 @@ async function loadSleeperLeague(idText, pool, projOf, shape, out, remount, ctx)
   else setTimeout(fill, 400);
 }
 
-/* ----------------------------------------------------------------- mount */
+/* ------------------------------------------------------- league context */
 
-export default async function mountGrade(el) {
-  el.innerHTML = '<div class="state state--loading">Loading grade engine…</div>';
-  const [projRes, weeklyRes] = await Promise.allSettled([
-    getPlayerProjections(), getPlayerWeekly(),
-  ]);
-  if (projRes.status !== 'fulfilled') {
-    el.innerHTML = '<div class="state">Grades unavailable — the projection feed did not load.</div>';
-    return;
-  }
-  const offencePool = projRes.value.players || [];
-  const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-  const weeklyRaw = new Map(((weekly && weekly.players) || []).map((p) => [String(p.gsis_id), p]));
-  const scoring = loadScoringMode();
-
+/**
+ * R52 — everything this view derives from the saved league profile, in one
+ * place, so a LOAD that changes the profile re-derives it IN PLACE instead of
+ * remounting. Pure given its inputs (the docs are passed in, never fetched):
+ *
+ *   profile     loadProfile() — the saved league (or the default);
+ *   offencePool projections.players;
+ *   weeklyRaw   Map<id, player_weekly row> BEFORE league stamping;
+ *   kdstDoc     getKdstProjections() result, or null when the league fields
+ *               no K/DEF (the mount fetches it lazily, once, and reuses it);
+ *   scoring     loadScoringMode() — passed in so the same inputs give the
+ *               same context wherever it is called.
+ *
+ * Returns { shape, starterTokens, weeklyById, kdstIndex, kdstRows, kdstNote,
+ *           pool, feeds, hasK, scoring, projOf, engineCtx }.
+ */
+export function deriveLeagueContext(profile, { offencePool, weeklyRaw, kdstDoc, scoring }) {
+  const offence = Array.isArray(offencePool) ? offencePool : [];
+  const mode = scoring || 'ppr';
   /* R43 — the CONNECTED LEAGUE decides the lineup shape, and when it fields
    * K/DEF/DST those positions join the pool as contract rows whose numbers
    * app/kdst.js has already recomputed under the league's OWN scoring table.
    * No saved league -> DEFAULT shape, offence-only pool, exactly as before. */
-  const profile = loadProfile();
   // R44 — the SAME league-extras stamping every other surface applies (R29's
   // one-place rule; GRADE was the one view missing it, so a pass_cmp league
   // graded its quarterbacks light). Since R44 this carries the FULL component
@@ -626,8 +719,6 @@ export default async function mountGrade(el) {
   // optimizer which slots it may fill. No kdst seat -> an empty index, no feed.
   let kdstIndex = shapeKdst(null, profile);
   if (kdstSeatTokens.length) {
-    let kdstDoc = null;
-    try { kdstDoc = await getKdstProjections(); } catch (err) { kdstDoc = null; }
     kdstIndex = shapeKdst(kdstDoc, profile);
     const usedCanon = new Set();
     for (const token of kdstSeatTokens) {
@@ -655,20 +746,87 @@ export default async function mountGrade(el) {
         + 'prices none of their stats — that position grades EMPTY, never invented.';
     }
   }
-  const pool = kdstRows.length ? offencePool.concat(kdstRows) : offencePool;
+  const pool = kdstRows.length ? offence.concat(kdstRows) : offence;
   // R48 — what the weekly engine needs beyond the roster: the league profile,
   // the league-stamped weekly map, the kdst index and its fed positions, the
   // scoring mode, and whether this league fields a K at all (R48-D note).
   const feeds = fedPositions(kdstIndex);
   const hasK = starterTokens.some((t) => canonKdstPosition(t) === 'K');
-  const engineCtx = { profile, weeklyById, kdstIndex, feeds, scoring, hasK };
-
+  const engineCtx = { profile, weeklyById, kdstIndex, feeds, scoring: mode, hasK };
   // ONE scoring conversion app-wide: the same projSeason PLAYERS ranks with —
   // except a K/DEF contract row, whose number is ALREADY the league's own
   // (app/kdst.js applyScoring) and must not ride the offence conversion.
   const projOf = (p) => (p.kdst
     ? (Number(p.proj_points) || 0)
-    : projSeason(p, weeklyById.get(String(p.gsis_id)), scoring));
+    : projSeason(p, weeklyById.get(String(p.gsis_id)), mode));
+  return {
+    shape, starterTokens, weeklyById, kdstIndex, kdstRows, kdstNote, pool, feeds, hasK,
+    scoring: mode, projOf, engineCtx,
+  };
+}
+
+/** True when `profile` seats a K/DEF/DST — the only case the kdst doc is read. */
+function needsKdstDoc(profile) {
+  return rosterPositionsInPlay(profile).some(isKdstPosition);
+}
+
+/** The paste box's "assumptions, out loud" line for the CURRENT context. */
+function assumptionsHtml(ctx) {
+  return 'Assumptions, out loud: lineup shape '
+    + `${esc(Object.entries(ctx.shape).map(([k, v]) => `${k}×${v}`).join(' '))} `
+    + (ctx.starterTokens.length
+      ? '(from your saved league'
+        + (ctx.kdstRows.length ? '; K/DEF graded under your league\'s own scoring table). '
+          : '). ')
+      : '(no league saved — the default shape; connect your league on TEAM to grade '
+        + 'your real slots, K/DEF included). ')
+    + (ctx.kdstNote ? `${esc(ctx.kdstNote)} ` : '')
+    + 'Single team is ranked against a synthetic '
+    + 'snake-draft field built from OUR ranking; 4+ teams runs a 2,000-season Monte '
+    + 'Carlo with weekly sd = max(22% of mean, 12) — a documented prior, not a fit. '
+    + 'The paste path has no schedule, so its weekly pairings are RANDOM; the Sleeper '
+    + 'loader above uses your real one. Every number here is an ESTIMATE.';
+}
+
+/* ----------------------------------------------------------------- mount */
+
+// R52 — the mount sequence. Every mountGrade() bumps it; a mount whose number
+// is no longer current (or whose element left the DOM) writes nothing more.
+let mountSeq = 0;
+
+export default async function mountGrade(el) {
+  const seq = ++mountSeq;
+  const gone = () => seq !== mountSeq || !el.isConnected;
+  el.innerHTML = '<div class="state state--loading">Loading grade engine…</div>';
+  const [projRes, weeklyRes] = await Promise.allSettled([
+    getPlayerProjections(), getPlayerWeekly(),
+  ]);
+  if (gone()) { console.debug('grade: superseded mount dropped'); return; }
+  if (projRes.status !== 'fulfilled') {
+    el.innerHTML = '<div class="state">Grades unavailable — the projection feed did not load.</div>';
+    return;
+  }
+  const offencePool = projRes.value.players || [];
+  const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
+  const weeklyRaw = new Map(((weekly && weekly.players) || []).map((p) => [String(p.gsis_id), p]));
+
+  // The K/DEF doc is read at most once per mount and only for a league that
+  // seats K/DEF; a sync that adds those seats reads it then, never twice.
+  let kdstDocPromise = null;
+  const kdstDocFor = (profile) => {
+    if (!needsKdstDoc(profile)) return Promise.resolve(null);
+    if (!kdstDocPromise) kdstDocPromise = getKdstProjections().catch(() => null);
+    return kdstDocPromise;
+  };
+  const derive = async () => {
+    const profile = loadProfile();
+    const kdstDoc = await kdstDocFor(profile);
+    return deriveLeagueContext(profile, {
+      offencePool, weeklyRaw, kdstDoc, scoring: loadScoringMode(),
+    });
+  };
+  let ctx = await derive();
+  if (gone()) { console.debug('grade: superseded mount dropped'); return; }
 
   el.innerHTML =
     '<section class="card">'
@@ -696,46 +854,45 @@ export default async function mountGrade(el) {
     + 'placeholder="My Team:\nJosh Allen\nBijan Robinson\n…\n\nRival Team:\n…"></textarea>'
     + '<button type="button" id="gr-go" class="btn">PARSE &amp; GRADE</button>'
     + '<div id="gr-out"></div>'
-    + '<div class="gr-assumptions">Assumptions, out loud: lineup shape '
-    + `${esc(Object.entries(shape).map(([k, v]) => `${k}×${v}`).join(' '))} `
-    + (starterTokens.length
-      ? '(from your saved league'
-        + (kdstRows.length ? '; K/DEF graded under your league\'s own scoring table). '
-          : '). ')
-      : '(no league saved — the default shape; connect your league on TEAM to grade '
-        + 'your real slots, K/DEF included). ')
-    + (kdstNote ? `${esc(kdstNote)} ` : '')
-    + 'Single team is ranked against a synthetic '
-    + 'snake-draft field built from OUR ranking; 4+ teams runs a 2,000-season Monte '
-    + 'Carlo with weekly sd = max(22% of mean, 12) — a documented prior, not a fit. '
-    + 'The paste path has no schedule, so its weekly pairings are RANDOM; the Sleeper '
-    + 'loader above uses your real one. Every number here is an ESTIMATE.</div>'
+    + `<div id="gr-assume" class="gr-assumptions">${assumptionsHtml(ctx)}</div>`
     + '</section>';
 
   const leagueOut = el.querySelector('#gr-league-out');
-  el.querySelector('#gr-load').addEventListener('click', () => {
+  const loadBtn = el.querySelector('#gr-load');
+  // R52 — one LOAD at a time per mount: a newer press supersedes an older one
+  // (the older writes nothing more), and the button rests while one runs.
+  let loadSeq = 0;
+  const host = {
+    ctx: () => ctx,
+    rederive: async () => {
+      ctx = await derive();
+      const assume = el.querySelector('#gr-assume');
+      if (assume && !gone()) assume.innerHTML = assumptionsHtml(ctx);
+      return ctx;
+    },
+  };
+  const runLoad = (idText) => {
+    const mine = ++loadSeq;
+    const stale = () => gone() || mine !== loadSeq || !leagueOut.isConnected;
+    loadBtn.disabled = true;
+    loadSleeperLeague(idText, leagueOut, { ...host, stale }).catch((err) => {
+      if (stale()) return;
+      leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
+    }).finally(() => {
+      if (mine === loadSeq && !gone()) loadBtn.disabled = false;
+    });
+  };
+  loadBtn.addEventListener('click', () => {
     const idText = el.querySelector('#gr-league-id').value.trim();
     if (!idText) {
       leagueOut.innerHTML = '<div class="state">Paste your Sleeper league id or URL first.</div>';
       return;
     }
-    loadSleeperLeague(idText, pool, projOf, shape, leagueOut, () => mountGrade(el), engineCtx).catch((err) => {
-      leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
-    });
+    runLoad(idText);
   });
-  // R47 — the remembered league prefills the box; after a settings sync the
-  // load continues on its own.
+  // R47 — the remembered league prefills the box.
   const remembered = loadLeagueId();
-  if (remembered) {
-    el.querySelector('#gr-league-id').value = remembered;
-    if (pendingAutoload) {
-      pendingAutoload = false;
-      loadSleeperLeague(remembered, pool, projOf, shape, leagueOut, () => mountGrade(el), engineCtx)
-        .catch((err) => {
-          leagueOut.innerHTML = `<div class="state">League load failed: ${esc(err && err.message)}</div>`;
-        });
-    }
-  }
+  if (remembered) el.querySelector('#gr-league-id').value = remembered;
 
   const out = el.querySelector('#gr-out');
   el.querySelector('#gr-go').addEventListener('click', () => {
@@ -744,6 +901,9 @@ export default async function mountGrade(el) {
       out.innerHTML = '<div class="state">Nothing pasted yet.</div>';
       return;
     }
+    // The paste grader prices under the CURRENT context — after a league
+    // sync that is the league's shape, pool and scoring, not the mount's.
+    const { pool, projOf, shape } = ctx;
     const league = buildLeague(text, pool);
     if (!league.teams.length) {
       out.innerHTML = '<div class="state">No teams found in that text — nothing matched '

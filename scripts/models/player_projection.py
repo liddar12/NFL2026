@@ -497,15 +497,6 @@ def project_players(players, ctx=None, weights=None, baseline_rule=None, mode=No
             for p in players]
 
 
-def load_players(path):
-    """Load a players fixture. Accepts {"players": [...]} or a bare list."""
-    with open(path, "r", encoding="utf-8") as fh:
-        data = json.load(fh)
-    if isinstance(data, dict):
-        return data.get("players", [])
-    return data
-
-
 def projection_baseline_record(projected, changed_utc, gate=None, fed_default=(),
                                backtest_2025=None):
     """R49 — the data/meta.json `projection_baseline` record (meta.schema.json).

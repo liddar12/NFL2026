@@ -52,7 +52,7 @@ import {
 } from './league.js';
 
 /** Site-root path of the contract. */
-export const KDST_PATH = '/data/kdst_projections.json';
+const KDST_PATH = '/data/kdst_projections.json';
 
 /** The two positions this contract covers, canonically spelled. */
 export const KDST_POSITIONS = Object.freeze(['K', 'DEF']);
@@ -98,9 +98,6 @@ export function getKdstProjections({ force = false } = {}) {
   p.catch(() => { if (inflight === p) inflight = null; });
   return p;
 }
-
-/** Drop the cached promise (tests / a forced refresh). */
-export function clearKdstCache() { inflight = null; }
 
 /* --------------------------------------------------------------------------
  * Shaping

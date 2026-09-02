@@ -144,8 +144,10 @@ test('this view fetches exactly one Sleeper document itself: the player dump', (
   assert.ok(TEAM_SRC.includes('importSleeperTeams('));
   assert.ok(!/\/rosters['"`]|\/users['"`]/.test(TEAM_SRC),
     'the view must not hand-build Sleeper roster/user URLs — sleeper.js owns them');
-  const gets = TEAM_SRC.match(/sleeperGetJson\(/g) || [];
-  assert.equal(gets.length, 2, 'one definition + one call site (the player dump)');
+  // R52: the view fetches NOTHING itself — the player dump comes through
+  // app/sleeper.js loadSleeperPlayerIndex (once per session, progress-reported).
+  assert.equal((TEAM_SRC.match(/sleeperGetJson\(/g) || []).length, 0, 'no private Sleeper fetcher left in the view');
+  assert.ok(TEAM_SRC.includes('loadSleeperPlayerIndex('), 'the dump path is the shared session loader');
 });
 
 /* ==========================================================================

@@ -309,7 +309,3 @@ def _to_int(value):
         return None
 
 
-def utc_now_iso():
-    """ISO-8601 UTC 'now' with a trailing Z. Not used in gated logic — convenience for
-    stamping a scrape run."""
-    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
