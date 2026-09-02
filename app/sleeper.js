@@ -860,6 +860,18 @@ function buildReport({ source, syncedAt, payload, scoring, roster, settings, not
  * texts: { noFetch, missing, missingDetail, hint } — the caller supplies the
  * user-facing wording so a roster failure does not talk about league JSON.
  */
+/** THE module's one timer: arm an abort on `controller` after `timeoutMs`.
+ * Returns the handle for clearTimeout. NOT unref'd — an unref'd timer lets the
+ * event loop drain before the abort can fire (see the regression lock). Shared
+ * by sleeperGetJson and the R52 player-dump reader so the file keeps exactly
+ * one setTimeout. */
+function armAbortTimer(controller, timeoutMs, onFire) {
+  return setTimeout(() => {
+    if (typeof onFire === 'function') onFire();
+    try { controller.abort(); } catch (_) { /* already aborted */ }
+  }, timeoutMs);
+}
+
 async function sleeperGetJson(url, opts, texts) {
   const options = isPlainObject(opts) ? opts : {};
   const t = isPlainObject(texts) ? texts : {};
@@ -897,10 +909,7 @@ async function sleeperGetJson(url, opts, texts) {
     // NOT unref'd: an unref'd timer lets the event loop drain before the abort
     // can fire, which is the same as having no timeout at all. `cleanup()` in
     // the finally block clears it on every path, so it cannot outlive the call.
-    timer = setTimeout(() => {
-      timedOut = true;
-      try { controller.abort(); } catch (_) { /* already aborted */ }
-    }, timeoutMs);
+    timer = armAbortTimer(controller, timeoutMs, () => { timedOut = true; });
     if (options.signal) {
       if (options.signal.aborted) {
         try { controller.abort(); } catch (_) { /* already aborted */ }
@@ -2424,6 +2433,128 @@ export function stateEndpoint() {
  * (TEAM's roster sync) treats a failure as silence: the week simply stays
  * unknown, and LINEUP keeps its own default rather than inventing one.
  */
+/* --------------------------------------------------------------------------
+ * R52 — the player dump, loaded ONCE per session.
+ *
+ * GET /v1/players/nfl is ~5 MB. Until R52 every view fetched it on every
+ * press with `cache: 'no-store'`, and the first GRADE LOAD fetched it TWICE
+ * (once before and once after the settings remount). This loader memoizes the
+ * built index for the session, lets the browser's HTTP cache keep the bytes
+ * (Sleeper serves the dump with its own cache headers; 'default' honours
+ * them, 'no-store' threw them away), reports download progress when the body
+ * can be streamed, and forgets a failure so the next press retries.
+ *
+ * Returns { ok, index, count, cached, bytes, error } and never throws.
+ *   index  — buildSleeperPlayerIndex(dump).index (a Map) on success
+ *   cached — true when this call was served from the session memo
+ *   bytes  — bytes received when streaming was possible, else null
+ * opts: { fetch, timeoutMs (default PLAYER_INDEX_TIMEOUT_MS), force, onProgress }
+ *   onProgress({ bytes, total }) — total is Content-Length or null.
+ * ------------------------------------------------------------------------ */
+export const PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
+export const PLAYER_INDEX_TIMEOUT_MS = 45000;
+
+let _indexMemo = null; // Promise<{ok, index, count, bytes, error}> for the session
+
+export function clearSleeperPlayerIndex() {
+  _indexMemo = null;
+}
+
+async function readPlayerDump(url, options) {
+  const fetchImpl = typeof options.fetch === 'function'
+    ? options.fetch
+    : (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
+      ? globalThis.fetch.bind(globalThis)
+      : null);
+  if (!fetchImpl) {
+    return { ok: false, payload: null, bytes: null,
+      error: failure('no_fetch', 'This browser has no fetch, so Sleeper\'s player list cannot be read.', null) };
+  }
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs : PLAYER_INDEX_TIMEOUT_MS;
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  let timedOut = false;
+  const timer = controller ? armAbortTimer(controller, timeoutMs, () => { timedOut = true; }) : null;
+  const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+  try {
+    const res = await fetchImpl(url, {
+      method: 'GET', credentials: 'omit', mode: 'cors', cache: 'default', redirect: 'follow',
+      signal: controller ? controller.signal : undefined,
+    });
+    if (!res || typeof res.status !== 'number') {
+      return { ok: false, payload: null, bytes: null,
+        error: failure('bad_response', 'Sleeper returned something that is not an HTTP response.', null) };
+    }
+    if (res.status < 200 || res.status >= 300) {
+      return { ok: false, payload: null, bytes: null,
+        error: failure(res.status === 429 ? 'rate_limited' : 'http_error',
+          res.status === 429
+            ? 'Sleeper is rate-limiting this device. Wait a minute and press again.'
+            : `Sleeper answered HTTP ${res.status} for its player list.`, res.status) };
+    }
+    // Stream when we can (progress line for a 5 MB body); fall back to json().
+    const body = res.body;
+    if (body && typeof body.getReader === 'function' && typeof TextDecoder === 'function') {
+      const headerTotal = res.headers && typeof res.headers.get === 'function'
+        ? Number(res.headers.get('content-length')) : NaN;
+      const total = Number.isFinite(headerTotal) && headerTotal > 0 ? headerTotal : null;
+      const reader = body.getReader();
+      const chunks = [];
+      let bytes = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) { chunks.push(value); bytes += value.byteLength; }
+        if (onProgress) { try { onProgress({ bytes, total }); } catch (err) { /* a progress line never fails a load */ } }
+      }
+      const joined = new Uint8Array(bytes);
+      let at = 0;
+      for (const c of chunks) { joined.set(c, at); at += c.byteLength; }
+      let payload;
+      try { payload = JSON.parse(new TextDecoder().decode(joined)); } catch (err) {
+        return { ok: false, payload: null, bytes,
+          error: failure('bad_json', 'Sleeper\'s player list was not valid JSON.', String(err && err.message)) };
+      }
+      return { ok: true, payload, bytes, error: null };
+    }
+    let payload;
+    try { payload = await res.json(); } catch (err) {
+      return { ok: false, payload: null, bytes: null,
+        error: failure('bad_json', 'Sleeper\'s player list was not valid JSON.', String(err && err.message)) };
+    }
+    return { ok: true, payload, bytes: null, error: null };
+  } catch (err) {
+    return { ok: false, payload: null, bytes: null,
+      error: failure(timedOut ? 'timeout' : 'network',
+        timedOut
+          ? `Sleeper\'s player list did not arrive within ${Math.round(timeoutMs / 1000)}s.`
+          : 'Sleeper\'s player list could not be reached (network or CORS).',
+        String(err && err.message)) };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+export async function loadSleeperPlayerIndex(opts) {
+  const options = isPlainObject(opts) ? opts : {};
+  if (_indexMemo && !options.force) {
+    const hit = await _indexMemo;
+    return { ...hit, cached: true };
+  }
+  const pending = (async () => {
+    const got = await readPlayerDump(PLAYER_INDEX_URL, options);
+    if (!got.ok) return { ok: false, index: new Map(), count: 0, bytes: got.bytes, error: got.error };
+    const built = buildSleeperPlayerIndex(got.payload);
+    if (!built.ok) return { ok: false, index: new Map(), count: 0, bytes: got.bytes, error: built.error };
+    return { ok: true, index: built.index, count: built.count, bytes: got.bytes, error: null };
+  })();
+  _indexMemo = pending;
+  const result = await pending;
+  if (!result.ok) _indexMemo = null; // a failure is never remembered — the next press retries
+  return { ...result, cached: false };
+}
+
+
 export async function fetchSleeperState(opts) {
   return sleeperGetJson(stateEndpoint(), isPlainObject(opts) ? opts : {}, {
     noFetch: 'This browser has no fetch, so the NFL week cannot be read.',
