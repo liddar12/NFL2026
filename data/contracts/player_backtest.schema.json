@@ -25,6 +25,7 @@
           "enum": ["scripts.models.player_projection.project_player"]
         },
         "engine_path": { "type": "string" },
+        "baseline_rule_scored": { "type": "string", "description": "R49 - the baseline rule the engine used for the scored proj_points (the SHIPPED rule)." },
         "substrate": { "type": "string" },
         "eval_seasons": {
           "type": "array",
@@ -100,6 +101,8 @@
                 "beats_last_year": { "type": "boolean" },
                 "beats_ppg17": { "type": "boolean" },
                 "engine_equals_last_year": { "type": "boolean" },
+                "rho_gated": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "mae_gated": { "type": ["number", "null"], "minimum": 0 },
                 "delta_vs_last_year": { "type": "number" },
                 "delta_vs_ppg17": { "type": "number" }
               }
@@ -133,6 +136,8 @@
           "beats_last_year": { "type": "boolean" },
           "beats_ppg17": { "type": "boolean" },
           "engine_equals_last_year": { "type": "boolean" },
+          "rho_gated": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "mae_gated": { "type": ["number", "null"], "minimum": 0 },
           "delta_vs_last_year": { "type": "number" },
           "delta_vs_ppg17": { "type": "number" }
         }
@@ -152,6 +157,117 @@
         "player_seasons_scored": { "type": "integer", "minimum": 0 },
         "player_seasons_excluded_no_prior": { "type": "integer", "minimum": 0 },
         "engine_equals_last_year_everywhere": { "type": "boolean" }
+      }
+    },
+    "baseline_gate": {
+      "type": "object",
+      "description": "R49 - the never-regress verdict on the games-normalized baseline (prior_ppg x 17, no absence known historically) versus the shipped total rule, pooled over positions (n-weighted). adopted_for_shipped is true ONLY when the rule beats the incumbent on BOTH pooled MAE and pooled rank-corr.",
+      "additionalProperties": false,
+      "required": ["shipped_rule", "candidate_rule", "adopted_for_shipped", "reason",
+                   "pooled_rho_total_rule", "pooled_rho_ppg_rule",
+                   "pooled_mae_total_rule", "pooled_mae_ppg_rule", "per_position"],
+      "properties": {
+        "candidate_vs_gated": {
+          "type": "object",
+          "description": "R49 owner override - the walk-forward comparison that matters once shipped == candidate: candidate_points vs gated_points through project_player, pooled n-weighted over positions.",
+          "additionalProperties": false,
+          "required": ["shipped_estimate", "owner_override", "pooled_rho_gated", "pooled_rho_candidate", "pooled_mae_gated", "pooled_mae_candidate", "per_position", "note"],
+          "properties": {
+            "shipped_estimate": { "type": "string", "enum": ["gated", "candidate"] },
+            "owner_override": { "type": "boolean" },
+            "pooled_rho_gated": { "type": ["number", "null"] },
+            "pooled_rho_candidate": { "type": ["number", "null"] },
+            "pooled_mae_gated": { "type": ["number", "null"] },
+            "pooled_mae_candidate": { "type": ["number", "null"] },
+            "per_position": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["n", "rho_gated", "rho_candidate", "mae_gated", "mae_candidate"],
+                "properties": {
+                  "n": { "type": "integer", "minimum": 0 },
+                  "rho_gated": { "type": ["number", "null"] },
+                  "rho_candidate": { "type": ["number", "null"] },
+                  "mae_gated": { "type": ["number", "null"] },
+                  "mae_candidate": { "type": ["number", "null"] }
+                }
+              }
+            },
+            "note": { "type": "string" }
+          }
+        },
+        "shipped_rule": { "type": "string" },
+        "candidate_rule": { "type": "string" },
+        "adopted_for_shipped": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "pooled_rho_total_rule": { "type": ["number", "null"] },
+        "pooled_rho_ppg_rule": { "type": ["number", "null"] },
+        "pooled_mae_total_rule": { "type": ["number", "null"] },
+        "pooled_mae_ppg_rule": { "type": ["number", "null"] },
+        "per_position": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["n", "rho_total_rule", "rho_ppg_rule", "mae_total_rule", "mae_ppg_rule"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 0 },
+              "rho_total_rule": { "type": ["number", "null"] },
+              "rho_ppg_rule": { "type": ["number", "null"] },
+              "mae_total_rule": { "type": ["number", "null"] },
+              "mae_ppg_rule": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "candidate_2025": {
+      "type": "object",
+      "description": "R49 - last year's projected vs actual through the CANDIDATE machinery: 2024 priors -> 2025 actuals (season granularity, players with >= min_games in 2025 and a 2024 line). baseline = prior_ppg x 17 with no signal; candidate = baseline x every signal the historical substrate can feed at full strength; shipped = the total rule. Signals the substrate cannot feed are NAMED, not assumed neutral. sleeper_* is a DISPLAY-ONLY reference (Sleeper's own 2025 weekly projections summed), never an input.",
+      "additionalProperties": false,
+      "required": ["season", "players", "baseline_mae", "candidate_mae", "shipped_mae",
+                   "band_coverage", "signals_evaluated", "signals_not_evaluable",
+                   "by_position", "sleeper_mae", "sleeper_players", "sleeper_note"],
+      "properties": {
+        "season": { "type": "integer", "minimum": 2020 },
+        "players": { "type": "integer", "minimum": 0 },
+        "shipped_estimate": { "type": "string", "enum": ["gated", "candidate"] },
+        "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
+        "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+        "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
+        "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+        "baseline_rho": { "type": ["number", "null"] },
+        "candidate_rho": { "type": ["number", "null"] },
+        "shipped_rho": { "type": ["number", "null"] },
+        "gated_rho": { "type": ["number", "null"] },
+        "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "band_multiplier": { "type": "number", "minimum": 0, "description": "The calibrated multiplier on the raw band (player_projection.CANDIDATE_BAND_MULTIPLIER); band_coverage is measured AT this multiplier." },
+        "band_target": { "type": "number", "minimum": 0, "maximum": 1 },
+        "band_rule": { "type": "string" },
+        "signals_evaluated": { "type": "array", "items": { "type": "string" } },
+        "signals_not_evaluable": { "type": "array", "items": { "type": "string" } },
+        "by_position": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["n", "baseline_mae", "candidate_mae", "shipped_mae", "band_coverage"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 0 },
+              "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
+              "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+              "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
+              "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+              "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "sleeper_mae": { "type": ["number", "null"], "minimum": 0 },
+              "sleeper_n": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          }
+        },
+        "sleeper_mae": { "type": ["number", "null"], "minimum": 0 },
+        "sleeper_players": { "type": ["integer", "null"], "minimum": 0 },
+        "sleeper_note": { "type": "string" }
       }
     },
     "signal_audit": {

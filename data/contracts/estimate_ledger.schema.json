@@ -1,0 +1,339 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "estimate_ledger.schema.json",
+  "title": "Estimate ledger (R49 learning loop) - data/estimates/<season>.json",
+  "description": "One append per pipeline day per player: THREE series - the SHIPPED season number, the CANDIDATE estimate and the GATED (gate-conforming, never-regress incumbent) number (games-normalized baseline x every raw signal at full strength) plus the shipped weekly split, so every (player, week) estimate exists before the week is played. Compact by design: per player only the FIRST as-of and the LATEST as-of are kept, plus `locked` - the per-week estimate frozen at the last as-of before that week's first kickoff (the row scripts/resolve_estimates.py scores). `runs` carries the weights applied on each as-of day once, not per row. Written by scripts/build_estimate_ledger.py (compact JSON, ensure_ascii); idempotent per as_of_utc.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "as_of_utc",
+    "source",
+    "season_games",
+    "runs",
+    "players"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "as_of_utc": {
+      "type": "string",
+      "description": "player_projections.json updated_utc of the latest append (the idempotency key)."
+    },
+    "source": {
+      "type": "string"
+    },
+    "season_games": {
+      "type": "integer",
+      "minimum": 17,
+      "maximum": 17
+    },
+    "note": {
+      "type": "string"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "as_of_utc",
+          "shipped_rule",
+          "weights_applied",
+          "players"
+        ],
+        "properties": {
+          "as_of_utc": {
+            "type": "string"
+          },
+          "shipped_rule": {
+            "type": "string",
+            "enum": [
+              "prior_season_points",
+              "prior_ppg_x_projected_games"
+            ]
+          },
+          "weights_applied": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "players": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weeks_locked": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 18
+            }
+          },
+          "shipped_estimate": {
+            "type": "string",
+            "enum": [
+              "gated",
+              "candidate"
+            ]
+          }
+        }
+      }
+    },
+    "players": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "team",
+          "position",
+          "first",
+          "latest",
+          "locked"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ]
+          },
+          "first": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "as_of_utc",
+              "baseline_pts",
+              "shipped_pts",
+              "candidate_pts",
+              "candidate_low",
+              "candidate_high",
+              "signals",
+              "weeks",
+              "gated_pts"
+            ],
+            "properties": {
+              "as_of_utc": {
+                "type": "string"
+              },
+              "baseline_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The games-normalized baseline the candidate signals multiply (candidate_baseline)."
+              },
+              "shipped_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "proj_points as shipped (baseline x adopted weights)."
+              },
+              "candidate_pts": {
+                "type": "number",
+                "minimum": 0
+              },
+              "candidate_low": {
+                "type": "number",
+                "minimum": 0
+              },
+              "candidate_high": {
+                "type": "number",
+                "minimum": 0
+              },
+              "signals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "weeks": {
+                "type": "array",
+                "minItems": 18,
+                "maxItems": 18,
+                "items": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "description": "The shipped weekly split (player_weekly.json weeks[].pts, wk 1..18; bye/blocked = 0). A week's candidate estimate is candidate_pts x weeks[w]/sum(weeks)."
+              },
+              "gated_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The gate-conforming season number (gated_points) - the never-regress incumbent; == shipped_pts before the R49 owner override."
+              }
+            }
+          },
+          "latest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "as_of_utc",
+              "baseline_pts",
+              "shipped_pts",
+              "candidate_pts",
+              "candidate_low",
+              "candidate_high",
+              "signals",
+              "weeks",
+              "gated_pts"
+            ],
+            "properties": {
+              "as_of_utc": {
+                "type": "string"
+              },
+              "baseline_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The games-normalized baseline the candidate signals multiply (candidate_baseline)."
+              },
+              "shipped_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "proj_points as shipped (baseline x adopted weights)."
+              },
+              "candidate_pts": {
+                "type": "number",
+                "minimum": 0
+              },
+              "candidate_low": {
+                "type": "number",
+                "minimum": 0
+              },
+              "candidate_high": {
+                "type": "number",
+                "minimum": 0
+              },
+              "signals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "weeks": {
+                "type": "array",
+                "minItems": 18,
+                "maxItems": 18,
+                "items": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "description": "The shipped weekly split (player_weekly.json weeks[].pts, wk 1..18; bye/blocked = 0). A week's candidate estimate is candidate_pts x weeks[w]/sum(weeks)."
+              },
+              "gated_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The gate-conforming season number (gated_points) - the never-regress incumbent; == shipped_pts before the R49 owner override."
+              }
+            }
+          },
+          "locked": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "as_of_utc",
+                "baseline",
+                "shipped",
+                "candidate",
+                "low",
+                "high",
+                "signals",
+                "gated"
+              ],
+              "properties": {
+                "as_of_utc": {
+                  "type": "string",
+                  "description": "The last as-of BEFORE the week's first kickoff - the estimate that gets scored."
+                },
+                "baseline": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "shipped": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "candidate": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "low": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "high": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "signals": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "gated": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

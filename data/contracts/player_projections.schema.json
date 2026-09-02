@@ -113,6 +113,76 @@
           "rookie": {
             "type": "boolean",
             "description": "nflverse roster years_exp == 0, joined by canonical name. ABSENT when nflverse was unreachable or the name was ambiguous - unknown is never false (R41)."
+          },
+          "baseline_rule": {
+            "type": "string",
+            "enum": ["prior_season_points", "prior_ppg_x_projected_games"],
+            "description": "R49 - which baseline proj_points was built on (the candidate's games-normalized rule under the owner override; see meta.projection_baseline.shipped)."
+          },
+          "shipped_estimate": {
+            "type": "string",
+            "enum": ["gated", "candidate"],
+            "description": "R49 OWNER OVERRIDE - which estimate proj_points/low/high are: 'candidate' (the scenario candidate; gated_* carries the gate-conforming number) or 'gated'. ABSENT on an older pool = gated."
+          },
+          "gated_points": {
+            "type": "number",
+            "minimum": 0,
+            "description": "R49 - the gate-conforming projection (prior_season_points x adopted weights): the never-regress incumbent the ledger scores beside the candidate. Equals proj_points when shipped_estimate is 'gated'."
+          },
+          "gated_low": { "type": "number", "minimum": 0 },
+          "gated_high": { "type": "number", "minimum": 0 },
+          "gated_rule": {
+            "type": "string",
+            "enum": ["prior_season_points", "prior_ppg_x_projected_games"],
+            "description": "R49 - the baseline rule behind gated_points (the total rule until the walk-forward gate flips it)."
+          },
+          "prior_games": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 18,
+            "description": "R49 - games played in the most recent prior season (ESPN statId 210 == player_history seasons.games). null = unknown, never 17."
+          },
+          "prior_ppg": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "R49 - recency-weighted (2:1) PPR points per game played over the last two prior seasons. null when no game count is known."
+          },
+          "projected_games": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "maximum": 17,
+            "description": "R49 - 17 minus absence_weeks. null when prior_ppg is unknown."
+          },
+          "absence_weeks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18,
+            "description": "R49 - DOCUMENTED expected absence from data/injuries.json (a stated duration, out-for-season, or the 4-game IR/PUP/NFI floor; build_weekly.blocked_week_count). 0 when nothing is documented - unknown is not a discount."
+          },
+          "candidate_baseline": {
+            "type": "number",
+            "minimum": 0,
+            "description": "CANDIDATE (not adopted, backtested): prior_ppg x projected_games, or the shipped baseline when the per-game rate is unknown."
+          },
+          "candidate_points": {
+            "type": "number",
+            "minimum": 0,
+            "description": "CANDIDATE (not adopted, backtested): candidate_baseline x every raw signal adjustment in candidate_signals applied at full strength (weight 1). The owner's scenario estimate; scored by the estimate ledger against actuals. NEVER a ranking input while its signals carry weight 0."
+          },
+          "candidate_low": {
+            "type": "number",
+            "minimum": 0,
+            "description": "CANDIDATE: candidate_points x (1 - band), band = the position-volatility + player-uncertainty interval half-width (one-sd rule, an estimate of spread, not a measurement)."
+          },
+          "candidate_high": {
+            "type": "number",
+            "minimum": 0,
+            "description": "CANDIDATE: candidate_points x (1 + band)."
+          },
+          "candidate_signals": {
+            "type": "object",
+            "description": "CANDIDATE: {signal name: raw multiplicative adjustment} - every factor behind candidate_points, so each move is auditable. Only signals whose inputs the feeds actually carried appear; absent = not computable, never 1.0 by assumption.",
+            "additionalProperties": { "type": "number", "minimum": 0 }
           }
         }
       }

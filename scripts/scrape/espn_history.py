@@ -29,7 +29,8 @@ catch current stars who were low-ranked back then.
 import time
 
 from .espn import FeedError
-from .espn_players import _PAGE, _POSITION_BY_ID, _kona_page, _real_season_entry
+from .espn_players import (_PAGE, _POSITION_BY_ID, _kona_page, _real_season_entry,
+                           games_or_none)
 
 _MAX_PLAYERS = 600          # wider than the N2 pool: history wants late bloomers' pasts
 _PAGE_SLEEP_S = 0.4         # politeness between pages; ~12 pages/season max
@@ -39,12 +40,10 @@ _STAT_GAMES = "210"
 
 
 def _games_or_none(stats):
-    """statId 210 as an int game count, or None when absent/implausible (>18, <=0)."""
-    raw = stats.get(_STAT_GAMES)
-    if raw is None:
-        return None
-    g = int(float(raw))
-    return g if 1 <= g <= 18 else None
+    """statId 210 as an int game count, or None when absent/implausible (>18, <=0).
+    R49: ONE definition, in espn_players (the N2 pool now carries prior_games from
+    the same statId), re-exported here so the two feeds can never disagree."""
+    return games_or_none(stats)
 
 
 def fetch_season_actuals(season, min_rows=150, max_players=_MAX_PLAYERS):

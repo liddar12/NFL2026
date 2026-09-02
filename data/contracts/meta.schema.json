@@ -47,6 +47,113 @@
     "notes": {
       "type": "string",
       "description": "Free-form human notes about this fit."
+    },
+    "projection_baseline": {
+      "type": "object",
+      "description": "R49 - the games-normalized baseline rule (prior_ppg x projected_games) and WHERE it applies. `shipped_rule` is the rule proj_points actually uses today; the R49 rule replaces it only when scripts/backtest_player.py shows it beating the incumbent on BOTH pooled MAE and pooled rank-corr (never-regress). The candidate estimate always uses the R49 rule.",
+      "additionalProperties": false,
+      "required": ["rule", "season_games", "games_source", "absence_source", "changed_utc", "shipped_rule", "applies_to", "gate", "candidate"],
+      "properties": {
+        "rule": { "type": "string", "enum": ["prior_ppg_x_projected_games"] },
+        "season_games": { "type": "integer", "minimum": 17, "maximum": 17 },
+        "games_source": { "type": "string" },
+        "absence_source": { "type": "string" },
+        "changed_utc": { "type": "string" },
+        "shipped_rule": { "type": "string", "enum": ["prior_season_points", "prior_ppg_x_projected_games"] },
+        "applies_to": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["proj_points", "candidate_points"] } },
+        "recency_weights": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+        "gate": {
+          "type": "object",
+          "description": "The measured never-regress verdict for the SHIPPED number (walk-forward 2022-2025, pooled over QB/RB/WR/TE). Numbers are copied from data/player_backtest.json baseline_gate.",
+          "additionalProperties": false,
+          "required": ["adopted_for_shipped", "reason"],
+          "properties": {
+            "adopted_for_shipped": { "type": "boolean" },
+            "reason": { "type": "string" },
+            "pooled_rho_total_rule": { "type": ["number", "null"] },
+            "pooled_rho_ppg_rule": { "type": ["number", "null"] },
+            "pooled_mae_total_rule": { "type": ["number", "null"] },
+            "pooled_mae_ppg_rule": { "type": ["number", "null"] },
+            "measured_utc": { "type": "string" }
+          }
+        },
+        "shipped": {
+          "type": "object",
+          "description": "R49 OWNER OVERRIDE, recorded as such: which estimate ships as proj_points. mode 'candidate' = the scenario candidate ships and the gate-conforming number rides on every record as gated_*; the loop keeps scoring gated vs candidate.",
+          "additionalProperties": false,
+          "required": ["mode", "owner_override", "decided_utc", "reason", "backtest_2025"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["gated", "candidate"] },
+            "owner_override": { "type": "boolean" },
+            "decided_utc": { "type": "string" },
+            "reason": { "type": "string" },
+            "gated_series": { "type": "string" },
+            "band_multiplier": { "type": "number", "minimum": 0 },
+            "backtest_2025": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["gated_mae", "candidate_mae", "band_coverage_after_calibration"],
+              "properties": {
+                "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+                "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+                "band_coverage_after_calibration": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["signals_applied", "sd_rule"],
+          "properties": {
+            "signals_applied": { "type": "array", "items": { "type": "string" } },
+            "signals_not_computable": { "type": "array", "items": { "type": "string" } },
+            "sd_rule": { "type": "string" }
+          }
+        }
+      }
+    },
+    "learning_record": {
+      "type": "object",
+      "description": "R49 - the honest state of the learning loop for the MODEL tab. weeks_resolved == 0 means NO 2026 week has been scored yet and mae_ppr / bias_ppr MUST be null (never invented). Written by scripts/resolve_estimates.py.",
+      "additionalProperties": false,
+      "required": ["weeks_resolved", "players_scored", "mae_ppr", "bias_ppr", "signals_with_weight", "updated_utc"],
+      "properties": {
+        "weeks_resolved": { "type": "integer", "minimum": 0 },
+        "players_scored": { "type": "integer", "minimum": 0 },
+        "mae_ppr": { "type": ["number", "null"], "minimum": 0 },
+        "bias_ppr": { "type": ["number", "null"] },
+        "candidate_mae_ppr": { "type": ["number", "null"], "minimum": 0 },
+        "candidate_bias_ppr": { "type": ["number", "null"] },
+        "gated_mae_ppr": { "type": ["number", "null"], "minimum": 0, "description": "R49 override - the gate-conforming series, the never-regress incumbent the candidate is compared against." },
+        "gated_bias_ppr": { "type": ["number", "null"] },
+        "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "signals_with_weight": { "type": "array", "items": { "type": "string" } },
+        "ledger": { "type": "string" },
+        "objective_ready": { "type": "boolean", "description": "True iff weeks_resolved >= the harness minimum (scripts/harness/ledger_objective.MIN_RESOLVED_WEEKS)." },
+        "adoption_margin_mae": { "type": "number", "minimum": 0 },
+        "note": { "type": "string" },
+        "updated_utc": { "type": "string" },
+        "backtest_2025": {
+          "type": "object",
+          "description": "Last year's projected vs actual: 2024 priors -> 2025 actuals through the same candidate machinery, from data/player_backtest.json candidate_2025.",
+          "additionalProperties": false,
+          "required": ["baseline_mae", "candidate_mae", "shipped_mae", "band_coverage", "players"],
+          "properties": {
+            "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
+            "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+            "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+            "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
+            "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "players": { "type": "integer", "minimum": 0 },
+            "sleeper_mae": { "type": ["number", "null"], "minimum": 0 },
+            "sleeper_players": { "type": ["integer", "null"], "minimum": 0 },
+            "sleeper_note": { "type": "string" },
+            "signals_evaluated": { "type": "array", "items": { "type": "string" } },
+            "signals_not_evaluable": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
     }
   }
 }

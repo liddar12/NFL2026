@@ -79,6 +79,27 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
         run: python -m scripts.build_predictions
 
+      # R49 — Sleeper's own projections, DISPLAY-ONLY (never a model input).
+      # Runs AFTER the pool is built (it crosswalks against player_projections +
+      # kdst_projections). A missing display feed must not block projections, so
+      # the step may fail loudly without failing the run; the builder itself
+      # exits non-zero and writes nothing on any fetch/import problem.
+      - name: Sleeper projections (display-only reference)
+        run: python scripts/build_sleeper_projections.py
+        continue-on-error: true
+
+      # R49 — LEARNING LEDGER. Append today's shipped + candidate estimates for
+      # every remaining week (idempotent per as-of), then score every locked
+      # pre-kickoff estimate against nflverse weekly actuals. The resolver skips
+      # loudly while a week has no rows (no 2026 week has resolved yet) and
+      # writes an honest 0-resolved record — it never invents an MAE.
+      - name: Estimate ledger append (shipped + candidate, per remaining week)
+        run: python scripts/build_estimate_ledger.py
+
+      - name: Resolve estimates against nflverse weekly actuals
+        run: python scripts/resolve_estimates.py
+        continue-on-error: true   # a stats outage degrades the record, never the run
+
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts
         run: python scripts/validate_data.py

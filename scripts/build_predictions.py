@@ -26,7 +26,9 @@ from scripts import build_weekly  # noqa: E402
 from scripts.models import elo as elo_mod  # noqa: E402
 from scripts.models import game_model  # noqa: E402
 from scripts.models import parlay_builder  # noqa: E402
+from scripts.models import player_projection as pp_mod  # noqa: E402
 from scripts.models.player_projection import project_players  # noqa: E402
+from scripts import meta_record  # noqa: E402
 from scripts.harness import snapshot as snap  # noqa: E402
 from scripts.pipeline_status import read_schedules  # noqa: E402
 
@@ -341,6 +343,101 @@ def _carry_rookie_flags(src_records, dst_records):
             p["rookie"] = flags[p["gsis_id"]]
             carried += 1
     return carried
+
+
+# R49 — the candidate inputs the live pipeline feeds project_player today, named
+# so meta.projection_baseline can state them before a run has produced rows.
+CANDIDATE_INPUTS_FED = ("age_curve", "injury_status", "injury_history", "indoor_outdoor")
+
+
+def _stamp_prior_seasons(records, history_path=None):
+    """R49 — stamp `prior_seasons` ([{yr, pts, games}], every season <= PRIOR_SEASON)
+    and the injury_history candidate input `games_missed_rate` onto the pool
+    records from the committed data/player_history.json.
+
+    Prior seasons are closed books, so the previous run's history file is as
+    current as today's; the PRIOR_SEASON line itself comes from the pool's own
+    fresh prior_season_points + prior_games (the history's 2025 line is merged
+    from that same pool, so the two cannot disagree) and older seasons from the
+    file. A record with no history keeps a single-season rate; a record whose
+    pool entry lacked statId 210 borrows the history's game count for that
+    season (same statId, same feed). Nothing is invented. Returns the number of
+    records that received >= 1 older season.
+    """
+    path = history_path or os.path.join(DATA, "player_history.json")
+    hist = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            hist = (json.load(fh).get("players") or {})
+    except (OSError, ValueError) as exc:
+        print(f"[warn] player_history.json unreadable ({exc}); R49 baseline inputs "
+              f"fall back to the single prior season", file=sys.stderr)
+    stamped = 0
+    for rec in records:
+        seasons = []
+        h = hist.get(rec.get("gsis_id")) or {}
+        last_hist = next((sn for sn in (h.get("seasons") or [])
+                          if sn.get("yr") == PRIOR_SEASON), None)
+        games = rec.get("prior_games")
+        if games is None and last_hist and last_hist.get("games"):
+            games = int(last_hist["games"])
+            rec["prior_games"] = games
+        seasons.append({"yr": PRIOR_SEASON, "pts": float(rec["prior_season_points"]),
+                        "games": games})
+        older = [{"yr": int(sn["yr"]), "pts": float(sn["pts"]), "games": sn.get("games")}
+                 for sn in (h.get("seasons") or [])
+                 if sn.get("yr") is not None and int(sn["yr"]) < PRIOR_SEASON]
+        if older:
+            stamped += 1
+        seasons.extend(older)
+        rec["prior_seasons"] = seasons
+        b = pp_mod.baseline_inputs(seasons)
+        if b["games_missed_rate"] is not None:
+            rec["games_missed_rate"] = b["games_missed_rate"]
+    return stamped
+
+
+def _stamp_absence(records, index, by_name):
+    """R49 — stamp the DOCUMENTED expected absence (`absence_weeks`, and
+    `absence_confidence` when non-zero) from the injury report onto the pool
+    records, through the SAME join (availability.lookup_report) and the SAME
+    week rule (build_weekly.blocked_week_count) the weekly split uses, so the
+    season baseline and the zeroed weeks can never disagree about how long a
+    player is out. No report row, or a week-class tag, or a suspension of
+    unstated length -> 0: unknown is not a discount. Returns how many records
+    carry a non-zero absence.
+    """
+    ambiguous = availability.dup_names(records)
+    n = 0
+    for rec in records:
+        view = availability.lookup_report(index, by_name or {}, rec.get("team"),
+                                          rec.get("name"), ambiguous)
+        weeks, confidence = 0, None
+        if view:
+            weeks, confidence = build_weekly.blocked_week_count({
+                "status": view.get("availability"),
+                "class": view.get("availability_class"),
+                "weeks_out": view.get("weeks_out"),
+                "out_for_season": bool(view.get("out_for_season")),
+            })
+        weeks = min(pp_mod.SEASON_GAMES, int(weeks or 0))
+        rec["absence_weeks"] = weeks
+        if weeks:
+            rec["absence_confidence"] = confidence
+            n += 1
+        else:
+            rec.pop("absence_confidence", None)
+    return n
+
+
+def _backtest_from_disk(key):
+    """data/player_backtest.json[key] (`baseline_gate` — the walk-forward verdict —
+    or `candidate_2025`), or None."""
+    try:
+        with open(os.path.join(DATA, "player_backtest.json"), encoding="utf-8") as fh:
+            return json.load(fh).get(key)
+    except (OSError, ValueError):
+        return None
 
 
 def _nflverse_reached(ol_src):
@@ -677,6 +774,14 @@ def main():
                                                    current_season=SEASON)
     feeds["espn_fantasy"] = {"rows": len(players_in), "age_hours": 0.0,
                              "last_success_utc": now, "status": "ok"}
+    # R49 — prior seasons (games-normalized baseline inputs) + the injury_history
+    # candidate input, from the committed history. See _stamp_prior_seasons.
+    n_hist = _stamp_prior_seasons(players_in)
+    n_games = sum(1 for r in players_in if r.get("prior_games"))
+    print(f"R49 baseline inputs: {n_games} of {len(players_in)} records carry a "
+          f"prior game count; {n_hist} carry older seasons from player_history.json "
+          f"(shipped rule: {pp_mod.SHIPPED_BASELINE_RULE}; candidate always uses "
+          f"{pp_mod.BASELINE_RULE_PPG})")
     try:
         with open(os.path.join(DATA, "fixtures", "teams.json"), encoding="utf-8") as fh:
             teams_fixture = json.load(fh)
@@ -756,10 +861,15 @@ def main():
             # report's every August, so the (team, name) join dropped exactly
             # the players who changed teams — Questionable stars rendered
             # healthy five days before the owner's draft).
-            n_overridden = availability.apply_to_records(
-                players_in, availability.index_report(inj),
-                by_name=availability.index_report_by_name(inj))
-            if n_overridden:
+            _idx, _by_name = (availability.index_report(inj),
+                              availability.index_report_by_name(inj))
+            n_overridden = availability.apply_to_records(players_in, _idx,
+                                                         by_name=_by_name)
+            # R49 — the documented absence rides the same join; it moves
+            # projected_games / candidate_points on every rule, and proj_points
+            # only under the games-normalized shipped rule.
+            n_absent = _stamp_absence(players_in, _idx, _by_name)
+            if n_overridden or n_absent:
                 reprojected = [p for p in project_players(players_in,
                                                           ctx={"teams": teams_fixture})
                                if p["proj_points"] > 0]
@@ -770,7 +880,13 @@ def main():
                 # the order CANNOT change (proj_points is untouched; only low/high
                 # move), so this guard should never fire — and if it ever does, that
                 # is a real regression and refusing the rewrite is the honest response.
-                if [p["gsis_id"] for p in reprojected[:300]] == \
+                # R49: under the games-normalized SHIPPED rule a documented absence
+                # legitimately moves proj_points (a FACT from a feed), so the
+                # reorder is accepted there — build_weekly still runs later off
+                # this same `projected`, so the id-for-id mirror holds regardless.
+                reorder_ok = (pp_mod.SHIPPED_BASELINE_RULE == pp_mod.BASELINE_RULE_PPG
+                              or pp_mod.SHIPPED_ESTIMATE == "candidate")
+                if reorder_ok or [p["gsis_id"] for p in reprojected[:300]] == \
                         [p["gsis_id"] for p in projected[:300]]:
                     # R41b — project_players built these records fresh, so the
                     # rookie stamp from the N2 block is not on them; without
@@ -781,8 +897,9 @@ def main():
                         "season": SEASON, "updated_utc": now,
                         "players": projected[:300],
                     })
-                    print(f"injury re-projection (interval bands only): "
-                          f"{n_overridden} records overridden")
+                    print(f"injury re-projection: {n_overridden} records "
+                          f"overridden, {n_absent} carry a documented absence "
+                          f"(candidate projected_games < 17)")
                 else:
                     print("[warn] injury re-projection changed the top-300 ordering "
                           "— skipped (player_projections.json left as first-pass)",
@@ -794,6 +911,18 @@ def main():
     except Exception as exc:  # noqa: BLE001
         feeds["injuries"] = {"rows": 0, "age_hours": None, "last_success_utc": None, "status": "down"}
         print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
+
+    # R49 — record the baseline rule, where it applies, and the walk-forward gate
+    # verdict in data/meta.json (a RECORD; weights are never touched here).
+    try:
+        meta_record.set_record(
+            "projection_baseline",
+            pp_mod.projection_baseline_record(
+                projected[:300], now, gate=_backtest_from_disk("baseline_gate"),
+                fed_default=CANDIDATE_INPUTS_FED,
+                backtest_2025=_backtest_from_disk("candidate_2025")))
+    except Exception as exc:  # noqa: BLE001 — a record, never the pipeline
+        print(f"[warn] meta.projection_baseline not written: {exc}", file=sys.stderr)
 
     # === ENVIRONMENT MODEL (separate block from the history one above) ===========
     # Measured 2021-2025 venue/cold/international splits -> environment_model.json.
@@ -1051,6 +1180,22 @@ def main():
     # season-total reduction and the Lineup demotion would both silently no-op
     # from Week 2 onward. In preseason current_week() is 1, so this is a no-op
     # today and correct the moment real football starts.
+    # R49 OWNER OVERRIDE — the shipped number is the scenario candidate, so every
+    # prior-season pricing line (receptions, completions, the R44 component line
+    # and its base_applied_pts) is scaled by the same per-player ratio
+    # proj_points / prior_season_points; league extras move with the shipped
+    # number and the client's sum(base x qty) == base_applied_pts check still
+    # holds (linear). bonus_games is a count and stays. Ratio 1.0 for a player
+    # whose prior total is unknown, and exactly 1.0 for everyone in "gated" mode.
+    _shipped_by_id = {p["gsis_id"]: p for p in projected[:300]}
+    ratio_by_id = {
+        r["gsis_id"]: build_weekly.shipped_ratio(_shipped_by_id.get(r["gsis_id"], {}),
+                                                 r.get("prior_season_points"))
+        for r in players_in}
+    n_scaled = sum(1 for v in ratio_by_id.values() if abs(v - 1.0) > 1e-9)
+    print(f"R49 shipped={pp_mod.SHIPPED_ESTIMATE}: prior pricing lines scaled for "
+          f"{n_scaled} of {len(players_in)} players (ratio = proj_points / "
+          f"prior_season_points; bonus_games untouched)")
     receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
     # R28 — completions ride the SAME N2 feed (kona statId 1, beside the statId
     # 53 receptions read just above), so a league scoring Sleeper's `pass_cmp`
@@ -1064,6 +1209,16 @@ def main():
     # halves degrade to absence, never to zero-filled claims.
     bonus_by_name = _bonus_games_by_name()
     components_by_id = _components_by_id(players_in, bonus_by_name)
+    for pid, ratio in ratio_by_id.items():
+        rec, cmp, comp = build_weekly.scale_prior_lines(
+            ratio, receptions_by_id.get(pid), completions_by_id.get(pid),
+            components_by_id.get(pid))
+        if rec is not None:
+            receptions_by_id[pid] = rec
+        if cmp is not None:
+            completions_by_id[pid] = cmp
+        if comp is not None:
+            components_by_id[pid] = comp
     n_bonus = sum(1 for v in components_by_id.values() if v.get("bonus_games"))
     print(f"league components: {len(components_by_id)} of {len(players_in)} "
           f"players carry a verified stat line ({n_bonus} with measured "

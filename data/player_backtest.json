@@ -1,10 +1,11 @@
 {
   "__meta__": {
-    "generated_utc": "2026-09-01T12:12:16Z",
+    "generated_utc": "2026-09-02T00:00:45Z",
     "method": "walk_forward_season_holdout",
     "granularity": "season",
     "engine": "scripts.models.player_projection.project_player",
     "engine_path": "espn_players.build_player_records -> project_player -> build_weekly.player_weeks -> app/ros.js rosPoints(from_week=1)",
+    "baseline_rule_scored": "prior_season_points",
     "substrate": "data/player_history.json (season totals 2021-2025)",
     "eval_seasons": [
       2022,
@@ -43,10 +44,10 @@
         "QB": {
           "n": 26,
           "measured": true,
-          "rho_engine": 0.3504,
-          "ndcg_engine": 0.8487,
-          "mae_engine": 87.465,
-          "rmse_engine": 108.137,
+          "rho_engine": 0.4106,
+          "ndcg_engine": 0.8769,
+          "mae_engine": 85.738,
+          "rmse_engine": 101.347,
           "rho_last_year": 0.3504,
           "ndcg_last_year": 0.8487,
           "mae_last_year": 87.465,
@@ -55,17 +56,19 @@
           "ndcg_ppg17": 0.8657,
           "mae_ppg17": 86.274,
           "rmse_ppg17": 102.983,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.3504,
+          "mae_gated": 87.465
         },
         "RB": {
           "n": 20,
           "measured": true,
-          "rho_engine": 0.418,
-          "ndcg_engine": 0.8639,
-          "mae_engine": 73.536,
-          "rmse_engine": 97.598,
+          "rho_engine": 0.582,
+          "ndcg_engine": 0.882,
+          "mae_engine": 65.724,
+          "rmse_engine": 82.842,
           "rho_last_year": 0.418,
           "ndcg_last_year": 0.8639,
           "mae_last_year": 73.536,
@@ -74,17 +77,19 @@
           "ndcg_ppg17": 0.9284,
           "mae_ppg17": 71.484,
           "rmse_ppg17": 84.69,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.418,
+          "mae_gated": 73.536
         },
         "WR": {
           "n": 44,
           "measured": true,
-          "rho_engine": 0.6741,
-          "ndcg_engine": 0.9036,
-          "mae_engine": 54.598,
-          "rmse_engine": 74.833,
+          "rho_engine": 0.6844,
+          "ndcg_engine": 0.9033,
+          "mae_engine": 55.539,
+          "rmse_engine": 73.036,
           "rho_last_year": 0.6741,
           "ndcg_last_year": 0.9036,
           "mae_last_year": 54.598,
@@ -93,17 +98,19 @@
           "ndcg_ppg17": 0.9063,
           "mae_ppg17": 57.287,
           "rmse_ppg17": 74.341,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.6741,
+          "mae_gated": 54.598
         },
         "TE": {
           "n": 27,
           "measured": true,
-          "rho_engine": 0.5715,
-          "ndcg_engine": 0.8283,
-          "mae_engine": 43.036,
-          "rmse_engine": 52.541,
+          "rho_engine": 0.6062,
+          "ndcg_engine": 0.8459,
+          "mae_engine": 43.146,
+          "rmse_engine": 52.166,
           "rho_last_year": 0.5715,
           "ndcg_last_year": 0.8283,
           "mae_last_year": 43.036,
@@ -112,9 +119,11 @@
           "ndcg_ppg17": 0.8625,
           "mae_ppg17": 45.662,
           "rmse_ppg17": 54.825,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5715,
+          "mae_gated": 43.036
         }
       }
     },
@@ -127,10 +136,10 @@
         "QB": {
           "n": 26,
           "measured": true,
-          "rho_engine": 0.3607,
-          "ndcg_engine": 0.8067,
-          "mae_engine": 97.575,
-          "rmse_engine": 123.646,
+          "rho_engine": 0.4017,
+          "ndcg_engine": 0.838,
+          "mae_engine": 90.659,
+          "rmse_engine": 117.063,
           "rho_last_year": 0.3607,
           "ndcg_last_year": 0.8067,
           "mae_last_year": 97.575,
@@ -139,17 +148,19 @@
           "ndcg_ppg17": 0.8053,
           "mae_ppg17": 105.606,
           "rmse_ppg17": 131.637,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.3607,
+          "mae_gated": 97.575
         },
         "RB": {
           "n": 33,
           "measured": true,
-          "rho_engine": 0.3597,
-          "ndcg_engine": 0.9021,
-          "mae_engine": 69.718,
-          "rmse_engine": 92.472,
+          "rho_engine": 0.3817,
+          "ndcg_engine": 0.856,
+          "mae_engine": 63.705,
+          "rmse_engine": 83.356,
           "rho_last_year": 0.3597,
           "ndcg_last_year": 0.9021,
           "mae_last_year": 69.718,
@@ -158,17 +169,19 @@
           "ndcg_ppg17": 0.9126,
           "mae_ppg17": 66.426,
           "rmse_ppg17": 85.975,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.3597,
+          "mae_gated": 69.718
         },
         "WR": {
           "n": 59,
           "measured": true,
-          "rho_engine": 0.7401,
-          "ndcg_engine": 0.8912,
-          "mae_engine": 49.831,
-          "rmse_engine": 62.049,
+          "rho_engine": 0.7894,
+          "ndcg_engine": 0.886,
+          "mae_engine": 48.309,
+          "rmse_engine": 61.675,
           "rho_last_year": 0.7401,
           "ndcg_last_year": 0.8912,
           "mae_last_year": 49.831,
@@ -177,17 +190,19 @@
           "ndcg_ppg17": 0.8713,
           "mae_ppg17": 52.831,
           "rmse_ppg17": 67.469,
-          "beats_last_year": false,
-          "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "beats_last_year": true,
+          "beats_ppg17": true,
+          "engine_equals_last_year": false,
+          "rho_gated": 0.7401,
+          "mae_gated": 49.831
         },
         "TE": {
           "n": 35,
           "measured": true,
-          "rho_engine": 0.5436,
-          "ndcg_engine": 0.9202,
-          "mae_engine": 39.399,
-          "rmse_engine": 51.306,
+          "rho_engine": 0.5013,
+          "ndcg_engine": 0.8101,
+          "mae_engine": 44.388,
+          "rmse_engine": 57.042,
           "rho_last_year": 0.5436,
           "ndcg_last_year": 0.9202,
           "mae_last_year": 39.399,
@@ -197,8 +212,10 @@
           "mae_ppg17": 44.258,
           "rmse_ppg17": 56.727,
           "beats_last_year": false,
-          "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "beats_ppg17": false,
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5436,
+          "mae_gated": 39.399
         }
       }
     },
@@ -211,10 +228,10 @@
         "QB": {
           "n": 28,
           "measured": true,
-          "rho_engine": 0.5298,
-          "ndcg_engine": 0.8324,
-          "mae_engine": 78.826,
-          "rmse_engine": 105.226,
+          "rho_engine": 0.4893,
+          "ndcg_engine": 0.8241,
+          "mae_engine": 77.26,
+          "rmse_engine": 93.964,
           "rho_last_year": 0.5298,
           "ndcg_last_year": 0.8324,
           "mae_last_year": 78.826,
@@ -225,15 +242,17 @@
           "rmse_ppg17": 104.547,
           "beats_last_year": false,
           "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5298,
+          "mae_gated": 78.826
         },
         "RB": {
           "n": 45,
           "measured": true,
-          "rho_engine": 0.605,
-          "ndcg_engine": 0.8375,
-          "mae_engine": 67.515,
-          "rmse_engine": 82.29,
+          "rho_engine": 0.6902,
+          "ndcg_engine": 0.904,
+          "mae_engine": 56.695,
+          "rmse_engine": 70.489,
           "rho_last_year": 0.605,
           "ndcg_last_year": 0.8375,
           "mae_last_year": 67.515,
@@ -242,17 +261,19 @@
           "ndcg_ppg17": 0.8728,
           "mae_ppg17": 58.297,
           "rmse_ppg17": 71.498,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.605,
+          "mae_gated": 67.515
         },
         "WR": {
           "n": 79,
           "measured": true,
-          "rho_engine": 0.6279,
-          "ndcg_engine": 0.8569,
-          "mae_engine": 61.045,
-          "rmse_engine": 72.766,
+          "rho_engine": 0.6094,
+          "ndcg_engine": 0.8669,
+          "mae_engine": 59.161,
+          "rmse_engine": 71.375,
           "rho_last_year": 0.6279,
           "ndcg_last_year": 0.8569,
           "mae_last_year": 61.045,
@@ -262,16 +283,18 @@
           "mae_ppg17": 63.12,
           "rmse_ppg17": 74.835,
           "beats_last_year": false,
-          "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "beats_ppg17": false,
+          "engine_equals_last_year": false,
+          "rho_gated": 0.6279,
+          "mae_gated": 61.045
         },
         "TE": {
           "n": 43,
           "measured": true,
-          "rho_engine": 0.5906,
-          "ndcg_engine": 0.7436,
-          "mae_engine": 44.639,
-          "rmse_engine": 57.003,
+          "rho_engine": 0.6285,
+          "ndcg_engine": 0.7454,
+          "mae_engine": 43.738,
+          "rmse_engine": 54.886,
           "rho_last_year": 0.5906,
           "ndcg_last_year": 0.7436,
           "mae_last_year": 44.639,
@@ -280,9 +303,11 @@
           "ndcg_ppg17": 0.7757,
           "mae_ppg17": 46.947,
           "rmse_ppg17": 59.161,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5906,
+          "mae_gated": 44.639
         }
       }
     },
@@ -295,10 +320,10 @@
         "QB": {
           "n": 35,
           "measured": true,
-          "rho_engine": 0.4515,
-          "ndcg_engine": 0.7553,
-          "mae_engine": 80.834,
-          "rmse_engine": 108.079,
+          "rho_engine": 0.428,
+          "ndcg_engine": 0.8077,
+          "mae_engine": 66.925,
+          "rmse_engine": 90.534,
           "rho_last_year": 0.4515,
           "ndcg_last_year": 0.7553,
           "mae_last_year": 80.834,
@@ -309,15 +334,17 @@
           "rmse_ppg17": 102.754,
           "beats_last_year": false,
           "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.4515,
+          "mae_gated": 80.834
         },
         "RB": {
           "n": 57,
           "measured": true,
-          "rho_engine": 0.6644,
-          "ndcg_engine": 0.8606,
-          "mae_engine": 53.662,
-          "rmse_engine": 80.741,
+          "rho_engine": 0.7204,
+          "ndcg_engine": 0.8736,
+          "mae_engine": 53.627,
+          "rmse_engine": 69.025,
           "rho_last_year": 0.6644,
           "ndcg_last_year": 0.8606,
           "mae_last_year": 53.662,
@@ -326,17 +353,19 @@
           "ndcg_ppg17": 0.8682,
           "mae_ppg17": 56.187,
           "rmse_ppg17": 74.471,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.6644,
+          "mae_gated": 53.662
         },
         "WR": {
           "n": 100,
           "measured": true,
-          "rho_engine": 0.5661,
-          "ndcg_engine": 0.8111,
-          "mae_engine": 53.73,
-          "rmse_engine": 70.694,
+          "rho_engine": 0.6126,
+          "ndcg_engine": 0.8327,
+          "mae_engine": 54.083,
+          "rmse_engine": 70.035,
           "rho_last_year": 0.5661,
           "ndcg_last_year": 0.8111,
           "mae_last_year": 53.73,
@@ -345,17 +374,19 @@
           "ndcg_ppg17": 0.83,
           "mae_ppg17": 59.309,
           "rmse_ppg17": 75.352,
-          "beats_last_year": false,
+          "beats_last_year": true,
           "beats_ppg17": false,
-          "engine_equals_last_year": true
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5661,
+          "mae_gated": 53.73
         },
         "TE": {
           "n": 48,
           "measured": true,
-          "rho_engine": 0.5838,
-          "ndcg_engine": 0.7881,
-          "mae_engine": 46.085,
-          "rmse_engine": 53.517,
+          "rho_engine": 0.5624,
+          "ndcg_engine": 0.7455,
+          "mae_engine": 45.258,
+          "rmse_engine": 54.437,
           "rho_last_year": 0.5838,
           "ndcg_last_year": 0.7881,
           "mae_last_year": 46.085,
@@ -365,8 +396,10 @@
           "mae_ppg17": 47.005,
           "rmse_ppg17": 57.608,
           "beats_last_year": false,
-          "beats_ppg17": true,
-          "engine_equals_last_year": true
+          "beats_ppg17": false,
+          "engine_equals_last_year": false,
+          "rho_gated": 0.5838,
+          "mae_gated": 46.085
         }
       }
     }
@@ -375,10 +408,10 @@
     "QB": {
       "n": 115,
       "measured": true,
-      "rho_engine": 0.4206,
-      "ndcg_engine": 0.785,
-      "mae_engine": 85.629,
-      "rmse_engine": 111.136,
+      "rho_engine": 0.4357,
+      "ndcg_engine": 0.8343,
+      "mae_engine": 79.061,
+      "rmse_engine": 100.323,
       "rho_last_year": 0.4206,
       "ndcg_last_year": 0.785,
       "mae_last_year": 85.629,
@@ -387,19 +420,21 @@
       "ndcg_ppg17": 0.7815,
       "mae_ppg17": 88.34,
       "rmse_ppg17": 110.409,
-      "beats_last_year": false,
+      "beats_last_year": true,
       "beats_ppg17": true,
-      "engine_equals_last_year": true,
-      "delta_vs_last_year": 0.0,
-      "delta_vs_ppg17": 0.0198
+      "engine_equals_last_year": false,
+      "rho_gated": 0.4206,
+      "mae_gated": 85.629,
+      "delta_vs_last_year": 0.0151,
+      "delta_vs_ppg17": 0.0349
     },
     "RB": {
       "n": 155,
       "measured": true,
-      "rho_engine": 0.5686,
-      "ndcg_engine": 0.7365,
-      "mae_engine": 63.667,
-      "rmse_engine": 86.099,
+      "rho_engine": 0.6403,
+      "ndcg_engine": 0.77,
+      "mae_engine": 58.224,
+      "rmse_engine": 74.562,
       "rho_last_year": 0.5686,
       "ndcg_last_year": 0.7365,
       "mae_last_year": 63.667,
@@ -408,19 +443,21 @@
       "ndcg_ppg17": 0.8183,
       "mae_ppg17": 60.953,
       "rmse_ppg17": 77.607,
-      "beats_last_year": false,
+      "beats_last_year": true,
       "beats_ppg17": false,
-      "engine_equals_last_year": true,
-      "delta_vs_last_year": 0.0,
-      "delta_vs_ppg17": -0.0871
+      "engine_equals_last_year": false,
+      "rho_gated": 0.5686,
+      "mae_gated": 63.667,
+      "delta_vs_last_year": 0.0717,
+      "delta_vs_ppg17": -0.0154
     },
     "WR": {
       "n": 282,
       "measured": true,
-      "rho_engine": 0.6468,
-      "ndcg_engine": 0.7846,
-      "mae_engine": 55.099,
-      "rmse_engine": 70.248,
+      "rho_engine": 0.6681,
+      "ndcg_engine": 0.7884,
+      "mae_engine": 54.525,
+      "rmse_engine": 69.243,
       "rho_last_year": 0.6468,
       "ndcg_last_year": 0.7846,
       "mae_last_year": 55.099,
@@ -429,19 +466,21 @@
       "ndcg_ppg17": 0.7902,
       "mae_ppg17": 58.706,
       "rmse_ppg17": 73.464,
-      "beats_last_year": false,
-      "beats_ppg17": false,
-      "engine_equals_last_year": true,
-      "delta_vs_last_year": 0.0,
-      "delta_vs_ppg17": -0.0171
+      "beats_last_year": true,
+      "beats_ppg17": true,
+      "engine_equals_last_year": false,
+      "rho_gated": 0.6468,
+      "mae_gated": 55.099,
+      "delta_vs_last_year": 0.0213,
+      "delta_vs_ppg17": 0.0042
     },
     "TE": {
       "n": 153,
       "measured": true,
-      "rho_engine": 0.6101,
-      "ndcg_engine": 0.7796,
-      "mae_engine": 43.611,
-      "rmse_engine": 53.861,
+      "rho_engine": 0.5967,
+      "ndcg_engine": 0.7954,
+      "mae_engine": 44.259,
+      "rmse_engine": 54.78,
       "rho_last_year": 0.6101,
       "ndcg_last_year": 0.7796,
       "mae_last_year": 43.611,
@@ -452,18 +491,20 @@
       "rmse_ppg17": 57.371,
       "beats_last_year": false,
       "beats_ppg17": true,
-      "engine_equals_last_year": true,
-      "delta_vs_last_year": 0.0,
-      "delta_vs_ppg17": 0.0154
+      "engine_equals_last_year": false,
+      "rho_gated": 0.6101,
+      "mae_gated": 43.611,
+      "delta_vs_last_year": -0.0134,
+      "delta_vs_ppg17": 0.002
     }
   },
   "summary": {
     "positions_scored": 4,
-    "engine_beats_last_year": 0,
-    "engine_beats_ppg17": 2,
+    "engine_beats_last_year": 3,
+    "engine_beats_ppg17": 3,
     "player_seasons_scored": 705,
     "player_seasons_excluded_no_prior": 179,
-    "engine_equals_last_year_everywhere": true
+    "engine_equals_last_year_everywhere": false
   },
   "signal_audit": {
     "player_signals_in_registry": 19,
@@ -504,5 +545,168 @@
       "weather"
     ],
     "note": "MEASURED, not declared. Only baseline_fed + deployed_inputs_fire + candidate_inputs_fire carry any player-level evidence here; substrate_missing needs a richer committed history and registry_only has no engine branch at all. At day-zero weights (all 0.0) none of this can change proj_points."
+  },
+  "baseline_gate": {
+    "shipped_rule": "prior_season_points",
+    "candidate_rule": "prior_ppg_x_projected_games",
+    "adopted_for_shipped": false,
+    "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5847 -> 0.6032, pooled MAE 59.4697 -> 60.7557 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
+    "candidate_vs_gated": {
+      "shipped_estimate": "candidate",
+      "owner_override": true,
+      "pooled_rho_gated": 0.5847,
+      "pooled_rho_candidate": 0.6086,
+      "pooled_mae_gated": 59.4697,
+      "pooled_mae_candidate": 57.1126,
+      "per_position": {
+        "QB": {
+          "n": 115,
+          "rho_gated": 0.4206,
+          "rho_candidate": 0.4357,
+          "mae_gated": 85.629,
+          "mae_candidate": 79.061
+        },
+        "RB": {
+          "n": 155,
+          "rho_gated": 0.5686,
+          "rho_candidate": 0.6403,
+          "mae_gated": 63.667,
+          "mae_candidate": 58.224
+        },
+        "WR": {
+          "n": 282,
+          "rho_gated": 0.6468,
+          "rho_candidate": 0.6681,
+          "mae_gated": 55.099,
+          "mae_candidate": 54.525
+        },
+        "TE": {
+          "n": 153,
+          "rho_gated": 0.6101,
+          "rho_candidate": 0.5967,
+          "mae_gated": 43.611,
+          "mae_candidate": 44.259
+        }
+      },
+      "note": "walk-forward 2022-2025, season granularity; the candidate here carries only the signals the committed history can feed (injury_history) \u2014 its live signals (age, status, roof) are not evaluable on this substrate"
+    },
+    "pooled_rho_total_rule": 0.5847,
+    "pooled_rho_ppg_rule": 0.6032,
+    "pooled_mae_total_rule": 59.4697,
+    "pooled_mae_ppg_rule": 60.7557,
+    "per_position": {
+      "QB": {
+        "n": 115,
+        "rho_total_rule": 0.4206,
+        "rho_ppg_rule": 0.4171,
+        "mae_total_rule": 85.629,
+        "mae_ppg_rule": 85.628
+      },
+      "RB": {
+        "n": 155,
+        "rho_total_rule": 0.5686,
+        "rho_ppg_rule": 0.6557,
+        "mae_total_rule": 63.667,
+        "mae_ppg_rule": 59.882
+      },
+      "WR": {
+        "n": 282,
+        "rho_total_rule": 0.6468,
+        "rho_ppg_rule": 0.66,
+        "mae_total_rule": 55.099,
+        "mae_ppg_rule": 58.636
+      },
+      "TE": {
+        "n": 153,
+        "rho_total_rule": 0.6101,
+        "rho_ppg_rule": 0.585,
+        "mae_total_rule": 43.611,
+        "mae_ppg_rule": 46.853
+      }
+    }
+  },
+  "candidate_2025": {
+    "season": 2025,
+    "players": 240,
+    "shipped_estimate": "candidate",
+    "baseline_mae": 59.454,
+    "candidate_mae": 54.082,
+    "shipped_mae": 54.082,
+    "gated_mae": 56.138,
+    "baseline_rho": 0.6646,
+    "candidate_rho": 0.6698,
+    "shipped_rho": 0.6698,
+    "gated_rho": 0.6281,
+    "band_coverage": 0.6875,
+    "band_multiplier": 2.25,
+    "band_target": 0.68,
+    "band_rule": "+/- 2.25 x band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; the multiplier is calibrated so the 2024->2025 backtest band covers ~0.68 of actuals (one sd) \u2014 an estimate of spread, not a measurement",
+    "signals_evaluated": [
+      "injury_history"
+    ],
+    "signals_not_evaluable": [
+      "age_curve",
+      "coordinator_change",
+      "head_coach_change",
+      "home_away",
+      "indoor_outdoor",
+      "injury_status",
+      "off_field",
+      "ol_composite_vs_dl",
+      "one_on_one_matchup",
+      "qb_accuracy_delta",
+      "qb_coaching",
+      "rest_days",
+      "schedule_strength",
+      "scheme_fit",
+      "supporting_cast_delta",
+      "target_competition",
+      "weather"
+    ],
+    "by_position": {
+      "QB": {
+        "n": 35,
+        "baseline_mae": 78.181,
+        "candidate_mae": 66.925,
+        "shipped_mae": 66.925,
+        "gated_mae": 80.834,
+        "band_coverage": 0.6286,
+        "sleeper_mae": 42.592,
+        "sleeper_n": 35
+      },
+      "RB": {
+        "n": 57,
+        "baseline_mae": 57.79,
+        "candidate_mae": 53.627,
+        "shipped_mae": 53.627,
+        "gated_mae": 53.662,
+        "band_coverage": 0.7719,
+        "sleeper_mae": 17.001,
+        "sleeper_n": 56
+      },
+      "WR": {
+        "n": 100,
+        "baseline_mae": 59.536,
+        "candidate_mae": 54.083,
+        "shipped_mae": 54.083,
+        "gated_mae": 53.73,
+        "band_coverage": 0.65,
+        "sleeper_mae": 20.529,
+        "sleeper_n": 100
+      },
+      "TE": {
+        "n": 48,
+        "baseline_mae": 47.604,
+        "candidate_mae": 45.258,
+        "shipped_mae": 45.258,
+        "gated_mae": 46.085,
+        "band_coverage": 0.7083,
+        "sleeper_mae": 16.121,
+        "sleeper_n": 48
+      }
+    },
+    "sleeper_mae": 22.048,
+    "sleeper_players": 239,
+    "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 330 history players matched by {'espn_id': 110, 'name_position': 188, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction."
   }
 }

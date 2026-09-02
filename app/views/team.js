@@ -79,7 +79,13 @@ import {
 import {
   SLEEPER_API_BASE, buildSleeperPlayerIndex, crosswalkRoster, importFromPastedJson,
   importFromSleeper, importSleeperTeams, parseLeagueId, summarizeImport, unresolvedItems,
+  fetchSleeperState,
 } from '../sleeper.js';
+// R49 — every roster in the league (in this app's ids) and Sleeper's current
+// NFL week, remembered for LINEUP's WAIVER WIRE. Written here, read there.
+import {
+  LEAGUE_ROSTERS_KEY, NFL_WEEK_KEY, saveLeagueRosters, setMyRosterId, saveNflWeek,
+} from '../league-rosters.js';
 // R33 — the LIVE Sleeper draft companion. The module owns the polling, the
 // pick diffing and every honesty rule; this view only renders FROM its state
 // and routes its planned actions through the SAME take/sell functions a
@@ -187,6 +193,8 @@ export const RESET_ALL_KEYS = Object.freeze([
   LEAGUE_ID_KEY,     // R47 — the remembered Sleeper league id
   MY_ROSTER_KEY,     // R48 — which Sleeper roster is mine, per league
   SYNC_LOG_KEY,      // R48 — the LEAGUE tab's sync log
+  LEAGUE_ROSTERS_KEY, // R49 — every league roster in app ids (LINEUP's waiver wire)
+  NFL_WEEK_KEY,      // R49 — Sleeper's current NFL week (LINEUP's default WK)
   AUCTION_TEAMS_KEY, // per-team budgets + names
   MOCKS_KEY,         // draft history + auction room memory (v2)
   MOCKS_KEY_V1,      // the legacy history key the migration reads
@@ -3219,6 +3227,29 @@ export default async function mountTeam(el) {
 
     rosterTeams = teamsRes.teams;
     rosterBusy = false;
+    // R49 — EVERY roster in the league, crosswalked through the same index
+    // and the same seatable pool as my own, saved once so LINEUP can say who
+    // is unrostered without a second read. The memory is a convenience: a
+    // blocked storage cannot fail the sync. my_roster_id is the remembered
+    // pick for now; a seat (applyRosterPlan / the picker) overwrites it.
+    try {
+      saveLeagueRosters({
+        league_id: leagueId,
+        teams: rosterTeams.map((t) => ({
+          roster_id: t.roster_id,
+          label: t.label,
+          app_ids: orderedRosterPlayers(crosswalkRoster(t, seatable, { index: sleeperIndex }))
+            .map((r) => r.player_id),
+        })),
+        my_roster_id: rememberedRosterId(leagueId),
+      });
+    } catch (err) { /* the roster memory is a convenience; the sync stands without it */ }
+    // R49 — Sleeper's current NFL week, one small GET. Failure is silent by
+    // design: the week simply stays unknown and LINEUP keeps its own default.
+    try {
+      const stateRes = await fetchSleeperState({ timeoutMs: 4000 });
+      if (stateRes.ok) saveNflWeek(stateRes.payload);
+    } catch (err) { /* no week is better than an invented one */ }
     // R48 — a remembered pick (this device told us once which roster is
     // theirs) or a one-roster league selects itself and, when the roster on
     // this page is still empty, seats the team without a second press.
@@ -3311,6 +3342,7 @@ export default async function mountTeam(el) {
     const team = rosterTeams && rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
     const leagueId = parseLeagueId(sleeperId);
     if (team && leagueId) saveMyRoster(leagueId, team.roster_id);
+    if (team && leagueId) setMyRosterId(leagueId, team.roster_id); // R49 — mark mine in the league record
     try {
       recordSync({
         kind: 'roster',
@@ -5301,6 +5333,7 @@ export default async function mountTeam(el) {
     const picked = rosterTeamIdx >= 0 ? rosterTeams[rosterTeamIdx] : null;
     const pickedLeague = parseLeagueId(sleeperId);
     if (picked && pickedLeague) saveMyRoster(pickedLeague, picked.roster_id);
+    if (picked && pickedLeague) setMyRosterId(pickedLeague, picked.roster_id); // R49
     if (picked && rosterPlan && (rosterFilledCount() === 0 || rosterPlan.dropped.length === 0)) {
       if (applyRosterPlan({ auto: true })) return;
     }

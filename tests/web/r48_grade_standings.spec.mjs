@@ -38,6 +38,9 @@ async function mockSleeper(page) {
   await page.route('**/api.sleeper.app/v1/players/nfl', (r) => json(r, PLAYER_INDEX));
   // The draft record is best-effort in importFromSleeper; the fixture has none.
   await page.route('**/api.sleeper.app/v1/draft/**', (r) => json(r, 'null', 404));
+  // R49 — pin the pre-Sleeper-estimate state (no projection file), so the
+  // exact column list below stays the R48 table whatever data/ carries.
+  await page.route('**/data/sleeper_projections.json', (r) => json(r, 'null', 404));
 }
 
 test.describe('R48-C — GRADE: weekly-optimal lineups and projected final standings', () => {
