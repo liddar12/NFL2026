@@ -55,7 +55,7 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-09-02T00:00:45Z",
+    "changed_utc": "2026-09-02T04:23:37Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
       "proj_points",
@@ -85,16 +85,16 @@
       "pooled_rho_ppg_rule": 0.6032,
       "pooled_mae_total_rule": 59.4697,
       "pooled_mae_ppg_rule": 60.7557,
-      "measured_utc": "2026-09-02T00:00:45Z"
+      "measured_utc": "2026-09-02T04:23:37Z"
     },
     "candidate": {
       "signals_applied": [
         "age_curve",
-        "indoor_outdoor",
         "injury_history",
         "injury_status"
       ],
       "signals_not_computable": [
+        "indoor_outdoor",
         "ol_composite_vs_dl",
         "target_competition"
       ],
@@ -115,8 +115,8 @@
     "ledger": "data/estimates/2026.json",
     "objective_ready": false,
     "adoption_margin_mae": 0.1,
-    "note": "no ledger at data/estimates/2026.json yet \u2014 scripts/build_estimate_ledger.py appends the first estimates on the daily run; nothing to resolve",
-    "updated_utc": "2026-09-02T00:00:55Z",
+    "note": "ledger has no locked (pre-kickoff) player-week yet \u2014 the first week locks on the first append after its kickoff",
+    "updated_utc": "2026-09-02T04:26:15Z",
     "backtest_2025": {
       "baseline_mae": 59.454,
       "candidate_mae": 54.082,
