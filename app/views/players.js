@@ -17,10 +17,9 @@
  *   - AI TREND chip per card (player_history/ai_insights trajectory): up/down
  *     with real pts/yr when measured, "AI EST" when age-curve estimated.
  *   - STRENGTH OF SCHEDULE 1.0–5.0 per card (team_strength + weekly opponents).
- *   - a .aiseg BASE/AI+ toggle (shared nfl2026.ai.v1 with the TEAM tab): AI+ ON
- *     re-ranks the list by an AI-adjusted projection (proj × (1+trajectory_adj),
- *     bounded ±25%) and shows the per-player AI delta — so the AI's effect is
- *     visible on the numbers, not just the team-builder recos.
+ *   - a .aiseg BASE/AI+ toggle (shared nfl2026.ai.v1 with the TEAM tab). R51:
+ *     AI+ ON = THIS WEEK's league-priced points ("WK n · MATCHUP") + RoS, the
+ *     season PROJ kept as BASE, sorted by this week. docs/PLAYERS_AI_PLUS.md.
  *   - a .sortseg (PROJ / TREND / SOS) with a direction arrow.
  *
  * R21-B2 adds a SECOND adornment row per card (own its markup here — render.js
@@ -204,6 +203,47 @@ export function rosValue(p, w, mode, currentWk) {
     points: rosPoints(w.weeks, currentWk) * ratio,
     gamesLeft: gamesLeft(w.weeks, currentWk),
   };
+}
+
+/** R51 — THIS WEEK's league-priced points from the same weeklyPoints() split
+ * RoS uses: { points, bye, opp }, or null with no row (renders "—", never 0). */
+export function weekValue(p, w, mode, wk) {
+  if (!w || !Array.isArray(w.weeks)) return null;
+  const i = w.weeks.findIndex((x) => x && Number(x.wk) === Number(wk));
+  if (i < 0) return null;
+  const pts = weeklyPoints(w, projSeason(p, w, mode), Number(p ? p.proj_points : NaN))[i];
+  if (!Number.isFinite(pts)) return null;
+  const row = w.weeks[i];
+  return { points: pts, bye: row.bye === true, opp: row.opp == null ? null : String(row.opp) };
+}
+
+/** R51 — what AI+ may claim: factors only for the measured weekly_split_v2. */
+export const AI_PLUS_MEASURED_MODEL = 'weekly_split_v2';
+export function aiPlusCopy(modelName) {
+  return modelName === AI_PLUS_MEASURED_MODEL
+    ? 'AI+ · THIS WEEK — matchup-adjusted weekly points from the same split GRADE '
+      + 'and LINEUP use (opponent DvP, weather, venue; Elo for QB). Measured vs last '
+      + 'season\'s split: MAE −2.3%, rank corr +5.7%. ESTIMATE.'
+    : 'AI+ · THIS WEEK — matchup-adjusted weekly points (weekly split), the same '
+      + 'split GRADE and LINEUP use. ESTIMATE.';
+}
+
+/** R51 — the AI+ headline, spliced like withExtraRow: the card keeps its
+ * SEASON band; the headline reads this week, the season as BASE. */
+const HEAD_START = '<div class="p-proj">';
+const HEAD_END = '<div class="p-unit">PROJ PTS</div>';
+export function withWeekHeadline(cardHtml, week, wv, season) {
+  const html = String(cardHtml);
+  const i = html.indexOf(HEAD_START);
+  const j = i < 0 ? -1 : html.indexOf(HEAD_END, i);
+  if (i < 0 || j < 0) return html;
+  const have = wv != null && Number.isFinite(Number(wv.points));
+  const tag = !have ? 'NO WEEKLY ROW' : wv.bye ? 'BYE' : 'MATCHUP';
+  const inner =
+    `<div class="p-num${have ? '' : ' pv-none'}">${have ? esc(fix1(wv.points)) : '—'}</div>` +
+    `<div class="p-unit">WK ${esc(week)} · ${tag}</div>` +
+    `<div class="p-unit">BASE ${esc(fix1(season))} · SEASON</div>`;
+  return html.slice(0, i + HEAD_START.length) + inner + html.slice(j + HEAD_END.length);
 }
 
 /** Paint a plain .state message (empty / error). */
@@ -597,7 +637,9 @@ function renderLegend(opts = {}) {
         // R49 — the three-engine row. Sleeper and the candidate are shown, never used.
         '<span class="legend-item"><b>OURS · SCENARIO · SLEEPER</b> OURS is our shipped projection in your scoring. SCENARIO is the self-learning candidate — every raw signal applied at full strength, backtested; it becomes the shipped number only when it clears never-regress or by an explicit owner override. SLEEPER is Sleeper\'s own (non-AI) projection priced under your scoring table. Both are comparison only, never an input; deltas are vs OURS. An em dash means that engine does not project the player — not zero. ≈ marks a number scaled by its ratio to the shipped one through league-rule extras (a proportional assumption, exact only when nothing is converted).</span>' +
         '<span class="legend-item"><b>OURS (scenario) · GATED</b> when the owner has overridden the gate, OURS IS the scenario candidate and GATED is the number the gate would have shipped — the gate keeps scoring the two against resolved weeks.</span>' +
-        '<span class="legend-item"><b>AI+</b> AI re-rank by 5-yr trajectory (bounded ±25%, labeled ESTIMATE)</span>' +
+        (opts.aiCopy
+          ? `<span class="legend-item"><b>AI+</b> ${esc(opts.aiCopy)} BASE = the LEAGUE-PRICED projection for the season; RoS = its remaining weeks.</span>`
+          : '') +
         '<span class="legend-item"><b>▼ / ▲</b> sort direction: ▼ descending (high→low), ▲ ascending (low→high)</span>' +
       '</div>' +
     '</details>'
@@ -620,7 +662,7 @@ function filterRow(active) {
  * nflverse-sourced `rookie` boolean: an unstamped pool (feed unreachable, or a
  * deploy predating the flag) means rookie status is UNKNOWN, and a filter over
  * unknowns would silently show an empty league — hiding the control is the
- * honest state (same feature-detection pattern as hasWeekly/hasAi). */
+ * honest state (same feature-detection pattern as hasWeekly). */
 function rookieRow(on) {
   return (
     '<label class="rookie-filter">'
@@ -646,20 +688,21 @@ function aiSegRow(on) {
 }
 
 /** The inner buttons of the sort control (active one shows a ▼/▲ arrow). */
-function sortChips(activeKey, dir) {
+function sortChips(activeKey, dir, weekLabel) {
   return SORTS.map((s) => {
     const on = s.key === activeKey;
     const arrow = on ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const label = s.key === 'proj' && weekLabel ? weekLabel : s.label;
     return (
       `<button type="button" class="sort-chip${on ? ' sort-chip--active' : ''}" ` +
-        `data-sort="${s.key}" aria-pressed="${on ? 'true' : 'false'}">${s.label}${arrow}</button>`
+        `data-sort="${s.key}" aria-pressed="${on ? 'true' : 'false'}">${label}${arrow}</button>`
     );
   }).join('');
 }
 
 /** The sort control wrapper. */
-function sortRow(activeKey, dir) {
-  return `<div class="sortseg" role="group" aria-label="Sort players">${sortChips(activeKey, dir)}</div>`;
+function sortRow(activeKey, dir, weekLabel) {
+  return `<div class="sortseg" role="group" aria-label="Sort players">${sortChips(activeKey, dir, weekLabel)}</div>`;
 }
 
 /**
@@ -672,7 +715,7 @@ export default async function mountPlayers(el) {
 
   // Projections required; everything else optional (allSettled) so a missing
   // weekly/insight/history/strength file never blanks the view.
-  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes, rostersRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
@@ -685,6 +728,8 @@ export default async function mountPlayers(el) {
     // cold deep-link to this route, where the idle warm has not fired yet, its
     // round trip overlaps the data fetches instead of serializing after them.
     teamModule(),
+    // R51 — NFL-week memory; LAZY_ONLY in the perf budget, so never static.
+    import('../league-rosters.js'),
   ]);
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
@@ -724,7 +769,6 @@ export default async function mountPlayers(el) {
     ? histRes.value.players : null;
   const teamStrength = (strRes.status === 'fulfilled' && strRes.value && strRes.value.ratings)
     ? strRes.value : null;
-  const hasAi = aiInsights !== null || history !== null; // trend feed present?
 
   // Current week for rest-of-season math: the pipeline's week from
   // game_predictions (defaults to 1 preseason -> RoS == full-season remaining).
@@ -733,6 +777,16 @@ export default async function mountPlayers(el) {
     const w = Number(predRes.value.week);
     if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
   }
+  // R51 — Sleeper's regular-season week overrides (LINEUP's rule).
+  if (rostersRes.status === 'fulfilled' && rostersRes.value) {
+    const { loadNflWeek, defaultLineupWeek } = rostersRes.value;
+    const sleeperWk = defaultLineupWeek(loadNflWeek(), 18);
+    if (sleeperWk != null) currentWk = sleeperWk;
+  }
+  const weeklyModelName = weekly && weekly.model && weekly.model.name != null
+    ? String(weekly.model.name) : null;
+  const aiCopy = hasWeekly ? aiPlusCopy(weeklyModelName) : null;
+  const weekSortLabel = `WK ${currentWk}`;
 
   /* ---- R21-B2 layers (both optional; each hides itself when its feed is
    * absent, exactly like the REL2 layers above) --------------------------- */
@@ -789,7 +843,7 @@ export default async function mountPlayers(el) {
   const PAGE = 60;              // initial cards + SHOW MORE step (phone perf)
   let shownCap = 60;
   let active = 'ALL';
-  let aiOn = hasAi ? loadAiPref() : false;
+  let aiOn = hasWeekly ? loadAiPref() : false;
   let sortKey = 'proj';
   let sortDir = 'desc';
   const hasRookieFlag = players.some((p) => typeof p.rookie === 'boolean');
@@ -895,8 +949,8 @@ export default async function mountPlayers(el) {
     const id = String(p.gsis_id);
     const w = weeklyPriced.get(id);
     const base = Number(p.proj_points);
-    // OURS = the league-priced shipped number (BASE — the AI+ re-rank is a
-    // display toggle and must not leak into the candidate's pricing ratio).
+    // OURS = the league-priced shipped number (BASE — AI+ is a display toggle
+    // and must not leak into the candidate's pricing ratio).
     const shippedPts = p.kdst ? (Number(p.proj_points) || 0) : projSeason(p, w, scoring);
     const candidateMode = shipped.mode === 'candidate';
     const extra = extraPtsOf(w);
@@ -949,14 +1003,6 @@ export default async function mountPlayers(el) {
     return null;
   }
 
-  /** Bounded AI multiplier from trajectory_adj.value (±0.25); 1 when absent. */
-  function aiRatio(id) {
-    const t = aiInsights && aiInsights[id] ? aiInsights[id].trajectory_adj : null;
-    const v = t && Number.isFinite(Number(t.value)) ? Number(t.value) : 0;
-    const clamped = Math.max(-0.25, Math.min(0.25, v));
-    return 1 + clamped;
-  }
-
   const head =
     '<header class="view-head">' +
       '<h1 class="view-title">PLAYER PROJECTIONS</h1>' +
@@ -964,11 +1010,10 @@ export default async function mountPlayers(el) {
     '</header>';
 
   /**
-   * Build the render model for a player at the current scoring mode + AI mode.
-   * Returns { player (scaled), weekly, trend, sos, aiDelta }.
+   * Build the render model for a player at the current scoring mode.
+   * Returns { player (scaled), weekly, trend, sos }.
    *  - scoring rescale: whole card scales by season_adj/season_ppr (ppr==0 -> 1)
-   *  - AI+ ON: proj/interval further scale by the bounded AI ratio; aiDelta =
-   *    (aiProj − baseProj) so the number visibly moves and the delta is shown.
+   *  - AI+ (R51) never touches these; paintList swaps the headline instead.
    */
   function model(p) {
     const id = String(p.gsis_id);
@@ -976,18 +1021,24 @@ export default async function mountPlayers(el) {
     const ppr = Number(p.proj_points);
     const scoreAdj = projSeason(p, w, scoring);
     const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
-    const r = aiOn ? aiRatio(id) : 1;
-    const proj = scoreAdj * r;
     const player = {
       ...p,
-      proj_points: proj,
-      low: Number(p.low) * scoreRatio * r,
-      high: Number(p.high) * scoreRatio * r,
+      proj_points: scoreAdj,
+      low: Number(p.low) * scoreRatio,
+      high: Number(p.high) * scoreRatio,
     };
     const trend = trendLabel(trajFor(id));
     const sos = sosOf(id);
-    const aiDelta = aiOn ? (proj - scoreAdj) : null;
-    return { player, weekly: !!w, trend, sos, aiDelta };
+    return { player, weekly: !!w, trend, sos };
+  }
+
+  const _wkCache = new Map();
+  function weekOf(id) {
+    const key = `${scoring}|${id}`;
+    if (_wkCache.has(key)) return _wkCache.get(key);
+    const v = weekValue(_projById.get(id), weeklyPriced.get(id), scoring, currentWk);
+    _wkCache.set(key, v);
+    return v;
   }
 
   // Strength-of-schedule never changes for the life of the mount (weekly +
@@ -1111,7 +1162,11 @@ export default async function mountPlayers(el) {
       const r = rosOf(id);
       return r == null ? -Infinity : r.points; // no weekly data sinks on desc
     }
-    // proj: honor the AI-adjusted number when AI+ is on (matches the display).
+    if (aiOn) {
+      const wv = weekOf(id);
+      return wv ? wv.points : null;
+    }
+    // proj: the season number the card shows.
     //
     // R25-F3 measured, and REJECTED, a narrower `projPoints(p)` here that
     // returned the same double without model()'s object spread / trendLabel /
@@ -1138,12 +1193,22 @@ export default async function mountPlayers(el) {
     // Decorate–sort–undecorate: compute each player's sort key ONCE (n calls),
     // then sort by the cached number — instead of recomputing sortVal (which can
     // do SoS/trend/model work) O(n log n) times inside the comparator.
+    const byWeek = aiOn && sortKey === 'proj';
     const filtered = base
-      .map((p) => ({ p, sv: sortVal(p) }))
+      .map((p) => ({
+        p,
+        sv: sortVal(p),
+        tb: byWeek ? model(p).player.proj_points : 0,
+      }))
       .sort((a, b) => {
-        const d = b.sv - a.sv;
+        const tie = String(a.p.gsis_id) < String(b.p.gsis_id) ? -1 : 1;
+        // R51 — null sorts last either way; season breaks ties.
+        const an = a.sv == null;
+        const bn = b.sv == null;
+        if (an || bn) return (an - bn) || tie;
+        const d = (b.sv - a.sv) || (b.tb - a.tb);
         const signed = sortDir === 'asc' ? -d : d;
-        return signed || (String(a.p.gsis_id) < String(b.p.gsis_id) ? -1 : 1);
+        return signed || tie;
       })
       .map((x) => x.p);
     const listEl = el.querySelector('#players-list');
@@ -1156,12 +1221,12 @@ export default async function mountPlayers(el) {
       ? capped.map((p) => {
           const id = String(p.gsis_id);
           const m = model(p);
-          // Show the RoS value chip when ranking by rest-of-season, so the sort
-          // is legible (you see the number you sorted on), not just re-ordered.
-          const ros = sortKey === 'ros' ? rosOf(id) : null;
-          return withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
-            weekly: m.weekly, trend: m.trend, sos: m.sos, aiDelta: m.aiDelta, ros,
+          // RoS chip under the RoS sort (legible sort) and under AI+ (R51).
+          const ros = (aiOn || sortKey === 'ros') ? rosOf(id) : null;
+          const card = withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
+            weekly: m.weekly, trend: m.trend, sos: m.sos, ros,
           }), extraRow(id)), estimateRows(p));
+          return aiOn ? withWeekHeadline(card, currentWk, weekOf(id), m.player.proj_points) : card;
         }).join('')
         + (more > 0
           ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
@@ -1184,15 +1249,13 @@ export default async function mountPlayers(el) {
 
   el.innerHTML =
     head +
-    renderLegend({ window: teamStrength && hasWeekly ? playoffWk : null, hasValue }) +
+    renderLegend({ window: teamStrength && hasWeekly ? playoffWk : null, hasValue, aiCopy }) +
     (hasWeekly ? renderScoreSeg(scoring, scoringLocked) : '') +
-    (hasAi ? aiSegRow(aiOn) : '') +
+    (hasWeekly ? aiSegRow(aiOn) : '') +
     filterRow(active) +
     (hasRookieFlag ? rookieRow(rookiesOnly) : '') +
-    sortRow(sortKey, sortDir) +
-    (hasAi && aiOn
-      ? '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — the LEAGUE-PRICED projection ×(1±25%). Trend + SoS labeled per card. ESTIMATE.</div>'
-      : '') +
+    sortRow(sortKey, sortDir, aiOn ? weekSortLabel : null) +
+    (aiOn && aiCopy ? `<div class="ai-note">${esc(aiCopy)}</div>` : '') +
     '<div id="players-list" class="card-list"></div>' +
     '<div id="rookie-starters" hidden></div>' +
     renderUnranked(unrankedRows);
@@ -1266,7 +1329,7 @@ export default async function mountPlayers(el) {
         sortKey = key;
         sortDir = 'desc';
       }
-      ss.innerHTML = sortChips(sortKey, sortDir);
+      ss.innerHTML = sortChips(sortKey, sortDir, aiOn ? weekSortLabel : null);
       paintList();
     });
   }
@@ -1292,8 +1355,7 @@ export default async function mountPlayers(el) {
     });
   }
 
-  // Wire the AI+ toggle (only rendered when a trend feed exists). Flipping it
-  // re-ranks + re-scales the projections and shows/hides the explainer note.
+  // Wire the AI+ toggle (weekly layer only): headline, sort, chip, note.
   const aiSeg = el.querySelector('.aiseg');
   if (aiSeg) {
     aiSeg.addEventListener('click', (e) => {
@@ -1309,17 +1371,15 @@ export default async function mountPlayers(el) {
         b.setAttribute('aria-pressed', act ? 'true' : 'false');
       });
       // Toggle the explainer note without a full re-render.
-      let note = el.querySelector('.ai-note');
+      const note = el.querySelector('.ai-note');
       if (on && !note) {
         const anchor = el.querySelector('.sortseg') || el.querySelector('.posfilter');
-        if (anchor) {
-          anchor.insertAdjacentHTML('afterend',
-            '<div class="ai-note">AI+ re-ranks by 5-yr trajectory — projection ×(1±25%). '
-            + 'Trend + SoS labeled per card. ESTIMATE.</div>');
-        }
+        if (anchor) anchor.insertAdjacentHTML('afterend', `<div class="ai-note">${esc(aiCopy)}</div>`);
       } else if (!on && note) {
         note.remove();
       }
+      const sortSeg = el.querySelector('.sortseg');
+      if (sortSeg) sortSeg.innerHTML = sortChips(sortKey, sortDir, on ? weekSortLabel : null);
       paintList();
     });
   }
@@ -1361,12 +1421,11 @@ export default async function mountPlayers(el) {
         const p = players.find((pl) => String(pl.gsis_id) === card.dataset.gsis);
         const w = weeklyPriced.get(card.dataset.gsis);
         if (!p || !w) return; // no weekly row — leave the card collapsed
-        // Match the card's displayed ratio (scoring × AI) so the strip agrees.
+        // Match the card's scoring ratio so the strip agrees with the card.
         const ppr = Number(p.proj_points);
         const scoreAdj = projSeason(p, w, scoring);
         const scoreRatio = ppr > 0 ? scoreAdj / ppr : 1;
-        const ratio = scoreRatio * (aiOn ? aiRatio(card.dataset.gsis) : 1);
-        btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, ratio));
+        btn.insertAdjacentHTML('afterend', renderWeekStrip(w.weeks, scoreRatio));
         strip = card.querySelector('.wkstrip');
       }
       btn.setAttribute('aria-expanded', open ? 'false' : 'true');
