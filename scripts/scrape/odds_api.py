@@ -17,8 +17,9 @@ the other (R30 finding `model-slate-parlays-spread-selection-side-mismatch`: wro
 3 of 16 shipped games). Emitting both labels lets the consumer pick a side ONCE and
 read the label, the probability and the correlation side off that single choice.
 `home_point` is the handicap itself (-3.5 = home laying 3.5); the away label mirrors
-its sign. The handicap is the TERMS OF THE BET, not a price — our own margin model
-prices it (see parlay_builder.model_cover_prob), and the book's de-vigged
+its sign. The handicap is the TERMS OF THE BET, not a price — since R51 a spread
+leg prices at NO EDGE (model_prob 0.5; the margin inversion measured below a coin
+flip, see docs/PARLAY_MODEL_V2.md), and the book's de-vigged
 `home_cover_prob`/`away_cover_prob` stay DISPLAY ONLY.
 
 Matching is done on (home, away) canonical team abbreviations via renames.normalize_team

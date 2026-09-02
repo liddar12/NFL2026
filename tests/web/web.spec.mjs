@@ -416,7 +416,7 @@ test.describe('players trend + strength-of-schedule + AI+ projection (#/players)
     for (let i = 1; i < nums.length; i++) expect(nums[i]).toBeLessThanOrEqual(nums[i - 1] + 1e-6);
   });
 
-  test('AI+ toggle changes the projection number (AI PROJ PTS + delta)', async ({ page }) => {
+  test('AI+ toggle switches the headline to this week\'s matchup points (no trajectory delta)', async ({ page }) => {
     await page.goto('/#/players');
     await waitForCards(page, '.card.player');
 
@@ -426,8 +426,10 @@ test.describe('players trend + strength-of-schedule + AI+ projection (#/players)
     await page.locator('.aiseg button[data-ai="on"]').click();
     await expect(page.locator('.aiseg button[data-ai="on"]'))
       .toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.p-unit').first()).toHaveText(/AI PROJ PTS/);
-    expect(await page.locator('.p-aidelta').count()).toBeGreaterThanOrEqual(1);
+    // R51: AI+ = this week's matchup-adjusted points; the retired trajectory
+    // multiplier left no delta chip behind.
+    await expect(page.locator('.p-unit').first()).toHaveText(/^WK \d+ · /);
+    expect(await page.locator('.p-aidelta').count()).toBe(0);
     await expect(page.locator('.ai-note')).toHaveCount(1);
 
     await page.locator('.aiseg button[data-ai="off"]').click();
@@ -1559,7 +1561,9 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     const banner = await page.locator('.lu-forced').first().innerText();
     expect(banner).toContain('No available RB on your bench');
     expect(banner).toContain('Check the waiver wire');
-    expect(banner).toContain(nameOf(rb[0]));
+    // The slot is filled by whichever IR back the week's points rank first (RB1 is
+    // filled by weekly points, not by season order), so either flagged name is right.
+    expect([nameOf(rb[0]), nameOf(rb[1])].some((n) => banner.includes(n))).toBe(true);
 
     // "Already optimal" would be a lie over a lineup containing a player who
     // cannot take a snap. It is suppressed, and replaced honestly.

@@ -1,0 +1,540 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlay_backtest.schema.json",
+  "title": "Parlay-leg never-regress backtest (R51) - data/parlay_backtest.json",
+  "description": "The parlay legs measured on the committed corpus (data/fixtures/backtest_weekly/): MONEYLINE incumbent log-loss / Brier beside the de-vigged closing line as a MEASUREMENT-ONLY yardstick (the market is a scoreboard, never an input - owner policy, enforced by check_market_probabilities on every model output); SPREAD cover log-loss against a flat 0.5 with hit rate by conviction bin and a no_edge / edge verdict; PROPS seed vs calibrated log-loss per walk-forward fold with the fitted per-position calibration and the never-regress verdict; leg-pair CORRELATIONS with the prior each measured rho is shrunk toward. Written by scripts/backtest_parlay.py; rendered by the MODEL tab's PARLAY GATE card (app/views/model.js parlayGateCard). Optional feed. Contract keys are required and typed; extra diagnostic keys are tolerated.",
+  "type": "object",
+  "required": [
+    "generated_utc",
+    "fixture",
+    "moneyline",
+    "spread",
+    "props",
+    "correlations",
+    "policy"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "games_meta",
+        "weekly_actuals",
+        "seasons"
+      ],
+      "properties": {
+        "games_meta": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weekly_actuals": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1999,
+            "maximum": 2100
+          }
+        }
+      }
+    },
+    "moneyline": {
+      "type": "object",
+      "required": [
+        "n",
+        "incumbent_log_loss",
+        "incumbent_brier",
+        "market_log_loss",
+        "market_brier",
+        "per_season",
+        "note"
+      ],
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incumbent_log_loss": {
+          "type": "number",
+          "minimum": 0
+        },
+        "incumbent_brier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "market_log_loss": {
+          "type": "number",
+          "minimum": 0
+        },
+        "market_brier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "per_season": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "incumbent_log_loss",
+              "market_log_loss"
+            ],
+            "properties": {
+              "incumbent_log_loss": {
+                "type": "number",
+                "minimum": 0
+              },
+              "market_log_loss": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "spread": {
+      "type": "object",
+      "required": [
+        "n",
+        "sigma",
+        "model_cover_log_loss",
+        "flat_log_loss",
+        "model_brier",
+        "pick_hit_rate_by_conviction",
+        "verdict",
+        "reason"
+      ],
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sigma": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "model_cover_log_loss": {
+          "type": "number",
+          "minimum": 0
+        },
+        "flat_log_loss": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model_brier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "pick_hit_rate_by_conviction": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "bin",
+              "n",
+              "hit"
+            ],
+            "properties": {
+              "bin": {
+                "type": "string",
+                "minLength": 1
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hit": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "no_edge",
+            "edge"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "props": {
+      "type": "object",
+      "required": [
+        "lines",
+        "residual_sd",
+        "dvp_shrink",
+        "folds",
+        "calibration",
+        "verdict"
+      ],
+      "properties": {
+        "lines": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR"
+          ],
+          "properties": {
+            "QB": {
+              "type": "number",
+              "minimum": 0
+            },
+            "RB": {
+              "type": "number",
+              "minimum": 0
+            },
+            "WR": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "residual_sd": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR"
+          ],
+          "properties": {
+            "QB": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "RB": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "WR": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "dvp_shrink": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "folds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "season",
+              "fit_seasons",
+              "seed",
+              "calibrated"
+            ],
+            "properties": {
+              "season": {
+                "type": "integer",
+                "minimum": 1999,
+                "maximum": 2100
+              },
+              "fit_seasons": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1999,
+                  "maximum": 2100
+                }
+              },
+              "seed": {
+                "type": "object",
+                "required": [
+                  "log_loss",
+                  "brier",
+                  "hit_rate",
+                  "picks",
+                  "hit_rate_60",
+                  "picks_60"
+                ],
+                "properties": {
+                  "log_loss": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "hit_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "picks": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate_60": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "null only when picks_60 is 0 - a rate over no picks is not a number."
+                  },
+                  "picks_60": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "calibrated": {
+                "type": "object",
+                "required": [
+                  "log_loss",
+                  "brier",
+                  "hit_rate",
+                  "picks",
+                  "hit_rate_60",
+                  "picks_60"
+                ],
+                "properties": {
+                  "log_loss": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "hit_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "picks": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate_60": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "null only when picks_60 is 0 - a rate over no picks is not a number."
+                  },
+                  "picks_60": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "calibration": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR"
+          ],
+          "properties": {
+            "QB": {
+              "type": "object",
+              "required": [
+                "a",
+                "b",
+                "c",
+                "fit_seasons"
+              ],
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                },
+                "c": {
+                  "type": "number"
+                },
+                "fit_seasons": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1999,
+                    "maximum": 2100
+                  }
+                }
+              }
+            },
+            "RB": {
+              "type": "object",
+              "required": [
+                "a",
+                "b",
+                "c",
+                "fit_seasons"
+              ],
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                },
+                "c": {
+                  "type": "number"
+                },
+                "fit_seasons": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1999,
+                    "maximum": 2100
+                  }
+                }
+              }
+            },
+            "WR": {
+              "type": "object",
+              "required": [
+                "a",
+                "b",
+                "c",
+                "fit_seasons"
+              ],
+              "properties": {
+                "a": {
+                  "type": "number"
+                },
+                "b": {
+                  "type": "number"
+                },
+                "c": {
+                  "type": "number"
+                },
+                "fit_seasons": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1999,
+                    "maximum": 2100
+                  }
+                }
+              }
+            }
+          }
+        },
+        "verdict": {
+          "type": "object",
+          "required": [
+            "adopted",
+            "rule",
+            "reason"
+          ],
+          "properties": {
+            "adopted": {
+              "type": "boolean"
+            },
+            "rule": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "description": "adopted is a real boolean (never a string) - the card's ADOPTED / RETAINED chip keys on it. A record WITHOUT this block renders AWAITING, not a verdict."
+        }
+      }
+    },
+    "correlations": {
+      "type": "object",
+      "required": [
+        "pairs",
+        "default_rho",
+        "method"
+      ],
+      "properties": {
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "label",
+              "rho",
+              "n",
+              "prior"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]+\\|[a-z0-9_]+(\\|[a-z0-9_]+)?$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rho": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "prior": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "default_rho": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "policy": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

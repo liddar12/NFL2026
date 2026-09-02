@@ -69,9 +69,9 @@
       "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every record; the ledger scores shipped, candidate and gated",
       "band_multiplier": 2.25,
       "backtest_2025": {
-        "gated_mae": 56.138,
-        "candidate_mae": 54.082,
-        "band_coverage_after_calibration": 0.6875
+        "gated_mae": 57.188,
+        "candidate_mae": 55.595,
+        "band_coverage_after_calibration": 0.6766
       }
     },
     "recency_weights": [
@@ -118,15 +118,12 @@
     "note": "ledger has no locked (pre-kickoff) player-week yet \u2014 the first week locks on the first append after its kickoff",
     "updated_utc": "2026-09-02T10:44:38Z",
     "backtest_2025": {
-      "baseline_mae": 59.454,
-      "candidate_mae": 54.082,
-      "gated_mae": 56.138,
-      "shipped_mae": 54.082,
-      "band_coverage": 0.6875,
-      "players": 240,
-      "sleeper_mae": 22.048,
-      "sleeper_players": 239,
-      "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 330 history players matched by {'espn_id': 110, 'name_position': 188, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction.",
+      "baseline_mae": 61.013,
+      "candidate_mae": 55.595,
+      "gated_mae": 57.188,
+      "shipped_mae": 55.595,
+      "band_coverage": 0.6766,
+      "players": 235,
       "signals_evaluated": [
         "injury_history"
       ],
@@ -148,7 +145,10 @@
         "supporting_cast_delta",
         "target_competition",
         "weather"
-      ]
+      ],
+      "sleeper_mae": null,
+      "sleeper_note": "Sleeper 2025 projections not retrievable (SSLError: HTTPSConnectionPool(host='api.sleeper.app', port=443): Max retries exceeded with url: /projections/nfl/2025/7?season_type=regular&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=WR&position%5B%5D=TE&position%5B%5D=DEF&position%5B%5D=K (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2437)'))))",
+      "sleeper_players": null
     }
   }
 }

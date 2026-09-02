@@ -1167,10 +1167,16 @@ def main():
               file=sys.stderr)
     # === end PLAYOFF ODDS block ===================================================
 
-    # Weekly split (weekly_split_v1) — pure math lives in scripts.build_weekly;
+    # Weekly split (weekly_split_v2) — pure math lives in scripts.build_weekly;
     # this call just feeds it the artifacts already in hand. Player order mirrors
     # player_projections.json (same projected[:300] slice), elos are the SAME
     # priors the game model used, receptions ride the N2 feed (kona statId 53).
+    # R51: the v2 factor feeds (data/dvp_positional_history.json,
+    # data/environment_model.json, data/weather_forecast.json — all written
+    # earlier in this run or by their own crons) are loaded ONCE inside
+    # build_weekly_document from its DATA-path defaults; the projection rows carry
+    # `position`, which selects the QB-only Elo tilt and the weather rule. The
+    # split is measured walk-forward by scripts/backtest_weekly.py (never-regress).
     # Injury-aware since Rel4: build_weekly reads data/injuries.json (written
     # fresh above) and shapes the first weeks of injured players' splits.
     # first_week=wk is MANDATORY, not cosmetic (Rel17): an absence blocks weeks

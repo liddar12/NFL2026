@@ -39,6 +39,8 @@ const PATHS = Object.freeze({
   modelTuning: '/data/model_tuning.json',
   adp: '/data/adp.json',
   rookieStarters: '/data/rookie_starters.json',
+  weeklyBacktest: '/data/weekly_backtest.json',
+  parlayBacktest: '/data/parlay_backtest.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -52,7 +54,7 @@ const cache = new Map();
  * handles freshness; this cache just avoids redundant in-session fetches.
  * Pass { force: true } to bypass it.
  */
-async function loadJson(path, { force = false } = {}) {
+export async function loadJson(path, { force = false } = {}) {
   if (!force && cache.has(path)) return cache.get(path);
 
   const p = fetch(path, { credentials: 'same-origin' }).then((res) => {

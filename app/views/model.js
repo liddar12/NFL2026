@@ -10,14 +10,27 @@
  *   .m-playoffs  simulated playoff/division/conference/champion odds (OUR
  *                model only) with Kalshi/Polymarket SB futures alongside,
  *                labeled display-only — the scoreboard, never an input.
+ *   .m-weekly-gate  R51: the weekly-split candidate vs incumbent never-regress
+ *                record (data/weekly_backtest.json) — OMITTED when absent.
+ *   .m-parlay-gate  R51: moneyline yardstick, spread edge test, props
+ *                calibration, leg correlations (data/parlay_backtest.json) —
+ *                OMITTED when absent; AWAITING when present without a verdict.
  *
  * Every card degrades to a .state message when its feed is absent (older
  * deploy) — the view never blanks. Pure helpers exported for unit tests.
  */
 
 import {
-  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus,
+  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus, loadJson,
 } from '../data.js';
+
+// R51: the two never-regress records behind the WEEKLY SPLIT GATE and PARLAY
+// GATE cards (scripts/backtest_weekly.py, scripts/backtest_parlay.py). Optional
+// feeds: they resolve to NULL on a 404 or a parse error instead of rejecting —
+// a missing file renders NOTHING, never a placeholder. They live here, not in
+// app/data.js, so the boot graph does not pay for a lazy view's feeds.
+export const loadWeeklyBacktest = (opts) => loadJson('/data/weekly_backtest.json', opts).catch(() => null);
+export const loadParlayBacktest = (opts) => loadJson('/data/parlay_backtest.json', opts).catch(() => null);
 import { teamTint } from '../render.js';
 
 /** Signals pinned display-only by validate_data.py MARKET_DISPLAY_ONLY —
@@ -709,18 +722,328 @@ export function learningCard(meta) {
   );
 }
 
+/* ---- R51: weekly split gate + parlay gate -----------------------------------
+ * Both read a runner-built backtest record — data/weekly_backtest.json
+ * (scripts/backtest_weekly.py) and data/parlay_backtest.json
+ * (scripts/backtest_parlay.py) — through app/data.js loadWeeklyBacktest /
+ * loadParlayBacktest, which resolve to NULL on a 404 or a parse error. Owner
+ * policy, made mechanical here:
+ *   - a MISSING file renders NOTHING: the painter returns '' and the mount
+ *     omits the card (no placeholder shell);
+ *   - a PRESENT file with no verdict renders an AWAITING state — never a
+ *     borrowed ADOPTED / RETAINED, never the metrics as if they were judged;
+ *   - every market number is a yardstick and wears MEASUREMENT ONLY.
+ * Pure HTML builders — unit-tested with the sample docs under
+ * tests/fixtures/r51/. Only classes theme.css / theme-hig.css already style
+ * are used (.gate-*, .pf-tbl, .mp-src, .m-explain, .ms-badge).
+ */
+
+const isObj = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
+/** Signed fixed-point with a real minus sign ("−0.150"); '—' when absent. */
+const signed = (v, digits = 3) => {
+  if (v == null || !Number.isFinite(Number(v))) return '—';
+  const n = Number(v);
+  const s = Math.abs(n).toFixed(digits);
+  return n < 0 && Number(s) !== 0 ? `−${s}` : s;
+};
+
+/** ADOPTED / RETAINED chip for a {adopted: boolean} verdict; '' when there is none. */
+export function verdictChip(verdict) {
+  if (!isObj(verdict) || typeof verdict.adopted !== 'boolean') return '';
+  return verdict.adopted
+    ? '<span class="gate-chip gate-chip--adopted">ADOPTED</span>'
+    : '<span class="gate-chip">RETAINED</span>';
+}
+
+const AWAITING_CHIP = '<span class="gate-chip gate-chip--skipped" '
+  + 'title="The record is present but carries no verdict yet">AWAITING</span>';
+
+function awaitingRow(name, sub) {
+  return '<div class="gate-row">'
+    + `<span class="gate-name">${esc(name)}</span><span>${esc(sub || '')}</span><span></span>`
+    + AWAITING_CHIP
+    + '</div>';
+}
+
+/**
+ * v2 − v1 with the GOOD direction marked: ▲ moved the good way, ▼ regressed,
+ * = unchanged after rounding, — when either side is missing. `pct` renders
+ * the delta in percentage points ("+1.1 pp"). Pure — unit-tested directly.
+ */
+export function deltaText(v1, v2, { digits = 3, lowerIsBetter = false, pct = false } = {}) {
+  const a = Number(v1);
+  const b = Number(v2);
+  if (v1 == null || v2 == null || !Number.isFinite(a) || !Number.isFinite(b)) return '—';
+  const d = pct ? 1 : digits;
+  const r = Number((pct ? (b - a) * 100 : b - a).toFixed(d));
+  const mark = r === 0 ? '=' : ((r < 0) === lowerIsBetter ? '▲' : '▼');
+  const sign = r > 0 ? '+' : (r < 0 ? '−' : '');
+  return `${sign}${Math.abs(r).toFixed(d)}${pct ? ' pp' : ''} ${mark}`;
+}
+
+const seasonsText = (arr) => (Array.isArray(arr) && arr.length ? arr.map((s) => esc(s)).join('/') : '—');
+const runLine = (iso) => `Run ${esc(String(iso || '').slice(0, 10) || '—')}`;
+
+/** "WEEKLY SPLIT GATE" — the candidate weekly split vs the incumbent. */
+export function weeklyGateCard(doc) {
+  if (!isObj(doc)) return '';
+  const cand = typeof doc.model_candidate === 'string' && doc.model_candidate ? doc.model_candidate : 'candidate';
+  const inc = typeof doc.model_incumbent === 'string' && doc.model_incumbent ? doc.model_incumbent : 'incumbent';
+  const name = `${cand} vs ${inc}`;
+  const v = doc.verdict;
+  if (!isObj(v) || typeof v.adopted !== 'boolean') {
+    return awaitingRow(name, 'never-regress')
+      + state('AWAITING VERDICT — data/weekly_backtest.json is present but carries no '
+        + 'never-regress verdict yet, so nothing on it is adopted or retained and its '
+        + 'numbers are not shown as judged.');
+  }
+  const fx = isObj(doc.fixture) ? doc.fixture : {};
+  const pool = isObj(fx.pool)
+    ? Object.keys(fx.pool).map((k) => `${esc(k)} ${esc(fx.pool[k])}`).join(' · ')
+    : '';
+  const head = '<div class="gate-row">'
+    + `<span class="gate-name">${esc(name)}</span>`
+    + `<span>${seasonsText(fx.seasons_scored)}</span>`
+    + `<span>${Number.isFinite(Number(fx.rows)) ? `${esc(fx.rows)} rows` : '—'}</span>`
+    + verdictChip(v)
+    + '</div>';
+
+  // One row per (set, metric): v1, v2 and the delta with its good-direction mark.
+  const cell = (set, key) => (isObj(set) && isObj(set.v1) && isObj(set.v2) ? [set.v1[key], set.v2[key]] : [null, null]);
+  const mrow = (label, set, key, opts) => {
+    const [a, b] = cell(set, key);
+    const fmt = opts.pct ? pctOr : (x) => dash(x, opts.digits);
+    return `<tr><td>${label}</td><td>${fmt(a)}</td><td>${fmt(b)}</td><td>${deltaText(a, b, opts)}</td></tr>`;
+  };
+  const sets = [['POOLED', doc.pooled], ['2025 HELD OUT', doc.held_out_2025]];
+  const metricRows = sets.map(([lbl, set]) => (
+    mrow(`${lbl} MAE`, set, 'mae', { digits: 3, lowerIsBetter: true })
+    + mrow(`${lbl} RANK CORR`, set, 'rank_corr', { digits: 3 })
+    + mrow(`${lbl} TOP-K`, set, 'topk', { pct: true })
+  )).join('');
+  const metricTable = '<table class="pf-tbl"><thead><tr><th>METRIC</th><th>V1</th><th>V2</th>'
+    + '<th>Δ V2−V1</th></tr></thead>'
+    + `<tbody>${metricRows}</tbody></table>`;
+
+  const pp = isObj(doc.per_position) ? doc.per_position : {};
+  const arrow = (a, b, digits, lowerIsBetter) => {
+    const t = deltaText(a, b, { digits, lowerIsBetter });
+    return `${dash(a, digits)} → ${dash(b, digits)} ${t === '—' ? '' : t.slice(-1)}`;
+  };
+  const posRows = ['QB', 'RB', 'WR', 'TE'].filter((k) => isObj(pp[k])).map((k) => {
+    const [ma, mb] = cell(pp[k], 'mae');
+    const [ra, rb] = cell(pp[k], 'rank_corr');
+    return `<tr><td>${k}</td><td>${arrow(ma, mb, 3, true)}</td><td>${arrow(ra, rb, 3, false)}</td></tr>`;
+  }).join('');
+  const posTable = posRows
+    ? '<table class="pf-tbl"><thead><tr><th>POS</th><th>MAE V1 → V2</th><th>RANK CORR V1 → V2</th></tr></thead>'
+      + `<tbody>${posRows}</tbody></table>`
+    : '';
+
+  const band = isObj(doc.band) ? doc.band : null;
+  const bandLine = band
+    ? `<div class="gate-bench">BAND · 2025 coverage v1 ${pctOr(isObj(band.v1) ? band.v1.coverage_2025 : null)} → `
+      + `v2 ${pctOr(isObj(band.v2) ? band.v2.coverage_2025 : null)} · half-width v1 `
+      + `${dash(isObj(band.v1) ? band.v1.half_width_2025 : null, 2)} → v2 `
+      + `${dash(isObj(band.v2) ? band.v2.half_width_2025 : null, 2)}`
+      + (band.rule ? ` · ${esc(band.rule)}` : '')
+      + '</div>'
+    : '';
+  const bs = isObj(doc.bootstrap) && isObj(doc.bootstrap.delta_mae_2025) ? doc.bootstrap.delta_mae_2025 : null;
+  const bsLine = bs
+    ? `<div class="gate-bench">BOOTSTRAP ΔMAE 2025 (v2 − v1) · mean ${signed(bs.mean)} · `
+      + `95% [${signed(bs.lo95)}, ${signed(bs.hi95)}]`
+      + (bs.blocks ? ` · ${esc(bs.blocks)} blocks` : '')
+      + (Number.isFinite(Number(bs.B)) ? ` · B=${esc(bs.B)}` : '')
+      + '</div>'
+    : '';
+  const f = isObj(doc.factors) ? doc.factors : null;
+  let factorLine = '';
+  if (f) {
+    const dvp = isObj(f.dvp) ? f.dvp : {};
+    const w = isObj(f.weather) ? f.weather : {};
+    const ven = isObj(f.venue) ? f.venue : {};
+    const tilt = Array.isArray(f.elo_tilt_positions) && f.elo_tilt_positions.length
+      ? f.elo_tilt_positions.map((p) => esc(p)).join('/') : 'none';
+    const clamp = Array.isArray(ven.rel_clamp) && ven.rel_clamp.length === 2
+      ? ` (rel clamp ${signed(ven.rel_clamp[0], 1)}..${signed(ven.rel_clamp[1], 1)}` 
+        + (Number.isFinite(Number(ven.shrink_n0)) ? `, shrink n0 ${esc(ven.shrink_n0)}` : '') + ')'
+      : '';
+    factorLine = '<div class="gate-bench">FACTORS · '
+      + `DvP shrink ${dash(dvp.shrink, 2)}${dvp.source ? ` (${esc(dvp.source)})` : ''} · `
+      + `Elo tilt ${tilt} · `
+      + `weather × pass dome ${dash(w.pass_dome, 2)} / outdoors ${dash(w.pass_outdoors, 2)} / `
+      + `cold extra ${dash(w.pass_cold_extra, 2)} at ${dash(w.cold_f, 0)}°F / `
+      + `RB wind ${dash(w.rb_wind, 2)} at ${dash(w.wind_mph, 0)} mph · `
+      + `venue coef ${signed(ven.coef, 3)}${clamp}`
+      + '</div>';
+  }
+  return (
+    '<div class="m-explain">The candidate weekly split measured against the incumbent on real '
+      + 'FINAL player-weeks from the committed corpus, walk-forward. Lower MAE is better; higher '
+      + 'rank corr and top-K are better. ▲ marks a move in the good direction, ▼ a regression. '
+      + 'The candidate ships only by clearing the never-regress rule below.</div>'
+    + head
+    + metricTable
+    + posTable
+    + bandLine
+    + bsLine
+    + factorLine
+    + `<div class="mp-src">NEVER-REGRESS RULE · ${esc(v.rule || '—')}</div>`
+    + `<div class="gate-note">${esc(v.reason || '')}</div>`
+    + (doc.season_number_rule ? `<div class="gate-note">Season numbering: ${esc(doc.season_number_rule)}</div>` : '')
+    + `<div class="mp-src">${runLine(doc.generated_utc)}`
+      + (pool ? ` · pool ${pool}` : '')
+      + (doc.policy ? ` · ${esc(doc.policy)}` : '')
+      + '</div>'
+  );
+}
+
+/** "PARLAY GATE" — moneyline yardstick, spread edge test, props calibration, leg correlations. */
+export function parlayGateCard(doc) {
+  if (!isObj(doc)) return '';
+  const ml = isObj(doc.moneyline) ? doc.moneyline : null;
+  const sp = isObj(doc.spread) ? doc.spread : null;
+  const pr = isObj(doc.props) ? doc.props : null;
+  const co = isObj(doc.correlations) ? doc.correlations : null;
+  const spVerdict = sp && (sp.verdict === 'no_edge' || sp.verdict === 'edge') ? sp.verdict : null;
+  const prVerdict = pr && isObj(pr.verdict) && typeof pr.verdict.adopted === 'boolean' ? pr.verdict : null;
+  if (!spVerdict || !prVerdict) {
+    return awaitingRow('PARLAY LEGS', 'spread · props')
+      + state('AWAITING VERDICT — data/parlay_backtest.json is present but its spread '
+        + 'and/or props verdict is missing, so no leg on it is judged and its numbers '
+        + 'are not shown as if they were.');
+  }
+  const badge = '<span class="ms-badge" title="The market is a scoreboard we measure '
+    + 'against, never an input">MEASUREMENT ONLY</span>';
+
+  // MONEYLINE — ours beside the de-vigged closing line. No verdict by contract:
+  // the market row is a yardstick, so the fourth column is the badge, not a chip.
+  let mlHtml = '';
+  if (ml) {
+    const per = isObj(ml.per_season) ? Object.keys(ml.per_season).sort() : [];
+    const perTxt = per.map((s) => {
+      const r = isObj(ml.per_season[s]) ? ml.per_season[s] : {};
+      return `${esc(s)} ours ${dash(r.incumbent_log_loss, 4)} / market ${dash(r.market_log_loss, 4)}`;
+    }).join(' · ');
+    mlHtml = '<div class="gate-row">'
+      + '<span class="gate-name">MONEYLINE</span>'
+      + `<span>ours LL ${dash(ml.incumbent_log_loss, 4)} · Brier ${dash(ml.incumbent_brier, 4)}</span>`
+      + `<span>market LL ${dash(ml.market_log_loss, 4)} · Brier ${dash(ml.market_brier, 4)}</span>`
+      + badge
+      + '</div>'
+      + `<div class="gate-bench">n ${Number.isFinite(Number(ml.n)) ? esc(ml.n) : '—'}`
+        + (perTxt ? ` · ${perTxt}` : '') + '</div>'
+      + (ml.note ? `<div class="gate-note">${esc(ml.note)}</div>` : '');
+  }
+
+  // SPREAD — model cover log-loss vs a flat 0.5; the verdict is the gate's own.
+  const spChip = spVerdict === 'edge'
+    ? '<span class="gate-chip gate-chip--adopted">EDGE</span>'
+    : `<span class="gate-chip gate-chip--nopath" title="${esc(sp.reason || 'no measured edge over a flat 0.5')}">NO EDGE</span>`;
+  const bins = Array.isArray(sp.pick_hit_rate_by_conviction) ? sp.pick_hit_rate_by_conviction : [];
+  const binTxt = bins.filter(isObj).map((b) => (
+    `${esc(b.bin)} ${pctOr(b.hit)} (n ${Number.isFinite(Number(b.n)) ? esc(b.n) : '—'})`
+  )).join(' · ');
+  const spHtml = '<div class="gate-row">'
+    + '<span class="gate-name">SPREAD</span>'
+    + `<span>cover LL ${dash(sp.model_cover_log_loss, 4)} · Brier ${dash(sp.model_brier, 4)}</span>`
+    + `<span>flat LL ${dash(sp.flat_log_loss, 4)} · σ ${dash(sp.sigma, 1)}</span>`
+    + spChip
+    + '</div>'
+    + `<div class="gate-bench">HIT RATE BY CONVICTION (n ${Number.isFinite(Number(sp.n)) ? esc(sp.n) : '—'})`
+      + (binTxt ? ` · ${binTxt}` : '') + '</div>'
+    + (sp.reason ? `<div class="gate-note">${esc(sp.reason)}</div>` : '');
+
+  // PROPS — seed vs calibrated per walk-forward fold, then the fitted calibration.
+  const lines = isObj(pr.lines) ? pr.lines : {};
+  const sd = isObj(pr.residual_sd) ? pr.residual_sd : {};
+  const kv = (o, digits) => Object.keys(o).map((k) => `${esc(k)} ${dash(o[k], digits)}`).join(' · ');
+  const folds = Array.isArray(pr.folds) ? pr.folds.filter(isObj) : [];
+  const foldRows = folds.map((fd) => {
+    const s = isObj(fd.seed) ? fd.seed : {};
+    const c = isObj(fd.calibrated) ? fd.calibrated : {};
+    const picks = (m) => (Number.isFinite(Number(m.picks)) ? esc(m.picks) : '—');
+    const p60 = (m) => `${pctOr(m.hit_rate_60)} (${Number.isFinite(Number(m.picks_60)) ? esc(m.picks_60) : '—'})`;
+    return '<tr>'
+      + `<td>${esc(fd.season)} · fit ${seasonsText(fd.fit_seasons)}</td>`
+      + `<td>${dash(s.log_loss, 4)} → ${dash(c.log_loss, 4)} ${deltaText(s.log_loss, c.log_loss, { digits: 4, lowerIsBetter: true }).slice(-1)}</td>`
+      + `<td>${pctOr(s.hit_rate)} (${picks(s)}) → ${pctOr(c.hit_rate)} (${picks(c)})</td>`
+      + `<td>${p60(s)} → ${p60(c)}</td>`
+      + '</tr>';
+  }).join('');
+  const foldTable = foldRows
+    ? '<table class="pf-tbl"><thead><tr><th>FOLD</th><th>LOG-LOSS SEED → CAL</th>'
+      + '<th>HIT (PICKS)</th><th>&gt;0.6 HIT (PICKS)</th></tr></thead>'
+      + `<tbody>${foldRows}</tbody></table>`
+    : '';
+  const cal = isObj(pr.calibration) ? pr.calibration : {};
+  const calTxt = Object.keys(cal).filter((k) => isObj(cal[k])).map((k) => (
+    `${esc(k)} a ${signed(cal[k].a)} b ${signed(cal[k].b)} c ${signed(cal[k].c)}`
+    + (Array.isArray(cal[k].fit_seasons) ? ` (fit ${seasonsText(cal[k].fit_seasons)})` : '')
+  )).join(' · ');
+  const prHtml = '<div class="gate-row">'
+    + '<span class="gate-name">PROPS</span>'
+    + `<span>lines ${kv(lines, 1) || '—'}</span>`
+    + `<span>residual sd ${kv(sd, 1) || '—'}</span>`
+    + verdictChip(prVerdict)
+    + '</div>'
+    + foldTable
+    + `<div class="gate-bench">CALIBRATION · ${calTxt || '—'} · DvP shrink ${dash(pr.dvp_shrink, 2)}</div>`
+    + `<div class="mp-src">NEVER-REGRESS RULE · ${esc(prVerdict.rule || '—')}</div>`
+    + (prVerdict.reason ? `<div class="gate-note">${esc(prVerdict.reason)}</div>` : '');
+
+  // CORRELATIONS — measured rho per leg pair beside the prior it is shrunk toward.
+  let coHtml = '';
+  if (co) {
+    const pairs = Array.isArray(co.pairs) ? co.pairs.filter(isObj) : [];
+    const rows = pairs.map((p) => (
+      `<tr><td>${esc(p.label || p.key)}</td><td>${signed(p.rho, 2)}</td>`
+      + `<td>${Number.isFinite(Number(p.n)) ? esc(p.n) : '—'}</td><td>${signed(p.prior, 2)}</td></tr>`
+    )).join('');
+    coHtml = (rows
+      ? '<table class="pf-tbl"><thead><tr><th>LEG PAIR</th><th>ρ</th><th>N</th><th>PRIOR</th></tr></thead>'
+        + `<tbody>${rows}</tbody></table>`
+      : '')
+      + `<div class="mp-src">CORRELATIONS · default ρ ${signed(co.default_rho, 2)}`
+        + (co.method ? ` · ${esc(co.method)}` : '') + '</div>';
+  }
+  const fx = isObj(doc.fixture) ? doc.fixture : {};
+  return (
+    '<div class="m-explain">Every parlay leg type measured on real FINAL games and player-weeks '
+      + 'from the committed corpus. Log-loss and Brier: lower is better. The MONEYLINE market '
+      + 'column is a yardstick we are measured against, never an input. SPREAD earns a verdict '
+      + 'only against a flat 0.5; PROPS ship calibrated only by clearing never-regress on '
+      + 'every walk-forward fold.</div>'
+    + mlHtml
+    + spHtml
+    + prHtml
+    + coHtml
+    + `<div class="mp-src">${runLine(doc.generated_utc)} · seasons ${seasonsText(fx.seasons)}</div>`
+    + (doc.policy ? `<div class="gate-note">${esc(doc.policy)}</div>` : '')
+  );
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountModel(el) {
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
-  const [metaRes, tuningRes, oddsRes, mktRes, statusRes] = await Promise.allSettled([
+  const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes] = await Promise.allSettled([
     getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
+    // R51 — both resolve to null when absent (never reject); null paints nothing.
+    loadWeeklyBacktest(), loadParlayBacktest(),
   ]);
   const meta = metaRes.status === 'fulfilled' ? metaRes.value : null;
   const tuning = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
   const odds = oddsRes.status === 'fulfilled' ? oddsRes.value : null;
   const markets = mktRes.status === 'fulfilled' ? mktRes.value : null;
   const status = statusRes.status === 'fulfilled' ? statusRes.value : null;
+  const weeklyBacktest = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
+  const parlayBacktest = parlayRes.status === 'fulfilled' ? parlayRes.value : null;
+  // R51 — painted once; '' means the file is absent and the card is omitted.
+  const weeklyHtml = weeklyGateCard(weeklyBacktest);
+  const parlayHtml = parlayGateCard(parlayBacktest);
 
   /* Per-card stamp (R30b). The blanket ESTIMATE pill sat on every header —
    * including PROMOTION GATE and MARKET YARDSTICK, whose own bodies say
@@ -755,6 +1078,11 @@ export default async function mountModel(el) {
     card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate', 'measured') +
     card('MARKET YARDSTICK · OURS vs CLOSING LINE', marketTrendCard(tuning), 'm-mkt', 'measured') +
     card('CALIBRATION · PREDICTED vs ACTUAL', calibrationCard(tuning), 'm-cal', 'measured') +
+    // R51 — the two never-regress gate records close the MEASURED cluster
+    // (backtest → promotion gate → yardstick → calibration → these two) and
+    // sit before the status / forward-looking cards. Both omitted when absent.
+    (weeklyHtml ? card('WEEKLY SPLIT GATE · CANDIDATE vs INCUMBENT', weeklyHtml, 'm-weekly-gate', 'measured') : '') +
+    (parlayHtml ? card('PARLAY GATE · MONEYLINE · SPREAD · PROPS', parlayHtml, 'm-parlay-gate', 'measured') : '') +
     card('SEASON LOCKS', locksCard(tuning), 'm-locks') +
     card('PLAYOFF ODDS — OURS vs THE MARKETS', playoffsCard(odds, markets), 'm-playoffs', 'estimate') +
     card('SIGNAL REGISTRY', signalsCard(meta), 'm-signals') +

@@ -87,7 +87,7 @@ const STORAGE = resolve(TESTS_DIR, '../gate-unlocked.storage.json');
 // These two carry the weight — verified by re-introducing the defect edge in a
 // throwaway copy of app/: the boot graph goes 15 -> 19 modules and
 // 275,856 -> 582,101 bytes, tripping both.
-const BOOT_MODULE_CEILING = 16; // measured 15; one module of headroom.
+const BOOT_MODULE_CEILING = 15; // measured 14 (R51: parlays view lazy); one module of headroom.
 /* Re-measured 2026-08-15 after the R30/auction-memory releases: 325,257 bytes,
  * up from 275,856. The growth is legitimate boot-module content, not a leak —
  * the module-count and lazy-only guards above both still pass, and the bytes
@@ -123,6 +123,7 @@ const LAZY_ONLY_MODULES = [
   'app/sleeper-proj.js', // R49 — Sleeper's display-only estimate, lazy after first paint (players/grade)
   'app/waivers.js', //       R49 — waiver-wire engine (BEST FIT / BEST AVAILABLE), lineup view only
   'app/league-rosters.js', // R49 — league rosters + NFL week memory, reachable from team/lineup only
+  'app/views/parlays.js', // R51 — parlay cards, needed by #/parlays only (moved off the boot graph)
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must
@@ -167,6 +168,11 @@ const CONTRACT_ALLOWLIST = new Set([
   // idle phase after first paint on PLAYERS/GRADE, never on a mount's critical path.
   'sleeper_projections.json',
   'team_strength.json',
+  // R51 — the weekly-split and parlay never-regress backtest records (a few
+  // KB each, no per-row arrays), fetched by #/model only; a 404 resolves to
+  // null and the card is omitted, so the request is the whole cost.
+  'weekly_backtest.json',
+  'parlay_backtest.json',
 ]);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
@@ -190,7 +196,9 @@ const ROUTES = [
   // cold default load: 5 -> 6, measured 3x byte-identical. PLAYERS stays at 8
   // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
   { hash: '#/lineup', name: 'lineup', contracts: 6 },
-  { hash: '#/model', name: 'model', contracts: 6 },
+  // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
+  // (a 404 is still one request, so the count holds with the files absent).
+  { hash: '#/model', name: 'model', contracts: 8 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
   // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
   // LEAGUE tab reads the saved profile, the league id and the sync log from

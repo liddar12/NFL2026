@@ -48,7 +48,7 @@ vagueness here was the bug
     RoS (from_week > 1) needs per-player WEEKLY actuals, and no such artifact is
     committed (data/player_weekly.json holds 2026 PROJECTIONS, not actuals).
     Nothing here measures start/sit accuracy. Neither the tilt coefficient nor
-    the home/away coefficient of weekly_split_v1 is tested by this harness.
+    the weekly split's own coefficients are graded by scripts/backtest_weekly.py (R51).
   * THE AVAILABILITY REDUCTION (build_weekly mechanic (b)). Blocking weeks for
     an IR/PUP/NFI/suspended player needs the injury report AS IT STOOD in that
     historical week; data/injuries.json is a current snapshot only. Every
@@ -800,10 +800,9 @@ def build_document(result, weights, schedule_source, gate=None, candidate=None):
             "schedule_source": schedule_source,
             "path_identity": result["path_identity"],
             "approximations": [
-                "WEEKLY SHAPE IS NOT GRADED: only the from_week=1 RoS total is "
-                "scored. No per-player weekly actuals are committed, so start/sit "
-                "accuracy and the weekly_split_v1 tilt/home coefficients are "
-                "measured by nothing here.",
+                "WEEKLY SHAPE IS NOT GRADED HERE: only the from_week=1 RoS total is "
+                "scored. Start/sit accuracy and the weekly split's factors are graded "
+                "by scripts/backtest_weekly.py (R51) on data/fixtures/backtest_weekly/.",
                 "AVAILABILITY REDUCTION IS NOT GRADED: build_weekly mechanic (b) "
                 "needs the historical week's injury report, which is not "
                 "committed; every backtested player is projected fully available.",

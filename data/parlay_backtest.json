@@ -1,0 +1,394 @@
+{
+  "generated_utc": "2026-09-02T15:38:19Z",
+  "fixture": {
+    "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+    "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
+    "seasons": [
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "elo_params": {
+    "hfa": 45.0,
+    "k": 25.0,
+    "revert": 0.45
+  },
+  "moneyline": {
+    "n": 815,
+    "incumbent_log_loss": 0.6368,
+    "incumbent_brier": 0.223,
+    "market_log_loss": 0.6081,
+    "market_brier": 0.2103,
+    "per_season": {
+      "2023": {
+        "incumbent_log_loss": 0.6653,
+        "market_log_loss": 0.6273
+      },
+      "2024": {
+        "incumbent_log_loss": 0.6108,
+        "market_log_loss": 0.5875
+      },
+      "2025": {
+        "incumbent_log_loss": 0.6344,
+        "market_log_loss": 0.6094
+      }
+    },
+    "skipped": {
+      "tie": 1,
+      "no_moneyline": 0
+    },
+    "note": "market = de-vigged closing moneyline, MEASUREMENT ONLY, never an input"
+  },
+  "spread": {
+    "n": 797,
+    "sigma": 13.5,
+    "model_cover_log_loss": 0.7231,
+    "flat_log_loss": 0.6931,
+    "model_brier": 0.2636,
+    "pick_hit_rate_by_conviction": [
+      {
+        "bin": "0.00-0.05",
+        "n": 310,
+        "hit": 0.4774
+      },
+      {
+        "bin": "0.05-0.10",
+        "n": 239,
+        "hit": 0.4979
+      },
+      {
+        "bin": "0.10-0.15",
+        "n": 146,
+        "hit": 0.4452
+      },
+      {
+        "bin": "0.15-0.20",
+        "n": 59,
+        "hit": 0.4576
+      },
+      {
+        "bin": "0.20-0.25",
+        "n": 32,
+        "hit": 0.5625
+      },
+      {
+        "bin": "0.25-0.30",
+        "n": 6,
+        "hit": 0.5
+      },
+      {
+        "bin": "0.30-0.35",
+        "n": 1,
+        "hit": 1.0
+      },
+      {
+        "bin": "0.35-0.40",
+        "n": 3,
+        "hit": 0.3333
+      },
+      {
+        "bin": "0.40-0.45",
+        "n": 1,
+        "hit": 0.0
+      }
+    ],
+    "skipped": {
+      "push": 19,
+      "no_line": 0
+    },
+    "verdict": "no_edge",
+    "reason": "cover model log-loss 0.7231 >= flat 0.5 log-loss 0.6931 on 797 games (pushes excluded): PHI^-1(p_elo) x 13.5 evaluated at the book number carries no information the line does not; spread legs are priced flat until a margin model clears never-regress"
+  },
+  "props": {
+    "lines": {
+      "QB": 224.5,
+      "RB": 59.5,
+      "WR": 59.5
+    },
+    "residual_sd": {
+      "QB": 76.6615,
+      "RB": 38.8654,
+      "WR": 41.585
+    },
+    "dvp_shrink": 0.5,
+    "folds": [
+      {
+        "season": 2024,
+        "fit_seasons": [
+          2023
+        ],
+        "seed": {
+          "log_loss": 0.692,
+          "brier": 0.2494,
+          "hit_rate": 0.5666,
+          "picks": 503,
+          "hit_rate_60": 0.6106,
+          "picks_60": 113,
+          "n": 811
+        },
+        "calibrated": {
+          "log_loss": 0.6765,
+          "brier": 0.2418,
+          "hit_rate": 0.6215,
+          "picks": 391,
+          "hit_rate_60": 0.681,
+          "picks_60": 163,
+          "n": 811
+        },
+        "per_position": {
+          "QB": {
+            "n": 267,
+            "residual_sd": 74.8756,
+            "seed": {
+              "log_loss": 0.6936,
+              "brier": 0.2502,
+              "hit_rate": 0.548,
+              "picks": 177,
+              "hit_rate_60": 0.619,
+              "picks_60": 42,
+              "n": 267
+            },
+            "calibrated": {
+              "log_loss": 0.681,
+              "brier": 0.2438,
+              "hit_rate": 0.6012,
+              "picks": 168,
+              "hit_rate_60": 0.6731,
+              "picks_60": 104,
+              "n": 267
+            }
+          },
+          "RB": {
+            "n": 272,
+            "residual_sd": 37.5096,
+            "seed": {
+              "log_loss": 0.6814,
+              "brier": 0.2442,
+              "hit_rate": 0.5802,
+              "picks": 162,
+              "hit_rate_60": 0.5946,
+              "picks_60": 37,
+              "n": 272
+            },
+            "calibrated": {
+              "log_loss": 0.6566,
+              "brier": 0.2322,
+              "hit_rate": 0.6455,
+              "picks": 110,
+              "hit_rate_60": 0.85,
+              "picks_60": 20,
+              "n": 272
+            }
+          },
+          "WR": {
+            "n": 272,
+            "residual_sd": 44.8717,
+            "seed": {
+              "log_loss": 0.7009,
+              "brier": 0.2538,
+              "hit_rate": 0.5732,
+              "picks": 164,
+              "hit_rate_60": 0.6176,
+              "picks_60": 34,
+              "n": 272
+            },
+            "calibrated": {
+              "log_loss": 0.6921,
+              "brier": 0.2494,
+              "hit_rate": 0.6283,
+              "picks": 113,
+              "hit_rate_60": 0.6154,
+              "picks_60": 39,
+              "n": 272
+            }
+          }
+        }
+      },
+      {
+        "season": 2025,
+        "fit_seasons": [
+          2023,
+          2024
+        ],
+        "seed": {
+          "log_loss": 0.682,
+          "brier": 0.2445,
+          "hit_rate": 0.558,
+          "picks": 500,
+          "hit_rate_60": 0.6165,
+          "picks_60": 133,
+          "n": 809
+        },
+        "calibrated": {
+          "log_loss": 0.6705,
+          "brier": 0.2386,
+          "hit_rate": 0.5988,
+          "picks": 491,
+          "hit_rate_60": 0.6528,
+          "picks_60": 216,
+          "n": 809
+        },
+        "per_position": {
+          "QB": {
+            "n": 266,
+            "residual_sd": 75.6335,
+            "seed": {
+              "log_loss": 0.6879,
+              "brier": 0.2475,
+              "hit_rate": 0.5251,
+              "picks": 179,
+              "hit_rate_60": 0.6042,
+              "picks_60": 48,
+              "n": 266
+            },
+            "calibrated": {
+              "log_loss": 0.6796,
+              "brier": 0.2435,
+              "hit_rate": 0.5549,
+              "picks": 173,
+              "hit_rate_60": 0.5571,
+              "picks_60": 70,
+              "n": 266
+            }
+          },
+          "RB": {
+            "n": 271,
+            "residual_sd": 37.9881,
+            "seed": {
+              "log_loss": 0.6758,
+              "brier": 0.2415,
+              "hit_rate": 0.6013,
+              "picks": 153,
+              "hit_rate_60": 0.6667,
+              "picks_60": 39,
+              "n": 271
+            },
+            "calibrated": {
+              "log_loss": 0.6645,
+              "brier": 0.2353,
+              "hit_rate": 0.6513,
+              "picks": 152,
+              "hit_rate_60": 0.7,
+              "picks_60": 100,
+              "n": 271
+            }
+          },
+          "WR": {
+            "n": 272,
+            "residual_sd": 43.0503,
+            "seed": {
+              "log_loss": 0.6824,
+              "brier": 0.2446,
+              "hit_rate": 0.5536,
+              "picks": 168,
+              "hit_rate_60": 0.587,
+              "picks_60": 46,
+              "n": 272
+            },
+            "calibrated": {
+              "log_loss": 0.6676,
+              "brier": 0.2373,
+              "hit_rate": 0.5964,
+              "picks": 166,
+              "hit_rate_60": 0.6957,
+              "picks_60": 46,
+              "n": 272
+            }
+          }
+        }
+      }
+    ],
+    "calibration": {
+      "QB": {
+        "a": -0.127713,
+        "b": 1.146601,
+        "c": 0.936247,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "RB": {
+        "a": -0.236232,
+        "b": 1.125901,
+        "c": 1.002371,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "WR": {
+        "a": -0.218184,
+        "b": 0.947424,
+        "c": 0.561394,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      }
+    },
+    "calibration_note": "SHIPPED coefficients are fit on ALL fixture seasons [2023, 2024, 2025] \u2014 that fit is not a measurement; the walk-forward folds above are. residual_sd is likewise the all-seasons value.",
+    "skipped": {
+      "QB": {
+        "no_eligible_player": 17
+      },
+      "RB": {
+        "no_eligible_player": 1
+      },
+      "WR": {
+        "no_eligible_player": 0
+      }
+    },
+    "verdict": {
+      "adopted": true,
+      "rule": "never-regress: calibrated log-loss <= seed log-loss on every walk-forward fold",
+      "reason": "calibrated log-loss <= seed on every fold: 2024: 0.6765 vs 0.6920; 2025: 0.6705 vs 0.6820"
+    }
+  },
+  "correlations": {
+    "pairs": [
+      {
+        "key": "moneyline|spread",
+        "label": "favorite ML & favorite cover",
+        "rho": 0.7083,
+        "n": 796,
+        "prior": 0.55
+      },
+      {
+        "key": "qb_pass_yds|wr_rec_yds",
+        "label": "QB 225+ & same-team WR 60+",
+        "rho": 0.3146,
+        "n": 497,
+        "prior": 0.45
+      },
+      {
+        "key": "qb_pass_yds|rb_rush_yds",
+        "label": "QB 225+ & same-team RB 60+",
+        "rho": -0.0199,
+        "n": 404,
+        "prior": 0.2
+      },
+      {
+        "key": "qb_pass_yds|wr_rec_yds|opposing",
+        "label": "QB 225+ & opposing WR 60+",
+        "rho": 0.0994,
+        "n": 302,
+        "prior": 0.2
+      },
+      {
+        "key": "rb_rush_yds|moneyline",
+        "label": "RB 60+ & his team wins",
+        "rho": 0.2789,
+        "n": 814,
+        "prior": 0.25
+      }
+    ],
+    "default_rho": 0.1,
+    "method": "copula-lite rho = (P(AB) - P(A)P(B)) / sqrt(P(A)(1-P(A))P(B)(1-P(B))) on resolved [2023, 2024, 2025] games; favorite = the Elo favourite (the side the builder's legs take), ties and pushes excluded; prop events are the per-game pick's yards vs the line; 'opposing' = the picks sit on different teams. Priors are the pre-R51 hand-set values, kept for the record."
+  },
+  "policy": "Market / Vegas / Sleeper numbers are never projection inputs. The book's spread is the handicap a cover leg is evaluated at and the moneyline is a measurement yardstick for the incumbent; neither reaches a shipped number. Absent data is skipped and counted, never zero-filled. Learned changes ship only behind never-regress (calibrated <= seed on every walk-forward fold)."
+}

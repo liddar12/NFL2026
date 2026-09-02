@@ -365,11 +365,7 @@ export function renderPlayerCard(player, opts) {
         '</div>' +
         '<div class="p-proj">' +
           `<div class="p-num">${esc(fix1(proj))}</div>` +
-          `<div class="p-unit">${o.aiDelta != null ? 'AI PROJ PTS' : 'PROJ PTS'}</div>` +
-          (o.aiDelta != null && Number.isFinite(Number(o.aiDelta))
-            ? `<div class="p-aidelta p-aidelta--${Number(o.aiDelta) >= 0 ? 'up' : 'down'}">` +
-                `${Number(o.aiDelta) >= 0 ? '+' : ''}${esc(fix1(Number(o.aiDelta)))} AI</div>`
-            : '') +
+          '<div class="p-unit">PROJ PTS</div>' +
         '</div>' +
       '</div>' +
       adorn +

@@ -1,18 +1,37 @@
-"""Weekly per-player projection split (weekly_split_v1) -> data/player_weekly.json.
+"""Weekly per-player projection split (weekly_split_v2) -> data/player_weekly.json.
 
 Pure + deterministic + stdlib only: scripts.build_predictions feeds it the season
-projections, the full 2026 schedule, the Elo priors, and prior-season receptions.
-No network here, so the gate can drive the math offline with fixtures.
+projections, the full 2026 schedule, the Elo priors, and prior-season receptions;
+the three v2 factor feeds (DvP history, environment model, weather forecast) are
+read here ONCE per document build through small loaders with explicit paths, so
+the selftest and scripts/backtest_weekly.py can inject fixtures. No network here.
 
-The model — a transparent prior, NOT fitted:
+The model — a transparent prior, measured (data/weekly_backtest.json), NOT fitted:
   bye   -> pts 0.0 (a team is on bye in week W iff it plays no game that week
            in schedule_full; 2026 byes fall in weeks 5-14)
   base  = season_proj / games_scheduled (the team's non-bye week count, usually 17)
-  tilt  = 1 + TILT_COEF * (team_elo - opp_elo) / 400, clamped to [0.75, 1.25]
-  venue = 1 +/- HOME_COEF (home 1.02, away 0.98)
+  pts_raw = base x D x T x W x V, per non-bye week, where
+    D  opponent DvP (every position): F = the opponent's allowed PPR points per
+       game to the player's position — prior season at HALF weight blended with
+       the current season's weeks < wk — divided by the league average of the
+       same blend; D = clamp(1 + DVP_SHRINK x (F - 1), 0.75, 1.25). Opponent or
+       position absent from the feed -> F = 1.0, counted in meta.
+    T  Elo tilt, QB ONLY: 1 + TILT_COEF x (team_elo - opp_elo) / 400 clamped to
+       [TILT_MIN, TILT_MAX]. RB/WR/TE get T = 1 (measured: the tilt cost 0.14 MAE
+       for RB/WR/TE and helped QB rank order).
+    W  weather, from the HOME stadium's roof and the kickoff-hour forecast:
+       QB/WR/TE dome|closed x1.03, outdoors|open x0.97 (and x0.97 again when the
+       forecast is <= 0 C), retractable 1.0; RB x0.95 when outdoors and the
+       forecast wind is >= 24 km/h. No forecast row -> the roof-only factor,
+       never a guessed temperature, counted in meta.
+    V  venue-specific home field (replaces the flat +/-0.02): rel = clamp(
+       venue avg_home_margin / lam, -1.0, 2.5) with lam the games-weighted mean
+       margin over all venues; rel = 1.0 (today's flat behaviour) when lam <= 0.3
+       or the venue is missing / low_n. Home V = 1 + HOME_COEF x rel, away
+       V = 1 - HOME_COEF x rel, both from the HOME team's venue.
   then the weeks the player CAN PLAY are renormalized to sum exactly to his
-  availability-adjusted season target — the tilt REDISTRIBUTES points across
-  those weeks, it never inflates them.
+  availability-adjusted season target — the factors REDISTRIBUTE points across
+  those weeks, they never inflate them.
 
 TILT_COEF is recorded in the output meta on purpose: it is the parameter the P2
 optimizer refits in-season against resolved weekly snapshot locks (NEVER-REGRESS
@@ -97,16 +116,275 @@ assert set(INJURY_MULT_CANON) <= availability.WEEK_CLASS, (
     "via unavailability(), not merely reshape the curve via a multiplier."
 )
 TILT_COEF = 0.5     # Elo-tilt strength; the optimizer-refit parameter (see above)
-HOME_COEF = 0.02    # home 1.02 / away 0.98
+HOME_COEF = 0.02    # venue coefficient: home 1 + 0.02 x rel / away 1 - 0.02 x rel
 TILT_MIN = 0.75     # clamp so one lopsided matchup can't swallow the season
 TILT_MAX = 1.25
 ELO_INIT = 1500.0   # mirrors scripts.models.elo.INIT (league-average prior)
-MODEL_NAME = "weekly_split_v1"
+MODEL_NAME = "weekly_split_v2"
 MODEL_NOTES = (
-    "Season projection split evenly across scheduled weeks, tilted by Elo matchup "
-    "and home/away, then renormalized so non-bye weeks sum exactly to the season "
-    "projection. TILT_COEF is a transparent prior the optimizer refits in-season."
+    "Season projection split evenly across scheduled weeks, then multiplied per "
+    "week by opponent DvP (all positions, shrink 0.25, prior season at half weight "
+    "blended with the current season to date), Elo matchup tilt (QB only), "
+    "roof/forecast weather and venue-specific home field, and renormalized so the "
+    "playable non-bye weeks sum exactly to the season projection. Every factor is "
+    "a transparent prior measured walk-forward in data/weekly_backtest.json; a "
+    "missing feed row is neutral (1.0) and counted, never guessed."
 )
+
+# ---- weekly_split_v2 factor feeds + priors ---------------------------------------
+DVP_PATH = os.path.join(_ROOT, "data", "dvp_positional_history.json")
+ENV_PATH = os.path.join(_ROOT, "data", "environment_model.json")
+FORECAST_PATH = os.path.join(_ROOT, "data", "weather_forecast.json")
+
+POSITIONS = ("QB", "RB", "WR", "TE")
+ELO_TILT_POSITIONS = ("QB",)          # T = 1 for every other position
+PASS_POSITIONS = frozenset(("QB", "WR", "TE"))
+DVP_SHRINK = 0.25                     # D = 1 + 0.25 x (F - 1)
+DVP_PRIOR_WEIGHT = 0.5                # prior season at half weight in the blend
+DVP_MIN, DVP_MAX = 0.75, 1.25
+WEATHER = {                           # multipliers + thresholds, all documented priors
+    "pass_dome": 1.03, "pass_outdoors": 0.97, "pass_cold_extra": 0.97,
+    "rb_wind": 0.95, "cold_c": 0.0, "wind_kph": 24.0,
+}
+VENUE_REL_CLAMP = (-1.0, 2.5)
+VENUE_LAM_MIN = 0.3                   # lam at or below this -> flat +/-HOME_COEF
+ROOF_INDOOR = frozenset(("dome", "closed"))
+ROOF_OUTDOOR = frozenset(("outdoors", "outdoor", "open"))
+# The feed may spell a franchise by its old code; mirrors scripts/build_dvp_positional.py.
+TEAM_RENAMES = {"LA": "LAR", "OAK": "LV", "SD": "LAC", "STL": "LAR"}
+NEUTRAL_KEYS = ("dvp_neutral_weeks", "weather_no_forecast_weeks", "venue_flat_weeks")
+
+
+def _load_json(path):
+    """A feed document, or None when the file is absent/unreadable. The absence is
+    LOUD on stderr and shows up in the model meta as neutral weeks — a missing
+    feed makes every factor 1.0, it never makes one up."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:
+        print(f"[warn] build_weekly: feed {os.path.basename(path)} unavailable "
+              f"({exc}); its factor is neutral for every week", file=sys.stderr)
+        return None
+
+
+def load_dvp(path=DVP_PATH):
+    """data/dvp_positional_history.json (seasons[season][team][week] =
+    {"def": {pos: pts}, "g": games, "off": {...}}) or None."""
+    return _load_json(path)
+
+
+def load_environment(path=ENV_PATH):
+    """data/environment_model.json (stadiums[team].roof, venue_hfa[team]) or None."""
+    return _load_json(path)
+
+
+def load_forecast(path=FORECAST_PATH):
+    """data/weather_forecast.json (games["season|week|HOME|AWAY"] =
+    {temp_c, wind_kph, precip_mm}) or None."""
+    return _load_json(path)
+
+
+def norm_team(code, renames=None):
+    """Canonical nflverse team code (LA -> LAR, OAK -> LV, ...)."""
+    if code is None:
+        return None
+    c = str(code).upper()
+    return (renames or TEAM_RENAMES).get(c, c)
+
+
+def _clamp(x, lo, hi):
+    return min(hi, max(lo, x))
+
+
+def tilt_factor(team_elo, opp_elo):
+    """Elo matchup tilt, clamped to [TILT_MIN, TILT_MAX]."""
+    return _clamp(1.0 + TILT_COEF * (team_elo - opp_elo) / 400.0, TILT_MIN, TILT_MAX)
+
+
+def dvp_rates(dvp_doc, season, wk):
+    """{team: {pos: F}} for the games of week `wk` of `season`.
+
+    F = the team's allowed PPR points per game to `pos` — prior season (season-1)
+    at DVP_PRIOR_WEIGHT plus the current season's weeks < wk at full weight, a
+    games-weighted blend — divided by the league mean of that blend over every
+    team with data. A team/position with no data is simply absent (F = 1.0 and a
+    neutral count at the caller), never zero.
+    """
+    seasons = (dvp_doc or {}).get("seasons") or {}
+    renames = (dvp_doc or {}).get("renames") or TEAM_RENAMES
+    prior = seasons.get(str(season - 1)) or {}
+    cur = seasons.get(str(season)) or {}
+    acc = {}
+    for src, weight, is_cur in ((prior, DVP_PRIOR_WEIGHT, False), (cur, 1.0, True)):
+        for team, weeks in src.items():
+            t = norm_team(team, renames)
+            for w, rec in (weeks or {}).items():
+                try:
+                    if is_cur and int(w) >= int(wk):
+                        continue
+                    g = float(rec.get("g") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if g <= 0:
+                    continue
+                allowed = rec.get("def") or {}
+                for pos in POSITIONS:
+                    if pos not in allowed or allowed[pos] is None:
+                        continue
+                    cell = acc.setdefault(t, {}).setdefault(pos, [0.0, 0.0])
+                    cell[0] += weight * float(allowed[pos])
+                    cell[1] += weight * g
+    rates = {}
+    for pos in POSITIONS:
+        per_team = {t: c[pos][0] / c[pos][1] for t, c in acc.items()
+                    if pos in c and c[pos][1] > 0}
+        if not per_team:
+            continue
+        league = sum(per_team.values()) / len(per_team)
+        if league <= 0:
+            continue
+        for t, r in per_team.items():
+            rates.setdefault(t, {})[pos] = r / league
+    return rates
+
+
+def dvp_factor(F):
+    """D = clamp(1 + DVP_SHRINK x (F - 1), DVP_MIN, DVP_MAX)."""
+    return _clamp(1.0 + DVP_SHRINK * (float(F) - 1.0), DVP_MIN, DVP_MAX)
+
+
+def roof_class(roof):
+    """'indoor' | 'outdoor' | None (retractable / unknown: no claim)."""
+    r = str(roof or "").strip().lower()
+    if r in ROOF_INDOOR:
+        return "indoor"
+    if r in ROOF_OUTDOOR:
+        return "outdoor"
+    return None
+
+
+def weather_factor(position, roof, temp_c=None, wind_kph=None):
+    """(W, forecast_missing) for one player-week.
+
+    QB/WR/TE: indoor x pass_dome, outdoor x pass_outdoors (x pass_cold_extra when
+    the forecast temperature is <= cold_c), retractable/unknown 1.0.
+    RB: outdoor and forecast wind >= wind_kph -> x rb_wind, else 1.0.
+    A None temperature/wind on an outdoor game is "no forecast": the roof-only
+    factor applies and forecast_missing is True so the caller can count it.
+    """
+    rc = roof_class(roof)
+    pos = str(position or "").upper()
+    if pos in PASS_POSITIONS:
+        if rc == "indoor":
+            return WEATHER["pass_dome"], False
+        if rc == "outdoor":
+            f = WEATHER["pass_outdoors"]
+            if temp_c is None:
+                return f, True
+            if float(temp_c) <= WEATHER["cold_c"]:
+                f *= WEATHER["pass_cold_extra"]
+            return f, False
+        return 1.0, False
+    if pos == "RB":
+        if rc == "outdoor":
+            if wind_kph is None:
+                return 1.0, True
+            return (WEATHER["rb_wind"] if float(wind_kph) >= WEATHER["wind_kph"]
+                    else 1.0), False
+        return 1.0, False
+    return 1.0, False
+
+
+def venue_rel_table(venue_hfa):
+    """({team: rel}, lam) from an environment_model venue_hfa map.
+
+    lam = games-weighted mean of avg_home_margin over every venue with a margin.
+    rel = clamp(margin / lam, VENUE_REL_CLAMP) for a venue that is not low_n.
+    lam <= VENUE_LAM_MIN -> {} (every venue falls to the flat rel = 1.0).
+    """
+    rows = []
+    for team, v in (venue_hfa or {}).items():
+        if not isinstance(v, dict) or v.get("avg_home_margin") is None:
+            continue
+        g = float(v.get("games") or v.get("n") or 0)
+        rows.append((norm_team(team), float(v["avg_home_margin"]), g, bool(v.get("low_n"))))
+    total_g = sum(g for _, _, g, _ in rows)
+    lam = (sum(m * g for _, m, g, _ in rows) / total_g) if total_g > 0 else 0.0
+    if lam <= VENUE_LAM_MIN:
+        return {}, lam
+    lo, hi = VENUE_REL_CLAMP
+    return {t: _clamp(m / lam, lo, hi) for t, m, _, low_n in rows if not low_n}, lam
+
+
+def venue_factor(rel, home):
+    """V for the home (1 + c x rel) or away (1 - c x rel) player."""
+    return 1.0 + HOME_COEF * rel if home else 1.0 - HOME_COEF * rel
+
+
+def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
+                  roof_by_game=None):
+    """The per-document factor context player_weeks reads: feeds parsed ONCE.
+
+    roof_by_game ({"season|wk|HOME|AWAY": roof}) overrides the static stadium
+    roof for a specific game — the backtest passes the roof state nflverse
+    recorded for that game; production leaves it None and uses the stadium table.
+    """
+    stadiums = (env_doc or {}).get("stadiums") or {}
+    venue_rel, lam = venue_rel_table((env_doc or {}).get("venue_hfa"))
+    return {
+        "season": int(season),
+        "dvp_doc": dvp_doc,
+        "dvp_by_week": {},                     # wk -> dvp_rates(...), filled lazily
+        "roof": {norm_team(t): (v or {}).get("roof") for t, v in stadiums.items()},
+        "roof_by_game": dict(roof_by_game or {}),
+        "forecast": (forecast_doc or {}).get("games") or {},
+        "venue_rel": venue_rel,
+        "venue_lam": lam,
+        "counts": {k: 0 for k in NEUTRAL_KEYS},
+    }
+
+
+def week_multiplier(factors, wk, team, opp, home, position, elos):
+    """D x T x W x V for one non-bye player-week; the neutral counters live on
+    `factors["counts"]`. factors=None is the feed-free split: D = W = 1, flat
+    venue, and the Elo tilt for the tilt positions only."""
+    team_elo = elos.get(team, ELO_INIT)
+    opp_elo = elos.get(opp, ELO_INIT)
+    pos = str(position or "").upper()
+    T = tilt_factor(team_elo, opp_elo) if pos in ELO_TILT_POSITIONS else 1.0
+    if factors is None:
+        return T * venue_factor(1.0, home)
+    counts = factors["counts"]
+    home_team, away_team = (team, opp) if home else (opp, team)
+
+    rates = factors["dvp_by_week"].get(wk)
+    if rates is None:
+        rates = dvp_rates(factors["dvp_doc"], factors["season"], wk)
+        factors["dvp_by_week"][wk] = rates
+    F = (rates.get(norm_team(opp)) or {}).get(pos)
+    if F is None:
+        counts["dvp_neutral_weeks"] += 1
+        D = 1.0
+    else:
+        D = dvp_factor(F)
+
+    key = f"{factors['season']}|{wk}|{home_team}|{away_team}"
+    roof = factors["roof_by_game"].get(key, factors["roof"].get(home_team))
+    fc = factors["forecast"].get(key)
+    if fc is None:   # tolerate the reversed spelling of the same game
+        fc = factors["forecast"].get(f"{factors['season']}|{wk}|{away_team}|{home_team}")
+    fc = fc or {}
+    W, missing = weather_factor(pos, roof, fc.get("temp_c"), fc.get("wind_kph"))
+    if missing:
+        counts["weather_no_forecast_weeks"] += 1
+
+    rel = factors["venue_rel"].get(home_team)
+    if rel is None:
+        counts["venue_flat_weeks"] += 1
+        rel = 1.0
+    V = venue_factor(rel, home)
+    return D * T * W * V
 
 
 def load_injuries(path=INJURIES_PATH):
@@ -299,8 +577,14 @@ def scale_prior_lines(ratio, receptions=None, completions=None, components=None)
 
 def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
                  unavailable_weeks=0, first_week=1, round_dp=2,
-                 absence_in_total=False):
+                 absence_in_total=False, position=None, factors=None):
     """18 week rows {wk, opp, home, bye, pts} for one player.
+
+    position / factors (weekly_split_v2): the player's position selects the Elo
+    tilt (QB only) and the weather rule; `factors` is build_factors(...) — the
+    DvP, roof, forecast and venue tables parsed once per document. factors=None
+    is the feed-free split (D = W = 1, flat venue), which is what the offline
+    callers without feeds get and what an unknown position falls to.
 
     Pass round_dp=None to skip the final rounding (the injury test asserts the
     exact-preservation invariant to 1e-6 on the unrounded split).
@@ -330,7 +614,6 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
     is blocked.
     """
     sched = sched_by_team.get(team, {})
-    team_elo = elos.get(team, ELO_INIT)
     base = season_proj / len(sched) if sched else 0.0
 
     raw = []  # indices of non-bye weeks, in week order
@@ -341,11 +624,9 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
             rows.append({"wk": wk, "opp": None, "home": False, "bye": True, "pts": 0.0})
             continue
         opp, home = game
-        tilt = 1.0 + TILT_COEF * (team_elo - elos.get(opp, ELO_INIT)) / 400.0
-        tilt = min(TILT_MAX, max(TILT_MIN, tilt))
-        venue = 1.0 + HOME_COEF if home else 1.0 - HOME_COEF
+        mult = week_multiplier(factors, wk, team, opp, home, position, elos)
         rows.append({"wk": wk, "opp": opp, "home": home, "bye": False,
-                     "pts": base * tilt * venue})
+                     "pts": base * mult})
         raw.append(len(rows) - 1)
 
     # PARTITION — blocked weeks are the player's absence; available weeks are the
@@ -381,8 +662,14 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
 def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           season, updated_utc, injuries=None,
                           injuries_path=INJURIES_PATH, first_week=1,
-                          completions_by_id=None, components_by_id=None):
+                          completions_by_id=None, components_by_id=None,
+                          factors=None, dvp_path=DVP_PATH, env_path=ENV_PATH,
+                          forecast_path=FORECAST_PATH):
     """The full player_weekly.json document. Pure given its inputs.
+
+    factors: build_factors(...) for the v2 multipliers; None -> the three feeds
+    are loaded ONCE from dvp_path / env_path / forecast_path (tests and the
+    backtest pass fixture documents through build_factors instead).
 
     projections: player_projections.json's `players` list (order is preserved).
     schedule_games: schedule_full.json's `games` list (all 272 rows, all weeks).
@@ -399,6 +686,9 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     """
     if injuries is None:
         injuries = load_injuries(injuries_path)
+    if factors is None:
+        factors = build_factors(season, load_dvp(dvp_path), load_environment(env_path),
+                                load_forecast(forecast_path))
     mults = injury_multipliers(projections, injuries)
     unavail = unavailability(projections, injuries)
     sched_by_team = team_schedule(schedule_games)
@@ -415,7 +705,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         weeks = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
                              injury_mult=mults.get(pid, 1.0),
                              unavailable_weeks=n_block, first_week=first_week,
-                             absence_in_total=in_total)
+                             absence_in_total=in_total,
+                             position=p.get("position"), factors=factors)
         row = {
             "gsis_id": pid,
             "receptions_prior": round(float(receptions_by_id.get(pid, 0.0) or 0.0), 1),
@@ -481,7 +772,13 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         players.append(row)
 
     model = {"name": MODEL_NAME, "tilt_coef": TILT_COEF, "home_coef": HOME_COEF,
-             "estimate": True, "notes": MODEL_NOTES}
+             "estimate": True, "notes": MODEL_NOTES,
+             "dvp_shrink": DVP_SHRINK,
+             "elo_tilt_positions": list(ELO_TILT_POSITIONS),
+             "weather": dict(WEATHER),
+             "venue": {"coef": HOME_COEF, "rel_clamp": list(VENUE_REL_CLAMP)},
+             "neutral_counts": dict(factors["counts"]),
+             "backtest": "data/weekly_backtest.json"}
     if mults:
         # statuses_used = projected players whose split was actually shaped.
         model["injury_shape"] = {"applied": True, "statuses_used": len(mults)}
@@ -515,6 +812,29 @@ def _fixture():
              g(4, "SFX", "GBX"), g(5, "GBX", "SFX"), g(6, "SFX", "DAL")]
     elos = {"SFX": 1580.0, "DAL": 1470.0, "GBX": 1500.0}
     return team_schedule(sched), elos, sched
+
+
+def _fixture_feeds():
+    """Tiny v2 feeds keyed on the _fixture teams. DAL allows a lot to QBs and
+    little to RBs; SFX's venue is a fortress, GBX's a neutral one."""
+    def wk(qb, rb, wr, te, g=1):
+        return {"def": {"QB": qb, "RB": rb, "WR": wr, "TE": te}, "g": g,
+                "off": {"QB": 0.0, "RB": 0.0, "WR": 0.0, "TE": 0.0}}
+    dvp = {"renames": {"LA": "LAR"}, "seasons": {
+        "2025": {"DAL": {"1": wk(30.0, 10.0, 30.0, 10.0), "2": wk(30.0, 10.0, 30.0, 10.0)},
+                 "SFX": {"1": wk(10.0, 30.0, 30.0, 10.0), "2": wk(10.0, 30.0, 30.0, 10.0)},
+                 "GBX": {"1": wk(20.0, 20.0, 30.0, 10.0), "2": wk(20.0, 20.0, 30.0, 10.0)}},
+        "2026": {"DAL": {"1": wk(60.0, 10.0, 30.0, 10.0)},
+                 "SFX": {"1": wk(10.0, 30.0, 30.0, 10.0)},
+                 "GBX": {"1": wk(20.0, 20.0, 30.0, 10.0)}}}}
+    env = {"stadiums": {"SFX": {"roof": "open"}, "DAL": {"roof": "retractable"},
+                        "GBX": {"roof": "dome"}},
+           "venue_hfa": {"SFX": {"games": 40, "avg_home_margin": 6.0, "low_n": False},
+                         "DAL": {"games": 40, "avg_home_margin": 2.0, "low_n": False},
+                         "GBX": {"games": 4, "avg_home_margin": 4.0, "low_n": True}}}
+    forecast = {"games": {"2026|1|SFX|DAL": {"temp_c": -3.0, "wind_kph": 30.0, "precip_mm": 0.0},
+                          "2026|4|SFX|GBX": {"temp_c": 12.0, "wind_kph": 10.0, "precip_mm": 0.0}}}
+    return dvp, env, forecast
 
 
 def selftest():
@@ -623,11 +943,14 @@ def selftest():
     # --- document: emitted only when non-empty ------------------------------------
     proj = [{"gsis_id": "p1", "name": "Hurt Guy", "team": "SFX", "proj_points": 200.0},
             {"gsis_id": "p2", "name": "Fine Guy", "team": "DAL", "proj_points": 150.0}]
-    kw = dict(receptions_by_id={}, season=2026, updated_utc="2026-07-17T00:00:00Z")
+    dvp_fx, env_fx, fc_fx = _fixture_feeds()
+    kw = dict(receptions_by_id={}, season=2026, updated_utc="2026-07-17T00:00:00Z",
+              factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
     clean = build_weekly_document(proj, sched, elos, injuries=[], **kw)
     assert "availability" not in clean["model"]
     assert all("availability" not in p for p in clean["players"])
 
+    kw["factors"] = build_factors(2026, dvp_fx, env_fx, fc_fx)
     ir_doc = build_weekly_document(
         proj, sched, elos,
         injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Injured Reserve",
@@ -645,6 +968,7 @@ def selftest():
     assert "injury_shape" not in ir_doc["model"], "IR is not a multiplier status"
     assert ir_doc["players"][1] == clean["players"][1], "healthy player untouched"
 
+    kw["factors"] = build_factors(2026, dvp_fx, env_fx, fc_fx)
     wk_doc = build_weekly_document(
         proj, sched, elos,
         injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Questionable",
@@ -654,6 +978,7 @@ def selftest():
     assert "availability" not in wk_doc["model"], "week shaping blocks nothing"
     assert wk_doc["model"]["injury_shape"] == {"applied": True, "statuses_used": 1}
 
+    kw["factors"] = build_factors(2026, dvp_fx, env_fx, fc_fx)
     susp = build_weekly_document(
         proj, sched, elos,
         injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Suspension",
@@ -663,6 +988,7 @@ def selftest():
     assert "availability" not in susp["model"], "unknown length must claim nothing"
     assert all("avail" not in w for w in susp["players"][0]["weeks"])
 
+    kw["factors"] = build_factors(2026, dvp_fx, env_fx, fc_fx)
     gone_doc = build_weekly_document(
         proj, sched, elos,
         injuries=[{"team": "SFX", "player": "Hurt Guy", "status": "Out",
@@ -675,8 +1001,145 @@ def selftest():
     assert sum(w["pts"] for w in gone_doc["players"][0]["weeks"]) == 0.0
     assert gone_doc["model"]["availability"]["season_ending"] == 1
 
+    # =============================================================================
+    # weekly_split_v2 — every factor, its neutral rule, and the invariants.
+    # =============================================================================
+    # --- model meta ---------------------------------------------------------------
+    m = clean["model"]
+    assert m["name"] == "weekly_split_v2" and m["tilt_coef"] == TILT_COEF
+    assert m["home_coef"] == HOME_COEF and m["estimate"] is True
+    assert m["dvp_shrink"] == 0.25 and m["elo_tilt_positions"] == ["QB"]
+    assert m["weather"]["pass_dome"] == 1.03 and m["weather"]["rb_wind"] == 0.95
+    assert m["venue"] == {"coef": 0.02, "rel_clamp": [-1.0, 2.5]}
+    assert m["backtest"] == "data/weekly_backtest.json"
+    assert set(m["neutral_counts"]) == set(NEUTRAL_KEYS)
+
+    # --- T: QB only -------------------------------------------------------------
+    fx = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    flat_elo = {"SFX": 1500.0, "DAL": 1500.0, "GBX": 1500.0}
+    for pos in ("RB", "WR", "TE"):
+        a = player_weeks(200.0, "SFX", sched_by_team, elos, round_dp=None,
+                         position=pos, factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+        b = player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None,
+                         position=pos, factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+        assert all(abs(x["pts"] - y["pts"]) < 1e-9 for x, y in zip(a, b)), \
+            f"{pos} must be untouched by Elo"
+    qa = player_weeks(200.0, "SFX", sched_by_team, elos, round_dp=None,
+                      position="QB", factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+    qb = player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None,
+                      position="QB", factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+    assert any(abs(x["pts"] - y["pts"]) > 1e-6 for x, y in zip(qa, qb)), "a QB week moves"
+    assert abs(tilt_factor(1580.0, 1470.0) - (1 + 0.5 * 110 / 400)) < 1e-12
+    assert tilt_factor(1900.0, 1400.0) == TILT_MAX and tilt_factor(1400.0, 1900.0) == TILT_MIN
+
+    # --- D: half-weight prior blend, shrink 0.25, clamp, neutral -----------------
+    r1 = dvp_rates(dvp_fx, 2026, 1)          # nothing of 2026 yet: prior only
+    # prior QB allowed per game: DAL 30, SFX 10, GBX 20 -> league 20
+    assert abs(r1["DAL"]["QB"] - 1.5) < 1e-9 and abs(r1["SFX"]["QB"] - 0.5) < 1e-9
+    r2 = dvp_rates(dvp_fx, 2026, 2)          # week 1 of 2026 now counts at full weight
+    # DAL QB: (0.5*60 + 60) / (0.5*2 + 1) = 45; SFX 10; GBX 20 -> league 25
+    assert abs(r2["DAL"]["QB"] - 45.0 / 25.0) < 1e-9, r2["DAL"]
+    assert abs(dvp_factor(1.5) - 1.125) < 1e-12 and abs(dvp_factor(0.5) - 0.875) < 1e-12
+    assert dvp_factor(3.0) == DVP_MAX and dvp_factor(-2.0) == DVP_MIN
+    assert dvp_rates(dvp_fx, 2026, 1).get("NOPE") is None
+    assert dvp_rates({"seasons": {}}, 2026, 1) == {}
+    assert dvp_rates({"seasons": {"2025": {"LA": {"1": {"def": {"QB": 5.0}, "g": 1}}}},
+                      "renames": {"LA": "LAR"}}, 2026, 3) == {"LAR": {"QB": 1.0}}, \
+        "the feed's LA must read as LAR"
+    # the neutral counter: an opponent outside the feed is 1.0 and counted
+    fx_n = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    sched_n = team_schedule(sched + [{"week": 7, "home": "SFX", "away": "ZZZ"}])
+    player_weeks(200.0, "SFX", sched_n, elos, round_dp=None, position="WR", factors=fx_n)
+    assert fx_n["counts"]["dvp_neutral_weeks"] == 1, fx_n["counts"]
+    assert fx_n["counts"]["venue_flat_weeks"] == 1, "the @GBX week (low_n venue) only"
+
+    # --- W: every multiplier + the neutral rules ----------------------------------
+    assert weather_factor("QB", "dome") == (1.03, False)
+    assert weather_factor("WR", "closed") == (1.03, False)
+    assert weather_factor("TE", "outdoors", 10.0, 5.0) == (0.97, False)
+    assert weather_factor("QB", "open", 0.0, 5.0) == (0.97 * 0.97, False), "<= 0 C is cold"
+    assert weather_factor("QB", "outdoors", 0.1, 5.0) == (0.97, False)
+    assert weather_factor("QB", "outdoors") == (0.97, True), "no forecast: roof only, counted"
+    assert weather_factor("QB", "retractable", -10.0, 40.0) == (1.0, False)
+    assert weather_factor("QB", None, -10.0, 40.0) == (1.0, False)
+    assert weather_factor("RB", "outdoors", -10.0, 24.0) == (0.95, False)
+    assert weather_factor("RB", "outdoors", -10.0, 23.9) == (1.0, False)
+    assert weather_factor("RB", "outdoors") == (1.0, True)
+    assert weather_factor("RB", "dome", 0.0, 50.0) == (1.0, False)
+    assert weather_factor("K", "outdoors", -10.0, 40.0) == (1.0, False)
+    # through the split: SFX home wk1 (open roof, forecast -3 C, 30 kph)
+    fx_w = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                 factors=fx_w)
+    # SFX weeks: 1 home(open, forecast) 3 @DAL(retractable) 4 home(open, forecast)
+    # 5 @GBX(dome) 6 home(open, NO forecast) -> exactly one no-forecast week
+    assert fx_w["counts"]["weather_no_forecast_weeks"] == 1, fx_w["counts"]
+    # the same week for an RB counts the missing forecast too (wind rule needs it)
+    fx_r = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="RB",
+                 factors=fx_r)
+    assert fx_r["counts"]["weather_no_forecast_weeks"] == 1
+    # the reversed key spelling of the same game is tolerated
+    fx_rev = build_factors(2026, dvp_fx, env_fx,
+                           {"games": {"2026|1|DAL|SFX": {"temp_c": -3.0, "wind_kph": 30.0}}})
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                 factors=fx_rev)
+    assert fx_rev["counts"]["weather_no_forecast_weeks"] == 2   # wk 4 and wk 6 now
+
+    # --- V: venue rel, clamp, flat fallbacks ------------------------------------
+    rel, lam = venue_rel_table(env_fx["venue_hfa"])
+    # lam = (40*6 + 40*2 + 4*4) / 84 = 4.0
+    assert abs(lam - 4.0) < 1e-9, lam
+    assert abs(rel["SFX"] - 1.5) < 1e-9 and abs(rel["DAL"] - 0.5) < 1e-9
+    assert "GBX" not in rel, "low_n venue falls to the flat rel = 1.0 at the caller"
+    rel2, _ = venue_rel_table({"A": {"games": 10, "avg_home_margin": 40.0},
+                               "B": {"games": 10, "avg_home_margin": -30.0}})
+    assert rel2["A"] == 2.5 and rel2["B"] == -1.0, "rel clamp [-1.0, 2.5]"
+    rel3, lam3 = venue_rel_table({"A": {"games": 10, "avg_home_margin": 0.3},
+                                  "B": {"games": 10, "avg_home_margin": 0.3}})
+    assert rel3 == {} and lam3 <= VENUE_LAM_MIN, "lam <= 0.3 -> flat everywhere"
+    assert venue_rel_table(None) == ({}, 0.0)
+    assert abs(venue_factor(1.5, True) - 1.03) < 1e-12
+    assert abs(venue_factor(1.5, False) - 0.97) < 1e-12
+    assert venue_factor(1.0, True) == 1.0 + HOME_COEF, "rel 1.0 IS the old flat edge"
+    fx_v = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                 factors=fx_v)
+    assert fx_v["counts"]["venue_flat_weeks"] == 1, "the @GBX week (low_n venue)"
+    # factors=None is the feed-free split: flat venue, no DvP, no weather
+    ff = player_weeks(170.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR")
+    non_bye_ff = [w["pts"] for w in ff if not w["bye"]]
+    assert abs(sum(non_bye_ff) - 170.0) < 1e-9
+    assert abs(non_bye_ff[0] / non_bye_ff[1] - 1.02 / 0.98) < 1e-9, "home/away 1.02/0.98"
+
+    # --- the renormalization invariant survives v2 ------------------------------
+    for pos in POSITIONS:
+        for target in (200.0, 33.3, 0.0):
+            v2 = player_weeks(target, "SFX", sched_by_team, elos, round_dp=None,
+                              position=pos, factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+            assert abs(sum(w["pts"] for w in v2 if not w["bye"]) - target) < 1e-6
+            assert all(w["pts"] == 0.0 for w in v2 if w["bye"])
+            assert [set(w) for w in v2] == [{"wk", "opp", "home", "bye", "pts"}] * WEEKS
+    v2b = player_weeks(200.0, "SFX", sched_by_team, elos, round_dp=None, position="QB",
+                       unavailable_weeks=2, injury_mult=0.55,
+                       factors=build_factors(2026, dvp_fx, env_fx, fc_fx))
+    assert abs(sum(w["pts"] for w in v2b if not w["bye"]) - 200.0 * 3 / 5) < 1e-9
+    assert [w["wk"] for w in v2b if w.get("avail") is False] == [1, 3]
+    # loaders: a missing file is neutral, loudly, never an exception
+    assert load_dvp("/nonexistent/dvp.json") is None
+    assert load_environment("/nonexistent/env.json") is None
+    assert load_forecast("/nonexistent/fc.json") is None
+    empty = build_factors(2026, None, None, None)
+    e = player_weeks(100.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                     factors=empty)
+    assert empty["counts"] == {"dvp_neutral_weeks": 5, "weather_no_forecast_weeks": 0,
+                               "venue_flat_weeks": 5}, empty["counts"]
+    assert abs(sum(w["pts"] for w in e if not w["bye"]) - 100.0) < 1e-9
+
     print("selftest OK: week-shaping preserves the season total, unavailability "
-          "reduces it pro-rata, the two never mix, and a healthy build is unchanged")
+          "reduces it pro-rata, the two never mix, a healthy build is unchanged, "
+          "and every weekly_split_v2 factor (DvP, QB-only tilt, weather, venue) "
+          "is neutral-by-default and renormalization-safe")
 
 
 if __name__ == "__main__":

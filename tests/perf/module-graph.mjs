@@ -23,8 +23,8 @@ import { BASE, VIEWPORTS, stats } from './lib.mjs';
 const REPS = Number(process.argv.includes('--reps') ? process.argv[process.argv.indexOf('--reps') + 1] : 7);
 
 const GRAPHS = {
-  'slate-only (render+data+slate+parlays)': ['/app/views/slate.js', '/app/views/parlays.js', '/app/render.js', '/app/data.js'],
-  'as-shipped (main.js static graph)': ['/app/views/slate.js', '/app/views/parlays.js', '/app/views/players.js', '/app/render.js', '/app/data.js', '/app/gate.js'],
+  'slate-only (render+data+slate)': ['/app/views/slate.js', '/app/render.js', '/app/data.js'],
+  'as-shipped (main.js static graph)': ['/app/views/slate.js', '/app/views/players.js', '/app/render.js', '/app/data.js', '/app/gate.js'],
   'team subgraph alone': ['/app/views/team.js'],
   'lineup view': ['/app/views/lineup.js'],
   'model view': ['/app/views/model.js'],

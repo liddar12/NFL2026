@@ -113,6 +113,22 @@ test('non-bye weekly points sum to the AVAILABILITY-ADJUSTED season projection',
       assert.equal(sum, 0, `${p.gsis_id}: out for season must carry 0 points`);
       return;
     }
+    // R49 games-normalized baseline: when the projection row states that its
+    // season number ALREADY excludes the blocked games (prior_ppg x projected
+    // games with absence_weeks > 0), the playable weeks renormalize to the FULL
+    // number — subtracting the absence again would double-count it.
+    const row = proj.players[i];
+    const inTotal = row.baseline_rule === 'prior_ppg_x_projected_games'
+      && Number(row.absence_weeks) > 0;
+    if (inTotal) {
+      assert.ok(blocked > 0, `${p.gsis_id}: absence stated in the total but no week blocked`);
+      assert.ok(
+        Math.abs(sum - season) <= 0.1,
+        `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != season ${season} whose total ` +
+        `already excludes ${row.absence_weeks} absent games (${nonBye - blocked}/${nonBye} playable)`,
+      );
+      return;
+    }
     const avail = nonBye - blocked;
     assert.ok(
       Math.abs(sum - season * (avail / nonBye)) <= 0.1,

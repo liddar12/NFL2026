@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "week": 1,
-  "updated_utc": "2026-09-02T10:42:38Z",
+  "updated_utc": "2026-09-02T16:11:36Z",
   "parlays": [
     {
       "parlay_id": "401872656-g1",
@@ -17,38 +17,17 @@
           "market": "spread",
           "selection": "SEA -3.5",
           "implied_prob": 0.5,
-          "model_prob": 0.508
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.4406,
+      "model_ev": 0.5501,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872656"
     },
     {
       "parlay_id": "401872656-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "qb_pass_yds",
-          "selection": "D. Maye 225+ pass yds",
-          "implied_prob": 0.4765,
-          "model_prob": 0.456
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "J. Smith-Njigba 60+ rec yds",
-          "implied_prob": 0.5685,
-          "model_prob": 0.544
-        }
-      ],
-      "model_ev": -0.4963,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872656"
-    },
-    {
-      "parlay_id": "401872656-g3",
       "scope": "game",
       "legs": [
         {
@@ -60,11 +39,46 @@
         {
           "market": "rb_rush_yds",
           "selection": "T. Henderson 60+ rush yds",
-          "implied_prob": 0.4765,
-          "model_prob": 0.456
+          "implied_prob": 0.3,
+          "model_prob": 0.2871,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 40.07,
+          "sd": 38.87,
+          "z": -0.4999,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.2597,
+      "model_ev": -0.3857,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872656"
+    },
+    {
+      "parlay_id": "401872656-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "SEA -3.5",
+          "implied_prob": 0.5,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "J. Smith-Njigba 60+ rec yds",
+          "implied_prob": 0.6522,
+          "model_prob": 0.6241,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 88.63,
+          "sd": 41.59,
+          "z": 0.7004,
+          "line": 59.5
+        }
+      ],
+      "model_ev": 0.0312,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872656"
@@ -83,38 +97,17 @@
           "market": "spread",
           "selection": "LAR -3.5",
           "implied_prob": 0.5043,
-          "model_prob": 0.4901
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.325,
-      "confidence_tier": "medium",
+      "model_ev": 0.4644,
+      "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872657"
     },
     {
       "parlay_id": "401872657-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "qb_pass_yds",
-          "selection": "B. Purdy 225+ pass yds",
-          "implied_prob": 0.4837,
-          "model_prob": 0.4629
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "P. Nacua 60+ rec yds",
-          "implied_prob": 0.5613,
-          "model_prob": 0.5371
-        }
-      ],
-      "model_ev": -0.4963,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872657"
-    },
-    {
-      "parlay_id": "401872657-g3",
       "scope": "game",
       "legs": [
         {
@@ -126,11 +119,46 @@
         {
           "market": "rb_rush_yds",
           "selection": "K. Williams 60+ rush yds",
-          "implied_prob": 0.5613,
-          "model_prob": 0.5371
+          "implied_prob": 0.5324,
+          "model_prob": 0.5095,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 65.76,
+          "sd": 38.87,
+          "z": 0.1611,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.0618,
+      "model_ev": 0.0926,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
+    },
+    {
+      "parlay_id": "401872657-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "LAR -3.5",
+          "implied_prob": 0.5043,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "K. Williams 60+ rush yds",
+          "implied_prob": 0.5324,
+          "model_prob": 0.5095,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 65.76,
+          "sd": 38.87,
+          "z": 0.1611,
+          "line": 59.5
+        }
+      ],
+      "model_ev": 0.0419,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872657"
@@ -149,38 +177,17 @@
           "market": "spread",
           "selection": "CIN -3.5",
           "implied_prob": 0.5108,
-          "model_prob": 0.4552
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.1993,
-      "confidence_tier": "medium",
+      "model_ev": 0.3986,
+      "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872925"
     },
     {
       "parlay_id": "401872925-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "qb_pass_yds",
-          "selection": "B. Mayfield 225+ pass yds",
-          "implied_prob": 0.4982,
-          "model_prob": 0.4767
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "J. Chase 60+ rec yds",
-          "implied_prob": 0.5468,
-          "model_prob": 0.5233
-        }
-      ],
-      "model_ev": -0.4964,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872925"
-    },
-    {
-      "parlay_id": "401872925-g3",
       "scope": "game",
       "legs": [
         {
@@ -192,11 +199,46 @@
         {
           "market": "rb_rush_yds",
           "selection": "C. Brown 60+ rush yds",
-          "implied_prob": 0.5468,
-          "model_prob": 0.5233
+          "implied_prob": 0.4638,
+          "model_prob": 0.4438,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 57.84,
+          "sd": 38.87,
+          "z": -0.0427,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.017,
+      "model_ev": 0.0717,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872925"
+    },
+    {
+      "parlay_id": "401872925-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "CIN -3.5",
+          "implied_prob": 0.5108,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "C. Brown 60+ rush yds",
+          "implied_prob": 0.4638,
+          "model_prob": 0.4438,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 57.84,
+          "sd": 38.87,
+          "z": -0.0427,
+          "line": 59.5
+        }
+      ],
+      "model_ev": 0.0415,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872925"
@@ -215,11 +257,12 @@
           "market": "spread",
           "selection": "DET -7",
           "implied_prob": 0.5,
-          "model_prob": 0.4181
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.0912,
-      "confidence_tier": "low",
+      "model_ev": 0.3451,
+      "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872923"
     },
@@ -230,18 +273,30 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Goff 225+ pass yds",
-          "implied_prob": 0.5737,
-          "model_prob": 0.549
+          "implied_prob": 0.7337,
+          "model_prob": 0.7021,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 282.69,
+          "sd": 76.66,
+          "z": 0.759,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "A. St. Brown 60+ rec yds",
-          "implied_prob": 0.5737,
-          "model_prob": 0.549
+          "implied_prob": 0.6249,
+          "model_prob": 0.598,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 83.5,
+          "sd": 41.59,
+          "z": 0.577,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.2543,
-      "confidence_tier": "medium",
+      "model_ev": 0.0696,
+      "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872923"
     },
@@ -258,11 +313,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "J. Gibbs 60+ rush yds",
-          "implied_prob": 0.5737,
-          "model_prob": 0.549
+          "implied_prob": 0.595,
+          "model_prob": 0.5694,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 73.07,
+          "sd": 38.87,
+          "z": 0.3491,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.0241,
+      "model_ev": -0.0137,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872923"
@@ -281,10 +342,11 @@
           "market": "spread",
           "selection": "TEN -1.5",
           "implied_prob": 0.5108,
-          "model_prob": 0.5391
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.6212,
+      "model_ev": 0.6813,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872924"
@@ -296,17 +358,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "G. Smith 225+ pass yds",
-          "implied_prob": 0.4878,
-          "model_prob": 0.4668
+          "implied_prob": 0.4254,
+          "model_prob": 0.4071,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 213.09,
+          "sd": 76.66,
+          "z": -0.1488,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "G. Wilson 60+ rec yds",
-          "implied_prob": 0.4878,
-          "model_prob": 0.4668
+          "implied_prob": 0.4236,
+          "model_prob": 0.4054,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 54.3,
+          "sd": 41.59,
+          "z": -0.125,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3865,
+      "model_ev": 0.337,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872924"
@@ -324,11 +398,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "B. Hall 60+ rush yds",
-          "implied_prob": 0.4878,
-          "model_prob": 0.4668
+          "implied_prob": 0.4556,
+          "model_prob": 0.436,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 61.64,
+          "sd": 38.87,
+          "z": 0.0552,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.2045,
+      "model_ev": -0.2479,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872924"
@@ -347,10 +427,11 @@
           "market": "spread",
           "selection": "IND +3.5",
           "implied_prob": 0.5043,
-          "model_prob": 0.6317
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 1.3728,
+      "model_ev": 1.2432,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872659"
@@ -362,17 +443,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "L. Jackson 225+ pass yds",
-          "implied_prob": 0.5096,
-          "model_prob": 0.4877
+          "implied_prob": 0.4247,
+          "model_prob": 0.4064,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 209.63,
+          "sd": 76.66,
+          "z": -0.1939,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "Z. Flowers 60+ rec yds",
-          "implied_prob": 0.5096,
-          "model_prob": 0.4877
+          "implied_prob": 0.4524,
+          "model_prob": 0.4329,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 57.98,
+          "sd": 41.59,
+          "z": -0.0365,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3488,
+      "model_ev": 0.3141,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872659"
@@ -390,11 +483,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "J. Taylor 60+ rush yds",
-          "implied_prob": 0.5354,
-          "model_prob": 0.5123
+          "implied_prob": 0.62,
+          "model_prob": 0.5933,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 79.63,
+          "sd": 38.87,
+          "z": 0.5179,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.5974,
+      "model_ev": 0.5817,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872659"
@@ -413,11 +512,12 @@
           "market": "spread",
           "selection": "PIT -3",
           "implied_prob": 0.5217,
-          "model_prob": 0.5048
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.3664,
-      "confidence_tier": "medium",
+      "model_ev": 0.4798,
+      "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872658"
     },
@@ -428,17 +528,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "T. Tagovailoa 225+ pass yds",
-          "implied_prob": 0.4838,
-          "model_prob": 0.463
+          "implied_prob": 0.3275,
+          "model_prob": 0.3134,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 186.39,
+          "sd": 76.66,
+          "z": -0.4971,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "D. London 60+ rec yds",
-          "implied_prob": 0.4838,
-          "model_prob": 0.463
+          "implied_prob": 0.5095,
+          "model_prob": 0.4876,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 69.19,
+          "sd": 41.59,
+          "z": 0.233,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3939,
+      "model_ev": 0.353,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872658"
@@ -456,11 +568,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "B. Robinson 60+ rush yds",
-          "implied_prob": 0.4838,
-          "model_prob": 0.463
+          "implied_prob": 0.5951,
+          "model_prob": 0.5695,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 80.52,
+          "sd": 38.87,
+          "z": 0.5408,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.2769,
+      "model_ev": -0.2563,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872658"
@@ -479,38 +597,17 @@
           "market": "spread",
           "selection": "CHI -2.5",
           "implied_prob": 0.5174,
-          "model_prob": 0.4436
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.1921,
-      "confidence_tier": "medium",
+      "model_ev": 0.4188,
+      "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872661"
     },
     {
       "parlay_id": "401872661-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "qb_pass_yds",
-          "selection": "C. Williams 225+ pass yds",
-          "implied_prob": 0.5297,
-          "model_prob": 0.5069
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "T. McMillan 60+ rec yds",
-          "implied_prob": 0.5153,
-          "model_prob": 0.4931
-        }
-      ],
-      "model_ev": -0.4963,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872661"
-    },
-    {
-      "parlay_id": "401872661-g3",
       "scope": "game",
       "legs": [
         {
@@ -522,11 +619,46 @@
         {
           "market": "rb_rush_yds",
           "selection": "D. Swift 60+ rush yds",
-          "implied_prob": 0.5297,
-          "model_prob": 0.5069
+          "implied_prob": 0.4966,
+          "model_prob": 0.4752,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 63.63,
+          "sd": 38.87,
+          "z": 0.1061,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.0329,
+      "model_ev": 0.0704,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872661"
+    },
+    {
+      "parlay_id": "401872661-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "CHI -2.5",
+          "implied_prob": 0.5174,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "C. Williams 225+ pass yds",
+          "implied_prob": 0.3754,
+          "model_prob": 0.3592,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 193.27,
+          "sd": 76.66,
+          "z": -0.4074,
+          "line": 224.5
+        }
+      ],
+      "model_ev": 0.0482,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872661"
@@ -545,11 +677,12 @@
           "market": "spread",
           "selection": "JAX -7.5",
           "implied_prob": 0.5,
-          "model_prob": 0.5227
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.3148,
-      "confidence_tier": "high",
+      "model_ev": 0.3057,
+      "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872922"
     },
@@ -560,17 +693,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "T. Lawrence 225+ pass yds",
-          "implied_prob": 0.6186,
-          "model_prob": 0.592
+          "implied_prob": 0.4877,
+          "model_prob": 0.4667,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 209.73,
+          "sd": 76.66,
+          "z": -0.1927,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "J. Meyers 60+ rec yds",
-          "implied_prob": 0.6186,
-          "model_prob": 0.592
+          "implied_prob": 0.4518,
+          "model_prob": 0.4323,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 51.44,
+          "sd": 41.59,
+          "z": -0.1937,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.1999,
+      "model_ev": 0.2685,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872922"
@@ -588,11 +733,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "Q. Judkins 60+ rush yds",
-          "implied_prob": 0.4264,
-          "model_prob": 0.408
+          "implied_prob": 0.2974,
+          "model_prob": 0.2846,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 43.78,
+          "sd": 38.87,
+          "z": -0.4044,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.2552,
+      "model_ev": -0.3333,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872922"
@@ -611,10 +762,11 @@
           "market": "spread",
           "selection": "HOU +1.5",
           "implied_prob": 0.5108,
-          "model_prob": 0.6322
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 1.0413,
+      "model_ev": 0.9026,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872660"
@@ -624,19 +776,25 @@
       "scope": "game",
       "legs": [
         {
-          "market": "qb_pass_yds",
-          "selection": "J. Allen 225+ pass yds",
-          "implied_prob": 0.4851,
-          "model_prob": 0.4642
+          "market": "moneyline",
+          "selection": "HOU ML",
+          "implied_prob": 0.4826,
+          "model_prob": 0.5896
         },
         {
-          "market": "wr_rec_yds",
-          "selection": "N. Collins 60+ rec yds",
-          "implied_prob": 0.5599,
-          "model_prob": 0.5358
+          "market": "rb_rush_yds",
+          "selection": "J. Cook III 60+ rush yds",
+          "implied_prob": 0.6102,
+          "model_prob": 0.5839,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 82.45,
+          "sd": 38.87,
+          "z": 0.5904,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.4964,
+      "model_ev": -0.0606,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872660"
@@ -652,14 +810,20 @@
           "model_prob": 0.5896
         },
         {
-          "market": "rb_rush_yds",
-          "selection": "J. Cook III 60+ rush yds",
-          "implied_prob": 0.4851,
-          "model_prob": 0.4642
+          "market": "wr_rec_yds",
+          "selection": "N. Collins 60+ rec yds",
+          "implied_prob": 0.5157,
+          "model_prob": 0.4935,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 65.72,
+          "sd": 41.59,
+          "z": 0.1496,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.0929,
-      "confidence_tier": "low",
+      "model_ev": 0.2679,
+      "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872660"
     },
@@ -677,10 +841,11 @@
           "market": "spread",
           "selection": "MIA +3.5",
           "implied_prob": 0.5,
-          "model_prob": 0.636
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 1.6022,
+      "model_ev": 1.4472,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872928"
@@ -692,17 +857,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "K. Cousins 225+ pass yds",
-          "implied_prob": 0.5078,
-          "model_prob": 0.4859
+          "implied_prob": 0.2412,
+          "model_prob": 0.2308,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 154.75,
+          "sd": 76.66,
+          "z": -0.9099,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "T. Tucker 60+ rec yds",
-          "implied_prob": 0.5078,
-          "model_prob": 0.4859
+          "implied_prob": 0.3568,
+          "model_prob": 0.3414,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 41.1,
+          "sd": 41.59,
+          "z": -0.4424,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3515,
+      "model_ev": 0.6459,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872928"
@@ -720,11 +897,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "D. Achane 60+ rush yds",
-          "implied_prob": 0.5372,
-          "model_prob": 0.5141
+          "implied_prob": 0.6593,
+          "model_prob": 0.6309,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 84.94,
+          "sd": 38.87,
+          "z": 0.6545,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.7303,
+      "model_ev": 0.6911,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872928"
@@ -743,10 +926,11 @@
           "market": "spread",
           "selection": "MIN -1.5",
           "implied_prob": 0.4826,
-          "model_prob": 0.5444
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.8221,
+      "model_ev": 0.8757,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872927"
@@ -758,17 +942,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "K. Murray 225+ pass yds",
-          "implied_prob": 0.5593,
-          "model_prob": 0.5352
+          "implied_prob": 0.3004,
+          "model_prob": 0.2875,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 166.84,
+          "sd": 76.66,
+          "z": -0.7521,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "J. Jefferson 60+ rec yds",
-          "implied_prob": 0.5593,
-          "model_prob": 0.5352
+          "implied_prob": 0.5483,
+          "model_prob": 0.5247,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 71.25,
+          "sd": 41.59,
+          "z": 0.2826,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.2735,
+      "model_ev": 0.3476,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872927"
@@ -786,11 +982,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "J. Jacobs 60+ rush yds",
-          "implied_prob": 0.4857,
-          "model_prob": 0.4648
+          "implied_prob": 0.2624,
+          "model_prob": 0.2511,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 32.99,
+          "sd": 38.87,
+          "z": -0.6821,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.1565,
+      "model_ev": -0.3507,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872927"
@@ -809,10 +1011,11 @@
           "market": "spread",
           "selection": "PHI -4.5",
           "implied_prob": 0.5,
-          "model_prob": 0.5276
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 0.4789,
+      "model_ev": 0.5399,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872929"
@@ -824,17 +1027,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Hurts 225+ pass yds",
-          "implied_prob": 0.5879,
-          "model_prob": 0.5626
+          "implied_prob": 0.4982,
+          "model_prob": 0.4767,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 217.0,
+          "sd": 76.66,
+          "z": -0.0978,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "D. Smith 60+ rec yds",
-          "implied_prob": 0.5879,
-          "model_prob": 0.5626
+          "implied_prob": 0.5398,
+          "model_prob": 0.5166,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 68.14,
+          "sd": 41.59,
+          "z": 0.2078,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.2362,
+      "model_ev": 0.2077,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872929"
@@ -852,11 +1067,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "S. Barkley 60+ rush yds",
-          "implied_prob": 0.5879,
-          "model_prob": 0.5626
+          "implied_prob": 0.6171,
+          "model_prob": 0.5905,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 74.89,
+          "sd": 38.87,
+          "z": 0.3959,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.1297,
+      "model_ev": 0.138,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872929"
@@ -875,11 +1096,12 @@
           "market": "spread",
           "selection": "LAC -10.5",
           "implied_prob": 0.5,
-          "model_prob": 0.4056
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": -0.0009,
-      "confidence_tier": "low",
+      "model_ev": 0.2317,
+      "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872926"
     },
@@ -890,17 +1112,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Herbert 225+ pass yds",
-          "implied_prob": 0.6082,
-          "model_prob": 0.582
+          "implied_prob": 0.6368,
+          "model_prob": 0.6094,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 249.95,
+          "sd": 76.66,
+          "z": 0.332,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "L. McConkey 60+ rec yds",
-          "implied_prob": 0.6082,
-          "model_prob": 0.582
+          "implied_prob": 0.4989,
+          "model_prob": 0.4774,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 60.05,
+          "sd": 41.59,
+          "z": 0.0133,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.2117,
+      "model_ev": 0.157,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872926"
@@ -918,11 +1152,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "O. Hampton 60+ rush yds",
-          "implied_prob": 0.6082,
-          "model_prob": 0.582
+          "implied_prob": 0.4605,
+          "model_prob": 0.4407,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 52.33,
+          "sd": 38.87,
+          "z": -0.1845,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.0552,
+      "model_ev": -0.0001,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872926"
@@ -941,10 +1181,11 @@
           "market": "spread",
           "selection": "NYG +2.5",
           "implied_prob": 0.4892,
-          "model_prob": 0.6174
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 1.2439,
+      "model_ev": 1.1447,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872930"
@@ -956,17 +1197,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "D. Prescott 225+ pass yds",
-          "implied_prob": 0.5036,
-          "model_prob": 0.4819
+          "implied_prob": 0.5277,
+          "model_prob": 0.505,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 237.2,
+          "sd": 76.66,
+          "z": 0.1657,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "G. Pickens 60+ rec yds",
-          "implied_prob": 0.5036,
-          "model_prob": 0.4819
+          "implied_prob": 0.5621,
+          "model_prob": 0.5379,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 76.86,
+          "sd": 41.59,
+          "z": 0.4174,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3587,
+      "model_ev": 0.1802,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872930"
@@ -984,11 +1237,17 @@
         {
           "market": "rb_rush_yds",
           "selection": "J. Williams 60+ rush yds",
-          "implied_prob": 0.5036,
-          "model_prob": 0.4819
+          "implied_prob": 0.4701,
+          "model_prob": 0.4499,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 62.28,
+          "sd": 38.87,
+          "z": 0.0715,
+          "line": 59.5
         }
       ],
-      "model_ev": -0.0694,
+      "model_ev": -0.1241,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872930"
@@ -1007,10 +1266,11 @@
           "market": "spread",
           "selection": "DEN +3",
           "implied_prob": 0.5217,
-          "model_prob": 0.6771
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
         }
       ],
-      "model_ev": 1.3669,
+      "model_ev": 1.1091,
       "confidence_tier": "high",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872931"
@@ -1022,17 +1282,29 @@
         {
           "market": "qb_pass_yds",
           "selection": "P. Mahomes 225+ pass yds",
-          "implied_prob": 0.4833,
-          "model_prob": 0.4625
+          "implied_prob": 0.3446,
+          "model_prob": 0.3298,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 191.49,
+          "sd": 76.66,
+          "z": -0.4306,
+          "line": 224.5
         },
         {
           "market": "wr_rec_yds",
           "selection": "R. Rice 60+ rec yds",
-          "implied_prob": 0.4833,
-          "model_prob": 0.4625
+          "implied_prob": 0.3915,
+          "model_prob": 0.3746,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 48.88,
+          "sd": 41.59,
+          "z": -0.2553,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.3947,
+      "model_ev": 0.4464,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872931"
@@ -1050,12 +1322,18 @@
         {
           "market": "rb_rush_yds",
           "selection": "R. Harvey 60+ rush yds",
-          "implied_prob": 0.5617,
-          "model_prob": 0.5375
+          "implied_prob": 0.2962,
+          "model_prob": 0.2834,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 32.38,
+          "sd": 38.87,
+          "z": -0.6977,
+          "line": 59.5
         }
       ],
-      "model_ev": 0.5826,
-      "confidence_tier": "high",
+      "model_ev": 0.8148,
+      "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872931"
     },

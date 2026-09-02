@@ -1,0 +1,619 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "weekly_backtest.schema.json",
+  "title": "Weekly-split never-regress backtest (R51) - data/weekly_backtest.json",
+  "description": "The candidate weekly split (weekly_split_v2) measured against the incumbent (v1) on the committed corpus (data/fixtures/backtest_weekly/): pooled and 2025 held-out MAE / rank-corr / top-K, per-position MAE and rank-corr, band coverage and half-width, a season-week block bootstrap of the 2025 MAE delta, the factor constants the candidate applies, and the never-regress verdict. Written by scripts/backtest_weekly.py; rendered by the MODEL tab's WEEKLY SPLIT GATE card (app/views/model.js weeklyGateCard). Optional feed: absent on a clone is a skip, present is validated strictly. Every key named here is the contract the card reads; extra diagnostic keys are tolerated (no additionalProperties:false) so the producer can add measurements without redding the gate, but a missing or mistyped contract key is a failure.",
+  "type": "object",
+  "required": [
+    "generated_utc",
+    "model_candidate",
+    "model_incumbent",
+    "fixture",
+    "season_number_rule",
+    "pooled",
+    "held_out_2025",
+    "per_position",
+    "band",
+    "bootstrap",
+    "factors",
+    "verdict",
+    "policy"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_candidate": {
+      "type": "string",
+      "pattern": "^weekly_split_v[0-9]+$"
+    },
+    "model_incumbent": {
+      "type": "string",
+      "pattern": "^weekly_split_v[0-9]+$"
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "weekly_actuals",
+        "games_meta",
+        "seasons_scored",
+        "rows",
+        "pool"
+      ],
+      "properties": {
+        "weekly_actuals": {
+          "type": "string",
+          "minLength": 1
+        },
+        "games_meta": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seasons_scored": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1999,
+            "maximum": 2100
+          }
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pool": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR",
+            "TE"
+          ],
+          "properties": {
+            "QB": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "RB": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "WR": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "TE": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "season_number_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pooled": {
+      "type": "object",
+      "required": [
+        "v1",
+        "v2"
+      ],
+      "properties": {
+        "v1": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "v2": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "held_out_2025": {
+      "type": "object",
+      "required": [
+        "v1",
+        "v2"
+      ],
+      "properties": {
+        "v1": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "v2": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "per_position": {
+      "type": "object",
+      "required": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ],
+      "properties": {
+        "QB": {
+          "type": "object",
+          "required": [
+            "v1",
+            "v2"
+          ],
+          "properties": {
+            "v1": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            },
+            "v2": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        },
+        "RB": {
+          "type": "object",
+          "required": [
+            "v1",
+            "v2"
+          ],
+          "properties": {
+            "v1": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            },
+            "v2": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        },
+        "WR": {
+          "type": "object",
+          "required": [
+            "v1",
+            "v2"
+          ],
+          "properties": {
+            "v1": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            },
+            "v2": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        },
+        "TE": {
+          "type": "object",
+          "required": [
+            "v1",
+            "v2"
+          ],
+          "properties": {
+            "v1": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            },
+            "v2": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr"
+              ],
+              "properties": {
+                "mae": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rank_corr": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "band": {
+      "type": "object",
+      "required": [
+        "rule",
+        "v1",
+        "v2"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v1": {
+          "type": "object",
+          "required": [
+            "coverage_2025",
+            "half_width_2025"
+          ],
+          "properties": {
+            "coverage_2025": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "half_width_2025": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "v2": {
+          "type": "object",
+          "required": [
+            "coverage_2025",
+            "half_width_2025"
+          ],
+          "properties": {
+            "coverage_2025": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "half_width_2025": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "required": [
+        "delta_mae_2025"
+      ],
+      "properties": {
+        "delta_mae_2025": {
+          "type": "object",
+          "required": [
+            "mean",
+            "lo95",
+            "hi95",
+            "blocks",
+            "B"
+          ],
+          "properties": {
+            "mean": {
+              "type": "number"
+            },
+            "lo95": {
+              "type": "number"
+            },
+            "hi95": {
+              "type": "number"
+            },
+            "blocks": {
+              "type": "string",
+              "minLength": 1
+            },
+            "B": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "factors": {
+      "type": "object",
+      "required": [
+        "dvp",
+        "elo_tilt_positions",
+        "weather",
+        "venue"
+      ],
+      "properties": {
+        "dvp": {
+          "type": "object",
+          "required": [
+            "shrink",
+            "source"
+          ],
+          "properties": {
+            "shrink": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "elo_tilt_positions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ]
+          }
+        },
+        "weather": {
+          "type": "object",
+          "required": [
+            "pass_dome",
+            "pass_outdoors",
+            "pass_cold_extra",
+            "rb_wind",
+            "cold_f",
+            "wind_mph"
+          ],
+          "properties": {
+            "pass_dome": {
+              "type": "number",
+              "minimum": 0
+            },
+            "pass_outdoors": {
+              "type": "number",
+              "minimum": 0
+            },
+            "pass_cold_extra": {
+              "type": "number",
+              "minimum": 0
+            },
+            "rb_wind": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cold_f": {
+              "type": "number"
+            },
+            "wind_mph": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "venue": {
+          "type": "object",
+          "required": [
+            "coef",
+            "rel_clamp",
+            "shrink_n0"
+          ],
+          "properties": {
+            "coef": {
+              "type": "number"
+            },
+            "rel_clamp": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            "shrink_n0": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": [
+        "adopted",
+        "rule",
+        "reason"
+      ],
+      "properties": {
+        "adopted": {
+          "type": "boolean"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "description": "adopted is a real boolean (never a string) - the card's ADOPTED / RETAINED chip keys on it. A record WITHOUT this block renders AWAITING, not a verdict."
+    },
+    "policy": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
