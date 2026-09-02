@@ -90,18 +90,23 @@ from scripts.models.player_projection import project_player
 hist = bp._fixture_history()
 rows, _ = bp.build_rows(hist, 2025)
 row = rows[0]
+out = project_player(row["record"], ctx=None, weights=None)
 print(json.dumps({
   "harness": bp.engine_projection(row["record"]),
-  "deployed": project_player(row["record"], ctx=None, weights=None)["proj_points"],
+  "deployed": out["proj_points"],
+  "gated": out["gated_points"],
+  "candidate": out["candidate_points"],
+  "mode": out["shipped_estimate"],
   "prior_season_points": row["record"]["prior_season_points"],
   "last_year": row["last_year"],
 }))`);
   assert.equal(r.harness, r.deployed);
-  // Day-zero weights: applied = 1 + 0*(adj-1) = 1, so the projection collapses
-  // to the prior_perf baseline exactly. If this ever stops holding, a signal
-  // has earned weight and the "engine == last_year" disclosure must change too.
-  assert.equal(r.harness, r.prior_season_points);
-  assert.equal(r.harness, r.last_year);
+  // Day-zero weights: applied = 1 + 0*(adj-1) = 1, so the GATED series collapses
+  // to the prior_perf baseline exactly. R49 owner override: what SHIPS (and what
+  // the harness scores) is the candidate; the gated number rides on the record.
+  assert.equal(r.gated, r.prior_season_points);
+  assert.equal(r.gated, r.last_year);
+  assert.equal(r.harness, r.mode === 'candidate' ? r.candidate : r.gated);
 });
 
 test('the python RoS mirror matches the shipped app/ros.js rosPoints', () => {

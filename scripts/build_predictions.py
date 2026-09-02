@@ -430,11 +430,12 @@ def _stamp_absence(records, index, by_name):
     return n
 
 
-def _baseline_gate_from_disk():
-    """data/player_backtest.json `baseline_gate` (the walk-forward verdict), or None."""
+def _backtest_from_disk(key):
+    """data/player_backtest.json[key] (`baseline_gate` — the walk-forward verdict —
+    or `candidate_2025`), or None."""
     try:
         with open(os.path.join(DATA, "player_backtest.json"), encoding="utf-8") as fh:
-            return json.load(fh).get("baseline_gate")
+            return json.load(fh).get(key)
     except (OSError, ValueError):
         return None
 
@@ -883,7 +884,8 @@ def main():
                 # legitimately moves proj_points (a FACT from a feed), so the
                 # reorder is accepted there — build_weekly still runs later off
                 # this same `projected`, so the id-for-id mirror holds regardless.
-                reorder_ok = pp_mod.SHIPPED_BASELINE_RULE == pp_mod.BASELINE_RULE_PPG
+                reorder_ok = (pp_mod.SHIPPED_BASELINE_RULE == pp_mod.BASELINE_RULE_PPG
+                              or pp_mod.SHIPPED_ESTIMATE == "candidate")
                 if reorder_ok or [p["gsis_id"] for p in reprojected[:300]] == \
                         [p["gsis_id"] for p in projected[:300]]:
                     # R41b — project_players built these records fresh, so the
@@ -915,9 +917,10 @@ def main():
     try:
         meta_record.set_record(
             "projection_baseline",
-            pp_mod.projection_baseline_record(projected[:300], now,
-                                              gate=_baseline_gate_from_disk(),
-                                              fed_default=CANDIDATE_INPUTS_FED))
+            pp_mod.projection_baseline_record(
+                projected[:300], now, gate=_backtest_from_disk("baseline_gate"),
+                fed_default=CANDIDATE_INPUTS_FED,
+                backtest_2025=_backtest_from_disk("candidate_2025")))
     except Exception as exc:  # noqa: BLE001 — a record, never the pipeline
         print(f"[warn] meta.projection_baseline not written: {exc}", file=sys.stderr)
 
@@ -1177,6 +1180,22 @@ def main():
     # season-total reduction and the Lineup demotion would both silently no-op
     # from Week 2 onward. In preseason current_week() is 1, so this is a no-op
     # today and correct the moment real football starts.
+    # R49 OWNER OVERRIDE — the shipped number is the scenario candidate, so every
+    # prior-season pricing line (receptions, completions, the R44 component line
+    # and its base_applied_pts) is scaled by the same per-player ratio
+    # proj_points / prior_season_points; league extras move with the shipped
+    # number and the client's sum(base x qty) == base_applied_pts check still
+    # holds (linear). bonus_games is a count and stays. Ratio 1.0 for a player
+    # whose prior total is unknown, and exactly 1.0 for everyone in "gated" mode.
+    _shipped_by_id = {p["gsis_id"]: p for p in projected[:300]}
+    ratio_by_id = {
+        r["gsis_id"]: build_weekly.shipped_ratio(_shipped_by_id.get(r["gsis_id"], {}),
+                                                 r.get("prior_season_points"))
+        for r in players_in}
+    n_scaled = sum(1 for v in ratio_by_id.values() if abs(v - 1.0) > 1e-9)
+    print(f"R49 shipped={pp_mod.SHIPPED_ESTIMATE}: prior pricing lines scaled for "
+          f"{n_scaled} of {len(players_in)} players (ratio = proj_points / "
+          f"prior_season_points; bonus_games untouched)")
     receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
     # R28 — completions ride the SAME N2 feed (kona statId 1, beside the statId
     # 53 receptions read just above), so a league scoring Sleeper's `pass_cmp`
@@ -1190,6 +1209,16 @@ def main():
     # halves degrade to absence, never to zero-filled claims.
     bonus_by_name = _bonus_games_by_name()
     components_by_id = _components_by_id(players_in, bonus_by_name)
+    for pid, ratio in ratio_by_id.items():
+        rec, cmp, comp = build_weekly.scale_prior_lines(
+            ratio, receptions_by_id.get(pid), completions_by_id.get(pid),
+            components_by_id.get(pid))
+        if rec is not None:
+            receptions_by_id[pid] = rec
+        if cmp is not None:
+            completions_by_id[pid] = cmp
+        if comp is not None:
+            components_by_id[pid] = comp
     n_bonus = sum(1 for v in components_by_id.values() if v.get("bonus_games"))
     print(f"league components: {len(components_by_id)} of {len(players_in)} "
           f"players carry a verified stat line ({n_bonus} with measured "

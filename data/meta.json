@@ -55,11 +55,25 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-09-01T23:37:07Z",
+    "changed_utc": "2026-09-02T00:00:45Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
+      "proj_points",
       "candidate_points"
     ],
+    "shipped": {
+      "mode": "candidate",
+      "owner_override": true,
+      "decided_utc": "2026-09-02T00:00:00Z",
+      "reason": "owner: ship the scenario estimate now; gate keeps scoring gated vs candidate",
+      "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every record; the ledger scores shipped, candidate and gated",
+      "band_multiplier": 2.25,
+      "backtest_2025": {
+        "gated_mae": 56.138,
+        "candidate_mae": 54.082,
+        "band_coverage_after_calibration": 0.6875
+      }
+    },
     "recency_weights": [
       2.0,
       1.0
@@ -71,7 +85,7 @@
       "pooled_rho_ppg_rule": 0.6032,
       "pooled_mae_total_rule": 59.4697,
       "pooled_mae_ppg_rule": 60.7557,
-      "measured_utc": "2026-09-01T23:37:07Z"
+      "measured_utc": "2026-09-02T00:00:45Z"
     },
     "candidate": {
       "signals_applied": [
@@ -84,7 +98,7 @@
         "ol_composite_vs_dl",
         "target_competition"
       ],
-      "sd_rule": "+/- one band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; treated as one sd, an estimate of spread, not a measurement"
+      "sd_rule": "+/- 2.25 x band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; the multiplier is calibrated so the 2024->2025 backtest band covers ~0.68 of actuals (one sd) \u2014 an estimate of spread, not a measurement"
     }
   },
   "learning_record": {
@@ -94,18 +108,21 @@
     "bias_ppr": null,
     "candidate_mae_ppr": null,
     "candidate_bias_ppr": null,
+    "gated_mae_ppr": null,
+    "gated_bias_ppr": null,
     "band_coverage": null,
     "signals_with_weight": [],
     "ledger": "data/estimates/2026.json",
     "objective_ready": false,
     "adoption_margin_mae": 0.1,
     "note": "no ledger at data/estimates/2026.json yet \u2014 scripts/build_estimate_ledger.py appends the first estimates on the daily run; nothing to resolve",
-    "updated_utc": "2026-09-01T23:37:17Z",
+    "updated_utc": "2026-09-02T00:00:55Z",
     "backtest_2025": {
       "baseline_mae": 59.454,
       "candidate_mae": 54.082,
-      "shipped_mae": 56.138,
-      "band_coverage": 0.3708,
+      "gated_mae": 56.138,
+      "shipped_mae": 54.082,
+      "band_coverage": 0.6875,
       "players": 240,
       "sleeper_mae": 22.048,
       "sleeper_players": 239,
