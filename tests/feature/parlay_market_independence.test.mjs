@@ -10,10 +10,11 @@
  *       probability as make_leg's third POSITIONAL argument — which is model_prob —
  *       with implied_prob=None alongside, so make_leg then fabricated the IMPL column
  *       back off it (model_prob * 1.045). Both columns on the card were the same book
- *       number. Locked here: the spread leg's model_prob is OUR margin model at the
- *       book's handicap, the book's number appears ONLY in implied_prob, and a market
- *       we have no model for (total) yields NO LEG rather than a borrowed price or a
- *       seed.
+ *       number. Locked here: the spread leg's model_prob is OURS — since R51 exactly
+ *       0.5 at the book's handicap (the R30 cover model was measured below coin-flip,
+ *       see tests/feature/r51_parlay.test.mjs) — the book's number appears ONLY in
+ *       implied_prob, and a market we have no model for (total) yields NO LEG rather
+ *       than a borrowed price or a seed.
  *   F2  odds_api built the spread selection unconditionally from the HOME team while
  *       the builder picked the probability by whichever side OUR model favoured, so an
  *       away favourite named one team and priced the other (3 of 16 shipped games).
@@ -86,7 +87,7 @@ function ourHomeCover(pHome, homePoint) {
 const LEGS_PY = `
 import json, sys
 sys.path.insert(0, ".")
-from scripts.models.parlay_builder import derive_candidate_legs, model_cover_prob
+from scripts.models.parlay_builder import derive_candidate_legs
 
 game = {"game_id": "g1", "home": "KC", "away": "DEN",
         "probs": {"home": 0.406, "away": 0.594}}
@@ -113,7 +114,6 @@ print(json.dumps({
     "no_market": derive_candidate_legs(game),
     # A total market present but no line emitted for it.
     "total_only": derive_candidate_legs(game, market={"total": market["total"]}),
-    "cover_home_minus3": model_cover_prob(0.406, -3.0),
 }))
 `;
 
@@ -122,10 +122,12 @@ test('F1: the spread leg carries OUR cover probability, the book only reaches IM
   const leg = r.away_fav.find((l) => l.market === 'spread');
   assert.ok(leg, 'a priced spread must still produce a leg');
 
-  // Our number, recomputed independently: DEN +3 with our p_home = 0.406.
-  const expected = 1 - ourHomeCover(0.406, -3.0);
-  assert.ok(Math.abs(leg.model_prob - expected) < 2e-3,
-    `model_prob ${leg.model_prob} is not our margin model's ${expected.toFixed(4)}`);
+  // Our number: since R51 a spread leg is priced flat at exactly 0.5 (the R30
+  // margin inversion, ourHomeCover below, measured no edge on 2023-25 and was
+  // retired). Whatever it is, it is not the book's.
+  assert.equal(leg.model_prob, 0.5, 'spread model_prob is flat 0.5 since R51');
+  assert.notEqual(leg.model_prob, 1 - ourHomeCover(0.406, -3.0),
+    'the retired R30 cover model must not be reachable');
 
   // The book's de-vigged number is DISPLAY ONLY: exactly implied_prob, never model.
   assert.equal(leg.implied_prob, 0.5108, 'IMPL must be the book de-vigged away cover');
@@ -150,19 +152,17 @@ test('F2: the team named in the selection is the team the probability is for', (
   // while carrying P(DEN covers).
   assert.equal(away.selection, 'DEN +3');
   assert.equal(away._side, 'away');
-  assert.ok(away.model_prob > 0.5, 'our model favours DEN, so DEN +3 must be > 0.5');
+  assert.equal(away.model_prob, 0.5, 'R51: flat 0.5 on the side our model favours');
   assert.equal(r.away_fav.find((l) => l.market === 'moneyline').selection, 'DEN ML');
 
   // Home favourite: the mirror case must still name the home side.
   const home = r.home_fav.find((l) => l.market === 'spread');
   assert.equal(home.selection, 'SEA -3.5');
   assert.equal(home._side, 'home');
-  const expectedHome = ourHomeCover(0.61, -3.5);
-  assert.ok(Math.abs(home.model_prob - expectedHome) < 2e-3);
-
-  // The two sides of one line must be complements of each other, not two
-  // independently-chosen numbers (1e-4: the leg's prob is rounded to 4 dp).
-  assert.ok(Math.abs(r.cover_home_minus3 + away.model_prob - 1) < 1e-4);
+  assert.equal(home.model_prob, 0.5);
+  // The book's cover price for THAT side is what IMPL shows (0.5/0.5 here) and it
+  // is not the model re-vigged by the hold.
+  assert.equal(home.implied_prob, 0.5);
 });
 
 test('F1: a market with no model of ours yields NO leg (total dropped, not seeded)', () => {
@@ -296,11 +296,21 @@ test('shipped parlays.json: every spread leg is OUR number for the team it names
       const side = byTeam.get(team);
       assert.ok(side, `${leg.selection} names a team off the slate`);
       const point = Number(pointStr);
-      const expected = side.isHome
-        ? ourHomeCover(side.pHome, point)
-        : 1 - ourHomeCover(side.pHome, -point);
-      assert.ok(Math.abs(leg.model_prob - expected) < 2e-3,
-        `${p.parlay_id} ${leg.selection}: model_prob ${leg.model_prob} != ours ${expected.toFixed(4)}`);
+      if ('edge_note' in leg) {
+        // R51 document: flat 0.5, and the leg says why.
+        assert.equal(leg.model_prob, 0.5,
+          `${p.parlay_id} ${leg.selection}: an R51 spread leg is priced flat`);
+        assert.match(leg.edge_note, /NO EDGE/);
+      } else {
+        // Pre-R51 document (data/parlays.json is regenerated by the daily
+        // workflow only): the R30 margin model for the team named — still OUR
+        // number, never the book's. This branch retires with the next refresh.
+        const expected = side.isHome
+          ? ourHomeCover(side.pHome, point)
+          : 1 - ourHomeCover(side.pHome, -point);
+        assert.ok(Math.abs(leg.model_prob - expected) < 2e-3,
+          `${p.parlay_id} ${leg.selection}: model_prob ${leg.model_prob} != ours ${expected.toFixed(4)}`);
+      }
       // The old fabricated IMPL was exactly model * 1.045; a real price is not.
       assert.ok(Math.abs(leg.implied_prob - leg.model_prob * 1.045) > 1e-4,
         `${p.parlay_id} ${leg.selection}: IMPL looks fabricated from MODEL`);
