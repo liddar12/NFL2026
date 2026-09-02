@@ -77,9 +77,9 @@ import {
   rosterPositionsInPlay, slotEligiblePositions, saveLeagueId, loadLeagueId, LEAGUE_ID_KEY,
 } from '../league.js';
 import {
-  SLEEPER_API_BASE, buildSleeperPlayerIndex, crosswalkRoster, importFromPastedJson,
-  importFromSleeper, importSleeperTeams, parseLeagueId, summarizeImport, unresolvedItems,
-  fetchSleeperState,
+  SLEEPER_API_BASE, PLAYER_INDEX_URL, buildSleeperPlayerIndex, crosswalkRoster,
+  importFromPastedJson, importFromSleeper, importSleeperTeams, loadSleeperPlayerIndex,
+  parseLeagueId, summarizeImport, unresolvedItems, fetchSleeperState,
 } from '../sleeper.js';
 // R49 — every roster in the league (in this app's ids) and Sleeper's current
 // NFL week, remembered for LINEUP's WAIVER WIRE. Written here, read there.
@@ -166,11 +166,14 @@ export function saveMyRoster(leagueId, rosterId, storage) {
   try { store.setItem(MY_ROSTER_KEY, JSON.stringify(map)); return true; } catch (err) { return false; }
 }
 
-/* R48 — ONE PRESS DOES IT ALL. SYNC NOW saves the league settings and then
- * remounts this view (the roster shape changed under it). The remount reads
- * this flag and continues straight into the roster sync for the same league,
- * so settings, rosters and the seated team all land from a single press. */
-let pendingAutoRoster = null;
+/* R52 — MOUNT SEQUENCE. Every mountTeam() call takes the next number; the
+ * mount captures its own and, at every await boundary that writes DOM, bails
+ * when a newer mount has taken the element (or the element left the page).
+ * The R48 hand-off flag that carried SYNC NOW's roster step across a remount
+ * is gone with the remount: SYNC NOW now recomputes the profile-derived state
+ * in place and continues into the roster read in the SAME mount, so no two
+ * mounts of one element can race for the flag or paint over each other. */
+let mountSeq = 0;
 
 /* R34 — RESET ALL's explicit key list: every localStorage key this app writes,
  * ENUMERATED (grep `nfl2026.` under app/), never a prefix wildcard over
@@ -934,15 +937,13 @@ export function partialKdstStarters(starterIds, playersById) {
  */
 
 /**
- * Sleeper's whole-league player dump. app/sleeper.js deliberately never fetches
- * it (it is multi-megabyte and a caller may already have it), so the ONE piece
- * of network this view owns is reading it — once per press, cached for the
- * mount, then handed to buildSleeperPlayerIndex().
+ * Sleeper's whole-league player dump. Since R52 this view fetches NOTHING
+ * itself: app/sleeper.js loadSleeperPlayerIndex() reads the dump once per
+ * session (memoized, HTTP-cacheable, streamed with progress, a failure never
+ * remembered) and hands back the built index. The URL is the loader's own,
+ * re-exported because the roster-sync contract test pins it.
  */
-export const SLEEPER_PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
-
-/** Abort ceiling for that dump (it is far larger than a league read). */
-export const SLEEPER_INDEX_TIMEOUT_MS = 45000;
+export const SLEEPER_PLAYER_INDEX_URL = PLAYER_INDEX_URL;
 
 /** Frozen policy marker for the roster path — manual only, see the header. */
 export const ROSTER_SYNC_MODE = 'manual';
@@ -1135,9 +1136,190 @@ export function rosterPlanLines(plan, unresolved) {
   return lines;
 }
 
+/* ---- R52: everything this view derives from the SAVED PROFILE -------------
+ *
+ * ONE code path, whether the profile arrived by a fresh mount or by SYNC NOW /
+ * RE-APPLY / SAVE inside a live mount. Before R52 the second case re-mounted
+ * the whole view so these were rebuilt "for free" — and the remount is what
+ * raced (two async mounts of one element, whichever reached the hand-off flag
+ * first consumed it, the other painted over it). Now a live mount calls this
+ * and reassigns its state in place, and the node test pins that the in-place
+ * derivation equals a fresh mount's for the same saved profile.
+ *
+ * Inputs are the mount's feeds (players, the UNSTAMPED weekly map, the K/DST
+ * document) plus the profile and the scoring mode. Pure apart from loadRoster,
+ * which reads the saved roster under the profile's slot vocabulary exactly as
+ * a fresh mount does.
+ */
+export function deriveLeagueState({ savedProfile, players, weeklyBase, kdstDoc, mode }) {
+  /* R29 — THIS LEAGUE's own scoring rules, stamped onto the weekly entries
+   * once, so every conversion below prices the same player identically without
+   * threading a rate through eight signatures. Must follow the profile load:
+   * stamping before the league is known would price every league at zero. A
+   * league that does not score pass_cmp gets the identical Map back. */
+  const weeklyById = withLeagueExtras(weeklyBase, savedProfile);
+  /* ---- R21: K and D/ST can actually be SEATED -------------------------------
+   *
+   * R19-B5 gave a K/DEF league its K and DEF slots. R20-B1 gave the Lineup view
+   * a K/DST feed. Nothing gave THIS page a kicker to put in the slot: the
+   * player pool was data/player_projections.json, which is QB/RB/WR/TE by
+   * contract (K/DST live in their own file precisely so they do not evict ~74
+   * offensive players from its projected[:300] cut). So K1 and DEF1 rendered an
+   * "ADD K" button that opened a finder containing no kickers, and SYNC ROSTER
+   * reported a real kicker as "not in this app's player pool" and left the slot
+   * null. The slot existed; nothing could ever go in it.
+   *
+   * FOUR RULES this seating obeys:
+   *
+   *  1. IT IS ADDITIVE AND GATED. `players` — the array every engine on this
+   *     page reads (fit engine, VOR, best-pick, draft room, auction) — is NOT
+   *     touched. K/DST rows live in their own array and are merged only into
+   *     the id lookup, the finder and the roster crosswalk. And they exist at
+   *     all only for a league whose roster_positions actually name K/DEF/DST:
+   *     with no profile saved, `kdstRows` is empty and every byte of this page
+   *     is what it was.
+   *  2. THEY ARE NOT DRAFT-BOARD MATERIAL. A kicker's ~180 season points sit
+   *     mid-board against offence, but he is worth almost nothing over
+   *     replacement — every kicker scores about the same. So K/DST never enter
+   *     the unfiltered "best available" list, the BEST PICK NOW strip, the
+   *     draft simulator or the auction. They surface when you ask for them: the
+   *     K/DEF finder chips, a search that matches by name, or a K/DEF slot.
+   *  3. THE NUMBER IS THE LEAGUE'S OWN. app/kdst.js recomputes each stat line
+   *     under the connected profile's scoring table (never the contract's
+   *     DEFAULT-profile convenience total), and reports which components that
+   *     table pays for that the feed cannot supply.
+   *  4. AN INCOMPLETE NUMBER IS MARKED HERE TOO. A PARTIAL total gets its badge
+   *     on this page as well as on Lineup — otherwise seating a defence just
+   *     moved an unmarked number to a different screen.
+   * ------------------------------------------------------------------------ */
+
+  // The K/DST positions THIS league actually fields, spelled the way its own
+  // roster tokens spell them (a DST league gets 'DST', fed by the DEF rows).
+  const kdstSeatTokens = rosterPositionsInPlay(savedProfile).filter(isKdstPosition);
+  /* SHAPED ONLY FOR A LEAGUE THAT SEATS THEM (R25). kdstIndex is read in
+   * exactly one place — the kdstSeatTokens loop below — so with no K/DEF/DST
+   * token on the roster (the DEFAULT profile has none) the entire shaping pass
+   * was computed and thrown away. It is not cheap: app/kdst.js shapes 74 rows
+   * and each row's applyScoring() and omittedKeys() re-runs normalizeProfile()
+   * -> cloneProfile() on an already-normalised savedProfile, ~4.3 ms of the mount.
+   * Gating on the tokens changes no output — kdstRows stays empty either way. */
+  const kdstIndex = kdstSeatTokens.length
+    ? shapeKdst(kdstDoc, savedProfile)
+    : null;
+  /** Contract rows shaped like a projection row, so every consumer is unchanged. */
+  const kdstRows = [];
+  {
+    const usedCanon = new Set();
+    for (const token of kdstSeatTokens) {
+      const canon = canonKdstPosition(token);
+      if (usedCanon.has(canon)) continue;   // one spelling per position
+      usedCanon.add(canon);
+      for (const e of kdstIndex.byPosition[canon] || []) {
+        // An UNSCORED row cannot be valued under this league's table, so there
+        // is no honest number to seat it with — app/kdst.js already refuses to
+        // feed the position, and this page refuses to offer the player.
+        if (e.unscored) continue;
+        kdstRows.push({
+          gsis_id: e.id,
+          name: e.name,
+          team: e.team,
+          position: token,
+          proj_points: e.seasonPoints,
+          kdst: e,
+        });
+      }
+    }
+  }
+  /** Every player this page can SEAT: offence, plus this league's K/DST. */
+  const seatable = kdstRows.length ? players.concat(kdstRows) : players;
+  // Per-mode derived maps (mode changes re-derive, see adoptSavedProfile):
+  //   adjById    id -> season points at the current scoring mode (EXACT)
+  //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
+  //
+  // R34 RCA — "scores change when I flip AUCTION/SNAKE": they do not, and this
+  // map is why. `mode` here is the SCORING mode (ppr/half/std); draftCfg.mode
+  // (the draft FORMAT) is never an input to adjById, scaledById, the finder's
+  // SZN column, the slot chips, the STARTERS SEASON TOTAL or the
+  // best-available ordering — every one of those reads this map, built before
+  // draftCfg is even consulted. What DOES differ by format is MONEY, by
+  // design: auction mode adds the OURS/AUC dollar columns and, once a room is
+  // open, an affordability FILTER on the reco/best-pick panels (see
+  // recoBudget) — rows can drop, dollar chips appear, but no player's
+  // projected points ever move. If a points number is ever observed moving on
+  // a format flip, the bug is a new draftCfg.mode read in a scoring path, not
+  // in here.
+  const playersById = new Map(seatable.map((p) => [String(p.gsis_id), p]));
+  const adjById = new Map();
+  const scaledById = new Map();
+  //
+  // R30 — the 4th argument is NOT optional here. weeklyById was stamped with
+  // this league's extra scoring rules at mount (withLeagueExtras, above);
+  // omitting extraPtsOf(e) stamped the map and then threw the stamp away, and
+  // this was the ONLY scoringAdjust call site in the app that did so. The
+  // result was a page that disagreed with itself: team-logic DOES pass the
+  // extras, so BEST FIT valued a pass_cmp league's Josh Allen at 524.1 while
+  // the finder card, his slot chip and the SEASON TOTAL printed 364.6 for the
+  // same player at the same moment — and the "best available" ordering was
+  // computed on a scale the page never showed.
+  players.forEach((p) => {
+    const id = String(p.gsis_id);
+    const e = weeklyById.get(id);
+    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
+    adjById.set(id, adj);
+    if (e) scaledById.set(id, weeklyPoints(e, adj, p.proj_points));
+  });
+  // K/DST season points are already exact under this league's scoring table
+  // (app/kdst.js applyScoring) and carry no receptions, so the PPR/HALF/STD
+  // reception adjustment has nothing to act on — the number is the same in
+  // every mode, which is simply true of a kicker. No `scaledById` entry: there
+  // is no weekly split for these positions and inventing one from a flat
+  // average is the lie R20-B1 refused to tell.
+  kdstRows.forEach((p) => { adjById.set(String(p.gsis_id), p.proj_points); });
+
+  // Default finder order: best available first (adjusted points desc, id asc).
+  // OFFENCE ONLY — see rule 2 above: a kicker outranking a WR3 on a board that
+  // says "best available" would be a ranking this app does not believe.
+  const sortedPlayers = players.slice().sort((a, b) =>
+    adjById.get(String(b.gsis_id)) - adjById.get(String(a.gsis_id))
+    || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1));
+  /** This league's K/DST, best first — the finder's pool when one is asked for. */
+  const sortedKdst = kdstRows.slice().sort((a, b) =>
+    b.proj_points - a.proj_points
+    || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1));
+  /** The extra finder chips this league needs, in roster order. [] normally. */
+  const kdstChips = [...new Set(kdstRows.map((r) => r.position))];
+
+  /* R30b — WHICH SLOTS KEEP AN ID THIS MOUNT CANNOT RESOLVE. A saved K or
+   * D/ST id resolves through the kdst contract alone (those ids are not in
+   * player_projections.json), so on any load where that OPTIONAL feed fails —
+   * a dropped request, a missing/hollow document, or a scoring table that
+   * leaves every row unscored — the id has no row behind it. That is a fact
+   * about THE FEED, not about the roster: dropping the id would let the next
+   * saveRoster() (any ADD, REMOVE or live-room sync) delete the saved kicker
+   * and defence permanently. So a slot whose eligible positions are all
+   * K/D-ST, and none of which produced a seatable row this mount, RETAINS its
+   * saved id; the painters render it as a degraded seat and only the user
+   * removes it. When the feed IS up, the set is empty per position and a
+   * player genuinely dropped from it still vanishes honestly, like any other.
+   */
+  const kdstFedCanon = new Set(kdstRows.map((r) => canonKdstPosition(r.position)));
+  const kdstUnresolvedSlots = new Set(rosterSlots(savedProfile).all.filter((slot) => {
+    const eligible = slotEligiblePositions(slot, savedProfile);
+    return eligible.length > 0
+      && eligible.every(isKdstPosition)
+      && !eligible.some((pos) => kdstFedCanon.has(canonKdstPosition(pos)));
+  }));
+  const roster = loadRoster(new Set(playersById.keys()), savedProfile, kdstUnresolvedSlots);
+  return {
+    weeklyById, kdstSeatTokens, kdstRows, seatable, playersById, adjById, scaledById,
+    sortedPlayers, sortedKdst, kdstChips, kdstUnresolvedSlots, roster,
+  };
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
-/** One-shot league status carried across the re-mount a scoring re-price forces. */
+/** One-shot league status carried across the remount the two resets force (R52:
+ * a re-price no longer remounts — see adoptSavedProfile). */
 let leagueFlash = null;
 
 export default async function mountTeam(el) {
@@ -1147,6 +1329,17 @@ export default async function mountTeam(el) {
   // normally. Absent AbortController, every listener binds as it always did.
   const priorTeardown = el[TEARDOWN_KEY];
   if (priorTeardown) { try { priorTeardown.abort(); } catch (_) { /* already gone */ } }
+  /* R52 — THIS mount's number. Every continuation that follows an await and
+   * writes DOM asks stale() first: a newer mount of this element, an element
+   * that left the document, or another view having taken #view (the shell
+   * anchor is gone) all mean this mount writes nothing more. */
+  const seq = ++mountSeq;
+  let shell = null; // this mount's own node inside el, set once the shell paints
+  const stale = (where) => {
+    if (seq === mountSeq && el.isConnected && !(shell && !shell.isConnected)) return false;
+    console.debug(`team: mount #${seq} superseded at ${where} — nothing written`);
+    return true;
+  };
   const teardown = typeof AbortController === 'function' ? new AbortController() : null;
   el[TEARDOWN_KEY] = teardown;
   /** addEventListener scoped to THIS mount's lifetime. */
@@ -1187,6 +1380,7 @@ export default async function mountTeam(el) {
       // and every other surface on this page is untouched.
       getKdstProjections(),
     ]);
+  if (stale('feeds')) return;
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Team builder unavailable — the projection feed did not load.');
     return;
@@ -1199,11 +1393,12 @@ export default async function mountTeam(el) {
     return;
   }
   const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-  let weeklyById = new Map();
+  // UNSTAMPED: deriveLeagueState() stamps this league's extras onto a copy.
+  const weeklyBase = new Map();
   if (weekly && Array.isArray(weekly.players)) {
-    weekly.players.forEach((w) => weeklyById.set(String(w.gsis_id), w));
+    weekly.players.forEach((w) => weeklyBase.set(String(w.gsis_id), w));
   }
-  if (weeklyById.size === 0) {
+  if (weeklyBase.size === 0) {
     // No usable weekly feed: no bye/floor/matchup math is possible — say so
     // instead of faking a fit score. R30c — the old message promised the feed
     // "ships with the next data deploy"; it shipped long ago and the daily
@@ -1223,7 +1418,7 @@ export default async function mountTeam(el) {
     if (Number.isFinite(w)) currentWk = Math.min(18, Math.max(1, Math.round(w)));
   }
 
-  const mode = loadScoring(); // read-only here; the Players header owns the toggle
+  let mode = loadScoring(); // the Players header owns the toggle; re-read by adoptSavedProfile
 
   // Fit Engine AI layer (v2): available only when data/ai_insights.json loaded
   // AND actually carries players — a 404 (older deploy) or a hollow file hides
@@ -1459,12 +1654,6 @@ export default async function mountTeam(el) {
   // describe (my slot, snake vs auction, sim vs live, budget) stays session
   // state — those are how I am playing the room, not what my league IS.
   let savedProfile = loadProfile();
-  /* R29 — THIS LEAGUE's own scoring rules, stamped onto the weekly entries
-   * once, so every conversion below prices the same player identically without
-   * threading a rate through eight signatures. Must follow the profile load:
-   * stamping before the league is known would price every league at zero. A
-   * league that does not score pass_cmp gets the identical Map back. */
-  weeklyById = withLeagueExtras(weeklyById, savedProfile);
   let stagedProfile = cloneProfile(savedProfile); // name/scoring/caps, editable by import
   const seeded = cfgFromProfile(savedProfile);
   let carriedTokens = seeded.carried;             // K/DEF/DST — kept, not draftable
@@ -1520,8 +1709,9 @@ export default async function mountTeam(el) {
   }
 
   /* R34 — the stashed (saved-not-applied) league, cached for the mount: only
-   * this view's own actions (RESTART / RE-APPLY / RESET ALL) move it, and
-   * each of those re-mounts, so a per-paint storage read would buy nothing. */
+   * this view's own actions move it — RESTART and RESET ALL re-mount, and
+   * RE-APPLY (in place since R52) leaves the stash itself untouched; its strip
+   * hides because the stash then equals the applied profile. */
   const stashedLeague = loadStashedProfile();
 
   /* R27 — the roster totals the settings card reports.
@@ -1549,80 +1739,6 @@ export default async function mountTeam(el) {
     return normalizeTeamBudgets(draftCfg.teamBudgets, draftCfg.leagueSize, draftCfg.budget);
   }
 
-  /* ---- R21: K and D/ST can actually be SEATED -------------------------------
-   *
-   * R19-B5 gave a K/DEF league its K and DEF slots. R20-B1 gave the Lineup view
-   * a K/DST feed. Nothing gave THIS page a kicker to put in the slot: the
-   * player pool was data/player_projections.json, which is QB/RB/WR/TE by
-   * contract (K/DST live in their own file precisely so they do not evict ~74
-   * offensive players from its projected[:300] cut). So K1 and DEF1 rendered an
-   * "ADD K" button that opened a finder containing no kickers, and SYNC ROSTER
-   * reported a real kicker as "not in this app's player pool" and left the slot
-   * null. The slot existed; nothing could ever go in it.
-   *
-   * FOUR RULES this seating obeys:
-   *
-   *  1. IT IS ADDITIVE AND GATED. `players` — the array every engine on this
-   *     page reads (fit engine, VOR, best-pick, draft room, auction) — is NOT
-   *     touched. K/DST rows live in their own array and are merged only into
-   *     the id lookup, the finder and the roster crosswalk. And they exist at
-   *     all only for a league whose roster_positions actually name K/DEF/DST:
-   *     with no profile saved, `kdstRows` is empty and every byte of this page
-   *     is what it was.
-   *  2. THEY ARE NOT DRAFT-BOARD MATERIAL. A kicker's ~180 season points sit
-   *     mid-board against offence, but he is worth almost nothing over
-   *     replacement — every kicker scores about the same. So K/DST never enter
-   *     the unfiltered "best available" list, the BEST PICK NOW strip, the
-   *     draft simulator or the auction. They surface when you ask for them: the
-   *     K/DEF finder chips, a search that matches by name, or a K/DEF slot.
-   *  3. THE NUMBER IS THE LEAGUE'S OWN. app/kdst.js recomputes each stat line
-   *     under the connected profile's scoring table (never the contract's
-   *     DEFAULT-profile convenience total), and reports which components that
-   *     table pays for that the feed cannot supply.
-   *  4. AN INCOMPLETE NUMBER IS MARKED HERE TOO. A PARTIAL total gets its badge
-   *     on this page as well as on Lineup — otherwise seating a defence just
-   *     moved an unmarked number to a different screen.
-   * ------------------------------------------------------------------------ */
-
-  // The K/DST positions THIS league actually fields, spelled the way its own
-  // roster tokens spell them (a DST league gets 'DST', fed by the DEF rows).
-  const kdstSeatTokens = rosterPositionsInPlay(savedProfile).filter(isKdstPosition);
-  /* SHAPED ONLY FOR A LEAGUE THAT SEATS THEM (R25). kdstIndex is read in
-   * exactly one place — the kdstSeatTokens loop below — so with no K/DEF/DST
-   * token on the roster (the DEFAULT profile has none) the entire shaping pass
-   * was computed and thrown away. It is not cheap: app/kdst.js shapes 74 rows
-   * and each row's applyScoring() and omittedKeys() re-runs normalizeProfile()
-   * -> cloneProfile() on an already-normalised profile, ~4.3 ms of the mount.
-   * Gating on the tokens changes no output — kdstRows stays empty either way. */
-  const kdstIndex = kdstSeatTokens.length
-    ? shapeKdst(kdstRes.status === 'fulfilled' ? kdstRes.value : null, savedProfile)
-    : null;
-  /** Contract rows shaped like a projection row, so every consumer is unchanged. */
-  const kdstRows = [];
-  {
-    const usedCanon = new Set();
-    for (const token of kdstSeatTokens) {
-      const canon = canonKdstPosition(token);
-      if (usedCanon.has(canon)) continue;   // one spelling per position
-      usedCanon.add(canon);
-      for (const e of kdstIndex.byPosition[canon] || []) {
-        // An UNSCORED row cannot be valued under this league's table, so there
-        // is no honest number to seat it with — app/kdst.js already refuses to
-        // feed the position, and this page refuses to offer the player.
-        if (e.unscored) continue;
-        kdstRows.push({
-          gsis_id: e.id,
-          name: e.name,
-          team: e.team,
-          position: token,
-          proj_points: e.seasonPoints,
-          kdst: e,
-        });
-      }
-    }
-  }
-  /** Every player this page can SEAT: offence, plus this league's K/DST. */
-  const seatable = kdstRows.length ? players.concat(kdstRows) : players;
 
   // League-settings panel state (all of it survives a paintDraft() repaint).
   let leagueStatus = leagueFlash;   // {tone, lines} — one-shot across a re-mount
@@ -1640,7 +1756,10 @@ export default async function mountTeam(el) {
   let syncBusy = false;             // a SYNC NOW request is in flight
   // ROSTER SYNC (R20-B4). All of it is session state: the roster itself is the
   // only thing that ever gets written, and only on a deliberate confirm.
-  let sleeperIndex = null;          // buildSleeperPlayerIndex().index, cached for the mount
+  let sleeperIndex = null;          // the loader's built index, held for buildRosterPlan/companion
+  let indexProgress = '';           // R52 — the sync banner's player-list progress line
+  /** Bytes as a one-decimal MB string for the progress line. */
+  const mb = (bytes) => `${(Number(bytes) / 1048576).toFixed(1)} MB`;
   let companion = null;             // R33 — the live Sleeper draft companion, when armed
   let rosterTeams = null;           // importSleeperTeams().teams, or null before a sync
   let rosterTeamIdx = -1;           // which team in that list is mine
@@ -1712,84 +1831,24 @@ export default async function mountTeam(el) {
     return out;
   }
 
-  // Per-mode derived maps, built once per mount (mode changes re-mount):
-  //   adjById    id -> season points at the current scoring mode (EXACT)
-  //   scaledById id -> 18 weekly floats at the current scoring mode (byes 0)
-  //
-  // R34 RCA — "scores change when I flip AUCTION/SNAKE": they do not, and this
-  // map is why. `mode` here is the SCORING mode (ppr/half/std); draftCfg.mode
-  // (the draft FORMAT) is never an input to adjById, scaledById, the finder's
-  // SZN column, the slot chips, the STARTERS SEASON TOTAL or the
-  // best-available ordering — every one of those reads this map, built before
-  // draftCfg is even consulted. What DOES differ by format is MONEY, by
-  // design: auction mode adds the OURS/AUC dollar columns and, once a room is
-  // open, an affordability FILTER on the reco/best-pick panels (see
-  // recoBudget) — rows can drop, dollar chips appear, but no player's
-  // projected points ever move. If a points number is ever observed moving on
-  // a format flip, the bug is a new draftCfg.mode read in a scoring path, not
-  // in here.
-  const playersById = new Map(seatable.map((p) => [String(p.gsis_id), p]));
-  const adjById = new Map();
-  const scaledById = new Map();
-  //
-  // R30 — the 4th argument is NOT optional here. weeklyById was stamped with
-  // this league's extra scoring rules at mount (withLeagueExtras, ~line 1094);
-  // omitting extraPtsOf(e) stamped the map and then threw the stamp away, and
-  // this was the ONLY scoringAdjust call site in the app that did so. The
-  // result was a page that disagreed with itself: team-logic DOES pass the
-  // extras, so BEST FIT valued a pass_cmp league's Josh Allen at 524.1 while
-  // the finder card, his slot chip and the SEASON TOTAL printed 364.6 for the
-  // same player at the same moment — and the "best available" ordering was
-  // computed on a scale the page never showed.
-  players.forEach((p) => {
-    const id = String(p.gsis_id);
-    const e = weeklyById.get(id);
-    const adj = scoringAdjust(p.proj_points, e ? e.receptions_prior : 0, mode, extraPtsOf(e));
-    adjById.set(id, adj);
-    if (e) scaledById.set(id, weeklyPoints(e, adj, p.proj_points));
-  });
-  // K/DST season points are already exact under this league's scoring table
-  // (app/kdst.js applyScoring) and carry no receptions, so the PPR/HALF/STD
-  // reception adjustment has nothing to act on — the number is the same in
-  // every mode, which is simply true of a kicker. No `scaledById` entry: there
-  // is no weekly split for these positions and inventing one from a flat
-  // average is the lie R20-B1 refused to tell.
-  kdstRows.forEach((p) => { adjById.set(String(p.gsis_id), p.proj_points); });
-
-  // Default finder order: best available first (adjusted points desc, id asc).
-  // OFFENCE ONLY — see rule 2 above: a kicker outranking a WR3 on a board that
-  // says "best available" would be a ranking this app does not believe.
-  const sortedPlayers = players.slice().sort((a, b) =>
-    adjById.get(String(b.gsis_id)) - adjById.get(String(a.gsis_id))
-    || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1));
-  /** This league's K/DST, best first — the finder's pool when one is asked for. */
-  const sortedKdst = kdstRows.slice().sort((a, b) =>
-    b.proj_points - a.proj_points
-    || (String(a.gsis_id) < String(b.gsis_id) ? -1 : 1));
-  /** The extra finder chips this league needs, in roster order. [] normally. */
-  const kdstChips = [...new Set(kdstRows.map((r) => r.position))];
-
-  /* R30b — WHICH SLOTS KEEP AN ID THIS MOUNT CANNOT RESOLVE. A saved K or
-   * D/ST id resolves through the kdst contract alone (those ids are not in
-   * player_projections.json), so on any load where that OPTIONAL feed fails —
-   * a dropped request, a missing/hollow document, or a scoring table that
-   * leaves every row unscored — the id has no row behind it. That is a fact
-   * about THE FEED, not about the roster: dropping the id would let the next
-   * saveRoster() (any ADD, REMOVE or live-room sync) delete the saved kicker
-   * and defence permanently. So a slot whose eligible positions are all
-   * K/D-ST, and none of which produced a seatable row this mount, RETAINS its
-   * saved id; the painters render it as a degraded seat and only the user
-   * removes it. When the feed IS up, the set is empty per position and a
-   * player genuinely dropped from it still vanishes honestly, like any other.
-   */
-  const kdstFedCanon = new Set(kdstRows.map((r) => canonKdstPosition(r.position)));
-  const kdstUnresolvedSlots = new Set(rosterSlots(savedProfile).all.filter((slot) => {
-    const eligible = slotEligiblePositions(slot, savedProfile);
-    return eligible.length > 0
-      && eligible.every(isKdstPosition)
-      && !eligible.some((pos) => kdstFedCanon.has(canonKdstPosition(pos)));
-  }));
-  const roster = loadRoster(new Set(playersById.keys()), savedProfile, kdstUnresolvedSlots);
+  /* R52 — the profile-derived state, (re)assigned from deriveLeagueState() so
+   * a profile adopted mid-mount (SYNC NOW, RE-APPLY, SAVE) rebuilds exactly
+   * what a fresh mount builds. The OURS price memo is keyed on shape and money
+   * only (see ourDollarsById), so it is dropped here too — the R30c lesson. */
+  const kdstDoc = kdstRes.status === 'fulfilled' ? kdstRes.value : null;
+  let weeklyById; let kdstSeatTokens; let kdstRows; let seatable; let playersById;
+  let adjById; let scaledById; let sortedPlayers; let sortedKdst; let kdstChips;
+  let kdstUnresolvedSlots; let roster;
+  let _ourDollars = null;
+  let _ourDollarsKey = '';
+  function applyLeagueState() {
+    const d = deriveLeagueState({ savedProfile, players, weeklyBase, kdstDoc, mode });
+    ({ weeklyById, kdstSeatTokens, kdstRows, seatable, playersById, adjById, scaledById,
+      sortedPlayers, sortedKdst, kdstChips, kdstUnresolvedSlots, roster } = d);
+    _ourDollars = null;
+    _ourDollarsKey = '';
+  }
+  applyLeagueState();
   let selectedSlot = null; // empty slot targeted for recommendations
   let query = '';
 
@@ -1819,9 +1878,6 @@ export default async function mountTeam(el) {
       if (id && Number.isFinite(v) && v > 0) mktValueById.set(id, v);
     });
   }
-
-  let _ourDollars = null;
-  let _ourDollarsKey = '';
 
   /**
    * OUR dollars for the board: value over replacement from OUR projections,
@@ -2084,6 +2140,7 @@ export default async function mountTeam(el) {
         '<section class="team-summary" id="t-summary" aria-label="Team summary"></section>' +
       '</div>' +
     '</div>';
+  shell = el.querySelector('#t-syncbar');
 
   /* ---- section painters ----------------------------------------------------- */
 
@@ -2869,13 +2926,11 @@ export default async function mountTeam(el) {
         + 'remembered on this device (RESET ALL forgets it). SYNC ROSTER re-runs just this '
         + 'step. There is no polling and no background '
         + 'refresh. A Sleeper roster carries player ids and no names, so the first press also '
-        // R30c — this said "kept for this visit", but the cache (sleeperIndex)
-        // lives in the mount closure and the router re-mounts this view on
-        // every navigation, so tapping any other tab and coming back drops it.
-        // The copy states the real boundary: this stay on the TEAM tab.
+        // R52 — app/sleeper.js keeps the built list for the session (memoized
+        // in the module, not this mount), so the boundary is the page load.
         + 'downloads Sleeper\'s player list (several MB); it is kept while you stay on this '
-        + 'TEAM tab, so a second sync here does not re-download it — leaving the tab drops '
-        + 'it, and the next sync fetches the list again. Nothing is written until you '
+        + 'page — any tab, until you reload — so a later sync does not re-download it. '
+        + 'Nothing is written until you '
         + 'confirm, and every player it cannot match is listed by name.</div>'
       + '<div class="lp-sync">'
         + `<button type="button" class="lp-btn" data-act="roster-sync"${rosterBusy ? ' disabled' : ''}>`
@@ -3025,77 +3080,10 @@ export default async function mountTeam(el) {
     );
   }
 
-  /* ---- ROSTER SYNC network + wiring ---------------------------------------- */
-
-  /**
-   * The ONE fetch this view owns: Sleeper's player dump. /rosters and /users go
-   * through app/sleeper.js importSleeperTeams(); the dump does not, because
-   * that module deliberately never fetches a multi-megabyte document on a
-   * caller's behalf.
-   *
-   * Same request discipline app/sleeper.js documents, for the same reasons:
-   * `credentials: 'omit'` (Sleeper's wildcard ACAO is illegal for a credentialed
-   * request), NO author headers (any header outside the CORS safelist would
-   * force a preflight), and an AbortController timeout so a hung socket cannot
-   * hang the page. That timeout is the ONLY timer in this path — no polling.
-   *
-   * Returns { ok, payload, status, error } and never throws.
-   */
-  async function sleeperGetJson(url, timeoutMs) {
-    const fetchImpl = typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
-      ? globalThis.fetch.bind(globalThis)
-      : null;
-    if (!fetchImpl) {
-      return { ok: false, payload: null, status: 0, error: 'This browser has no fetch, so the roster sync cannot run.' };
-    }
-    const controller = typeof AbortController === 'function' ? new AbortController() : null;
-    let timedOut = false;
-    let timer = null;
-    if (controller) {
-      timer = setTimeout(() => { timedOut = true; try { controller.abort(); } catch (_) { /* already aborted */ } }, timeoutMs);
-    }
-    try {
-      const res = await fetchImpl(url, {
-        method: 'GET',
-        credentials: 'omit',
-        mode: 'cors',
-        cache: 'no-store',
-        redirect: 'follow',
-        signal: controller ? controller.signal : undefined,
-      });
-      if (!res || typeof res.status !== 'number') {
-        return { ok: false, payload: null, status: 0, error: 'Sleeper returned something that is not an HTTP response.' };
-      }
-      if (res.status === 404) {
-        return { ok: false, payload: null, status: 404, error: 'Sleeper has no such league — check the id in your league URL.' };
-      }
-      if (res.status === 429) {
-        return { ok: false, payload: null, status: 429, error: 'Sleeper is rate-limiting this device. Wait a minute and press SYNC ROSTER again.' };
-      }
-      if (res.status < 200 || res.status >= 300) {
-        return { ok: false, payload: null, status: res.status, error: `Sleeper answered HTTP ${res.status}.` };
-      }
-      const text = await res.text();
-      try {
-        return { ok: true, payload: JSON.parse(text), status: res.status, error: null };
-      } catch (parseErr) {
-        return { ok: false, payload: null, status: res.status, error: 'Sleeper\'s response was not JSON.' };
-      }
-    } catch (err) {
-      if (timedOut) {
-        return { ok: false, payload: null, status: 0, error: `Sleeper did not answer within ${Math.round(timeoutMs / 1000)}s.` };
-      }
-      return {
-        ok: false,
-        payload: null,
-        status: 0,
-        error: 'Could not reach Sleeper. This is usually the network or a browser extension '
-          + `blocking the request (${err && err.message ? err.message : String(err)}).`,
-      };
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
+  /* ---- ROSTER SYNC wiring --------------------------------------------------
+   * No network of its own since R52: /rosters + /users go through
+   * app/sleeper.js importSleeperTeams(), the player dump through its
+   * loadSleeperPlayerIndex(). */
 
   /** Build (or rebuild) the plan for the currently selected Sleeper team. */
   function buildRosterPlan() {
@@ -3176,13 +3164,14 @@ export default async function mountTeam(el) {
       tone: 'ok',
       lines: [sleeperIndex
         ? 'Reading the rosters from Sleeper…'
-        : 'Reading the rosters from Sleeper, then its player index (several MB — this can '
-          + 'take a moment).'],
+        : 'Reading the rosters from Sleeper, then its player list (several MB the first '
+          + 'time this session; kept after that).'],
     };
     paintDraft();
 
     // /rosters + /users, read and joined by app/sleeper.js.
     const teamsRes = await importSleeperTeams(leagueId);
+    if (stale('rosters')) return;
     if (!teamsRes.ok || !Array.isArray(teamsRes.teams) || teamsRes.teams.length === 0) {
       rosterBusy = false;
       rosterStatus = {
@@ -3202,27 +3191,39 @@ export default async function mountTeam(el) {
     (teamsRes.orphan_rosters || []).forEach((o) => notes.push(
       `Roster ${o.roster_id}: ${o.reason}`));
 
-    // The player dump is the one thing app/sleeper.js will not fetch for us
-    // (multi-megabyte, and a caller may already hold it), so this view reads it
-    // once per press and keeps it for the mount.
+    // R52 — the player dump, through app/sleeper.js: once per session (memo),
+    // streamed with a progress line in the sync banner, a failure forgotten so
+    // the next press retries. The mount keeps the built index only because
+    // buildRosterPlan() and the draft companion read it by reference.
     if (!sleeperIndex) {
-      const idxRes = await sleeperGetJson(SLEEPER_PLAYER_INDEX_URL, SLEEPER_INDEX_TIMEOUT_MS);
-      const built = idxRes.ok ? buildSleeperPlayerIndex(idxRes.payload) : null;
-      if (!built || !built.ok) {
+      indexProgress = 'Reading Sleeper\'s player list…';
+      paintSyncBar();
+      const idxRes = await loadSleeperPlayerIndex({
+        onProgress: ({ bytes }) => {
+          if (stale('player list progress')) return;
+          indexProgress = `Reading Sleeper's player list… ${mb(bytes)}`;
+          const line = el.querySelector('#t-syncbar .sync-bar-prog');
+          if (line) line.textContent = indexProgress;
+        },
+      });
+      if (stale('player list')) return;
+      indexProgress = '';
+      if (!idxRes.ok) {
         rosterBusy = false;
         rosterStatus = {
           tone: 'err',
-          lines: [idxRes.ok
-            ? ((built && built.error && built.error.message)
-              || 'Sleeper\'s player list came back in a shape this app does not recognise.')
-            : idxRes.error,
+          lines: [(idxRes.error && idxRes.error.message)
+            || 'Sleeper\'s player list came back in a shape this app does not recognise.',
           'Without that list a roster is a list of opaque ids, so nothing can be matched. '
             + 'Nothing on your roster was changed.'],
         };
         paintDraft();
         return;
       }
-      sleeperIndex = built.index;
+      sleeperIndex = idxRes.index;
+      notes.push(idxRes.cached
+        ? 'Sleeper\'s player list: cached from earlier this session.'
+        : `Sleeper's player list: ${idxRes.bytes != null ? `${mb(idxRes.bytes)} ` : ''}read.`);
     }
 
     rosterTeams = teamsRes.teams;
@@ -3250,6 +3251,7 @@ export default async function mountTeam(el) {
       const stateRes = await fetchSleeperState({ timeoutMs: 4000 });
       if (stateRes.ok) saveNflWeek(stateRes.payload);
     } catch (err) { /* no week is better than an invented one */ }
+    if (stale('nfl week')) return;
     // R48 — a remembered pick (this device told us once which roster is
     // theirs) or a one-roster league selects itself and, when the roster on
     // this page is still empty, seats the team without a second press.
@@ -3359,7 +3361,7 @@ export default async function mountTeam(el) {
     } catch (err) { /* the log is a convenience; the seat stands without it */ }
     // The RESULT is the roster itself: after the paint below, show it rather
     // than the settings card the picker used to sit under.
-    setTimeout(scrollToSyncBar, 0);
+    setTimeout(() => { if (!stale('scroll')) scrollToSyncBar(); }, 0);
     rosterStatus = {
       tone: 'ok',
       lines: [`${auto ? 'Synced: ' : ''}roster ${auto ? 'seated' : 'replaced'} from Sleeper`
@@ -4466,7 +4468,9 @@ export default async function mountTeam(el) {
     if (rosterBusy) {
       return '<div class="lp-status lp-status--ok sync-bar" role="status">'
         + '<div class="lp-status-line">Reading your Sleeper rosters — the roster below fills '
-        + 'when they land.</div></div>';
+        + 'when they land.</div>'
+        + (indexProgress ? `<div class="lp-status-line sync-bar-prog">${esc(indexProgress)}</div>` : '')
+        + '</div>';
     }
     if (rosterTeams && rosterTeamIdx < 0) {
       const opts = ['<option value="-1" selected>— pick your team —</option>']
@@ -4503,6 +4507,36 @@ export default async function mountTeam(el) {
     paintCands();
     paintReco();
     paintSummary();
+  }
+
+  /* R52 — THE ONE REMOUNT PATH. Only the two resets use it: they cleared
+   * storage that this mount's derived state was built from, and the R30c
+   * lesson is that a hand-cleared list of that state is what goes stale.
+   * Bumping mountSeq FIRST retires every continuation of this mount (a roster
+   * read still in flight, a progress tick) before the new mount paints. */
+  function remount() {
+    mountSeq += 1;
+    return Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+  }
+
+  /* R52 — ADOPT A PROFILE JUST WRITTEN, IN PLACE. What a fresh mount would read
+   * back (loadProfile) becomes the saved profile; when storage refused the
+   * write the in-memory profile drives this page, which is the honest meaning
+   * of "applies to this page only". Then every derivation a fresh mount makes
+   * from the profile is remade: the settings grid seed, the scoring mode, the
+   * derived maps and the roster under the new slot vocabulary, the header. */
+  function adoptSavedProfile(profile, wrote) {
+    savedProfile = wrote ? loadProfile() : normalizeProfile(profile);
+    stagedProfile = cloneProfile(savedProfile);
+    const remapped = cfgFromProfile(savedProfile);
+    carriedTokens = remapped.carried;
+    clampedNotes = remapped.clamped;
+    Object.assign(draftCfg, remapped.cfg);
+    if (draftCfg.mySlot > draftCfg.leagueSize) draftCfg.mySlot = draftCfg.leagueSize;
+    mode = loadScoring();
+    applyLeagueState();
+    const sub = el.querySelector('.view-head .view-sub');
+    if (sub) sub.textContent = `${season} · ${mode.toUpperCase()} SCORING · ESTIMATE`;
   }
 
   /* ---- events ---------------------------------------------------------------- */
@@ -4639,7 +4673,7 @@ export default async function mountTeam(el) {
             + 'unchanged on every tab. RESET ALL is the button that clears it.']
           : ['No league is saved, so scoring is standard PPR and the default shape applies.'])],
       };
-      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+      remount();
       return;
     }
 
@@ -4661,14 +4695,16 @@ export default async function mountTeam(el) {
         lines: ['Factory reset: league sync, budgets, team names, draft history, room memory, '
           + 'roster and the TAKEN board are all erased from this device.'],
       };
-      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+      remount();
       return;
     }
 
     /* R34 — RE-APPLY the stashed (saved-not-applied) league in one tap: write
-     * it back as the ACTIVE profile and re-mount, which re-prices the whole
-     * page under its scoring and shape. No network — the stash IS the synced
-     * import RESTART parked. */
+     * it back as the ACTIVE profile and re-price the whole page under its
+     * scoring and shape. No network — the stash IS the synced import RESTART
+     * parked. R52 — in place (adoptSavedProfile + paintAll), no remount: the
+     * mount holds everything the re-price needs, and the strip hides itself
+     * because the stash now equals the applied profile. */
     if (act === 'league-reapply') {
       const parked = loadStashedProfile();
       if (!parked) return;
@@ -4677,7 +4713,8 @@ export default async function mountTeam(el) {
       if (nextMode !== 'custom') {
         try { localStorage.setItem(SCORING_KEY, nextMode); } catch (err) { /* session-only */ }
       }
-      leagueFlash = {
+      adoptSavedProfile(parked, wrote);
+      leagueStatus = {
         tone: wrote ? 'ok' : 'warn',
         lines: [wrote
           ? `Re-applied ${parked.name} · ${parked.shape.teams} teams · `
@@ -4685,7 +4722,7 @@ export default async function mountTeam(el) {
             + 'every number on this page is re-priced under it.'
           : 'Storage is blocked, so the league could not be re-applied to disk.'],
       };
-      Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+      paintAll();
       return;
     }
 
@@ -4699,11 +4736,6 @@ export default async function mountTeam(el) {
       // swapped in silently (R24) — the "Saved:" line below prints the number.
       const roundsMoved = draftRoundsOverride(draftCfg, stagedProfile, carriedTokens);
       const wrote = saveProfile(next);
-      savedProfile = next;
-      stagedProfile = cloneProfile(next);
-      const remapped = cfgFromProfile(next);
-      carriedTokens = remapped.carried;
-      clampedNotes = remapped.clamped;
       // R27 — SAY WHOSE ROUNDS THESE ARE. This line printed a bare "3 rounds"
       // straight from the league's own draft_rounds while the card above it
       // said "13 ROUNDS" (one per roster slot, which is what the room actually
@@ -4739,22 +4771,18 @@ export default async function mountTeam(el) {
         } catch (err) {
           lines.push('The scoring mode could not be stored, so it reverts on reload.');
         }
-        leagueFlash = { tone: wrote ? 'ok' : 'warn', lines };
-        Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
-        return;
       }
       if (nextMode === 'custom') {
         lines.push(`Reception is ${receptionLabel(next)} — the projection conversion only knows `
           + `1, 0.5 and 0, so the board stays at ${mode.toUpperCase()}.`);
       }
+      // R52 — in place for BOTH the re-price and the same-mode save (the
+      // re-price used to remount; the same-mode save used to repaint without
+      // re-deriving, so a newly saved K slot had no kickers to seat until a
+      // reload). adoptSavedProfile re-reads the scoring mode and remakes every
+      // derived map; paintAll (R30c) then repaints everything the profile feeds.
+      adoptSavedProfile(next, wrote);
       leagueStatus = { tone: wrote ? 'ok' : 'warn', lines };
-      // R30c — paintAll, not paintDraft: the save rewrote savedProfile, and
-      // the roster grid (slotOrder → rosterSlots(savedProfile)), the starters
-      // total, the finder and the reco all render FROM that profile but were
-      // not repainted, so the page kept asserting the pre-save slot geometry
-      // (e.g. no K seat after saving K=1) until an unrelated action reached
-      // paintRoster. Repaint everything the profile feeds, the same way the
-      // other roster-mutating actions (reset, add, remove) already do.
       paintAll();
       return;
     }
@@ -4771,6 +4799,9 @@ export default async function mountTeam(el) {
       leagueStatus = { tone: 'ok', lines: ['Reading your league from Sleeper…'] };
       paintDraft();
       Promise.resolve(importFromSleeper(idText)).then((res) => {
+        // R52 — a superseded mount writes nothing, storage included: the press
+        // belonged to a view that is gone, and the next press repeats it.
+        if (stale('SYNC NOW')) return;
         syncBusy = false;
         applyImport(res);
         /* R47 — ONE SYNC = WHOLE SESSION (owner's pick). A successful Sleeper
@@ -4804,9 +4835,13 @@ export default async function mountTeam(el) {
             });
           } catch (err) { /* the log is a convenience; the sync stands without it */ }
           try { window.dispatchEvent(new Event('nfl2026:league')); } catch (err) { /* no window */ }
-          // R48 — the remount below continues into the roster sync (one press).
-          pendingAutoRoster = parseLeagueId(idText);
-          leagueFlash = {
+          /* R52 — SINGLE PASS. The saved profile is adopted in THIS mount
+           * (every derivation a fresh mount makes, remade in place), the
+           * status says what landed, and the roster read continues right
+           * here — no remount, so no second mount to race this one for the
+           * hand-off and no result painted into DOM another mount replaced. */
+          adoptSavedProfile(importProfile, wrote);
+          leagueStatus = {
             tone: wrote ? 'ok' : 'warn',
             lines: [wrote
               ? `Synced and SAVED ${importProfile.name} · ${importProfile.shape.teams} teams · `
@@ -4817,9 +4852,20 @@ export default async function mountTeam(el) {
               : 'Imported, but storage is blocked, so the league could not be saved to disk — '
                 + 'it applies to this page only.'],
           };
-          Promise.resolve(mountTeam(el)).catch(() => { /* the mounted view reports its own state */ });
+          paintAll();
+          Promise.resolve(runRosterSync()).catch((err) => {
+            if (stale('roster sync failure')) return;
+            rosterBusy = false;
+            rosterStatus = {
+              tone: 'err',
+              lines: [`The roster sync failed: ${err && err.message ? err.message : String(err)}`,
+                'Nothing on your roster was changed. Press SYNC ROSTER to try again.'],
+            };
+            paintDraft();
+          });
         }
       }).catch((err) => {
+        if (stale('SYNC NOW failure')) return;
         syncBusy = false;
         leagueStatus = {
           tone: 'err',
@@ -4848,6 +4894,7 @@ export default async function mountTeam(el) {
     if (act === 'roster-sync') {
       if (rosterBusy) return;
       Promise.resolve(runRosterSync()).catch((err) => {
+        if (stale('roster sync failure')) return;
         rosterBusy = false;
         rosterStatus = {
           tone: 'err',
@@ -5457,19 +5504,4 @@ export default async function mountTeam(el) {
   }
 
   paintAll();
-
-  // R48 — ONE PRESS DOES IT ALL: SYNC NOW saved the league and remounted this
-  // view; carry straight on into the roster read for that same league.
-  if (pendingAutoRoster && pendingAutoRoster === parseLeagueId(sleeperId)) {
-    pendingAutoRoster = null;
-    Promise.resolve(runRosterSync()).catch((err) => {
-      rosterBusy = false;
-      rosterStatus = {
-        tone: 'err',
-        lines: [`The roster sync failed: ${err && err.message ? err.message : String(err)}`,
-          'Nothing on your roster was changed. Press SYNC ROSTER to try again.'],
-      };
-      paintDraft();
-    });
-  }
 }

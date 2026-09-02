@@ -4,6 +4,7 @@
  * loaded. Now SYNC NOW saves the league, remounts, and carries straight on
  * into the roster read; the one thing a login would have told us (which
  * roster is mine) is asked once and remembered per league.
+ * R52 moved the hand-off pin: the remount is gone (see r52_team_sync.test.mjs).
  */
 
 import { test } from 'node:test';
@@ -34,15 +35,18 @@ test('R48: the league id field is seeded from the remembered league, so a remoun
   assert.match(TEAM_SRC, /value="\$\{esc\(sleeperId\)\}"/, 'the input renders the seeded id');
 });
 
-test('R48: SYNC NOW hands off to the roster read across the remount (one press)', () => {
+test('R48 (moved by R52): SYNC NOW continues into the roster read in the SAME mount (one press)', () => {
+  /* R52 — the R48 hand-off (a module flag consumed by a remount) is what
+   * raced: two async mounts of one element, whichever reached the flag first
+   * took it, the other painted over it. The one-press contract is unchanged;
+   * it is now kept without a remount — see tests/feature/r52_team_sync.test.mjs. */
   const sync = TEAM_SRC.slice(TEAM_SRC.indexOf("act === 'sleeper-sync'"), TEAM_SRC.indexOf("act === 'sleeper-paste'"));
-  assert.match(sync, /pendingAutoRoster = parseLeagueId\(idText\);/);
-  assert.match(sync, /mountTeam\(el\)/, 'the remount still happens');
-  // ...and the mount tail consumes it for the SAME league only.
+  assert.doesNotMatch(sync, /pendingAutoRoster/, 'the remount hand-off flag is gone');
+  assert.doesNotMatch(sync, /mountTeam\(el\)/, 'SYNC NOW no longer re-mounts the view');
+  assert.match(sync, /adoptSavedProfile\(importProfile, wrote\);/, 'the saved profile is adopted in place');
+  assert.match(sync, /Promise\.resolve\(runRosterSync\(\)\)/, 'and the roster read follows in the same mount');
   const tail = TEAM_SRC.slice(TEAM_SRC.lastIndexOf('  paintAll();'));
-  assert.match(tail, /pendingAutoRoster && pendingAutoRoster === parseLeagueId\(sleeperId\)/);
-  assert.match(tail, /pendingAutoRoster = null;/);
-  assert.match(tail, /runRosterSync\(\)/);
+  assert.doesNotMatch(tail, /runRosterSync\(\)/, 'the mount tail no longer starts a roster read');
 });
 
 test('R48: the remembered roster round-trips per league and is wiped by RESET ALL', () => {
