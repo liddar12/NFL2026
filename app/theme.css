@@ -3728,6 +3728,13 @@ body.gate-locked { overflow: hidden; }
 .gr-week-head b { font-variant-numeric: tabular-nums; }
 .gr-week-foot { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .gr-tag { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; }
+/* R52 — the per-week view (STARTERS / BENCH / SUB) and the season-optimal fold. */
+.gr-week-sub { margin: 4px 0 1px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; font-weight: 700; color: var(--muted); }
+.gr-slot--bench { color: var(--muted); }
+.gr-slot--bench .gr-pos { opacity: 0.7; }
+.gr-tag--sub { color: var(--brand); }
+.gr-card--team .gr-season { margin: 4px 0 8px; }
+.gr-season summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--muted); }
 .gr-standings-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px; }
 .gr-standings { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 .gr-standings th, .gr-standings td { padding: 5px 6px; text-align: right; white-space: nowrap; }

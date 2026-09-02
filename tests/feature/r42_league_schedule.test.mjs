@@ -182,8 +182,9 @@ test("poolPlayersFor keeps matched pool records and NAMES the rest", () => {
 
 test("the Sleeper loader is wired lazily and the budget knows the new module", () => {
   const view = readFileSync(join(REPO_ROOT, "app/views/grade.js"), "utf8");
-  assert.match(view, /import\('\.\.\/sleeper\.js'\), import\('\.\.\/grade-league\.js'\), import\('\.\.\/draft-live\.js'\)/,
-    "sleeper/grade-league/draft-live must stay OFF the paste path — dynamic import only");
+  assert.match(view, /import\('\.\.\/sleeper\.js'\), import\('\.\.\/grade-league\.js'\),/,
+    "sleeper/grade-league must stay OFF the paste path — dynamic import only");
+  assert.ok(!/draft-live/.test(view), "R52: the player dump comes from sleeper.js, not draft-live");
   assert.match(view, /gr-league-id/, "the league id input exists");
   assert.match(view, /simulateLeagueScheduled/, "the view runs the scheduled sim");
   assert.match(view, /preDraft/, "the pre-draft state is handled, not blanked");
