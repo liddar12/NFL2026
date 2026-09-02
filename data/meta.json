@@ -118,21 +118,12 @@
     "note": "ledger has no locked (pre-kickoff) player-week yet \u2014 the first week locks on the first append after its kickoff",
     "updated_utc": "2026-09-02T10:44:38Z",
     "backtest_2025": {
-      "season": 2025,
-      "players": 235,
-      "shipped_estimate": "candidate",
       "baseline_mae": 61.013,
       "candidate_mae": 55.595,
-      "shipped_mae": 55.595,
       "gated_mae": 57.188,
-      "baseline_rho": 0.6491,
-      "candidate_rho": 0.654,
-      "shipped_rho": 0.654,
-      "gated_rho": 0.6108,
+      "shipped_mae": 55.595,
       "band_coverage": 0.6766,
-      "band_multiplier": 2.25,
-      "band_target": 0.68,
-      "band_rule": "+/- 2.25 x band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; the multiplier is calibrated so the 2024->2025 backtest band covers ~0.68 of actuals (one sd) \u2014 an estimate of spread, not a measurement",
+      "players": 235,
       "signals_evaluated": [
         "injury_history"
       ],
@@ -155,51 +146,9 @@
         "target_competition",
         "weather"
       ],
-      "by_position": {
-        "QB": {
-          "n": 35,
-          "baseline_mae": 78.181,
-          "candidate_mae": 66.925,
-          "shipped_mae": 66.925,
-          "gated_mae": 80.834,
-          "band_coverage": 0.6286,
-          "sleeper_mae": null,
-          "sleeper_n": null
-        },
-        "RB": {
-          "n": 58,
-          "baseline_mae": 58.851,
-          "candidate_mae": 54.286,
-          "shipped_mae": 54.286,
-          "gated_mae": 53.933,
-          "band_coverage": 0.7586,
-          "sleeper_mae": null,
-          "sleeper_n": null
-        },
-        "WR": {
-          "n": 99,
-          "baseline_mae": 60.454,
-          "candidate_mae": 55.207,
-          "shipped_mae": 55.207,
-          "gated_mae": 54.102,
-          "band_coverage": 0.6364,
-          "sleeper_mae": null,
-          "sleeper_n": null
-        },
-        "TE": {
-          "n": 43,
-          "baseline_mae": 51.24,
-          "candidate_mae": 49.029,
-          "shipped_mae": 49.029,
-          "gated_mae": 49.436,
-          "band_coverage": 0.6977,
-          "sleeper_mae": null,
-          "sleeper_n": null
-        }
-      },
       "sleeper_mae": null,
-      "sleeper_players": null,
-      "sleeper_note": "Sleeper 2025 projections not retrievable (SSLError: HTTPSConnectionPool(host='api.sleeper.app', port=443): Max retries exceeded with url: /projections/nfl/2025/7?season_type=regular&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=WR&position%5B%5D=TE&position%5B%5D=DEF&position%5B%5D=K (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2437)'))))"
+      "sleeper_note": "Sleeper 2025 projections not retrievable (SSLError: HTTPSConnectionPool(host='api.sleeper.app', port=443): Max retries exceeded with url: /projections/nfl/2025/7?season_type=regular&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=WR&position%5B%5D=TE&position%5B%5D=DEF&position%5B%5D=K (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2437)'))))",
+      "sleeper_players": null
     }
   }
 }
