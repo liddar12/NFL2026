@@ -4,7 +4,9 @@ Each parlay matches data/contracts/parlays.schema.json:
 
     {parlay_id, scope, game_id?, legs, model_ev, confidence_tier, correlation_note}
 
-where a leg is {market, selection, implied_prob, model_prob}.
+where a leg is {market, selection, implied_prob, model_prob} plus optional honesty
+annotations (edge_note on spread legs; pricing / estimate / estimate_note / mu / sd /
+z / line on prop legs).
 
 ## Edge
 
@@ -26,6 +28,10 @@ price (or block) same-game parlays precisely because of this. So:
     lite bump), NOT a bare product.
   * Cross-game ("week") parlays are treated as independent legs (rho = 0) and the note
     says so explicitly ("independent legs").
+
+Since R51 the pairwise rhos are MEASURED (scripts/backtest_parlay.py, copula-lite rho on
+resolved 2023-25 games) and read from data/parlay_backtest.json; the table in this
+module is the fallback and carries the same measured numbers.
 
 ## Confidence tier (conformal-flavored)
 
@@ -52,116 +58,164 @@ A market price may be DISPLAYED; it may never be an INPUT to a number we produce
 leg that means: the book's de-vigged probability goes to `implied_prob` (the IMPL column)
 and NOWHERE else. `model_prob` is ours or the leg does not ship.
 
-Until R30 this was inverted for spread and total legs: `market["spread"]["home_cover_prob"]`
-— The Odds API's de-vigged cover price — was passed as make_leg's third POSITIONAL
-argument, which is `model_prob`. `implied_prob=None` was passed alongside, so make_leg
-then FABRICATED the IMPL column back off it (mp * (1 + hold)). Both columns on the card
-were the same book number, one with the hold added on; the MODEL EV badge, the
-HIGH/MEDIUM/LOW tier and the combined probability were all functions of the book's price.
-All 16 spread legs in the shipped data/parlays.json were affected — three of them
-(TEN -3 0.4783, NYG +2.5 0.4892, MIN -1.5 0.4826) sat below 0.5, which the old seed
-formula could not produce, which is how it was caught.
+Until R30 this was inverted for spread and total legs: the book's de-vigged cover price
+was passed as make_leg's `model_prob`, and the IMPL column was fabricated back off it.
+R30 replaced that with OUR margin model at the book's handicap (Elo win probability
+inverted through the normal CDF, margin = PHI^-1(p) x 13.5, re-read at the number) and
+dropped the total leg outright (no scoring model exists anywhere in this repo).
 
-What replaced it, per market:
+## R51 — what the backtest found, and what changed (scripts/backtest_parlay.py)
 
-  * SPREAD — priced by OUR margin model at the BOOK'S HANDICAP (`model_cover_prob`
-    below). The handicap is the terms of the bet, not a price: without a number there
-    is no cover bet to price at all. No line -> no spread leg.
-  * TOTAL — DROPPED. No scoring/total model exists anywhere in this repo (nothing
-    projects game or team points), so there is no honest way to produce P(over). The
-    book's `over_prob` is not available to borrow and a seed is not a model.
-  * The old `0.5 + (p_fav - 0.5) * 0.7` cover seed was DELETED, not kept as a fallback.
-    It was a placeholder wearing a model's clothes: a fixed shrink of the win
-    probability toward 0.5 that ignores the handicap entirely (it returns the same
-    number for -1.5 and -10.5) and was never fitted or backtested. Keeping it as a
-    fallback would have restored exactly the failure this fix exists to remove — a
-    number in the MODEL column that no model produced. A real margin model exists
-    (game_model.prob_from_margin); when it cannot be applied the leg is dropped.
+  * SPREAD — the R30 cover rule was MEASURED for the first time: walk-forward on 797
+    resolved 2023-25 games it scores log-loss 0.7231 against 0.6931 for a flat 0.5, and
+    its picks hit 44-56% in every conviction bin (break-even 52.4%). It has no edge. A
+    spread leg is therefore priced at model_prob = 0.5 EXACTLY at the book's number and
+    carries `edge_note` saying so; `implied_prob` stays the book's de-vigged cover
+    price, so the leg's edge is the negative hold and it falls out of the ranking on
+    its own. The margin-inversion pricing path (model_home_margin / model_cover_prob)
+    is retired — nothing else called it. The handicap is still required: no number,
+    no leg.
+  * PROPS — the documented seed (0.5 shaded by team win probability, clamped to
+    [0.35, 0.65]) was measured too: 2025 log-loss 0.6820. A calibrated per-position
+    logistic on the player's projected yards against the line,
+        p = sigmoid(a + b*z + c*(p_team - 0.5)),  z = (mu - line) / sd_pos,
+    scores 0.6705 on the same fold (0.6920 -> 0.6765 on the 2024 fold) and is adopted
+    under never-regress. Coefficients and residual sds are READ from
+    data/parlay_backtest.json (props.calibration / props.residual_sd); production mu is
+    the player's projected yards THIS WEEK (season component x weekly share, see
+    build_props_by_game). If the file is absent or a position lacks coefficients the
+    leg falls back to the seed and is stamped `estimate_note` — never silently.
+  * TOTAL — still not emitted (no scoring model).
 
 Deterministic, stdlib only, reads fixtures.
 """
 
 import itertools
+import json
 import math
 import os
 import sys
-from statistics import NormalDist
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-# `_MARGIN_SIGMA` is imported (private) on purpose: the margin<->probability mapping and
-# the sigma that defines it must be ONE constant. A local copy here would let the spread
-# leg drift away from the game model that produced the win probability it starts from.
-from scripts.models.game_model import (  # noqa: E402
-    _MARGIN_SIGMA, prob_from_margin,
-)
+# The backtest artifact the builder prices from (prop calibration + correlations).
+# Produced by scripts/backtest_parlay.py; verified by `--gate`.
+DEFAULT_CALIBRATION_PATH = os.path.join(_REPO_ROOT, "data", "parlay_backtest.json")
 
 # Standard two-way sportsbook hold applied to derive a placeholder implied probability
 # when no real line is supplied. ~4.5% is a typical NFL two-way hold.
 _DEFAULT_HOLD = 0.045
 
-# Pairwise correlation priors for same-game legs, keyed on an unordered pair of market
-# tags plus whether the two legs point the SAME game-script direction. These are
-# transparent priors (not fitted): the point is to STOP treating correlated legs as
-# independent, and to get the sign right.
-#   Positive: outcomes that tend to co-occur (favorite wins & game goes over when the
-#             favorite is a high-scoring team; QB passing & his WR receiving).
-#   Negative: outcomes that fight each other (favorite blowout & the game staying under
-#             is possible, but a favorite ML & the underdog covering the spread oppose).
-_SAME_GAME_DEFAULT_RHO = 0.20
+# Pairwise correlation for same-game legs, keyed on an unordered pair of market tags.
+# MEASURED 2023-25 (copula-lite rho on resolved games, scripts/backtest_parlay.py) and
+# re-fit by that script into data/parlay_backtest.json, which is the live source; this
+# table is the FALLBACK when the file is absent and carries the same measured numbers:
+#   favorite ML & favorite cover     0.71 (n 796)   [pre-R51 prior 0.55]
+#   QB 225+ & same-team WR 60+       0.32 (n 497)   [prior 0.45]
+#   QB 225+ & same-team RB 60+       0.00 (n 404)   [prior 0.20 default; measured -0.02]
+#   QB 225+ & OPPOSING WR 60+        0.10 (n 302)   [explicit opposing-sides measurement]
+#   RB 60+ & his team wins           0.28 (n 814)   [prior 0.25]
+# Pairs without a measurement take the same-game default. Pairs that had a prior but
+# no measurement (qb_pass_yds|team_total, moneyline|total, spread|total) are dropped:
+# no total leg exists to combine, so the rows were dead.
+_SAME_GAME_DEFAULT_RHO = 0.10
 _CORR_RULES = {
-    frozenset(("qb_pass_yds", "wr_rec_yds")): 0.45,   # passer & his receiver
-    frozenset(("qb_pass_yds", "team_total")): 0.35,
-    frozenset(("moneyline", "spread")): 0.55,          # same-team ML & cover move together
-    frozenset(("moneyline", "total")): 0.15,
-    frozenset(("spread", "total")): 0.15,
-    frozenset(("rb_rush_yds", "moneyline")): 0.25,     # lead back & his team winning
+    frozenset(("moneyline", "spread")): 0.71,
+    frozenset(("qb_pass_yds", "wr_rec_yds")): 0.32,
+    frozenset(("qb_pass_yds", "rb_rush_yds")): 0.0,
+    frozenset(("rb_rush_yds", "moneyline")): 0.28,
 }
+# Explicit OPPOSING-sides measurements (the two legs sit on different teams). When a
+# pair has one, it is used as measured; otherwise the same-side rho flips sign.
+_CORR_RULES_OPPOSING = {
+    frozenset(("qb_pass_yds", "wr_rec_yds")): 0.10,
+}
+
+# Spread verdict (R51): the measured numbers behind the flat price, used for the leg's
+# edge_note when the calibration file is absent. From scripts/backtest_parlay.py.
+_SPREAD_MEASURED = (0.7231, 0.6931, 797)
 
 # Confidence-tier thresholds on combined edge (model_prob - implied_prob of the parlay).
 _TIER_HIGH_EDGE = 0.12
 _TIER_MED_EDGE = 0.04
+
+# Leg annotation keys that survive _strip_leg (all optional, all honesty markers).
+_LEG_ANNOTATIONS = ("edge_note", "pricing", "estimate", "estimate_note",
+                    "mu", "sd", "z", "line")
 
 
 def _clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
 
 
+def _sigmoid(x):
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    e = math.exp(x)
+    return e / (1.0 + e)
+
+
 # ---------------------------------------------------------------------------
-# OUR spread-cover model (no market probability anywhere in it).
+# Calibration file (data/parlay_backtest.json) — loaded once per path, absent -> None.
 # ---------------------------------------------------------------------------
-def model_home_margin(p_home):
-    """OUR model's expected home margin, in points, from OUR home win probability.
+_CALIBRATION_CACHE = {}
 
-    game_model maps a predicted margin to a win probability with the normal CDF of
-    (margin / sigma), sigma = 13.5 points (the long-run NFL final-margin spread). This
-    is that map run backwards: the margin whose normal CDF is our win probability. It
-    introduces no new information and no market information — it re-expresses the Elo/
-    composite blend in the units a handicap is quoted in, which is the only way to ask
-    "does this side cover THIS number" of a model that emits a win probability.
+
+def load_calibration(path=DEFAULT_CALIBRATION_PATH):
+    """The parlay backtest document, or None when the file is absent/unreadable.
+
+    Absence is a legitimate state (a fresh checkout before the backtest ran); every
+    consumer falls back to its documented default AND stamps the output so the
+    fallback is visible, never silent.
     """
-    p = _clamp(float(p_home), 1e-4, 1.0 - 1e-4)
-    return NormalDist().inv_cdf(p) * _MARGIN_SIGMA
+    if path is None:
+        return None
+    if path in _CALIBRATION_CACHE:
+        return _CALIBRATION_CACHE[path]
+    doc = None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        doc = None
+    _CALIBRATION_CACHE[path] = doc
+    return doc
 
 
-def model_cover_prob(p_home, home_point):
-    """P(the HOME team covers `home_point`) under OUR margin model.
+def _correlation_table(calib):
+    """(same-side rules, opposing rules, default_rho) from the calibration doc.
 
-    home_point is the home side's handicap as the book quotes it: -3.5 means the home
-    team lays 3.5, +2.5 means it receives 2.5. The home side covers when
-    (final margin + home_point) > 0, so with margin ~ Normal(model margin, sigma) the
-    cover probability is the same normal CDF game_model already uses, shifted by the
-    handicap.
-
-    Only the NUMBER comes from the book; the distribution is entirely ours. Pushes get
-    zero mass (the margin model is continuous), which slightly overstates both sides on
-    an integer line such as -3 — a known, documented approximation, not a hidden one.
+    Falls back to the module tables (the same measured numbers) when the document
+    carries no correlations block.
     """
-    margin = model_home_margin(p_home)
-    return prob_from_margin(margin + float(home_point))["home"]
+    pairs = ((calib or {}).get("correlations") or {}).get("pairs") or []
+    if not pairs:
+        return dict(_CORR_RULES), dict(_CORR_RULES_OPPOSING), _SAME_GAME_DEFAULT_RHO
+    same, opp = {}, {}
+    for p in pairs:
+        rho = p.get("rho")
+        parts = str(p.get("key", "")).split("|")
+        if rho is None:
+            continue
+        if len(parts) == 2:
+            same[frozenset(parts)] = float(rho)
+        elif len(parts) == 3 and parts[2] == "opposing":
+            opp[frozenset(parts[:2])] = float(rho)
+    default = calib["correlations"].get("default_rho", _SAME_GAME_DEFAULT_RHO)
+    return same, opp, float(default)
+
+
+def _spread_edge_note(calib):
+    sp = (calib or {}).get("spread") or {}
+    ll, flat, n = sp.get("model_cover_log_loss"), sp.get("flat_log_loss"), sp.get("n")
+    if ll is None or flat is None or n is None:
+        ll, flat, n = _SPREAD_MEASURED
+    return ("NO EDGE — cover model measured below coin-flip (log-loss %.4f vs %.4f, "
+            "%d games 2023-25); priced flat until a margin model clears never-regress"
+            % (float(ll), float(flat), int(n)))
 
 
 # ---------------------------------------------------------------------------
@@ -171,13 +225,13 @@ def make_leg(market, selection, model_prob, implied_prob=None, hold=_DEFAULT_HOL
              corr_tag=None, side=None):
     """Build a parlay leg.
 
-    market      : market type, e.g. 'moneyline', 'spread', 'total', 'qb_pass_yds'.
-    selection   : the specific pick, e.g. 'KC ML', 'KC -3.5', 'Over 47.5'.
+    market      : market type, e.g. 'moneyline', 'spread', 'qb_pass_yds'.
+    selection   : the specific pick, e.g. 'KC ML', 'KC -3.5'.
     model_prob  : our probability (0..1).
     implied_prob: real book-implied probability if known; else derived from model_prob
                   plus `hold` (a placeholder line — see module docstring on honesty).
     corr_tag    : correlation tag used by the correlation rules (defaults to `market`).
-    side        : 'home'/'away'/'over'/'under' — used to detect same/opposing direction.
+    side        : 'home'/'away' — used to detect same/opposing direction.
     """
     mp = _clamp(float(model_prob), 1e-4, 1.0 - 1e-4)
     if implied_prob is None:
@@ -198,30 +252,36 @@ def make_leg(market, selection, model_prob, implied_prob=None, hold=_DEFAULT_HOL
 
 
 def _strip_leg(leg):
-    """Return a schema-clean copy of a leg (internal underscore fields removed)."""
-    return {
+    """Return a schema-clean copy of a leg: the four contract fields plus any honesty
+    annotations present (internal underscore helpers removed)."""
+    out = {
         "market": leg["market"],
         "selection": leg["selection"],
         "implied_prob": leg["implied_prob"],
         "model_prob": leg["model_prob"],
     }
+    for k in _LEG_ANNOTATIONS:
+        if k in leg:
+            out[k] = leg[k]
+    return out
 
 
-def _pair_rho(a, b):
-    """Correlation prior for a pair of same-game legs.
+def _pair_rho(a, b, corr=None):
+    """Measured correlation for a pair of same-game legs.
 
-    Uses the rule table on the two legs' correlation tags; falls back to the same-game
-    default. If the two legs point in OPPOSING directions (e.g. a home leg and an away
-    leg in the same game), the correlation flips sign — betting both sides of the same
-    script are negatively related.
+    `corr` is (same_rules, opposing_rules, default) from _correlation_table; None uses
+    the module fallback tables. Looks the pair up on its correlation tags, falling back
+    to the same-game default. If the two legs point in OPPOSING directions (a home leg
+    and an away leg in the same game) the pair's explicit opposing-sides measurement is
+    used when one exists; otherwise the same-side rho flips sign — betting both sides
+    of one script are negatively related.
     """
+    same, opp, default = corr if corr is not None else _correlation_table(None)
     key = frozenset((a.get("_corr_tag"), b.get("_corr_tag")))
-    rho = _CORR_RULES.get(key, _SAME_GAME_DEFAULT_RHO)
+    rho = same.get(key, default)
     sa, sb = a.get("_side"), b.get("_side")
-    if sa and sb:
-        opposing = {sa, sb} in ({"home", "away"}, {"over", "under"})
-        if opposing:
-            rho = -abs(rho)
+    if sa and sb and {sa, sb} == {"home", "away"}:
+        rho = opp[key] if key in opp else -abs(rho)
     return _clamp(rho, -0.95, 0.95)
 
 
@@ -239,7 +299,7 @@ def _combine_two(p_joint, p_next, rho):
     return _clamp(joint, 0.0, min(p_joint, p_next))
 
 
-def _combined_probs(legs, correlated):
+def _combined_probs(legs, correlated, corr=None):
     """Return (combined_model_prob, combined_implied_prob).
 
     correlated=False -> pure independence product (cross-game / week parlays).
@@ -269,7 +329,7 @@ def _combined_probs(legs, correlated):
     # to a full joint copula — good enough to get sign and magnitude directionally right).
     model = legs[0]["model_prob"]
     for i in range(1, len(legs)):
-        rho = _pair_rho(legs[i - 1], legs[i])
+        rho = _pair_rho(legs[i - 1], legs[i], corr)
         model = _combine_two(model, legs[i]["model_prob"], rho)
     return model, implied
 
@@ -287,10 +347,10 @@ def _confidence_tier(model_prob, implied_prob, n_legs):
     return "low"
 
 
-def _make_parlay(parlay_id, scope, legs, game_id=None):
+def _make_parlay(parlay_id, scope, legs, game_id=None, corr=None):
     """Assemble a schema-valid parlay dict with EV, tier, and correlation note."""
     correlated = scope == "game"
-    model_p, implied_p = _combined_probs(legs, correlated)
+    model_p, implied_p = _combined_probs(legs, correlated, corr)
 
     # EV of a $1 stake at fair decimal odds implied by the book price (1/implied): you
     # win (1/implied - 1) with prob model_p, lose 1 otherwise. EV = model_p/implied - 1.
@@ -323,7 +383,8 @@ def _make_parlay(parlay_id, scope, legs, game_id=None):
 # ---------------------------------------------------------------------------
 # Candidate leg derivation from a game prediction (+ optional real market / props).
 # ---------------------------------------------------------------------------
-def derive_candidate_legs(game_pred, market=None, props=None):
+def derive_candidate_legs(game_pred, market=None, props=None,
+                          calibration_path=DEFAULT_CALIBRATION_PATH):
     """Build a deterministic set of same-game candidate legs for one game.
 
     game_pred : a record from game_model.predict_game (has probs, home, away, game_id).
@@ -334,13 +395,14 @@ def derive_candidate_legs(game_pred, market=None, props=None):
                    "total":  {"over_prob":..,"line":..}}
                 Every probability in here is a BOOK price: it may only ever reach
                 `implied_prob` (the display-only IMPL column). `home_point` is the
-                handicap — the terms of the bet — and OUR model prices it.
-    props     : optional list of real prop legs already in make_leg shape (dicts with
-                market/selection/model_prob and optionally implied_prob/_corr_tag/_side).
+                handicap — the terms of the bet.
+    props     : optional list of prop legs already in make_leg shape (dicts with
+                market/selection/model_prob and optionally implied_prob/_corr_tag/_side
+                plus honesty annotations, see build_props_by_game).
 
     Leg count is NOT fixed: a leg exists only where we have a model for it. Always at
-    least the favorite moneyline; the spread leg needs a real handicap to price; the
-    total leg is not emitted at all (no scoring model — see the module docstring).
+    least the favorite moneyline; the spread leg needs a real handicap; the total leg
+    is not emitted at all (no scoring model — see the module docstring).
     """
     probs = game_pred.get("probs", {"home": 0.5, "away": 0.5})
     home, away = game_pred.get("home", "HOME"), game_pred.get("away", "AWAY")
@@ -360,30 +422,27 @@ def derive_candidate_legs(game_pred, market=None, props=None):
     legs.append(make_leg("moneyline", "%s ML" % fav, p_fav, implied_prob=ml_implied,
                          corr_tag="moneyline", side=fav_side))
 
-    # 2) Spread cover on the side OUR model favors, priced by OUR margin model at the
-    #    book's handicap.
+    # 2) Spread cover on the side OUR model favors, at the book's handicap, priced at
+    #    EXACTLY 0.5 (R51: the cover model measured below coin-flip — module docstring).
     #
     #    THE SIDE IS CHOSEN ONCE (fav_side, above) and the label, the probability and
-    #    the correlation side are all read off that one choice. Previously the label
-    #    came unconditionally from the home team while the probability came from
-    #    whichever side the model favored, so an away favorite produced a card that
-    #    named one team and priced the other (wrong on 3 of 16 shipped games) and a
-    #    `_side` that flipped the sign of the pair correlation as well.
+    #    the correlation side are all read off that one choice (R30 F2: an away
+    #    favorite once produced a card naming one team and pricing the other).
     #
-    #    No handicap -> NO LEG. The book's cover price is not a substitute for a model
-    #    and neither is a seed; a cover bet without a number is not a bet.
+    #    No handicap -> NO LEG. A cover bet without a number is not a bet, and the
+    #    book's cover price is not a substitute for a model.
     spread = (market or {}).get("spread") or {}
     home_point = spread.get("home_point")
     sel = spread.get("%s_selection" % fav_side)
     if home_point is not None and sel:
-        p_cover_home = model_cover_prob(p_home, home_point)
-        p_cover = p_cover_home if fav_is_home else 1.0 - p_cover_home
         # DISPLAY ONLY: the book's de-vigged cover probability for the SAME side, which
         # is what the IMPL column is supposed to show. It never touches model_prob.
         book_cover = (spread.get("home_cover_prob") if fav_is_home
                       else spread.get("away_cover_prob"))
-        legs.append(make_leg("spread", sel, p_cover, implied_prob=book_cover,
-                             corr_tag="spread", side=fav_side))
+        leg = make_leg("spread", sel, 0.5, implied_prob=book_cover,
+                       corr_tag="spread", side=fav_side)
+        leg["edge_note"] = _spread_edge_note(load_calibration(calibration_path))
+        legs.append(leg)
 
     # 3) Game total OVER — NOT EMITTED. There is no scoring/total model in this repo:
     #    nothing projects game or team points, so we cannot produce P(over) ourselves.
@@ -393,14 +452,19 @@ def derive_candidate_legs(game_pred, market=None, props=None):
     #    Emitting it again requires a real scoring model, not a fallback; the gate check
     #    validate_data.check_parlay_model_independence() reds if a total leg reappears.
 
-    # 4+) Real prop legs (e.g. QB pass yards + his WR receiving yards) appended as-is.
+    # 4+) Prop legs (e.g. QB pass yards + his WR receiving yards) appended with their
+    #     honesty annotations carried through to the output.
     for prop in (props or []):
-        legs.append(make_leg(
+        leg = make_leg(
             prop["market"], prop["selection"], prop["model_prob"],
             implied_prob=prop.get("implied_prob"),
             corr_tag=prop.get("_corr_tag", prop["market"]),
             side=prop.get("_side"),
-        ))
+        )
+        for k in _LEG_ANNOTATIONS:
+            if k in prop:
+                leg[k] = prop[k]
+        legs.append(leg)
 
     return legs
 
@@ -408,23 +472,32 @@ def derive_candidate_legs(game_pred, market=None, props=None):
 # ---------------------------------------------------------------------------
 # Player-prop leg derivation (feeds the props= path of build_game_parlays).
 # ---------------------------------------------------------------------------
-# Seed prop lines per position: (market/corr tag, yardage line, selection label).
+# Prop lines per position: (market/corr tag, yardage line, selection label, the
+# player_weekly league_components key that carries the season yards).
 # The lines are DOCUMENTED SEEDS, not book lines: round league-typical thresholds
-# (a mid-tier starter's over/under) so a 0.5-ish model prob is honest. When a real
-# prop feed lands, its line/implied_prob replaces these seeds via make_leg.
+# (a mid-tier starter's over/under) — the same lines scripts/backtest_parlay.py
+# calibrates against. When a real prop feed lands, its line/implied_prob replaces
+# these via make_leg and the calibration must be re-measured at the feed's lines.
 _PROP_SEEDS = {
-    "QB": ("qb_pass_yds", 224.5, "pass yds"),
-    "RB": ("rb_rush_yds", 59.5, "rush yds"),
-    "WR": ("wr_rec_yds", 59.5, "rec yds"),
+    "QB": ("qb_pass_yds", 224.5, "pass yds", "pass_yd"),
+    "RB": ("rb_rush_yds", 59.5, "rush yds", "rush_yd"),
+    "WR": ("wr_rec_yds", 59.5, "rec yds", "rec_yd"),
 }
 
-# Prop model_prob seed: start at the fair-line 0.5 and shade by the player's TEAM win
-# probability (volume follows game script: winning teams sustain drives), clamped so a
-# seeded prop never claims strong conviction either way:
+# FALLBACK prop model_prob (pre-R51 seed, used only when the calibration file is
+# absent or the position has no coefficients — and then stamped `estimate_note`):
+# start at the fair-line 0.5 and shade by the player's TEAM win probability, clamped
+# so a seeded prop never claims strong conviction either way:
 #   model_prob = clamp(0.5 + _PROP_WIN_SHADE * (p_team_win - 0.5), 0.35, 0.65)
 _PROP_WIN_SHADE = 0.4
 _PROP_CLAMP_LO = 0.35
 _PROP_CLAMP_HI = 0.65
+_SEED_NOTE = "seed pricing — calibration file absent"
+
+# Calibrated prop probabilities are clamped here: the logistic is fit on a bounded
+# feature range and a leg should never claim near-certainty on a yardage line.
+_PROP_CAL_LO = 0.05
+_PROP_CAL_HI = 0.95
 
 
 def _abbrev_player(name):
@@ -435,31 +508,133 @@ def _abbrev_player(name):
     return "%s. %s" % (tokens[0][0], " ".join(tokens[1:]))
 
 
-def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc):
-    """Derive seeded player-prop legs per game: top QB, top RB, top WR on the slate.
+def _week_row(weeks, game_pred, side):
+    """The player's weekly row for THIS game.
+
+    Matched on game_pred['week'] when the record carries one; otherwise on the
+    opponent + home flag from the weekly record (a divisional rematch differs on
+    the home flag, so the pair is unique). None when no row matches.
+    """
+    opp = game_pred.get("away") if side == "home" else game_pred.get("home")
+    wk = game_pred.get("week")
+    for w in weeks or []:
+        if w.get("bye"):
+            continue
+        if wk is not None:
+            if int(w.get("wk", -1)) == int(wk):
+                return w
+        elif w.get("opp") == opp and bool(w.get("home")) == (side == "home"):
+            return w
+    return None
+
+
+def project_prop_yards(pos, weekly_rec, game_pred, side):
+    """The player's projected yards THIS WEEK, or (None, reason).
+
+    mu = season component yards x weekly share, where the season component is the
+    player_weekly `league_components` entry for the position (pass_yd / rush_yd /
+    rec_yd) and the weekly share is this week's pts / the sum of non-bye pts across
+    the player's weeks. The weekly split (build_weekly) already tilts each week by
+    the Elo matchup and home/away, so the share CARRIES the matchup: production uses
+    dvp = 1. The backtest's z used an explicit 0.5-shrink defence-vs-position
+    multiplier instead — an accepted mismatch, to be re-measured next season with a
+    production-shaped feature.
+
+    Returns (mu, None) or (None, reason) with reason in
+    {"no_component", "no_week_row", "zero_season_pts"} — every reason is counted by
+    the caller and reported, never zero-filled.
+    """
+    comp_key = _PROP_SEEDS[pos][3]
+    comps = (weekly_rec or {}).get("league_components") or {}
+    season_yards = comps.get(comp_key)
+    if season_yards is None:
+        return None, "no_component"
+    weeks = (weekly_rec or {}).get("weeks") or []
+    row = _week_row(weeks, game_pred, side)
+    if row is None:
+        return None, "no_week_row"
+    total = sum(float(w.get("pts") or 0.0) for w in weeks if not w.get("bye"))
+    if total <= 0:
+        return None, "zero_season_pts"
+    share = float(row.get("pts") or 0.0) / total
+    return float(season_yards) * share, None
+
+
+def calibrated_prop_prob(pos, mu, p_team, calib):
+    """(model_prob, sd, z) from the calibration doc, or None when the position has no
+    coefficients / residual sd there."""
+    props = (calib or {}).get("props") or {}
+    cal = (props.get("calibration") or {}).get(pos)
+    sd = (props.get("residual_sd") or {}).get(pos)
+    if not cal or not sd or float(sd) <= 0:
+        return None
+    line = _PROP_SEEDS[pos][1]
+    z = (float(mu) - line) / float(sd)
+    p = _sigmoid(float(cal["a"]) + float(cal["b"]) * z
+                 + float(cal["c"]) * (float(p_team) - 0.5))
+    return _clamp(p, _PROP_CAL_LO, _PROP_CAL_HI), float(sd), z
+
+
+def seed_prop_prob(p_team):
+    return _clamp(0.5 + _PROP_WIN_SHADE * (float(p_team) - 0.5),
+                  _PROP_CLAMP_LO, _PROP_CLAMP_HI)
+
+
+def _calibration_covers(calib, pos):
+    props = (calib or {}).get("props") or {}
+    return bool((props.get("calibration") or {}).get(pos)
+                and (props.get("residual_sd") or {}).get(pos))
+
+
+def _report_skipped_props(skipped):
+    """ONE stderr line per skip reason (house rule: skipped loudly, counted)."""
+    for reason, n in sorted(skipped.items()):
+        if n:
+            print("parlay_builder: %d prop leg(s) skipped — %s (no yards projection "
+                  "to price from; nothing invented)" % (n, reason), file=sys.stderr)
+
+
+def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
+                        calibration_path=DEFAULT_CALIBRATION_PATH):
+    """Derive player-prop legs per game: top QB, top RB, top WR on the slate.
 
     game_preds             : list of game_model.predict_game records (game_id, home,
-                             away, probs).
-    player_weekly_doc      : data/player_weekly.json shape ({"players": [{gsis_id,..}]}).
-                             Used as a roster sanity filter: only players with weekly
-                             data are eligible (a projection with no weekly record is
-                             stale or unrostered — skip, never guess).
+                             away, probs; `week` when present).
+    player_weekly_doc      : data/player_weekly.json shape ({"players": [{gsis_id,
+                             league_components, weeks, ..}]}). Roster sanity filter
+                             (only players with weekly data are eligible — a projection
+                             with no weekly record is stale or unrostered — skip, never
+                             guess) AND the source of this week's projected yards.
     player_projections_doc : data/player_projections.json shape ({"players": [
                              {gsis_id, name, team, position, proj_points, ...}]}).
+    calibration_path       : data/parlay_backtest.json (props.calibration,
+                             props.residual_sd). Absent -> seed fallback, stamped.
 
-    For each game, picks the top-projected QB (market qb_pass_yds), RB (rb_rush_yds),
-    and WR (wr_rec_yds) among the two teams' players by proj_points desc, ties broken
-    by gsis_id asc (deterministic). Each leg is a dict the props= path of
-    build_game_parlays consumes: {market, selection, model_prob, _corr_tag, _side}
-    plus provenance fields (gsis_id, line, estimate). model_prob is the documented
-    seed above — no implied_prob is attached, so make_leg charges the standard hold
-    (no fabricated positive edge). Returns {game_id: [prop leg dicts]}.
+    Player choice is unchanged: the top-projected QB (market qb_pass_yds), RB
+    (rb_rush_yds) and WR (wr_rec_yds) among the two teams' players by proj_points desc,
+    ties broken by gsis_id asc (deterministic).
+
+    Pricing (R51): mu = project_prop_yards (season component x weekly share);
+    model_prob = clamp(sigmoid(a + b*z + c*(p_team - 0.5)), 0.05, 0.95) with
+    z = (mu - line) / sd_pos and a, b, c, sd_pos from the calibration file —
+    `pricing: "calibrated"`. A leg whose yards cannot be projected (component key
+    missing, no weekly row for this game, zero season points) is SKIPPED and COUNTED,
+    never invented. When the calibration file is absent or the position lacks
+    coefficients: the pre-R51 seed, `pricing: "seed"`, `estimate_note` set.
+
+    Each leg is a dict the props= path of build_game_parlays consumes:
+    {market, selection, model_prob, _corr_tag, _side} plus provenance (gsis_id, line,
+    estimate, pricing, mu, sd, z, estimate_note?). No implied_prob is attached, so
+    make_leg charges the standard hold (no fabricated positive edge).
+    Returns {game_id: [prop leg dicts]}.
     """
-    weekly_ids = set()
+    calib = load_calibration(calibration_path)
+    weekly_by_id = {}
     for rec in (player_weekly_doc or {}).get("players", []) or []:
         if rec.get("gsis_id"):
-            weekly_ids.add(rec["gsis_id"])
+            weekly_by_id[rec["gsis_id"]] = rec
     players = (player_projections_doc or {}).get("players", []) or []
+    skipped = {"no_component": 0, "no_week_row": 0, "zero_season_pts": 0}
 
     out = {}
     for gp in game_preds:
@@ -469,12 +644,12 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc):
 
         legs = []
         for pos in ("QB", "RB", "WR"):
-            market, line, label = _PROP_SEEDS[pos]
+            market, line, label, _comp = _PROP_SEEDS[pos]
             cands = [
                 p for p in players
                 if p.get("position") == pos
                 and p.get("team") in (home, away)
-                and p.get("gsis_id") in weekly_ids
+                and p.get("gsis_id") in weekly_by_id
             ]
             # Stable rank: proj_points desc, tie by gsis_id asc (deterministic).
             cands.sort(key=lambda p: (-float(p.get("proj_points", 0.0)),
@@ -484,29 +659,50 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc):
             top = cands[0]
             side = "home" if top.get("team") == home else "away"
             p_team = p_home if side == "home" else 1.0 - p_home
-            model_prob = _clamp(
-                0.5 + _PROP_WIN_SHADE * (p_team - 0.5),
-                _PROP_CLAMP_LO, _PROP_CLAMP_HI,
-            )
-            legs.append({
+
+            mu, reason = project_prop_yards(pos, weekly_by_id.get(top.get("gsis_id")),
+                                            gp, side)
+            leg = {
                 "market": market,
                 "selection": "%s %d+ %s" % (
                     _abbrev_player(top.get("name", "?")),
                     int(math.ceil(line)), label,
                 ),
-                "model_prob": round(model_prob, 4),
                 "_corr_tag": market,
                 "_side": side,
-                # Provenance (ignored by make_leg; kept for audit/debug honesty).
+                # Provenance (ignored by make_leg; carried to the output leg).
                 "gsis_id": top.get("gsis_id"),
                 "line": line,
                 "estimate": True,
-            })
+            }
+            if _calibration_covers(calib, pos):
+                if mu is None:
+                    # Calibration exists but this player's yards cannot be projected:
+                    # skip loudly. A seed here would be a number no model produced.
+                    skipped[reason] += 1
+                    continue
+                p, sd, z = calibrated_prop_prob(pos, mu, p_team, calib)
+                leg.update({
+                    "model_prob": round(p, 4),
+                    "pricing": "calibrated",
+                    "mu": round(mu, 2), "sd": round(sd, 2), "z": round(z, 4),
+                })
+            else:
+                leg.update({
+                    "model_prob": round(seed_prop_prob(p_team), 4),
+                    "pricing": "seed",
+                    "estimate_note": _SEED_NOTE,
+                })
+                if mu is not None:
+                    leg["mu"] = round(mu, 2)
+            legs.append(leg)
         out[gid] = legs
+    _report_skipped_props(skipped)
     return out
 
 
-def build_game_parlays(game_pred, market=None, props=None):
+def build_game_parlays(game_pred, market=None, props=None,
+                       calibration_path=DEFAULT_CALIBRATION_PATH):
     """Build >=3 correlation-aware parlays for a single game.
 
     Uses distinct 2-leg combinations of the candidate legs, favoring pairs with the
@@ -514,7 +710,9 @@ def build_game_parlays(game_pred, market=None, props=None):
     correlation-sensitive ones. Deterministic (stable ordering).
     """
     game_id = game_pred.get("game_id", "GAME")
-    legs = derive_candidate_legs(game_pred, market=market, props=props)
+    corr = _correlation_table(load_calibration(calibration_path))
+    legs = derive_candidate_legs(game_pred, market=market, props=props,
+                                 calibration_path=calibration_path)
 
     # Enumerate all unordered 2-leg combinations, rank by |rho| desc (most correlated
     # first) then by combined EV desc, both deterministic tie-breaks by index.
@@ -522,8 +720,8 @@ def build_game_parlays(game_pred, market=None, props=None):
     for i in range(len(legs)):
         for j in range(i + 1, len(legs)):
             pair = [legs[i], legs[j]]
-            rho = _pair_rho(legs[i], legs[j])
-            model_p, implied_p = _combined_probs(pair, correlated=True)
+            rho = _pair_rho(legs[i], legs[j], corr)
+            model_p, implied_p = _combined_probs(pair, correlated=True, corr=corr)
             ev = (model_p / implied_p - 1.0) if implied_p > 0 else -1.0
             combos.append((-abs(rho), -ev, i, j, pair))
     combos.sort()
@@ -535,14 +733,15 @@ def build_game_parlays(game_pred, market=None, props=None):
     # top-up loop below carries the >=3 invariant instead.
     for k, (_, _, i, j, pair) in enumerate(combos[:max(3, 3)]):
         pid = "%s-g%d" % (game_id, k + 1)
-        parlays.append(_make_parlay(pid, "game", pair, game_id=game_id))
+        parlays.append(_make_parlay(pid, "game", pair, game_id=game_id, corr=corr))
 
     # If fewer than 3 combos existed, top up with single-leg parlays so the >=3 invariant
     # still holds. (Only reached when a game has fewer than 3 candidate legs.)
     idx = len(parlays)
     while len(parlays) < 3 and legs:
         pid = "%s-g%d" % (game_id, idx + 1)
-        parlays.append(_make_parlay(pid, "game", [legs[idx % len(legs)]], game_id=game_id))
+        parlays.append(_make_parlay(pid, "game", [legs[idx % len(legs)]],
+                                    game_id=game_id, corr=corr))
         idx += 1
 
     return parlays
@@ -676,12 +875,14 @@ def _report_unmodeled_markets(markets_by_game):
         )
 
 
-def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
+def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
+                  calibration_path=DEFAULT_CALIBRATION_PATH):
     """Build the full parlay list for a slate: >=3 per game AND >=3 for the week.
 
     game_preds      : list of records from game_model.predict_game.
     markets_by_game : optional {game_id: market dict} of real lines.
     props_by_game   : optional {game_id: [prop leg dicts]} of real prop candidates.
+    calibration_path: data/parlay_backtest.json (correlations + spread note).
 
     Week parlays are bucketed by leg count (2..7) via build_week_parlays_multi so the
     UI can offer a leg-count selector. If a (tiny) slate cannot yield >=3 week parlays
@@ -692,6 +893,10 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
     markets_by_game = markets_by_game or {}
     props_by_game = props_by_game or {}
     _report_unmodeled_markets(markets_by_game)
+    if load_calibration(calibration_path) is None:
+        print("parlay_builder: calibration file %s absent — correlations from the "
+              "module fallback table (same measured numbers); prop legs seed-priced "
+              "and stamped." % calibration_path, file=sys.stderr)
 
     parlays = []
     for gp in game_preds:
@@ -700,6 +905,7 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
             gp,
             market=markets_by_game.get(gid),
             props=props_by_game.get(gid),
+            calibration_path=calibration_path,
         ))
     week = build_week_parlays_multi(game_preds, markets_by_game=markets_by_game)
     if sum(1 for p in week if p.get("scope") == "week") < 3:
@@ -709,7 +915,8 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None):
 
 
 def build_parlays_document(game_preds, season, week, as_of_utc,
-                           markets_by_game=None, props_by_game=None):
+                           markets_by_game=None, props_by_game=None,
+                           calibration_path=DEFAULT_CALIBRATION_PATH):
     """Wrap build_parlays in the parlays.json top-level shape.
 
     as_of_utc : caller-supplied fixed ISO-8601 timestamp (NO wall-clock here — the
@@ -723,5 +930,6 @@ def build_parlays_document(game_preds, season, week, as_of_utc,
             game_preds,
             markets_by_game=markets_by_game,
             props_by_game=props_by_game,
+            calibration_path=calibration_path,
         ),
     }

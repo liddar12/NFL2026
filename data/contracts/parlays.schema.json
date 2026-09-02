@@ -69,9 +69,42 @@
                 },
                 "model_prob": {
                   "type": "number",
-                  "description": "OUR probability for this leg, computed without any market price (owner policy: market prices are display only). Moneyline = the game model's win probability; spread = that model's margin evaluated at the book's handicap. A market's de-vigged probability may never appear here - a market with no model of ours yields no leg at all.",
+                  "description": "OUR probability for this leg, computed without any market price (owner policy: market prices are display only). Moneyline = the game model's win probability; spread = exactly 0.5 at the book's handicap since R51 (the cover model measured below coin-flip on 2023-25 - see edge_note); props = the calibrated logistic on this week's projected yards (or the labelled seed fallback). A market's de-vigged probability may never appear here - a market with no model of ours yields no leg at all.",
                   "minimum": 0,
                   "maximum": 1
+                },
+                "edge_note": {
+                  "type": "string",
+                  "description": "Spread legs only (R51): states that the cover model measured no edge and the leg is priced flat at 0.5 until a margin model clears never-regress."
+                },
+                "pricing": {
+                  "type": "string",
+                  "description": "Prop legs only: 'calibrated' = sigmoid(a + b*z + c*(p_team-0.5)) with coefficients from data/parlay_backtest.json; 'seed' = the pre-R51 fallback (calibration file absent or position uncovered), always paired with estimate_note.",
+                  "enum": ["calibrated", "seed"]
+                },
+                "estimate": {
+                  "type": "boolean",
+                  "description": "Prop legs: the line is a documented seed threshold, not a book line."
+                },
+                "estimate_note": {
+                  "type": "string",
+                  "description": "Prop legs priced by the seed fallback carry this note so the fallback is never silent."
+                },
+                "mu": {
+                  "type": "number",
+                  "description": "Prop legs: the player's projected yards this week (season component x weekly share)."
+                },
+                "sd": {
+                  "type": "number",
+                  "description": "Prop legs (calibrated): residual sd of yards for the position, from data/parlay_backtest.json."
+                },
+                "z": {
+                  "type": "number",
+                  "description": "Prop legs (calibrated): (mu - line) / sd."
+                },
+                "line": {
+                  "type": "number",
+                  "description": "Prop legs: the yardage line the leg is evaluated at."
                 }
               }
             }

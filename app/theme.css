@@ -748,6 +748,22 @@ button { font: inherit; color: inherit; }
 .lg-edge--pos { color: var(--pos-txt); }
 .lg-edge--neg { color: var(--accent-txt); }
 
+/* R51 — leg pricing honesty (app/views/parlays.js annotateLegs). A spread leg
+   carries a NO EDGE chip (reuses the .est honesty pill); a prop leg carries a
+   provenance line that wraps beneath the name/odds row, INSIDE the .leg node so
+   the card's leg count is untouched. */
+.leg--annot { flex-wrap: wrap; }
+.leg-prov {
+  flex-basis: 100%;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.leg-prov[data-pricing="seed"] { color: var(--accent-txt); }
+.leg-noedge { font-size: 10px; white-space: nowrap; }
+
 /* ---- foot: EV + leg count ------------------------------------------------- */
 .p-foot {
   display: flex;

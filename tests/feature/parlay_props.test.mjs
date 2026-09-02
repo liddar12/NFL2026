@@ -5,10 +5,14 @@
  * python3 is already a fast-gate dependency, so the gate stays dependency-free.
  *
  * Locks:
- *   parlay_builder.build_props_by_game(game_preds, weekly_doc, projections_doc):
- *     - exactly the QB/RB/WR seeded prop legs per game (markets qb_pass_yds /
+ *   parlay_builder.build_props_by_game(game_preds, weekly_doc, projections_doc,
+ *   calibration_path=...) driven with a NON-EXISTENT calibration path, i.e. the
+ *   R51 SEED FALLBACK (the calibrated path is locked in r51_parlay.test.mjs):
+ *     - exactly the QB/RB/WR prop legs per game (markets qb_pass_yds /
  *       rb_rush_yds / wr_rec_yds), top projected player of the two teams;
- *     - model_prob = 0.5 + 0.4*(p_team_win - 0.5) clamped to [0.35, 0.65];
+ *     - fallback model_prob = 0.5 + 0.4*(p_team_win - 0.5) clamped to
+ *       [0.35, 0.65], every leg stamped pricing "seed" + estimate_note so the
+ *       fallback is never silent;
  *     - _side is the player's team side; ties on proj_points break by gsis_id;
  *     - deterministic: two calls produce identical output;
  *     - players absent from the weekly doc are ineligible (stale projection);
@@ -69,8 +73,9 @@ game = {"game_id": "g1", "home": "KC", "away": "BUF",
 even = {"game_id": "g2", "home": "MIN", "away": "GB",
         "probs": {"home": 0.5, "away": 0.5}}
 
-props1 = build_props_by_game([game, even], weekly, projections)
-props2 = build_props_by_game([game, even], weekly, projections)
+NO_FILE = "/nonexistent/parlay_backtest.json"  # seed fallback, stamped
+props1 = build_props_by_game([game, even], weekly, projections, calibration_path=NO_FILE)
+props2 = build_props_by_game([game, even], weekly, projections, calibration_path=NO_FILE)
 parlays = build_game_parlays(game, props=props1["g1"])
 
 print(json.dumps({
@@ -81,7 +86,7 @@ print(json.dumps({
 }))
 `;
 
-test('build_props_by_game: one QB/RB/WR seeded leg per game, correct markets', () => {
+test('build_props_by_game: one QB/RB/WR leg per game, correct markets (seed fallback)', () => {
   const r = runPy(PROPS_PY);
   const legs = r.g1;
   assert.equal(legs.length, 3, 'expected exactly 3 prop legs (QB/RB/WR)');
@@ -102,9 +107,13 @@ test('build_props_by_game: one QB/RB/WR seeded leg per game, correct markets', (
   // Seed lines are the documented values and every leg is labeled an estimate.
   assert.deepEqual(legs.map((l) => l.line), [224.5, 59.5, 59.5]);
   assert.ok(legs.every((l) => l.estimate === true), 'seeded legs must be labeled');
+  // R51: the seed is a FALLBACK and says so on every leg it prices.
+  assert.ok(legs.every((l) => l.pricing === 'seed'), 'fallback legs must say pricing=seed');
+  assert.ok(legs.every((l) => l.estimate_note === 'seed pricing — calibration file absent'),
+    'the seed fallback must never be silent');
 });
 
-test('prop model_prob: 0.5 shaded by team win prob, clamped to [0.35, 0.65]', () => {
+test('seed fallback model_prob: 0.5 shaded by team win prob, clamped to [0.35, 0.65]', () => {
   const r = runPy(PROPS_PY);
   // p_home=0.95: home shade = 0.5 + 0.4*0.45 = 0.68 -> CLAMPED to 0.65;
   // away shade = 0.5 + 0.4*(-0.45) = 0.32 -> clamped to 0.35.
@@ -137,7 +146,7 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     legsSeen.some((l) => propMarkets.has(l.market)),
     'at least one prop leg must surface in the game parlays',
   );
-  // The QB+WR pair is the strongest prop correlation (rho 0.45) and must appear.
+  // The QB+WR pair is the strongest prop correlation (measured rho 0.32) and must appear.
   assert.ok(
     r.parlays.some((p) => {
       const mk = p.legs.map((l) => l.market).sort();
@@ -149,12 +158,22 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     assert.equal(p.scope, 'game');
     assert.ok(p.legs.length <= 3, `parlay ${p.parlay_id} has ${p.legs.length} legs`);
     assert.ok(p.correlation_note.length > 0, 'same-game parlays need a note');
-    // Schema-clean legs: internal underscore helpers must be stripped.
+    // Schema-clean legs: internal underscore helpers must be stripped; the four
+    // contract fields are always present; anything else is a declared honesty
+    // annotation (parlays.schema.json) — here the seed-fallback stamps.
+    const allowed = new Set(['implied_prob', 'market', 'model_prob', 'selection',
+      'edge_note', 'pricing', 'estimate', 'estimate_note', 'mu', 'sd', 'z', 'line']);
     for (const leg of p.legs) {
-      assert.deepEqual(
-        Object.keys(leg).sort(),
-        ['implied_prob', 'market', 'model_prob', 'selection'],
-      );
+      const keys = Object.keys(leg);
+      assert.ok(!keys.some((k) => k.startsWith('_')), `internal key shipped: ${keys}`);
+      for (const k of ['implied_prob', 'market', 'model_prob', 'selection']) {
+        assert.ok(k in leg, `leg missing ${k}`);
+      }
+      for (const k of keys) assert.ok(allowed.has(k), `undeclared leg field ${k}`);
+      if (leg.market !== 'moneyline' && leg.market !== 'spread') {
+        assert.equal(leg.pricing, 'seed');
+        assert.match(leg.estimate_note, /^seed pricing/);
+      }
     }
   }
 });
