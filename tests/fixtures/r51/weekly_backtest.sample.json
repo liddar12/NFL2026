@@ -1,0 +1,139 @@
+{
+  "generated_utc": "2026-09-02T14:00:00Z",
+  "model_candidate": "weekly_split_v2",
+  "model_incumbent": "weekly_split_v1",
+  "fixture": {
+    "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
+    "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+    "seasons_scored": [
+      2023,
+      2024,
+      2025
+    ],
+    "rows": 9714,
+    "pool": {
+      "QB": 32,
+      "RB": 60,
+      "WR": 80,
+      "TE": 32
+    }
+  },
+  "season_number_rule": "Each scored season is projected from the prior season's per-game rate; 2023 uses 2022, so every scored season has a full prior.",
+  "pooled": {
+    "v1": {
+      "mae": 6.211,
+      "rank_corr": 0.364,
+      "topk": 0.777
+    },
+    "v2": {
+      "mae": 6.035,
+      "rank_corr": 0.389,
+      "topk": 0.788
+    }
+  },
+  "held_out_2025": {
+    "v1": {
+      "mae": 6.309,
+      "rank_corr": 0.357,
+      "topk": 0.766
+    },
+    "v2": {
+      "mae": 6.16,
+      "rank_corr": 0.377,
+      "topk": 0.774
+    }
+  },
+  "per_position": {
+    "QB": {
+      "v1": {
+        "mae": 7.902,
+        "rank_corr": 0.312
+      },
+      "v2": {
+        "mae": 7.611,
+        "rank_corr": 0.341
+      }
+    },
+    "RB": {
+      "v1": {
+        "mae": 6.418,
+        "rank_corr": 0.377
+      },
+      "v2": {
+        "mae": 6.23,
+        "rank_corr": 0.398
+      }
+    },
+    "WR": {
+      "v1": {
+        "mae": 5.874,
+        "rank_corr": 0.356
+      },
+      "v2": {
+        "mae": 5.712,
+        "rank_corr": 0.381
+      }
+    },
+    "TE": {
+      "v1": {
+        "mae": 4.651,
+        "rank_corr": 0.402
+      },
+      "v2": {
+        "mae": 4.577,
+        "rank_corr": 0.419
+      }
+    }
+  },
+  "band": {
+    "rule": "half-width = 1.0 x the position's prior-season weekly sd; coverage = share of 2025 actuals inside the band",
+    "v1": {
+      "coverage_2025": 0.668,
+      "half_width_2025": 7.45
+    },
+    "v2": {
+      "coverage_2025": 0.67,
+      "half_width_2025": 7.3
+    }
+  },
+  "bootstrap": {
+    "delta_mae_2025": {
+      "mean": -0.15,
+      "lo95": -0.2,
+      "hi95": -0.1,
+      "blocks": "season-week",
+      "B": 400
+    }
+  },
+  "factors": {
+    "dvp": {
+      "shrink": 0.25,
+      "source": "data/dvp_positional_history.json"
+    },
+    "elo_tilt_positions": [
+      "QB"
+    ],
+    "weather": {
+      "pass_dome": 1.03,
+      "pass_outdoors": 0.97,
+      "pass_cold_extra": 0.97,
+      "rb_wind": 0.95,
+      "cold_f": 32,
+      "wind_mph": 15
+    },
+    "venue": {
+      "coef": 0.02,
+      "rel_clamp": [
+        -1.0,
+        2.5
+      ],
+      "shrink_n0": 16
+    }
+  },
+  "verdict": {
+    "adopted": true,
+    "rule": "never-regress: the candidate must not be worse than the incumbent on pooled MAE, 2025 held-out MAE, rank-corr or top-K, and the bootstrap 95% interval of the 2025 MAE delta must exclude zero on the good side",
+    "reason": "v2 improves every pooled and 2025 held-out metric (MAE 6.309 -> 6.160 on 2025); bootstrap 95% [-0.200, -0.100] excludes zero; band coverage unchanged at a narrower half-width"
+  },
+  "policy": "Measured on real FINAL player-weeks from the committed corpus, walk-forward; no market number is an input to either model."
+}

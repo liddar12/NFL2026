@@ -111,6 +111,12 @@ SCHEMA_TO_DATA = {
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
+    # R51 — the weekly-split and parlay never-regress backtest records the
+    # MODEL tab's WEEKLY SPLIT GATE / PARLAY GATE cards render. Runner-built
+    # (scripts/backtest_weekly.py, scripts/backtest_parlay.py); every market
+    # number inside is a measurement yardstick, never a model input.
+    "weekly_backtest.schema.json": "weekly_backtest.json",
+    "parlay_backtest.schema.json": "parlay_backtest.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -138,6 +144,9 @@ OPTIONAL_DATA = frozenset([
     # R49 — produced by the daily runner (network: api.sleeper.app). Deliberately
     # NOT committed from the fixture: that would be fabricated provenance.
     "sleeper_projections.json",
+    # R51 — both backtest records are produced by the gate / daily runner. A
+    # clone without them is not red; a present file is validated strictly.
+    "weekly_backtest.json", "parlay_backtest.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,

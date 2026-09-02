@@ -1,0 +1,209 @@
+{
+  "generated_utc": "2026-09-02T14:05:00Z",
+  "fixture": {
+    "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+    "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
+    "seasons": [
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "moneyline": {
+    "n": 804,
+    "incumbent_log_loss": 0.6362,
+    "incumbent_brier": 0.2231,
+    "market_log_loss": 0.6081,
+    "market_brier": 0.2104,
+    "per_season": {
+      "2023": {
+        "incumbent_log_loss": 0.6401,
+        "market_log_loss": 0.6112
+      },
+      "2024": {
+        "incumbent_log_loss": 0.6355,
+        "market_log_loss": 0.607
+      },
+      "2025": {
+        "incumbent_log_loss": 0.6331,
+        "market_log_loss": 0.6062
+      }
+    },
+    "note": "Market = the de-vigged closing moneyline from games_meta, a yardstick the incumbent is measured against; it is never an input."
+  },
+  "spread": {
+    "n": 796,
+    "sigma": 13.5,
+    "model_cover_log_loss": 0.7196,
+    "flat_log_loss": 0.6931,
+    "model_brier": 0.2612,
+    "pick_hit_rate_by_conviction": [
+      {
+        "bin": "0.00-0.05",
+        "n": 262,
+        "hit": 0.457
+      },
+      {
+        "bin": "0.05-0.10",
+        "n": 231,
+        "hit": 0.478
+      },
+      {
+        "bin": "0.10-0.15",
+        "n": 158,
+        "hit": 0.442
+      },
+      {
+        "bin": "0.15-0.20",
+        "n": 96,
+        "hit": 0.542
+      },
+      {
+        "bin": "0.20+",
+        "n": 49,
+        "hit": 0.484
+      }
+    ],
+    "verdict": "no_edge",
+    "reason": "Cover log-loss 0.7196 is worse than the flat 0.6931 and no conviction bin clears 55% on a usable n; spread legs stay display-priced from OUR margin with no claimed edge."
+  },
+  "props": {
+    "lines": {
+      "QB": 224.5,
+      "RB": 59.5,
+      "WR": 59.5
+    },
+    "residual_sd": {
+      "QB": 76.8,
+      "RB": 37.6,
+      "WR": 43.2
+    },
+    "dvp_shrink": 0.5,
+    "folds": [
+      {
+        "season": 2024,
+        "fit_seasons": [
+          2023
+        ],
+        "seed": {
+          "log_loss": 0.6912,
+          "brier": 0.2489,
+          "hit_rate": 0.565,
+          "picks": 1180,
+          "hit_rate_60": 0.612,
+          "picks_60": 88
+        },
+        "calibrated": {
+          "log_loss": 0.6778,
+          "brier": 0.2431,
+          "hit_rate": 0.621,
+          "picks": 1180,
+          "hit_rate_60": 0.641,
+          "picks_60": 197
+        }
+      },
+      {
+        "season": 2025,
+        "fit_seasons": [
+          2023,
+          2024
+        ],
+        "seed": {
+          "log_loss": 0.6815,
+          "brier": 0.2447,
+          "hit_rate": 0.565,
+          "picks": 1212,
+          "hit_rate_60": 0.63,
+          "picks_60": 100
+        },
+        "calibrated": {
+          "log_loss": 0.6694,
+          "brier": 0.2398,
+          "hit_rate": 0.604,
+          "picks": 1212,
+          "hit_rate_60": 0.656,
+          "picks_60": 221
+        }
+      }
+    ],
+    "calibration": {
+      "QB": {
+        "a": 0.012,
+        "b": 1.14,
+        "c": -0.031,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "RB": {
+        "a": -0.008,
+        "b": 1.09,
+        "c": 0.004,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      },
+      "WR": {
+        "a": 0.005,
+        "b": 1.11,
+        "c": -0.017,
+        "fit_seasons": [
+          2023,
+          2024,
+          2025
+        ]
+      }
+    },
+    "verdict": {
+      "adopted": true,
+      "rule": "never-regress: calibrated must beat seed log-loss on every walk-forward fold, fit on prior seasons only",
+      "reason": "Calibrated beats seed on both folds (2024 0.6912 -> 0.6778, 2025 0.6815 -> 0.6694) with a higher hit rate and more >0.6 picks at a higher hit rate."
+    }
+  },
+  "correlations": {
+    "pairs": [
+      {
+        "key": "moneyline|spread",
+        "label": "Moneyline x spread, same game",
+        "rho": 0.71,
+        "n": 796,
+        "prior": 0.55
+      },
+      {
+        "key": "moneyline|prop_qb",
+        "label": "Moneyline x QB pass-yards over, same team",
+        "rho": 0.32,
+        "n": 742,
+        "prior": 0.45
+      },
+      {
+        "key": "spread|prop_rb",
+        "label": "Spread x RB rush-yards over, same team",
+        "rho": -0.02,
+        "n": 655,
+        "prior": 0.2
+      },
+      {
+        "key": "prop_qb|prop_wr",
+        "label": "QB pass-yards over x WR rec-yards over, same team",
+        "rho": 0.1,
+        "n": 611,
+        "prior": 0.2
+      },
+      {
+        "key": "prop_rb|prop_rb",
+        "label": "RB rush-yards over x opposing RB rush-yards over",
+        "rho": 0.28,
+        "n": 540,
+        "prior": 0.25
+      }
+    ],
+    "default_rho": 0.1,
+    "method": "Pearson rho on leg-outcome indicators over the corpus, shrunk toward the prior by n / (n + 50); pairs never measured take default_rho."
+  },
+  "policy": "Market numbers on this record are a measurement yardstick only. No book price reaches a model probability, a parlay probability or a ranking (owner policy, enforced by scripts/validate_data.py)."
+}
