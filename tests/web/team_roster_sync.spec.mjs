@@ -280,6 +280,7 @@ test.describe('R20-B4 — market auction value on the draft board', () => {
     const proj = PROJ.players.find((p) => String(p.gsis_id) === id);
     expect(proj).toBeTruthy();
     // Default scoring mode is PPR, which is the projection as published.
-    expect(Math.abs(shown - proj.proj_points)).toBeLessThanOrEqual(0.05);
+    // 1dp display: half a unit in the last place, with float slack for a 0.05 tie.
+    expect(Math.abs(shown - proj.proj_points)).toBeLessThanOrEqual(0.05 + 1e-9);
   });
 });

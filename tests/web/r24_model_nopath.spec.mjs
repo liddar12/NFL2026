@@ -44,11 +44,13 @@ test('the shipped artifact actually carries the distinction the chip renders', (
   expect(canApply.length, 'artifact has at least one appliable family').toBeGreaterThan(0);
 });
 
+// R51: the WEEKLY SPLIT GATE and PARLAY GATE cards reuse .gate-row/.gate-note, so every
+// locator here is scoped to the promotion-gate card (.m-gate), as web.spec.mjs already does.
 test('a non-appliable family renders NO PATH, and an appliable one never does',
   async ({ page }) => {
     await page.goto('/#/model');
     // .gate-row--head is the column header, not a family.
-    const rows = page.locator('.gate-row:not(.gate-row--head)');
+    const rows = page.locator('.m-gate .gate-row:not(.gate-row--head)');
     await expect(rows.first()).toBeVisible({ timeout: 15000 });
     await expect(rows).toHaveCount(entry.families.length);
 
@@ -81,8 +83,8 @@ test('a non-appliable family renders NO PATH, and an appliable one never does',
 test('the NO PATH note appears and names every non-appliable family',
   async ({ page }) => {
     await page.goto('/#/model');
-    await expect(page.locator('.gate-row').first()).toBeVisible({ timeout: 15000 });
-    const note = page.locator('.gate-note');
+    await expect(page.locator('.m-gate .gate-row').first()).toBeVisible({ timeout: 15000 });
+    const note = page.locator('.m-gate .gate-note');
     await expect(note).toHaveCount(1);
     const text = await note.innerText();
     for (const fam of noPath) {
@@ -93,8 +95,8 @@ test('the NO PATH note appears and names every non-appliable family',
 test('the NO PATH chip is legible — it is a distinct verdict, not a RETAINED twin',
   async ({ page }) => {
     await page.goto('/#/model');
-    await expect(page.locator('.gate-row').first()).toBeVisible({ timeout: 15000 });
-    const nopath = page.locator('.gate-chip--nopath').first();
+    await expect(page.locator('.m-gate .gate-row').first()).toBeVisible({ timeout: 15000 });
+    const nopath = page.locator('.m-gate .gate-chip--nopath').first();
     await expect(nopath).toBeVisible();
 
     // All the chips share a background and, today, an ink: `--warn-txt` is not

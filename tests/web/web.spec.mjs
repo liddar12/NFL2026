@@ -1561,7 +1561,9 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     const banner = await page.locator('.lu-forced').first().innerText();
     expect(banner).toContain('No available RB on your bench');
     expect(banner).toContain('Check the waiver wire');
-    expect(banner).toContain(nameOf(rb[0]));
+    // The slot is filled by whichever IR back the week's points rank first (RB1 is
+    // filled by weekly points, not by season order), so either flagged name is right.
+    expect([nameOf(rb[0]), nameOf(rb[1])].some((n) => banner.includes(n))).toBe(true);
 
     // "Already optimal" would be a lie over a lineup containing a player who
     // cannot take a snap. It is suppressed, and replaced honestly.
