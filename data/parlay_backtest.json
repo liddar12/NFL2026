@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-02T15:38:19Z",
+  "generated_utc": "2026-09-02T16:45:35Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -108,8 +108,8 @@
     },
     "residual_sd": {
       "QB": 76.6615,
-      "RB": 38.8654,
-      "WR": 41.585
+      "RB": 38.8694,
+      "WR": 41.5833
     },
     "dvp_shrink": 0.5,
     "folds": [
@@ -128,12 +128,12 @@
           "n": 811
         },
         "calibrated": {
-          "log_loss": 0.6765,
-          "brier": 0.2418,
+          "log_loss": 0.6767,
+          "brier": 0.2419,
           "hit_rate": 0.6215,
           "picks": 391,
-          "hit_rate_60": 0.681,
-          "picks_60": 163,
+          "hit_rate_60": 0.679,
+          "picks_60": 162,
           "n": 811
         },
         "per_position": {
@@ -161,7 +161,7 @@
           },
           "RB": {
             "n": 272,
-            "residual_sd": 37.5096,
+            "residual_sd": 37.5156,
             "seed": {
               "log_loss": 0.6814,
               "brier": 0.2442,
@@ -172,18 +172,18 @@
               "n": 272
             },
             "calibrated": {
-              "log_loss": 0.6566,
-              "brier": 0.2322,
+              "log_loss": 0.6569,
+              "brier": 0.2324,
               "hit_rate": 0.6455,
               "picks": 110,
-              "hit_rate_60": 0.85,
-              "picks_60": 20,
+              "hit_rate_60": 0.8421,
+              "picks_60": 19,
               "n": 272
             }
           },
           "WR": {
             "n": 272,
-            "residual_sd": 44.8717,
+            "residual_sd": 44.8668,
             "seed": {
               "log_loss": 0.7009,
               "brier": 0.2538,
@@ -194,7 +194,7 @@
               "n": 272
             },
             "calibrated": {
-              "log_loss": 0.6921,
+              "log_loss": 0.6922,
               "brier": 0.2494,
               "hit_rate": 0.6283,
               "picks": 113,
@@ -254,7 +254,7 @@
           },
           "RB": {
             "n": 271,
-            "residual_sd": 37.9881,
+            "residual_sd": 37.992,
             "seed": {
               "log_loss": 0.6758,
               "brier": 0.2415,
@@ -265,8 +265,8 @@
               "n": 271
             },
             "calibrated": {
-              "log_loss": 0.6645,
-              "brier": 0.2353,
+              "log_loss": 0.6644,
+              "brier": 0.2352,
               "hit_rate": 0.6513,
               "picks": 152,
               "hit_rate_60": 0.7,
@@ -276,7 +276,7 @@
           },
           "WR": {
             "n": 272,
-            "residual_sd": 43.0503,
+            "residual_sd": 43.0479,
             "seed": {
               "log_loss": 0.6824,
               "brier": 0.2446,
@@ -311,9 +311,9 @@
         ]
       },
       "RB": {
-        "a": -0.236232,
-        "b": 1.125901,
-        "c": 1.002371,
+        "a": -0.235873,
+        "b": 1.123922,
+        "c": 1.004332,
         "fit_seasons": [
           2023,
           2024,
@@ -321,9 +321,9 @@
         ]
       },
       "WR": {
-        "a": -0.218184,
-        "b": 0.947424,
-        "c": 0.561394,
+        "a": -0.218547,
+        "b": 0.948201,
+        "c": 0.561142,
         "fit_seasons": [
           2023,
           2024,
@@ -346,7 +346,7 @@
     "verdict": {
       "adopted": true,
       "rule": "never-regress: calibrated log-loss <= seed log-loss on every walk-forward fold",
-      "reason": "calibrated log-loss <= seed on every fold: 2024: 0.6765 vs 0.6920; 2025: 0.6705 vs 0.6820"
+      "reason": "calibrated log-loss <= seed on every fold: 2024: 0.6767 vs 0.6920; 2025: 0.6705 vs 0.6820"
     }
   },
   "correlations": {
