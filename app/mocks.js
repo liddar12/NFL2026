@@ -80,7 +80,7 @@ export const MIN_CALIBRATION_PICKS = 24;
 export const MIN_POSITION_PICKS = 8;
 
 /** Play modes. `null` = unknown (a migrated v1 snake record) — never live. */
-export const PLAY_MODES = Object.freeze(['sim', 'live']);
+const PLAY_MODES = Object.freeze(['sim', 'live']);
 
 /* --------------------------------------------------------------------------
  * Storage plumbing (defensive; never throws)

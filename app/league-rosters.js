@@ -22,7 +22,7 @@
  */
 
 export const LEAGUE_ROSTERS_KEY = 'nfl2026.leaguerosters.v1';
-export const LEAGUE_ROSTERS_VERSION = 1;
+const LEAGUE_ROSTERS_VERSION = 1;
 export const NFL_WEEK_KEY = 'nfl2026.nflweek.v1';
 
 function defaultStorage() {

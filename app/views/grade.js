@@ -213,7 +213,7 @@ export function renderTeamEstimate({ ours, scenario, gated, mode, teamIndex }) {
 
 /** Repaint ONLY the Sleeper cells once the doc has landed. `teams` is
  *  [{ ours, starters, weeks }] in card order. */
-export function fillSleeperCells(out, mod, idx, teams) {
+function fillSleeperCells(out, mod, idx, teams) {
   teams.forEach((t, i) => {
     const sum = sleeperTeamSummary(mod, idx, t.starters, t.weeks);
     const cell = out.querySelector(`.gr-est-sl[data-team="${i}"]`);

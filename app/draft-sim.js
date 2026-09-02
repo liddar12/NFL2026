@@ -267,15 +267,15 @@ export function normalizeRoomType(roomType) {
  * this opponent's roster. A DOCUMENTED PRIOR (the STACK_BONUS magnitude in
  * app/team-logic.js), not a measurement: roughly the value gap of one round,
  * enough to make a needed starter beat a marginally better bench body. */
-export const AI_STARTER_NEED_BONUS = 12;
+const AI_STARTER_NEED_BONUS = 12;
 
 /** Candidate-set width: how many of the top-scoring players the AI+ manager
  * will actually consider, widening as the draft goes on. */
 export const AI_TOP_K_BASE = 3;
-export const AI_TOP_K_PER_ROUND = 0.5;
+const AI_TOP_K_PER_ROUND = 0.5;
 
 /** Weight decay across that candidate set (w_i = AI_PICK_DECAY^i). */
-export const AI_PICK_DECAY = 0.45;
+const AI_PICK_DECAY = 0.45;
 
 /**
  * LEAGUE-SCORED season points for one board row — the AI+ room's valuation.

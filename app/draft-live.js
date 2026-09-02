@@ -68,15 +68,15 @@ export function picksEndpoint(draftId) {
 /** Poll cadence. 5s is fast enough that a pick appears before the next one is
  * made (real rooms run 30s+ per pick) and slow enough to be a polite consumer
  * of a public, unauthenticated API. */
-export const POLL_MS = 5000;
+const POLL_MS = 5000;
 
 /** Re-read the draft RECORD (not the picks) every N polls (~1/min at 5s):
  * `status` lives on the record, and a paused or cancelled draft is something
  * the status line must say instead of "SYNCING" forever. */
-export const RECORD_RECHECK_EVERY = 12;
+const RECORD_RECHECK_EVERY = 12;
 
 /** Abort ceilings. The picks list is small; the player dump is ~5MB. */
-export const PICKS_TIMEOUT_MS = 10000;
+const PICKS_TIMEOUT_MS = 10000;
 export const INDEX_TIMEOUT_MS = 45000;
 
 /** Sleeper's whole-league player dump — fetched HERE (not by the view: the
@@ -176,7 +176,7 @@ function toInt(v) {
  * the evidence stream the R32 room memory and the tendency learning read, so
  * a fabricated dollar would teach the opponent model something nobody paid.
  */
-export function pickAmount(raw) {
+function pickAmount(raw) {
   const meta = isPlainObject(raw) ? raw.metadata : null;
   if (!isPlainObject(meta) || meta.amount == null || String(meta.amount).trim() === '') {
     return null;
@@ -384,7 +384,7 @@ export function pickDraftRecord(payload) {
  *
  * Returns Map<sleeperId, { boardIdx|null, code, message }>.
  */
-export function matchPicksToBoard(sleeperIds, board, index) {
+function matchPicksToBoard(sleeperIds, board, index) {
   const rows = Array.isArray(board) ? board : [];
   const byGsis = new Map();
   rows.forEach((row, i) => {

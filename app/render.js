@@ -116,7 +116,7 @@ export function dayGroupLabel(utc) {
  *   player_receptions-> "<sel>"
  * Anything else falls back to the raw selection.
  */
-export function formatLeg(market, selection) {
+function formatLeg(market, selection) {
   const sel = String(selection == null ? '' : selection);
   // Abbreviate a leading "First Last" to "F. Last" so long player-prop names fit
   // one card row instead of truncating with an ellipsis.
@@ -143,7 +143,7 @@ export function formatLeg(market, selection) {
  * Model edge in whole percentage points: round((model - implied) * 100).
  * Positive = model likes it more than the market implies.
  */
-export function edgePct(modelProb, impliedProb) {
+function edgePct(modelProb, impliedProb) {
   return Math.round((Number(modelProb) - Number(impliedProb)) * 100);
 }
 
@@ -429,7 +429,7 @@ export function renderTrendChip(trend) {
  * weekly opponents). The number is the accessible source of truth; the meter is
  * a redundant visual, never color-only.
  */
-export function renderSos(sos) {
+function renderSos(sos) {
   const v = Number(sos);
   if (!Number.isFinite(v)) return '';
   const filled = clamp(Math.round(v), 1, 5);
@@ -450,7 +450,7 @@ export function renderSos(sos) {
  * ------------------------------------------------------------------------ */
 
 /** Scoring modes in display order. Persisted value ∈ this set (default ppr). */
-export const SCORING_MODES = ['ppr', 'half', 'std'];
+const SCORING_MODES = ['ppr', 'half', 'std'];
 
 /**
  * The global PPR/HALF/STD scoring toggle (.scoreseg) for the players header.

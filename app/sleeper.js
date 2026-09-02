@@ -165,16 +165,6 @@ export const SLEEPER_SLOT_MAP = Object.freeze({
 });
 
 /**
- * Slots that are real, understood, and NOT part of the active roster geometry.
- * They are counted and reported, never folded into the bench (a taxi spot is
- * not a bench spot, and pretending otherwise inflates the roster).
- */
-export const SLEEPER_RESERVE_SLOTS = Object.freeze({
-  IR: 'reserve_slots',
-  TAXI: 'taxi_slots',
-});
-
-/**
  * Slots this app cannot model, each with the reason the user is shown. The app
  * projects offence plus team defence; it has no individual-defensive-player or
  * punter projections, so an IDP slot cannot be filled honestly.
@@ -1076,7 +1066,7 @@ export async function fetchSleeperLeague(idOrUrl, opts) {
  * import: the draft record upgrades two settings (the real round count, the
  * cap-enforcement flag) and its absence just means the league-object fallbacks
  * apply, with the report saying so. */
-export async function fetchSleeperDraft(draftId, opts) {
+async function fetchSleeperDraft(draftId, opts) {
   if (draftId == null || String(draftId).trim() === '') return null;
   const got = await sleeperGetJson(draftEndpoint(draftId), isPlainObject(opts) ? opts : {}, {
     noFetch: 'no fetch available',
@@ -2452,7 +2442,7 @@ export function stateEndpoint() {
  *   onProgress({ bytes, total }) — total is Content-Length or null.
  * ------------------------------------------------------------------------ */
 export const PLAYER_INDEX_URL = `${SLEEPER_API_BASE}/players/nfl`;
-export const PLAYER_INDEX_TIMEOUT_MS = 45000;
+const PLAYER_INDEX_TIMEOUT_MS = 45000;
 
 let _indexMemo = null; // Promise<{ok, index, count, bytes, error}> for the session
 

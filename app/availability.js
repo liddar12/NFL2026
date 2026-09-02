@@ -32,11 +32,11 @@ export const AVAIL_CODES = Object.freeze([
 ]);
 
 /** Codes whose meaning is "he is not playing" — chip tone `out`. */
-export const NOT_PLAYING = Object.freeze(['OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED']);
+const NOT_PLAYING = Object.freeze(['OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED']);
 /** Codes whose meaning is "your call" — chip tone `watch`. */
-export const WATCH = Object.freeze(['QUESTIONABLE', 'DOUBTFUL']);
+const WATCH = Object.freeze(['QUESTIONABLE', 'DOUBTFUL']);
 /** Season-class codes (multi-week absence), mirroring SEASON_CLASS in the pipeline. */
-export const SEASON_CODES = Object.freeze(['IR', 'PUP', 'NFI', 'SUSPENDED']);
+const SEASON_CODES = Object.freeze(['IR', 'PUP', 'NFI', 'SUSPENDED']);
 
 const CODE_SET = new Set(AVAIL_CODES);
 const OUT_SET = new Set(NOT_PLAYING);
@@ -185,7 +185,7 @@ export function availabilityOf(weeklyPlayerRow, wk, currentWk) {
 }
 
 /** Spelled-out tooltip. Copy set is UX_DESIGN §11, verbatim where it applies. */
-export function titleFor(code, outForSeason, weeksOut, confidence) {
+function titleFor(code, outForSeason, weeksOut, confidence) {
   const full = FULL[code] || code;
   if (code === 'QUESTIONABLE') return 'Questionable — game-time decision';
   if (code === 'DOUBTFUL') return 'Doubtful — expected to sit';
@@ -208,7 +208,7 @@ export function titleFor(code, outForSeason, weeksOut, confidence) {
  * appears ONLY for the league-rule floor, so the sentence carries its own
  * provenance even on a phone where the LEAGUE MIN tag is hidden.
  */
-export function phraseFor(code, outForSeason, weeksOut, confidence) {
+function phraseFor(code, outForSeason, weeksOut, confidence) {
   const base = {
     IR: 'is on IR', PUP: 'is on the PUP list', NFI: 'is on the NFI list',
     SUSPENDED: 'is suspended', OUT: 'is ruled out this week',

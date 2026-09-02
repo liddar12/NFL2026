@@ -32,8 +32,3 @@ def set_record(key, value, path=META_PATH):
     return doc
 
 
-def get_record(key, path=META_PATH, default=None):
-    if not os.path.exists(path):
-        return default
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh).get(key, default)

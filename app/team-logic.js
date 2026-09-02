@@ -59,14 +59,14 @@ const FLEX_TAKES = Object.freeze(['RB', 'WR', 'TE']);
 
 export const W_PTS = 1.0;             // season points are the score backbone
 export const STACK_BONUS = 12;        // same-team QB + WR/TE
-export const BYE_COVER_BONUS = 6;     // per starter bye backfilled (cap below)
-export const BYE_COVER_CAP = 12;      // covers beyond 2 add no score
+const BYE_COVER_BONUS = 6;     // per starter bye backfilled (cap below)
+const BYE_COVER_CAP = 12;      // covers beyond 2 add no score
 export const BYE_CLASH_PENALTY = 10;  // per CURRENT STARTER sharing the bye
-export const FLOOR_BONUS = 8;         // candidate raises the worst-week total
-export const MATCHUP_BONUS_CAP = 8;   // complementary-schedule bonus ceiling
+const FLOOR_BONUS = 8;         // candidate raises the worst-week total
+const MATCHUP_BONUS_CAP = 8;   // complementary-schedule bonus ceiling
 // Scale for the matchup bonus: bonus = min(cap, avg-strong-dip-week-pts × 0.4),
 // so a ~20-pt dip-week performer hits the cap. Transparent prior, like TILT_COEF.
-export const MATCHUP_SCALE = 0.4;
+const MATCHUP_SCALE = 0.4;
 
 const EPS = 1e-9; // float comparisons ("raises", "dips") never flip on noise
 
@@ -1075,9 +1075,9 @@ function sortScored(scored, sortMode) {
  * ------------------------------------------------------------------------ */
 
 export const TRAJECTORY_SCALE = 40;  // fit pts per unit trajectory_adj (±0.25 -> ±10)
-export const COLD_SCALE = 5;         // fit pts per cold-venue week per unit cold_adj
-export const COLD_WEEKS_CAP = 4;     // cold weeks beyond 4 add no score (±0.25 -> ±5)
-export const V2_REASON_CAP = 6;      // v1's 4 + up to 2 highest-impact AI reasons
+const COLD_SCALE = 5;         // fit pts per cold-venue week per unit cold_adj
+const COLD_WEEKS_CAP = 4;     // cold weeks beyond 4 add no score (±0.25 -> ±5)
+const V2_REASON_CAP = 6;      // v1's 4 + up to 2 highest-impact AI reasons
 
 /** Provenance suffixes (the contract strings — tests match on these). */
 const PROV_MEASURED = '(measured 2021–2025)';

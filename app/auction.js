@@ -79,7 +79,7 @@ export const MIN_BID = 1;
 export const MARKET_DECAY = 0.028;
 
 /** Tendency EW update rate: how fast the room model believes observed sales. */
-export const TENDENCY_ALPHA = 0.30;
+const TENDENCY_ALPHA = 0.30;
 const TENDENCY_CLAMP = Object.freeze([0.6, 1.6]);
 
 /** Prior strength for seeding tendencies from stored LIVE auction history:
@@ -118,7 +118,7 @@ function publishedPrice(row) {
 }
 
 /** True when at least one row on this board carries a published auction price. */
-export function hasPublishedPrices(adpRows) {
+function hasPublishedPrices(adpRows) {
   const rows = Array.isArray(adpRows) ? adpRows : [];
   for (const r of rows) if (publishedPrice(r) != null) return true;
   return false;
@@ -533,7 +533,7 @@ function teamNeedsPos(team, pos, shape) {
  * given rng. Blends market price, that team's learned positional tendency, the
  * live inflation rate, and budget/need caps.
  */
-export function opponentBid(player, team, market, tendency, inflationRate, shape, rng) {
+function opponentBid(player, team, market, tendency, inflationRate, shape, rng) {
   if (!teamNeedsPos(team, player.position, shape)) return 0;
   const open = shape.size - team.players.length;
   const cap = maxBid(team.budget, open);
@@ -1053,4 +1053,3 @@ export function scoreAuction(a) {
     ptsPerDollar: spent > 0 ? Math.round((sheet.mine / spent) * 10) / 10 : 0 };
 }
 
-export { startersTotal };

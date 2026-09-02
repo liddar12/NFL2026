@@ -80,11 +80,6 @@ _CURVES = {
 }
 
 
-def supported_positions():
-    """Positions with a defined age curve."""
-    return sorted(_CURVES.keys())
-
-
 def age_multiplier(position, age):
     """Return the aging multiplier (around 1.0) for `position` at `age`.
 

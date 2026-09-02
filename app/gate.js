@@ -18,7 +18,7 @@ const UNLOCK_KEY = 'nfl2026.unlock.v1';
 const PASS_HASH = '385d13f26064845ecdc2c60df40747c03e5c534a461dbc00bcccc3e376e6aa8f';
 
 /** True once this browser has unlocked (persisted). */
-export function isUnlocked() {
+function isUnlocked() {
   try {
     return localStorage.getItem(UNLOCK_KEY) === '1';
   } catch (_) {

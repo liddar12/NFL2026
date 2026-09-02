@@ -32,54 +32,6 @@ def _require_requests():
     return requests
 
 
-def fetch_weather(lat, lon, kickoff_utc, timeout=_HTTP_TIMEOUT):
-    """Hourly forecast for (lat, lon) at the kickoff hour.
-
-    Returns dict: {kickoff_utc, temp_c, wind_kph, precip_mm, source}. Selects the hourly
-    bucket nearest the kickoff hour. Loud if the requested day isn't in the forecast
-    window (Open-Meteo only forecasts ~16 days out — a request for a far-future Week 18
-    game legitimately has no forecast yet; callers should treat that as "no weather
-    signal available", not as zeros).
-
-    `kickoff_utc` is an ISO-8601 string ('YYYY-MM-DDTHH:MM' or with 'Z'). We match on the
-    UTC hour, so we request the API in UTC (timezone=UTC) for a clean join.
-    """
-    requests = _require_requests()
-    target = _parse_hour(kickoff_utc)
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "hourly": "temperature_2m,precipitation,wind_speed_10m",
-        "wind_speed_unit": "kmh",
-        "timezone": "UTC",
-        # Bound the window to the kickoff day so the payload is small.
-        "start_date": target.date().isoformat(),
-        "end_date": target.date().isoformat(),
-    }
-    resp = requests.get(_OPEN_METEO_URL, params=params, timeout=timeout)
-    if resp.status_code != 200:
-        raise FeedError(
-            f"Open-Meteo returned HTTP {resp.status_code} for ({lat},{lon}). Not treating "
-            f"a non-200 as clear skies."
-        )
-    hourly = (resp.json() or {}).get("hourly") or {}
-    times = hourly.get("time") or []
-    if not times:
-        raise FeedError(
-            f"Open-Meteo has no hourly forecast for {target.date()} at ({lat},{lon}) — "
-            f"likely beyond the forecast horizon. No weather signal available; do NOT "
-            f"substitute zeros."
-        )
-    idx = _nearest_hour_index(times, target)
-    return {
-        "kickoff_utc": kickoff_utc,
-        "temp_c": _at(hourly.get("temperature_2m"), idx),
-        "wind_kph": _at(hourly.get("wind_speed_10m"), idx),
-        "precip_mm": _at(hourly.get("precipitation"), idx),
-        "source": "open-meteo",
-    }
-
-
 def _parse_hour(iso):
     """Parse an ISO-8601 kickoff string to a UTC datetime truncated to the hour."""
     s = str(iso).strip().replace("Z", "+00:00")

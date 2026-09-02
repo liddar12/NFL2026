@@ -39,10 +39,6 @@ export const SYNC_LOG_CAP = 20;
 /** Longest change list one entry keeps (a roster sync could list every slot). */
 const MAX_CHANGE_LINES = 60;
 
-/** The two sync kinds TEAM records. Anything else is stored as given (lower
- * case) — a caller's own label is more honest than relabelling it 'settings'. */
-export const SYNC_KINDS = Object.freeze(['settings', 'roster']);
-
 /* --------------------------------------------------------------------------
  * Small helpers (same defensive idiom as app/league.js)
  * ------------------------------------------------------------------------ */
@@ -171,7 +167,7 @@ export function clearSyncLog(storage) {
  * keys re-labelled with their unit so the LEAGUE tab reads as a settings
  * page ("D/ST: 0 points allowed") rather than a stat sheet ("Shutout").
  * Unknown keys fall back to SCORING_FIELDS' label, then to the raw key. */
-export const SCORING_LABELS = Object.freeze({
+const SCORING_LABELS = Object.freeze({
   // passing
   pass_yd: 'Passing yard',
   pass_td: 'Passing TD',

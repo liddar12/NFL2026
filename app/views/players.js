@@ -521,7 +521,7 @@ export function renderRookieStarters(doc) {
     + '</div>';
 }
 
-export function renderLeagueExtra(entry) {
+function renderLeagueExtra(entry) {
   const pts = entry ? Number(entry.extra_pts) : NaN;
   if (!Number.isFinite(pts) || pts === 0) return '';
   const sign = pts > 0 ? '+' : '−';

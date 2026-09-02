@@ -101,7 +101,7 @@ export function rosVOR(ros, replacement) {
 }
 
 /** Default starter cutoffs per position for a 12-team league (replacement rank). */
-export const STARTER_CUTOFFS = Object.freeze({ QB: 12, RB: 24, WR: 36, TE: 12 });
+const STARTER_CUTOFFS = Object.freeze({ QB: 12, RB: 24, WR: 36, TE: 12 });
 
 /**
  * Rank a set of players by rest-of-season value within their positions.

@@ -35,7 +35,7 @@ import { normalizeProfile, applyScoring } from './league.js';
 export const SLEEPER_PROJ_PATH = '/data/sleeper_projections.json';
 
 /** Regular-season week count the `weeks` array is sized to. */
-export const WEEKS = 18;
+const WEEKS = 18;
 
 /** The gap (as a fraction of the Sleeper number) past which a reason is owed. */
 export const GAP_THRESHOLD = 0.20;
@@ -68,9 +68,6 @@ export function getSleeperProjections({ force = false } = {}) {
   inflight = p;
   return p;
 }
-
-/** Drop the cached promise (tests / a forced refresh). */
-export function clearSleeperCache() { inflight = null; }
 
 /* --------------------------------------------------------------------------
  * Shaping
