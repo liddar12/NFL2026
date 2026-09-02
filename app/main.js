@@ -17,7 +17,21 @@ import { renderHealth, healthMod } from './render.js';
 import { ensureUnlocked } from './gate.js';
 import mountSlate from './views/slate.js';
 import mountPlayers from './views/players.js';
-import mountParlays from './views/parlays.js';
+
+/** Lazy PARLAYS mount (R51): the parlay card view rides with the two
+ * never-regress annotations now and no longer earns a place on the boot
+ * graph; #/parlays imports it at navigation time like the other heavy tabs. */
+async function mountParlays(el) {
+  let mod;
+  try {
+    mod = await import('./views/parlays.js');
+  } catch (err) {
+    console.warn('[nfl2026] parlays view failed to load:', err);
+    el.innerHTML = '<div class="state">Parlays unavailable — the view failed to load.</div>';
+    return;
+  }
+  return mod.default(el);
+}
 
 /** Lazy TEAM mount: the builder ships as its own module (team-logic + weekly
  * data). Import at navigation time so a failed load degrades to a .state

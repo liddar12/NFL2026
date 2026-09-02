@@ -429,8 +429,24 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       assert.ok(a.evidence, `${p.gsis_id}: an explicit duration must quote its source`);
     }
     const sum = p.weeks.reduce((x, w) => x + w.pts, 0);
-    assert.ok(Math.abs((proj.players[i].proj_points - sum) - a.season_points_lost) <= 0.05,
-      `${p.gsis_id}: season_points_lost disagrees with the split`);
+    const row = proj.players[i];
+    const inTotal = row.baseline_rule === 'prior_ppg_x_projected_games'
+      && Number(row.absence_weeks) > 0;
+    if (inTotal) {
+      // R49: the season number already excludes the blocked games, so the split
+      // carries the FULL total and the loss is stated at the projection's own
+      // per-game rate (build_weekly), never re-subtracted from the split.
+      const pg = Number(row.projected_games) || 0;
+      const perGame = pg ? row.proj_points / pg : Number(row.prior_ppg) || 0;
+      assert.ok(Math.abs(sum - row.proj_points) <= 0.1,
+        `${p.gsis_id}: absence already in the total, split must carry the full number`);
+      assert.ok(Math.abs(perGame * nBlocked - a.season_points_lost) <= 0.05,
+        `${p.gsis_id}: season_points_lost ${a.season_points_lost} != per-game ` +
+        `${perGame.toFixed(2)} x ${nBlocked} blocked weeks`);
+    } else {
+      assert.ok(Math.abs((row.proj_points - sum) - a.season_points_lost) <= 0.05,
+        `${p.gsis_id}: season_points_lost disagrees with the split`);
+    }
     blocked += 1;
     ending += a.out_for_season ? 1 : 0;
     removed += a.season_points_lost;

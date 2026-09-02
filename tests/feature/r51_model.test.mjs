@@ -225,7 +225,7 @@ test('parlayGateCard escapes hostile strings in every free-text field it renders
 
 /* --------------------------------------------------- the two loaders */
 
-// app/data.js against a stubbed fetch — the same harness data_contract.test.mjs uses.
+// the MODEL view's loaders against a stubbed fetch — the same harness data_contract.test.mjs uses.
 async function withStubbedFetch(fn) {
   const real = globalThis.fetch;
   const calls = [];
@@ -236,7 +236,12 @@ async function withStubbedFetch(fn) {
     if (!r) throw new Error(`unstubbed ${path}`);
     return r;
   };
-  const url = new URL(pathToFileURL(join(REPO_ROOT, 'app', 'data.js')).href);
+  // R51: the loaders live in the lazy MODEL view (boot-graph budget), on top of
+  // app/data.js loadJson. The shared promise cache is cleared per stub so a
+  // cached 200 from an earlier stub can never masquerade as a fresh fetch.
+  const dataMod = await import(pathToFileURL(join(REPO_ROOT, 'app', 'data.js')).href);
+  dataMod.clearCache();
+  const url = new URL(pathToFileURL(join(REPO_ROOT, 'app', 'views', 'model.js')).href);
   url.searchParams.set('t', `${Date.now()}-${Math.random()}`);
   try {
     return await fn(await import(url.href), { calls, responses });

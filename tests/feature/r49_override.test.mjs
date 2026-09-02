@@ -99,7 +99,8 @@ print(json.dumps({"k": pp.CANDIDATE_BAND_MULTIPLIER, "target": pp.CANDIDATE_BAND
     'the shipped interval half-width is the raw band times the calibrated multiplier');
   const bt = JSON.parse(read('data/player_backtest.json')).candidate_2025;
   assert.equal(bt.band_multiplier, r.k);
-  assert.ok(Math.abs(bt.band_coverage - r.coverage) < 1e-6, 'the artifact reports coverage AT the multiplier');
+  // The artifact rounds band_coverage to 4dp, so the recompute may differ by up to half a unit in the last place.
+  assert.ok(Math.abs(bt.band_coverage - r.coverage) <= 5e-5, `the artifact reports coverage AT the multiplier (${bt.band_coverage} vs ${r.coverage})`);
 });
 
 test('component pricing scales with the shipped number and the client integrity check still passes', () => {

@@ -87,7 +87,7 @@ const STORAGE = resolve(TESTS_DIR, '../gate-unlocked.storage.json');
 // These two carry the weight — verified by re-introducing the defect edge in a
 // throwaway copy of app/: the boot graph goes 15 -> 19 modules and
 // 275,856 -> 582,101 bytes, tripping both.
-const BOOT_MODULE_CEILING = 16; // measured 15; one module of headroom.
+const BOOT_MODULE_CEILING = 15; // measured 14 (R51: parlays view lazy); one module of headroom.
 /* Re-measured 2026-08-15 after the R30/auction-memory releases: 325,257 bytes,
  * up from 275,856. The growth is legitimate boot-module content, not a leak —
  * the module-count and lazy-only guards above both still pass, and the bytes
@@ -123,6 +123,7 @@ const LAZY_ONLY_MODULES = [
   'app/sleeper-proj.js', // R49 — Sleeper's display-only estimate, lazy after first paint (players/grade)
   'app/waivers.js', //       R49 — waiver-wire engine (BEST FIT / BEST AVAILABLE), lineup view only
   'app/league-rosters.js', // R49 — league rosters + NFL week memory, reachable from team/lineup only
+  'app/views/parlays.js', // R51 — parlay cards, needed by #/parlays only (moved off the boot graph)
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must

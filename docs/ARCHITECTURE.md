@@ -82,11 +82,19 @@ an estimate as a measurement.
 
 ## 6. The regression gate
 
-`tests/run_gate.sh` runs three steps in order, gating on **exit codes** (never by grepping
+`tests/run_gate.sh` runs six steps in order, gating on **exit codes** (never by grepping
 colored summaries):
 
-1. `python3 scripts/validate_data.py`
-2. `bash tests/smoke.sh`
-3. `node --test tests/feature/*.mjs`
+1. `python3 scripts/validate_data.py` — data contracts + cross-file invariants
+2. `bash tests/smoke.sh` — files exist, JSON parses, every pipeline selftest
+3. `node --test tests/feature/*.mjs` — the locked feature tests (incl. WCAG AA contrast)
+4. `python3 scripts/backtest_weekly.py --gate` — R51 weekly split never-regress
+   (weekly_split_v2 vs v1 on committed 2023-2025 actuals; see docs/WEEKLY_SPLIT_V2.md)
+5. `python3 scripts/backtest_parlay.py --gate` — R51 parlay never-regress (prop
+   calibration beats the seed on every walk-forward fold; spread stays NO EDGE;
+   see docs/PARLAY_MODEL_V2.md)
+6. Playwright web + pwa + perf (`npx playwright test --config tests/playwright.config.mjs`)
+   — the simulated click-through; opt-in locally, always run in CI
 
-Playwright UX tests are intentionally deferred until the Gate-2 frontend exists.
+Both backtest records (data/weekly_backtest.json, data/parlay_backtest.json) render on the
+MODEL tab (docs/MODEL_TAB_GATES.md) and are refreshed by the daily workflow before the build.

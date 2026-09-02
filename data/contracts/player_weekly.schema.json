@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "player_weekly.schema.json",
   "title": "Player weekly projection splits",
-  "description": "Per-player 18-week split of the season projection (weekly_split_v1: even split, Elo matchup tilt, home/away, renormalized to the season total). Player order mirrors player_projections.json. Produced by scripts/build_weekly.py, validated by scripts/validate_data.py.",
+  "description": "Per-player 18-week split of the season projection (weekly_split_v2: even split x opponent DvP x Elo tilt (QB only) x weather x venue-specific home field, renormalized to the season total; v1 documents accepted for the pre-R51 file). Player order mirrors player_projections.json. Produced by scripts/build_weekly.py, validated by scripts/validate_data.py.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -109,6 +109,58 @@
               "description": "Sum of every player's season_points_lost \u2014 the honest headline for how many projected points left the model."
             }
           }
+        },
+        "dvp_shrink": {
+          "type": "number",
+          "description": "R51 weekly_split_v2: D = 1 + dvp_shrink x (F - 1), F = opponent's allowed PPR/game to the position over the league average (data/dvp_positional_history.json), clamped [0.75, 1.25]."
+        },
+        "elo_tilt_positions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Positions the Elo matchup tilt applies to (R51: QB only; RB/WR/TE measured worse under the tilt)."
+        },
+        "weather": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Weather multipliers + thresholds (pass_dome, pass_outdoors, pass_cold_extra, rb_wind, cold_c, wind_kph) - documented priors; roof from environment_model.json, forecast from weather_forecast.json."
+        },
+        "venue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coef",
+            "rel_clamp"
+          ],
+          "properties": {
+            "coef": {
+              "type": "number"
+            },
+            "rel_clamp": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "description": "Venue-specific home field: 1 +/- coef x rel, rel = venue avg_home_margin / league mean, clamped; flat when the venue is missing or low_n."
+        },
+        "neutral_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Player-weeks where a factor fell back to 1.0 for lack of data (dvp_neutral_weeks, weather_no_forecast_weeks, venue_flat_weeks). Absent data is neutral, never invented."
+        },
+        "backtest": {
+          "type": "string",
+          "description": "Path of the never-regress record that admits this split (data/weekly_backtest.json)."
         }
       }
     },

@@ -64,8 +64,20 @@ test("day-zero honesty: no player signal claims weight it has not earned", () =>
   // test must be UPDATED alongside meta.json — that is the audit trail.
   const meta = read("../../data/meta.json");
   const anyWeight = Object.values(meta.weights).some((w) => w !== 0);
-  if (!anyWeight) {
-    for (const p of proj.players) {
+  const shipped = (meta.projection_baseline && meta.projection_baseline.shipped) || {};
+  for (const p of proj.players) {
+    if (p.shipped_estimate === "candidate") {
+      // R49 owner override: the SCENARIO ships every raw signal at full strength,
+      // so signals_used must name exactly the candidate signals that moved the
+      // number — a truthful claim, independent of the (still 0.0) fitted weights.
+      assert.equal(shipped.mode, "candidate", `${p.name} ships candidate but meta says ${shipped.mode}`);
+      const moved = Object.entries(p.candidate_signals || {})
+        .filter(([, v]) => Number(v) !== 1)
+        .map(([k]) => k)
+        .sort();
+      assert.deepEqual(p.signals_used, moved,
+        `${p.name} claims ${p.signals_used} but the candidate moved on ${moved}`);
+    } else if (!anyWeight) {
       assert.deepEqual(
         p.signals_used, [],
         `${p.name} claims signals ${p.signals_used} while all weights are 0.0`,

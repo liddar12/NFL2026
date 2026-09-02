@@ -108,6 +108,8 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // does not). Fetched lazily after first paint by PLAYERS/GRADE; 404 is a
     // normal state. Same promise-cache pattern as kdst.js.
     '/data/sleeper_projections.json',
+    '/data/weekly_backtest.json',
+    '/data/parlay_backtest.json',
   ]);
   for (const [p, files] of referenced) {
     assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);

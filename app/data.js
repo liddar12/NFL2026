@@ -54,7 +54,7 @@ const cache = new Map();
  * handles freshness; this cache just avoids redundant in-session fetches.
  * Pass { force: true } to bypass it.
  */
-async function loadJson(path, { force = false } = {}) {
+export async function loadJson(path, { force = false } = {}) {
   if (!force && cache.has(path)) return cache.get(path);
 
   const p = fetch(path, { credentials: 'same-origin' }).then((res) => {
@@ -115,16 +115,6 @@ export const getAdp = (opts) => loadJson(PATHS.adp, opts);
 // contract). Same 404-graceful pattern: absent on an older deploy -> the
 // rookies-only strip simply doesn't render the section.
 export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
-// R51: the two never-regress backtest records the MODEL tab's WEEKLY SPLIT
-// GATE and PARLAY GATE cards read (scripts/backtest_weekly.py and
-// scripts/backtest_parlay.py write them). Both are OPTIONAL feeds, and these
-// two loaders differ from the getters above on purpose: they RESOLVE TO NULL
-// on a 404 or a parse error instead of rejecting. Owner policy: a missing
-// file renders NOTHING (no placeholder card), so the caller wants "absent",
-// never an exception to catch. Same promise cache underneath — the rejection
-// evicts its entry, so a later mount retries the network.
-export const loadWeeklyBacktest = (opts) => loadJson(PATHS.weeklyBacktest, opts).catch(() => null);
-export const loadParlayBacktest = (opts) => loadJson(PATHS.parlayBacktest, opts).catch(() => null);
 
 /**
  * Load the five core contracts at once. Uses allSettled so one bad feed does

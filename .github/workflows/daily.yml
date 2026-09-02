@@ -94,6 +94,14 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
         run: python -m scripts.build_predictions
 
+      # R51 — keep data/player_backtest.json on the SAME substrate as the
+      # player_history.json this run just refreshed. It used to be written only
+      # by the weekly backtest workflow, so its band-coverage claim drifted from
+      # the history for days at a time (RCA 2026-09-02: the r49_override lock
+      # recomputed 0.6766 against an artifact still saying 0.6875).
+      - name: Player-level walk-forward backtest (same substrate as today's history)
+        run: python -m scripts.backtest_player
+
       # R49 — Sleeper's own projections, DISPLAY-ONLY (never a model input).
       # Runs AFTER the pool is built (it crosswalks against player_projections +
       # kdst_projections). A missing display feed must not block projections, so

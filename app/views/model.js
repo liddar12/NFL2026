@@ -21,9 +21,16 @@
  */
 
 import {
-  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus,
-  loadWeeklyBacktest, loadParlayBacktest,
+  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus, loadJson,
 } from '../data.js';
+
+// R51: the two never-regress records behind the WEEKLY SPLIT GATE and PARLAY
+// GATE cards (scripts/backtest_weekly.py, scripts/backtest_parlay.py). Optional
+// feeds: they resolve to NULL on a 404 or a parse error instead of rejecting —
+// a missing file renders NOTHING, never a placeholder. They live here, not in
+// app/data.js, so the boot graph does not pay for a lazy view's feeds.
+export const loadWeeklyBacktest = (opts) => loadJson('/data/weekly_backtest.json', opts).catch(() => null);
+export const loadParlayBacktest = (opts) => loadJson('/data/parlay_backtest.json', opts).catch(() => null);
 import { teamTint } from '../render.js';
 
 /** Signals pinned display-only by validate_data.py MARKET_DISPLAY_ONLY —
