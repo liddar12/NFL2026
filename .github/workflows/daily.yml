@@ -74,6 +74,21 @@ jobs:
         run: python scripts/build_weather_forecast.py
         continue-on-error: true   # forecast is best-effort; absence is dormant, not fatal
 
+      # R51 — NEVER-REGRESS BACKTESTS run BEFORE the build: scripts.build_predictions
+      # reads data/parlay_backtest.json (prop calibration + measured correlations)
+      # and build_weekly ships weekly_split_v2 only while the weekly gate holds.
+      # The corpus refresher pulls nflverse weekly actuals + games (best-effort:
+      # the committed fixtures stay in place when the fetch fails).
+      - name: Refresh backtest corpus (nflverse weekly actuals + games)
+        run: python scripts/build_backtest_weekly_corpus.py
+        continue-on-error: true
+
+      - name: Weekly split never-regress backtest (writes data/weekly_backtest.json)
+        run: python scripts/backtest_weekly.py
+
+      - name: Parlay never-regress backtest (writes data/parlay_backtest.json)
+        run: python scripts/backtest_parlay.py
+
       - name: Fetch ESPN + build real predictions + feed health
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset

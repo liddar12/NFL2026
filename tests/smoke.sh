@@ -27,6 +27,8 @@ required_files=(
   "data/fixtures/players_sample.json"
   "data/fixtures/games_sample.json"
   "data/snapshots/.gitkeep"
+  "data/fixtures/backtest_weekly/weekly_actuals.json"
+  "data/fixtures/backtest_weekly/games_meta.json"
 )
 for f in "${required_files[@]}"; do
   [ -f "$f" ] || fail "missing required file: $f"
@@ -58,6 +60,11 @@ python3 scripts/build_sleeper_projections.py --selftest || fail "sleeper project
 python3 scripts/build_estimate_ledger.py --selftest || fail "estimate ledger selftest"
 python3 scripts/resolve_estimates.py --selftest || fail "resolve estimates selftest"
 python3 scripts/fit_player_signals.py --selftest || fail "player signal fit selftest"
+# R51 — weekly split v2 + parlay repricing: the two never-regress backtests and
+# the runner-side corpus refresher (pure cores, offline).
+python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"
+python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
+python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
 
 echo "smoke: parsing every data/*.json (recursively)"
 # Every JSON under data/ must parse. A parse error here is a hard stop.

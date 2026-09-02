@@ -6,7 +6,12 @@
 #   2. bash tests/smoke.sh                   — files exist, JSON parses, core invariants
 #   3. node --test tests/feature/*.mjs       — the locked feature tests
 #                                              (INCLUDES contrast_aa.test.mjs — WCAG AA)
-#   4. Playwright web + pwa E2E              — OPT-IN: skipped-with-loud-note when
+#   4. python3 scripts/backtest_weekly.py --gate  — R51 weekly split never-regress
+#                                              (weekly_split_v2 vs v1 on committed actuals)
+#   5. python3 scripts/backtest_parlay.py --gate  — R51 parlay never-regress
+#                                              (prop calibration beats the seed on every
+#                                              walk-forward fold; spread stays NO EDGE)
+#   6. Playwright web + pwa E2E              — OPT-IN: skipped-with-loud-note when
 #                                              @playwright/test is not installed.
 #
 # THE FAST GATE (steps 1-3) STAYS DEPENDENCY-FREE: python3 stdlib + node built-ins
@@ -41,8 +46,10 @@ run_step() {
 run_step "validate data contracts" python3 scripts/validate_data.py
 run_step "smoke tests"             bash tests/smoke.sh
 run_step "feature tests (incl. AA contrast)" node --test tests/feature/*.mjs
+run_step "weekly split never-regress (R51)" python3 scripts/backtest_weekly.py --gate
+run_step "parlay never-regress (R51)"       python3 scripts/backtest_parlay.py --gate
 
-# ---- Step 4: browser E2E (web + pwa), opt-in -----------------------------
+# ---- Step 6: browser E2E (web + pwa), opt-in -----------------------------
 # Gated on the presence of @playwright/test so a clean box (no npm install) still
 # runs a fully green fast gate. Point Chromium at the pre-installed full browser
 # when it exists (headless_shell can't emulate everything the PWA spec needs).
