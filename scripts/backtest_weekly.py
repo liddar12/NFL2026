@@ -802,7 +802,7 @@ def main(argv):
         return 0 if adopted else 1
     doc = artifact(result)
     with open(OUT_PATH, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, ensure_ascii=True, indent=1)
+        json.dump(doc, fh, ensure_ascii=True, indent=2)
         fh.write("\n")
     print("wrote %s" % os.path.relpath(OUT_PATH, _ROOT))
     return 0
