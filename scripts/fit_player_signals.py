@@ -4,11 +4,18 @@
 Reads data/estimate_scores.json (scripts/resolve_estimates.py) through
 scripts/harness/ledger_objective and, for every resolved week after the first,
 fits candidate signal weights on the weeks BEFORE it and scores them on it —
-leak-safe by construction. Candidate vs incumbent (data/meta.json weights) is
-decided by scripts/optimize/never_regress.should_adopt with the objective's own
-margin (ledger_objective.ADOPTION_MARGIN_MAE, 0.10 PPR points/player-week):
+leak-safe by construction. Candidate vs the GATED incumbent (the gate-conforming
+series every ledger row carries; shipped == candidate under the R49 owner
+override, so comparing shipped to itself would measure nothing) is decided by
+scripts/optimize/never_regress.should_adopt with the objective's own margin
+(ledger_objective.ADOPTION_MARGIN_MAE, 0.10 PPR points/player-week):
 
-    adopt iff candidate_mae < current_mae - 0.10   (held-out, all folds pooled)
+    adopt iff candidate_mae < gated_mae - 0.10     (held-out, all folds pooled)
+
+Two candidate numbers are reported: the SHIPPED candidate as recorded on the
+locked rows (full-strength signals) and the REFIT candidate (weights fitted on
+earlier weeks); `would_adopt` refers to the refit, `shipped_vs_gated` to the
+number that actually shipped.
 
 WHAT THIS NEVER DOES: change data/meta.json weights. Like scripts/promote_signals.py
 --propose (owner decision, R26), --propose ARCHIVES the run into
@@ -62,19 +69,21 @@ def walk_forward(rows, current):
     folds = lo.walk_forward_folds(rows)
     if not folds:
         return {"folds": 0, "current_mae": None, "candidate_mae": None,
-                "candidate_weights": {}, "held_out_rows": 0}
-    cur_err, cand_err, n = 0.0, 0.0, 0
+                "shipped_candidate_mae": None, "candidate_weights": {}, "held_out_rows": 0}
+    cur_err, cand_err, ship_err, n = 0.0, 0.0, 0.0, 0
     last_weights = {}
     for fit_rows, held, _wk in folds:
         w = fit_weights(fit_rows, {k: current.get(k, 0.0) for k in lo.signal_names(rows)})
         last_weights = w
         for r in held:
-            cur_err += abs(lo.estimate(r, current) - float(r["actual"]))
-            cand_err += abs(lo.estimate(r, w) - float(r["actual"]))
+            cur_err += abs(lo.gated_value(r) - float(r["actual"]))       # the incumbent
+            cand_err += abs(lo.estimate(r, w) - float(r["actual"]))      # the refit
+            ship_err += abs(float(r["candidate"]) - float(r["actual"]))  # as shipped
             n += 1
     return {"folds": len(folds), "current_mae": round(cur_err / n, 4),
-            "candidate_mae": round(cand_err / n, 4), "candidate_weights": last_weights,
-            "held_out_rows": n}
+            "candidate_mae": round(cand_err / n, 4),
+            "shipped_candidate_mae": round(ship_err / n, 4),
+            "candidate_weights": last_weights, "held_out_rows": n}
 
 
 def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
@@ -105,8 +114,13 @@ def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
         "rows_resolved": len(rows),
         "folds": wf["folds"],
         "held_out_rows": wf["held_out_rows"],
+        "incumbent": "gated series (gate-conforming number on every ledger row)",
         "current_mae": wf["current_mae"],
+        "gated_mae": wf["current_mae"],
         "candidate_mae": wf["candidate_mae"],
+        "shipped_candidate_mae": wf["shipped_candidate_mae"],
+        "shipped_vs_gated": (None if wf["folds"] == 0 else
+                             round(wf["current_mae"] - wf["shipped_candidate_mae"], 4)),
         "improvement": (None if wf["folds"] == 0
                         else round(wf["current_mae"] - wf["candidate_mae"], 4)),
         "in_sample_rank_corr": lo.rank_corr(rows, current),
@@ -147,7 +161,7 @@ def _rows(weeks, adj=1.2, true_w=1.0):
         for i in range(6):
             base = 8.0 + 2.0 * i
             out.append({"gsis_id": "p%d" % i, "week": wk, "position": "RB",
-                        "baseline": base, "shipped": base,
+                        "baseline": base, "shipped": base * adj, "gated": base,
                         "candidate": base * adj, "low": base * 0.8, "high": base * 1.4,
                         "actual": base * (1.0 + true_w * (adj - 1.0)),
                         "signals": {"age_curve": adj}})
@@ -172,6 +186,9 @@ def selftest():
     wf = walk_forward(three, {"age_curve": 0.0})
     assert wf["folds"] == 2 and wf["candidate_weights"] == {"age_curve": 1.0}, wf
     assert wf["candidate_mae"] < wf["current_mae"] - lo.ADOPTION_MARGIN_MAE
+    assert wf["current_mae"] == round(lo.gated_objective(
+        [r for r in three if r["week"] > 1]), 4), "the incumbent IS the gated series"
+    assert wf["shipped_candidate_mae"] < 1e-9, "the shipped candidate was exactly right here"
     assert should_adopt(wf["current_mae"], wf["candidate_mae"], lo.ADOPTION_MARGIN_MAE)
     # ...and when the truth is the baseline, weight 0 wins and nothing is adopted.
     flat = _rows([1, 2, 3], true_w=0.0)

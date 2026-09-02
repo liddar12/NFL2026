@@ -123,11 +123,13 @@ print(json.dumps(out))`);
   assert.equal(r.prior_games, 13, 'prior_games is the most recent season');
 });
 
-test('the SHIPPED default is the total rule until the gate flips; the candidate always uses the R49 rule', () => {
+test('the GATED series keeps the total rule until the gate flips; the candidate always uses the R49 rule; the owner override ships the candidate', () => {
   const r = py(`${PRELUDE}
 out = pp.project_player(rec(prior_season_points=300.0, prior_games=13, absence_weeks=4))
-print(json.dumps({"shipped_rule": pp.SHIPPED_BASELINE_RULE, "row_rule": out["baseline_rule"],
-                  "proj": out["proj_points"], "cand_base": out["candidate_baseline"],
+print(json.dumps({"shipped_rule": pp.SHIPPED_BASELINE_RULE, "mode": pp.SHIPPED_ESTIMATE,
+                  "row_rule": out["baseline_rule"], "gated_rule": out["gated_rule"],
+                  "proj": out["proj_points"], "gated": out["gated_points"],
+                  "cand_base": out["candidate_baseline"],
                   "cand": out["candidate_points"], "pg": out["projected_games"],
                   "lo": out["candidate_low"], "hi": out["candidate_high"]}))`);
   const gate = JSON.parse(read('data/player_backtest.json')).baseline_gate;
@@ -136,10 +138,14 @@ print(json.dumps({"shipped_rule": pp.SHIPPED_BASELINE_RULE, "row_rule": out["bas
     assert.equal(r.shipped_rule, 'prior_ppg_x_projected_games');
   } else {
     assert.equal(r.shipped_rule, 'prior_season_points',
-      'the rule may not ship for proj_points while the gate says NOT adopted');
-    assert.equal(r.proj, 300, 'shipped number untouched');
+      'the rule may not enter the GATED series while the gate says NOT adopted');
+    assert.equal(r.gated, 300, 'gated number untouched');
   }
-  assert.equal(r.row_rule, r.shipped_rule);
+  assert.equal(r.gated_rule, r.shipped_rule);
+  // R49 OWNER OVERRIDE: what ships is the candidate, explicitly, and recorded.
+  assert.equal(r.mode, 'candidate');
+  assert.equal(r.proj, r.cand, 'proj_points IS the candidate under the override');
+  assert.equal(r.row_rule, 'prior_ppg_x_projected_games');
   // the candidate is the R49 baseline (x13 here) regardless of the shipped rule
   assert.equal(r.pg, 13);
   assert.ok(Math.abs(r.cand_base - (300 / 13) * 13) < 0.02);
@@ -169,8 +175,10 @@ print(json.dumps({"out": out, "prod": prod}))`);
     ['age_curve', 'indoor_outdoor', 'injury_history', 'injury_status']);
   assert.ok(Math.abs(o.candidate_baseline * r.prod - o.candidate_points) < 0.02,
     'candidate_points must equal candidate_baseline x product of candidate_signals');
-  assert.deepEqual(o.signals_used, [], 'nothing has earned weight: shipped signals_used stays []');
-  assert.equal(o.proj_points, 300, 'the shipped number is untouched by the candidate');
+  assert.equal(o.gated_points, 300, 'the gated number is untouched by the candidate');
+  // override: signals_used names the candidate signals that actually moved it
+  assert.deepEqual(o.signals_used, Object.keys(o.candidate_signals).filter((k) => o.candidate_signals[k] !== 1).sort());
+  assert.equal(o.proj_points, o.candidate_points);
 });
 
 test('build_weekly does not subtract a documented absence twice when it is already in the total', () => {
@@ -202,12 +210,20 @@ test('meta.projection_baseline is present, schema-valid, and consistent with the
   assert.match(pb.absence_source, /injuries\.json/);
   assert.match(pb.changed_utc, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   const engine = py(`${PRELUDE}
-print(json.dumps({"shipped": pp.SHIPPED_BASELINE_RULE, "implemented": list(pp.IMPLEMENTED_SIGNALS),
-                  "sd": pp.CANDIDATE_SD_RULE}))`);
-  assert.equal(pb.shipped_rule, engine.shipped, 'meta must state the rule the engine actually ships');
+print(json.dumps({"shipped": pp.SHIPPED_BASELINE_RULE, "mode": pp.SHIPPED_ESTIMATE,
+                  "band_multiplier": pp.CANDIDATE_BAND_MULTIPLIER,
+                  "implemented": list(pp.IMPLEMENTED_SIGNALS), "sd": pp.CANDIDATE_SD_RULE}))`);
+  assert.equal(pb.shipped_rule, engine.shipped, 'meta must state the rule behind the gated series');
   assert.ok(pb.applies_to.includes('candidate_points'));
-  assert.equal(pb.applies_to.includes('proj_points'), engine.shipped === 'prior_ppg_x_projected_games');
+  assert.equal(pb.applies_to.includes('proj_points'),
+    engine.mode === 'candidate' || engine.shipped === 'prior_ppg_x_projected_games');
   assert.equal(pb.gate.adopted_for_shipped, engine.shipped === 'prior_ppg_x_projected_games');
+  // the override is recorded AS an override, beside the gate's own verdict
+  assert.equal(pb.shipped.mode, engine.mode);
+  assert.equal(pb.shipped.owner_override, engine.mode === 'candidate');
+  assert.match(pb.shipped.reason, /owner: ship the scenario estimate now/);
+  assert.match(pb.shipped.decided_utc, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(pb.shipped.band_multiplier, engine.band_multiplier);
   assert.equal(pb.candidate.sd_rule, engine.sd);
   const all = new Set([...pb.candidate.signals_applied, ...pb.candidate.signals_not_computable]);
   assert.deepEqual([...all].sort(), engine.implemented.sort(),

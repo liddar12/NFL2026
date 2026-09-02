@@ -117,7 +117,24 @@
           "baseline_rule": {
             "type": "string",
             "enum": ["prior_season_points", "prior_ppg_x_projected_games"],
-            "description": "R49 - which baseline proj_points was built on. The games-normalized rule ships only after clearing never-regress (see meta.projection_baseline)."
+            "description": "R49 - which baseline proj_points was built on (the candidate's games-normalized rule under the owner override; see meta.projection_baseline.shipped)."
+          },
+          "shipped_estimate": {
+            "type": "string",
+            "enum": ["gated", "candidate"],
+            "description": "R49 OWNER OVERRIDE - which estimate proj_points/low/high are: 'candidate' (the scenario candidate; gated_* carries the gate-conforming number) or 'gated'. ABSENT on an older pool = gated."
+          },
+          "gated_points": {
+            "type": "number",
+            "minimum": 0,
+            "description": "R49 - the gate-conforming projection (prior_season_points x adopted weights): the never-regress incumbent the ledger scores beside the candidate. Equals proj_points when shipped_estimate is 'gated'."
+          },
+          "gated_low": { "type": "number", "minimum": 0 },
+          "gated_high": { "type": "number", "minimum": 0 },
+          "gated_rule": {
+            "type": "string",
+            "enum": ["prior_season_points", "prior_ppg_x_projected_games"],
+            "description": "R49 - the baseline rule behind gated_points (the total rule until the walk-forward gate flips it)."
           },
           "prior_games": {
             "type": ["integer", "null"],

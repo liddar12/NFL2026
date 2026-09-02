@@ -77,6 +77,30 @@
             "measured_utc": { "type": "string" }
           }
         },
+        "shipped": {
+          "type": "object",
+          "description": "R49 OWNER OVERRIDE, recorded as such: which estimate ships as proj_points. mode 'candidate' = the scenario candidate ships and the gate-conforming number rides on every record as gated_*; the loop keeps scoring gated vs candidate.",
+          "additionalProperties": false,
+          "required": ["mode", "owner_override", "decided_utc", "reason", "backtest_2025"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["gated", "candidate"] },
+            "owner_override": { "type": "boolean" },
+            "decided_utc": { "type": "string" },
+            "reason": { "type": "string" },
+            "gated_series": { "type": "string" },
+            "band_multiplier": { "type": "number", "minimum": 0 },
+            "backtest_2025": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["gated_mae", "candidate_mae", "band_coverage_after_calibration"],
+              "properties": {
+                "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+                "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+                "band_coverage_after_calibration": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
         "candidate": {
           "type": "object",
           "additionalProperties": false,
@@ -101,6 +125,8 @@
         "bias_ppr": { "type": ["number", "null"] },
         "candidate_mae_ppr": { "type": ["number", "null"], "minimum": 0 },
         "candidate_bias_ppr": { "type": ["number", "null"] },
+        "gated_mae_ppr": { "type": ["number", "null"], "minimum": 0, "description": "R49 override - the gate-conforming series, the never-regress incumbent the candidate is compared against." },
+        "gated_bias_ppr": { "type": ["number", "null"] },
         "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
         "signals_with_weight": { "type": "array", "items": { "type": "string" } },
         "ledger": { "type": "string" },
@@ -116,6 +142,7 @@
           "properties": {
             "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
             "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+            "gated_mae": { "type": ["number", "null"], "minimum": 0 },
             "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
             "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
             "players": { "type": "integer", "minimum": 0 },

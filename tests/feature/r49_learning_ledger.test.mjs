@@ -69,6 +69,7 @@ print(json.dumps({
   assert.equal(r.locked3['1'].as_of_utc, '2026-09-08T06:00:00Z', 'from the LAST pre-kickoff as-of');
   assert.ok(Math.abs(r.locked3['1'].shipped - 175 / 17) < 0.01);
   assert.ok(Math.abs(r.locked3['1'].candidate - 210 / 17) < 0.02);
+  assert.ok(Math.abs(r.locked3['1'].gated - 165 / 17) < 0.02, 'the gated series is locked too');
   assert.deepEqual(r.locked4['1'], r.locked3['1'], 'a locked week is immutable');
   assert.deepEqual(Object.keys(r.locked4), ['1'], 'week 2 has not kicked off: not locked');
   assert.ok(r.week_est.low < r.week_est.candidate && r.week_est.candidate < r.week_est.high);
@@ -102,6 +103,8 @@ print(json.dumps({"doc": doc, "empty": empty, "unmatched": unmatched}))`);
   assert.ok(Math.abs(doc.totals.mae_shipped - 6) < 1e-9);
   assert.ok(Math.abs(doc.totals.bias_shipped + 6) < 1e-9, 'bias = mean(estimate - actual)');
   assert.equal(doc.totals.band_coverage, 0.5);
+  assert.equal(typeof doc.totals.mae_gated, 'number', 'three series: shipped, candidate, gated');
+  assert.ok(doc.resolved.every((x) => typeof x.gated === 'number'));
   // the honest empty document
   assert.equal(empty.weeks_resolved, 0);
   assert.equal(empty.players_scored, 0);
@@ -148,6 +151,9 @@ print(json.dumps(out))`);
   assert.equal(r.three.folds, 2);
   assert.deepEqual(r.three.candidate_weights, { age_curve: 1 }, 'walk-forward recovers the true signal');
   assert.ok(r.three.candidate_mae < r.three.current_mae - r.margin);
+  // the incumbent is the GATED series (shipped == candidate would measure nothing)
+  assert.equal(typeof r.three.shipped_candidate_mae, 'number');
+  assert.ok(r.three.current_mae > r.three.shipped_candidate_mae);
   if (r.committed_weeks === 0) {
     assert.equal(r.committed, 'refused', 'the committed scores file has 0 resolved weeks: the fit must refuse');
   }
@@ -165,6 +171,8 @@ test('the committed record is honest: 0 resolved weeks, null MAE, nothing invent
   if (scores.weeks_resolved === 0) {
     assert.equal(lr.mae_ppr, null, 'no resolved week -> no MAE, ever');
     assert.equal(lr.bias_ppr, null);
+    assert.equal(lr.gated_mae_ppr, null);
+    assert.equal(lr.candidate_mae_ppr, null);
     assert.equal(lr.objective_ready, false);
     assert.equal(typeof scores.skipped, 'string', 'the skip must say why');
     assert.equal(scores.resolved.length, 0);
@@ -178,7 +186,7 @@ test('the committed record is honest: 0 resolved weeks, null MAE, nothing invent
   const bt = JSON.parse(read('data/player_backtest.json')).candidate_2025;
   assert.ok(bt, 'player_backtest.json must carry candidate_2025');
   assert.ok(lr.backtest_2025, 'learning_record must carry backtest_2025');
-  for (const k of ['baseline_mae', 'candidate_mae', 'shipped_mae', 'band_coverage', 'players']) {
+  for (const k of ['baseline_mae', 'candidate_mae', 'gated_mae', 'shipped_mae', 'band_coverage', 'players']) {
     assert.equal(lr.backtest_2025[k], bt[k], `backtest_2025.${k} must mirror the artifact`);
     assert.equal(typeof bt[k], 'number', `candidate_2025.${k} is a measurement`);
   }

@@ -397,6 +397,13 @@ def score_rows(rows, pos, weights=None):
     # every sub-17-game season — which is why it is measured, not asserted.)
     out["engine_equals_last_year"] = all(
         abs(r["engine"] - r["last_year"]) < 1e-9 for r in scored)
+    # R49 owner override: the engine's proj_points is the candidate, so the
+    # gate-conforming series is scored beside it (measured, never assumed equal).
+    gated_pairs = [(project_player(r["record"], ctx=None, weights=weights)["gated_points"],
+                    r["actual"]) for r in scored]
+    grho = spearman(gated_pairs)
+    out["rho_gated"] = None if grho is None else round(grho, 4)
+    out["mae_gated"] = round(mae(gated_pairs), 3)
     return out
 
 
@@ -487,8 +494,10 @@ def baseline_gate(history, weights=None):
         for season in EVAL_SEASONS:
             rows, _ = build_rows(history, season)
             for r in rows:
+                # The rule under test applies to the GATED series (proj_points is
+                # the candidate under the R49 owner override, whatever the rule).
                 r["engine"] = project_player(r["record"], ctx=None, weights=weights,
-                                             baseline_rule=rule)["proj_points"]
+                                             baseline_rule=rule)["gated_points"]
                 if r["ppg17"] is not None:
                     pooled_rows[r["pos"]].append(r)
         out = {}
@@ -515,11 +524,56 @@ def baseline_gate(history, weights=None):
               "MAE %s -> %s — the per-game rule must improve BOTH to replace "
               "prior_season_points; it ships as the CANDIDATE baseline instead"
               % (rho_t, rho_p, mae_t, mae_p))
+    # R49 owner override — the walk-forward comparison that now matters: the
+    # CANDIDATE (what ships) vs the GATED number, both through project_player.
+    def series(rows_key):
+        pooled_rows = {p: [] for p in POSITIONS}
+        for season in EVAL_SEASONS:
+            rows, _ = build_rows(history, season)
+            for r in rows:
+                if r["ppg17"] is None:
+                    continue
+                out = project_player(r["record"], ctx=None, weights=weights)
+                r["engine"] = out[rows_key]
+                pooled_rows[r["pos"]].append(r)
+        out = {}
+        for pos in POSITIONS:
+            rs = pooled_rows[pos]
+            if len(rs) < MIN_ROWS:
+                out[pos] = {"n": len(rs), "measured": False}
+                continue
+            pairs = [(r["engine"], r["actual"]) for r in rs]
+            rho = spearman(pairs)
+            out[pos] = {"n": len(rs), "measured": True,
+                        "rho": None if rho is None else round(rho, 4),
+                        "mae": round(mae(pairs), 3)}
+        return out
+    cand_s, gated_s = series("candidate_points"), series("gated_points")
+    cvg = {
+        "shipped_estimate": pp_mod.SHIPPED_ESTIMATE,
+        "owner_override": pp_mod.SHIPPED_ESTIMATE == "candidate",
+        "pooled_rho_gated": _pooled(gated_s, "rho"),
+        "pooled_rho_candidate": _pooled(cand_s, "rho"),
+        "pooled_mae_gated": _pooled(gated_s, "mae"),
+        "pooled_mae_candidate": _pooled(cand_s, "mae"),
+        "per_position": {
+            pos: {"n": gated_s[pos]["n"],
+                  "rho_gated": gated_s[pos].get("rho"),
+                  "rho_candidate": cand_s[pos].get("rho"),
+                  "mae_gated": gated_s[pos].get("mae"),
+                  "mae_candidate": cand_s[pos].get("mae")}
+            for pos in POSITIONS},
+        "note": ("walk-forward 2022-2025, season granularity; the candidate here "
+                 "carries only the signals the committed history can feed "
+                 "(injury_history) — its live signals (age, status, roof) are not "
+                 "evaluable on this substrate"),
+    }
     return {
         "shipped_rule": pp_mod.SHIPPED_BASELINE_RULE,
         "candidate_rule": pp_mod.BASELINE_RULE_PPG,
         "adopted_for_shipped": bool(both),
         "reason": reason,
+        "candidate_vs_gated": cvg,
         "pooled_rho_total_rule": rho_t,
         "pooled_rho_ppg_rule": rho_p,
         "pooled_mae_total_rule": mae_t,
@@ -558,18 +612,19 @@ def candidate_2025(history, sleeper_totals=None, sleeper_note=None, season=CANDI
         per.append({"pos": r["pos"], "pid": rec["gsis_id"], "actual": r["actual"],
                     "baseline": out["candidate_baseline"], "candidate": out["candidate_points"],
                     "low": out["candidate_low"], "high": out["candidate_high"],
-                    "shipped": out["proj_points"]})
+                    "shipped": out["proj_points"], "gated": out["gated_points"]})
 
     def block(rs):
         n = len(rs)
         if not n:
             return {"n": 0, "baseline_mae": None, "candidate_mae": None,
-                    "shipped_mae": None, "band_coverage": None,
+                    "shipped_mae": None, "gated_mae": None, "band_coverage": None,
                     "sleeper_mae": None, "sleeper_n": None}
         b = {"n": n,
              "baseline_mae": round(sum(abs(x["baseline"] - x["actual"]) for x in rs) / n, 3),
              "candidate_mae": round(sum(abs(x["candidate"] - x["actual"]) for x in rs) / n, 3),
              "shipped_mae": round(sum(abs(x["shipped"] - x["actual"]) for x in rs) / n, 3),
+             "gated_mae": round(sum(abs(x["gated"] - x["actual"]) for x in rs) / n, 3),
              "band_coverage": round(sum(1 for x in rs if x["low"] <= x["actual"] <= x["high"])
                                     / n, 4)}
         sl = [(sleeper_totals[x["pid"]], x["actual"]) for x in rs
@@ -585,17 +640,23 @@ def candidate_2025(history, sleeper_totals=None, sleeper_note=None, season=CANDI
     pairs_b = [(x["baseline"], x["actual"]) for x in per]
     pairs_c = [(x["candidate"], x["actual"]) for x in per]
     pairs_s = [(x["shipped"], x["actual"]) for x in per]
+    pairs_g = [(x["gated"], x["actual"]) for x in per]
     rho = lambda pairs: (None if spearman(pairs) is None else round(spearman(pairs), 4))  # noqa: E731
     return {
         "season": season,
         "players": len(per),
+        "shipped_estimate": pp_mod.SHIPPED_ESTIMATE,
         "baseline_mae": total["baseline_mae"],
         "candidate_mae": total["candidate_mae"],
         "shipped_mae": total["shipped_mae"],
+        "gated_mae": total["gated_mae"],
         "baseline_rho": rho(pairs_b),
         "candidate_rho": rho(pairs_c),
         "shipped_rho": rho(pairs_s),
+        "gated_rho": rho(pairs_g),
         "band_coverage": total["band_coverage"],
+        "band_multiplier": pp_mod.CANDIDATE_BAND_MULTIPLIER,
+        "band_target": pp_mod.CANDIDATE_BAND_TARGET,
         "band_rule": pp_mod.CANDIDATE_SD_RULE,
         "signals_evaluated": sorted(evaluated),
         "signals_not_evaluable": not_evaluable,
@@ -882,10 +943,15 @@ def selftest():
 
     # --- the engine under test IS the deployed one -------------------------
     row = rows_a[0]
-    assert engine_projection(row["record"]) == \
-        project_player(row["record"], ctx=None, weights=None)["proj_points"]
-    # ...and at day-zero weights it collapses to the prior-season total exactly.
-    assert abs(engine_projection(row["record"]) - row["last_year"]) < 1e-9
+    out = project_player(row["record"], ctx=None, weights=None)
+    assert engine_projection(row["record"]) == out["proj_points"]
+    # ...and at day-zero weights the GATED series collapses to the prior-season
+    # total exactly; the shipped number is the candidate under the R49 override.
+    assert abs(out["gated_points"] - row["last_year"]) < 1e-9
+    if pp_mod.SHIPPED_ESTIMATE == "candidate":
+        assert out["proj_points"] == out["candidate_points"]
+    else:
+        assert abs(engine_projection(row["record"]) - row["last_year"]) < 1e-9
 
     # --- deployed-path identity: split -> sum == the season projection ------
     ident = path_identity_check([123.4, 250.0, 7.5], _synthetic_schedule(), {})
@@ -900,12 +966,16 @@ def selftest():
     # --- end-to-end walk-forward on the fixture ----------------------------
     result = run(hist)
     assert result["summary"]["positions_scored"] == len(POSITIONS)
-    assert result["summary"]["engine_equals_last_year_everywhere"] is True
+    gated_mode = pp_mod.SHIPPED_ESTIMATE == "gated"
+    assert result["summary"]["engine_equals_last_year_everywhere"] is gated_mode
     for pos in POSITIONS:
         block = result["pooled"][pos]
         assert block["measured"] and block["n"] >= MIN_ROWS
-        assert block["rho_engine"] == block["rho_last_year"], \
-            "day-zero engine and last-year baseline must be identical numbers"
+        assert block["rho_gated"] == block["rho_last_year"], \
+            "the day-zero GATED series and the last-year baseline are identical numbers"
+        assert block["mae_gated"] == block["mae_last_year"]
+        if gated_mode:
+            assert block["rho_engine"] == block["rho_last_year"]
         assert block["mae_engine"] is not None and block["rmse_engine"] is not None
     # No held-out season may be scored against a fit season it also trained on.
     for entry in result["per_season"]:
@@ -930,8 +1000,9 @@ def selftest():
     assert len(doc["__meta__"]["approximations"]) >= 3
     legacy = build_legacy_document(result)
     assert legacy["summary"]["positions_scored"] == len(POSITIONS)
-    assert legacy["summary"]["positions_beating_baseline"] == 0, \
-        "nothing can beat the baseline while the engine IS the baseline"
+    if gated_mode:
+        assert legacy["summary"]["positions_beating_baseline"] == 0, \
+            "nothing can beat the baseline while the engine IS the baseline"
 
     # --- R49: the baseline gate and the candidate machinery -----------------
     # Every fixture season is 17 games, so the per-game rule differs from the
@@ -954,13 +1025,19 @@ def selftest():
     assert abs(ppg_proj["proj_points"] - want) < 0.02, (ppg_proj["proj_points"], want)
     assert ppg_proj["candidate_baseline"] == ppg_proj["proj_points"]
     assert ppg_proj["prior_games"] == 13 and ppg_proj["projected_games"] == 17
-    # ...and under the shipped total rule the same record is untouched.
-    assert project_player(rec)["proj_points"] == rec["prior_season_points"]
+    # ...and the GATED series (total rule) on the same record is untouched.
+    assert project_player(rec)["gated_points"] == rec["prior_season_points"]
     cand = candidate_2025(hist)
     assert cand["players"] == len(rows_a) and cand["season"] == 2025
     assert cand["baseline_mae"] is not None and cand["candidate_mae"] is not None
-    assert cand["shipped_mae"] > 0
+    assert cand["shipped_mae"] > 0 and cand["gated_mae"] > 0
+    assert cand["band_multiplier"] == pp_mod.CANDIDATE_BAND_MULTIPLIER
     assert 0.0 <= cand["band_coverage"] <= 1.0
+    cvg = gate["candidate_vs_gated"]
+    assert cvg["shipped_estimate"] == pp_mod.SHIPPED_ESTIMATE
+    for k in ("pooled_rho_gated", "pooled_rho_candidate", "pooled_mae_gated",
+              "pooled_mae_candidate"):
+        assert isinstance(cvg[k], float), (k, cvg[k])
     assert "injury_history" in cand["signals_evaluated"], cand["signals_evaluated"]
     assert "age_curve" in cand["signals_not_evaluable"], "no ages in the substrate"
     assert cand["sleeper_mae"] is None and "not retrieved" in cand["sleeper_note"]
@@ -1085,11 +1162,17 @@ def main(argv):
           % (gate["pooled_rho_total_rule"], gate["pooled_rho_ppg_rule"],
              gate["pooled_mae_total_rule"], gate["pooled_mae_ppg_rule"],
              "ADOPT" if gate["adopted_for_shipped"] else "NOT ADOPTED (candidate only)"))
+    cvg = gate["candidate_vs_gated"]
+    print("  R49 shipped=%s (owner override=%s): walk-forward candidate vs gated — "
+          "rho %s vs %s, MAE %s vs %s"
+          % (cvg["shipped_estimate"], cvg["owner_override"], cvg["pooled_rho_candidate"],
+             cvg["pooled_rho_gated"], cvg["pooled_mae_candidate"], cvg["pooled_mae_gated"]))
     print("  R49 candidate 2025 (2024 priors -> 2025 actuals, n=%d): MAE baseline=%s "
-          "candidate=%s shipped=%s | band coverage=%s | sleeper=%s (n=%s)"
+          "candidate=%s gated=%s shipped=%s | band x%s coverage=%s | sleeper=%s (n=%s)"
           % (candidate["players"], candidate["baseline_mae"], candidate["candidate_mae"],
-             candidate["shipped_mae"], candidate["band_coverage"],
-             candidate["sleeper_mae"], candidate["sleeper_players"]))
+             candidate["gated_mae"], candidate["shipped_mae"], candidate["band_multiplier"],
+             candidate["band_coverage"], candidate["sleeper_mae"],
+             candidate["sleeper_players"]))
     print("  R49 signals evaluated historically: %s; not evaluable: %s"
           % (candidate["signals_evaluated"], candidate["signals_not_evaluable"]))
     print("wrote %s and %s" % (OUT_PATH, LEGACY_PATH))

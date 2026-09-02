@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "estimate_scores.schema.json",
   "title": "Resolved estimate scores (R49 learning loop) - data/estimate_scores.json",
-  "description": "The ledger's locked (player, week) estimates joined to nflverse stats_player_week actual PPR points, with error metrics for the SHIPPED and the CANDIDATE estimate (MAE, bias = mean(estimate - actual), share of actuals inside the candidate band). HONESTY: weeks_resolved == 0 is a valid document that says so (`skipped` names why) and carries null metrics - an MAE is never invented. Written by scripts/resolve_estimates.py; read by scripts/harness/ledger_objective.py as the player-signal fit's objective source.",
+  "description": "The ledger's locked (player, week) estimates joined to nflverse stats_player_week actual PPR points, with error metrics for the SHIPPED, the CANDIDATE and the GATED (never-regress incumbent) estimate (MAE, bias = mean(estimate - actual), share of actuals inside the candidate band). HONESTY: weeks_resolved == 0 is a valid document that says so (`skipped` names why) and carries null metrics - an MAE is never invented. Written by scripts/resolve_estimates.py; read by scripts/harness/ledger_objective.py as the player-signal fit's objective source.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -70,7 +70,9 @@
         "mae_candidate",
         "bias_shipped",
         "bias_candidate",
-        "band_coverage"
+        "band_coverage",
+        "mae_gated",
+        "bias_gated"
       ],
       "properties": {
         "n": {
@@ -117,6 +119,19 @@
           ],
           "minimum": 0,
           "maximum": 1
+        },
+        "mae_gated": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "bias_gated": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
       }
     },
@@ -131,7 +146,9 @@
           "mae_candidate",
           "bias_shipped",
           "bias_candidate",
-          "band_coverage"
+          "band_coverage",
+          "mae_gated",
+          "bias_gated"
         ],
         "properties": {
           "n": {
@@ -178,6 +195,19 @@
             ],
             "minimum": 0,
             "maximum": 1
+          },
+          "mae_gated": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bias_gated": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         }
       }
@@ -195,7 +225,9 @@
           "mae_candidate",
           "bias_shipped",
           "bias_candidate",
-          "band_coverage"
+          "band_coverage",
+          "mae_gated",
+          "bias_gated"
         ],
         "properties": {
           "week": {
@@ -244,6 +276,19 @@
             ],
             "minimum": 0,
             "maximum": 1
+          },
+          "mae_gated": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "bias_gated": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         }
       }
@@ -263,7 +308,8 @@
           "low",
           "high",
           "actual",
-          "signals"
+          "signals",
+          "gated"
         ],
         "properties": {
           "gsis_id": {
@@ -316,6 +362,11 @@
               "type": "number",
               "minimum": 0
             }
+          },
+          "gated": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The gate-conforming estimate for the week - the never-regress incumbent."
           }
         }
       }

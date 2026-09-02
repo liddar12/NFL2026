@@ -259,6 +259,44 @@ def absence_in_total(projection_row):
             and int(projection_row.get("absence_weeks") or 0) > 0)
 
 
+def shipped_ratio(projection_row, prior_season_points):
+    """R49 override — proj_points_new / prior_season_points for one player: the
+    games normalization + full-strength signals the shipped number now carries
+    relative to the prior-season total the component line was measured on.
+    1.0 when the prior total is unknown or zero (nothing to scale by)."""
+    try:
+        prior = float(prior_season_points or 0.0)
+        shipped = float(projection_row.get("proj_points") or 0.0)
+    except (TypeError, ValueError):
+        return 1.0
+    if prior <= 0 or shipped <= 0:
+        return 1.0
+    return shipped / prior
+
+
+def scale_prior_lines(ratio, receptions=None, completions=None, components=None):
+    """R49 override — scale a player's prior-season pricing lines by `ratio` so
+    the league extras move WITH the shipped number: receptions_prior,
+    completions_prior, every league_components quantity and base_applied_pts
+    (all linear in quantity, so sum(base_rate x qty) still reproduces
+    base_applied_pts within the client's 1.0 check — app/team-logic.js
+    componentDelta). `bonus_games` is a COUNT and is left untouched. Pure;
+    returns (receptions, completions, components) with the same absence
+    semantics as the inputs (None stays None)."""
+    r = float(ratio)
+    rec = None if receptions is None else round(float(receptions) * r, 1)
+    cmp = None if completions is None else round(float(completions) * r, 1)
+    comp = None
+    if components:
+        comp = dict(components)
+        if comp.get("components"):
+            comp["components"] = {k: round(float(v) * r, 1)
+                                  for k, v in comp["components"].items()}
+        if comp.get("base_applied_pts") is not None:
+            comp["base_applied_pts"] = round(float(comp["base_applied_pts"]) * r, 2)
+    return rec, cmp, comp
+
+
 def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
                  unavailable_weeks=0, first_week=1, round_dp=2,
                  absence_in_total=False):
@@ -548,6 +586,23 @@ def selftest():
                              "absence_weeks": 4}) is False, \
         "the total rule still takes the pro-rata law"
     assert absence_in_total({"baseline_rule": "prior_ppg_x_projected_games"}) is False
+
+    # --- R49 override: prior pricing lines scale with the shipped number ---------
+    comp_in = {"components": {"pass_yd": 4000.0, "pass_td": 30.0, "pass_int": 10.0,
+                              "rec_tgt": 5.0},
+               "base_applied_pts": round(4000 * 0.04 + 30 * 4 - 10 * 2, 2),
+               "bonus_games": {"bonus_pass_yd_300": 4}}
+    rec, cmp, comp = scale_prior_lines(1.25, 80.0, 300.0, comp_in)
+    assert rec == 100.0 and cmp == 375.0
+    assert comp["components"]["pass_yd"] == 5000.0 and comp["components"]["pass_td"] == 37.5
+    assert comp["bonus_games"] == {"bonus_pass_yd_300": 4}, "a count never scales"
+    recomputed = comp["components"]["pass_yd"] * 0.04 + comp["components"]["pass_td"] * 4 \
+        - comp["components"]["pass_int"] * 2
+    assert abs(recomputed - comp["base_applied_pts"]) <= 1.0, "integrity check holds"
+    assert scale_prior_lines(1.25, None, None, None) == (None, None, None)
+    assert shipped_ratio({"proj_points": 250.0}, 200.0) == 1.25
+    assert shipped_ratio({"proj_points": 250.0}, 0.0) == 1.0
+    assert shipped_ratio({"proj_points": 250.0}, None) == 1.0
 
     # --- blocked_week_count -------------------------------------------------------
     assert blocked_week_count(None) == (0, None)

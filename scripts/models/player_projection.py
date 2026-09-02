@@ -54,11 +54,16 @@ shortened season into 2026 (Lamar Jackson, 13 games: 214.86; Brock Purdy, 9 game
 Every changed number is explainable from the fields carried on the record:
 `prior_games`, `prior_ppg`, `projected_games`, `absence_weeks`, `baseline_rule`.
 
-THE GATE DECIDED WHAT SHIPS. scripts/backtest_player.py (walk-forward 2022-2025)
-measured the rule against the raw total: pooled rank-corr IMPROVES (+0.019) but
-pooled MAE REGRESSES (+1.3 pts, every per-game variant tried), so under the
-never-regress discipline the rule does NOT replace the shipped `proj_points`. It
-ships behind SHIPPED_BASELINE_RULE (off) and is the baseline of the CANDIDATE:
+THE GATE MEASURED, THE OWNER DECIDED. scripts/backtest_player.py (walk-forward
+2022-2025) measured the rule against the raw total: pooled rank-corr IMPROVES
+(+0.019) but pooled MAE REGRESSES (+1.3 pts, every per-game variant tried), so the
+never-regress gate did NOT adopt it for the shipped number (SHIPPED_BASELINE_RULE
+stays the total for the GATED series). R49 OWNER OVERRIDE (recorded as such in
+data/meta.json projection_baseline.shipped): from this release the SHIPPED
+projection IS the scenario candidate — SHIPPED_ESTIMATE = "candidate" — and the
+gate-conforming number rides on every record as `gated_points/low/high` so the
+learning loop keeps scoring gated vs candidate on every resolved week. The
+candidate itself:
 
     candidate_points = (prior_ppg * projected_games) * PRODUCT over raw signals of adj
 
@@ -97,14 +102,30 @@ _DEFAULT_GAMES = 17
 SEASON_GAMES = 17
 
 # R49 — the two baseline rules (see the module docstring). SHIPPED_BASELINE_RULE is
-# the one `proj_points` uses; the candidate ALWAYS uses BASELINE_RULE_PPG. Flipping
-# the shipped rule is a never-regress decision: scripts/backtest_player.py must show
-# the rule beating the incumbent on BOTH pooled MAE and pooled rank-corr first
-# (it does not today — rank-corr up, MAE down — recorded in
-# data/player_backtest.json `baseline_gate` and data/meta.json projection_baseline).
+# the one the GATED series (`gated_points`) uses; the candidate ALWAYS uses
+# BASELINE_RULE_PPG. Flipping the gated rule is a never-regress decision:
+# scripts/backtest_player.py must show the rule beating the incumbent on BOTH
+# pooled MAE and pooled rank-corr first (it does not today — rank-corr up, MAE
+# down — recorded in data/player_backtest.json `baseline_gate`).
 BASELINE_RULE_TOTAL = "prior_season_points"
 BASELINE_RULE_PPG = "prior_ppg_x_projected_games"
 SHIPPED_BASELINE_RULE = BASELINE_RULE_TOTAL
+# R49 OWNER OVERRIDE of that gate for what SHIPS: "gated" makes proj_points the
+# gate-conforming number; "candidate" (the owner's decision, 2026-09-02) makes
+# proj_points/low/high the scenario candidate and keeps the gated number on the
+# record as gated_points/low/high (+ gated_rule) so nothing is lost and the loop
+# keeps scoring both. Recorded in data/meta.json projection_baseline.shipped.
+SHIPPED_ESTIMATE = "candidate"
+SHIPPED_MODES = ("gated", "candidate")
+OWNER_OVERRIDE_UTC = "2026-09-02T00:00:00Z"
+OWNER_OVERRIDE_REASON = ("owner: ship the scenario estimate now; gate keeps scoring "
+                         "gated vs candidate")
+# The candidate band ships as the interval, so it was CALIBRATED before shipping:
+# on the 2024 -> 2025 backtest (scripts/backtest_player.candidate_2025) the raw
+# +/- one band covered 0.371 of actuals; multiplied by 2.25 it covers 0.6875
+# (~0.68, the one-sd target). Measured 2026-09-02 over 240 player-seasons.
+CANDIDATE_BAND_MULTIPLIER = 2.25
+CANDIDATE_BAND_TARGET = 0.68
 # Recency weights over prior seasons, most recent FIRST (2:1 over the last two).
 RECENCY_WEIGHTS = (2.0, 1.0)
 # The signals compute_raw_signals has a branch for (MEASURED by backtest_player's
@@ -112,11 +133,13 @@ RECENCY_WEIGHTS = (2.0, 1.0)
 # not compute without hardcoding it in a second place).
 IMPLEMENTED_SIGNALS = ("age_curve", "ol_composite_vs_dl", "target_competition",
                        "injury_status", "injury_history", "indoor_outdoor")
-CANDIDATE_SD_RULE = ("+/- one band around candidate_points, band = position volatility "
-                     "(QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or "
-                     "long-term injury tag + 0.04 for a >25% missed-games history + half "
-                     "the age-curve move, clamped to [0.05, 0.60]; treated as one sd, an "
-                     "estimate of spread, not a measurement")
+CANDIDATE_SD_RULE = ("+/- %.2f x band around candidate_points, band = position "
+                     "volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an "
+                     "unresolved or long-term injury tag + 0.04 for a >25%% missed-games "
+                     "history + half the age-curve move, clamped to [0.05, 0.60]; the "
+                     "multiplier is calibrated so the 2024->2025 backtest band covers "
+                     "~%.2f of actuals (one sd) — an estimate of spread, not a measurement"
+                     % (CANDIDATE_BAND_MULTIPLIER, CANDIDATE_BAND_TARGET))
 
 # Position-relative base interval half-width (fraction of the point projection). RB and
 # TE are the noisiest fantasy positions week to week and season to season; QB the most
@@ -325,8 +348,17 @@ def compute_raw_signals(player, ctx=None):
     code = availability.normalize_status(player.get("injury_status"))
     if code:
         avail, effect = _INJURY_STATUS.get(code, (1.0, 1.0))
-        # Season projection scales by BOTH availability (games) and effectiveness.
-        adjustments["injury_status"] = avail * effect
+        if baseline_fields(player)["prior_ppg"] is not None:
+            # R49 — a games-normalized record already carries its DOCUMENTED
+            # absence in projected_games (the same report, the same week rule as
+            # build_weekly), so the availability half here would count it twice
+            # — and at full strength (the candidate ships, owner override) an
+            # IR tag or a one-week "Out" would zero a whole season. Only the
+            # effectiveness half remains; an undocumented status is no discount.
+            adjustments["injury_status"] = effect
+        else:
+            # Season projection scales by BOTH availability (games) and effectiveness.
+            adjustments["injury_status"] = avail * effect
 
     # injury_history (durability prior) -----------------------------------
     missed_rate = player.get("games_missed_rate")  # fraction of games missed, trailing
@@ -370,7 +402,7 @@ def _interval_band(player, applied_signals):
     return _clamp(band, 0.05, 0.60)
 
 
-def project_player(player, ctx=None, weights=None, baseline_rule=None):
+def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None):
     """Project one player. Returns a record valid vs player_projections.schema.json.
 
     player  : a player fixture record (see field usage in compute_raw_signals /
@@ -378,11 +410,16 @@ def project_player(player, ctx=None, weights=None, baseline_rule=None):
     ctx     : optional context (e.g. {"teams": <teams fixture>}).
     weights : optional {signal_name: fitted_weight} override. Defaults to the registry
               weights (all 0.0 at day zero).
-    baseline_rule : R49 — which baseline `proj_points` uses. Defaults to
+    baseline_rule : R49 — which baseline the GATED number uses. Defaults to
               SHIPPED_BASELINE_RULE (the total rule today); the candidate number
               below ALWAYS uses the games-normalized rule.
+    mode    : R49 override — "gated" ships the gated number as proj_points,
+              "candidate" ships the scenario candidate (default SHIPPED_ESTIMATE).
     """
     pos = str(player.get("position", "")).upper()
+    mode = mode or SHIPPED_ESTIMATE
+    if mode not in SHIPPED_MODES:
+        raise ValueError("mode must be one of %r" % (SHIPPED_MODES,))
     rule = baseline_rule or SHIPPED_BASELINE_RULE
     fields = baseline_fields(player)
     baseline, rule_applied = baseline_for_rule(player, rule, fields)
@@ -406,38 +443,57 @@ def project_player(player, ctx=None, weights=None, baseline_rule=None):
     high = proj * (1.0 + band)
 
     # R49 CANDIDATE — the games-normalized baseline times EVERY raw adjustment at
-    # full strength. Not adopted, not gated, backtested (see module docstring).
-    cand_base, _ = baseline_for_rule(player, BASELINE_RULE_PPG, fields)
+    # full strength, +/- the CALIBRATED band (see CANDIDATE_BAND_MULTIPLIER).
+    cand_base, cand_rule = baseline_for_rule(player, BASELINE_RULE_PPG, fields)
     cand = cand_base
-    for adj in raw.values():
+    cand_used = []
+    for name, adj in raw.items():
         cand *= adj
+        if adj != 1.0:
+            cand_used.append(name)
+    cband = _clamp(band * CANDIDATE_BAND_MULTIPLIER, 0.0, 0.95)
+    cand_low, cand_high = cand * (1.0 - cband), cand * (1.0 + cband)
+
+    # What ships. In "candidate" mode (the owner override) the scenario number IS
+    # proj_points and the gate-conforming number rides along as gated_*; in
+    # "gated" mode the reverse. Both are always on the record.
+    if mode == "candidate":
+        ship = (cand, cand_low, cand_high, sorted(cand_used), cand_rule)
+    else:
+        ship = (proj, low, high, sorted(signals_used), rule_applied)
 
     return {
         "gsis_id": player.get("gsis_id", ""),
         "name": player.get("name", ""),
         "team": player.get("team", ""),
         "position": pos,
-        "proj_points": round(proj, 2),
-        "low": round(low, 2),
-        "high": round(high, 2),
+        "proj_points": round(ship[0], 2),
+        "low": round(ship[1], 2),
+        "high": round(ship[2], 2),
         # Sorted for stable, minimal-diff output.
-        "signals_used": sorted(signals_used),
-        "baseline_rule": rule_applied,
+        "signals_used": ship[3],
+        "baseline_rule": ship[4],
+        "shipped_estimate": mode,
+        "gated_points": round(proj, 2),
+        "gated_low": round(low, 2),
+        "gated_high": round(high, 2),
+        "gated_rule": rule_applied,
         "prior_games": fields["prior_games"],
         "prior_ppg": fields["prior_ppg"],
         "projected_games": fields["projected_games"],
         "absence_weeks": fields["absence_weeks"],
         "candidate_baseline": round(cand_base, 2),
         "candidate_points": round(cand, 2),
-        "candidate_low": round(cand * (1.0 - band), 2),
-        "candidate_high": round(cand * (1.0 + band), 2),
+        "candidate_low": round(cand_low, 2),
+        "candidate_high": round(cand_high, 2),
         "candidate_signals": {k: round(float(v), 4) for k, v in sorted(raw.items())},
     }
 
 
-def project_players(players, ctx=None, weights=None, baseline_rule=None):
+def project_players(players, ctx=None, weights=None, baseline_rule=None, mode=None):
     """Project a list of player records. Deterministic, order-preserving."""
-    return [project_player(p, ctx=ctx, weights=weights, baseline_rule=baseline_rule)
+    return [project_player(p, ctx=ctx, weights=weights, baseline_rule=baseline_rule,
+                           mode=mode)
             for p in players]
 
 
@@ -450,7 +506,8 @@ def load_players(path):
     return data
 
 
-def projection_baseline_record(projected, changed_utc, gate=None, fed_default=()):
+def projection_baseline_record(projected, changed_utc, gate=None, fed_default=(),
+                               backtest_2025=None):
     """R49 — the data/meta.json `projection_baseline` record (meta.schema.json).
 
     projected : projection rows (project_player output); the candidate signal
@@ -458,6 +515,8 @@ def projection_baseline_record(projected, changed_utc, gate=None, fed_default=()
                 (what the live pipeline declares it feeds) when no row carries any.
     gate      : data/player_backtest.json `baseline_gate` (or None before the
                 walk-forward has measured the rule).
+    backtest_2025 : data/player_backtest.json `candidate_2025` (gated vs candidate
+                MAE and the calibrated band coverage), or None.
     Pure; the caller writes it through scripts/meta_record.
     """
     applied = set()
@@ -478,8 +537,25 @@ def projection_baseline_record(projected, changed_utc, gate=None, fed_default=()
         "changed_utc": changed_utc,
         "shipped_rule": SHIPPED_BASELINE_RULE,
         "applies_to": (["proj_points", "candidate_points"]
-                       if SHIPPED_BASELINE_RULE == BASELINE_RULE_PPG
+                       if (SHIPPED_ESTIMATE == "candidate"
+                           or SHIPPED_BASELINE_RULE == BASELINE_RULE_PPG)
                        else ["candidate_points"]),
+        # R49 OWNER OVERRIDE — recorded as such. The gate verdict above is what
+        # the walk-forward measured; this block is what the owner decided ships.
+        "shipped": {
+            "mode": SHIPPED_ESTIMATE,
+            "owner_override": SHIPPED_ESTIMATE == "candidate",
+            "decided_utc": OWNER_OVERRIDE_UTC,
+            "reason": OWNER_OVERRIDE_REASON,
+            "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every "
+                            "record; the ledger scores shipped, candidate and gated",
+            "band_multiplier": CANDIDATE_BAND_MULTIPLIER,
+            "backtest_2025": {
+                "gated_mae": (backtest_2025 or {}).get("gated_mae"),
+                "candidate_mae": (backtest_2025 or {}).get("candidate_mae"),
+                "band_coverage_after_calibration": (backtest_2025 or {}).get("band_coverage"),
+            },
+        },
         "recency_weights": list(RECENCY_WEIGHTS),
         "gate": {
             "adopted_for_shipped": bool(gate.get("adopted_for_shipped", False)),

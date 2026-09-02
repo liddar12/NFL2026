@@ -11,6 +11,13 @@ objective the walk-forward fit minimises:
 
 Rank correlation is reported beside it, never optimised (CLAUDE.md).
 
+THE INCUMBENT IS THE GATED SERIES (R49 owner override). Every resolved row carries
+three estimates — shipped, candidate, gated. Shipped == candidate now, so the
+never-regress comparison the fit reports is candidate (and any refit of its
+weights) versus `gated`, the gate-conforming number: gated_objective(rows) is that
+incumbent's MAE. A row without a gated value (a pre-override ledger) falls back to
+its shipped value, which was the gated number then.
+
 READINESS (N): the objective REFUSES to fit with fewer than MIN_RESOLVED_WEEKS = 1
 resolved week — LedgerNotReady is raised, never a number from nothing. Walk-forward
 adoption needs strictly MORE: each held-out week is scored with weights fitted on
@@ -61,6 +68,18 @@ def objective(rows, weights):
     if not rows:
         raise LedgerNotReady("no resolved rows to score")
     return sum(abs(estimate(r, weights) - float(r["actual"])) for r in rows) / len(rows)
+
+
+def gated_value(row):
+    """The never-regress incumbent's estimate for one resolved row."""
+    return float(row.get("gated", row["shipped"]))
+
+
+def gated_objective(rows):
+    """MAE of the gated (incumbent) series. Refuses empty."""
+    if not rows:
+        raise LedgerNotReady("no resolved rows to score")
+    return sum(abs(gated_value(r) - float(r["actual"])) for r in rows) / len(rows)
 
 
 def rank_corr(rows, weights):

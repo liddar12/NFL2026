@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "estimate_ledger.schema.json",
   "title": "Estimate ledger (R49 learning loop) - data/estimates/<season>.json",
-  "description": "One append per pipeline day per player: the SHIPPED season number and the CANDIDATE estimate (games-normalized baseline x every raw signal at full strength) plus the shipped weekly split, so every (player, week) estimate exists before the week is played. Compact by design: per player only the FIRST as-of and the LATEST as-of are kept, plus `locked` - the per-week estimate frozen at the last as-of before that week's first kickoff (the row scripts/resolve_estimates.py scores). `runs` carries the weights applied on each as-of day once, not per row. Written by scripts/build_estimate_ledger.py (compact JSON, ensure_ascii); idempotent per as_of_utc.",
+  "description": "One append per pipeline day per player: THREE series - the SHIPPED season number, the CANDIDATE estimate and the GATED (gate-conforming, never-regress incumbent) number (games-normalized baseline x every raw signal at full strength) plus the shipped weekly split, so every (player, week) estimate exists before the week is played. Compact by design: per player only the FIRST as-of and the LATEST as-of are kept, plus `locked` - the per-week estimate frozen at the last as-of before that week's first kickoff (the row scripts/resolve_estimates.py scores). `runs` carries the weights applied on each as-of day once, not per row. Written by scripts/build_estimate_ledger.py (compact JSON, ensure_ascii); idempotent per as_of_utc.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -76,6 +76,13 @@
               "minimum": 1,
               "maximum": 18
             }
+          },
+          "shipped_estimate": {
+            "type": "string",
+            "enum": [
+              "gated",
+              "candidate"
+            ]
           }
         }
       }
@@ -154,7 +161,8 @@
               "candidate_low",
               "candidate_high",
               "signals",
-              "weeks"
+              "weeks",
+              "gated_pts"
             ],
             "properties": {
               "as_of_utc": {
@@ -198,6 +206,11 @@
                   "minimum": 0
                 },
                 "description": "The shipped weekly split (player_weekly.json weeks[].pts, wk 1..18; bye/blocked = 0). A week's candidate estimate is candidate_pts x weeks[w]/sum(weeks)."
+              },
+              "gated_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The gate-conforming season number (gated_points) - the never-regress incumbent; == shipped_pts before the R49 owner override."
               }
             }
           },
@@ -212,7 +225,8 @@
               "candidate_low",
               "candidate_high",
               "signals",
-              "weeks"
+              "weeks",
+              "gated_pts"
             ],
             "properties": {
               "as_of_utc": {
@@ -256,6 +270,11 @@
                   "minimum": 0
                 },
                 "description": "The shipped weekly split (player_weekly.json weeks[].pts, wk 1..18; bye/blocked = 0). A week's candidate estimate is candidate_pts x weeks[w]/sum(weeks)."
+              },
+              "gated_pts": {
+                "type": "number",
+                "minimum": 0,
+                "description": "The gate-conforming season number (gated_points) - the never-regress incumbent; == shipped_pts before the R49 owner override."
               }
             }
           },
@@ -271,7 +290,8 @@
                 "candidate",
                 "low",
                 "high",
-                "signals"
+                "signals",
+                "gated"
               ],
               "properties": {
                 "as_of_utc": {
@@ -304,6 +324,10 @@
                     "type": "number",
                     "minimum": 0
                   }
+                },
+                "gated": {
+                  "type": "number",
+                  "minimum": 0
                 }
               }
             }

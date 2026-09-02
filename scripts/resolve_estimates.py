@@ -6,7 +6,8 @@ Joins data/estimates/<season>.json's LOCKED (player, week) estimates — frozen 
 each week's first kickoff by scripts/build_estimate_ledger.py — to nflverse
 stats_player_week_{season}.csv (the same release-CSV path scripts/build_kdst.py and
 build_dvp_positional.py read), and writes per-row actuals plus error metrics for
-BOTH the shipped and the candidate estimate: MAE, bias (mean of estimate - actual)
+THREE series - shipped, candidate and gated (the never-regress incumbent; shipped
+== candidate under the R49 owner override): MAE, bias (mean of estimate - actual)
 by position, and the share of actuals inside the candidate band.
 
 HONESTY RULES
@@ -148,15 +149,19 @@ def lookup_actuals(name, position, by_np, names):
 def _block(rows):
     n = len(rows)
     if not n:
-        return {"n": 0, "mae_shipped": None, "mae_candidate": None, "mae_baseline": None,
-                "bias_shipped": None, "bias_candidate": None, "band_coverage": None}
+        return {"n": 0, "mae_shipped": None, "mae_candidate": None, "mae_gated": None,
+                "mae_baseline": None, "bias_shipped": None, "bias_candidate": None,
+                "bias_gated": None, "band_coverage": None}
+    g = lambda r: float(r.get("gated", r["shipped"]))  # noqa: E731
     return {
         "n": n,
         "mae_shipped": round(sum(abs(r["shipped"] - r["actual"]) for r in rows) / n, 3),
         "mae_candidate": round(sum(abs(r["candidate"] - r["actual"]) for r in rows) / n, 3),
+        "mae_gated": round(sum(abs(g(r) - r["actual"]) for r in rows) / n, 3),
         "mae_baseline": round(sum(abs(r["baseline"] - r["actual"]) for r in rows) / n, 3),
         "bias_shipped": round(sum(r["shipped"] - r["actual"] for r in rows) / n, 3),
         "bias_candidate": round(sum(r["candidate"] - r["actual"] for r in rows) / n, 3),
+        "bias_gated": round(sum(g(r) - r["actual"] for r in rows) / n, 3),
         "band_coverage": round(sum(1 for r in rows if r["low"] <= r["actual"] <= r["high"])
                                / n, 4),
     }
@@ -175,8 +180,9 @@ def score(resolved, weeks_available=None):
         b = _block(by_week.get(wk, []))
         weeks.append({"week": wk, "rows_available": int((weeks_available or {}).get(wk, 0)),
                       "players_scored": b["n"], "mae_shipped": b["mae_shipped"],
-                      "mae_candidate": b["mae_candidate"], "bias_shipped": b["bias_shipped"],
-                      "bias_candidate": b["bias_candidate"],
+                      "mae_candidate": b["mae_candidate"], "mae_gated": b["mae_gated"],
+                      "bias_shipped": b["bias_shipped"],
+                      "bias_candidate": b["bias_candidate"], "bias_gated": b["bias_gated"],
                       "band_coverage": b["band_coverage"]})
     return {
         "totals": _block(resolved),
@@ -209,6 +215,7 @@ def resolve(ledger, csv_rows):
             row = {"gsis_id": pid, "week": wk, "position": p["position"],
                    "baseline": lk["baseline"], "shipped": lk["shipped"],
                    "candidate": lk["candidate"], "low": lk["low"], "high": lk["high"],
+                   "gated": float(lk.get("gated", lk["shipped"])),
                    "actual": 0.0 if dnp else actual_map[wk],
                    "signals": dict(lk.get("signals") or {})}
             if dnp:
@@ -249,6 +256,8 @@ def learning_record(doc, weights, backtest_2025=None, margin_mae=0.10):
         "bias_ppr": t["bias_shipped"],
         "candidate_mae_ppr": t["mae_candidate"],
         "candidate_bias_ppr": t["bias_candidate"],
+        "gated_mae_ppr": t["mae_gated"],
+        "gated_bias_ppr": t["bias_gated"],
         "band_coverage": t["band_coverage"],
         "signals_with_weight": sorted(k for k, v in (weights or {}).items()
                                       if float(v) != 0.0),
@@ -256,15 +265,17 @@ def learning_record(doc, weights, backtest_2025=None, margin_mae=0.10):
         "objective_ready": doc["weeks_resolved"] >= MIN_RESOLVED_WEEKS,
         "adoption_margin_mae": margin_mae,
         "note": (doc["skipped"] if doc["skipped"] else
-                 "shipped vs candidate scored on locked pre-kickoff estimates; a signal "
-                 "earns weight on the shipped number only by clearing the never-regress "
-                 "margin on the walk-forward player objective (scripts/fit_player_signals.py)"),
+                 "shipped, candidate and gated scored on locked pre-kickoff estimates; "
+                 "the never-regress comparison is candidate vs gated on the walk-forward "
+                 "player objective (scripts/fit_player_signals.py) — shipped == candidate "
+                 "under the R49 owner override"),
         "updated_utc": doc["generated_utc"],
     }
     if backtest_2025:
         rec["backtest_2025"] = {
             "baseline_mae": backtest_2025.get("baseline_mae"),
             "candidate_mae": backtest_2025.get("candidate_mae"),
+            "gated_mae": backtest_2025.get("gated_mae"),
             "shipped_mae": backtest_2025.get("shipped_mae"),
             "band_coverage": backtest_2025.get("band_coverage"),
             "players": int(backtest_2025.get("players") or 0),
@@ -372,7 +383,8 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, meta_path=meta_record.ME
 def _fixture_ledger():
     def lk(sh, ca, lo, hi):
         return {"as_of_utc": "2026-09-05T06:00:00Z", "baseline": sh, "shipped": sh,
-                "candidate": ca, "low": lo, "high": hi, "signals": {"age_curve": 1.05}}
+                "candidate": ca, "low": lo, "high": hi, "gated": sh - 1.0,
+                "signals": {"age_curve": 1.05}}
     return {"season": 2026, "players": {
         "espn-1": {"name": "A.J. Back", "team": "SF", "position": "RB",
                    "locked": {"1": lk(10.0, 12.0, 8.0, 16.0), "2": lk(10.0, 12.0, 8.0, 16.0)}},
@@ -412,6 +424,8 @@ def selftest():
     assert abs(t["mae_shipped"] - ((14 - 10) + (16 - 8)) / 2) < 1e-9
     assert abs(t["mae_candidate"] - ((14 - 12) + (16 - 9)) / 2) < 1e-9
     assert abs(t["bias_shipped"] + 6.0) < 1e-9, "bias = mean(estimate - actual)"
+    assert abs(t["mae_gated"] - 7.0) < 1e-9 and abs(t["bias_gated"] + 7.0) < 1e-9, \
+        "the gated series is scored as its own third series"
     assert t["band_coverage"] == 0.5
     # a joined player with no row in a resolved week did not play -> 0.0, flagged
     rows2 = rows + [{"season_type": "REG", "week": "2", "position": "WR",
@@ -421,10 +435,11 @@ def selftest():
     assert r["actual"] == 0.0 and r["dnp"] is True
     # nothing resolved -> honest empty document with null metrics
     empty = document(2026, "x", [], 0, {}, "no rows", "2026-09-01T00:00:00Z")
-    assert empty["weeks_resolved"] == 0 and empty["totals"]["mae_shipped"] is None
+    assert empty["weeks_resolved"] == 0 and empty["totals"]["mae_shipped"] is None \
+        and empty["totals"]["mae_gated"] is None
     rec = learning_record(empty, {"age_curve": 0.0})
-    assert rec["mae_ppr"] is None and rec["objective_ready"] is False \
-        and rec["signals_with_weight"] == []
+    assert rec["mae_ppr"] is None and rec["gated_mae_ppr"] is None \
+        and rec["objective_ready"] is False and rec["signals_with_weight"] == []
     rec2 = learning_record(doc, {"age_curve": 0.25})
     assert rec2["objective_ready"] is True and rec2["signals_with_weight"] == ["age_curve"]
     print("selftest OK: name+position join, REG-only, skip-when-no-rows, dnp=0 by fact, "

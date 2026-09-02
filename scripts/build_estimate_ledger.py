@@ -9,7 +9,10 @@ This builder appends, once per pipeline day, for every projected player:
                    (player_projections.json candidate_baseline)
   * shipped_pts    proj_points as shipped (baseline x adopted weights — all 0 today)
   * candidate_pts  candidate_points (baseline x every raw signal at full strength)
-                   with its +/- one-band interval and `signals` = {name: raw_adj}
+                   with its calibrated band and `signals` = {name: raw_adj}
+  * gated_pts      the gate-conforming number (gated_points; == shipped_pts before
+                   the R49 owner override, and the never-regress incumbent after
+                   it, when shipped == candidate) — THREE series per player-week
   * weeks          the shipped weekly split (player_weekly.json weeks[].pts), so a
                    (player, week) estimate is candidate_pts x weeks[w]/sum(weeks)
 
@@ -85,6 +88,8 @@ def _estimate(row, weeks, as_of):
                                      or 0.0), 2),
         "candidate_high": round(float(row.get("candidate_high", row.get("high", 0.0))
                                       or 0.0), 2),
+        "gated_pts": round(float(row.get("gated_points", row.get("proj_points", 0.0))
+                                 or 0.0), 2),
         "signals": {k: round(float(v), 4)
                     for k, v in sorted((row.get("candidate_signals") or {}).items())},
         "weeks": [round(float(w), 2) for w in weeks],
@@ -102,6 +107,7 @@ def week_estimate(est, week):
         "baseline": round(est["baseline_pts"] * share, 2),
         "shipped": round(weeks[week - 1], 2),
         "candidate": round(est["candidate_pts"] * share, 2),
+        "gated": round(float(est.get("gated_pts", est["shipped_pts"])) * share, 2),
         "low": round(est["candidate_low"] * share, 2),
         "high": round(est["candidate_high"] * share, 2),
         "signals": dict(est["signals"]),
@@ -120,6 +126,7 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
         raise ValueError("player_projections.json has no updated_utc")
     weekly_by_id = {p["gsis_id"]: p for p in (weekly or {}).get("players") or []}
     rule = None
+    mode = None
     players_out = {}
     prev_players = (ledger or {}).get("players") or {}
     locked_now = set()
@@ -135,6 +142,7 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
                 weeks[i] = float(w.get("pts") or 0.0)
         est = _estimate(row, weeks, as_of)
         rule = rule or row.get("baseline_rule") or "prior_season_points"
+        mode = mode or row.get("shipped_estimate") or "gated"
         prev = prev_players.get(pid)
         first = prev["first"] if prev else est
         locked = dict(prev["locked"]) if prev else {}
@@ -159,6 +167,7 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
     runs = list((ledger or {}).get("runs") or [])
     if not any(r.get("as_of_utc") == as_of for r in runs):
         entry = {"as_of_utc": as_of, "shipped_rule": rule or "prior_season_points",
+                 "shipped_estimate": mode or "gated",
                  "weights_applied": {k: float(v) for k, v in sorted((weights or {}).items())},
                  "players": len(players_out)}
         if locked_now:
@@ -233,7 +242,8 @@ def _fixture(as_of, shipped=170.0, cand=200.0):
          "proj_points": shipped, "low": 150.0, "high": 190.0, "signals_used": [],
          "baseline_rule": "prior_season_points", "candidate_baseline": 180.0,
          "candidate_points": cand, "candidate_low": cand * 0.8,
-         "candidate_high": cand * 1.2, "candidate_signals": {"age_curve": 1.05}}]}
+         "candidate_high": cand * 1.2, "candidate_signals": {"age_curve": 1.05},
+         "gated_points": 165.0, "shipped_estimate": "candidate"}]}
     weeks = [{"wk": i + 1, "pts": (0.0 if i == 8 else shipped / 17.0), "bye": i == 8}
              for i in range(18)]
     weekly = {"players": [{"gsis_id": "espn-1", "weeks": weeks}]}
@@ -272,6 +282,8 @@ def selftest():
     assert abs(lk["shipped"] - 175.0 / 17) < 0.01
     assert abs(lk["candidate"] - 210.0 / 17) < 0.02 and lk["low"] < lk["candidate"] < lk["high"]
     assert lk["signals"] == {"age_curve": 1.05}
+    assert abs(lk["gated"] - 165.0 / 17) < 0.02, "the gated series rides every locked week"
+    assert d3["runs"][-1]["shipped_estimate"] == "candidate"
     assert e["latest"]["shipped_pts"] == 160.0, "latest still moves for the remaining weeks"
     assert d3["runs"][-1]["weeks_locked"] == [1]
     # re-appending later never rewrites a locked week

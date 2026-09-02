@@ -101,6 +101,8 @@
                 "beats_last_year": { "type": "boolean" },
                 "beats_ppg17": { "type": "boolean" },
                 "engine_equals_last_year": { "type": "boolean" },
+                "rho_gated": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+                "mae_gated": { "type": ["number", "null"], "minimum": 0 },
                 "delta_vs_last_year": { "type": "number" },
                 "delta_vs_ppg17": { "type": "number" }
               }
@@ -134,6 +136,8 @@
           "beats_last_year": { "type": "boolean" },
           "beats_ppg17": { "type": "boolean" },
           "engine_equals_last_year": { "type": "boolean" },
+          "rho_gated": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+          "mae_gated": { "type": ["number", "null"], "minimum": 0 },
           "delta_vs_last_year": { "type": "number" },
           "delta_vs_ppg17": { "type": "number" }
         }
@@ -163,6 +167,36 @@
                    "pooled_rho_total_rule", "pooled_rho_ppg_rule",
                    "pooled_mae_total_rule", "pooled_mae_ppg_rule", "per_position"],
       "properties": {
+        "candidate_vs_gated": {
+          "type": "object",
+          "description": "R49 owner override - the walk-forward comparison that matters once shipped == candidate: candidate_points vs gated_points through project_player, pooled n-weighted over positions.",
+          "additionalProperties": false,
+          "required": ["shipped_estimate", "owner_override", "pooled_rho_gated", "pooled_rho_candidate", "pooled_mae_gated", "pooled_mae_candidate", "per_position", "note"],
+          "properties": {
+            "shipped_estimate": { "type": "string", "enum": ["gated", "candidate"] },
+            "owner_override": { "type": "boolean" },
+            "pooled_rho_gated": { "type": ["number", "null"] },
+            "pooled_rho_candidate": { "type": ["number", "null"] },
+            "pooled_mae_gated": { "type": ["number", "null"] },
+            "pooled_mae_candidate": { "type": ["number", "null"] },
+            "per_position": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["n", "rho_gated", "rho_candidate", "mae_gated", "mae_candidate"],
+                "properties": {
+                  "n": { "type": "integer", "minimum": 0 },
+                  "rho_gated": { "type": ["number", "null"] },
+                  "rho_candidate": { "type": ["number", "null"] },
+                  "mae_gated": { "type": ["number", "null"] },
+                  "mae_candidate": { "type": ["number", "null"] }
+                }
+              }
+            },
+            "note": { "type": "string" }
+          }
+        },
         "shipped_rule": { "type": "string" },
         "candidate_rule": { "type": "string" },
         "adopted_for_shipped": { "type": "boolean" },
@@ -198,13 +232,18 @@
       "properties": {
         "season": { "type": "integer", "minimum": 2020 },
         "players": { "type": "integer", "minimum": 0 },
+        "shipped_estimate": { "type": "string", "enum": ["gated", "candidate"] },
         "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
         "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
         "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
+        "gated_mae": { "type": ["number", "null"], "minimum": 0 },
         "baseline_rho": { "type": ["number", "null"] },
         "candidate_rho": { "type": ["number", "null"] },
         "shipped_rho": { "type": ["number", "null"] },
+        "gated_rho": { "type": ["number", "null"] },
         "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "band_multiplier": { "type": "number", "minimum": 0, "description": "The calibrated multiplier on the raw band (player_projection.CANDIDATE_BAND_MULTIPLIER); band_coverage is measured AT this multiplier." },
+        "band_target": { "type": "number", "minimum": 0, "maximum": 1 },
         "band_rule": { "type": "string" },
         "signals_evaluated": { "type": "array", "items": { "type": "string" } },
         "signals_not_evaluable": { "type": "array", "items": { "type": "string" } },
@@ -219,6 +258,7 @@
               "baseline_mae": { "type": ["number", "null"], "minimum": 0 },
               "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
               "shipped_mae": { "type": ["number", "null"], "minimum": 0 },
+              "gated_mae": { "type": ["number", "null"], "minimum": 0 },
               "band_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
               "sleeper_mae": { "type": ["number", "null"], "minimum": 0 },
               "sleeper_n": { "type": ["integer", "null"], "minimum": 0 }
