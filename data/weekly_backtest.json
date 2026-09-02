@@ -1,0 +1,182 @@
+{
+  "generated_utc": "2026-09-02T16:04:56Z",
+  "model_candidate": "weekly_split_v2",
+  "model_incumbent": "weekly_split_v1",
+  "fixture": {
+    "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
+    "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+    "seasons_scored": [
+      2023,
+      2024,
+      2025
+    ],
+    "rows": 8279,
+    "pool": {
+      "QB": 32,
+      "RB": 60,
+      "WR": 80,
+      "TE": 32
+    }
+  },
+  "season_number_rule": "recency-weighted prior points per game (weights 1:2 over S-2, S-1; >= 6 stat lines in S-1 required; a player with only S-1 uses it alone) x 17; pool = the top N per position per season by that number among players with a stat line in S; rows = the weeks a pooled player has a stat line. FIXED across variants.",
+  "pooled": {
+    "v1": {
+      "mae": 6.0498,
+      "rank_corr": 0.3694,
+      "topk": 0.778
+    },
+    "v2": {
+      "mae": 6.003,
+      "rank_corr": 0.3814,
+      "topk": 0.7836
+    }
+  },
+  "held_out_2025": {
+    "v1": {
+      "mae": 6.1112,
+      "rank_corr": 0.3411,
+      "topk": 0.7612
+    },
+    "v2": {
+      "mae": 6.079,
+      "rank_corr": 0.3517,
+      "topk": 0.769
+    }
+  },
+  "per_position": {
+    "QB": {
+      "v1": {
+        "mae": 6.7062,
+        "rank_corr": 0.2431
+      },
+      "v2": {
+        "mae": 6.7012,
+        "rank_corr": 0.2585
+      }
+    },
+    "RB": {
+      "v1": {
+        "mae": 5.9325,
+        "rank_corr": 0.4233
+      },
+      "v2": {
+        "mae": 5.8924,
+        "rank_corr": 0.4285
+      }
+    },
+    "WR": {
+      "v1": {
+        "mae": 6.2951,
+        "rank_corr": 0.4006
+      },
+      "v2": {
+        "mae": 6.2228,
+        "rank_corr": 0.4172
+      }
+    },
+    "TE": {
+      "v1": {
+        "mae": 5.099,
+        "rank_corr": 0.3037
+      },
+      "v2": {
+        "mae": 5.0651,
+        "rank_corr": 0.3137
+      }
+    }
+  },
+  "band": {
+    "rule": "split-conformal 68% band: per-position |residual| quantile fitted on 2023-2024, coverage and mean half-width on 2025",
+    "v1": {
+      "coverage_2025": 0.6715,
+      "half_width_2025": 7.1866
+    },
+    "v2": {
+      "coverage_2025": 0.6606,
+      "half_width_2025": 7.099
+    }
+  },
+  "bootstrap": {
+    "delta_mae_2025": {
+      "mean": -0.0331,
+      "lo95": -0.0773,
+      "hi95": 0.0152,
+      "blocks": "season-week",
+      "B": 400
+    }
+  },
+  "factors": {
+    "dvp": {
+      "shrink": 0.25,
+      "source": "data/dvp_positional_history.json"
+    },
+    "elo_tilt_positions": [
+      "QB"
+    ],
+    "weather": {
+      "pass_dome": 1.03,
+      "pass_outdoors": 0.97,
+      "pass_cold_extra": 0.97,
+      "rb_wind": 0.95,
+      "cold_f": 32,
+      "wind_mph": 15
+    },
+    "venue": {
+      "coef": 0.02,
+      "rel_clamp": [
+        -1.0,
+        2.5
+      ],
+      "shrink_n0": 16
+    }
+  },
+  "verdict": {
+    "adopted": true,
+    "rule": "never-regress: v2 must not be worse than v1 on pooled MAE and pooled rank_corr",
+    "reason": "v2 beats v1 on pooled MAE (6.003 vs 6.050) and pooled rank_corr (0.381 vs 0.369); held-out 2025 MAE 6.079 vs 6.111"
+  },
+  "policy": "BACKTEST ONLY. Walk-forward: every input to a (season, week) projection is restricted to seasons < Y or weeks < wk (Elo pre-week, DvP to date, venue margins from earlier seasons shrunk with n0 = 16); the observed kickoff-hour roof/temperature/wind stand in for the unarchived forecast. The book lines in games_meta are never read. Absent inputs are neutral and counted, never guessed; skipped rows are counted in meta. v2 ships only if it does not regress v1 on pooled MAE and pooled rank correlation.",
+  "meta": {
+    "rows_skipped": {
+      "team_mismatch": 97,
+      "schedule_mismatch": 0
+    },
+    "pool_excluded": {
+      "no_stat_line_in_season": 819,
+      "prior_games_lt_6": 330,
+      "position_out_of_scope": 0
+    },
+    "pooled_per_season": {
+      "2023": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      },
+      "2024": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      },
+      "2025": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      }
+    },
+    "neutral_weeks": {
+      "dvp_neutral_weeks": 0,
+      "weather_no_forecast_weeks": 90003,
+      "venue_flat_weeks": 0
+    },
+    "game_params": {
+      "hfa": 45.0,
+      "k": 25.0,
+      "revert": 0.45
+    },
+    "elo_chain_from": 2019,
+    "runtime_s": 1.04
+  }
+}
