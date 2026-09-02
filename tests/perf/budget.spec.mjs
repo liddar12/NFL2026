@@ -167,6 +167,11 @@ const CONTRACT_ALLOWLIST = new Set([
   // idle phase after first paint on PLAYERS/GRADE, never on a mount's critical path.
   'sleeper_projections.json',
   'team_strength.json',
+  // R51 — the weekly-split and parlay never-regress backtest records (a few
+  // KB each, no per-row arrays), fetched by #/model only; a 404 resolves to
+  // null and the card is omitted, so the request is the whole cost.
+  'weekly_backtest.json',
+  'parlay_backtest.json',
 ]);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
@@ -190,7 +195,9 @@ const ROUTES = [
   // cold default load: 5 -> 6, measured 3x byte-identical. PLAYERS stays at 8
   // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
   { hash: '#/lineup', name: 'lineup', contracts: 6 },
-  { hash: '#/model', name: 'model', contracts: 6 },
+  // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
+  // (a 404 is still one request, so the count holds with the files absent).
+  { hash: '#/model', name: 'model', contracts: 8 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
   // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
   // LEAGUE tab reads the saved profile, the league id and the sync log from

@@ -39,6 +39,8 @@ const PATHS = Object.freeze({
   modelTuning: '/data/model_tuning.json',
   adp: '/data/adp.json',
   rookieStarters: '/data/rookie_starters.json',
+  weeklyBacktest: '/data/weekly_backtest.json',
+  parlayBacktest: '/data/parlay_backtest.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -113,6 +115,16 @@ export const getAdp = (opts) => loadJson(PATHS.adp, opts);
 // contract). Same 404-graceful pattern: absent on an older deploy -> the
 // rookies-only strip simply doesn't render the section.
 export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
+// R51: the two never-regress backtest records the MODEL tab's WEEKLY SPLIT
+// GATE and PARLAY GATE cards read (scripts/backtest_weekly.py and
+// scripts/backtest_parlay.py write them). Both are OPTIONAL feeds, and these
+// two loaders differ from the getters above on purpose: they RESOLVE TO NULL
+// on a 404 or a parse error instead of rejecting. Owner policy: a missing
+// file renders NOTHING (no placeholder card), so the caller wants "absent",
+// never an exception to catch. Same promise cache underneath — the rejection
+// evicts its entry, so a later mount retries the network.
+export const loadWeeklyBacktest = (opts) => loadJson(PATHS.weeklyBacktest, opts).catch(() => null);
+export const loadParlayBacktest = (opts) => loadJson(PATHS.parlayBacktest, opts).catch(() => null);
 
 /**
  * Load the five core contracts at once. Uses allSettled so one bad feed does
