@@ -55,7 +55,7 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-09-05T10:00:42Z",
+    "changed_utc": "2026-09-05T17:14:41Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
       "proj_points",
@@ -69,9 +69,9 @@
       "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every record; the ledger scores shipped, candidate and gated",
       "band_multiplier": 2.25,
       "backtest_2025": {
-        "gated_mae": 57.188,
-        "candidate_mae": 55.595,
-        "band_coverage_after_calibration": 0.6766
+        "gated_mae": 56.781,
+        "candidate_mae": 55.481,
+        "band_coverage_after_calibration": 0.691
       }
     },
     "recency_weights": [
@@ -80,12 +80,12 @@
     ],
     "gate": {
       "adopted_for_shipped": false,
-      "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5697 -> 0.5901, pooled MAE 60.2001 -> 61.7492 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
-      "pooled_rho_total_rule": 0.5697,
-      "pooled_rho_ppg_rule": 0.5901,
-      "pooled_mae_total_rule": 60.2001,
-      "pooled_mae_ppg_rule": 61.7492,
-      "measured_utc": "2026-09-05T10:00:42Z"
+      "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5642 -> 0.5858, pooled MAE 60.1629 -> 61.8646 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
+      "pooled_rho_total_rule": 0.5642,
+      "pooled_rho_ppg_rule": 0.5858,
+      "pooled_mae_total_rule": 60.1629,
+      "pooled_mae_ppg_rule": 61.8646,
+      "measured_utc": "2026-09-05T17:14:41Z"
     },
     "candidate": {
       "signals_applied": [
@@ -116,17 +116,17 @@
     "objective_ready": false,
     "adoption_margin_mae": 0.1,
     "note": "ledger has no locked (pre-kickoff) player-week yet \u2014 the first week locks on the first append after its kickoff",
-    "updated_utc": "2026-09-05T10:02:45Z",
+    "updated_utc": "2026-09-05T17:16:39Z",
     "backtest_2025": {
-      "baseline_mae": 61.102,
-      "candidate_mae": 55.481,
-      "gated_mae": 56.781,
-      "shipped_mae": 55.481,
-      "band_coverage": 0.691,
-      "players": 233,
-      "sleeper_mae": 22.117,
-      "sleeper_players": 232,
-      "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 329 history players matched by {'espn_id': 113, 'name_position': 184, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction.",
+      "baseline_mae": 61.013,
+      "candidate_mae": 55.595,
+      "gated_mae": 57.188,
+      "shipped_mae": 55.595,
+      "band_coverage": 0.6766,
+      "players": 235,
+      "sleeper_mae": 21.994,
+      "sleeper_players": 234,
+      "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 329 history players matched by {'espn_id': 112, 'name_position': 185, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction.",
       "signals_evaluated": [
         "injury_history"
       ],
