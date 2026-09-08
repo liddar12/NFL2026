@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nfl2026:design:forecast:0.1",
+  "title": "Proposed forecast v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "fixture",
+    "project_id",
+    "task",
+    "event_id",
+    "entity_id",
+    "horizon",
+    "issued_at",
+    "lock_deadline",
+    "lock_policy_version",
+    "source_max_as_of",
+    "source_ref",
+    "source_sha256",
+    "evidence_class",
+    "code_version",
+    "model_version",
+    "scoring_version",
+    "prediction"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task": {
+      "enum": [
+        "nfl.player_week_points",
+        "nfl.game_result"
+      ]
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "horizon": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lock_deadline": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lock_policy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_max_as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence_class": {
+      "enum": [
+        "verified_pre_event",
+        "reconstructed",
+        "unproven",
+        "fixture"
+      ]
+    },
+    "code_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scoring_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prediction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value",
+            "interval"
+          ],
+          "properties": {
+            "kind": {
+              "const": "points"
+            },
+            "value": {
+              "type": "number"
+            },
+            "interval": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "lower",
+                    "upper",
+                    "method",
+                    "target_coverage",
+                    "empirical_coverage",
+                    "evaluation_id"
+                  ],
+                  "properties": {
+                    "lower": {
+                      "type": "number"
+                    },
+                    "upper": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "target_coverage": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "empirical_coverage": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "evaluation_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "conditioning",
+            "probabilities"
+          ],
+          "properties": {
+            "kind": {
+              "const": "categorical"
+            },
+            "conditioning": {
+              "enum": [
+                "unconditional_three_way",
+                "conditional_no_tie"
+              ]
+            },
+            "probabilities": {
+              "type": "object",
+              "minProperties": 2,
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
