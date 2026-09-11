@@ -17542,6 +17542,44 @@
           "n": 1084
         }
       ]
+    },
+    {
+      "generated_utc": "2026-09-11T01:45:10Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 0,
+      "fold_candidates": [],
+      "evals": 0,
+      "margin": 0.0015,
+      "n_resolved": 1,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": null,
+      "current_loss": null,
+      "candidate_loss": null,
+      "heldout_current_loss": null,
+      "heldout_candidate_loss": null,
+      "improvement": null,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate None scores None HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at None across 0 folds over n=1 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. fewer than 2 usable resolved rows - no held-out fold exists, so nothing can be validated or adopted"
     }
   ],
   "game_params": {
