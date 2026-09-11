@@ -1,87 +1,8 @@
 {
   "season": 2026,
   "week": 1,
-  "updated_utc": "2026-09-11T01:45:13Z",
+  "updated_utc": "2026-09-11T06:44:05Z",
   "parlays": [
-    {
-      "parlay_id": "401872657-g1",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
-        },
-        {
-          "market": "spread",
-          "selection": "LAR +2.5",
-          "implied_prob": 0.5153,
-          "model_prob": 0.5,
-          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
-        }
-      ],
-      "model_ev": 0.9978,
-      "confidence_tier": "high",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872657"
-    },
-    {
-      "parlay_id": "401872657-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
-        },
-        {
-          "market": "rb_rush_yds",
-          "selection": "K. Williams 60+ rush yds",
-          "implied_prob": 0.5726,
-          "model_prob": 0.5479,
-          "pricing": "calibrated",
-          "estimate": true,
-          "mu": 71.08,
-          "sd": 38.87,
-          "z": 0.298,
-          "line": 59.5
-        }
-      ],
-      "model_ev": 0.5019,
-      "confidence_tier": "high",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872657"
-    },
-    {
-      "parlay_id": "401872657-g3",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "P. Nacua 60+ rec yds",
-          "implied_prob": 0.7057,
-          "model_prob": 0.6753,
-          "pricing": "calibrated",
-          "estimate": true,
-          "mu": 98.92,
-          "sd": 41.58,
-          "z": 0.948,
-          "line": 59.5
-        }
-      ],
-      "model_ev": 0.3127,
-      "confidence_tier": "medium",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
-      "game_id": "401872657"
-    },
     {
       "parlay_id": "401872656-g1",
       "scope": "game",
@@ -171,6 +92,96 @@
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872656"
+    },
+    {
+      "parlay_id": "401872657-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "implied_prob": 0.5364,
+          "model_prob": 0.5133
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "K. Williams 60+ rush yds",
+          "implied_prob": 0.5449,
+          "model_prob": 0.5214,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 71.08,
+          "sd": 38.87,
+          "z": 0.298,
+          "line": 59.5
+        }
+      ],
+      "model_ev": -0.3226,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
+    },
+    {
+      "parlay_id": "401872657-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "implied_prob": 0.5364,
+          "model_prob": 0.5133
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Purdy 225+ pass yds",
+          "implied_prob": 0.326,
+          "model_prob": 0.312,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 179.34,
+          "sd": 76.66,
+          "z": -0.5891,
+          "line": 224.5
+        }
+      ],
+      "model_ev": 0.0483,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
+    },
+    {
+      "parlay_id": "401872657-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "K. Williams 60+ rush yds",
+          "implied_prob": 0.5449,
+          "model_prob": 0.5214,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 71.08,
+          "sd": 38.87,
+          "z": 0.298,
+          "line": 59.5
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "P. Nacua 60+ rec yds",
+          "implied_prob": 0.6919,
+          "model_prob": 0.6621,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 98.92,
+          "sd": 41.58,
+          "z": 0.948,
+          "line": 59.5
+        }
+      ],
+      "model_ev": -0.0217,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872657"
     },
     {
       "parlay_id": "401872925-g1",
@@ -537,13 +548,13 @@
         {
           "market": "qb_pass_yds",
           "selection": "T. Tagovailoa 225+ pass yds",
-          "implied_prob": 0.268,
-          "model_prob": 0.2565,
+          "implied_prob": 0.2695,
+          "model_prob": 0.2579,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 167.68,
+          "mu": 168.18,
           "sd": 76.66,
-          "z": -0.7412,
+          "z": -0.7346,
           "line": 224.5
         },
         {
@@ -559,7 +570,7 @@
           "line": 59.5
         }
       ],
-      "model_ev": 0.393,
+      "model_ev": 0.391,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872658"
@@ -866,13 +877,13 @@
         {
           "market": "qb_pass_yds",
           "selection": "K. Cousins 225+ pass yds",
-          "implied_prob": 0.2606,
-          "model_prob": 0.2494,
+          "implied_prob": 0.2605,
+          "model_prob": 0.2493,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 161.56,
+          "mu": 161.53,
           "sd": 76.66,
-          "z": -0.821,
+          "z": -0.8214,
           "line": 224.5
         },
         {
@@ -888,7 +899,7 @@
           "line": 59.5
         }
       ],
-      "model_ev": 0.6274,
+      "model_ev": 0.6275,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872928"
@@ -951,13 +962,13 @@
         {
           "market": "qb_pass_yds",
           "selection": "K. Murray 225+ pass yds",
-          "implied_prob": 0.3013,
-          "model_prob": 0.2883,
+          "implied_prob": 0.3024,
+          "model_prob": 0.2894,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 167.1,
+          "mu": 167.45,
           "sd": 76.66,
-          "z": -0.7488,
+          "z": -0.7442,
           "line": 224.5
         },
         {
@@ -973,7 +984,7 @@
           "line": 59.5
         }
       ],
-      "model_ev": 0.3358,
+      "model_ev": 0.3348,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
       "game_id": "401872927"
@@ -1036,13 +1047,13 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Hurts 225+ pass yds",
-          "implied_prob": 0.5193,
-          "model_prob": 0.4969,
+          "implied_prob": 0.5192,
+          "model_prob": 0.4968,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 222.41,
+          "mu": 222.4,
           "sd": 76.66,
-          "z": -0.0272,
+          "z": -0.0274,
           "line": 224.5
         },
         {
@@ -1125,9 +1136,9 @@
           "model_prob": 0.6515,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 262.03,
+          "mu": 262.04,
           "sd": 76.66,
-          "z": 0.4895,
+          "z": 0.4896,
           "line": 224.5
         },
         {
@@ -1295,9 +1306,9 @@
           "model_prob": 0.4123,
           "pricing": "calibrated",
           "estimate": true,
-          "mu": 215.2,
+          "mu": 215.21,
           "sd": 76.66,
-          "z": -0.1213,
+          "z": -0.1212,
           "line": 224.5
         },
         {
@@ -1697,12 +1708,12 @@
         },
         {
           "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
+          "selection": "PIT ML",
+          "implied_prob": 0.669,
+          "model_prob": 0.5926
         }
       ],
-      "model_ev": -0.0188,
+      "model_ev": -0.33,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0)."
     },
@@ -1787,12 +1798,12 @@
         },
         {
           "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
+          "selection": "PIT ML",
+          "implied_prob": 0.669,
+          "model_prob": 0.5926
         }
       ],
-      "model_ev": -0.1586,
+      "model_ev": -0.4255,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0)."
     },
@@ -1832,68 +1843,17 @@
         },
         {
           "market": "moneyline",
-          "selection": "PIT ML",
-          "implied_prob": 0.669,
-          "model_prob": 0.5926
+          "selection": "HOU ML",
+          "implied_prob": 0.4739,
+          "model_prob": 0.5896
         }
       ],
-      "model_ev": -0.4255,
+      "model_ev": -0.193,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0)."
     },
     {
       "parlay_id": "week-7leg-1",
-      "scope": "week",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "JAX ML",
-          "implied_prob": 0.7914,
-          "model_prob": 0.7299
-        },
-        {
-          "market": "moneyline",
-          "selection": "LAC ML",
-          "implied_prob": 0.8,
-          "model_prob": 0.705
-        },
-        {
-          "market": "moneyline",
-          "selection": "PHI ML",
-          "implied_prob": 0.675,
-          "model_prob": 0.6564
-        },
-        {
-          "market": "moneyline",
-          "selection": "SEA ML",
-          "implied_prob": 0.6669,
-          "model_prob": 0.6382
-        },
-        {
-          "market": "moneyline",
-          "selection": "DET ML",
-          "implied_prob": 0.7258,
-          "model_prob": 0.6224
-        },
-        {
-          "market": "moneyline",
-          "selection": "DEN ML",
-          "implied_prob": 0.4279,
-          "model_prob": 0.5938
-        },
-        {
-          "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
-        }
-      ],
-      "model_ev": 0.1676,
-      "confidence_tier": "low",
-      "correlation_note": "Cross-game legs treated as independent (rho=0)."
-    },
-    {
-      "parlay_id": "week-7leg-2",
       "scope": "week",
       "legs": [
         {
@@ -1944,6 +1904,57 @@
       "correlation_note": "Cross-game legs treated as independent (rho=0)."
     },
     {
+      "parlay_id": "week-7leg-2",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "JAX ML",
+          "implied_prob": 0.7914,
+          "model_prob": 0.7299
+        },
+        {
+          "market": "moneyline",
+          "selection": "LAC ML",
+          "implied_prob": 0.8,
+          "model_prob": 0.705
+        },
+        {
+          "market": "moneyline",
+          "selection": "PHI ML",
+          "implied_prob": 0.675,
+          "model_prob": 0.6564
+        },
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "implied_prob": 0.6669,
+          "model_prob": 0.6382
+        },
+        {
+          "market": "moneyline",
+          "selection": "DET ML",
+          "implied_prob": 0.7258,
+          "model_prob": 0.6224
+        },
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.4279,
+          "model_prob": 0.5938
+        },
+        {
+          "market": "moneyline",
+          "selection": "HOU ML",
+          "implied_prob": 0.4739,
+          "model_prob": 0.5896
+        }
+      ],
+      "model_ev": 0.1198,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
       "parlay_id": "week-7leg-3",
       "scope": "week",
       "legs": [
@@ -1979,18 +1990,18 @@
         },
         {
           "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.4569,
-          "model_prob": 0.5927
-        },
-        {
-          "market": "moneyline",
           "selection": "PIT ML",
           "implied_prob": 0.669,
           "model_prob": 0.5926
+        },
+        {
+          "market": "moneyline",
+          "selection": "HOU ML",
+          "implied_prob": 0.4739,
+          "model_prob": 0.5896
         }
       ],
-      "model_ev": -0.2547,
+      "model_ev": -0.2852,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0)."
     }
