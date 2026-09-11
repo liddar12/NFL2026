@@ -1,86 +1,154 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-10T18:15:34Z",
+  "generated_utc": "2026-09-11T10:41:48Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "scoring": "actual = nflverse fantasy_points_ppr when the column is present; else pass_yd*0.04 + pass_td*4 - int*2 + rush_yd*0.1 + rush_td*6 + rec*1 + rec_yd*0.1 + rec_td*6 - fumbles_lost*2 + 2pt*2 over the release's component columns (regular season only)",
   "ledger": "data/estimates/2026.json",
   "weeks_resolved": 1,
-  "players_scored": 13,
-  "rows_resolved": 13,
-  "unmatched_players": 282,
+  "players_scored": 26,
+  "rows_resolved": 26,
+  "unmatched_players": 269,
   "skipped": null,
   "totals": {
-    "n": 13,
-    "mae_shipped": 5.182,
-    "mae_candidate": 5.182,
-    "mae_gated": 5.683,
-    "mae_baseline": 5.877,
-    "bias_shipped": 2.702,
-    "bias_candidate": 2.702,
-    "bias_gated": 3.503,
-    "band_coverage": 0.5385
+    "n": 26,
+    "mae_shipped": 5.606,
+    "mae_candidate": 5.606,
+    "mae_gated": 6.795,
+    "mae_baseline": 6.367,
+    "bias_shipped": 1.964,
+    "bias_candidate": 1.964,
+    "bias_gated": 2.627,
+    "band_coverage": 0.5
   },
   "by_position": {
     "QB": {
-      "n": 2,
-      "mae_shipped": 6.97,
-      "mae_candidate": 6.97,
-      "mae_gated": 9.58,
-      "mae_baseline": 9.24,
-      "bias_shipped": 6.97,
-      "bias_candidate": 6.97,
-      "bias_gated": 9.58,
-      "band_coverage": 0.5
+      "n": 4,
+      "mae_shipped": 7.925,
+      "mae_candidate": 7.925,
+      "mae_gated": 11.823,
+      "mae_baseline": 9.123,
+      "bias_shipped": 4.395,
+      "bias_candidate": 4.395,
+      "bias_gated": 5.942,
+      "band_coverage": 0.25
     },
     "RB": {
-      "n": 2,
-      "mae_shipped": 4.48,
-      "mae_candidate": 4.48,
-      "mae_gated": 4.795,
-      "mae_baseline": 3.905,
-      "bias_shipped": 0.14,
-      "bias_candidate": 0.14,
-      "bias_gated": 0.335,
-      "band_coverage": 0.5
+      "n": 5,
+      "mae_shipped": 2.044,
+      "mae_candidate": 2.044,
+      "mae_gated": 4.228,
+      "mae_baseline": 2.836,
+      "bias_shipped": -0.104,
+      "bias_candidate": -0.104,
+      "bias_gated": 2.444,
+      "band_coverage": 0.8
     },
     "TE": {
-      "n": 2,
-      "mae_shipped": 3.47,
-      "mae_candidate": 3.47,
-      "mae_gated": 5.28,
-      "mae_baseline": 4.35,
-      "bias_shipped": 3.47,
-      "bias_candidate": 3.47,
-      "bias_gated": 5.28,
-      "band_coverage": 1.0
+      "n": 5,
+      "mae_shipped": 5.112,
+      "mae_candidate": 5.112,
+      "mae_gated": 5.218,
+      "mae_baseline": 6.498,
+      "bias_shipped": 5.112,
+      "bias_candidate": 5.112,
+      "bias_gated": 5.218,
+      "band_coverage": 0.6
     },
     "WR": {
-      "n": 7,
-      "mae_shipped": 5.361,
-      "mae_candidate": 5.361,
-      "mae_gated": 4.939,
-      "mae_baseline": 5.916,
-      "bias_shipped": 1.996,
-      "bias_candidate": 1.996,
-      "bias_gated": 2.164,
-      "band_coverage": 0.4286
+      "n": 12,
+      "mae_shipped": 6.523,
+      "mae_candidate": 6.523,
+      "mae_gated": 6.845,
+      "mae_baseline": 6.866,
+      "bias_shipped": 0.703,
+      "bias_candidate": 0.703,
+      "bias_gated": 0.518,
+      "band_coverage": 0.4167
     }
   },
   "weeks": [
     {
       "week": 1,
-      "rows_available": 23,
-      "players_scored": 13,
-      "mae_shipped": 5.182,
-      "mae_candidate": 5.182,
-      "mae_gated": 5.683,
-      "bias_shipped": 2.702,
-      "bias_candidate": 2.702,
-      "bias_gated": 3.503,
-      "band_coverage": 0.5385
+      "rows_available": 47,
+      "players_scored": 26,
+      "mae_shipped": 5.606,
+      "mae_candidate": 5.606,
+      "mae_gated": 6.795,
+      "bias_shipped": 1.964,
+      "bias_candidate": 1.964,
+      "bias_gated": 2.627,
+      "band_coverage": 0.5
     }
   ],
   "resolved": [
+    {
+      "gsis_id": "espn-12483",
+      "week": 1,
+      "position": "QB",
+      "baseline": 18.08,
+      "shipped": 14.8,
+      "candidate": 14.8,
+      "low": 8.06,
+      "high": 21.54,
+      "gated": 20.47,
+      "actual": 4.1,
+      "signals": {
+        "age_curve": 0.875,
+        "injury_history": 0.9353,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-16737",
+      "week": 1,
+      "position": "WR",
+      "baseline": 12.9,
+      "shipped": 9.88,
+      "candidate": 9.88,
+      "low": 3.66,
+      "high": 16.11,
+      "gated": 5.03,
+      "actual": 16.9,
+      "signals": {
+        "age_curve": 0.84,
+        "injury_history": 0.9118,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-16800",
+      "week": 1,
+      "position": "WR",
+      "baseline": 17.36,
+      "shipped": 13.98,
+      "candidate": 13.98,
+      "low": 5.17,
+      "high": 22.79,
+      "gated": 13.91,
+      "actual": 5.6,
+      "signals": {
+        "age_curve": 0.84,
+        "injury_history": 0.9588,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-2573401",
+      "week": 1,
+      "position": "TE",
+      "baseline": 8.37,
+      "shipped": 6.39,
+      "candidate": 6.39,
+      "low": 1.61,
+      "high": 11.17,
+      "gated": 4.55,
+      "actual": 1.2,
+      "signals": {
+        "age_curve": 0.895,
+        "injury_history": 0.8529,
+        "injury_status": 1.0
+      }
+    },
     {
       "gsis_id": "espn-2977187",
       "week": 1,
@@ -116,6 +184,40 @@
       }
     },
     {
+      "gsis_id": "espn-3040151",
+      "week": 1,
+      "position": "TE",
+      "baseline": 13.75,
+      "shipped": 11.15,
+      "candidate": 11.15,
+      "low": 2.75,
+      "high": 19.55,
+      "gated": 8.68,
+      "actual": 3.2,
+      "signals": {
+        "age_curve": 0.93,
+        "injury_history": 0.9176,
+        "injury_status": 0.95
+      }
+    },
+    {
+      "gsis_id": "espn-3043116",
+      "week": 1,
+      "position": "WR",
+      "baseline": 5.24,
+      "shipped": 4.62,
+      "candidate": 4.62,
+      "low": 2.13,
+      "high": 7.11,
+      "gated": 3.45,
+      "actual": 13.0,
+      "signals": {
+        "age_curve": 0.92,
+        "injury_history": 0.9588,
+        "injury_status": 1.0
+      }
+    },
+    {
       "gsis_id": "espn-3046439",
       "week": 1,
       "position": "TE",
@@ -129,6 +231,40 @@
       "signals": {
         "age_curve": 0.965,
         "injury_history": 0.9706,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-3117251",
+      "week": 1,
+      "position": "RB",
+      "baseline": 18.91,
+      "shipped": 13.32,
+      "candidate": 13.32,
+      "low": 2.83,
+      "high": 23.81,
+      "gated": 22.81,
+      "actual": 13.8,
+      "signals": {
+        "age_curve": 0.82,
+        "injury_history": 0.8588,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-3126486",
+      "week": 1,
+      "position": "WR",
+      "baseline": 11.36,
+      "shipped": 10.26,
+      "candidate": 10.26,
+      "low": 5.18,
+      "high": 15.34,
+      "gated": 11.17,
+      "actual": 18.0,
+      "signals": {
+        "age_curve": 0.96,
+        "injury_history": 0.9412,
         "injury_status": 1.0
       }
     },
@@ -184,6 +320,23 @@
       }
     },
     {
+      "gsis_id": "espn-4242557",
+      "week": 1,
+      "position": "TE",
+      "baseline": 7.67,
+      "shipped": 7.08,
+      "candidate": 7.08,
+      "low": 3.26,
+      "high": 10.9,
+      "gated": 8.3,
+      "actual": 1.6,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9235,
+        "injury_status": 1.0
+      }
+    },
+    {
       "gsis_id": "espn-4361432",
       "week": 1,
       "position": "WR",
@@ -201,6 +354,40 @@
       }
     },
     {
+      "gsis_id": "espn-4361741",
+      "week": 1,
+      "position": "QB",
+      "baseline": 17.07,
+      "shipped": 14.04,
+      "candidate": 14.04,
+      "low": 7.66,
+      "high": 20.42,
+      "gated": 9.34,
+      "actual": 21.1,
+      "signals": {
+        "age_curve": 0.956,
+        "injury_history": 0.8603,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4426515",
+      "week": 1,
+      "position": "WR",
+      "baseline": 23.22,
+      "shipped": 21.63,
+      "candidate": 21.63,
+      "low": 11.9,
+      "high": 31.36,
+      "gated": 23.41,
+      "actual": 12.4,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9314,
+        "injury_status": 1.0
+      }
+    },
+    {
       "gsis_id": "espn-4427095",
       "week": 1,
       "position": "WR",
@@ -214,6 +401,40 @@
       "signals": {
         "age_curve": 1.0,
         "injury_history": 0.9706,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4429096",
+      "week": 1,
+      "position": "RB",
+      "baseline": 5.63,
+      "shipped": 5.63,
+      "candidate": 5.63,
+      "low": 2.84,
+      "high": 8.42,
+      "gated": 7.43,
+      "actual": 5.4,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 1.0,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4430737",
+      "week": 1,
+      "position": "RB",
+      "baseline": 16.53,
+      "shipped": 14.95,
+      "candidate": 14.95,
+      "low": 7.55,
+      "high": 22.35,
+      "gated": 16.01,
+      "actual": 15.5,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9044,
         "injury_status": 1.0
       }
     },
