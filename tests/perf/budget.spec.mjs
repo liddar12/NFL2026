@@ -173,6 +173,11 @@ const CONTRACT_ALLOWLIST = new Set([
   // null and the card is omitted, so the request is the whole cost.
   'weekly_backtest.json',
   'parlay_backtest.json',
+  // R70 — the OL / DL-front LINE REPORT (~20 KB: 32 teams x starter names and
+  // report lists, no per-player rows). Fetched by LINEUP (cold, 6 -> 7 below),
+  // GRADE (mount) and PLAYERS only while AI+ is the persisted view; a 404
+  // resolves to null and no chip renders, so the request is the whole cost.
+  'line_report.json',
 ]);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
@@ -195,7 +200,10 @@ const ROUTES = [
   // everywhere), so LINEUP's conditional second-wave kdst fetch is live on a
   // cold default load: 5 -> 6, measured 3x byte-identical. PLAYERS stays at 8
   // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
-  { hash: '#/lineup', name: 'lineup', contracts: 6 },
+  // R70 — 6 -> 7: data/line_report.json (the OL / DL-front LINE REPORT chips
+  // on every starter row) joins the lineup mount's allSettled; a 404 is still
+  // one request. PLAYERS stays at 10: it fetches the report only when AI+ is on.
+  { hash: '#/lineup', name: 'lineup', contracts: 7 },
   // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
   // (a 404 is still one request, so the count holds with the files absent).
   { hash: '#/model', name: 'model', contracts: 8 },

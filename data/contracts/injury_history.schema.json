@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "injury_history.schema.json",
-  "title": "Weekly pregame injury-report statuses (skill positions)",
-  "description": "nflverse injuries releases; pregame information by construction - the qb_out promotion family's availability signal. Runner-built.",
+  "title": "Weekly pregame injury-report statuses (skill positions + OL + DL front)",
+  "description": "nflverse injuries releases; pregame information by construction - the qb_out promotion family's availability signal. R70 admits the offensive line and the defensive-line front (hand-in-the-dirt positions; OLB is not front) so backtest_lines.py can measure the line-injury cascades. Runner-built.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -51,8 +51,28 @@
                     "QB",
                     "RB",
                     "WR",
-                    "TE"
-                  ]
+                    "TE",
+                    "T",
+                    "G",
+                    "C",
+                    "OL",
+                    "OT",
+                    "OG",
+                    "LT",
+                    "RT",
+                    "LG",
+                    "RG",
+                    "DE",
+                    "DT",
+                    "NT",
+                    "DL",
+                    "EDGE",
+                    "LDE",
+                    "RDE",
+                    "LDT",
+                    "RDT"
+                  ],
+                  "description": "QB/RB/WR/TE (skill, unchanged), then the OL and DL-front spellings scripts/build_injury_history.py admits (OL_POSITIONS / DL_FRONT_POSITIONS)."
                 },
                 "status": {
                   "type": "string",

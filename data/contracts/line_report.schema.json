@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "line_report.schema.json",
+  "title": "LINE REPORT - OL / DL-front starters crossed with the injury report (annotation only)",
+  "description": "data/line_report.json (scripts/build_line_report.py, R70 phase 1). Per team, the offensive-line and defensive-line-front starters from the latest nflverse depth-chart snapshot (pos_rank 1) and which of them the ESPN injury report lists Out / Doubtful / Questionable. Read by the LINEUP, GRADE and PLAYERS chips. CHANGES NO NUMBER: a line factor reaches a projection only after scripts/backtest_lines.py clears never-regress. When the depth chart is unreachable the document says available:false with the reason, teams is empty and every count is 0 - starters are never invented. Definitions are inlined (this validator has no $ref).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "week",
+    "generated_utc",
+    "available",
+    "reason",
+    "source",
+    "snapshot",
+    "positions",
+    "teams",
+    "counts"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "week": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 18,
+      "description": "The week the report is for (game_predictions.week at build time). The views render the chip only when this equals the week on screen."
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "available": {
+      "type": "boolean",
+      "description": "false = the depth chart was unreachable; teams is {} and counts are 0. The views render nothing (no placeholder)."
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Why available is false; null when it is true."
+    },
+    "source": {
+      "type": "string"
+    },
+    "snapshot": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The depth-chart snapshot used (dt in the 2025+ release shape); null when unavailable."
+    },
+    "positions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ol",
+        "dl"
+      ],
+      "properties": {
+        "ol": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dl": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "The position spellings admitted as OL and DL front (build_injury_history.OL_POSITIONS / DL_FRONT_POSITIONS). OLB is not front."
+    },
+    "teams": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ol",
+          "dl"
+        ],
+        "properties": {
+          "ol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "starters",
+              "names",
+              "out",
+              "doubtful",
+              "questionable"
+            ],
+            "properties": {
+              "starters": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "names": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "out": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Starters the report lists Out / IR / PUP / NFI / Suspended (scripts/availability.py codes)."
+              },
+              "doubtful": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "questionable": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "dl": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "starters",
+              "names",
+              "out",
+              "doubtful",
+              "questionable"
+            ],
+            "properties": {
+              "starters": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "names": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "out": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Starters the report lists Out / IR / PUP / NFI / Suspended (scripts/availability.py codes)."
+              },
+              "doubtful": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "questionable": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "teams",
+        "ol_starters",
+        "dl_starters",
+        "ol_out",
+        "dl_out",
+        "ol_doubtful",
+        "dl_doubtful",
+        "ol_questionable",
+        "dl_questionable",
+        "starters_matched"
+      ],
+      "properties": {
+        "teams": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ol_starters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dl_starters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ol_out": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dl_out": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ol_doubtful": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dl_doubtful": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ol_questionable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dl_questionable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "starters_matched": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

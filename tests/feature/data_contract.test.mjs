@@ -110,6 +110,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     '/data/sleeper_projections.json',
     '/data/weekly_backtest.json',
     '/data/parlay_backtest.json',
+    // R70 — the LINE REPORT (OL / DL-front starters x injury report), read by
+    // LINEUP / GRADE / PLAYERS chips. Annotation only; changes no number.
+    '/data/line_report.json',
   ]);
   for (const [p, files] of referenced) {
     assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);

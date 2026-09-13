@@ -36,8 +36,9 @@
 
 import {
   getPlayerProjections, getPlayerWeekly, getScheduleFull, getGamePredictions, getMeta,
+  getLineReport,
 } from '../data.js';
-import { projSeason, myRosterIds } from './players.js';
+import { projSeason, myRosterIds, lineReportTeams, lineChipsHtml } from './players.js';
 import { loadScoringMode, withLeagueExtras, SCORING_KEY } from '../team-logic.js';
 import { scoringMode } from '../league.js';
 import {
@@ -264,7 +265,10 @@ function rowTag(r) {
  * roster payload) is known; when it is not, nothing is marked. An unfillable
  * slot is EMPTY and adds nothing. Pure string builder.
  */
-export function weekLineupHtml(d, { teamIndex, sleeperStarters } = {}) {
+export function weekLineupHtml(d, { teamIndex, sleeperStarters, lineOf } = {}) {
+  // R70 — lineOf(id, wk) -> the LINE REPORT chips for that player's team and
+  // opponent, or ''. Optional: callers without a report render exactly as before.
+  const chipsOf = typeof lineOf === 'function' ? lineOf : () => '';
   const rowById = new Map(d.rows.map((r) => [r.id, r]));
   const seated = new Set();
   const canMarkSub = sleeperStarters instanceof Set;
@@ -279,8 +283,9 @@ export function weekLineupHtml(d, { teamIndex, sleeperStarters } = {}) {
     const sub = canMarkSub && !sleeperStarters.has(String(r.id))
       ? ' <span class="gr-tag gr-tag--sub" title="Sleeper lists this player on the bench">SUB</span>'
       : '';
+    const line = chipsOf(r.id, d.week);
     return `<div class="gr-slot"><span class="gr-pos">${esc(g.slot)}</span>`
-      + `<span>${esc(r.name)}${sub}${rowTag(r)}</span>`
+      + `<span>${esc(r.name)}${sub}${rowTag(r)}${line ? ` ${line}` : ''}</span>`
       + `<span class="gr-pts">${r.projected ? r.pts.toFixed(1) : '—'}</span></div>`;
   }).join('');
   const bench = d.rows.filter((r) => !seated.has(r.id)).map((r) => (
@@ -310,7 +315,7 @@ export function weekLineupHtml(d, { teamIndex, sleeperStarters } = {}) {
 function leagueTeamCard(t, info) {
   const {
     seasonTotal, pctile, bench, sim, weeks, weekCount, grade, teamIndex, scenario, gated, mode,
-    sleeperStarters,
+    sleeperStarters, lineOf,
   } = info;
   const seasonStarters = grade && Array.isArray(grade.starters) ? grade.starters : [];
   const starterCount = seasonStarters.length;
@@ -327,7 +332,7 @@ function leagueTeamCard(t, info) {
       + `${sim.avgWins} avg wins · PF ${sim.pf.toFixed(1)} / PA ${sim.pa.toFixed(1)} `
       + '<span class="ms-badge">ESTIMATE</span></div>'
     : '';
-  const weekHtml = weeks.map((d) => weekLineupHtml(d, { teamIndex, sleeperStarters })).join('');
+  const weekHtml = weeks.map((d) => weekLineupHtml(d, { teamIndex, sleeperStarters, lineOf })).join('');
   const un = t.unmatched.length
     ? '<div class="gr-unmatched"><b>NOT MATCHED (not graded, never guessed):</b> '
       + t.unmatched.map((l) => esc(l)).join(' · ') + '</div>'
@@ -630,6 +635,26 @@ async function loadSleeperLeague(idText, out, host) {
   }
   problems.forEach((p) => notes.push(p));
 
+  // R70 — LINE REPORT chips on each week fold: the player's own OL and the
+  // week's opponent's DL front, from the report the mount read (or nothing).
+  // Team from the pool record; opponent from his weekly row for that week.
+  const lineDoc = host.lineDoc || null;
+  const lineOfFor = (players) => {
+    const teamOf = new Map(players.map((p) => [String(p.gsis_id), p.team]));
+    return (id, wk) => {
+      const teams = lineReportTeams(lineDoc, wk);
+      if (!teams) return '';
+      const w = engineCtx.weeklyById.get(String(id));
+      const row = w && Array.isArray(w.weeks) ? w.weeks.find((x) => x && Number(x.wk) === Number(wk)) : null;
+      return lineChipsHtml(teams, teamOf.get(String(id)), row && row.opp != null ? row.opp : null);
+    };
+  };
+  if (lineDoc && lineReportTeams(lineDoc, currentWk)) {
+    notes.push('LINE REPORT chips on the week folds ("OL: n out" = that player\'s own offensive '
+      + 'line, "vs DL: n out" = the opponent\'s defensive front) are depth-chart starters crossed '
+      + 'with the injury report — facts for this week that change no number here.');
+  }
+
   const painted = paint(
     `<div class="gr-note">“${esc(meta.name)}” loaded: ${graded.length} teams, `
     + `${notes.length} note(s) below.</div>`
@@ -648,6 +673,7 @@ async function loadSleeperLeague(idText, out, host) {
         scenario: shipped.mode === 'candidate' ? null : scenarioByTeam[i],
         gated: shipped.mode === 'candidate' ? scenarioByTeam[i] : null,
         sleeperStarters: g.sleeperStarters,
+        lineOf: lineOfFor(g.players),
       },
     )).join('')
     // R48b — the cards carry the detail; the week-by-week table and the
@@ -798,10 +824,12 @@ export default async function mountGrade(el) {
   const seq = ++mountSeq;
   const gone = () => seq !== mountSeq || !el.isConnected;
   el.innerHTML = '<div class="state state--loading">Loading grade engine…</div>';
-  const [projRes, weeklyRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, lineRes] = await Promise.allSettled([
     getPlayerProjections(), getPlayerWeekly(),
+    getLineReport(), // R70 — optional; absent/unavailable -> no chips
   ]);
   if (gone()) { console.debug('grade: superseded mount dropped'); return; }
+  const lineDoc = lineRes.status === 'fulfilled' ? lineRes.value : null;
   if (projRes.status !== 'fulfilled') {
     el.innerHTML = '<div class="state">Grades unavailable — the projection feed did not load.</div>';
     return;
@@ -864,6 +892,7 @@ export default async function mountGrade(el) {
   let loadSeq = 0;
   const host = {
     ctx: () => ctx,
+    lineDoc,
     rederive: async () => {
       ctx = await derive();
       const assume = el.querySelector('#gr-assume');

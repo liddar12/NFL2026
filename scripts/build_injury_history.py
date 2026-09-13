@@ -1,11 +1,23 @@
 """BUILD data/injury_history.json — weekly PREGAME injury-report statuses for
-skill players, from the nflverse injuries releases. The qb_out promotion
-family's availability signal: a team whose primary passer is listed Out or
-Doubtful on the final report priced differently — walked forward leak-free
-(report status is pregame information by construction).
+skill players AND linemen, from the nflverse injuries releases. The qb_out
+promotion family's availability signal: a team whose primary passer is listed
+Out or Doubtful on the final report priced differently — walked forward
+leak-free (report status is pregame information by construction).
 
-Runner-built (sandbox proxy 403s nflverse releases); past seasons immutable;
-loud on failure keeps the existing file. --selftest checks row shaping only.
+R70 (line-injury cascade, phase 1) widens the position filter to the offensive
+line and the defensive-line front so scripts/backtest_lines.py can MEASURE the
+two cascades the owner named (own OL out -> RB/QB; opposing DL out -> RB/QB).
+The skill-position rows are untouched: the same rows, in the same order, with
+the same fields, so the committed file's QB/RB/WR/TE content stays
+byte-identical when the file is regenerated (a test locks that). OLB is NOT
+counted as defensive front — a 3-4 OLB is an edge rusher, a 4-3 OLB is a
+coverage linebacker, and the depth-chart abbreviation cannot tell them apart;
+"front" here means the hand-in-the-dirt positions only (DE/DT/NT/DL/EDGE and
+the 2025+ depth-chart spellings LDE/RDE/LDT/RDT).
+
+Runner-built (sandbox proxy 403s nflverse releases); past seasons immutable
+unless --rebuild; loud on failure keeps the existing file. --selftest checks
+row shaping only.
 """
 
 import json
@@ -25,7 +37,17 @@ OUT_PATH = os.path.join(DATA, "injury_history.json")
 HISTORY_SEASONS = [2021, 2022, 2023, 2024, 2025]
 CURRENT_SEASON = 2026
 RENAMES = {"LA": "LAR", "OAK": "LV", "SD": "LAC"}
-POSITIONS = frozenset(["QB", "RB", "WR", "TE"])
+SKILL_POSITIONS = frozenset(["QB", "RB", "WR", "TE"])
+# R70 — the offensive line as nflverse spells it: the injury releases and the
+# legacy depth charts say T / G / C, the 2025+ depth charts LT / LG / C / RG / RT
+# (verified on the releases, 2026-09-08); OL / OT / OG are admitted for safety.
+OL_POSITIONS = frozenset(["T", "G", "C", "OL", "OT", "OG", "LT", "RT", "LG", "RG"])
+# R70 — the defensive-line FRONT: hand-in-the-dirt positions only. OLB is
+# deliberately absent (see the module docstring). The injury releases spell
+# them DE / DT / NT; the 2025+ depth-chart release spells the same slots
+# LDE / RDE / LDT / RDT / NT (verified on the release, 2026-09-08).
+DL_FRONT_POSITIONS = frozenset(["DE", "DT", "NT", "DL", "EDGE", "LDE", "RDE", "LDT", "RDT"])
+POSITIONS = SKILL_POSITIONS | OL_POSITIONS | DL_FRONT_POSITIONS
 STATUSES = frozenset(["Out", "Doubtful", "Questionable"])
 MIN_KEPT_PER_SEASON = 500
 
@@ -51,9 +73,22 @@ def _assert_canonical_vocab():
         )
 
 
+def line_group(pos):
+    """'ol' / 'dl' for a line position, None otherwise (shared with
+    build_line_report.py and backtest_lines.py so the three agree)."""
+    pos = (pos or "").strip().upper()
+    if pos in OL_POSITIONS:
+        return "ol"
+    if pos in DL_FRONT_POSITIONS:
+        return "dl"
+    return None
+
+
 def shape(rows):
     """seasons[team][week] = [{id, name, position, status}] for skill players
-    carrying a real report status. Returns (teams dict, kept count)."""
+    and linemen carrying a real report status. Returns (teams dict, kept
+    count). Row order is the release's order, so widening POSITIONS appends
+    line rows around the skill rows without reordering or reshaping them."""
     _assert_canonical_vocab()
     teams = {}
     kept = 0
@@ -89,21 +124,49 @@ def selftest():
          "gsis_id": "00-3", "full_name": "A Kicker"},           # position: dropped
         {"position": "WR", "report_status": "Questionable", "team": "KC", "week": "11",
          "gsis_id": "00-4", "full_name": "Some Receiver"},
+        # R70 — linemen pass the filter now; OLB and S still do not.
+        {"position": "LT", "report_status": "Out", "team": "KC", "week": "11",
+         "gsis_id": "00-5", "full_name": "A Tackle"},
+        {"position": "DT", "report_status": "Doubtful", "team": "KC", "week": "11",
+         "gsis_id": "00-6", "full_name": "A Nose"},
+        {"position": "OLB", "report_status": "Out", "team": "KC", "week": "11",
+         "gsis_id": "00-7", "full_name": "An Edge Backer"},   # not front: dropped
+        {"position": "S", "report_status": "Out", "team": "KC", "week": "11",
+         "gsis_id": "00-8", "full_name": "A Safety"},         # dropped
     ]
     teams, kept = shape(rows)
-    assert kept == 2, kept
+    assert kept == 4, kept
     assert teams["LAR"]["10"][0]["status"] == "Out"             # LA -> LAR rename
     assert teams["KC"]["11"][0]["position"] == "WR"
+    assert [r["position"] for r in teams["KC"]["11"]] == ["WR", "LT", "DT"]
+    assert line_group("LT") == "ol" and line_group("DT") == "dl" and line_group("RDE") == "dl"
+    assert line_group("OLB") is None and line_group("QB") is None
+    # The skill rows are shaped exactly as before the widening: same keys,
+    # same values, same order — the byte-identity the committed file relies on.
+    skill_only = [r for r in rows if r["position"] in SKILL_POSITIONS]
+    t2, k2 = shape(skill_only)
+    assert k2 == 2
+    for team, weeks in t2.items():
+        for wk, lst in weeks.items():
+            got = [r for r in teams[team][wk] if r["position"] in SKILL_POSITIONS]
+            assert got == lst, (team, wk)
+    for pos in sorted(OL_POSITIONS | DL_FRONT_POSITIONS):
+        assert pos in POSITIONS and pos not in SKILL_POSITIONS
     # The emitted status stays nflverse's verbatim spelling (byte-identical output),
     # but every one of them must be readable by the shared Rel17 vocabulary.
     _assert_canonical_vocab()
     assert {availability.normalize_status(s) for s in STATUSES} == {
         availability.OUT, availability.DOUBTFUL, availability.QUESTIONABLE}
-    print("selftest OK: status filter + rename + shaping exact; "
-          "nflverse statuses map to the canonical week-class vocabulary")
+    print("selftest OK: status filter + rename + shaping exact; OL/DL-front positions "
+          "admitted, skill rows unchanged; nflverse statuses map to the canonical "
+          "week-class vocabulary")
 
 
-def main():
+def main(rebuild=False):
+    """Past seasons are immutable and kept from the committed file — unless
+    `rebuild` (--rebuild) asks for a re-pull, which R70 needs ONCE on the runner
+    so the 2021-2025 seasons pick up the line positions. A season whose release
+    fails to fetch keeps its committed rows either way."""
     existing = {}
     if os.path.exists(OUT_PATH):
         with open(OUT_PATH, encoding="utf-8") as fh:
@@ -112,7 +175,7 @@ def main():
     seasons_out = {}
     for season in HISTORY_SEASONS + [CURRENT_SEASON]:
         key = str(season)
-        if key in existing and season in HISTORY_SEASONS:
+        if key in existing and season in HISTORY_SEASONS and not rebuild:
             seasons_out[key] = existing[key]
             continue
         try:
@@ -139,7 +202,8 @@ def main():
     import datetime as dt
     doc = {
         "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": "nflverse injuries releases (final report statuses, skill positions)",
+        "source": ("nflverse injuries releases (final report statuses, skill positions "
+                   "+ OL + DL front)"),
         "seasons": seasons_out,
     }
     with open(OUT_PATH, "w", encoding="utf-8") as fh:
@@ -153,4 +217,4 @@ if __name__ == "__main__":
     if "--selftest" in sys.argv:
         selftest()
         sys.exit(0)
-    sys.exit(main())
+    sys.exit(main(rebuild="--rebuild" in sys.argv))

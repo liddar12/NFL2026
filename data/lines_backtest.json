@@ -1,0 +1,1087 @@
+{
+  "experiment": "line_injury_cascade_v0",
+  "model_incumbent": "weekly_split_v2",
+  "fixture": {
+    "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
+    "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+    "injury_history": "data/injury_history.json",
+    "depth_charts": "nflverse depth_charts_{season} releases",
+    "seasons_scored": [
+      2023,
+      2024,
+      2025
+    ],
+    "held_out": 2025,
+    "rows": 8279
+  },
+  "starter_rule": "per team and week: the N players most often listed at rank 1 on an OL / DL-front position across the season's depth-chart snapshots with week <= wk - 1 (N = the modal rank-1 line count per snapshot); Out = listed Out on the FINAL report for (team, week); capped at 3",
+  "variant_rule": "v2 x (1 - a x min(own OL out, 3) x {QB 1, RB 1, WR 0.5, TE 0}) x (1 + b x min(opp DL out, 3) x {QB 1, RB 1, WR 0, TE 0}); grid a, b in [0.0, 0.02, 0.04, 0.06]",
+  "coverage": {
+    "rows": 8279,
+    "ol_known": 7752,
+    "dl_known": 7752
+  },
+  "ratio_by_own_ol_out": {
+    "QB": {
+      "0": {
+        "n": 899,
+        "mean_actual": 16.2989,
+        "mean_pred": 16.5006,
+        "ratio": 0.9878
+      },
+      "1": {
+        "n": 180,
+        "mean_actual": 15.7602,
+        "mean_pred": 16.0953,
+        "ratio": 0.9792
+      },
+      "2": {
+        "n": 15,
+        "mean_actual": 15.0213,
+        "mean_pred": 15.9868,
+        "ratio": 0.9396
+      },
+      "3+": {
+        "n": 0,
+        "mean_actual": null,
+        "mean_pred": null,
+        "ratio": null
+      },
+      "unknown": {
+        "n": 80,
+        "mean_actual": 14.977,
+        "mean_pred": 16.4528,
+        "ratio": 0.9103
+      }
+    },
+    "RB": {
+      "0": {
+        "n": 1884,
+        "mean_actual": 10.5491,
+        "mean_pred": 10.815,
+        "ratio": 0.9754
+      },
+      "1": {
+        "n": 426,
+        "mean_actual": 10.8828,
+        "mean_pred": 10.7886,
+        "ratio": 1.0087
+      },
+      "2": {
+        "n": 43,
+        "mean_actual": 7.5023,
+        "mean_pred": 8.7027,
+        "ratio": 0.8621
+      },
+      "3+": {
+        "n": 1,
+        "mean_actual": 12.6,
+        "mean_pred": 6.8448,
+        "ratio": 1.8408
+      },
+      "unknown": {
+        "n": 154,
+        "mean_actual": 10.2136,
+        "mean_pred": 11.0483,
+        "ratio": 0.9245
+      }
+    },
+    "WR": {
+      "0": {
+        "n": 2413,
+        "mean_actual": 10.9218,
+        "mean_pred": 11.7834,
+        "ratio": 0.9269
+      },
+      "1": {
+        "n": 577,
+        "mean_actual": 10.6851,
+        "mean_pred": 11.9307,
+        "ratio": 0.8956
+      },
+      "2": {
+        "n": 58,
+        "mean_actual": 8.3186,
+        "mean_pred": 10.5571,
+        "ratio": 0.788
+      },
+      "3+": {
+        "n": 3,
+        "mean_actual": 13.8667,
+        "mean_pred": 12.5731,
+        "ratio": 1.1029
+      },
+      "unknown": {
+        "n": 205,
+        "mean_actual": 10.2361,
+        "mean_pred": 11.9568,
+        "ratio": 0.8561
+      }
+    },
+    "TE": {
+      "0": {
+        "n": 993,
+        "mean_actual": 8.7928,
+        "mean_pred": 9.0444,
+        "ratio": 0.9722
+      },
+      "1": {
+        "n": 234,
+        "mean_actual": 9.1262,
+        "mean_pred": 8.9606,
+        "ratio": 1.0185
+      },
+      "2": {
+        "n": 25,
+        "mean_actual": 10.644,
+        "mean_pred": 9.7409,
+        "ratio": 1.0927
+      },
+      "3+": {
+        "n": 1,
+        "mean_actual": 9.8,
+        "mean_pred": 10.0566,
+        "ratio": 0.9745
+      },
+      "unknown": {
+        "n": 88,
+        "mean_actual": 6.4341,
+        "mean_pred": 8.8461,
+        "ratio": 0.7273
+      }
+    }
+  },
+  "ratio_by_opp_dl_out": {
+    "QB": {
+      "0": {
+        "n": 972,
+        "mean_actual": 16.129,
+        "mean_pred": 16.3344,
+        "ratio": 0.9874
+      },
+      "1": {
+        "n": 117,
+        "mean_actual": 16.5361,
+        "mean_pred": 17.043,
+        "ratio": 0.9703
+      },
+      "2": {
+        "n": 5,
+        "mean_actual": 20.556,
+        "mean_pred": 19.9969,
+        "ratio": 1.028
+      },
+      "3+": {
+        "n": 0,
+        "mean_actual": null,
+        "mean_pred": null,
+        "ratio": null
+      },
+      "unknown": {
+        "n": 80,
+        "mean_actual": 14.977,
+        "mean_pred": 16.4528,
+        "ratio": 0.9103
+      }
+    },
+    "RB": {
+      "0": {
+        "n": 2091,
+        "mean_actual": 10.4688,
+        "mean_pred": 10.7532,
+        "ratio": 0.9736
+      },
+      "1": {
+        "n": 246,
+        "mean_actual": 11.2659,
+        "mean_pred": 10.9178,
+        "ratio": 1.0319
+      },
+      "2": {
+        "n": 17,
+        "mean_actual": 10.8282,
+        "mean_pred": 10.6923,
+        "ratio": 1.0127
+      },
+      "3+": {
+        "n": 0,
+        "mean_actual": null,
+        "mean_pred": null,
+        "ratio": null
+      },
+      "unknown": {
+        "n": 154,
+        "mean_actual": 10.2136,
+        "mean_pred": 11.0483,
+        "ratio": 0.9245
+      }
+    },
+    "WR": {
+      "0": {
+        "n": 2721,
+        "mean_actual": 10.9081,
+        "mean_pred": 11.7884,
+        "ratio": 0.9253
+      },
+      "1": {
+        "n": 312,
+        "mean_actual": 10.2583,
+        "mean_pred": 11.8239,
+        "ratio": 0.8676
+      },
+      "2": {
+        "n": 18,
+        "mean_actual": 9.0111,
+        "mean_pred": 11.2259,
+        "ratio": 0.8027
+      },
+      "3+": {
+        "n": 0,
+        "mean_actual": null,
+        "mean_pred": null,
+        "ratio": null
+      },
+      "unknown": {
+        "n": 205,
+        "mean_actual": 10.2361,
+        "mean_pred": 11.9568,
+        "ratio": 0.8561
+      }
+    },
+    "TE": {
+      "0": {
+        "n": 1110,
+        "mean_actual": 8.854,
+        "mean_pred": 9.0151,
+        "ratio": 0.9821
+      },
+      "1": {
+        "n": 135,
+        "mean_actual": 9.192,
+        "mean_pred": 9.2607,
+        "ratio": 0.9926
+      },
+      "2": {
+        "n": 8,
+        "mean_actual": 9.225,
+        "mean_pred": 9.3181,
+        "ratio": 0.99
+      },
+      "3+": {
+        "n": 0,
+        "mean_actual": null,
+        "mean_pred": null,
+        "ratio": null
+      },
+      "unknown": {
+        "n": 88,
+        "mean_actual": 6.4341,
+        "mean_pred": 8.8461,
+        "ratio": 0.7273
+      }
+    }
+  },
+  "incumbent": {
+    "pooled": {
+      "mae": 6.003,
+      "rank_corr": 0.3814,
+      "topk": 0.7836
+    },
+    "held_out": {
+      "mae": 6.079,
+      "rank_corr": 0.3517,
+      "topk": 0.769
+    },
+    "per_position": {
+      "QB": {
+        "mae": 6.7012,
+        "rank_corr": 0.2585,
+        "n": 1174
+      },
+      "RB": {
+        "mae": 5.8924,
+        "rank_corr": 0.4285,
+        "n": 2508
+      },
+      "WR": {
+        "mae": 6.2228,
+        "rank_corr": 0.4172,
+        "n": 3256
+      },
+      "TE": {
+        "mae": 5.0651,
+        "rank_corr": 0.3137,
+        "n": 1341
+      }
+    }
+  },
+  "variants": {
+    "ol0.00_dl0.02": {
+      "a": 0.0,
+      "b": 0.02,
+      "pooled": {
+        "mae": 6.0051,
+        "rank_corr": 0.3814,
+        "topk": 0.784
+      },
+      "held_out": {
+        "mae": 6.0818,
+        "rank_corr": 0.3518,
+        "topk": 0.7691
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7078,
+          "rank_corr": 0.2592,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8962,
+          "rank_corr": 0.4282,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2228,
+          "rank_corr": 0.4172,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": 0.0029,
+        "lo95": 0.001,
+        "hi95": 0.0049,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 6.0051 vs 6.0030, rank_corr 0.3814 vs 0.3814"
+      }
+    },
+    "ol0.00_dl0.04": {
+      "a": 0.0,
+      "b": 0.04,
+      "pooled": {
+        "mae": 6.0075,
+        "rank_corr": 0.3815,
+        "topk": 0.7838
+      },
+      "held_out": {
+        "mae": 6.0851,
+        "rank_corr": 0.3515,
+        "topk": 0.7691
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7152,
+          "rank_corr": 0.2607,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.9007,
+          "rank_corr": 0.4279,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2228,
+          "rank_corr": 0.4172,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": 0.0062,
+        "lo95": 0.0023,
+        "hi95": 0.01,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 6.0075 vs 6.0030, rank_corr 0.3815 vs 0.3814"
+      }
+    },
+    "ol0.00_dl0.06": {
+      "a": 0.0,
+      "b": 0.06,
+      "pooled": {
+        "mae": 6.0101,
+        "rank_corr": 0.3812,
+        "topk": 0.7835
+      },
+      "held_out": {
+        "mae": 6.0884,
+        "rank_corr": 0.3507,
+        "topk": 0.7684
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7229,
+          "rank_corr": 0.2602,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.9057,
+          "rank_corr": 0.4273,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2228,
+          "rank_corr": 0.4172,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": 0.0095,
+        "lo95": 0.0037,
+        "hi95": 0.0154,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 6.0101 vs 6.0030, rank_corr 0.3812 vs 0.3814"
+      }
+    },
+    "ol0.02_dl0.00": {
+      "a": 0.02,
+      "b": 0.0,
+      "pooled": {
+        "mae": 5.9969,
+        "rank_corr": 0.3805,
+        "topk": 0.7842
+      },
+      "held_out": {
+        "mae": 6.074,
+        "rank_corr": 0.3492,
+        "topk": 0.7687
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.6974,
+          "rank_corr": 0.2546,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8834,
+          "rank_corr": 0.4276,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2155,
+          "rank_corr": 0.4171,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.005,
+        "lo95": -0.0094,
+        "hi95": -0.0006,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9969 vs 6.0030, rank_corr 0.3805 vs 0.3814"
+      }
+    },
+    "ol0.02_dl0.02": {
+      "a": 0.02,
+      "b": 0.02,
+      "pooled": {
+        "mae": 5.9989,
+        "rank_corr": 0.3805,
+        "topk": 0.7844
+      },
+      "held_out": {
+        "mae": 6.0766,
+        "rank_corr": 0.3493,
+        "topk": 0.7684
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7039,
+          "rank_corr": 0.2561,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.887,
+          "rank_corr": 0.427,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2155,
+          "rank_corr": 0.4171,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0024,
+        "lo95": -0.0064,
+        "hi95": 0.0021,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9989 vs 6.0030, rank_corr 0.3805 vs 0.3814"
+      }
+    },
+    "ol0.02_dl0.04": {
+      "a": 0.02,
+      "b": 0.04,
+      "pooled": {
+        "mae": 6.0013,
+        "rank_corr": 0.3807,
+        "topk": 0.7841
+      },
+      "held_out": {
+        "mae": 6.0799,
+        "rank_corr": 0.3492,
+        "topk": 0.7684
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7109,
+          "rank_corr": 0.2576,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8915,
+          "rank_corr": 0.4268,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2155,
+          "rank_corr": 0.4171,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": 0.0009,
+        "lo95": -0.004,
+        "hi95": 0.0057,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 6.0013 vs 6.0030, rank_corr 0.3807 vs 0.3814"
+      }
+    },
+    "ol0.02_dl0.06": {
+      "a": 0.02,
+      "b": 0.06,
+      "pooled": {
+        "mae": 6.0038,
+        "rank_corr": 0.3806,
+        "topk": 0.7838
+      },
+      "held_out": {
+        "mae": 6.0831,
+        "rank_corr": 0.3488,
+        "topk": 0.7678
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7184,
+          "rank_corr": 0.2573,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8964,
+          "rank_corr": 0.4268,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2155,
+          "rank_corr": 0.4171,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": 0.0042,
+        "lo95": -0.0018,
+        "hi95": 0.0101,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 6.0038 vs 6.0030, rank_corr 0.3806 vs 0.3814"
+      }
+    },
+    "ol0.04_dl0.00": {
+      "a": 0.04,
+      "b": 0.0,
+      "pooled": {
+        "mae": 5.9913,
+        "rank_corr": 0.3806,
+        "topk": 0.7845
+      },
+      "held_out": {
+        "mae": 6.0695,
+        "rank_corr": 0.3496,
+        "topk": 0.769
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.6958,
+          "rank_corr": 0.2532,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8745,
+          "rank_corr": 0.4281,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2086,
+          "rank_corr": 0.4176,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0095,
+        "lo95": -0.0185,
+        "hi95": -0.0009,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9913 vs 6.0030, rank_corr 0.3806 vs 0.3814"
+      }
+    },
+    "ol0.04_dl0.02": {
+      "a": 0.04,
+      "b": 0.02,
+      "pooled": {
+        "mae": 5.9933,
+        "rank_corr": 0.3806,
+        "topk": 0.7848
+      },
+      "held_out": {
+        "mae": 6.0721,
+        "rank_corr": 0.3493,
+        "topk": 0.7692
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7023,
+          "rank_corr": 0.2541,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.878,
+          "rank_corr": 0.4276,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2086,
+          "rank_corr": 0.4176,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0069,
+        "lo95": -0.0153,
+        "hi95": 0.0017,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9933 vs 6.0030, rank_corr 0.3806 vs 0.3814"
+      }
+    },
+    "ol0.04_dl0.04": {
+      "a": 0.04,
+      "b": 0.04,
+      "pooled": {
+        "mae": 5.9956,
+        "rank_corr": 0.381,
+        "topk": 0.7841
+      },
+      "held_out": {
+        "mae": 6.0751,
+        "rank_corr": 0.3493,
+        "topk": 0.7681
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7093,
+          "rank_corr": 0.2569,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8823,
+          "rank_corr": 0.4276,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2086,
+          "rank_corr": 0.4176,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0039,
+        "lo95": -0.0118,
+        "hi95": 0.0048,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9956 vs 6.0030, rank_corr 0.3810 vs 0.3814"
+      }
+    },
+    "ol0.04_dl0.06": {
+      "a": 0.04,
+      "b": 0.06,
+      "pooled": {
+        "mae": 5.998,
+        "rank_corr": 0.3808,
+        "topk": 0.7838
+      },
+      "held_out": {
+        "mae": 6.0783,
+        "rank_corr": 0.3492,
+        "topk": 0.7677
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7164,
+          "rank_corr": 0.2563,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8872,
+          "rank_corr": 0.4273,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2086,
+          "rank_corr": 0.4176,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0006,
+        "lo95": -0.0095,
+        "hi95": 0.0086,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9980 vs 6.0030, rank_corr 0.3808 vs 0.3814"
+      }
+    },
+    "ol0.06_dl0.00": {
+      "a": 0.06,
+      "b": 0.0,
+      "pooled": {
+        "mae": 5.9863,
+        "rank_corr": 0.3799,
+        "topk": 0.7832
+      },
+      "held_out": {
+        "mae": 6.0657,
+        "rank_corr": 0.3479,
+        "topk": 0.7691
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.6952,
+          "rank_corr": 0.2511,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8668,
+          "rank_corr": 0.4275,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2021,
+          "rank_corr": 0.4169,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0133,
+        "lo95": -0.0269,
+        "hi95": -0.0002,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9863 vs 6.0030, rank_corr 0.3799 vs 0.3814"
+      }
+    },
+    "ol0.06_dl0.02": {
+      "a": 0.06,
+      "b": 0.02,
+      "pooled": {
+        "mae": 5.9882,
+        "rank_corr": 0.3798,
+        "topk": 0.7836
+      },
+      "held_out": {
+        "mae": 6.0682,
+        "rank_corr": 0.3477,
+        "topk": 0.7688
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7017,
+          "rank_corr": 0.2514,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8701,
+          "rank_corr": 0.4271,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2021,
+          "rank_corr": 0.4169,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0109,
+        "lo95": -0.0239,
+        "hi95": 0.0019,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9882 vs 6.0030, rank_corr 0.3798 vs 0.3814"
+      }
+    },
+    "ol0.06_dl0.04": {
+      "a": 0.06,
+      "b": 0.04,
+      "pooled": {
+        "mae": 5.9905,
+        "rank_corr": 0.3803,
+        "topk": 0.7837
+      },
+      "held_out": {
+        "mae": 6.0711,
+        "rank_corr": 0.3482,
+        "topk": 0.769
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7087,
+          "rank_corr": 0.2548,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8743,
+          "rank_corr": 0.4271,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2021,
+          "rank_corr": 0.4169,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0079,
+        "lo95": -0.0206,
+        "hi95": 0.005,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9905 vs 6.0030, rank_corr 0.3803 vs 0.3814"
+      }
+    },
+    "ol0.06_dl0.06": {
+      "a": 0.06,
+      "b": 0.06,
+      "pooled": {
+        "mae": 5.9929,
+        "rank_corr": 0.3803,
+        "topk": 0.7833
+      },
+      "held_out": {
+        "mae": 6.0741,
+        "rank_corr": 0.3481,
+        "topk": 0.768
+      },
+      "per_position": {
+        "QB": {
+          "mae": 6.7157,
+          "rank_corr": 0.255,
+          "n": 1174
+        },
+        "RB": {
+          "mae": 5.8789,
+          "rank_corr": 0.427,
+          "n": 2508
+        },
+        "WR": {
+          "mae": 6.2021,
+          "rank_corr": 0.4169,
+          "n": 3256
+        },
+        "TE": {
+          "mae": 5.0651,
+          "rank_corr": 0.3137,
+          "n": 1341
+        }
+      },
+      "bootstrap_delta_mae_held_out": {
+        "mean": -0.0049,
+        "lo95": -0.0171,
+        "hi95": 0.0083,
+        "blocks": "season-week",
+        "B": 400
+      },
+      "verdict": {
+        "adopted": false,
+        "reason": "regresses v2: pooled MAE 5.9929 vs 6.0030, rank_corr 0.3803 vs 0.3814"
+      }
+    }
+  },
+  "verdict": {
+    "adopted": false,
+    "adoptable_variants": [],
+    "best_adoptable": null,
+    "rule": "never-regress: a line variant is adoptable only if it is not worse than v2 on pooled MAE and pooled rank_corr; phase 1 adopts nothing",
+    "reason": "phase 1 measures only; 0 of 15 variants clear never-regress"
+  },
+  "policy": "MEASUREMENT ONLY. Own-OL-out and opposing-DL-out counts are built walk-forward from the season's depth-chart snapshots before the week and the FINAL injury report for the week (Out only). Starters unknown (no prior snapshot) are neutral and counted. No projection number changes in this release; the book lines in games_meta are never read.",
+  "meta": {
+    "starters": {
+      "2023": {
+        "depth_rows": 35064,
+        "snapshots": 19,
+        "team_weeks_with_starters": 544,
+        "line_out_listings": 281
+      },
+      "2024": {
+        "depth_rows": 35025,
+        "snapshots": 19,
+        "team_weeks_with_starters": 544,
+        "line_out_listings": 361
+      },
+      "2025": {
+        "depth_rows": 553770,
+        "snapshots": 221,
+        "team_weeks_with_starters": 544,
+        "line_out_listings": 435
+      }
+    },
+    "rows_skipped": {
+      "team_mismatch": 97,
+      "schedule_mismatch": 0
+    },
+    "pool_excluded": {
+      "no_stat_line_in_season": 816,
+      "prior_games_lt_6": 330,
+      "position_out_of_scope": 0
+    },
+    "pooled_per_season": {
+      "2023": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      },
+      "2024": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      },
+      "2025": {
+        "QB": 32,
+        "RB": 60,
+        "WR": 80,
+        "TE": 32
+      }
+    },
+    "starter_lag_weeks": 1,
+    "runtime_s": 5.9
+  },
+  "generated_utc": "2026-09-13T20:56:27Z"
+}

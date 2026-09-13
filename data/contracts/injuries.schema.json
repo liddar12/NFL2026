@@ -127,6 +127,20 @@
               "null"
             ],
             "description": "ESPN's free-text longComment/shortComment. Rel17 finally reads it (F5); it is still carried whole so a future parser can be re-run offline."
+          },
+          "position": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "R70 - ESPN's position abbreviation for the athlete (athlete.position.abbreviation), carried when the payload has it; null when it does not. OPTIONAL: a document written before R70 has no key at all. build_line_report.py reads it to tell an OL/DL row from the rest; nothing prices on it."
+          },
+          "athlete_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "R70 - ESPN's athlete id (NOT a gsis id), carried when present, for the depth-chart espn_id crosswalk. Optional like `position`."
           }
         }
       }
