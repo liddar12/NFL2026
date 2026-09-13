@@ -41,6 +41,7 @@ const PATHS = Object.freeze({
   rookieStarters: '/data/rookie_starters.json',
   weeklyBacktest: '/data/weekly_backtest.json',
   parlayBacktest: '/data/parlay_backtest.json',
+  lineReport: '/data/line_report.json',
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -115,6 +116,10 @@ export const getAdp = (opts) => loadJson(PATHS.adp, opts);
 // contract). Same 404-graceful pattern: absent on an older deploy -> the
 // rookies-only strip simply doesn't render the section.
 export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
+// R70: the OL / DL-front LINE REPORT (facts: depth-chart starters x injury
+// report). Annotation only - it changes no number. Same 404-graceful pattern:
+// absent, or `available:false`, -> the chips simply do not render.
+export const getLineReport = (opts) => loadJson(PATHS.lineReport, opts);
 
 /**
  * Load the five core contracts at once. Uses allSettled so one bad feed does

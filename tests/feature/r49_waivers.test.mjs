@@ -316,5 +316,7 @@ test('R49: LINEUP defaults the WK selector from storage and labels it; the no-sy
   // Both new modules are lazy-only in the perf budget.
   assert.match(BUDGET_SRC, /'app\/waivers\.js', \/\/.*R49/);
   assert.match(BUDGET_SRC, /'app\/league-rosters\.js', \/\/.*R49/);
-  assert.match(BUDGET_SRC, /\{ hash: '#\/lineup', name: 'lineup', contracts: 6 \}/, 'lineup cold contracts unchanged');
+  // R70 — 6 -> 7: the LINE REPORT (data/line_report.json) joined the one
+  // allSettled; still the only fetch site, still no waiver-wire fetch.
+  assert.match(BUDGET_SRC, /\{ hash: '#\/lineup', name: 'lineup', contracts: 7 \}/, 'lineup cold contracts unchanged');
 });
