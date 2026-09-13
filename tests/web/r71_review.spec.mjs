@@ -83,6 +83,12 @@ test.describe('R71 — post-game review on #/ and #/parlays', () => {
     await page.waitForSelector('.card.game', { timeout: 15000 });
     await page.waitForSelector('.rv-strip', { timeout: 15000 });
     await expect(page.locator('.rv-strip')).toHaveText(`WK ${WEEK} REVIEW: 1/2 picks, Brier 0.23`);
+    // The strip sits ABOVE the list, never as its first child: the slate's first
+    // list child stays a day header (web.spec D1/Rel12 contract).
+    await expect(page.locator('#slate-list > .rv-strip')).toHaveCount(0);
+    await expect(page.locator('#slate-list + *, .rv-strip + #slate-list')).toHaveCount(1);
+    const firstClass = await page.locator('#slate-list > *').first().getAttribute('class');
+    expect(firstClass).toContain('slate-day');
 
     const [g0, g1, g2] = doc.weeks[String(WEEK)].games;
     const won = page.locator(`.card.game[data-game-id="${g0.game_id}"]`);

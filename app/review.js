@@ -87,6 +87,19 @@ export function renderWhy(why, narrative, { hidden = true } = {}) {
  * SLATE
  * ------------------------------------------------------------------------ */
 
+/**
+ * Place a review strip as the list's previous sibling, never inside it: the
+ * slate's first list child is a day header by contract (tests/web/web.spec
+ * D1/Rel12) and the parlays list is card-only. The view repaints the list's
+ * innerHTML on every week switch, so any stale strip is removed first.
+ */
+function placeStrip(listEl, selector, html) {
+  const parent = listEl.parentElement;
+  if (!parent) return;
+  parent.querySelectorAll(`:scope > ${selector}`).forEach((n) => n.remove());
+  if (html) listEl.insertAdjacentHTML('beforebegin', html);
+}
+
 /** "WK 1 REVIEW: 9/14 picks, Brier 0.21" — only when the week has a result. */
 export function renderReviewStrip(week, summary) {
   const p = summary && summary.picks;
@@ -109,7 +122,7 @@ export async function applySlateReview(listEl, week) {
   const doc = await primeReview();
   if (!listEl || !listEl.isConnected) return;
   const blk = weekBlock(doc, week);
-  if (!blk) return;
+  if (!blk) { placeStrip(listEl, '.rv-strip', ''); return; }
   const byId = new Map((blk.games || []).map((g) => [String(g.game_id), g]));
   listEl.querySelectorAll('.card.game[data-game-id]').forEach((card) => {
     const g = byId.get(String(card.dataset.gameId));
@@ -127,10 +140,7 @@ export async function applySlateReview(listEl, week) {
     card.setAttribute('aria-expanded', 'false');
     card.insertAdjacentHTML('beforeend', renderWhy(g.why, g.narrative));
   });
-  const strip = renderReviewStrip(week, blk.summary);
-  if (strip && !listEl.querySelector('.rv-strip')) {
-    listEl.insertAdjacentHTML('afterbegin', strip);
-  }
+  placeStrip(listEl, '.rv-strip', renderReviewStrip(week, blk.summary));
   if (!listEl.dataset.rvBound) {
     listEl.dataset.rvBound = '1';
     listEl.addEventListener('click', (e) => {
@@ -166,7 +176,7 @@ export async function applyParlayReview(listEl, week) {
   const doc = await primeReview();
   if (!listEl || !listEl.isConnected) return;
   const blk = weekBlock(doc, week);
-  if (!blk) return;
+  if (!blk) { placeStrip(listEl, '.rv-strip--parlay', ''); return; }
   const byId = new Map((blk.parlays || []).map((p) => [String(p.parlay_id), p]));
   listEl.querySelectorAll('.card.parlay[data-parlay-id]').forEach((card) => {
     const p = byId.get(String(card.dataset.parlayId));
@@ -195,10 +205,7 @@ export async function applyParlayReview(listEl, week) {
       node.dataset.rvResult = leg.result;
     });
   });
-  const line = renderParlaySummary(week, blk.summary);
-  if (line && !listEl.querySelector('.rv-strip--parlay')) {
-    listEl.insertAdjacentHTML('afterbegin', line);
-  }
+  placeStrip(listEl, '.rv-strip--parlay', renderParlaySummary(week, blk.summary));
 }
 
 /* --------------------------------------------------------------------------
