@@ -1,0 +1,380 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlay_ledger.schema.json",
+  "title": "Parlay-leg ledger (R58) - data/estimates/parlays_<season>.json",
+  "description": "Every parlay leg data/parlays.json shipped, appended the FIRST time it is seen (key = season, week, game_id, market, selection) with its as-made pricing (mu, sd, z, model_prob, implied_prob, pricing, line, kickoff_utc) and never rewritten. `locked` is true only when that first sight preceded the game's kickoff; unlocked legs are recorded and excluded from scoring (the player ledger's rule). The book's handicap on a spread leg is the terms of the bet and implied_prob is a yardstick - neither is an input to anything. Written by scripts/build_parlay_ledger.py (canonical JSON), idempotent per as_of_utc; scored by scripts/resolve_parlay_legs.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "as_of_utc",
+    "source",
+    "runs",
+    "legs"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "as_of_utc": {
+      "type": "string",
+      "description": "parlays.json updated_utc of the latest append (the idempotency key)."
+    },
+    "source": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "as_of_utc",
+          "week",
+          "legs_seen",
+          "legs_added",
+          "locked_added",
+          "unlocked_added",
+          "skipped"
+        ],
+        "properties": {
+          "as_of_utc": {
+            "type": "string"
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "legs_seen": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "legs_added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "locked_added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unlocked_added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Legs that named no known game / market / selection shape - counted, never guessed."
+          }
+        }
+      }
+    },
+    "legs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "season",
+          "week",
+          "game_id",
+          "home",
+          "away",
+          "kickoff_utc",
+          "market",
+          "selection",
+          "position",
+          "player",
+          "gsis_id",
+          "team",
+          "side",
+          "line",
+          "mu",
+          "sd",
+          "z",
+          "p_team",
+          "model_prob",
+          "implied_prob",
+          "pricing",
+          "seen_utc",
+          "locked",
+          "locked_utc"
+        ],
+        "properties": {
+          "season": {
+            "type": "integer",
+            "minimum": 2026
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "game_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "home": {
+            "type": "string",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "away": {
+            "type": "string",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "kickoff_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "From data/game_predictions.json; a leg with no kickoff can never lock."
+          },
+          "market": {
+            "type": "string",
+            "enum": [
+              "moneyline",
+              "spread",
+              "qb_pass_yds",
+              "rb_rush_yds",
+              "wr_rec_yds"
+            ]
+          },
+          "selection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              null
+            ],
+            "description": "Prop legs: the market's position; null for moneyline / spread."
+          },
+          "player": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Prop legs: the pool player behind the abbreviated selection (unique name + position + team match in data/player_projections.json); null when not uniquely identifiable - never a guess."
+          },
+          "gsis_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS",
+              null
+            ]
+          },
+          "side": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "home",
+              "away",
+              null
+            ]
+          },
+          "line": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prop legs: the yardage line the leg is evaluated at (the builder's documented seed threshold). Spread legs: the book's handicap - the terms of the bet, never an input. Null for moneyline."
+          },
+          "mu": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "sd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "z": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "p_team": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The side's win probability from game_predictions at lock time - the seed pricing's only input, kept so seed vs calibrated can be recomputed on identical legs."
+          },
+          "model_prob": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "implied_prob": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pricing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "calibrated",
+              "seed",
+              null
+            ]
+          },
+          "seen_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "true only when the leg was first seen BEFORE its kickoff; unlocked legs are kept for the record and never scored."
+          },
+          "locked_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

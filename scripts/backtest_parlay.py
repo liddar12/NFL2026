@@ -53,6 +53,22 @@ A game with no book line, a tie, a push, a position with no eligible rostered
 player that week — every one is SKIPPED and COUNTED (`skipped` blocks), never
 zero-filled. A hit rate over zero picks is null, not 0.
 
+LIVE 2026 + WEEKLY REFIT (R58)
+------------------------------
+The prop legs the builder ships are locked pre-kickoff by
+scripts/build_parlay_ledger.py and resolved against nflverse weekly yards by
+scripts/resolve_parlay_legs.py (data/parlay_leg_scores.json). This script reads
+that file and writes a `live_2026` block: the resolved legs scored as shipped —
+seed vs calibrated on IDENTICAL legs (the seed recomputed from the locked
+p_team) — and the refit decision. Refit rule: once >= REFIT_MIN_LEGS locked prop
+legs have resolved, the calibration is re-fit on the 2023-25 corpus + the
+resolved 2026 legs and adopted ONLY if it does not worsen log-loss (a) on the
+2025 held-out fold (candidate fit on the fold's seasons + 2026 legs, against the
+fold's own fit) AND (b) on the 2026 legs, walk-forward by week (week w scored by
+a fit on corpus + weeks < w) against the current shipped coefficients.
+Otherwise the current coefficients stay and the block says why. With no
+resolved leg the block is the honest zero record and nothing else changes.
+
 CLI
 ---
   python3 scripts/backtest_parlay.py             recompute, write data/parlay_backtest.json
@@ -87,6 +103,12 @@ GAMES_META_PATH = os.path.join(_REPO_ROOT, GAMES_META_REL)
 WEEKLY_ACTUALS_PATH = os.path.join(_REPO_ROOT, WEEKLY_ACTUALS_REL)
 TUNING_PATH = os.path.join(DATA, "model_tuning.json")
 OUT_PATH = os.path.join(DATA, "parlay_backtest.json")
+# R58 — the resolved 2026 legs (scripts/resolve_parlay_legs.py) and the refit rule.
+LIVE_SCORES_REL = "data/parlay_leg_scores.json"
+LIVE_SCORES_PATH = os.path.join(_REPO_ROOT, LIVE_SCORES_REL)
+LIVE_SEASON = 2026
+REFIT_MIN_LEGS = 100
+PROP_MARKETS = {"qb_pass_yds": "QB", "rb_rush_yds": "RB", "wr_rec_yds": "WR"}
 
 # Seasons scored (T1/T2/T4) and the walk-forward prop folds (T3).
 SEASONS = (2023, 2024, 2025)
@@ -707,6 +729,180 @@ def score_props(corpus, seasons=SEASONS, folds=FOLDS):
 
 
 # ---------------------------------------------------------------------------
+# R58 — live 2026 legs: seed vs calibrated as shipped, and the weekly refit.
+# ---------------------------------------------------------------------------
+def load_live_legs(path=LIVE_SCORES_PATH):
+    """Resolved, locked LIVE_SEASON prop legs from data/parlay_leg_scores.json, or
+    [] when the file is absent / another season. Each row: {week, pos, z, sd,
+    p_team, pricing, model_prob, seed_prob, y}."""
+    if not os.path.exists(path):
+        return []
+    doc = _load(path)
+    if int(doc.get("season") or 0) != LIVE_SEASON:
+        return []
+    out = []
+    for r in doc.get("resolved") or []:
+        pos = PROP_MARKETS.get(r.get("market"))
+        if pos is None or r.get("hit") is None or r.get("model_prob") is None:
+            continue
+        f = lambda k: None if r.get(k) is None else float(r[k])  # noqa: E731
+        out.append({"week": int(r["week"]), "pos": pos, "z": f("z"), "sd": f("sd"),
+                    "p_team": f("p_team"), "pricing": r.get("pricing"),
+                    "model_prob": float(r["model_prob"]), "seed_prob": f("seed_prob"),
+                    "y": 1 if r["hit"] else 0})
+    return out
+
+
+def _live_triples(live, pos, sd_target, weeks=None):
+    """(z, t, y) rows for `pos` from live legs carrying a locked z and p_team; z is
+    rescaled from the leg's locked sd to `sd_target` (z * sd = mu - line, exact)."""
+    out = []
+    for r in live:
+        if r["pos"] != pos or r["z"] is None or r["p_team"] is None:
+            continue
+        if weeks is not None and r["week"] not in weeks:
+            continue
+        z = r["z"]
+        if r["sd"] and sd_target:
+            z = z * r["sd"] / sd_target
+        out.append((z, r["p_team"] - 0.5, r["y"]))
+    return out
+
+
+def fit_with_live(rows, fit_seasons, live, weeks=None):
+    """fit_on() with the live legs (all, or the given weeks) added to every
+    position's fit. The residual sd stays the corpus fit's; live z is rescaled."""
+    sds, _ = fit_on(rows, fit_seasons)
+    fit_rows = [r for r in rows if r["season"] in fit_seasons]
+    coefs = {}
+    for pos in POSITIONS:
+        sd = sds[pos]
+        if sd is None or sd <= 0:
+            coefs[pos] = None
+            continue
+        triples = [(_z(r, sd), r["p_team"] - 0.5, r["y"])
+                   for r in fit_rows if r["pos"] == pos]
+        triples += _live_triples(live, pos, sd, weeks)
+        coefs[pos] = fit_logistic(triples) if triples else None
+    return sds, coefs
+
+
+def _prob(coef, z, t):
+    a, b, c = coef
+    return _sigmoid(a + b * z + c * t)
+
+
+def _corpus_pairs(rows, season, sds, coefs):
+    return [(_prob(coefs[r["pos"]], _z(r, sds[r["pos"]]), r["p_team"] - 0.5), r["y"])
+            for r in rows
+            if r["season"] == season and sds.get(r["pos"]) and coefs.get(r["pos"])]
+
+
+def _live_pairs(live, sds, coefs, weeks=None):
+    pairs = []
+    for pos in POSITIONS:
+        if not sds.get(pos) or not coefs.get(pos):
+            continue
+        pairs += [(_prob(coefs[pos], z, t), y)
+                  for z, t, y in _live_triples(live, pos, sds[pos], weeks)]
+    return pairs
+
+
+def _ll(pairs):
+    return _mean([_log_loss(p, y) for p, y in pairs])
+
+
+def refit_decision(inc_2025, cand_2025, inc_2026, cand_2026):
+    """The never-regress rule, pure: adopt only when the refit's log-loss is <= the
+    current coefficients' on the 2025 held-out fold AND on the 2026 legs. An
+    unscorable side blocks. Returns (adopt, reason)."""
+    checks = (("2025 held-out fold", inc_2025, cand_2025),
+              ("2026 legs walk-forward by week", inc_2026, cand_2026))
+    problems, oks = [], []
+    for label, inc, cand in checks:
+        if inc is None or cand is None:
+            problems.append("%s not scorable" % label)
+        elif cand > inc:
+            problems.append("%s: refit log-loss %.4f > current %.4f" % (label, cand, inc))
+        else:
+            oks.append("%s: refit %.4f <= current %.4f" % (label, cand, inc))
+    if problems:
+        return False, ("never-regress keeps the current coefficients — "
+                       + "; ".join(problems + oks))
+    return True, "refit adopted under never-regress — " + "; ".join(oks)
+
+
+def score_live(rows, seasons, folds, live, sds_shipped, coefs_shipped):
+    """(live_2026 block, refit coefficients by position or None).
+
+    seed vs calibrated: every calibrated-priced leg's as-made model_prob beside
+    the seed recomputed from the locked p_team — identical legs by construction;
+    hit_rate is the share of those legs that hit. Refit: see the module docstring.
+    """
+    weeks = sorted({r["week"] for r in live})
+    block = {"weeks": len(weeks), "legs_resolved": len(live), "seed": None,
+             "calibrated": None, "refit": None, "note": ""}
+    if not live:
+        block["note"] = "no 2026 leg resolved yet"
+        return block, None
+    same = [r for r in live if r["pricing"] == "calibrated" and r["seed_prob"] is not None]
+    if same:
+        hit = _r(_mean([r["y"] for r in same]))
+        block["seed"] = {"log_loss": _r(_ll([(r["seed_prob"], r["y"]) for r in same])),
+                         "hit_rate": hit}
+        block["calibrated"] = {"log_loss": _r(_ll([(r["model_prob"], r["y"]) for r in same])),
+                               "hit_rate": hit}
+    notes = ["%d locked prop leg(s) resolved over week(s) %s; seed vs calibrated on the "
+             "%d calibrated-priced leg(s), seed recomputed from the locked p_team "
+             "(identical legs; hit_rate = share of those legs that hit)"
+             % (len(live), weeks, len(same))]
+    if len(live) < REFIT_MIN_LEGS:
+        notes.append("the weekly refit arms at %d resolved legs" % REFIT_MIN_LEGS)
+        block["note"] = "; ".join(notes)
+        return block, None
+    usable = [r for r in live if r["z"] is not None and r["p_team"] is not None]
+    # (a) the 2025 held-out fold: does adding the 2026 legs to the fold's fit help?
+    y_last, fit_last = folds[-1]
+    sds_f, inc_f = fit_on(rows, fit_last)
+    _, cand_f = fit_with_live(rows, fit_last, usable)
+    inc_2025 = _ll(_corpus_pairs(rows, y_last, sds_f, inc_f))
+    cand_2025 = _ll(_corpus_pairs(rows, y_last, sds_f, cand_f))
+    # (b) the 2026 legs, walk-forward by week, against the shipped coefficients.
+    inc_pairs, cand_pairs = [], []
+    for w in weeks:
+        _, cand_w = fit_with_live(rows, seasons, usable, weeks={x for x in weeks if x < w})
+        inc_pairs += _live_pairs(usable, sds_shipped, coefs_shipped, weeks={w})
+        cand_pairs += _live_pairs(usable, sds_shipped, cand_w, weeks={w})
+    adopt, reason = refit_decision(inc_2025, cand_2025, _ll(inc_pairs), _ll(cand_pairs))
+    block["refit"] = {"applied": adopt, "fit_weeks": weeks, "reason": reason}
+    block["note"] = "; ".join(notes)
+    if not adopt:
+        return block, None
+    _, refit = fit_with_live(rows, seasons, usable)
+    return block, refit
+
+
+def apply_live(props, rows, seasons, folds, live):
+    """Score the live legs against the shipped fit and, when the refit is adopted,
+    replace props.calibration with it (fit_seasons gains LIVE_SEASON). Returns
+    the live_2026 block."""
+    sds, coefs = fit_on(rows, seasons)
+    block, refit = score_live(rows, seasons, folds, live or [], sds, coefs)
+    if refit:
+        weeks = block["refit"]["fit_weeks"]
+        for pos in POSITIONS:
+            if refit.get(pos) is None or pos not in props["calibration"]:
+                continue
+            a, b, c = refit[pos]
+            props["calibration"][pos] = {"a": _r(a, 6), "b": _r(b, 6), "c": _r(c, 6),
+                                         "fit_seasons": list(seasons) + [LIVE_SEASON]}
+        props["calibration_note"] += (
+            " R58: coefficients re-fit on the corpus + the resolved %d legs of weeks %s "
+            "and adopted under never-regress (see live_2026.refit)." % (LIVE_SEASON, weeks))
+    return block
+
+
+# ---------------------------------------------------------------------------
 # T4 — same-game correlations (copula-lite rho).
 # ---------------------------------------------------------------------------
 def rho_from_events(pairs):
@@ -778,9 +974,11 @@ def score_correlations(games, pre, params, corpus, seasons=SEASONS):
 # ---------------------------------------------------------------------------
 # Orchestration.
 # ---------------------------------------------------------------------------
-def run(games, weekly, params, seasons=SEASONS, folds=FOLDS, fixture=None):
+def run(games, weekly, params, seasons=SEASONS, folds=FOLDS, fixture=None, live=None):
     pre = preweek_ratings(games, params)
     corpus = PropCorpus(games, weekly, pre, params, seasons=seasons)
+    props = score_props(corpus, seasons=seasons, folds=folds)
+    live_block = apply_live(props, corpus.rows, seasons, folds, live)
     return {
         "generated_utc": None,
         "fixture": fixture or {
@@ -791,7 +989,8 @@ def run(games, weekly, params, seasons=SEASONS, folds=FOLDS, fixture=None):
         "elo_params": dict(params),
         "moneyline": score_moneyline(games, pre, params, seasons),
         "spread": score_spread(games, pre, params, seasons),
-        "props": score_props(corpus, seasons=seasons, folds=folds),
+        "props": props,
+        "live_2026": live_block,
         "correlations": score_correlations(games, pre, params, corpus, seasons),
         "policy": POLICY,
     }
@@ -825,7 +1024,7 @@ def _write(path, doc):
 def compute():
     games = load_games(_load(GAMES_META_PATH))
     weekly = load_weekly(_load(WEEKLY_ACTUALS_PATH))
-    return run(games, weekly, load_game_params())
+    return run(games, weekly, load_game_params(), live=load_live_legs())
 
 
 def _print_summary(doc):
@@ -857,6 +1056,11 @@ def _print_summary(doc):
     print("     skipped: %s" % pr["skipped"])
     print("     verdict: %s — %s" % ("ADOPTED" if pr["verdict"]["adopted"] else "NOT ADOPTED",
                                      pr["verdict"]["reason"]))
+    lv = doc.get("live_2026") or {}
+    print("  R58 live 2026: %d week(s), %d leg(s) resolved; seed %s calibrated %s; refit %s"
+          % (lv.get("weeks", 0), lv.get("legs_resolved", 0), lv.get("seed"),
+             lv.get("calibrated"), lv.get("refit")))
+    print("     %s" % lv.get("note"))
     print("  T4 correlations:")
     for p in co["pairs"]:
         print("     %-32s rho %s n=%d (prior %s)" % (p["label"], p["rho"], p["n"], p["prior"]))
@@ -989,6 +1193,69 @@ def selftest():
                seasons=(2023, 2024, 2025), folds=FOLDS, fixture=doc["fixture"])
     assert doc2["props"]["folds"][0] == doc["props"]["folds"][0], "2025 leaked into fold 2024"
     assert doc2["moneyline"]["per_season"]["2024"] == doc["moneyline"]["per_season"]["2024"]
+    # 5. R58 live block: the honest zero record with nothing resolved
+    zero = {"weeks": 0, "legs_resolved": 0, "seed": None, "calibrated": None,
+            "refit": None, "note": "no 2026 leg resolved yet"}
+    assert doc["live_2026"] == zero, doc["live_2026"]
+    cal0 = json.dumps(doc["props"]["calibration"], sort_keys=True)
+    # the never-regress decision, both ways
+    assert refit_decision(0.60, 0.59, 0.70, 0.69)[0] is True
+    assert refit_decision(0.60, 0.60, 0.70, 0.70)[0] is True, "equal is not worse"
+    assert refit_decision(0.60, 0.61, 0.70, 0.69)[0] is False, "2025 fold regressed"
+    assert refit_decision(0.60, 0.59, 0.70, 0.71)[0] is False, "2026 legs regressed"
+    assert refit_decision(None, 0.59, 0.70, 0.69)[0] is False, "unscorable blocks"
+    # synthetic live legs shaped like the resolver's rows, from the synthetic 2025 rows
+    pre = preweek_ratings(games, {"hfa": 45.0, "k": 20.0, "revert": 0.45})
+    corpus = PropCorpus(games, players, pre, {"hfa": 45.0, "k": 20.0, "revert": 0.45},
+                        seasons=(2023, 2024, 2025))
+    sds, coefs = fit_on(corpus.rows, (2023, 2024, 2025))
+
+    def live_from(rows, flip=False):
+        out = []
+        for r in rows:
+            if r["pos"] not in coefs or coefs[r["pos"]] is None:
+                continue
+            z = _z(r, sds[r["pos"]])
+            p = calibrated_prob(coefs[r["pos"]], z, r["p_team"])
+            y = r["y"] if not flip else (1 if p < 0.5 else 0)
+            out.append({"week": r["week"], "pos": r["pos"], "z": z, "sd": sds[r["pos"]],
+                        "p_team": r["p_team"], "pricing": "calibrated", "model_prob": p,
+                        "seed_prob": seed_prob(r["p_team"]), "y": y})
+        return out
+    rows25 = [r for r in corpus.rows if r["season"] == 2025]
+    few = live_from(rows25[:REFIT_MIN_LEGS - 1])
+    d_few = run(games, players, {"hfa": 45.0, "k": 20.0, "revert": 0.45},
+                seasons=(2023, 2024, 2025), folds=FOLDS, fixture=doc["fixture"], live=few)
+    lv = d_few["live_2026"]
+    assert lv["legs_resolved"] == REFIT_MIN_LEGS - 1 and lv["weeks"] >= 1
+    assert lv["refit"] is None and "arms at %d" % REFIT_MIN_LEGS in lv["note"]
+    for side in ("seed", "calibrated"):
+        assert set(lv[side]) == {"log_loss", "hit_rate"} and 0 <= lv[side]["hit_rate"] <= 1
+    assert lv["seed"]["hit_rate"] == lv["calibrated"]["hit_rate"], "identical legs"
+    assert json.dumps(d_few["props"]["calibration"], sort_keys=True) == cal0, \
+        "below the threshold nothing else changes"
+    # adversarial legs (every outcome against the model) -> refit is never adopted
+    adv = live_from(rows25, flip=True)
+    assert len(adv) >= REFIT_MIN_LEGS
+    d_adv = run(games, players, {"hfa": 45.0, "k": 20.0, "revert": 0.45},
+                seasons=(2023, 2024, 2025), folds=FOLDS, fixture=doc["fixture"], live=adv)
+    rf = d_adv["live_2026"]["refit"]
+    assert rf is not None and rf["applied"] is False and rf["fit_weeks"] == \
+        sorted({r["week"] for r in adv}) and "never-regress" in rf["reason"], rf
+    assert json.dumps(d_adv["props"]["calibration"], sort_keys=True) == cal0, \
+        "a rejected refit leaves the shipped coefficients untouched"
+    # legs consistent with the corpus: the block is well-formed either way, and an
+    # adopted refit is visible in fit_seasons
+    ok = live_from(rows25)
+    d_ok = run(games, players, {"hfa": 45.0, "k": 20.0, "revert": 0.45},
+               seasons=(2023, 2024, 2025), folds=FOLDS, fixture=doc["fixture"], live=ok)
+    rf = d_ok["live_2026"]["refit"]
+    assert isinstance(rf["applied"], bool)
+    for pos in POSITIONS:
+        fs = d_ok["props"]["calibration"][pos]["fit_seasons"]
+        assert fs == ([2023, 2024, 2025, LIVE_SEASON] if rf["applied"] else [2023, 2024, 2025])
+    assert d_ok["moneyline"] == doc["moneyline"] and d_ok["spread"] == doc["spread"] \
+        and d_ok["correlations"] == doc["correlations"], "live legs touch props only"
     print("selftest OK")
 
 

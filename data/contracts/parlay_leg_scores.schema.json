@@ -1,0 +1,704 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlay_leg_scores.schema.json",
+  "title": "Resolved parlay-leg scores (R58) - data/parlay_leg_scores.json",
+  "description": "The parlay ledger's LOCKED (pre-kickoff) legs resolved: prop legs against nflverse stats_player_week yards (hit = yards >= the locked line), moneyline / spread legs against FINAL results when a finals source is reachable (`finals_source` says which, or that none was). Per week and pooled: n, hit rate, log-loss and Brier of the as-made model_prob and of the seed pricing recomputed from the locked p_team on the SAME legs. HONESTY: weeks_resolved == 0 is a valid document that says so (`skipped`) with null metrics; a player with no stat line, a tie or a push is `unresolved` with a reason, never a miss. Written by scripts/resolve_parlay_legs.py; read by scripts/backtest_parlay.py (the live_2026 block and the weekly refit). Optional feed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "source",
+    "finals_source",
+    "ledger",
+    "rule",
+    "weeks_resolved",
+    "legs",
+    "skipped",
+    "pooled",
+    "by_position",
+    "weeks",
+    "unresolved",
+    "resolved"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "finals_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ledger": {
+      "type": "string"
+    },
+    "rule": {
+      "type": "string"
+    },
+    "weeks_resolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "legs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_file",
+        "locked",
+        "unlocked",
+        "resolved",
+        "unresolved"
+      ],
+      "properties": {
+        "on_file": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unlocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "skipped": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pooled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "props",
+        "moneyline",
+        "spread"
+      ],
+      "properties": {
+        "props": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "hit_rate",
+            "model",
+            "seed",
+            "by_pricing"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hit_rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "model": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "log_loss",
+                "brier"
+              ],
+              "properties": {
+                "log_loss": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "brier": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "description": "Scores the as-made model_prob."
+            },
+            "seed": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "log_loss",
+                "brier"
+              ],
+              "properties": {
+                "log_loss": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "brier": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "description": "Scores parlay_builder.seed_prop_prob(locked p_team) on the SAME legs - identical legs by construction."
+            },
+            "by_pricing": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "moneyline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "hit_rate",
+            "log_loss",
+            "brier"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hit_rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "brier": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "spread": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "hit_rate",
+            "log_loss",
+            "brier"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hit_rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "brier": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "by_position": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n",
+          "hit_rate",
+          "model",
+          "seed",
+          "by_pricing"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hit_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "model": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "log_loss",
+              "brier"
+            ],
+            "properties": {
+              "log_loss": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "brier": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "description": "Scores the as-made model_prob."
+          },
+          "seed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "log_loss",
+              "brier"
+            ],
+            "properties": {
+              "log_loss": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "brier": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "description": "Scores parlay_builder.seed_prop_prob(locked p_team) on the SAME legs - identical legs by construction."
+          },
+          "by_pricing": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "weeks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "week",
+          "props",
+          "moneyline",
+          "spread"
+        ],
+        "properties": {
+          "props": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "hit_rate",
+              "model",
+              "seed",
+              "by_pricing"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hit_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "log_loss",
+                  "brier"
+                ],
+                "properties": {
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "description": "Scores the as-made model_prob."
+              },
+              "seed": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "log_loss",
+                  "brier"
+                ],
+                "properties": {
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "description": "Scores parlay_builder.seed_prop_prob(locked p_team) on the SAME legs - identical legs by construction."
+              },
+              "by_pricing": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "moneyline": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "hit_rate",
+              "log_loss",
+              "brier"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hit_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "log_loss": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "brier": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "spread": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "hit_rate",
+              "log_loss",
+              "brier"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hit_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "log_loss": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "brier": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          }
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "week",
+          "game_id",
+          "market",
+          "selection",
+          "reason"
+        ],
+        "properties": {
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "game_id": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string",
+            "enum": [
+              "moneyline",
+              "spread",
+              "qb_pass_yds",
+              "rb_rush_yds",
+              "wr_rec_yds"
+            ]
+          },
+          "selection": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "no_stat_line",
+              "ambiguous",
+              "player_unidentified",
+              "no_line",
+              "bad_selection",
+              "no_model_prob",
+              "tie",
+              "push",
+              "no_final_score"
+            ]
+          }
+        }
+      }
+    },
+    "resolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "week",
+          "game_id",
+          "market",
+          "selection",
+          "model_prob",
+          "actual",
+          "hit"
+        ],
+        "properties": {
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "game_id": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string",
+            "enum": [
+              "moneyline",
+              "spread",
+              "qb_pass_yds",
+              "rb_rush_yds",
+              "wr_rec_yds"
+            ]
+          },
+          "selection": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR"
+            ]
+          },
+          "player": {
+            "type": "string"
+          },
+          "team": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "home",
+              "away"
+            ]
+          },
+          "line": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mu": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "z": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "p_team": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pricing": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "calibrated",
+              "seed",
+              null
+            ]
+          },
+          "model_prob": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "seed_prob": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "actual": {
+            "type": [
+              "number",
+              "object"
+            ],
+            "description": "Prop legs: the market's yards. Game legs: {home_score, away_score} or {winner}."
+          },
+          "hit": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

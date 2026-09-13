@@ -535,6 +535,104 @@
     "policy": {
       "type": "string",
       "minLength": 1
+    },
+    "live_2026": {
+      "type": "object",
+      "description": "OPTIONAL (R58). The resolved 2026 prop legs (data/parlay_leg_scores.json, locked pre-kickoff) scored as they were shipped: seed vs calibrated on identical legs, and the weekly refit's never-regress decision. With no resolved leg the block is {weeks: 0, legs_resolved: 0, seed: null, calibrated: null, refit: null, note: 'no 2026 leg resolved yet'} and nothing else in the file changes.",
+      "required": [
+        "weeks",
+        "legs_resolved",
+        "seed",
+        "calibrated",
+        "refit",
+        "note"
+      ],
+      "properties": {
+        "weeks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legs_resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seed": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "log_loss",
+            "hit_rate"
+          ],
+          "properties": {
+            "log_loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "hit_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "description": "null until a 2026 leg has resolved."
+        },
+        "calibrated": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "log_loss",
+            "hit_rate"
+          ],
+          "properties": {
+            "log_loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "hit_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "description": "null until a 2026 leg has resolved."
+        },
+        "refit": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "applied",
+            "fit_weeks",
+            "reason"
+          ],
+          "properties": {
+            "applied": {
+              "type": "boolean"
+            },
+            "fit_weeks": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18
+              }
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "description": "null until >= 100 locked prop legs have resolved (the refit rule's arming threshold). applied is a real boolean: true only when the refit did not worsen log-loss on the 2025 held-out fold AND on the resolved 2026 legs versus the current coefficients."
+        },
+        "note": {
+          "type": "string"
+        }
+      }
     }
   }
 }
