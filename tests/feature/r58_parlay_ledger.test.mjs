@@ -22,7 +22,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -33,6 +33,32 @@ const SCORES = resolve(REPO_ROOT, 'data/parlay_leg_scores.json');
 const BACKTEST = resolve(REPO_ROOT, 'data/parlay_backtest.json');
 const FIXTURE = 'tests/fixtures/r58/stats_player_week_2026_wk1.csv';
 const PY_ENV = { ...process.env, PYTHONPATH: REPO_ROOT };
+
+/**
+ * Game legs the committed lock receipts already grade with no network: every
+ * LOCKED moneyline leg of a resolved receipt resolves (winner known), and its
+ * spread leg stays unresolved (no_final_score: the receipt carries no score).
+ * Derived from data/snapshots + the ledger on every run — never pinned to a
+ * day-zero count, so the in-season data state cannot stale this file.
+ */
+function gradedGameLegs() {
+  const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'));
+  const dir = resolve(REPO_ROOT, 'data/snapshots');
+  const resolved = new Set();
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('_games_open.json')) continue;
+    for (const r of JSON.parse(readFileSync(join(dir, f), 'utf8'))) {
+      if (r && r.event_type === 'game' && r.resolved) resolved.add(String(r.event_id));
+    }
+  }
+  let moneyline = 0; let spread = 0; const weeks = new Set();
+  for (const l of ledger.legs) {
+    if (!l.locked || !resolved.has(String(l.game_id))) continue;
+    if (l.market === 'moneyline') { moneyline += 1; weeks.add(l.week); }
+    else if (l.market === 'spread') spread += 1;
+  }
+  return { moneyline, spread, weeks: weeks.size };
+}
 
 function runPy(code) {
   const out = execFileSync('python3', ['-'], {
@@ -154,9 +180,11 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   assert.equal(doc.weeks_resolved, 1);
   assert.equal(doc.skipped, null);
   assert.match(doc.source, /dry run/);
-  assert.equal(doc.legs.resolved, 30);
-  assert.equal(doc.legs.unresolved, 10);
-  assert.equal(doc.legs.locked, doc.legs.on_file);
+  const g = gradedGameLegs();
+  assert.equal(doc.legs.resolved, 30 + g.moneyline, '30 fixture props + receipt-graded moneylines');
+  assert.equal(doc.legs.unresolved, 10 + g.spread, '10 absent props + spreads awaiting a score');
+  // locked + unlocked (post-kickoff first sight) account for every leg on file
+  assert.equal(doc.legs.locked + doc.legs.unlocked, doc.legs.on_file);
   const p = doc.pooled.props;
   assert.equal(p.n, 30);
   assert.equal(p.hit_rate, 0.6667);
@@ -183,19 +211,26 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   assert.ok(kw, 'K. Williams (LAR) must resolve from a team=LA stats row');
   assert.equal(kw.team, 'LAR');
   assert.equal(kw.hit, true);
-  // unresolved legs: the 10 players with no fixture row, never a miss
-  assert.equal(doc.unresolved.length, 10);
+  // unresolved legs: the 10 players with no fixture row, never a miss; a spread
+  // leg of a receipt-graded game waits for a score (no_final_score), never a miss
+  assert.equal(doc.unresolved.length, 10 + g.spread);
   for (const u of doc.unresolved) {
-    assert.equal(u.reason, 'no_stat_line');
+    assert.equal(u.reason, u.market === 'spread' ? 'no_final_score' : 'no_stat_line');
     assert.ok(!doc.resolved.some((x) => x.selection === u.selection));
   }
+  assert.equal(doc.unresolved.filter((u) => u.reason === 'no_stat_line').length, 10);
   // counts conserve across weeks / positions
   assert.equal(doc.weeks.reduce((s, w) => s + w.props.n, 0), p.n);
   assert.equal(Object.values(doc.by_position).reduce((s, b) => s + b.n, 0), p.n);
-  // no finals reachable offline: game legs are pending, and the doc says so
-  assert.equal(doc.pooled.moneyline.n, 0);
+  // no finals reachable offline: moneylines grade from the receipts on file
+  // (winner only), spreads stay pending, and the doc says which every time
+  assert.equal(doc.pooled.moneyline.n, g.moneyline);
   assert.equal(doc.pooled.spread.n, 0);
-  assert.match(doc.finals_source, /none reachable offline/);
+  assert.match(doc.finals_source, g.moneyline ? /graded lock receipts/ : /none reachable offline/);
+  for (const row of doc.resolved.filter((x) => !x.position)) {
+    assert.equal(row.market, 'moneyline');
+    assert.equal(typeof row.hit, 'boolean');
+  }
   // the dry-run document honours the contract
   const v = runPy(`
 import json, sys
@@ -207,27 +242,34 @@ print(json.dumps({"ok": True}))`);
   assert.equal(v.ok, true);
 });
 
-test('resolver --offline writes the honest 0-resolved record; the committed file is one', () => {
+test('resolver --offline writes the honest record: no prop resolves, game legs only from receipts; the committed file is one', () => {
+  const g = gradedGameLegs();
   const dir = mkdtempSync(join(tmpdir(), 'r58-'));
   const out = join(dir, 'scores.json');
   const r = py(['scripts/resolve_parlay_legs.py', '--offline', '--out', out]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /SKIPPED \(0 weeks resolved\): offline run/);
+  if (g.moneyline === 0) assert.match(r.stderr, /SKIPPED \(0 weeks resolved\): offline run/);
+  // (the skip line goes to stderr; a resolved summary is the run's stdout line)
+  else assert.match(r.stdout + r.stderr, new RegExp(`${g.weeks} weeks, ${g.moneyline} legs resolved`));
   const doc = JSON.parse(readFileSync(out, 'utf8'));
-  assert.equal(doc.weeks_resolved, 0);
+  assert.equal(doc.weeks_resolved, g.weeks);
+  // props never resolve offline: no stat line was fetched, so no number is invented
   assert.equal(doc.pooled.props.n, 0);
   assert.equal(doc.pooled.props.hit_rate, null);
   assert.equal(doc.pooled.props.model.log_loss, null);
   assert.equal(doc.pooled.props.seed.log_loss, null);
-  assert.equal(doc.legs.resolved, 0);
+  assert.equal(doc.legs.resolved, g.moneyline, 'only receipt-graded moneylines resolve offline');
   assert.ok(doc.legs.locked > 0, 'the ledger on file has locked legs');
-  assert.deepEqual(doc.resolved, []);
-  // the committed artifact is the same honest shape (no 2026 week has resolved)
+  assert.ok(doc.resolved.every((x) => x.market === 'moneyline' && typeof x.hit === 'boolean'));
+  // the committed artifact is the same honest shape for the data state on file:
+  // props stay unresolved until the runner fetches the stat line (then skipped
+  // is null and the prop log-loss a number — both admitted, never a pinned 0).
   const committed = JSON.parse(readFileSync(SCORES, 'utf8'));
   assert.equal(committed.season, 2026);
-  assert.equal(typeof committed.skipped, 'string');
-  assert.equal(committed.weeks_resolved, 0);
-  assert.equal(committed.pooled.props.model.log_loss, null);
+  assert.ok(committed.skipped === null || typeof committed.skipped === 'string');
+  assert.ok(committed.weeks_resolved >= g.weeks);
+  if (committed.pooled.props.n === 0) assert.equal(committed.pooled.props.model.log_loss, null);
+  else assert.equal(typeof committed.pooled.props.model.log_loss, 'number');
   assert.equal(typeof committed.finals_source, 'string');
 });
 

@@ -35,7 +35,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
@@ -216,7 +216,7 @@ test('paramsCard lists the applied family with its scale, provenance and caveat'
    4. SEASON LOCKS — count only what a producer actually writes
    ========================================================================== */
 
-test('resolvedLockCount: committed day-zero data reports 0 despite n_resolved=1084 rows', () => {
+test('resolvedLockCount: backtest entries never count; the LATEST in-season refit count shows once locks grade', () => {
   /* THE TRAP. The committed history HAS kind:"game_params" entries carrying
    * n_resolved > 0 — but those are backtest entries (eval_seasons 2022-2025)
    * whose n_resolved counts HISTORICAL finals. Counting them would announce
@@ -227,13 +227,31 @@ test('resolvedLockCount: committed day-zero data reports 0 despite n_resolved=10
   assert.ok(backtestEntries.length > 0,
     'no backtest game_params entries with n_resolved left in committed data — '
     + 'the trap this reader defends against is gone; re-check the shapes');
-  assert.equal(resolvedLockCount(TUNING), 0,
-    'day-zero data must report 0 resolved LOCKS — the 1084 are 2022-2025 '
-    + 'backtest finals, not graded 2026 predictions');
-  assert.match(locksCard(TUNING), /begins when 2026 games go FINAL/,
-    'day zero must keep the honest not-yet message');
-  assert.ok(!/grading active/.test(locksCard(TUNING)),
-    'day zero must not claim grading is active');
+  // Derived from the committed archive, never pinned to a day-zero snapshot:
+  // the in-season entries (search set, no eval_seasons) are appended per
+  // gameday pass, so the NEWEST by generated_utc is the current count (R53 fix:
+  // first-wins showed 1 while 10 receipts had graded).
+  const inSeason = (TUNING.history || []).filter((h) => h && h.kind === 'game_params'
+    && h.search != null && !('eval_seasons' in h) && Number(h.n_resolved) > 0)
+    .sort((x, y) => String(x.generated_utc || '').localeCompare(String(y.generated_utc || '')));
+  const expected = inSeason.length ? Number(inSeason[inSeason.length - 1].n_resolved) : 0;
+  assert.equal(resolvedLockCount(TUNING), expected,
+    'the count is the latest in-season refit entry, never a backtest total (1084)');
+  // and it never exceeds the receipts actually graded under data/snapshots/
+  const snapDir = resolve(REPO_ROOT, 'data/snapshots');
+  const graded = readdirSync(snapDir).filter((f) => f.endsWith('_games_open.json'))
+    .reduce((n, f) => n + JSON.parse(readFileSync(join(snapDir, f), 'utf8'))
+      .filter((r) => r && r.event_type === 'game' && r.resolved).length, 0);
+  assert.ok(expected <= graded, `${expected} counted but only ${graded} receipts graded on file`);
+  if (expected === 0) {
+    assert.match(locksCard(TUNING), /begins when 2026 games go FINAL/,
+      'day zero must keep the honest not-yet message');
+    assert.ok(!/grading active/.test(locksCard(TUNING)), 'day zero must not claim grading is active');
+  } else {
+    assert.match(locksCard(TUNING), new RegExp(`^.*${expected} locks resolved`),
+      'the card states the graded-lock count');
+    assert.match(locksCard(TUNING), /grading active/);
+  }
 });
 
 test('resolvedLockCount surfaces a refit-shaped entry — the branch is reachable now', () => {
@@ -241,7 +259,7 @@ test('resolvedLockCount surfaces a refit-shaped entry — the branch is reachabl
   // kind game_params + `search` (+ held-out fields), no eval_seasons, and
   // n_resolved counting resolved lock rows under data/snapshots/.
   const refitEntry = {
-    generated_utc: '2026-09-09T12:00:00Z',
+    generated_utc: '2099-01-01T12:00:00Z',   // newer than any committed pass: newest wins
     kind: 'game_params',
     search: 'coarse-to-fine box refinement (scripts/refit.search_axes)',
     n_resolved: 7,
@@ -249,12 +267,14 @@ test('resolvedLockCount surfaces a refit-shaped entry — the branch is reachabl
     heldout_candidate_loss: 0.641,
     adopted: false,
   };
+  // Newest by generated_utc wins wherever it sits in the archive (R53).
   const tuning = { history: [refitEntry, ...(TUNING.history || [])] };
   assert.equal(resolvedLockCount(tuning), 7);
   assert.match(locksCard(tuning), /7 locks resolved — in-season grading active/);
-  // Newest-first: a newer refit pass supersedes an older count.
-  const newer = { ...refitEntry, generated_utc: '2026-09-16T12:00:00Z', n_resolved: 21 };
+  // A newer refit pass supersedes an older count in either position.
+  const newer = { ...refitEntry, generated_utc: '2099-01-02T12:00:00Z', n_resolved: 21 };
   assert.equal(resolvedLockCount({ history: [newer, refitEntry] }), 21);
+  assert.equal(resolvedLockCount({ history: [refitEntry, newer] }), 21);
 });
 
 test('the dead resolved_locks key is gone from the view code', () => {

@@ -1,17 +1,17 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-13T20:58:48Z",
+  "generated_utc": "2026-09-13T23:41:14Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "none reachable offline: no --finals file and no graded lock receipt yet",
+  "finals_source": "winner only, from the graded lock receipts data/snapshots/*_games_open.json (scripts/resolve_locks.py, STATUS-gated FINAL); spread legs need scores and stay unresolved",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
-  "weeks_resolved": 0,
+  "weeks_resolved": 1,
   "legs": {
-    "on_file": 72,
-    "locked": 72,
-    "unlocked": 0,
-    "resolved": 0,
-    "unresolved": 0
+    "on_file": 85,
+    "locked": 73,
+    "unlocked": 12,
+    "resolved": 10,
+    "unresolved": 10
   },
   "skipped": "offline run: stats not fetched",
   "pooled": {
@@ -29,10 +29,10 @@
       "by_pricing": {}
     },
     "moneyline": {
-      "n": 0,
-      "hit_rate": null,
-      "log_loss": null,
-      "brier": null
+      "n": 10,
+      "hit_rate": 0.6,
+      "log_loss": 0.6468,
+      "brier": 0.2282
     },
     "spread": {
       "n": 0,
@@ -42,7 +42,248 @@
     }
   },
   "by_position": {},
-  "weeks": [],
-  "unresolved": [],
-  "resolved": []
+  "weeks": [
+    {
+      "week": 1,
+      "props": {
+        "n": 0,
+        "hit_rate": null,
+        "model": {
+          "log_loss": null,
+          "brier": null
+        },
+        "seed": {
+          "log_loss": null,
+          "brier": null
+        },
+        "by_pricing": {}
+      },
+      "moneyline": {
+        "n": 10,
+        "hit_rate": 0.6,
+        "log_loss": 0.6468,
+        "brier": 0.2282
+      },
+      "spread": {
+        "n": 0,
+        "hit_rate": null,
+        "log_loss": null,
+        "brier": null
+      }
+    }
+  ],
+  "unresolved": [
+    {
+      "week": 1,
+      "game_id": "401872656",
+      "market": "spread",
+      "selection": "SEA -3",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872657",
+      "market": "spread",
+      "selection": "LAR -3.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872658",
+      "market": "spread",
+      "selection": "PIT -3.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872659",
+      "market": "spread",
+      "selection": "IND +3.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872660",
+      "market": "spread",
+      "selection": "HOU +1.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872661",
+      "market": "spread",
+      "selection": "CHI -3",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872922",
+      "market": "spread",
+      "selection": "JAX -8.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872923",
+      "market": "spread",
+      "selection": "DET -7",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872924",
+      "market": "spread",
+      "selection": "TEN -1.5",
+      "reason": "no_final_score"
+    },
+    {
+      "week": 1,
+      "game_id": "401872925",
+      "market": "spread",
+      "selection": "CIN -3.5",
+      "reason": "no_final_score"
+    }
+  ],
+  "resolved": [
+    {
+      "week": 1,
+      "game_id": "401872656",
+      "market": "moneyline",
+      "selection": "SEA ML",
+      "team": "SEA",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.61,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872657",
+      "market": "moneyline",
+      "selection": "LAR ML",
+      "team": "LAR",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5927,
+      "actual": {
+        "winner": "away"
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872658",
+      "market": "moneyline",
+      "selection": "PIT ML",
+      "team": "PIT",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5926,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872659",
+      "market": "moneyline",
+      "selection": "IND ML",
+      "team": "IND",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5307,
+      "actual": {
+        "winner": "away"
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872660",
+      "market": "moneyline",
+      "selection": "HOU ML",
+      "team": "HOU",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5896,
+      "actual": {
+        "winner": "away"
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872661",
+      "market": "moneyline",
+      "selection": "CHI ML",
+      "team": "CHI",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5173,
+      "actual": {
+        "winner": "away"
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872922",
+      "market": "moneyline",
+      "selection": "JAX ML",
+      "team": "JAX",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7299,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872923",
+      "market": "moneyline",
+      "selection": "DET ML",
+      "team": "DET",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6224,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872924",
+      "market": "moneyline",
+      "selection": "TEN ML",
+      "team": "TEN",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5829,
+      "actual": {
+        "winner": "away"
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872925",
+      "market": "moneyline",
+      "selection": "CIN ML",
+      "team": "CIN",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5583,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": true
+    }
+  ]
 }

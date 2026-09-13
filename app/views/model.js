@@ -560,13 +560,19 @@ function calibrationCard(tuning) {
  */
 export function resolvedLockCount(tuning) {
   const hist = (tuning && Array.isArray(tuning.history)) ? tuning.history : [];
+  let best = null;
   for (const h of hist) {
     if (h && h.kind === 'game_params' && h.search != null && !('eval_seasons' in h)) {
       const n = Number(h.n_resolved);
-      if (Number.isFinite(n) && n > 0) return n;
+      if (!Number.isFinite(n) || n <= 0) continue;
+      // Newest pass wins, by generated_utc: the archive interleaves backtest and
+      // in-season entries and is appended per gameday pass, so position is not
+      // recency (week 1 surfaced first-wins showing 1 while 10 receipts had
+      // graded). A tie falls to the later entry.
+      if (!best || String(h.generated_utc || '') >= String(best.generated_utc || '')) best = h;
     }
   }
-  return 0;
+  return best ? Number(best.n_resolved) : 0;
 }
 
 export function locksCard(tuning) {

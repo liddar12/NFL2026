@@ -67,6 +67,7 @@ d = bl.append(L, proj, weekly, kick, json.load(open("data/meta.json"))["weights"
 bl.write(d, ${JSON.stringify(LOCKED)})
 print(json.dumps({"kick1": kick[1], "players": len(d["players"]),
   "locked": sum(1 for p in d["players"].values() if p["locked"]),
+  "eligible": sum(1 for p in d["players"].values() if p["first"]["as_of_utc"] < kick[1]),
   "weeks_locked": d["runs"][-1].get("weeks_locked")}))`);
 
 function dryRun(csvPath, ledgerPath = LOCKED) {
@@ -79,8 +80,15 @@ function dryRun(csvPath, ledgerPath = LOCKED) {
 test('the production append locks week 1 on the ledger copy from the last pre-kickoff as-of', () => {
   assert.equal(lockInfo.kick1, '2026-09-10T00:20Z');
   assert.ok(lockInfo.players >= 200);
-  assert.equal(lockInfo.locked, lockInfo.players, 'every player carries a locked week 1');
-  assert.deepEqual(lockInfo.weeks_locked, [1]);
+  // Every player the ledger saw BEFORE the week-1 kickoff carries a locked week 1;
+  // a player first appended after kickoff (the committed ledger grows in-season)
+  // has no pre-kickoff estimate to lock — derived, never pinned to day zero.
+  assert.ok(lockInfo.eligible >= 200);
+  assert.equal(lockInfo.locked, lockInfo.eligible, 'every pre-kickoff player carries a locked week 1');
+  // a fresh lock reports weeks_locked [1]; on a ledger already locked (committed
+  // in-season state) the append has nothing new to lock and says so.
+  assert.ok(lockInfo.weeks_locked == null || lockInfo.weeks_locked.length === 0
+    || JSON.stringify(lockInfo.weeks_locked) === '[1]', String(lockInfo.weeks_locked));
 });
 
 test('the fixture is realistic: nflverse columns, week 1 REG, fantasy_points_ppr == the component formula', () => {
@@ -305,7 +313,7 @@ ledger = json.load(open(${JSON.stringify(LOCKED)}))
 rows = list(csv.DictReader(open(${JSON.stringify(FIXTURE)}, newline="")))
 doc = re_.build_document(ledger, rows, 2026, "x", "t")
 live = bw.live_block(ledger, doc)
-zero = bw.live_block(json.load(open("data/estimates/2026.json")), json.load(open("data/estimate_scores.json")))
+zero = bw.live_block(json.load(open("data/estimates/2026.json")), re_.document(2026, "x", [], [], {}, "no 2026 week has resolved yet", "t"))
 committed = json.load(open("data/weekly_backtest.json"))
 full = dict(committed); full["live_2026"] = bw._round(live)
 errs_full = validate_against_schema(full, schema, "weekly_backtest.json")

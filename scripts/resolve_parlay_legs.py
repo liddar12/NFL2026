@@ -460,16 +460,20 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
         stream = sys.stderr          # stdout is the document in a dry run
     else:
         write(doc, out_path)
-    if skipped:
+    if skipped and not doc["legs"]["resolved"]:
         print("[resolve_parlay_legs] SKIPPED (0 weeks resolved): %s" % skipped,
               file=sys.stderr)
     else:
+        # Game legs can grade from the lock receipts even when the stat line was
+        # skipped (offline / outage): the summary states what resolved and why
+        # the props did not — never "0 weeks resolved" over a graded receipt.
         p = doc["pooled"]["props"]
         print("resolve_parlay_legs: %d weeks, %d legs resolved (%d unresolved); props n=%d "
-              "hit %s model ll %s seed ll %s; moneyline n=%d spread n=%d"
+              "hit %s model ll %s seed ll %s; moneyline n=%d spread n=%d%s"
               % (doc["weeks_resolved"], doc["legs"]["resolved"], doc["legs"]["unresolved"],
                  p["n"], p["hit_rate"], p["model"]["log_loss"], p["seed"]["log_loss"],
-                 doc["pooled"]["moneyline"]["n"], doc["pooled"]["spread"]["n"]),
+                 doc["pooled"]["moneyline"]["n"], doc["pooled"]["spread"]["n"],
+                 ("; props skipped: %s" % skipped) if skipped else ""),
               file=stream)
     return doc
 
