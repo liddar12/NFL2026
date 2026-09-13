@@ -66,6 +66,9 @@ python3 scripts/fit_player_signals.py --selftest || fail "player signal fit self
 # R51 — weekly split v2 + parlay repricing: the two never-regress backtests and
 # the runner-side corpus refresher (pure cores, offline).
 python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"
+# R70 — the line report and the measure-only line-injury cascade backtest.
+python3 scripts/build_line_report.py --selftest || fail "line report selftest"
+python3 scripts/backtest_lines.py --selftest || fail "lines backtest selftest"
 python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).

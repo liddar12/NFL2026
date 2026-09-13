@@ -313,7 +313,7 @@ def _load(path):
 
 def write(doc, out_path=OUT_PATH):
     with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, ensure_ascii=True, indent=1, sort_keys=True)
+        json.dump(doc, fh, ensure_ascii=True, indent=2, sort_keys=False)
         fh.write("\n")
 
 

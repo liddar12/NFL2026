@@ -86,6 +86,12 @@ jobs:
       - name: Weekly split never-regress backtest (writes data/weekly_backtest.json)
         run: python scripts/backtest_weekly.py
 
+      # R70 — line-injury cascade, MEASURE ONLY (writes data/lines_backtest.json;
+      # no factor ships until a variant clears never-regress on both MAE and rank).
+      - name: Line-injury cascade backtest (measure only)
+        run: python scripts/backtest_lines.py
+        continue-on-error: true
+
       - name: Parlay never-regress backtest (writes data/parlay_backtest.json)
         run: python scripts/backtest_parlay.py
 
@@ -93,6 +99,13 @@ jobs:
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
         run: python -m scripts.build_predictions
+
+      # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
+      # no number). Best-effort: an unreachable depth chart writes the honest
+      # available:false document, never invented starters.
+      - name: Build the line report (OL / DL-front starters x injury report)
+        run: python scripts/build_line_report.py
+        continue-on-error: true
 
       # R51 — keep data/player_backtest.json on the SAME substrate as the
       # player_history.json this run just refreshed. It used to be written only

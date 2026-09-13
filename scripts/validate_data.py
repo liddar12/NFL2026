@@ -121,6 +121,10 @@ SCHEMA_TO_DATA = {
     # 0 resolved weeks is a valid, honest document; implied_prob inside is the
     # yardstick the leg was measured beside, never an input.
     "parlay_leg_scores.schema.json": "parlay_leg_scores.json",
+    # R70 — the OL / DL-front LINE REPORT: facts (depth-chart starters x injury
+    # report) read by the LINEUP / GRADE / PLAYERS chips; changes no number.
+    # Runner-built; the honest available:false document is also valid.
+    "line_report.schema.json": "line_report.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -158,6 +162,8 @@ OPTIONAL_DATA = frozenset([
     # R58 — written by the daily runner after the parlay ledger append; absent
     # on a fresh clone until the first resolve, validated strictly when present.
     "parlay_leg_scores.json",
+    # R70 — runner-built line report; absent on a fresh clone, strict when present.
+    "line_report.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
