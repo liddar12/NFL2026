@@ -216,8 +216,11 @@ print(json.dumps({"model": m, "row_keys": [sorted(w) for w in doc["players"][0][
   assert.deepEqual(m.venue, { coef: 0.02, rel_clamp: [-1.0, 2.5] });
   assert.equal(m.weather.pass_dome, 1.03);
   assert.equal(m.backtest, 'data/weekly_backtest.json');
+  // R56 moved this pin: the two weather source counts joined the three
+  // neutral counts (tests/feature/r56_weather.test.mjs locks their values).
   assert.deepEqual(Object.keys(m.neutral_counts).sort(),
-    ['dvp_neutral_weeks', 'venue_flat_weeks', 'weather_no_forecast_weeks']);
+    ['dvp_neutral_weeks', 'venue_flat_weeks', 'weather_climatology_weeks',
+      'weather_forecast_weeks', 'weather_no_forecast_weeks']);
   // SFX (5 games) visits the low_n GBX venue once (wk 5); DAL never does. The
   // open-roof SFX home weeks without a forecast row are counted, never guessed.
   assert.equal(m.neutral_counts.venue_flat_weeks, 1);
