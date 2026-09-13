@@ -108,6 +108,7 @@ import {
   getKdstProjections, shapeKdst, fedPositions, teamByeWeeks,
 } from '../kdst.js';
 import { availabilityOf, renderAvailChip } from '../availability.js';
+import { getLineReport } from '../data.js';
 // R29 — the league's own scoring rules, stamped onto the weekly entries once.
 // R30b — plus the ONE shared season-points conversion (scoringAdjust) and the
 // ONE weekly redistribution (weeklyPoints), so this tab prints the same table
@@ -202,6 +203,43 @@ function loadRosterSlots() {
   }
 }
 
+/* --------------------------------------------------------------------------
+ * R70 — LINE REPORT chips. VERBATIM COPIES of app/views/players.js
+ * lineReportTeams / lineChipsHtml: this view must stay off players.js's import
+ * graph (the R25 perf budget), so the two functions live twice and
+ * tests/feature/r70_lines.test.mjs locks them to identical output. Facts only
+ * — depth-chart starters crossed with the injury report — and they change no
+ * number; nothing renders when the file is absent, unavailable or another week.
+ * ------------------------------------------------------------------------ */
+export function lineReportTeams(doc, wk) {
+  if (!doc || doc.available !== true || !doc.teams || typeof doc.teams !== 'object') return null;
+  if (doc.week != null && Number(doc.week) !== Number(wk)) return null;
+  return doc.teams;
+}
+
+function lineChip(label, grp, title) {
+  const out = Array.isArray(grp.out) ? grp.out : [];
+  const q = (Array.isArray(grp.doubtful) ? grp.doubtful : [])
+    .concat(Array.isArray(grp.questionable) ? grp.questionable : []);
+  if (out.length) {
+    const t = `${title} out: ${out.join(', ')}` + (q.length ? ` · questionable: ${q.join(', ')}` : '');
+    return `<span class="line-chip line-chip--out" title="${esc(t)}">${esc(label)}: ${out.length} out</span>`;
+  }
+  if (q.length) {
+    return `<span class="line-chip" title="${esc(`${title} questionable: ${q.join(', ')}`)}">${esc(label)}: ${q.length} Q</span>`;
+  }
+  return '';
+}
+
+export function lineChipsHtml(teams, team, opp) {
+  if (!teams) return '';
+  const own = team ? teams[String(team).toUpperCase()] : null;
+  const vs = opp ? teams[String(opp).toUpperCase()] : null;
+  const a = own && own.ol ? lineChip('OL', own.ol, 'Own offensive line') : '';
+  const b = vs && vs.dl ? lineChip('vs DL', vs.dl, 'Opposing defensive front') : '';
+  return [a, b].filter(Boolean).join(' ');
+}
+
 export default async function mountLineup(el) {
   el.innerHTML = '<div class="state state--loading">Loading lineup…</div>';
 
@@ -229,10 +267,13 @@ export default async function mountLineup(el) {
   // The first two are REQUIRED — no offence, no lineup. The last three are
   // OPTIONAL by design: the K/DST contract and the schedule may be absent on an
   // older deploy, and the view must degrade rather than blank.
-  const [projRes, weeklyRes, predsRes, kdstRes, schedRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, predsRes, kdstRes, schedRes, lineRes] = await Promise.allSettled([
     getPlayerProjections(), getPlayerWeekly(), getGamePredictions(),
     wantsKdst ? getKdstProjections() : Promise.resolve(null), getScheduleFull(),
+    // R70 — the LINE REPORT (optional: absent or unavailable -> no chips).
+    getLineReport(),
   ]);
+  const lineDoc = lineRes.status === 'fulfilled' ? lineRes.value : null;
   if (projRes.status !== 'fulfilled' || weeklyRes.status !== 'fulfilled') {
     stateMsg(el, 'Lineup unavailable — the projection or weekly feed did not load.');
     return;
@@ -416,6 +457,7 @@ export default async function mountLineup(el) {
         avail: availabilityOf(null, wk, currentWk),
         kdst: kd,
         unscored: kd.unscored,
+        opp: null,
       };
     }
     const p = byId.get(id);
@@ -439,7 +481,9 @@ export default async function mountLineup(el) {
     // RoS rides the same season ratio (mode + apportioned extras), matching
     // players.js rosValue(): remaining games must never outweigh the season.
     const ros = weeks ? rosPoints(weeks, wk) * lw.ratio : 0;
-    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail, kdst: null, unscored: false };
+    // R70 — the week's opponent, for the "vs DL" chip (null without a row).
+    const opp = wkEntry && wkEntry.opp != null ? String(wkEntry.opp) : null;
+    return { id, name: (p && p.name) || id, pos, team, pts, onBye, ros, avail, kdst: null, unscored: false, opp };
   }
 
   /** The points cell. An unvaluable row shows an em dash, never a made-up 0.0. */
@@ -632,6 +676,8 @@ export default async function mountLineup(el) {
 
   function paint(wk) {
     lastWk = wk;
+    // R70 — the LINE REPORT for THIS week, or null (then no chip, no legend).
+    const lineTeams = lineReportTeams(lineDoc, wk);
     const rows = rosterIds.map((id) => playerRow(id, wk));
     // `playable` MUST ride into both pure helpers — mapping down to {id,pos,pts}
     // is what silently dropped availability before Rel17.
@@ -715,10 +761,11 @@ export default async function mountLineup(el) {
       const byeTag = r.onBye ? ' <span class="lu-bye" title="On bye this week">BYE</span>' : '';
       const chip = renderAvailChip(r.avail, { sm: true });
       const forced = forcedSlots.has(slot);
+      const line = r.kdst ? '' : lineChipsHtml(lineTeams, r.team, r.opp);
       return (
         `<div class="lu-row${r.onBye ? ' lu-row--bye' : ''}${forced ? ' lu-row--forced' : ''}">`
         + `<span class="lu-slot">${esc(label)}</span>`
-        + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''}${kdstTags(r)} `
+        + `<span class="lu-name">${esc(r.name)}${byeTag}${chip ? ` ${chip}` : ''}${line ? ` ${line}` : ''}${kdstTags(r)} `
           + `<span class="lu-meta">${esc(r.pos)} · <span style="color:${teamTint(r.team)}">${esc(r.team)}</span></span></span>`
         + ptsCellHtml(r)
         + '</div>'
@@ -765,6 +812,16 @@ export default async function mountLineup(el) {
       + `${esc(String(kdst.games))}-game projection ÷ ${esc(String(kdst.games))} games. `
       + 'No weekly split or opponent adjustment exists for these positions, so the number is the '
       + 'same every week except a bye. Treat it as a baseline, not a matchup call.</div>'
+    );
+
+    // R70 — the LINE REPORT legend, only while the report is actually on the
+    // card for this week. It is a statement of what the chips are NOT: a factor.
+    const lineNote = !lineTeams ? '' : (
+      '<div class="lu-kdstnote lu-linenote">LINE REPORT · "OL: n out" is this player\'s own '
+      + 'offensive line, "vs DL: n out" the opponent\'s defensive front — starters from the '
+      + 'latest depth chart crossed with the injury report (names on press-and-hold; Q = '
+      + 'questionable or doubtful). Facts only: they change no number here. The line '
+      + 'cascade is measured, not adopted.</div>'
     );
 
     // R48-D — a league with no K slot says so on the card (the owner's RCA
@@ -943,6 +1000,7 @@ export default async function mountLineup(el) {
         + forcedHtml
         + starterHtml
         + partialHtml
+        + lineNote
         + kdstNote
         + noKNote
       + '</section>'

@@ -831,11 +831,18 @@ def main():
     # fresh file. Hoisting the fetch above the N2 block would buy only the projection
     # band below and would cost the whole run's degrade-don't-die semantics.
     try:
-        inj = espn.fetch_injuries()
+        inj = espn.fetch_injuries(carry_positions=True)   # R70: + position / athlete_id
         feeds["injuries"] = {"rows": len(inj), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
-        _write(os.path.join(DATA, "injuries.json"),
-               availability.enrich_document({"updated_utc": now, "source": "espn",
-                                             "injuries": inj}))
+        _inj_doc = availability.enrich_document({"updated_utc": now, "source": "espn",
+                                                 "injuries": inj})
+        # R70 — enrich_document re-shapes every row to the Rel17 key set, which
+        # drops the scraper's `position` / `athlete_id`. Carry them back onto the
+        # same rows (enrich preserves order; null when the payload had none) so
+        # build_line_report.py can tell a lineman from a skill player.
+        for _src, _dst in zip(inj, _inj_doc["injuries"]):
+            _dst["position"] = _src.get("position")
+            _dst["athlete_id"] = _src.get("athlete_id")
+        _write(os.path.join(DATA, "injuries.json"), _inj_doc)
 
         # REL17 (F6) — SECOND, BAND-ONLY PROJECTION PASS. The first pass at the N2
         # block above ran before this feed existed, so `injury_status` was whatever
