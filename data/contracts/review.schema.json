@@ -1,0 +1,201 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "review.schema.json",
+  "title": "Post-game review (R71) - data/review.json",
+  "description": "Per week: every locked game with its as-made pick, the STATUS-gated final and won/lost result, and a MEASURED why (source 'measured', deterministic over committed inputs and the stat line); every shipped parlay with hit/miss/pending/void per leg; every resolved player-week with the calibrated band verdict (over/under/met/dnp) and its measured attribution. Optional `narrative` (source 'ai_narrative') is a display-only restatement attached by the opt-in runner step scripts/build_review_narrative.py - the measured why is the source of truth. Absent is null, never 0. Written by scripts/build_review.py. Contract keys are required and typed; extra diagnostic keys are tolerated.",
+  "type": "object",
+  "required": ["season", "generated_utc", "weeks", "sources", "notes"],
+  "properties": {
+    "season": {"type": "integer", "minimum": 2020, "maximum": 2100},
+    "generated_utc": {"type": "string", "minLength": 1},
+    "sources": {"type": "object"},
+    "notes": {"type": "array", "items": {"type": "string"}},
+    "weeks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["games", "parlays", "players", "summary"],
+        "properties": {
+          "games": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["game_id", "home", "away", "kickoff_utc", "picked", "pick_prob", "final", "status", "final_source", "result", "brier", "why"],
+              "properties": {
+                "game_id": {"type": "string", "minLength": 1},
+                "home": {"type": ["string", "null"]},
+                "away": {"type": ["string", "null"]},
+                "kickoff_utc": {"type": ["string", "null"]},
+                "picked": {"type": ["string", "null"]},
+                "pick_prob": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                "final": {
+                  "type": ["object", "null"],
+                  "required": ["home_score", "away_score", "winner"],
+                  "properties": {
+                    "home_score": {"type": ["integer", "null"], "minimum": 0},
+                    "away_score": {"type": ["integer", "null"], "minimum": 0},
+                    "winner": {"type": ["string", "null"]}
+                  }
+                },
+                "status": {"type": ["string", "null"]},
+                "final_source": {"type": ["string", "null"], "enum": ["espn_final", "lock_receipt", null]},
+                "result": {"type": ["string", "null"], "enum": ["won", "lost", null]},
+                "brier": {"type": ["number", "null"], "minimum": 0, "maximum": 2},
+                "why": {
+                  "type": ["object", "null"],
+                  "required": ["source", "summary", "reasons"],
+                  "properties": {
+                    "source": {"type": "string", "enum": ["measured"]},
+                    "summary": {"type": "string", "minLength": 1},
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["factor", "points", "text"],
+                        "properties": {
+                          "factor": {"type": "string", "minLength": 1},
+                          "points": {"type": ["number", "null"]},
+                          "text": {"type": "string", "minLength": 1}
+                        }
+                      }
+                    }
+                  }
+                },
+                "narrative": {
+                  "type": "object",
+                  "required": ["text", "source", "generated_utc"],
+                  "properties": {
+                    "text": {"type": "string", "minLength": 1},
+                    "source": {"type": "string", "enum": ["ai_narrative"]},
+                    "generated_utc": {"type": "string", "minLength": 1},
+                    "why_hash": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "parlays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["parlay_id", "scope", "game_id", "result", "legs"],
+              "properties": {
+                "parlay_id": {"type": "string", "minLength": 1},
+                "scope": {"type": "string", "enum": ["game", "week"]},
+                "game_id": {"type": ["string", "null"]},
+                "result": {"type": "string", "enum": ["hit", "miss", "pending", "void"]},
+                "legs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["selection", "market", "game_id", "result", "actual", "why"],
+                    "properties": {
+                      "selection": {"type": "string", "minLength": 1},
+                      "market": {"type": "string", "minLength": 1},
+                      "game_id": {"type": ["string", "null"]},
+                      "result": {"type": "string", "enum": ["hit", "miss", "pending", "void"]},
+                      "why": {"type": ["string", "null"]}
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "players": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["gsis_id", "name", "position", "team", "week", "projected", "low", "high", "actual", "verdict", "delta", "why"],
+              "properties": {
+                "gsis_id": {"type": "string", "minLength": 1},
+                "name": {"type": ["string", "null"]},
+                "position": {"type": ["string", "null"]},
+                "team": {"type": ["string", "null"]},
+                "week": {"type": "integer", "minimum": 1, "maximum": 22},
+                "projected": {"type": "number"},
+                "low": {"type": "number"},
+                "high": {"type": "number"},
+                "actual": {"type": ["number", "null"]},
+                "verdict": {"type": "string", "enum": ["over", "under", "met", "dnp"]},
+                "delta": {"type": ["number", "null"]},
+                "why": {
+                  "type": "object",
+                  "required": ["source", "summary", "reasons", "expected_basis", "unattributed", "omitted"],
+                  "properties": {
+                    "source": {"type": "string", "enum": ["measured"]},
+                    "summary": {"type": "string", "minLength": 1},
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["factor", "points", "text"],
+                        "properties": {
+                          "factor": {"type": "string", "enum": ["touchdowns", "volume", "efficiency", "turnovers", "two_point", "model_factor", "availability", "game_script"]},
+                          "points": {"type": ["number", "null"]},
+                          "text": {"type": "string", "minLength": 1}
+                        }
+                      }
+                    },
+                    "expected_basis": {"type": ["string", "null"]},
+                    "unattributed": {"type": ["number", "null"]},
+                    "omitted": {"type": "array", "items": {"type": "string"}}
+                  }
+                },
+                "narrative": {
+                  "type": "object",
+                  "required": ["text", "source", "generated_utc"],
+                  "properties": {
+                    "text": {"type": "string", "minLength": 1},
+                    "source": {"type": "string", "enum": ["ai_narrative"]},
+                    "generated_utc": {"type": "string", "minLength": 1},
+                    "why_hash": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "required": ["picks", "parlays", "players"],
+            "properties": {
+              "picks": {
+                "type": "object",
+                "required": ["n", "won", "pct", "brier"],
+                "properties": {
+                  "n": {"type": "integer", "minimum": 0},
+                  "won": {"type": "integer", "minimum": 0},
+                  "pct": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                  "brier": {"type": ["number", "null"], "minimum": 0, "maximum": 2}
+                }
+              },
+              "parlays": {
+                "type": "object",
+                "required": ["n", "hit", "miss", "pending", "legs_n", "legs_hit"],
+                "properties": {
+                  "n": {"type": "integer", "minimum": 0},
+                  "hit": {"type": "integer", "minimum": 0},
+                  "miss": {"type": "integer", "minimum": 0},
+                  "pending": {"type": "integer", "minimum": 0},
+                  "legs_n": {"type": "integer", "minimum": 0},
+                  "legs_hit": {"type": "integer", "minimum": 0}
+                }
+              },
+              "players": {
+                "type": "object",
+                "required": ["n", "over", "under", "met", "dnp", "band_coverage"],
+                "properties": {
+                  "n": {"type": "integer", "minimum": 0},
+                  "over": {"type": "integer", "minimum": 0},
+                  "under": {"type": "integer", "minimum": 0},
+                  "met": {"type": "integer", "minimum": 0},
+                  "dnp": {"type": "integer", "minimum": 0},
+                  "band_coverage": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

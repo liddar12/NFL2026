@@ -3932,3 +3932,97 @@ body.gate-locked { overflow: hidden; }
 }
 /* The WAIVER WIRE head names the league too — long enough to wrap at 402px. */
 .ww-card .lu-title { white-space: normal; line-height: 1.5; }
+
+/* =============================================================================
+   R71 — POST-GAME REVIEW (.rv-* only; additive, touches no existing rule)
+   Painted by app/review.js after a FINAL: a filled --pos circle on the predicted
+   team when the pick won, a hollow --neg ring when it lost; nothing pre-final.
+   Every color is an existing audited token (contrast_aa.test.mjs covers them).
+   ========================================================================== */
+.rv-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+}
+.rv-dot--won  { background: var(--pos); border-color: var(--pos); }
+.rv-dot--lost { background: transparent; border-color: var(--neg); }
+.card.game.rv-graded { cursor: pointer; }
+.card.game.rv-graded--won  { border-left: 3px solid var(--pos); }
+.card.game.rv-graded--lost { border-left: 3px solid var(--neg); }
+.rv-strip {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.rv-why {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.rv-why-head {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.rv-summary { font-weight: 700; margin-bottom: 4px; }
+.rv-reasons { list-style: none; margin: 0; padding: 0; }
+.rv-reason { padding: 2px 0; color: var(--ink); }
+.rv-reason--rest, .rv-omitted { color: var(--muted); font-style: italic; }
+.rv-pts { font-variant-numeric: tabular-nums; }
+.rv-narr {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+}
+.rv-narr-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-txt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}
+.rv-pchip, .rv-chip, .rv-leg {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.rv-pchip { margin-left: auto; }
+.rv-pchip--hit,  .rv-chip--met,  .rv-chip--over { color: var(--pos-txt); border-color: var(--pos); }
+.rv-pchip--miss, .rv-chip--under { color: var(--accent-txt); border-color: var(--neg); }
+.rv-pchip--pending, .rv-pchip--void, .rv-chip--dnp { color: var(--muted); }
+.rv-leg {
+  padding: 0 5px;
+  margin-right: 6px;
+  border-radius: 4px;
+}
+.rv-leg--hit  { color: var(--pos-txt); border-color: var(--pos); }
+.rv-leg--miss { color: var(--accent-txt); border-color: var(--neg); }
+.rv-leg--pending, .rv-leg--void { color: var(--muted); }
+.rv-player { display: block; margin-top: 6px; font-size: 12px; }
+.rv-line { margin-left: 6px; color: var(--muted); }

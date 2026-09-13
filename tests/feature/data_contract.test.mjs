@@ -110,6 +110,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     '/data/sleeper_projections.json',
     '/data/weekly_backtest.json',
     '/data/parlay_backtest.json',
+    // R71 — app/review.js: the post-game review, read through loadJson (same
+    // promise cache), lazily imported by the slate/parlays views after paint.
+    '/data/review.json',
   ]);
   for (const [p, files] of referenced) {
     assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);
