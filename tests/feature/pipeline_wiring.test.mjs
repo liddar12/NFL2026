@@ -57,6 +57,9 @@ const WIRED_BUILDERS = [
   'build_estimate_ledger.py',
   'resolve_estimates.py',
   'fit_player_signals.py',
+  // R58 — the parlay-leg ledger and its resolver.
+  'build_parlay_ledger.py',
+  'resolve_parlay_legs.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {

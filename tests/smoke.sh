@@ -59,6 +59,9 @@ python3 scripts/build_kdst.py --selftest || fail "kdst projection selftest"
 python3 scripts/build_sleeper_projections.py --selftest || fail "sleeper projections selftest"
 python3 scripts/build_estimate_ledger.py --selftest || fail "estimate ledger selftest"
 python3 scripts/resolve_estimates.py --selftest || fail "resolve estimates selftest"
+# R58 — the parlay-leg ledger and its resolver (pure cores).
+python3 scripts/build_parlay_ledger.py --selftest || fail "parlay ledger selftest"
+python3 scripts/resolve_parlay_legs.py --selftest || fail "resolve parlay legs selftest"
 python3 scripts/fit_player_signals.py --selftest || fail "player signal fit selftest"
 # R51 — weekly split v2 + parlay repricing: the two never-regress backtests and
 # the runner-side corpus refresher (pure cores, offline).

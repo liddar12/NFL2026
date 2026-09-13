@@ -123,6 +123,22 @@ jobs:
         run: python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
+      # R58 — PARLAY-LEG LEDGER. Append today's shipped legs (idempotent per
+      # parlays.json updated_utc; as-made pricing locks on first sight, post-kickoff
+      # legs are recorded unlocked), then score every locked leg against nflverse
+      # weekly yards. The resolver skips loudly while a week has no rows and
+      # writes an honest 0-resolved record — it never invents a log-loss.
+      # scripts/backtest_parlay.py (above) reads data/parlay_leg_scores.json for
+      # the live_2026 block and the weekly refit, so the refit sees yesterday's
+      # resolved legs — a one-day lag by design (the gate reproduces it from
+      # committed inputs).
+      - name: Parlay-leg ledger append (as-made pricing, locked pre-kickoff)
+        run: python scripts/build_parlay_ledger.py
+
+      - name: Resolve parlay legs against nflverse weekly yards
+        run: python scripts/resolve_parlay_legs.py
+        continue-on-error: true   # a stats outage degrades the record, never the run
+
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts
         run: python scripts/validate_data.py
