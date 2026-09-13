@@ -22,8 +22,14 @@ The model — a transparent prior, measured (data/weekly_backtest.json), NOT fit
     W  weather, from the HOME stadium's roof and the kickoff-hour forecast:
        QB/WR/TE dome|closed x1.03, outdoors|open x0.97 (and x0.97 again when the
        forecast is <= 0 C), retractable 1.0; RB x0.95 when outdoors and the
-       forecast wind is >= 24 km/h. No forecast row -> the roof-only factor,
-       never a guessed temperature, counted in meta.
+       forecast wind is >= 24 km/h. The row comes from data/weather_forecast.json:
+       a FORECAST row (source "forecast", inside the 16-day horizon) or, beyond
+       it, the builder's CLIMATOLOGY row (source "climatology": the stadium-month
+       mean over 2021-2025, n >= 4, firing only the rules its `rules` list
+       admits — the measured guard in docs/WEATHER_HORIZON.md). No row -> the
+       roof-only factor, never a guessed temperature. Outdoor weeks are counted
+       by what they consumed: weather_forecast_weeks / weather_climatology_weeks
+       / weather_no_forecast_weeks (dome and retractable weeks count as none).
     V  venue-specific home field (replaces the flat +/-0.02): rel = clamp(
        venue avg_home_margin / lam, -1.0, 2.5) with lam the games-weighted mean
        margin over all venues; rel = 1.0 (today's flat behaviour) when lam <= 0.3
@@ -152,7 +158,15 @@ ROOF_INDOOR = frozenset(("dome", "closed"))
 ROOF_OUTDOOR = frozenset(("outdoors", "outdoor", "open"))
 # The feed may spell a franchise by its old code; mirrors scripts/build_dvp_positional.py.
 TEAM_RENAMES = {"LA": "LAR", "OAK": "LV", "SD": "LAC", "STL": "LAR"}
-NEUTRAL_KEYS = ("dvp_neutral_weeks", "weather_no_forecast_weeks", "venue_flat_weeks")
+NEUTRAL_KEYS = ("dvp_neutral_weeks", "weather_no_forecast_weeks", "venue_flat_weeks",
+                "weather_forecast_weeks", "weather_climatology_weeks")
+# R56 — the threshold rules a weather row may fire. A forecast row fires both; a
+# climatology row only those its builder admitted after measuring them
+# (scripts/build_weather_forecast.climatology_table; a withheld rule leaves the
+# roof-only factor and is NOT a missing forecast).
+WEATHER_RULES = ("cold", "wind")
+WEATHER_POSITIONS = PASS_POSITIONS | frozenset(("RB",))   # positions W reads a row for
+WEATHER_SOURCES = {"forecast_days": 16, "climatology_min_n": 4}   # mirrors the builder
 
 
 def _load_json(path):
@@ -180,8 +194,12 @@ def load_environment(path=ENV_PATH):
 
 
 def load_forecast(path=FORECAST_PATH):
-    """data/weather_forecast.json (games["season|week|HOME|AWAY"] =
-    {temp_c, wind_kph, precip_mm}) or None."""
+    """data/weather_forecast.json or None. games["season|week|HOME|AWAY"] =
+    {temp_c, wind_kph, precip_mm, source: "forecast", fetched_utc} inside the
+    horizon; climatology[same key] = {temp_c, wind_kph, source: "climatology",
+    n, month, rules} beyond it (R56). build_factors merges the two maps, a
+    forecast row always winning; a pre-R56 file (games only, no source stamp)
+    reads as forecast rows."""
     return _load_json(path)
 
 
@@ -264,7 +282,7 @@ def roof_class(roof):
     return None
 
 
-def weather_factor(position, roof, temp_c=None, wind_kph=None):
+def weather_factor(position, roof, temp_c=None, wind_kph=None, rules=WEATHER_RULES):
     """(W, forecast_missing) for one player-week.
 
     QB/WR/TE: indoor x pass_dome, outdoor x pass_outdoors (x pass_cold_extra when
@@ -272,6 +290,9 @@ def weather_factor(position, roof, temp_c=None, wind_kph=None):
     RB: outdoor and forecast wind >= wind_kph -> x rb_wind, else 1.0.
     A None temperature/wind on an outdoor game is "no forecast": the roof-only
     factor applies and forecast_missing is True so the caller can count it.
+    rules: the threshold rules this row may fire ("cold", "wind"). A forecast
+    row fires both; a climatology row only the rules its builder admitted. A
+    withheld rule leaves the roof-only factor with forecast_missing False.
     """
     rc = roof_class(roof)
     pos = str(position or "").upper()
@@ -282,7 +303,7 @@ def weather_factor(position, roof, temp_c=None, wind_kph=None):
             f = WEATHER["pass_outdoors"]
             if temp_c is None:
                 return f, True
-            if float(temp_c) <= WEATHER["cold_c"]:
+            if "cold" in rules and float(temp_c) <= WEATHER["cold_c"]:
                 f *= WEATHER["pass_cold_extra"]
             return f, False
         return 1.0, False
@@ -290,8 +311,8 @@ def weather_factor(position, roof, temp_c=None, wind_kph=None):
         if rc == "outdoor":
             if wind_kph is None:
                 return 1.0, True
-            return (WEATHER["rb_wind"] if float(wind_kph) >= WEATHER["wind_kph"]
-                    else 1.0), False
+            windy = "wind" in rules and float(wind_kph) >= WEATHER["wind_kph"]
+            return (WEATHER["rb_wind"] if windy else 1.0), False
         return 1.0, False
     return 1.0, False
 
@@ -332,13 +353,18 @@ def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
     """
     stadiums = (env_doc or {}).get("stadiums") or {}
     venue_rel, lam = venue_rel_table((env_doc or {}).get("venue_hfa"))
+    # one weather map: forecast rows first, climatology only where no forecast
+    # row exists (the builder never writes both, but the rule is explicit here)
+    forecast = dict((forecast_doc or {}).get("games") or {})
+    for key, row in ((forecast_doc or {}).get("climatology") or {}).items():
+        forecast.setdefault(key, row)
     return {
         "season": int(season),
         "dvp_doc": dvp_doc,
         "dvp_by_week": {},                     # wk -> dvp_rates(...), filled lazily
         "roof": {norm_team(t): (v or {}).get("roof") for t, v in stadiums.items()},
         "roof_by_game": dict(roof_by_game or {}),
-        "forecast": (forecast_doc or {}).get("games") or {},
+        "forecast": forecast,
         "venue_rel": venue_rel,
         "venue_lam": lam,
         "counts": {k: 0 for k in NEUTRAL_KEYS},
@@ -375,9 +401,18 @@ def week_multiplier(factors, wk, team, opp, home, position, elos):
     if fc is None:   # tolerate the reversed spelling of the same game
         fc = factors["forecast"].get(f"{factors['season']}|{wk}|{away_team}|{home_team}")
     fc = fc or {}
-    W, missing = weather_factor(pos, roof, fc.get("temp_c"), fc.get("wind_kph"))
+    # a pre-R56 row carries no stamp and is a forecast row; an unknown label
+    # claims nothing and reads as no row at all
+    src = str(fc.get("source") or "forecast") if fc else None
+    if src not in (None, "forecast", "climatology"):
+        fc, src = {}, None
+    rules = tuple(fc.get("rules") or ()) if src == "climatology" else WEATHER_RULES
+    W, missing = weather_factor(pos, roof, fc.get("temp_c"), fc.get("wind_kph"),
+                                rules=rules)
     if missing:
         counts["weather_no_forecast_weeks"] += 1
+    elif fc and pos in WEATHER_POSITIONS and roof_class(roof) == "outdoor":
+        counts[f"weather_{src}_weeks"] += 1     # the row this outdoor week consumed
 
     rel = factors["venue_rel"].get(home_team)
     if rel is None:
@@ -776,6 +811,7 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
              "dvp_shrink": DVP_SHRINK,
              "elo_tilt_positions": list(ELO_TILT_POSITIONS),
              "weather": dict(WEATHER),
+             "weather_sources": dict(WEATHER_SOURCES),
              "venue": {"coef": HOME_COEF, "rel_clamp": list(VENUE_REL_CLAMP)},
              "neutral_counts": dict(factors["counts"]),
              "backtest": "data/weekly_backtest.json"}
@@ -835,6 +871,23 @@ def _fixture_feeds():
     forecast = {"games": {"2026|1|SFX|DAL": {"temp_c": -3.0, "wind_kph": 30.0, "precip_mm": 0.0},
                           "2026|4|SFX|GBX": {"temp_c": 12.0, "wind_kph": 10.0, "precip_mm": 0.0}}}
     return dvp, env, forecast
+
+
+def _fixture_climatology(rules=("cold",)):
+    """R56: the _fixture_feeds forecast doc plus a climatology row for SFX's
+    week-6 home game (the one with no forecast row): a cold, windy December
+    mean whose builder admitted only `rules`. A second climatology row shadows
+    week 4's forecast row and must lose to it."""
+    _, _, forecast = _fixture_feeds()
+    doc = {"games": {k: dict(v, source="forecast", fetched_utc="2026-09-01T00:00:00Z")
+                     for k, v in forecast["games"].items()},
+           "climatology": {
+               "2026|6|SFX|DAL": {"temp_c": -1.0, "wind_kph": 26.0, "source": "climatology",
+                                  "n": 6, "month": 12, "rules": list(rules)},
+               "2026|4|SFX|GBX": {"temp_c": -9.0, "wind_kph": 40.0, "source": "climatology",
+                                  "n": 5, "month": 12, "rules": ["cold", "wind"]}},
+           "sources": dict(WEATHER_SOURCES)}
+    return doc
 
 
 def selftest():
@@ -1133,8 +1186,84 @@ def selftest():
     e = player_weeks(100.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
                      factors=empty)
     assert empty["counts"] == {"dvp_neutral_weeks": 5, "weather_no_forecast_weeks": 0,
-                               "venue_flat_weeks": 5}, empty["counts"]
+                               "venue_flat_weeks": 5, "weather_forecast_weeks": 0,
+                               "weather_climatology_weeks": 0}, empty["counts"]
     assert abs(sum(w["pts"] for w in e if not w["bye"]) - 100.0) < 1e-9
+
+    # --- R56: the three weather counts and the climatology path -------------------
+    assert m["weather_sources"] == {"forecast_days": 16, "climatology_min_n": 4}
+    # forecast-only doc: SFX home wks 1, 4 consume forecast rows; wk 6 has none;
+    # @DAL (retractable) and @GBX (dome) count as nothing
+    assert fx_w["counts"]["weather_forecast_weeks"] == 2, fx_w["counts"]
+    assert fx_w["counts"]["weather_climatology_weeks"] == 0
+    assert fx_w["counts"]["weather_no_forecast_weeks"] == 1
+    # with the climatology row for wk 6 the no-forecast count goes to zero and
+    # the cold rule (admitted) fires: W = 0.97 x 0.97 against roof-only 0.97
+    fx_c = build_factors(2026, dvp_fx, env_fx, _fixture_climatology())
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                 factors=fx_c)
+    assert fx_c["counts"]["weather_forecast_weeks"] == 2, fx_c["counts"]
+    assert fx_c["counts"]["weather_climatology_weeks"] == 1
+    assert fx_c["counts"]["weather_no_forecast_weeks"] == 0
+    w6_clim = week_multiplier(fx_c, 6, "SFX", "DAL", True, "WR", flat_elo)
+    w6_none = week_multiplier(fx_w, 6, "SFX", "DAL", True, "WR", flat_elo)
+    assert abs(w6_clim / w6_none - WEATHER["pass_cold_extra"]) < 1e-12, (w6_clim, w6_none)
+    # the forecast row for wk 4 wins over the shadowing climatology row (-9 C)
+    assert abs(week_multiplier(fx_c, 4, "SFX", "GBX", True, "WR", flat_elo)
+               - week_multiplier(fx_w, 4, "SFX", "GBX", True, "WR", flat_elo)) < 1e-12
+    # RB: the wind rule is withheld on this row (rules = cold only) -> 1.0, and
+    # the week still counts as climatology (the row was consumed, the rule barred)
+    assert weather_factor("RB", "open", -1.0, 26.0, rules=("cold",)) == (1.0, False)
+    assert weather_factor("RB", "open", -1.0, 26.0, rules=("cold", "wind")) == (0.95, False)
+    assert weather_factor("QB", "open", -1.0, 26.0, rules=("wind",)) == (0.97, False)
+    assert weather_factor("QB", "open", -1.0, 26.0, rules=()) == (0.97, False)
+    assert weather_factor("RB", "open", None, None, rules=()) == (1.0, True), "absent is absent"
+    fx_rb = build_factors(2026, dvp_fx, env_fx, _fixture_climatology())
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="RB",
+                 factors=fx_rb)
+    assert fx_rb["counts"]["weather_climatology_weeks"] == 1
+    assert fx_rb["counts"]["weather_no_forecast_weeks"] == 0
+    rb_cold_only = week_multiplier(fx_rb, 6, "SFX", "DAL", True, "RB", flat_elo)
+    fx_rb2 = build_factors(2026, dvp_fx, env_fx, _fixture_climatology(rules=("cold", "wind")))
+    rb_both = week_multiplier(fx_rb2, 6, "SFX", "DAL", True, "RB", flat_elo)
+    assert abs(rb_both / rb_cold_only - WEATHER["rb_wind"]) < 1e-12
+    # a climatology row in the reversed key spelling is found too
+    fx_rev_c = build_factors(2026, dvp_fx, env_fx, {"climatology": {
+        "2026|6|DAL|SFX": {"temp_c": -1.0, "wind_kph": 5.0, "source": "climatology",
+                           "n": 4, "month": 12, "rules": ["cold", "wind"]}}})
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="TE",
+                 factors=fx_rev_c)
+    assert fx_rev_c["counts"]["weather_climatology_weeks"] == 1
+    assert fx_rev_c["counts"]["weather_no_forecast_weeks"] == 2      # wks 1 and 4
+    # a pre-R56 file (no source stamp) reads as forecast rows; an unknown label
+    # claims nothing
+    fx_legacy = build_factors(2026, dvp_fx, env_fx, fc_fx)
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="QB",
+                 factors=fx_legacy)
+    assert fx_legacy["counts"]["weather_forecast_weeks"] == 2
+    fx_odd = build_factors(2026, dvp_fx, env_fx, {"games": {
+        "2026|1|SFX|DAL": {"temp_c": -3.0, "wind_kph": 30.0, "source": "guess"}}})
+    player_weeks(200.0, "SFX", sched_by_team, flat_elo, round_dp=None, position="QB",
+                 factors=fx_odd)
+    assert fx_odd["counts"]["weather_no_forecast_weeks"] == 3, fx_odd["counts"]
+    # dome-home players never touch a weather count
+    fx_dome = build_factors(2026, dvp_fx, env_fx, _fixture_climatology())
+    player_weeks(200.0, "GBX", sched_by_team, flat_elo, round_dp=None, position="WR",
+                 factors=fx_dome)
+    # GBX: wk2 @DAL (retractable), wk4 @SFX (open, forecast), wk5 home (dome)
+    assert fx_dome["counts"]["weather_forecast_weeks"] == 1, fx_dome["counts"]
+    assert fx_dome["counts"]["weather_climatology_weeks"] == 0
+    assert fx_dome["counts"]["weather_no_forecast_weeks"] == 0
+    # the document meta carries every count and the source constants
+    doc_c = build_weekly_document(
+        [{"gsis_id": "p1", "name": "WR Guy", "team": "SFX", "position": "WR",
+          "proj_points": 200.0}], sched, elos, {}, 2026, "2026-09-02T00:00:00Z",
+        injuries=[], factors=build_factors(2026, dvp_fx, env_fx, _fixture_climatology()))
+    nc = doc_c["model"]["neutral_counts"]
+    assert set(nc) == set(NEUTRAL_KEYS)
+    assert (nc["weather_forecast_weeks"], nc["weather_climatology_weeks"],
+            nc["weather_no_forecast_weeks"]) == (2, 1, 0), nc
+    assert doc_c["model"]["weather_sources"] == WEATHER_SOURCES
 
     print("selftest OK: week-shaping preserves the season total, unavailability "
           "reduces it pro-rata, the two never mix, a healthy build is unchanged, "
