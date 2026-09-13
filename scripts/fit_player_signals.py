@@ -22,6 +22,10 @@ WHAT THIS NEVER DOES: change data/meta.json weights. Like scripts/promote_signal
 data/model_tuning.json `history` with `would_adopt`, and applying a weight stays a
 deliberate human act. With 0 resolved weeks the objective refuses (LedgerNotReady)
 and this script exits 0 after saying so — nothing is written, nothing is invented.
+With ONE resolved week there is no held-out fold: the entry is archived with
+`verdict: "refused"` and the reason (R53) — the MODEL tab's LEARNING RECORD shows
+that verdict as the last proposal. Two or more weeks: "propose" when the refit
+clears the margin, else "retain".
 
 Grid: one coordinate pass over every signal the resolved rows carry, weights in
 {0, 0.25, 0.5, 0.75, 1.0}, starting from the incumbent. Stdlib only.
@@ -127,6 +131,7 @@ def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
         "candidate_weights": wf["candidate_weights"],
         "would_adopt": bool(would),
         "adopted": False,
+        "verdict": ("refused" if wf["folds"] == 0 else ("propose" if would else "retain")),
         "reason": ("walk-forward needs >= 2 resolved weeks for a held-out fold; "
                    "nothing can be adopted on one week" if wf["folds"] == 0 else
                    ("candidate clears the %.2f-point margin — adoption is a manual "
@@ -136,9 +141,10 @@ def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
                     "%.2f-point margin; weights unchanged" % margin)),
     }
     print("fit_player_signals: weeks=%d rows=%d folds=%d current_mae=%s candidate_mae=%s "
-          "would_adopt=%s" % (entry["weeks_resolved"], entry["rows_resolved"],
-                              entry["folds"], entry["current_mae"],
-                              entry["candidate_mae"], entry["would_adopt"]))
+          "would_adopt=%s verdict=%s" % (entry["weeks_resolved"], entry["rows_resolved"],
+                                         entry["folds"], entry["current_mae"],
+                                         entry["candidate_mae"], entry["would_adopt"],
+                                         entry["verdict"]))
     if propose:
         with open(tuning_path, encoding="utf-8") as fh:
             tuning = json.load(fh)
@@ -198,8 +204,35 @@ def selftest():
     # folds never see their own week
     for fit, held, wk in lo.walk_forward_folds(three):
         assert all(r["week"] < wk for r in fit) and all(r["week"] == wk for r in held)
-    print("selftest OK: refuses at 0 resolved weeks, 1 week gives no fold, "
-          "walk-forward recovers a true signal, never-regress margin gates adoption")
+    # R53: the archived verdict — one week REFUSES with its reason, two weeks PROPOSE
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = {k: os.path.join(tmp, k + ".json") for k in ("scores", "meta", "tuning")}
+        with open(paths["meta"], "w") as fh:
+            json.dump({"weights": {"age_curve": 0.0}}, fh)
+        for weeks, want in (([1], "refused"), ([1, 2], "propose")):
+            with open(paths["scores"], "w") as fh:
+                json.dump({"weeks_resolved": len(weeks), "resolved": _rows(weeks)}, fh)
+            with open(paths["tuning"], "w") as fh:
+                json.dump({"history": []}, fh)
+            e = run(paths["scores"], paths["meta"], paths["tuning"], propose=True, now="t")
+            assert e["verdict"] == want and e["adopted"] is False, (weeks, e["verdict"])
+            with open(paths["tuning"]) as fh:
+                hist = json.load(fh)["history"]
+            assert hist[-1]["verdict"] == want and hist[-1]["kind"] == "player_signal_fit"
+        assert hist[-1]["would_adopt"] is True and hist[-1]["folds"] == 1
+        with open(paths["scores"], "w") as fh:
+            json.dump({"weeks_resolved": 1, "resolved": _rows([1])}, fh)
+        r1 = run(paths["scores"], paths["meta"], paths["tuning"], propose=False, now="t")
+        assert r1["folds"] == 0 and r1["would_adopt"] is False \
+            and ">= 2 resolved weeks" in r1["reason"], r1["reason"]
+        with open(paths["scores"], "w") as fh:
+            json.dump({"weeks_resolved": 0, "resolved": [], "skipped": "no rows"}, fh)
+        assert run(paths["scores"], paths["meta"], paths["tuning"], propose=True) is None, \
+            "0 weeks: nothing fitted, nothing archived"
+    print("selftest OK: refuses at 0 resolved weeks, 1 week gives no fold (verdict "
+          "refused, reason archived), two weeks propose, walk-forward recovers a true "
+          "signal, never-regress margin gates adoption")
 
 
 def main(argv=None):
