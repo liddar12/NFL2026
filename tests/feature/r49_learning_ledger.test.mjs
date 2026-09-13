@@ -95,7 +95,10 @@ print(json.dumps({"doc": doc, "empty": empty, "unmatched": unmatched}))`);
   assert.equal(doc.weeks_resolved, 1);
   assert.deepEqual(doc.resolved.map((x) => [x.gsis_id, x.week]).sort(), [['espn-1', 1], ['espn-2', 1]],
     'week 2 (no rows) is skipped, the never-joining TE is unmatched, the unlocked QB is not scored');
-  assert.equal(r.unmatched, 1);
+  // R53: the unmatched ledger player is LISTED BY NAME, never a silent count
+  assert.deepEqual(r.unmatched.map((u) => u.name), ['Never Joins']);
+  assert.equal(doc.unmatched_players, 1);
+  assert.deepEqual(doc.unmatched, [{ gsis_id: 'espn-3', name: 'Never Joins', team: 'NE', position: 'TE' }]);
   assert.equal(doc.totals.n, doc.resolved.length);
   assert.equal(Object.values(doc.by_position).reduce((a, b) => a + b.n, 0), doc.totals.n);
   assert.equal(doc.weeks.reduce((a, w) => a + w.players_scored, 0), doc.totals.n);
@@ -111,6 +114,9 @@ print(json.dumps({"doc": doc, "empty": empty, "unmatched": unmatched}))`);
   assert.equal(empty.totals.mae_shipped, null);
   assert.equal(empty.totals.mae_candidate, null);
   assert.equal(empty.skipped, 'no rows yet');
+  // no stats rows at all: every LOCKED player is unmatched and named (the unlocked QB is not)
+  assert.deepEqual(empty.unmatched.map((u) => u.gsis_id), ['espn-1', 'espn-2', 'espn-3']);
+  assert.equal(empty.unmatched_players, 3);
 });
 
 test('the harness objective refuses to fit with 0 resolved weeks, and one week yields no held-out fold', () => {
@@ -176,6 +182,8 @@ test('the committed record is honest: 0 resolved weeks, null MAE, nothing invent
     assert.equal(lr.objective_ready, false);
     assert.equal(typeof scores.skipped, 'string', 'the skip must say why');
     assert.equal(scores.resolved.length, 0);
+    assert.deepEqual(scores.unmatched, [], 'nothing joined, nothing unmatched');
+    assert.equal(lr.last_proposal, null, 'no fit can have been archived on 0 weeks');
   } else {
     assert.equal(typeof lr.mae_ppr, 'number');
   }

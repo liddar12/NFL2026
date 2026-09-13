@@ -42,6 +42,17 @@ NEVER-REGRESS: v2 is adopted only if it is not worse than v1 on pooled MAE AND
 pooled rank_corr. `--gate` recomputes and exits 1 on a regression; the default
 run writes data/weekly_backtest.json; `--selftest` runs a synthetic in-memory
 fixture (offline, exit code only). Stdlib only.
+
+LIVE 2026 (R54): the written artifact also carries `live_2026` — the SHIPPED
+weekly estimate per player-week exactly as it was made and locked before kickoff
+(data/estimates/2026.json `locked`, scripts/build_estimate_ledger.py) joined to
+the resolved actuals in data/estimate_scores.json `resolved`
+(scripts/resolve_estimates.py) — NOT the corpus above. Pooled MAE, rank corr and
+top-K for the shipped series on every resolved 2026 week, per week with n, plus
+the same three metrics for the gated and candidate series when every locked row
+carries them. Until a week has resolved it is exactly {"weeks": 0, "note": ...}:
+no number is ever made up. The never-regress VERDICT stays on the 2023-25
+corpus; the live block is measured, never judged, and `--gate` ignores it.
 """
 
 import datetime as dt
@@ -69,6 +80,15 @@ TUNING_PATH = os.path.join(DATA, "model_tuning.json")
 OUT_PATH = os.path.join(DATA, "weekly_backtest.json")
 ACTUALS_REL = "data/fixtures/backtest_weekly/weekly_actuals.json"
 GAMES_REL = "data/fixtures/backtest_weekly/games_meta.json"
+LIVE_SEASON = 2026
+LEDGER_REL = "data/estimates/%d.json" % LIVE_SEASON
+SCORES_REL = "data/estimate_scores.json"
+LEDGER_PATH = os.path.join(_ROOT, LEDGER_REL)
+SCORES_PATH = os.path.join(_ROOT, SCORES_REL)
+LIVE_NOTE = ("LIVE %d: the shipped weekly estimate per player-week as made and locked "
+             "before kickoff (%s) scored against resolved actual PPR (%s), not the "
+             "2023-25 corpus; measured only — the never-regress verdict above stays on "
+             "the corpus" % (LIVE_SEASON, LEDGER_REL, SCORES_REL))
 
 MODEL_CANDIDATE = bw.MODEL_NAME                 # "weekly_split_v2"
 MODEL_INCUMBENT = "weekly_split_v1"
@@ -473,6 +493,69 @@ def block_bootstrap(rows, held_out=HELD_OUT, b=BOOT_B, seed=BOOT_SEED):
 
 
 # ---------------------------------------------------------------------------
+# LIVE 2026 (R54) — locked ledger estimates vs resolved actuals
+# ---------------------------------------------------------------------------
+
+LIVE_SERIES = ("shipped", "gated", "candidate")
+
+
+def live_rows(ledger, scores, season=LIVE_SEASON):
+    """Join: every (player, week) the ledger LOCKED before kickoff that the
+    resolver scored. The estimates are the ledger's own locked numbers (as
+    made); the actual is the resolved row's. Rows carry the harness keys
+    (season, week, pos, pid, actual) so block()/rank_corr()/topk apply. Pure."""
+    actuals = {}
+    for r in (scores or {}).get("resolved") or []:
+        actuals[(str(r.get("gsis_id")), int(r.get("week") or 0))] = float(r["actual"])
+    rows = []
+    for pid, p in sorted(((ledger or {}).get("players") or {}).items()):
+        for key, lk in (p.get("locked") or {}).items():
+            wk = int(key)
+            if (pid, wk) not in actuals:
+                continue
+            row = {"season": int(season), "week": wk, "pos": str(p.get("position") or ""),
+                   "pid": pid, "actual": actuals[(pid, wk)]}
+            for series in LIVE_SERIES:
+                if lk.get(series) is not None:
+                    row[series] = float(lk[series])
+            rows.append(row)
+    return rows
+
+
+def live_block(ledger, scores, season=LIVE_SEASON, note=LIVE_NOTE):
+    """The `live_2026` artifact block. Exactly {"weeks": 0, "note": ...} until a
+    week has resolved — never a fabricated number. Pure."""
+    rows = live_rows(ledger, scores, season)
+    weeks = sorted({r["week"] for r in rows})
+    if not rows:
+        why = ((scores or {}).get("skipped") if isinstance(scores, dict) else None) \
+            or "no %d week has resolved yet" % season
+        return {"weeks": 0, "note": "%s — %s" % (why, note)}
+    carried = [s_ for s_ in LIVE_SERIES if all(s_ in r for r in rows)]
+    out = {"season": int(season), "weeks": len(weeks), "weeks_resolved": weeks,
+           "rows": len(rows), "ledger": LEDGER_REL, "scores": SCORES_REL}
+    for series in LIVE_SERIES:
+        out[series] = block(rows, series) if series in carried else None
+    per_week = []
+    for wk in weeks:
+        wrows = [r for r in rows if r["week"] == wk]
+        entry = {"week": wk, "n": len(wrows)}
+        for series in LIVE_SERIES:
+            entry[series] = block(wrows, series) if series in carried else None
+        per_week.append(entry)
+    out["per_week"] = per_week
+    out["note"] = note
+    return out
+
+
+def load_live(ledger_path=LEDGER_PATH, scores_path=SCORES_PATH, season=LIVE_SEASON):
+    """The live block from the committed files; an honest zero when either is absent."""
+    if not (os.path.exists(ledger_path) and os.path.exists(scores_path)):
+        return {"weeks": 0, "note": "%s or %s absent — %s" % (LEDGER_REL, SCORES_REL, LIVE_NOTE)}
+    return live_block(_load(ledger_path), _load(scores_path), season)
+
+
+# ---------------------------------------------------------------------------
 # Run + document
 # ---------------------------------------------------------------------------
 
@@ -613,6 +696,18 @@ def report(result, held_out=HELD_OUT):
           % (m["rows_skipped"], m["pool_excluded"], m["neutral_weeks"], m["runtime_s"]))
     print("  VERDICT: %s - %s" % ("ADOPT" if result["verdict"]["adopted"] else "KEEP v1",
                                   result["verdict"]["reason"]))
+
+
+def report_live(live):
+    if not live.get("weeks"):
+        print("  LIVE %d: no week resolved yet (%s)" % (LIVE_SEASON, live.get("note", "")[:80]))
+        return
+    print("  LIVE %d: %d week(s) %s, %d rows | shipped %s"
+          % (LIVE_SEASON, live["weeks"], live["weeks_resolved"], live["rows"],
+             _fmt(live["shipped"])))
+    for series in ("gated", "candidate"):
+        if live.get(series):
+            print("  LIVE %d: %-9s %s" % (LIVE_SEASON, series, _fmt(live[series])))
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +872,52 @@ def selftest():
     a2 = {k: v for k, v in artifact(again).items() if k not in ("generated_utc", "meta")}
     assert a1 == a2, "the artifact must be deterministic"
     assert "_rows" not in artifact(res)
+
+    # --- LIVE 2026 (R54): locked ledger x resolved actuals, honest zero ---------
+    assert live_block({"players": {}}, {"weeks_resolved": 0, "resolved": [],
+                                        "skipped": "no rows"}) == {
+        "weeks": 0, "note": "no rows — " + LIVE_NOTE}, "0 weeks: weeks + note and NOTHING else"
+    assert set(live_block(None, None)) == {"weeks", "note"}
+    ledger = {"players": {}}
+    scores = {"weeks_resolved": 2, "resolved": []}
+    rng2 = random.Random(54)
+    for pos in POSITIONS:
+        for i in range(8):
+            pid = "%s-%d" % (pos, i)
+            locked = {}
+            for wk in (1, 2):
+                est = 6.0 + 2.0 * i
+                locked[str(wk)] = {"shipped": est, "gated": est * 0.9, "candidate": est * 1.1,
+                                   "baseline": est, "low": est * 0.7, "high": est * 1.4}
+                if not (pos == "TE" and i == 7 and wk == 2):    # one locked row unresolved
+                    scores["resolved"].append({"gsis_id": pid, "week": wk, "position": pos,
+                                               "actual": max(0.0, rng2.gauss(est, 3.0))})
+            locked["3"] = dict(locked["1"])                     # locked, not yet resolved
+            ledger["players"][pid] = {"name": pid, "team": "AAA", "position": pos,
+                                      "locked": locked}
+    lv = live_block(ledger, scores)
+    assert lv["weeks"] == 2 and lv["weeks_resolved"] == [1, 2] and lv["rows"] == 63, lv["rows"]
+    assert [w["n"] for w in lv["per_week"]] == [32, 31]
+    for series in LIVE_SERIES:
+        assert lv[series]["mae"] is not None and lv[series]["rank_corr"] is not None \
+            and lv[series]["topk"] is not None, series
+    want = sum(abs(r["shipped"] - r["actual"]) for r in live_rows(ledger, scores)) / 63
+    assert abs(lv["shipped"]["mae"] - want) < 1e-9, "pooled MAE over the joined rows"
+    assert lv["note"] == LIVE_NOTE and lv["season"] == 2026
+    # a ledger whose locked rows carry no gated/candidate numbers: those series are null
+    for p in ledger["players"].values():
+        for lk in p["locked"].values():
+            lk.pop("gated"); lk.pop("candidate")
+    lv2 = live_block(ledger, scores)
+    assert lv2["gated"] is None and lv2["candidate"] is None \
+        and lv2["shipped"]["mae"] == lv["shipped"]["mae"]
+    assert all(w["gated"] is None for w in lv2["per_week"])
+    # the corpus verdict never reads the live block
+    assert "live_2026" not in res
     print("selftest OK: season number fixed and leak-free, venue/Elo walk-forward, "
           "QB-only tilt through the deployed split, contract keys present, "
-          "bootstrap deterministic")
+          "bootstrap deterministic, live 2026 block honest at zero and joined on "
+          "locked rows")
 
 
 # ---------------------------------------------------------------------------
@@ -801,6 +939,9 @@ def main(argv):
                              else "FAIL (v2 regresses v1 on pooled MAE or rank_corr)"))
         return 0 if adopted else 1
     doc = artifact(result)
+    # R54 — measured beside the corpus verdict, never part of it (see LIVE_NOTE).
+    doc["live_%d" % LIVE_SEASON] = _round(load_live())
+    report_live(doc["live_%d" % LIVE_SEASON])
     with open(OUT_PATH, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, ensure_ascii=True, indent=2)
         fh.write("\n")
