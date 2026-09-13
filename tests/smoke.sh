@@ -69,6 +69,9 @@ python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"
 # R70 — the line report and the measure-only line-injury cascade backtest.
 python3 scripts/build_line_report.py --selftest || fail "line report selftest"
 python3 scripts/backtest_lines.py --selftest || fail "lines backtest selftest"
+# R71 — the post-game review builder and its optional narrative layer.
+python3 scripts/build_review.py --selftest || fail "post-game review selftest"
+python3 scripts/build_review_narrative.py --selftest || fail "review narrative selftest"
 python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).

@@ -236,6 +236,12 @@ export default async function mountParlays(el) {
       ? filtered.map((p) => renderParlayCard(p, matchupById)).join('')
       : '<div class="state">No parlays at this leg count.</div>';
     if (filtered.length) annotateLegs(listEl, filtered);
+    // R71 — post-game review marks (✓ / ✗ / – per leg, HIT / MISS / PENDING per
+    // parlay, a summary line), lazily so app/review.js stays off the boot graph.
+    // Absent data/review.json (or a failed import) paints nothing extra.
+    import('../review.js')
+      .then((mod) => mod.applyParlayReview(listEl, data.week))
+      .catch(() => { /* review layer unavailable — the cards stand on their own */ });
   }
 
   el.innerHTML =

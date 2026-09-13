@@ -1,0 +1,1262 @@
+{
+ "season": 2026,
+ "schedule": {
+  "season": 2026,
+  "updated_utc": "2026-09-13T00:00:00Z",
+  "games": [
+   {
+    "game_id": "G1",
+    "home": "AAA",
+    "away": "BBB",
+    "week": 1,
+    "kickoff_utc": "2026-09-13T17:00Z",
+    "roof": "outdoor",
+    "status": "STATUS_FINAL"
+   },
+   {
+    "game_id": "G2",
+    "home": "CCC",
+    "away": "DDD",
+    "week": 1,
+    "kickoff_utc": "2026-09-13T20:25Z",
+    "roof": "dome",
+    "status": "STATUS_FINAL"
+   },
+   {
+    "game_id": "G3",
+    "home": "EEE",
+    "away": "FFF",
+    "week": 1,
+    "kickoff_utc": "2026-09-14T00:20Z",
+    "roof": "outdoor",
+    "status": "STATUS_HALFTIME"
+   },
+   {
+    "game_id": "G4",
+    "home": "GGG",
+    "away": "HHH",
+    "week": 1,
+    "kickoff_utc": "2026-09-15T00:15Z",
+    "roof": "retractable",
+    "status": "STATUS_SCHEDULED"
+   },
+   {
+    "game_id": "G5",
+    "home": "AAA",
+    "away": "CCC",
+    "week": 2,
+    "kickoff_utc": "2026-09-20T17:00Z",
+    "roof": "outdoor",
+    "status": "STATUS_SCHEDULED"
+   }
+  ]
+ },
+ "locks": {
+  "1": [
+   {
+    "event_id": "G1",
+    "event_type": "game",
+    "model": "elo_prior",
+    "locked_utc": "2026-09-11T00:00:00Z",
+    "as_of_utc": "2026-09-11T00:00:00Z",
+    "probs": [
+     0.6,
+     0.4
+    ],
+    "estimate": false,
+    "resolved": true,
+    "actual": 0,
+    "brier": 0.16,
+    "log_loss": 0.5108
+   },
+   {
+    "event_id": "G2",
+    "event_type": "game",
+    "model": "elo_prior",
+    "locked_utc": "2026-09-11T00:00:00Z",
+    "as_of_utc": "2026-09-11T00:00:00Z",
+    "probs": [
+     0.7,
+     0.3
+    ],
+    "estimate": true,
+    "resolved": true,
+    "actual": 1
+   },
+   {
+    "event_id": "G3",
+    "event_type": "game",
+    "model": "elo_prior",
+    "locked_utc": "2026-09-11T00:00:00Z",
+    "as_of_utc": "2026-09-11T00:00:00Z",
+    "probs": [
+     0.55,
+     0.45
+    ],
+    "estimate": false,
+    "resolved": false
+   },
+   {
+    "event_id": "G4",
+    "event_type": "game",
+    "model": "elo_prior",
+    "locked_utc": "2026-09-11T00:00:00Z",
+    "as_of_utc": "2026-09-11T00:00:00Z",
+    "probs": [
+     0.5,
+     0.5
+    ],
+    "estimate": false,
+    "resolved": false
+   }
+  ]
+ },
+ "finals": [
+  {
+   "game_id": "G1",
+   "home": "AAA",
+   "away": "BBB",
+   "status": "STATUS_FINAL",
+   "final": true,
+   "home_score": 27,
+   "away_score": 7
+  },
+  {
+   "game_id": "G3",
+   "home": "EEE",
+   "away": "FFF",
+   "status": "STATUS_HALFTIME",
+   "final": false,
+   "home_score": 14,
+   "away_score": 10
+  },
+  {
+   "game_id": "G4",
+   "home": "GGG",
+   "away": "HHH",
+   "status": "STATUS_SCHEDULED",
+   "final": false,
+   "home_score": 0,
+   "away_score": 0
+  }
+ ],
+ "estimate_scores": {
+  "season": 2026,
+  "generated_utc": "2026-09-14T00:00:00Z",
+  "resolved": [
+   {
+    "gsis_id": "fx-rb",
+    "week": 1,
+    "position": "RB",
+    "baseline": 10.0,
+    "shipped": 10.0,
+    "candidate": 10.0,
+    "low": 7.0,
+    "high": 14.0,
+    "gated": 10.0,
+    "actual": 19.9,
+    "signals": {}
+   },
+   {
+    "gsis_id": "fx-wr",
+    "week": 1,
+    "position": "WR",
+    "baseline": 8.0,
+    "shipped": 8.0,
+    "candidate": 8.0,
+    "low": 6.0,
+    "high": 12.0,
+    "gated": 8.0,
+    "actual": 6.0,
+    "signals": {}
+   },
+   {
+    "gsis_id": "fx-te",
+    "week": 1,
+    "position": "TE",
+    "baseline": 9.0,
+    "shipped": 9.0,
+    "candidate": 9.0,
+    "low": 5.0,
+    "high": 12.0,
+    "gated": 9.0,
+    "actual": 12.0,
+    "signals": {}
+   },
+   {
+    "gsis_id": "fx-qb",
+    "week": 1,
+    "position": "QB",
+    "baseline": 15.0,
+    "shipped": 14.8,
+    "candidate": 14.8,
+    "low": 8.06,
+    "high": 21.54,
+    "gated": 14.8,
+    "actual": 4.1,
+    "signals": {}
+   },
+   {
+    "gsis_id": "fx-dnp",
+    "week": 1,
+    "position": "RB",
+    "baseline": 10.0,
+    "shipped": 10.0,
+    "candidate": 10.0,
+    "low": 6.0,
+    "high": 15.0,
+    "gated": 10.0,
+    "actual": 0.0,
+    "signals": {},
+    "dnp": true
+   }
+  ]
+ },
+ "weekly": {
+  "season": 2026,
+  "updated_utc": "2026-09-13T00:00:00Z",
+  "players": [
+   {
+    "gsis_id": "fx-rb",
+    "receptions_prior": 26.0,
+    "league_components": {
+     "rush_att": 200.0,
+     "rush_yd": 800.0,
+     "rush_td": 12.0,
+     "rec_tgt": 40.0,
+     "rec_yd": 240.0,
+     "fum_lost": 1.0
+    },
+    "base_applied_pts": 174.0,
+    "weeks": [
+     {
+      "wk": 1,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 12.0
+     },
+     {
+      "wk": 2,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 3,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 4,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 5,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 6,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 7,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 8,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 9,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 10,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 11,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 12,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 13,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 14,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 15,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 16,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 17,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 11.0
+     },
+     {
+      "wk": 18,
+      "opp": null,
+      "home": false,
+      "bye": true,
+      "pts": 0.0
+     }
+    ]
+   },
+   {
+    "gsis_id": "fx-wr",
+    "receptions_prior": 74.0,
+    "league_components": {
+     "rec_tgt": 120.0,
+     "rec_yd": 900.0,
+     "rec_td": 6.0
+    },
+    "base_applied_pts": 126.0,
+    "weeks": [
+     {
+      "wk": 1,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 2,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 3,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 4,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 5,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 6,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 7,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 8,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 9,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 10,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 11,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 12,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 13,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 14,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 15,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 16,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 17,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 8.0
+     },
+     {
+      "wk": 18,
+      "opp": null,
+      "home": false,
+      "bye": true,
+      "pts": 0.0
+     }
+    ]
+   },
+   {
+    "gsis_id": "fx-te",
+    "receptions_prior": 50.0,
+    "league_components": {
+     "rec_tgt": 80.0,
+     "rec_yd": 600.0,
+     "rec_td": 5.0
+    },
+    "base_applied_pts": 90.0,
+    "weeks": [
+     {
+      "wk": 1,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 2,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 3,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 4,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 5,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 6,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 7,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 8,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 9,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 10,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 11,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 12,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 13,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 14,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 15,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 16,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 17,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 9.0
+     },
+     {
+      "wk": 18,
+      "opp": null,
+      "home": false,
+      "bye": true,
+      "pts": 0.0
+     }
+    ]
+   },
+   {
+    "gsis_id": "fx-qb",
+    "receptions_prior": 0.0,
+    "league_components": {
+     "pass_att": 500.0,
+     "pass_cmp": 330.0,
+     "pass_yd": 4000.0,
+     "pass_td": 30.0,
+     "pass_int": 10.0,
+     "rush_att": 20.0,
+     "rush_yd": 60.0
+    },
+    "base_applied_pts": 266.0,
+    "weeks": [
+     {
+      "wk": 1,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 14.8
+     },
+     {
+      "wk": 2,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 3,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 4,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 5,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 6,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 7,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 8,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 9,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 10,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 11,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 12,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 13,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 14,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 15,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 16,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 17,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 15.0
+     },
+     {
+      "wk": 18,
+      "opp": null,
+      "home": false,
+      "bye": true,
+      "pts": 0.0
+     }
+    ]
+   },
+   {
+    "gsis_id": "fx-dnp",
+    "receptions_prior": 10.0,
+    "league_components": {
+     "rush_att": 150.0,
+     "rush_yd": 600.0,
+     "rush_td": 5.0,
+     "rec_tgt": 15.0,
+     "rec_yd": 90.0
+    },
+    "base_applied_pts": 99.0,
+    "weeks": [
+     {
+      "wk": 1,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 2,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 3,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 4,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 5,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 6,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 7,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 8,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 9,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 10,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 11,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 12,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 13,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 14,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 15,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 16,
+      "opp": "OPP",
+      "home": false,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 17,
+      "opp": "OPP",
+      "home": true,
+      "bye": false,
+      "pts": 10.0
+     },
+     {
+      "wk": 18,
+      "opp": null,
+      "home": false,
+      "bye": true,
+      "pts": 0.0
+     }
+    ]
+   }
+  ]
+ },
+ "projections": {
+  "season": 2026,
+  "updated_utc": "2026-09-13T00:00:00Z",
+  "players": [
+   {
+    "gsis_id": "fx-rb",
+    "name": "Run Back",
+    "team": "AAA",
+    "position": "RB",
+    "proj_points": 200.0
+   },
+   {
+    "gsis_id": "fx-wr",
+    "name": "Wide Out",
+    "team": "BBB",
+    "position": "WR",
+    "proj_points": 200.0
+   },
+   {
+    "gsis_id": "fx-te",
+    "name": "Tight End",
+    "team": "CCC",
+    "position": "TE",
+    "proj_points": 140.0
+   },
+   {
+    "gsis_id": "fx-qb",
+    "name": "Field General",
+    "team": "DDD",
+    "position": "QB",
+    "proj_points": 266.0
+   },
+   {
+    "gsis_id": "fx-dnp",
+    "name": "Bench Warmer",
+    "team": "EEE",
+    "position": "RB",
+    "proj_points": 109.0
+   },
+   {
+    "gsis_id": "fx-nostats",
+    "name": "Never Scored",
+    "team": "FFF",
+    "position": "WR",
+    "proj_points": 100.0
+   },
+   {
+    "gsis_id": "fx-qb-aaa",
+    "name": "Home Quarterback",
+    "team": "AAA",
+    "position": "QB",
+    "proj_points": 300.0
+   },
+   {
+    "gsis_id": "fx-qb-aaa2",
+    "name": "Backup Quarterback",
+    "team": "AAA",
+    "position": "QB",
+    "proj_points": 40.0
+   },
+   {
+    "gsis_id": "fx-qb-bbb",
+    "name": "Away Quarterback",
+    "team": "BBB",
+    "position": "QB",
+    "proj_points": 250.0
+   }
+  ]
+ },
+ "injuries": {
+  "updated_utc": "2026-09-13T10:00:00Z",
+  "injuries": [
+   {
+    "team": "AAA",
+    "player": "Home Quarterback",
+    "status": "Out",
+    "availability": "OUT",
+    "availability_class": "week"
+   },
+   {
+    "team": "EEE",
+    "player": "Bench Warmer",
+    "status": "Out",
+    "availability": "OUT",
+    "availability_class": "week"
+   },
+   {
+    "team": "AAA",
+    "player": "Run Back",
+    "status": "Active",
+    "availability": "ACTIVE",
+    "availability_class": "none"
+   }
+  ]
+ },
+ "forecast": {
+  "generated_utc": "2026-09-13T00:00:00Z",
+  "games": {
+   "2026|1|AAA|BBB": {
+    "temp_c": 10.0,
+    "wind_kph": 30.0,
+    "precip_mm": 0.0
+   }
+  }
+ },
+ "parlays": {
+  "season": 2026,
+  "week": 1,
+  "updated_utc": "2026-09-13T00:00:00Z",
+  "parlays": [
+   {
+    "parlay_id": "G1-g1",
+    "scope": "game",
+    "game_id": "G1",
+    "legs": [
+     {
+      "market": "moneyline",
+      "selection": "AAA ML",
+      "implied_prob": 0.55,
+      "model_prob": 0.6
+     },
+     {
+      "market": "rb_rush_yds",
+      "selection": "R. Back 60+ rush yds",
+      "implied_prob": 0.5,
+      "model_prob": 0.55
+     }
+    ],
+    "model_ev": 0.1,
+    "confidence_tier": "low"
+   },
+   {
+    "parlay_id": "G1-g2",
+    "scope": "game",
+    "game_id": "G1",
+    "legs": [
+     {
+      "market": "moneyline",
+      "selection": "AAA ML",
+      "implied_prob": 0.55,
+      "model_prob": 0.6
+     },
+     {
+      "market": "spread",
+      "selection": "AAA -3",
+      "implied_prob": 0.52,
+      "model_prob": 0.5
+     }
+    ],
+    "model_ev": 0.05,
+    "confidence_tier": "low"
+   },
+   {
+    "parlay_id": "week-1",
+    "scope": "week",
+    "legs": [
+     {
+      "market": "moneyline",
+      "selection": "DDD ML",
+      "implied_prob": 0.3,
+      "model_prob": 0.3
+     },
+     {
+      "market": "spread",
+      "selection": "CCC -1",
+      "implied_prob": 0.52,
+      "model_prob": 0.5
+     }
+    ],
+    "model_ev": -0.1,
+    "confidence_tier": "low"
+   },
+   {
+    "parlay_id": "week-2",
+    "scope": "week",
+    "legs": [
+     {
+      "market": "moneyline",
+      "selection": "AAA ML",
+      "implied_prob": 0.55,
+      "model_prob": 0.6
+     },
+     {
+      "market": "spread",
+      "selection": "BBB +20",
+      "implied_prob": 0.52,
+      "model_prob": 0.5
+     }
+    ],
+    "model_ev": -0.1,
+    "confidence_tier": "low"
+   },
+   {
+    "parlay_id": "G3-g1",
+    "scope": "game",
+    "game_id": "G3",
+    "legs": [
+     {
+      "market": "moneyline",
+      "selection": "EEE ML",
+      "implied_prob": 0.5,
+      "model_prob": 0.55
+     },
+     {
+      "market": "spread",
+      "selection": "EEE -2",
+      "implied_prob": 0.52,
+      "model_prob": 0.5
+     }
+    ],
+    "model_ev": 0.0,
+    "confidence_tier": "low"
+   }
+  ]
+ },
+ "parlay_ledger": {
+  "season": 2026,
+  "generated_utc": "2026-09-13T00:00:00Z",
+  "legs": [
+   {
+    "season": 2026,
+    "week": 1,
+    "market": "moneyline",
+    "selection": "DDD ML",
+    "team": "DDD",
+    "side": "away",
+    "game_id": "G2",
+    "home": "CCC",
+    "away": "DDD",
+    "locked": true
+   },
+   {
+    "season": 2026,
+    "week": 1,
+    "market": "spread",
+    "selection": "CCC -1",
+    "team": "CCC",
+    "side": "home",
+    "line": -1,
+    "game_id": "G2",
+    "home": "CCC",
+    "away": "DDD",
+    "locked": true
+   },
+   {
+    "season": 2026,
+    "week": 1,
+    "market": "spread",
+    "selection": "BBB +20",
+    "team": "BBB",
+    "side": "away",
+    "line": 20,
+    "game_id": "G1",
+    "home": "AAA",
+    "away": "BBB",
+    "locked": true
+   }
+  ]
+ },
+ "leg_scores": {
+  "season": 2026,
+  "generated_utc": "2026-09-14T00:00:00Z",
+  "weeks_resolved": 1,
+  "resolved": [
+   {
+    "week": 1,
+    "game_id": "G1",
+    "market": "moneyline",
+    "selection": "AAA ML",
+    "team": "AAA",
+    "side": "home",
+    "line": null,
+    "model_prob": 0.6,
+    "actual": {
+     "home_score": 27,
+     "away_score": 7
+    },
+    "hit": true
+   },
+   {
+    "week": 1,
+    "game_id": "G1",
+    "market": "spread",
+    "selection": "AAA -3",
+    "team": "AAA",
+    "side": "home",
+    "line": -3,
+    "model_prob": 0.5,
+    "actual": {
+     "home_score": 27,
+     "away_score": 7
+    },
+    "hit": true
+   },
+   {
+    "week": 1,
+    "game_id": "G1",
+    "market": "rb_rush_yds",
+    "position": "RB",
+    "selection": "R. Back 60+ rush yds",
+    "player": "Run Back",
+    "team": "AAA",
+    "line": 59.5,
+    "mu": 62.0,
+    "sd": 30.0,
+    "z": 0.08,
+    "p_team": 0.6,
+    "pricing": "calibrated",
+    "model_prob": 0.55,
+    "seed_prob": 0.5,
+    "actual": 55.0,
+    "hit": false
+   }
+  ],
+  "unresolved": [
+   {
+    "week": 1,
+    "game_id": "G2",
+    "market": "spread",
+    "selection": "CCC -1",
+    "reason": "no_final_score"
+   },
+   {
+    "week": 1,
+    "game_id": "G1",
+    "market": "spread",
+    "selection": "BBB +20",
+    "reason": "push"
+   }
+  ]
+ },
+ "stats_reason": null,
+ "finals_reason": null,
+ "sources": {
+  "schedule_full": "2026-09-13T00:00:00Z",
+  "locks": [
+   "fixture"
+  ],
+  "finals": "fixture",
+  "stats": "fixture"
+ },
+ "notes": []
+}

@@ -113,6 +113,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // R70 — the LINE REPORT (OL / DL-front starters x injury report), read by
     // LINEUP / GRADE / PLAYERS chips. Annotation only; changes no number.
     '/data/line_report.json',
+    // R71 — app/review.js: the post-game review, read through loadJson (same
+    // promise cache), lazily imported by the slate/parlays views after paint.
+    '/data/review.json',
   ]);
   for (const [p, files] of referenced) {
     assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);

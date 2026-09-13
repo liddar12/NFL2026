@@ -152,6 +152,19 @@ jobs:
         run: python scripts/resolve_parlay_legs.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
+      # R71 — post-game review over resolved estimates + the parlay-leg ledger.
+      - name: Build post-game review (data/review.json)
+        run: python3 scripts/build_review.py
+
+      # R71 — OPTIONAL AI narrative (P10 exception): runs only when both the
+      # secret and the variable are set; otherwise one-line skip, exit 0.
+      - name: AI narrative (optional, env-gated)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REVIEW_NARRATIVE_MODEL: ${{ vars.REVIEW_NARRATIVE_MODEL }}
+        run: python3 scripts/build_review_narrative.py
+        continue-on-error: true
+
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts
         run: python scripts/validate_data.py

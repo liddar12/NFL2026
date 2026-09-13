@@ -63,6 +63,9 @@ const WIRED_BUILDERS = [
   // R70 — the line report and the measure-only cascade backtest.
   'build_line_report.py',
   'backtest_lines.py',
+  // R71 — the post-game review and its optional narrative layer.
+  'build_review.py',
+  'build_review_narrative.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {

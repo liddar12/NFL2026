@@ -112,6 +112,19 @@ export default async function mountSlate(el) {
       html += card(g);
     }
     listEl.innerHTML = html;
+    reviewSlate(listEl, active);
+  }
+
+  /**
+   * R71 — post-game review decoration: after paint, lazily import app/review.js
+   * (kept OFF the boot graph) and let it stamp won/lost circles, the review strip
+   * and the tap-to-reveal why onto the painted cards. Nothing renders pre-final or
+   * when data/review.json is absent; a failed import is silent — never a blank slate.
+   */
+  function reviewSlate(target, week) {
+    import('../review.js')
+      .then((mod) => mod.applySlateReview(target, week))
+      .catch(() => { /* review layer unavailable — cards stand on their own */ });
   }
 
   /** Select a week: sync chips/title/topbar, then repaint the list. */

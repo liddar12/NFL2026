@@ -103,6 +103,11 @@ jobs:
       # (build_predictions writes data/pipeline_status.json with honest feed health;
       # no separate status step needed.)
 
+      # R71 — post-game review: STATUS-gated results from the lock receipts /
+      # ESPN finals so the slate circles land inside the gameday window.
+      - name: Build post-game review (data/review.json)
+        run: python3 scripts/build_review.py
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

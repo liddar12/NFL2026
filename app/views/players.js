@@ -661,6 +661,18 @@ export function withExtraRow(cardHtml, extras) {
   return `${cardHtml.slice(0, i)}<div class="p-adorn p-adorn--value">${extras}</div>${cardHtml.slice(i)}`;
 }
 
+/**
+ * R71 — splice the post-game review row (OVER / UNDER / MET chip + measured why,
+ * app/review.js) in front of the band, the same anchor rule as withExtraRow:
+ * no anchor, no row, never a broken card. Empty html is a no-op.
+ */
+function withReviewRow(cardHtml, html) {
+  if (!html) return cardHtml;
+  const i = String(cardHtml).indexOf(CARD_ANCHOR);
+  if (i < 0) return cardHtml;
+  return `${cardHtml.slice(0, i)}${html}${cardHtml.slice(i)}`;
+}
+
 /* --------------------------------------------------------------------------
  * R49 — OURS · SCENARIO · SLEEPER on every card (display-only, never an input)
  * ------------------------------------------------------------------------ */
@@ -778,7 +790,7 @@ export default async function mountPlayers(el) {
   // its measured contract count (tests/perf/budget.spec.mjs). A later toggle
   // to AI+ fetches it then (see the aiSeg handler).
   const wantsLine = loadAiPref();
-  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes, rostersRes, lineRes] = await Promise.allSettled([
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes, rostersRes, lineRes, reviewRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
@@ -794,7 +806,12 @@ export default async function mountPlayers(el) {
     // R51 — NFL-week memory; LAZY_ONLY in the perf budget, so never static.
     import('../league-rosters.js'),
     wantsLine ? getLineReport() : Promise.resolve(null),
+    // R71 — the post-game review module (LAZY_ONLY: kept off the boot graph);
+    // primed here so first paint can carry the OVER / UNDER / MET chip. Absent
+    // review.json or a failed import resolves to null and no chip renders.
+    import('../review.js').then((m) => m.primeReview().then(() => m)).catch(() => null),
   ]);
+  const reviewMod = reviewRes.status === 'fulfilled' ? reviewRes.value : null;
   // null = not asked yet; false = asked and absent/unavailable; else the doc.
   let lineDoc = lineRes.status === 'fulfilled' ? (lineRes.value || (wantsLine ? false : null)) : false;
   if (projRes.status !== 'fulfilled') {
@@ -1296,9 +1313,9 @@ export default async function mountPlayers(el) {
           const m = model(p);
           // RoS chip under the RoS sort (legible sort) and under AI+ (R51).
           const ros = (aiOn || sortKey === 'ros') ? rosOf(id) : null;
-          const card = withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
+          const card = withReviewRow(withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, ros,
-          }), extraRow(id)), estimateRows(p));
+          }), extraRow(id)), estimateRows(p)), reviewMod ? reviewMod.renderPlayerReview(id) : '');
           if (!aiOn) return card;
           const wv = weekOf(id);
           const headed = withWeekHeadline(card, currentWk, weekOf(id), m.player.proj_points);

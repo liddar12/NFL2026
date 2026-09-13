@@ -178,6 +178,11 @@ const CONTRACT_ALLOWLIST = new Set([
   // GRADE (mount) and PLAYERS only while AI+ is the persisted view; a 404
   // resolves to null and no chip renders, so the request is the whole cost.
   'line_report.json',
+  // R71 — the post-game review (data/review.json, ~100 KB at one resolved
+  // week: 16 games + 26 players + 66 parlays with their measured why). Fetched
+  // by app/review.js, itself a LAZY import from the slate/parlays views after
+  // paint; a 404 resolves to null once per session and nothing renders.
+  'review.json',
 ]);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
@@ -186,7 +191,10 @@ const CONTRACT_ALLOWLIST = new Set([
 // decision. Every route mounts from a single Promise.allSettled, so these
 // counts are also the concurrency.
 const ROUTES = [
-  { hash: '#/', name: 'slate', contracts: 3 },
+  // R71 — 3 -> 4: data/review.json joins the slate after first paint (lazy
+  // app/review.js), so the won/lost circles and the review strip can land
+  // without a user gesture. Measured 3x, byte-identical: 4.
+  { hash: '#/', name: 'slate', contracts: 4 },
   // R49 — 8 -> 10: Sleeper's display-only estimate (sleeper_projections.json,
   // ~1 MB) and meta.json (the baseline rule the gap reason cites) are fetched
   // AFTER the first paint via requestIdleCallback, never inside the mount's
@@ -194,7 +202,9 @@ const ROUTES = [
   // test's 2.5 s window. Owner's decision: Sleeper's number beside OURS on
   // every card, so there is no user gesture to hang the fetch on.
   { hash: '#/players', name: 'players', contracts: 10 },
-  { hash: '#/parlays', name: 'parlays', contracts: 4 },
+  // R71 — 4 -> 5: the same review.json (cached across routes by data.js's
+  // promise cache — the de-dupe test below still holds) for the leg marks.
+  { hash: '#/parlays', name: 'parlays', contracts: 5 },
   { hash: '#/team', name: 'team', contracts: 9 },
   // R47 — the DEFAULT league now fields K and DEF (owner's pick: first-class
   // everywhere), so LINEUP's conditional second-wave kdst fetch is live on a

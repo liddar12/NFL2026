@@ -125,6 +125,9 @@ SCHEMA_TO_DATA = {
     # report) read by the LINEUP / GRADE / PLAYERS chips; changes no number.
     # Runner-built; the honest available:false document is also valid.
     "line_report.schema.json": "line_report.json",
+    # R71 — the post-game review (scripts/build_review.py): measured attribution
+    # over lock receipts, finals, the calibrated band and the stat line.
+    "review.schema.json": "review.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -164,6 +167,8 @@ OPTIONAL_DATA = frozenset([
     "parlay_leg_scores.json",
     # R70 — runner-built line report; absent on a fresh clone, strict when present.
     "line_report.json",
+    # R71 — runner-built (finals + nflverse stats); a clone without it is not red.
+    "review.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,

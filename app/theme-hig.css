@@ -1406,3 +1406,31 @@
   border-radius: 10px;
   border-style: dashed;
 }
+
+/* =============================================================================
+   R71 — POST-GAME REVIEW under HIG: the same .rv-* markup, capsule chips with
+   the tinted-selected look, SF text ladder, no italics. Tokens already carry
+   the light/dark palettes, so only shape and type are restated here.
+   ========================================================================== */
+[data-theme="hig"] .rv-strip {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-left-width: 1px;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+[data-theme="hig"] .rv-why { font-size: 13px; }
+[data-theme="hig"] .rv-why-head,
+[data-theme="hig"] .rv-narr-label { letter-spacing: 0.02em; }
+[data-theme="hig"] .rv-narr { border-radius: 10px; }
+[data-theme="hig"] .rv-pchip,
+[data-theme="hig"] .rv-chip,
+[data-theme="hig"] .rv-leg { font-style: normal; font-size: 12px; padding: 2px 9px; }
+[data-theme="hig"] .rv-leg { border-radius: 999px; padding: 0 7px; }
+[data-theme="hig"] .card.game.rv-graded--won,
+[data-theme="hig"] .card.game.rv-graded--lost { border-left-width: 4px; }
+[data-theme="hig"] .rv-reason--rest,
+[data-theme="hig"] .rv-omitted { font-style: normal; }
