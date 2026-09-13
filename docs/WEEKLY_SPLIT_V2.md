@@ -24,7 +24,7 @@ row schema `{wk, opp, home, bye, pts, avail?}` are untouched.
 |---|---|---|---|
 | **D** — opponent DvP, all positions | `F` = opponent's allowed PPR points per game to the player's position: prior season at **half weight** blended (games-weighted) with the current season's weeks `< wk`, divided by the league mean of the same blend. `D = clamp(1 + 0.25 × (F − 1), 0.75, 1.25)` | `data/dvp_positional_history.json` — `seasons[season][team][week] = {"def": {QB,RB,WR,TE}, "g", "off"}`; prior = `season−1`, current = whatever weeks exist for `season`. `LA` → `LAR` via the feed's `renames` | opponent or position absent → `F = 1.0` → `dvp_neutral_weeks` |
 | **T** — Elo tilt, **QB only** | `1 + 0.5 × (team_elo − opp_elo) / 400` clamped `[0.75, 1.25]`; RB/WR/TE get `T = 1` | the same preseason/in-season Elo the game model uses | unknown position → `T = 1` |
-| **W** — weather | QB/WR/TE: roof `dome`/`closed` ×1.03; `outdoors`/`open` ×0.97, and ×0.97 again when the forecast is ≤ 0 °C; `retractable` 1.0. RB: ×0.95 when outdoors and forecast wind ≥ 24 km/h, else 1.0 | roof: `data/environment_model.json` `stadiums[HOME].roof`; forecast: `data/weather_forecast.json` `games["season|week|HOME|AWAY"] = {temp_c, wind_kph, precip_mm}` (the writer's key order; the reversed spelling is tolerated) | no forecast row on an open-roof game → roof-only factor, never a guessed temperature → `weather_no_forecast_weeks` |
+| **W** — weather | QB/WR/TE: roof `dome`/`closed` ×1.03; `outdoors`/`open` ×0.97, and ×0.97 again when the forecast is ≤ 0 °C; `retractable` 1.0. RB: ×0.95 when outdoors and forecast wind ≥ 24 km/h, else 1.0 | roof: `data/environment_model.json` `stadiums[HOME].roof`; forecast: `data/weather_forecast.json` `games["season|week|HOME|AWAY"] = {temp_c, wind_kph, precip_mm}` (the writer's key order; the reversed spelling is tolerated) | forecast row (`source: forecast`, inside the 16-day horizon) → full factor, counted in `weather_forecast_weeks`; otherwise a climatology row (`source: climatology`, stadium × kickoff-month mean over 2021-2025, n ≥ 4, per-row `rules` may withhold cold) → counted in `weather_climatology_weeks`; no row at all on an open-roof game → roof-only factor, never a guessed temperature → `weather_no_forecast_weeks`. See `docs/WEATHER_HORIZON.md` (R56) |
 | **V** — venue home field | `m = venue_hfa[HOME].avg_home_margin`, `lam` = games-weighted mean of `avg_home_margin` over all venues, `rel = clamp(m / lam, −1.0, 2.5)`. Home `V = 1 + 0.02 × rel`, away `V = 1 − 0.02 × rel`, both from the **home** team's venue | `data/environment_model.json` `venue_hfa` | `lam ≤ 0.3`, venue missing, or `low_n` → `rel = 1.0` (exactly the old flat ±0.02) → `venue_flat_weeks` |
 
 The three feeds are read **once per document build** through `load_dvp`,
@@ -36,8 +36,11 @@ tilt positions only), which is what callers without feeds get.
 
 Model meta: `name = "weekly_split_v2"`, `tilt_coef` / `home_coef` kept for
 compatibility, plus `dvp_shrink`, `elo_tilt_positions`, `weather`, `venue`,
-`neutral_counts`, `backtest`. In preseason `weather_no_forecast_weeks` is large by
-construction: the forecast only covers the imminent open-roof games.
+`neutral_counts`, `weather_sources` (`{forecast_days: 16, climatology_min_n: 4}`, R56), `backtest`.
+Since R56 the weather counts split three ways: `weather_forecast_weeks` (inside the
+16-day horizon), `weather_climatology_weeks` (stadium-month mean beyond it) and
+`weather_no_forecast_weeks` (open-roof weeks with neither: retractable homes have no
+history, and some Jan/Sep buckets fall under n ≥ 4).
 
 ## The backtest — `scripts/backtest_weekly.py`
 
