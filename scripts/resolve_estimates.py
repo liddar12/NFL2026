@@ -17,8 +17,17 @@ HONESTY RULES
   * The join is name + position (nflverse keys on gsis id, the pool on espn id):
     exact normalised name + position, unique; else exact name, unique. A ledger
     player who never joins ANY row that season is `unmatched` and skipped — never
-    scored as 0. A player who joins the season but has no row in a resolved week
+    scored as 0, and LISTED BY NAME in `unmatched` (R53) so a silent drop is
+    impossible. A player who joins the season but has no row in a resolved week
     did not play: actual 0.0 by that FACT, flagged `dnp`.
+  * When rows exist but nothing resolves, `skipped` says exactly why: the CSV
+    carries other weeks than the locked ones, or no ledger player joined.
+
+R53 — `--dry-run-with <csv> [--ledger <path>]` runs the EXACT production
+resolve + score path (`build_document`) against a stats CSV on disk and prints
+the document to stdout without writing estimate_scores.json or meta.json. It is
+how the first-week path is proven in the sandbox (tests/fixtures/r53/) before
+nflverse publishes stats_player_week_2026.csv.
   * Actual = the release's `fantasy_points_ppr` column when present, else the
     standard PPR formula over its component columns (documented in `scoring`).
 
@@ -192,20 +201,21 @@ def score(resolved, weeks_available=None):
 
 
 def resolve(ledger, csv_rows):
-    """Pure: ledger document + stats rows -> (resolved rows, unmatched count,
-    weeks_available {week: row count})."""
+    """Pure: ledger document + stats rows -> (resolved rows, unmatched ledger
+    players [{gsis_id, name, team, position}], weeks_available {week: row count})."""
     by_np, names, weeks_with_rows = index_actuals(csv_rows)
     rows_per_week = {}
     for m in by_np.values():
         for wk in m:
             rows_per_week[wk] = rows_per_week.get(wk, 0) + 1
-    resolved, unmatched = [], 0
+    resolved, unmatched = [], []
     for pid, p in sorted((ledger.get("players") or {}).items()):
         if not p.get("locked"):
             continue
         actual_map = lookup_actuals(p.get("name"), p.get("position"), by_np, names)
         if actual_map is None:
-            unmatched += 1
+            unmatched.append({"gsis_id": pid, "name": p.get("name", ""),
+                              "team": p.get("team", ""), "position": p.get("position", "")})
             continue
         for key, lk in p["locked"].items():
             wk = int(key)
@@ -236,7 +246,8 @@ def document(season, ledger_rel, resolved, unmatched, rows_per_week, skipped,
         "weeks_resolved": len({r["week"] for r in resolved}),
         "players_scored": len({r["gsis_id"] for r in resolved}),
         "rows_resolved": len(resolved),
-        "unmatched_players": unmatched,
+        "unmatched_players": len(unmatched),
+        "unmatched": list(unmatched),
         "skipped": skipped,
         "totals": s["totals"],
         "by_position": s["by_position"],
@@ -245,9 +256,73 @@ def document(season, ledger_rel, resolved, unmatched, rows_per_week, skipped,
     }
 
 
-def learning_record(doc, weights, backtest_2025=None, margin_mae=0.10):
+def locked_weeks(ledger):
+    """The set of weeks any ledger player has a locked (pre-kickoff) estimate for."""
+    out = set()
+    for p in (ledger.get("players") or {}).values():
+        out |= {int(k) for k in (p.get("locked") or {})}
+    return out
+
+
+def explain_nothing_resolved(ledger, rows, rows_per_week, unmatched, season):
+    """Why a non-empty CSV resolved nothing, in plain words. Pure."""
+    locked = sorted(locked_weeks(ledger))
+    with_rows = sorted(rows_per_week)
+    if not with_rows:
+        return ("stats_player_week_%d.csv has %d rows but none is a regular-season "
+                "QB/RB/WR/TE row — nothing to resolve" % (season, len(rows)))
+    hit = sorted(set(locked) & set(with_rows))
+    if not hit:
+        return ("stats_player_week_%d.csv carries week(s) %s only; the locked ledger "
+                "week(s) %s have no stats rows yet — nothing resolved, nothing scored"
+                % (season, with_rows, locked))
+    return ("stats_player_week_%d.csv has rows for locked week(s) %s but no ledger player "
+            "joined by name + position (%d ledger players unmatched, listed in "
+            "`unmatched`)" % (season, hit, len(unmatched)))
+
+
+def build_document(ledger, rows, season, ledger_rel, now):
+    """THE production resolve + score path, shared by `run` and `--dry-run-with`:
+    ledger document + stats rows (a list; None = not fetched) -> the scores
+    document, with `skipped` filled honestly whenever nothing resolved. Pure."""
+    resolved, unmatched, rows_per_week, skipped = [], [], {}, None
+    if not locked_weeks(ledger):
+        skipped = ("ledger has no locked (pre-kickoff) player-week yet — the first "
+                   "week locks on the first append after its kickoff")
+    elif rows is None:
+        skipped = "stats not fetched"
+    else:
+        resolved, unmatched, rows_per_week = resolve(ledger, rows)
+        if not resolved:
+            skipped = explain_nothing_resolved(ledger, rows, rows_per_week, unmatched, season)
+    return document(season, ledger_rel, resolved, unmatched, rows_per_week, skipped, now)
+
+
+def last_proposal(tuning_history):
+    """The latest archived player-signal fit (scripts/fit_player_signals.py
+    --propose, kind player_signal_fit) reduced to what the MODEL tab shows; None
+    when nothing has been archived. Pure."""
+    for h in reversed(list(tuning_history or [])):
+        if isinstance(h, dict) and h.get("kind") == "player_signal_fit":
+            return {
+                "generated_utc": h.get("generated_utc"),
+                "verdict": h.get("verdict") or (
+                    "refused" if not h.get("folds") else
+                    ("propose" if h.get("would_adopt") else "retain")),
+                "would_adopt": bool(h.get("would_adopt")),
+                "folds": int(h.get("folds") or 0),
+                "weeks_resolved": int(h.get("weeks_resolved") or 0),
+                "candidate_mae": h.get("candidate_mae"),
+                "gated_mae": h.get("gated_mae"),
+                "reason": h.get("reason") or "",
+            }
+    return None
+
+
+def learning_record(doc, weights, backtest_2025=None, margin_mae=0.10, tuning_history=None):
     """The data/meta.json `learning_record` for the MODEL tab. Null metrics until
-    a week has actually resolved — never an invented number."""
+    a week has actually resolved — never an invented number. `last_proposal`
+    (R53) is the latest archived fit verdict, null until one exists."""
     t = doc["totals"]
     rec = {
         "weeks_resolved": doc["weeks_resolved"],
@@ -270,6 +345,7 @@ def learning_record(doc, weights, backtest_2025=None, margin_mae=0.10):
                  "player objective (scripts/fit_player_signals.py) — shipped == candidate "
                  "under the R49 owner override"),
         "updated_utc": doc["generated_utc"],
+        "last_proposal": last_proposal(tuning_history),
     }
     if backtest_2025:
         rec["backtest_2025"] = {
@@ -336,43 +412,74 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, meta_path=meta_record.ME
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lpath = ledger_path(season)
     ledger_rel = os.path.relpath(lpath, _ROOT)
-    resolved, unmatched, rows_per_week, skipped = [], 0, {}, None
     if not os.path.exists(lpath):
         skipped = ("no ledger at %s yet — scripts/build_estimate_ledger.py appends the "
                    "first estimates on the daily run; nothing to resolve" % ledger_rel)
+        doc = document(season, ledger_rel, [], [], {}, skipped, now)
     else:
         ledger = _load(lpath)
-        if not any(p.get("locked") for p in ledger.get("players", {}).values()):
-            skipped = ("ledger has no locked (pre-kickoff) player-week yet — the first "
-                       "week locks on the first append after its kickoff")
-        elif offline:
-            skipped = "offline run: stats not fetched"
-        else:
-            rows, why = fetch_csv(season, cache_dir)
-            if rows is None:
-                skipped = why
+        rows, why = None, None
+        if locked_weeks(ledger):
+            if offline:
+                why = "offline run: stats not fetched"
             else:
-                resolved, unmatched, rows_per_week = resolve(ledger, rows)
-                if not resolved:
-                    skipped = ("stats_player_week_%d.csv has %d rows but none for a "
-                               "locked week (or no ledger player joined)" % (season, len(rows)))
-    doc = document(season, ledger_rel, resolved, unmatched, rows_per_week, skipped, now)
+                rows, why = fetch_csv(season, cache_dir)
+        doc = build_document(ledger, rows, season, ledger_rel, now)
+        if rows is None and why and doc["skipped"] == "stats not fetched":
+            doc["skipped"] = why
     write(doc, out_path)
     weights = (_load(meta_path).get("weights") if os.path.exists(meta_path) else {}) or {}
-    bt = None
-    bt_path = os.path.join(DATA, "player_backtest.json")
-    if os.path.exists(bt_path):
-        bt = _load(bt_path).get("candidate_2025")
-    meta_record.set_record("learning_record", learning_record(doc, weights, bt),
+    meta_record.set_record("learning_record",
+                           learning_record(doc, weights, _backtest_2025(),
+                                           tuning_history=_tuning_history()),
                            path=meta_path)
-    if skipped:
-        print("[resolve_estimates] SKIPPED (0 weeks resolved): %s" % skipped, file=sys.stderr)
+    _summary(doc)
+    return doc
+
+
+def _tuning_history():
+    path = os.path.join(DATA, "model_tuning.json")
+    return _load(path).get("history") if os.path.exists(path) else []
+
+
+def _backtest_2025():
+    bt_path = os.path.join(DATA, "player_backtest.json")
+    return _load(bt_path).get("candidate_2025") if os.path.exists(bt_path) else None
+
+
+def _summary(doc):
+    if doc["skipped"]:
+        print("[resolve_estimates] SKIPPED (0 weeks resolved): %s" % doc["skipped"],
+              file=sys.stderr)
     else:
         t = doc["totals"]
         print("resolve_estimates: %d weeks, %d players, %d rows resolved (%d ledger "
-              "players unmatched); MAE shipped %.2f candidate %.2f, band coverage %.3f"
+              "players unmatched: %s); MAE shipped %.2f candidate %.2f gated %.2f, bias "
+              "shipped %+.2f, band coverage %.3f"
               % (doc["weeks_resolved"], doc["players_scored"], doc["rows_resolved"],
-                 unmatched, t["mae_shipped"], t["mae_candidate"], t["band_coverage"]))
+                 doc["unmatched_players"],
+                 ", ".join(u["name"] for u in doc["unmatched"][:8])
+                 + (" ..." if doc["unmatched_players"] > 8 else "") or "none",
+                 t["mae_shipped"], t["mae_candidate"], t["mae_gated"], t["bias_shipped"],
+                 t["band_coverage"]), file=sys.stderr)
+
+
+def dry_run(csv_path, ledger_file=None, season=None, now=None):
+    """R53: the production path against a CSV on disk; prints the document to
+    stdout, writes NOTHING. Returns the document."""
+    if season is None:
+        season = int(_load(PROJECTIONS_PATH)["season"])
+    now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lpath = ledger_file or ledger_path(season)
+    ledger_rel = os.path.relpath(lpath, _ROOT) if not ledger_file else lpath
+    with open(csv_path, encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    doc = build_document(_load(lpath), rows, season, ledger_rel, now)
+    print("[resolve_estimates] DRY RUN against %s (%d csv rows, ledger %s) — nothing written"
+          % (csv_path, len(rows), lpath), file=sys.stderr)
+    _summary(doc)
+    json.dump(doc, sys.stdout, ensure_ascii=True, indent=2, sort_keys=False)
+    sys.stdout.write("\n")
     return doc
 
 
@@ -411,13 +518,15 @@ def selftest():
     ]
     assert ppr_points(rows[1]) == 16.0
     resolved, unmatched, per_week = resolve(ledger, rows)
-    assert unmatched == 1, "Never Joins (REG rows only) must be unmatched, not 0"
+    assert [u["name"] for u in unmatched] == ["Never Joins"], \
+        "Never Joins (REG rows only) must be unmatched BY NAME, not scored 0"
     assert {(r["gsis_id"], r["week"]) for r in resolved} == {("espn-1", 1), ("espn-2", 1)}, \
         "week 2 has no rows -> skipped loudly, not scored"
     assert per_week == {1: 3}
     doc = document(2026, "data/estimates/2026.json", resolved, unmatched, per_week, None,
                    "2026-09-15T00:00:00Z")
     assert doc["weeks_resolved"] == 1 and doc["players_scored"] == 2
+    assert doc["unmatched_players"] == 1 and doc["unmatched"][0]["gsis_id"] == "espn-3"
     t = doc["totals"]
     assert t["n"] == 2 == sum(b["n"] for b in doc["by_position"].values()) \
         == sum(w["players_scored"] for w in doc["weeks"]), "counts conserve"
@@ -433,8 +542,20 @@ def selftest():
     resolved2, _, _ = resolve(ledger, rows2)
     r = next(x for x in resolved2 if x["gsis_id"] == "espn-1" and x["week"] == 2)
     assert r["actual"] == 0.0 and r["dnp"] is True
+    # the shared production path explains WHY nothing resolved
+    other = build_document(ledger, [dict(rows[0], week="3")], 2026, "x", "t")
+    assert other["weeks_resolved"] == 0 and "week(s) [3] only" in other["skipped"] \
+        and "[1, 2]" in other["skipped"], other["skipped"]
+    nojoin = build_document(ledger, [dict(rows[2])], 2026, "x", "t")
+    assert "no ledger player joined" in nojoin["skipped"] and \
+        len(nojoin["unmatched"]) == 3, nojoin["skipped"]
+    assert build_document({"players": {}}, rows, 2026, "x", "t")["skipped"].startswith(
+        "ledger has no locked")
+    assert build_document(ledger, None, 2026, "x", "t")["skipped"] == "stats not fetched"
+    assert build_document(ledger, rows, 2026, "x", "t")["totals"] == doc["totals"], \
+        "the dry-run path IS the production path"
     # nothing resolved -> honest empty document with null metrics
-    empty = document(2026, "x", [], 0, {}, "no rows", "2026-09-01T00:00:00Z")
+    empty = document(2026, "x", [], [], {}, "no rows", "2026-09-01T00:00:00Z")
     assert empty["weeks_resolved"] == 0 and empty["totals"]["mae_shipped"] is None \
         and empty["totals"]["mae_gated"] is None
     rec = learning_record(empty, {"age_curve": 0.0})
@@ -442,8 +563,17 @@ def selftest():
         and rec["objective_ready"] is False and rec["signals_with_weight"] == []
     rec2 = learning_record(doc, {"age_curve": 0.25})
     assert rec2["objective_ready"] is True and rec2["signals_with_weight"] == ["age_curve"]
+    assert rec["last_proposal"] is None and rec2["last_proposal"] is None
+    hist = [{"kind": "game_params"}, {"kind": "player_signal_fit", "folds": 0,
+                                      "would_adopt": False, "verdict": "refused",
+                                      "reason": "needs >= 2", "generated_utc": "t"},
+            {"kind": "game_params"}]
+    lp = learning_record(doc, {}, tuning_history=hist)["last_proposal"]
+    assert lp["verdict"] == "refused" and lp["reason"] == "needs >= 2" and lp["folds"] == 0
+    assert last_proposal([{"kind": "player_signal_fit", "folds": 1, "would_adopt": True}])["verdict"] == "propose"
     print("selftest OK: name+position join, REG-only, skip-when-no-rows, dnp=0 by fact, "
-          "unmatched never scored, counts conserve, null metrics at 0 resolved")
+          "unmatched listed by name and never scored, skip reasons name the weeks, "
+          "counts conserve, null metrics at 0 resolved")
 
 
 def main(argv=None):
@@ -451,11 +581,22 @@ def main(argv=None):
     ap.add_argument("--season", type=int, default=None)
     ap.add_argument("--cache-dir", default=None)
     ap.add_argument("--offline", action="store_true", help="never fetch; write the honest skip")
+    ap.add_argument("--dry-run-with", metavar="CSV", default=None,
+                    help="R53: run the production resolve+score path against this stats "
+                         "CSV and print the document; writes nothing")
+    ap.add_argument("--ledger", default=None,
+                    help="with --dry-run-with: a ledger file other than data/estimates/"
+                         "<season>.json (tests lock a week on a copy)")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
         selftest()
         return 0
+    if args.dry_run_with:
+        dry_run(args.dry_run_with, ledger_file=args.ledger, season=args.season)
+        return 0
+    if args.ledger:
+        ap.error("--ledger is only valid with --dry-run-with")
     run(season=args.season, cache_dir=args.cache_dir, offline=args.offline)
     return 0
 

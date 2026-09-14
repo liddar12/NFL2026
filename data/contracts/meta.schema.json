@@ -134,6 +134,22 @@
         "adoption_margin_mae": { "type": "number", "minimum": 0 },
         "note": { "type": "string" },
         "updated_utc": { "type": "string" },
+        "last_proposal": {
+          "type": ["object", "null"],
+          "description": "R53 - the latest archived player-signal fit (scripts/fit_player_signals.py --propose; data/model_tuning.json history kind player_signal_fit) as the MODEL tab shows it; null until one is archived. verdict refused = fewer than two resolved weeks (no held-out fold).",
+          "additionalProperties": false,
+          "required": ["verdict", "would_adopt", "folds", "reason", "generated_utc"],
+          "properties": {
+            "generated_utc": { "type": ["string", "null"] },
+            "verdict": { "type": "string", "enum": ["refused", "propose", "retain"] },
+            "would_adopt": { "type": "boolean" },
+            "folds": { "type": "integer", "minimum": 0 },
+            "weeks_resolved": { "type": "integer", "minimum": 0 },
+            "candidate_mae": { "type": ["number", "null"], "minimum": 0 },
+            "gated_mae": { "type": ["number", "null"], "minimum": 0 },
+            "reason": { "type": "string" }
+          }
+        },
         "backtest_2025": {
           "type": "object",
           "description": "Last year's projected vs actual: 2024 priors -> 2025 actuals through the same candidate machinery, from data/player_backtest.json candidate_2025.",

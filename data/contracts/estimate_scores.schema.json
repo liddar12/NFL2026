@@ -17,7 +17,8 @@
     "totals",
     "by_position",
     "weeks",
-    "resolved"
+    "resolved",
+    "unmatched"
   ],
   "properties": {
     "season": {
@@ -53,6 +54,34 @@
       "type": "integer",
       "minimum": 0,
       "description": "Ledger players whose name+position never joined a stats row this season - skipped, never scored as 0."
+    },
+    "unmatched": {
+      "type": "array",
+      "description": "R53 - every unmatched ledger player BY NAME (never dropped silently): the ledger players whose name+position joined no stats row this season. len == unmatched_players.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gsis_id",
+          "name",
+          "team",
+          "position"
+        ],
+        "properties": {
+          "gsis_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          }
+        }
+      }
     },
     "skipped": {
       "type": [

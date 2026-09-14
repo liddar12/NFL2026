@@ -57,6 +57,15 @@ const WIRED_BUILDERS = [
   'build_estimate_ledger.py',
   'resolve_estimates.py',
   'fit_player_signals.py',
+  // R58 — the parlay-leg ledger and its resolver.
+  'build_parlay_ledger.py',
+  'resolve_parlay_legs.py',
+  // R70 — the line report and the measure-only cascade backtest.
+  'build_line_report.py',
+  'backtest_lines.py',
+  // R71 — the post-game review and its optional narrative layer.
+  'build_review.py',
+  'build_review_narrative.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {

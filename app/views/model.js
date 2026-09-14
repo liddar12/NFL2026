@@ -15,6 +15,10 @@
  *   .m-parlay-gate  R51: moneyline yardstick, spread edge test, props
  *                calibration, leg correlations (data/parlay_backtest.json) —
  *                OMITTED when absent; AWAITING when present without a verdict.
+ *   R53/R54: both gate cards carry an optional LIVE 2026 row (the record's
+ *                `live_2026` block: measured on resolved 2026 weeks, never part
+ *                of the verdict) and the LEARNING RECORD shows the three scored
+ *                series once a 2026 week has resolved.
  *
  * Every card degrades to a .state message when its feed is absent (older
  * deploy) — the view never blanks. Pure helpers exported for unit tests.
@@ -556,13 +560,19 @@ function calibrationCard(tuning) {
  */
 export function resolvedLockCount(tuning) {
   const hist = (tuning && Array.isArray(tuning.history)) ? tuning.history : [];
+  let best = null;
   for (const h of hist) {
     if (h && h.kind === 'game_params' && h.search != null && !('eval_seasons' in h)) {
       const n = Number(h.n_resolved);
-      if (Number.isFinite(n) && n > 0) return n;
+      if (!Number.isFinite(n) || n <= 0) continue;
+      // Newest pass wins, by generated_utc: the archive interleaves backtest and
+      // in-season entries and is appended per gameday pass, so position is not
+      // recency (week 1 surfaced first-wins showing 1 while 10 receipts had
+      // graded). A tie falls to the later entry.
+      if (!best || String(h.generated_utc || '') >= String(best.generated_utc || '')) best = h;
     }
   }
-  return 0;
+  return best ? Number(best.n_resolved) : 0;
 }
 
 export function locksCard(tuning) {
@@ -701,12 +711,59 @@ export function learningCard(meta) {
     `<div class="mp-row"><span class="mp-name">${name}</span><span class="mp-val">${val}</span></div>`
   );
   const bt = lr.backtest_2025 && typeof lr.backtest_2025 === 'object' ? lr.backtest_2025 : null;
+
+  // R53 — once a week has resolved: the three scored series side by side, the
+  // lowest MAE marked. Keys are the real learning_record keys the resolver
+  // writes (mae_ppr / bias_ppr = shipped, candidate_*, gated_*): a null stays '—'.
+  let seriesHtml = '';
+  let proposalHtml = '';
+  if (resolved) {
+    const series = [
+      ['SHIPPED', lr.mae_ppr, lr.bias_ppr],
+      ['CANDIDATE', lr.candidate_mae_ppr, lr.candidate_bias_ppr],
+      ['GATED', lr.gated_mae_ppr, lr.gated_bias_ppr],
+    ];
+    // null is ABSENT (Number(null) is 0, which would crown a missing series).
+    const num = (m) => (m == null ? NaN : Number(m));
+    const maes = series.map(([, m]) => num(m)).filter((m) => Number.isFinite(m));
+    const best = maes.length ? Math.min(...maes) : null;
+    const rows = series.map(([name, m, b]) => {
+      const isBest = best != null && Number.isFinite(num(m)) && num(m) === best;
+      return `<tr><td>${name}</td><td>${esc(dash(m, 3))}${isBest ? ' ▲' : ''}</td>`
+        + `<td>${esc(signed(b, 3))}</td></tr>`;
+    }).join('');
+    seriesHtml = '<table class="pf-tbl"><thead><tr><th>SERIES</th><th>MAE (PPR)</th><th>BIAS</th></tr></thead>'
+      + `<tbody>${rows}</tbody></table>`
+      + `<div class="gate-bench">BAND COVERAGE ${pctOr(lr.band_coverage)}`
+        + (lr.objective_ready === true ? ' · objective ready' : '')
+        + (Number.isFinite(Number(lr.adoption_margin_mae)) ? ` · adoption margin ${esc(dash(lr.adoption_margin_mae, 2))} PPR` : '')
+        + '</div>'
+      + '<div class="m-explain">Scored on locked pre-kickoff estimates. SHIPPED is the number the '
+        + 'app showed, CANDIDATE every raw signal at full strength, GATED the never-regress '
+        + 'incumbent. Lower MAE is better (▲ marks the lowest); bias = mean(estimate − actual), '
+        + 'negative means under-projected.</div>';
+    // last_proposal: the latest archived fit (scripts/fit_player_signals.py
+    // --propose), written into the record by the resolver; null until one exists.
+    const lp = lr.last_proposal && typeof lr.last_proposal === 'object' ? lr.last_proposal : null;
+    const verdictTxt = lp && typeof lp.verdict === 'string' ? lp.verdict.toUpperCase()
+      : (lp && typeof lp.would_adopt === 'boolean' ? (lp.would_adopt ? 'PROPOSE' : 'RETAIN') : null);
+    proposalHtml = row('LAST PROPOSAL', verdictTxt ? esc(verdictTxt) : 'none archived yet')
+      + (lp
+        ? `<div class="gate-note">${esc(lp.reason || '')}`
+          + (Number.isFinite(Number(lp.folds)) ? ` · folds ${esc(lp.folds)}` : '')
+          + ` · candidate MAE ${esc(dash(lp.candidate_mae, 3))} vs gated ${esc(dash(lp.gated_mae, 3))}`
+          + ` · ${runLine(lp.generated_utc)}</div>`
+        : '<div class="gate-note">The weekly fit (scripts/fit_player_signals.py --propose) has not '
+          + 'archived a run on the resolved weeks yet.</div>');
+  }
   return (
     row('WEEKS RESOLVED', esc(Number.isFinite(weeks) ? String(weeks) : '—'))
     + row('PLAYERS SCORED', esc(Number.isFinite(Number(lr.players_scored)) ? String(lr.players_scored) : '—'))
     + row('MAE (PPR)', resolved ? esc(dash(lr.mae_ppr)) : '—')
     + row('BIAS (PPR)', resolved ? esc(dash(lr.bias_ppr)) : '—')
+    + seriesHtml
     + row('SIGNALS WITH WEIGHT', sigs.length ? esc(sigs.join(', ')) : 'none yet')
+    + proposalHtml
     + (resolved
       ? ''
       : '<div class="m-explain">No 2026 week has resolved yet — nothing has been scored, '
@@ -784,6 +841,75 @@ export function deltaText(v1, v2, { digits = 3, lowerIsBetter = false, pct = fal
 
 const seasonsText = (arr) => (Array.isArray(arr) && arr.length ? arr.map((s) => esc(s)).join('/') : '—');
 const runLine = (iso) => `Run ${esc(String(iso || '').slice(0, 10) || '—')}`;
+
+/* ---- R53/R54: LIVE 2026 rows -------------------------------------------------
+ * Both records may carry a `live_2026` block measured on resolved 2026 weeks:
+ *   weekly_backtest.json  {weeks, note, shipped/gated/candidate {mae, rank_corr,
+ *                          topk} | null, per_week[{week, n, ...}]} — the shipped
+ *                          weekly estimate as locked before kickoff vs actual PPR;
+ *   parlay_backtest.json  {weeks, legs_resolved, seed | null, calibrated | null,
+ *                          refit {applied, fit_weeks, reason} | null, note}.
+ * Absent key: NOTHING renders. weeks == 0: the note, honestly. The never-regress
+ * verdict on each card stays on the 2023-25 corpus; LIVE is measured, not judged.
+ */
+
+const liveMetrics = (m) => (isObj(m)
+  ? `MAE ${dash(m.mae, 3)} · rank corr ${dash(m.rank_corr, 3)} · top-K ${pctOr(m.topk)}`
+  : '—');
+
+/** WEEKLY SPLIT GATE's LIVE 2026 row; '' when the record has no live_2026 block. */
+export function liveWeeklyHtml(live) {
+  if (!isObj(live)) return '';
+  const weeks = Number(live.weeks);
+  if (!Number.isFinite(weeks) || weeks <= 0) {
+    return `<div class="gate-note">LIVE 2026 · no week resolved yet${live.note ? ` — ${esc(live.note)}` : ''}</div>`;
+  }
+  const sh = isObj(live.shipped) ? live.shipped : null;
+  const perWeek = Array.isArray(live.per_week) ? live.per_week.filter(isObj) : [];
+  const weekTxt = perWeek.map((w) => `wk ${esc(w.week)} n ${esc(w.n)}`
+    + (isObj(w.shipped) ? ` MAE ${dash(w.shipped.mae, 3)}` : '')).join(' · ');
+  const others = ['gated', 'candidate'].filter((k) => isObj(live[k]))
+    .map((k) => `${k.toUpperCase()} ${liveMetrics(live[k])}`).join(' · ');
+  return '<div class="gate-row">'
+    + '<span class="gate-name">LIVE 2026</span>'
+    + `<span>${esc(weeks)} week${weeks === 1 ? '' : 's'}${Number.isFinite(Number(live.rows)) ? ` · ${esc(live.rows)} rows` : ''}</span>`
+    + `<span>MAE ${dash(sh && sh.mae, 3)} · rank corr ${dash(sh && sh.rank_corr, 3)}</span>`
+    + '<span></span>'
+    + '</div>'
+    + `<div class="gate-bench">SHIPPED ${liveMetrics(sh)}${others ? ` · ${others}` : ''}`
+      + (weekTxt ? ` · ${weekTxt}` : '') + '</div>'
+    + `<div class="gate-note">${esc(live.note || 'Measured on resolved 2026 weeks; the never-regress verdict above stays on the 2023-25 corpus.')}</div>`;
+}
+
+/** PARLAY GATE's LIVE 2026 row; '' when the record has no live_2026 block. */
+export function liveParlayHtml(live) {
+  if (!isObj(live)) return '';
+  const weeks = Number(live.weeks);
+  if (!Number.isFinite(weeks) || weeks <= 0) {
+    return `<div class="gate-note">LIVE 2026 · no week resolved yet${live.note ? ` — ${esc(live.note)}` : ''}</div>`;
+  }
+  const seed = isObj(live.seed) ? live.seed : null;
+  const cal = isObj(live.calibrated) ? live.calibrated : null;
+  const refit = isObj(live.refit) ? live.refit : null;
+  const chip = refit
+    ? (refit.applied === true
+      ? '<span class="gate-chip gate-chip--adopted">REFIT</span>'
+      : '<span class="gate-chip">NO REFIT</span>')
+    : '<span></span>';
+  const legs = Number.isFinite(Number(live.legs_resolved)) ? `${esc(live.legs_resolved)} legs` : '— legs';
+  const fitWeeks = refit && Array.isArray(refit.fit_weeks) && refit.fit_weeks.length
+    ? ` · fit weeks ${refit.fit_weeks.map((w) => esc(w)).join('/')}` : '';
+  return '<div class="gate-row">'
+    + '<span class="gate-name">LIVE 2026</span>'
+    + `<span>${esc(weeks)} week${weeks === 1 ? '' : 's'} · ${legs}</span>`
+    + `<span>seed LL ${dash(seed && seed.log_loss, 4)} → cal ${dash(cal && cal.log_loss, 4)}</span>`
+    + chip
+    + '</div>'
+    + `<div class="gate-bench">HIT RATE seed ${pctOr(seed && seed.hit_rate)} → calibrated ${pctOr(cal && cal.hit_rate)}${fitWeeks}</div>`
+    + ((refit && refit.reason) || live.note
+      ? `<div class="gate-note">${esc([refit && refit.reason, live.note].filter(Boolean).join(' · '))}</div>`
+      : '');
+}
 
 /** "WEEKLY SPLIT GATE" — the candidate weekly split vs the incumbent. */
 export function weeklyGateCard(doc) {
@@ -886,6 +1012,7 @@ export function weeklyGateCard(doc) {
       + 'The candidate ships only by clearing the never-regress rule below.</div>'
     + head
     + metricTable
+    + liveWeeklyHtml(doc.live_2026)
     + posTable
     + bandLine
     + bsLine
@@ -1019,6 +1146,7 @@ export function parlayGateCard(doc) {
     + mlHtml
     + spHtml
     + prHtml
+    + liveParlayHtml(doc.live_2026)
     + coHtml
     + `<div class="mp-src">${runLine(doc.generated_utc)} · seasons ${seasonsText(fx.seasons)}</div>`
     + (doc.policy ? `<div class="gate-note">${esc(doc.policy)}</div>` : '')

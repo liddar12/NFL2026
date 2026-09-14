@@ -2500,6 +2500,20 @@ body.gate-locked { overflow: hidden; }
   font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
   color: var(--accent-txt); border: 1px solid var(--accent-txt); border-radius: 4px; padding: 1px 4px;
 }
+/* R70 — LINE REPORT chip ("OL: 2 out" / "vs DL: 1 out" / "OL: 1 Q"). ADDITIVE.
+   Same geometry as .lu-bye so it reads as one chip family; meaning is carried by
+   the TEXT (count + word), never by colour alone; names ride the title. Used on
+   LINEUP starter rows, GRADE week folds and the PLAYERS AI+ headline (.p-line).
+   A fact chip, not a factor: it changes no number. */
+.line-chip {
+  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px;
+  white-space: nowrap; vertical-align: middle;
+}
+.line-chip--out { color: var(--ink); border-color: var(--muted); }
+.lu-linenote { border-top: 1px solid var(--border); }
+.p-line { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.line-legend { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 0 14px 8px; }
 .lu-optimal { padding: 14px; color: var(--pos-txt, var(--muted)); font-size: 14px; }
 .lu-move {
   display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 10px;
@@ -3733,6 +3747,9 @@ body.gate-locked { overflow: hidden; }
 .gr-slot--bench { color: var(--muted); }
 .gr-slot--bench .gr-pos { opacity: 0.7; }
 .gr-tag--sub { color: var(--brand); }
+/* R70 — the LINE REPORT chip inside a 13px week-fold row (rule shared with
+   LINEUP; only the vertical rhythm differs here). ADDITIVE. */
+.gr-slot .line-chip { margin-left: 4px; }
 .gr-card--team .gr-season { margin: 4px 0 8px; }
 .gr-season summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--muted); }
 .gr-standings-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px; }
@@ -3932,3 +3949,97 @@ body.gate-locked { overflow: hidden; }
 }
 /* The WAIVER WIRE head names the league too — long enough to wrap at 402px. */
 .ww-card .lu-title { white-space: normal; line-height: 1.5; }
+
+/* =============================================================================
+   R71 — POST-GAME REVIEW (.rv-* only; additive, touches no existing rule)
+   Painted by app/review.js after a FINAL: a filled --pos circle on the predicted
+   team when the pick won, a hollow --neg ring when it lost; nothing pre-final.
+   Every color is an existing audited token (contrast_aa.test.mjs covers them).
+   ========================================================================== */
+.rv-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+}
+.rv-dot--won  { background: var(--pos); border-color: var(--pos); }
+.rv-dot--lost { background: transparent; border-color: var(--neg); }
+.card.game.rv-graded { cursor: pointer; }
+.card.game.rv-graded--won  { border-left: 3px solid var(--pos); }
+.card.game.rv-graded--lost { border-left: 3px solid var(--neg); }
+.rv-strip {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.rv-why {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.rv-why-head {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.rv-summary { font-weight: 700; margin-bottom: 4px; }
+.rv-reasons { list-style: none; margin: 0; padding: 0; }
+.rv-reason { padding: 2px 0; color: var(--ink); }
+.rv-reason--rest, .rv-omitted { color: var(--muted); font-style: italic; }
+.rv-pts { font-variant-numeric: tabular-nums; }
+.rv-narr {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+}
+.rv-narr-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-txt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}
+.rv-pchip, .rv-chip, .rv-leg {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.rv-pchip { margin-left: auto; }
+.rv-pchip--hit,  .rv-chip--met,  .rv-chip--over { color: var(--pos-txt); border-color: var(--pos); }
+.rv-pchip--miss, .rv-chip--under { color: var(--accent-txt); border-color: var(--neg); }
+.rv-pchip--pending, .rv-pchip--void, .rv-chip--dnp { color: var(--muted); }
+.rv-leg {
+  padding: 0 5px;
+  margin-right: 6px;
+  border-radius: 4px;
+}
+.rv-leg--hit  { color: var(--pos-txt); border-color: var(--pos); }
+.rv-leg--miss { color: var(--accent-txt); border-color: var(--neg); }
+.rv-leg--pending, .rv-leg--void { color: var(--muted); }
+.rv-player { display: block; margin-top: 6px; font-size: 12px; }
+.rv-line { margin-left: 6px; color: var(--muted); }

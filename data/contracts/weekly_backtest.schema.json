@@ -614,6 +614,299 @@
     "policy": {
       "type": "string",
       "minLength": 1
+    },
+    "live_2026": {
+      "type": "object",
+      "description": "R54 - OPTIONAL. The shipped weekly estimate per player-week as made and locked before kickoff (data/estimates/2026.json `locked`) scored against the resolved actuals in data/estimate_scores.json `resolved` - NOT the 2023-25 corpus. Measured only: the never-regress verdict stays on the corpus. Until a 2026 week has resolved the block is exactly {weeks: 0, note} - never a fabricated number.",
+      "additionalProperties": false,
+      "required": [
+        "weeks",
+        "note"
+      ],
+      "properties": {
+        "weeks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Resolved 2026 weeks joined; 0 means only `note` accompanies it."
+        },
+        "note": {
+          "type": "string"
+        },
+        "season": {
+          "type": "integer",
+          "enum": [
+            2026
+          ]
+        },
+        "weeks_resolved": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          }
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Joined (player, week) rows = sum of per_week[].n."
+        },
+        "ledger": {
+          "type": "string"
+        },
+        "scores": {
+          "type": "string"
+        },
+        "shipped": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "gated": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "description": "Null when a locked row lacks the gated series."
+        },
+        "candidate": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "rank_corr": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": -1,
+              "maximum": 1
+            },
+            "topk": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "description": "Null when a locked row lacks the candidate series."
+        },
+        "per_week": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "week",
+              "n",
+              "shipped",
+              "gated",
+              "candidate"
+            ],
+            "properties": {
+              "week": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "shipped": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "topk"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -1,
+                    "maximum": 1
+                  },
+                  "topk": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              },
+              "gated": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "topk"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -1,
+                    "maximum": 1
+                  },
+                  "topk": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              },
+              "candidate": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "topk"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -1,
+                    "maximum": 1
+                  },
+                  "topk": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

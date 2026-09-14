@@ -37,7 +37,7 @@
 import {
   getPlayerProjections, getPlayerWeekly, getAiInsights,
   getPlayerHistory, getTeamStrength, getGamePredictions, getAdp,
-  getRookieStarters, getMeta,
+  getRookieStarters, getMeta, getLineReport,
 } from '../data.js';
 import { renderPlayerCard, renderScoreSeg, renderWeekStrip } from '../render.js';
 import { strengthOfSchedule, trendLabel, scoringAdjust, extraPtsOf,
@@ -245,6 +245,64 @@ export function withWeekHeadline(cardHtml, week, wv, season) {
     `<div class="p-unit">BASE ${esc(fix1(season))} · SEASON</div>`;
   return html.slice(0, i + HEAD_START.length) + inner + html.slice(j + HEAD_END.length);
 }
+
+/* --------------------------------------------------------------------------
+ * R70 — LINE REPORT chips (pure, exported; app/views/lineup.js carries the
+ * same two functions verbatim because LINEUP must stay off this module's
+ * graph — tests/feature/r70_lines.test.mjs locks the two copies to identical
+ * output).
+ *
+ * data/line_report.json is FACTS: each team's OL and DL-front starters from
+ * the latest depth chart, crossed with the injury report. The chips say what
+ * it says — "OL: 2 out" for the player's own line, "vs DL: 1 out" for the
+ * opponent's front, the names on hover/title — and CHANGE NO NUMBER. Nothing
+ * renders when the file is absent, unavailable, or for another week.
+ * ------------------------------------------------------------------------ */
+
+/** The report's `teams` block when it is available for `wk`; else null. */
+export function lineReportTeams(doc, wk) {
+  if (!doc || doc.available !== true || !doc.teams || typeof doc.teams !== 'object') return null;
+  if (doc.week != null && Number(doc.week) !== Number(wk)) return null;
+  return doc.teams;
+}
+
+function lineChip(label, grp, title) {
+  const out = Array.isArray(grp.out) ? grp.out : [];
+  const q = (Array.isArray(grp.doubtful) ? grp.doubtful : [])
+    .concat(Array.isArray(grp.questionable) ? grp.questionable : []);
+  if (out.length) {
+    const t = `${title} out: ${out.join(', ')}` + (q.length ? ` · questionable: ${q.join(', ')}` : '');
+    return `<span class="line-chip line-chip--out" title="${esc(t)}">${esc(label)}: ${out.length} out</span>`;
+  }
+  if (q.length) {
+    return `<span class="line-chip" title="${esc(`${title} questionable: ${q.join(', ')}`)}">${esc(label)}: ${q.length} Q</span>`;
+  }
+  return '';
+}
+
+/** The chips for a player on `team` facing `opp` this week, or ''. */
+export function lineChipsHtml(teams, team, opp) {
+  if (!teams) return '';
+  const own = team ? teams[String(team).toUpperCase()] : null;
+  const vs = opp ? teams[String(opp).toUpperCase()] : null;
+  const a = own && own.ol ? lineChip('OL', own.ol, 'Own offensive line') : '';
+  const b = vs && vs.dl ? lineChip('vs DL', vs.dl, 'Opposing defensive front') : '';
+  return [a, b].filter(Boolean).join(' ');
+}
+
+/** Splice the chips under the AI+ headline (after the BASE line); no-op on ''. */
+export function withLineChips(cardHtml, chips) {
+  const html = String(cardHtml);
+  if (!chips) return html;
+  const marker = ' · SEASON</div>';
+  const i = html.indexOf(marker);
+  if (i < 0) return html;
+  const at = i + marker.length;
+  return `${html.slice(0, at)}<div class="p-line">${chips}</div>${html.slice(at)}`;
+}
+
+export const LINE_LEGEND = 'LINE REPORT chips (OL: own line · vs DL: opposing front) are '
+  + 'depth-chart starters crossed with the injury report — facts for this week that change no number.';
 
 /** Paint a plain .state message (empty / error). */
 function stateMsg(el, text) {
@@ -603,6 +661,18 @@ export function withExtraRow(cardHtml, extras) {
   return `${cardHtml.slice(0, i)}<div class="p-adorn p-adorn--value">${extras}</div>${cardHtml.slice(i)}`;
 }
 
+/**
+ * R71 — splice the post-game review row (OVER / UNDER / MET chip + measured why,
+ * app/review.js) in front of the band, the same anchor rule as withExtraRow:
+ * no anchor, no row, never a broken card. Empty html is a no-op.
+ */
+function withReviewRow(cardHtml, html) {
+  if (!html) return cardHtml;
+  const i = String(cardHtml).indexOf(CARD_ANCHOR);
+  if (i < 0) return cardHtml;
+  return `${cardHtml.slice(0, i)}${html}${cardHtml.slice(i)}`;
+}
+
 /* --------------------------------------------------------------------------
  * R49 — OURS · SCENARIO · SLEEPER on every card (display-only, never an input)
  * ------------------------------------------------------------------------ */
@@ -715,7 +785,12 @@ export default async function mountPlayers(el) {
 
   // Projections required; everything else optional (allSettled) so a missing
   // weekly/insight/history/strength file never blanks the view.
-  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes, rostersRes] = await Promise.allSettled([
+  // R70 — the LINE REPORT is read only when AI+ (THIS WEEK) is the persisted
+  // view: the chips belong to that view alone, and the cold BASE load stays at
+  // its measured contract count (tests/perf/budget.spec.mjs). A later toggle
+  // to AI+ fetches it then (see the aiSeg handler).
+  const wantsLine = loadAiPref();
+  const [projRes, weeklyRes, aiRes, histRes, strRes, predRes, adpRes, teamModRes, rostersRes, lineRes, reviewRes] = await Promise.allSettled([
     getPlayerProjections(),
     getPlayerWeekly(),
     getAiInsights(),
@@ -730,7 +805,15 @@ export default async function mountPlayers(el) {
     teamModule(),
     // R51 — NFL-week memory; LAZY_ONLY in the perf budget, so never static.
     import('../league-rosters.js'),
+    wantsLine ? getLineReport() : Promise.resolve(null),
+    // R71 — the post-game review module (LAZY_ONLY: kept off the boot graph);
+    // primed here so first paint can carry the OVER / UNDER / MET chip. Absent
+    // review.json or a failed import resolves to null and no chip renders.
+    import('../review.js').then((m) => m.primeReview().then(() => m)).catch(() => null),
   ]);
+  const reviewMod = reviewRes.status === 'fulfilled' ? reviewRes.value : null;
+  // null = not asked yet; false = asked and absent/unavailable; else the doc.
+  let lineDoc = lineRes.status === 'fulfilled' ? (lineRes.value || (wantsLine ? false : null)) : false;
   if (projRes.status !== 'fulfilled') {
     stateMsg(el, 'Players unavailable — the projection feed did not load.');
     return;
@@ -1032,6 +1115,11 @@ export default async function mountPlayers(el) {
     return { player, weekly: !!w, trend, sos };
   }
 
+  // R70 — the legend sentence rides beside the AI+ note only while the report
+  // is actually available for this week (nothing is promised that is not shown).
+  const lineLegendHtml = () => (lineDoc && lineReportTeams(lineDoc, currentWk)
+    ? `<div class="line-legend">${esc(LINE_LEGEND)}</div>` : '');
+
   const _wkCache = new Map();
   function weekOf(id) {
     const key = `${scoring}|${id}`;
@@ -1182,6 +1270,8 @@ export default async function mountPlayers(el) {
 
   // Render the card list for the active filter + sort into #players-list.
   function paintList() {
+    // R70 — the LINE REPORT for THIS week (null when absent/unavailable/other week).
+    const lineTeams = aiOn && lineDoc ? lineReportTeams(lineDoc, currentWk) : null;
     // R47 — the K/DST rows join the pool once loaded (ALL includes them too).
     const pool = kdstRows.length ? players.concat(kdstRows) : players;
     let base = (active === 'ALL'
@@ -1223,10 +1313,13 @@ export default async function mountPlayers(el) {
           const m = model(p);
           // RoS chip under the RoS sort (legible sort) and under AI+ (R51).
           const ros = (aiOn || sortKey === 'ros') ? rosOf(id) : null;
-          const card = withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
+          const card = withReviewRow(withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, ros,
-          }), extraRow(id)), estimateRows(p));
-          return aiOn ? withWeekHeadline(card, currentWk, weekOf(id), m.player.proj_points) : card;
+          }), extraRow(id)), estimateRows(p)), reviewMod ? reviewMod.renderPlayerReview(id) : '');
+          if (!aiOn) return card;
+          const wv = weekOf(id);
+          const headed = withWeekHeadline(card, currentWk, weekOf(id), m.player.proj_points);
+          return withLineChips(headed, lineChipsHtml(lineTeams, p.team, wv && wv.opp));
         }).join('')
         + (more > 0
           ? `<button type="button" class="load-more" data-act="show-more">SHOW ${Math.min(more, PAGE)} MORE <span class="cd-meta">(${more} remaining)</span></button>`
@@ -1255,7 +1348,7 @@ export default async function mountPlayers(el) {
     filterRow(active) +
     (hasRookieFlag ? rookieRow(rookiesOnly) : '') +
     sortRow(sortKey, sortDir, aiOn ? weekSortLabel : null) +
-    (aiOn && aiCopy ? `<div class="ai-note">${esc(aiCopy)}</div>` : '') +
+    (aiOn && aiCopy ? `<div class="ai-note">${esc(aiCopy)}</div>${lineLegendHtml()}` : '') +
     '<div id="players-list" class="card-list"></div>' +
     '<div id="rookie-starters" hidden></div>' +
     renderUnranked(unrankedRows);
@@ -1374,9 +1467,22 @@ export default async function mountPlayers(el) {
       const note = el.querySelector('.ai-note');
       if (on && !note) {
         const anchor = el.querySelector('.sortseg') || el.querySelector('.posfilter');
-        if (anchor) anchor.insertAdjacentHTML('afterend', `<div class="ai-note">${esc(aiCopy)}</div>`);
+        if (anchor) anchor.insertAdjacentHTML('afterend', `<div class="ai-note">${esc(aiCopy)}</div>${lineLegendHtml()}`);
       } else if (!on && note) {
         note.remove();
+      }
+      if (!on) { const lg = el.querySelector('.line-legend'); if (lg) lg.remove(); }
+      // R70 — first AI+ turn-on this mount: read the LINE REPORT, then repaint
+      // the list (and add the legend) if AI+ is still on when it lands.
+      if (on && lineDoc === null) {
+        lineDoc = false;
+        getLineReport().then((doc) => {
+          lineDoc = doc || false;
+          if (!aiOn || !el.isConnected) return;
+          paintList();
+          const n = el.querySelector('.ai-note');
+          if (n && !el.querySelector('.line-legend')) n.insertAdjacentHTML('afterend', lineLegendHtml());
+        }).catch(() => { lineDoc = false; });
       }
       const sortSeg = el.querySelector('.sortseg');
       if (sortSeg) sortSeg.innerHTML = sortChips(sortKey, sortDir, on ? weekSortLabel : null);

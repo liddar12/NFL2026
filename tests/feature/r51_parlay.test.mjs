@@ -326,7 +326,18 @@ test('data/parlay_backtest.json honours the contract; verdicts adopted / no_edge
   for (const pos of ['QB', 'RB', 'WR']) {
     assert.ok(pr.residual_sd[pos] > 0);
     for (const k of ['a', 'b', 'c']) assert.equal(typeof pr.calibration[pos][k], 'number');
-    assert.deepEqual(pr.calibration[pos].fit_seasons, [2023, 2024, 2025]);
+    // R58: fit_seasons gains 2026 only when live_2026.refit.applied is true
+    // (the weekly refit adopted under never-regress); the corpus seasons stay.
+    const fs = pr.calibration[pos].fit_seasons;
+    assert.deepEqual(fs.slice(0, 3), [2023, 2024, 2025]);
+    if (fs.length > 3) {
+      assert.deepEqual(fs, [2023, 2024, 2025, 2026]);
+      assert.equal(doc.live_2026?.refit?.applied, true,
+        `${pos}: fit_seasons carries 2026 but no adopted refit says so`);
+    } else {
+      assert.notEqual(doc.live_2026?.refit?.applied, true,
+        `${pos}: an adopted refit must show 2026 in fit_seasons`);
+    }
   }
   assert.equal(pr.folds.length, 2);
   assert.deepEqual(pr.folds.map((f) => [f.season, f.fit_seasons]), [[2024, [2023]], [2025, [2023, 2024]]]);

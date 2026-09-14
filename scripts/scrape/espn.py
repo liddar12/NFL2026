@@ -241,12 +241,15 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
     return out
 
 
-def fetch_injuries(min_rows=1):
+def fetch_injuries(min_rows=1, carry_positions=False):
     """Per-team injury reports, enriched with the canonical availability reading.
 
     Returns list[dict]: {team, player, status, availability, availability_class,
     weeks_out, out_for_season, confidence, evidence, detail}. Loud if the payload
-    is structurally empty.
+    is structurally empty. R70: with `carry_positions=True` (build_predictions)
+    each row also carries `position` and `athlete_id` from ESPN's athlete object
+    when the payload has them (null otherwise) — the default shape is unchanged
+    so the Rel17 row contract stays exactly what its test locks.
 
     `status` is ESPN's designation carried through VERBATIM — it is what the report
     said, and build_weekly.INJURY_MULT's three keys are that exact spelling.
@@ -285,18 +288,49 @@ def fetch_injuries(min_rows=1):
                     f"(and re-run the gate) before trusting this run — an unmapped "
                     f"status is NOT 'active'."
                 )
-            out.append(availability.enrich({
+            row = availability.enrich({
                 "team": team,
                 "player": athlete.get("displayName"),
                 "status": status,
                 "detail": item.get("longComment") or item.get("shortComment"),
-            }))
+            })
+            # R70 — the position and ESPN athlete id, WHEN THE PAYLOAD CARRIES
+            # THEM. ESPN's site-API athlete object nests the position as
+            # {"abbreviation": "RB", ...}; a payload without it yields null, never
+            # a guess. build_line_report.py joins these rows to the depth chart
+            # by ESPN id (the chart's espn_id) or (team, name) and reads
+            # `position` to tell an OL/DL row from the rest; `athlete_id` is
+            # ESPN's id (NOT a gsis id).
+            if carry_positions:
+                row["position"] = _athlete_position(athlete)
+                row["athlete_id"] = _athlete_id(athlete)
+            out.append(row)
     if len(out) < min_rows:
         raise FeedError(
             f"ESPN injuries produced {len(out)} rows (< {min_rows}); treating as an "
             f"outage rather than an empty (and therefore misleading) injury report."
         )
     return out
+
+
+def _athlete_position(athlete):
+    """The position abbreviation from an ESPN athlete object, or None. Accepts
+    the nested {"position": {"abbreviation": ...}} shape the site API uses and a
+    bare string; anything else is absent (null), never inferred."""
+    pos = (athlete or {}).get("position")
+    if isinstance(pos, dict):
+        pos = pos.get("abbreviation") or pos.get("name")
+    if isinstance(pos, str) and pos.strip():
+        return pos.strip().upper()
+    return None
+
+
+def _athlete_id(athlete):
+    """ESPN's athlete id as a string, or None when the payload has none."""
+    aid = (athlete or {}).get("id")
+    if aid is None or str(aid).strip() == "":
+        return None
+    return str(aid).strip()
 
 
 def _to_int(value):

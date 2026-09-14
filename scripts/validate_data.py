@@ -117,12 +117,27 @@ SCHEMA_TO_DATA = {
     # number inside is a measurement yardstick, never a model input.
     "weekly_backtest.schema.json": "weekly_backtest.json",
     "parlay_backtest.schema.json": "parlay_backtest.json",
+    # R58 — the parlay-leg ledger's resolved scores (scripts/resolve_parlay_legs.py).
+    # 0 resolved weeks is a valid, honest document; implied_prob inside is the
+    # yardstick the leg was measured beside, never an input.
+    "parlay_leg_scores.schema.json": "parlay_leg_scores.json",
+    # R70 — the OL / DL-front LINE REPORT: facts (depth-chart starters x injury
+    # report) read by the LINEUP / GRADE / PLAYERS chips; changes no number.
+    # Runner-built; the honest available:false document is also valid.
+    "line_report.schema.json": "line_report.json",
+    # R71 — the post-game review (scripts/build_review.py): measured attribution
+    # over lock receipts, finals, the calibrated band and the stat line.
+    "review.schema.json": "review.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
 # season, compact) and is validated like the snapshot directory below.
 ESTIMATES_DIR = os.path.join(DATA, "estimates")
 ESTIMATES_SCHEMA = "estimate_ledger.schema.json"
+# R58 — the parlay-leg ledger shares the directory (parlays_<season>.json) and
+# has its own contract; routed by filename prefix below.
+PARLAY_LEDGER_PREFIX = "parlays_"
+PARLAY_LEDGER_SCHEMA = "parlay_ledger.schema.json"
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -147,6 +162,13 @@ OPTIONAL_DATA = frozenset([
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",
+    # R58 — written by the daily runner after the parlay ledger append; absent
+    # on a fresh clone until the first resolve, validated strictly when present.
+    "parlay_leg_scores.json",
+    # R70 — runner-built line report; absent on a fresh clone, strict when present.
+    "line_report.json",
+    # R71 — runner-built (finals + nflverse stats); a clone without it is not red.
+    "review.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -1651,6 +1673,58 @@ def _selftest():
                               "absence_weeks": 4})
     check_weekly_availability(w2, pr2, inj2)
 
+    # --- R58: the two parlay-ledger contracts red on the shapes that matter -----
+    _led_schema = _load(os.path.join(CONTRACTS, "parlay_ledger.schema.json"))
+    _leg = {"season": 2026, "week": 1, "game_id": "401872656", "home": "SEA", "away": "NE",
+            "kickoff_utc": "2026-09-10T00:20Z", "market": "rb_rush_yds",
+            "selection": "T. Henderson 60+ rush yds", "position": "RB",
+            "player": "TreVeyon Henderson", "gsis_id": "espn-4432710", "team": "NE",
+            "side": "away", "line": 59.5, "mu": 44.49, "sd": 38.87, "z": -0.3862,
+            "p_team": 0.39, "model_prob": 0.3142, "implied_prob": 0.3283,
+            "pricing": "calibrated", "seen_utc": "2026-09-08T10:39:10Z", "locked": True,
+            "locked_utc": "2026-09-08T10:39:10Z"}
+    _led = {"season": 2026, "generated_utc": "t", "as_of_utc": "2026-09-08T10:39:10Z",
+            "source": "s", "runs": [{"as_of_utc": "2026-09-08T10:39:10Z", "week": 1,
+                                     "legs_seen": 1, "legs_added": 1, "locked_added": 1,
+                                     "unlocked_added": 0, "skipped": {"no_game": 0}}],
+            "legs": [_leg]}
+    validate_against_schema(_led, _led_schema, "parlay_ledger selftest")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["locked"] = "yes"
+    _schema_red(_bad, _led_schema, "a ledger leg whose locked flag is a string")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["model_prob"] = 1.5
+    _schema_red(_bad, _led_schema, "a ledger leg with model_prob above 1")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["market"] = "total"
+    _schema_red(_bad, _led_schema, "a ledger leg on a market the builder never emits")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _led_schema, "an undeclared field on a ledger leg")
+    _sc_schema = _load(os.path.join(CONTRACTS, "parlay_leg_scores.schema.json"))
+    _nullm = {"n": 0, "hit_rate": None, "log_loss": None, "brier": None}
+    _blocks = {"props": {"n": 0, "hit_rate": None, "model": {"log_loss": None, "brier": None},
+                         "seed": {"log_loss": None, "brier": None}, "by_pricing": {}},
+               "moneyline": dict(_nullm), "spread": dict(_nullm)}
+    _sc = {"season": 2026, "generated_utc": "t", "source": "s", "finals_source": "none",
+           "ledger": "data/estimates/parlays_2026.json", "rule": "r", "weeks_resolved": 0,
+           "legs": {"on_file": 1, "locked": 1, "unlocked": 0, "resolved": 0,
+                    "unresolved": 0},
+           "skipped": "offline run", "pooled": _blocks, "by_position": {}, "weeks": [],
+           "unresolved": [], "resolved": []}
+    validate_against_schema(_sc, _sc_schema, "parlay_leg_scores selftest (0 resolved)")
+    _bad = copy.deepcopy(_sc)
+    _bad["pooled"]["props"]["hit_rate"] = "n/a"
+    _schema_red(_bad, _sc_schema, "a hit rate that is a string rather than number/null")
+    _bad = copy.deepcopy(_sc)
+    _bad["unresolved"].append({"week": 1, "game_id": "g", "market": "rb_rush_yds",
+                               "selection": "x", "reason": "miss"})
+    _schema_red(_bad, _sc_schema, "an unresolved reason outside the declared set "
+                "(an unresolved leg is never a miss)")
+    _bad = copy.deepcopy(_sc)
+    del _bad["finals_source"]
+    _schema_red(_bad, _sc_schema, "a score document that does not say where finals came from")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -1658,7 +1732,10 @@ def _selftest():
           "mislabelled side, a total leg and a model/market collision; the six "
           "R30b keywords (minProperties/maxProperties/pattern/exclusiveMinimum/"
           "exclusiveMaximum/minLength) each fail a violating document; $ref is "
-          "a hard error; market_prices is validated below the top level")
+          "a hard error; market_prices is validated below the top level; the R58 "
+          "parlay ledger / leg-score contracts red on a string flag, a >1 "
+          "probability, an off-enum market or reason, an undeclared leg field and "
+          "a missing finals_source")
 
 
 # ---------------------------------------------------------------------------
@@ -1722,15 +1799,21 @@ def main():
             print("ok    no snapshot files to validate (data/snapshots/ empty)")
 
     # 1c) R49 — estimate ledger files (data/estimates/<season>.json), when present.
+    # R58 — the parlay-leg ledger (parlays_<season>.json) lives beside them with
+    # its own contract (OPTIONAL: absent until the first daily append).
     if os.path.isdir(ESTIMATES_DIR):
         led_files = [f for f in sorted(os.listdir(ESTIMATES_DIR)) if f.endswith(".json")]
         if led_files:
             try:
-                led_schema = _load(os.path.join(CONTRACTS, ESTIMATES_SCHEMA))
+                schemas = {}
                 for f in led_files:
+                    schema_name = (PARLAY_LEDGER_SCHEMA if f.startswith(PARLAY_LEDGER_PREFIX)
+                                   else ESTIMATES_SCHEMA)
+                    if schema_name not in schemas:
+                        schemas[schema_name] = _load(os.path.join(CONTRACTS, schema_name))
                     validate_against_schema(_load(os.path.join(ESTIMATES_DIR, f)),
-                                            led_schema, "estimates/" + f)
-                    print("ok    estimates/%-30s vs %s" % (f, ESTIMATES_SCHEMA))
+                                            schemas[schema_name], "estimates/" + f)
+                    print("ok    estimates/%-30s vs %s" % (f, schema_name))
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 

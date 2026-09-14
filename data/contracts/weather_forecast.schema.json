@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "weather_forecast.schema.json",
-  "title": "Kickoff-hour wind FORECAST for upcoming open-roof home games (Open-Meteo forecast)",
-  "description": "Prediction-time source for the adopted weather_wind family. Keyless forecast data, rebuilt each run; open-roof venues only. Naturally small in-week and empty in the offseason (dormant). Never a model input on its own — applied only when weather_wind has cleared NEVER-REGRESS.",
+  "title": "Kickoff-hour weather FORECAST for upcoming non-dome home games (Open-Meteo forecast) + climatology fallback beyond the horizon",
+  "description": "Prediction-time source for the adopted weather_wind family (game model reads `games` only) and for build_weekly's weather factor (reads `games` then `climatology`). Keyless forecast data, rebuilt each run; open + retractable venues (retractable stays neutral in build_weekly). `games` rows are the kickoff-hour forecast inside the 16-day horizon, stamped source=forecast + fetched_utc; `climatology` rows (R56) are the home stadium's mean kickoff-hour temp/wind for the game's calendar month over 2021-2025 from weather_history.json, only where n >= 4 games (fewer -> no row), stamped source=climatology with the measured `rules` the row may fire (docs/WEATHER_HORIZON.md). Naturally small in-week and empty in the offseason (dormant). Never a model input on its own - applied only when weather_wind has cleared NEVER-REGRESS.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,6 +20,7 @@
     "games": {
       "type": "object",
       "minProperties": 0,
+      "description": "\"season|week|HOME|AWAY\" -> kickoff-hour forecast. `source`/`fetched_utc` are stamped by the R56 builder; a pre-R56 file carries neither and reads as forecast rows.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -39,6 +40,140 @@
           "precip_mm": {
             "type": "number",
             "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "forecast"
+            ]
+          },
+          "fetched_utc": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "climatology": {
+      "type": "object",
+      "minProperties": 0,
+      "description": "\"season|week|HOME|AWAY\" -> stadium-month climatology for a scheduled non-dome home game with no forecast row. Absent for a pre-R56 file.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "temp_c",
+          "wind_kph",
+          "source",
+          "n",
+          "month",
+          "rules"
+        ],
+        "properties": {
+          "temp_c": {
+            "type": "number",
+            "description": "Mean kickoff-hour temperature (C) over the stadium-month's games in weather_history.json."
+          },
+          "wind_kph": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Mean kickoff-hour wind (km/h) over the same games."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "climatology"
+            ]
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 4,
+            "description": "Games behind the mean; the builder writes no row below 4."
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Calendar month (UTC kickoff) the mean describes."
+          },
+          "rules": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "cold",
+                "wind"
+              ]
+            },
+            "description": "Threshold rules build_weekly may fire from this row. A rule that fires at the mean but was wrong for more than half of the stadium-month's 2023-2025 games (or has no measured games) is withheld."
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forecast_days",
+        "climatology_min_n",
+        "counts"
+      ],
+      "properties": {
+        "forecast_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "climatology_min_n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "climatology_seasons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "climatology_eval_seasons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "climatology_stadium_months": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "climatology_skipped_lt_min_n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scheduled",
+            "forecast",
+            "climatology",
+            "absent"
+          ],
+          "properties": {
+            "scheduled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "forecast": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "climatology": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "absent": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Scheduled non-dome home games with neither row: beyond the horizon and no stadium-month with n >= 4. Absent is absent."
+            }
           }
         }
       }

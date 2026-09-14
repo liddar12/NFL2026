@@ -173,6 +173,16 @@ const CONTRACT_ALLOWLIST = new Set([
   // null and the card is omitted, so the request is the whole cost.
   'weekly_backtest.json',
   'parlay_backtest.json',
+  // R70 — the OL / DL-front LINE REPORT (~20 KB: 32 teams x starter names and
+  // report lists, no per-player rows). Fetched by LINEUP (cold, 6 -> 7 below),
+  // GRADE (mount) and PLAYERS only while AI+ is the persisted view; a 404
+  // resolves to null and no chip renders, so the request is the whole cost.
+  'line_report.json',
+  // R71 — the post-game review (data/review.json, ~100 KB at one resolved
+  // week: 16 games + 26 players + 66 parlays with their measured why). Fetched
+  // by app/review.js, itself a LAZY import from the slate/parlays views after
+  // paint; a 404 resolves to null once per session and nothing renders.
+  'review.json',
 ]);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
@@ -181,21 +191,32 @@ const CONTRACT_ALLOWLIST = new Set([
 // decision. Every route mounts from a single Promise.allSettled, so these
 // counts are also the concurrency.
 const ROUTES = [
-  { hash: '#/', name: 'slate', contracts: 3 },
+  // R71 — 3 -> 4: data/review.json joins the slate after first paint (lazy
+  // app/review.js), so the won/lost circles and the review strip can land
+  // without a user gesture. Measured 3x, byte-identical: 4.
+  { hash: '#/', name: 'slate', contracts: 4 },
   // R49 — 8 -> 10: Sleeper's display-only estimate (sleeper_projections.json,
   // ~1 MB) and meta.json (the baseline rule the gap reason cites) are fetched
   // AFTER the first paint via requestIdleCallback, never inside the mount's
   // allSettled, so first paint is unchanged; they still land inside this
   // test's 2.5 s window. Owner's decision: Sleeper's number beside OURS on
   // every card, so there is no user gesture to hang the fetch on.
-  { hash: '#/players', name: 'players', contracts: 10 },
-  { hash: '#/parlays', name: 'parlays', contracts: 4 },
+  // R71 — 10 -> 11: data/review.json joins the players mount's allSettled so
+  // the OVER / UNDER / MET chip rides the first paint on every card (the same
+  // document the slate and parlays read; one request, cached across routes).
+  { hash: '#/players', name: 'players', contracts: 11 },
+  // R71 — 4 -> 5: the same review.json (cached across routes by data.js's
+  // promise cache — the de-dupe test below still holds) for the leg marks.
+  { hash: '#/parlays', name: 'parlays', contracts: 5 },
   { hash: '#/team', name: 'team', contracts: 9 },
   // R47 — the DEFAULT league now fields K and DEF (owner's pick: first-class
   // everywhere), so LINEUP's conditional second-wave kdst fetch is live on a
   // cold default load: 5 -> 6, measured 3x byte-identical. PLAYERS stays at 8
   // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
-  { hash: '#/lineup', name: 'lineup', contracts: 6 },
+  // R70 — 6 -> 7: data/line_report.json (the OL / DL-front LINE REPORT chips
+  // on every starter row) joins the lineup mount's allSettled; a 404 is still
+  // one request. PLAYERS fetches the report only when AI+ is on (its 11 is R71's).
+  { hash: '#/lineup', name: 'lineup', contracts: 7 },
   // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
   // (a 404 is still one request, so the count holds with the files absent).
   { hash: '#/model', name: 'model', contracts: 8 },

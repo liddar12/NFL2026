@@ -86,6 +86,12 @@ jobs:
       - name: Weekly split never-regress backtest (writes data/weekly_backtest.json)
         run: python scripts/backtest_weekly.py
 
+      # R70 — line-injury cascade, MEASURE ONLY (writes data/lines_backtest.json;
+      # no factor ships until a variant clears never-regress on both MAE and rank).
+      - name: Line-injury cascade backtest (measure only)
+        run: python scripts/backtest_lines.py
+        continue-on-error: true
+
       - name: Parlay never-regress backtest (writes data/parlay_backtest.json)
         run: python scripts/backtest_parlay.py
 
@@ -93,6 +99,13 @@ jobs:
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
         run: python -m scripts.build_predictions
+
+      # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
+      # no number). Best-effort: an unreachable depth chart writes the honest
+      # available:false document, never invented starters.
+      - name: Build the line report (OL / DL-front starters x injury report)
+        run: python scripts/build_line_report.py
+        continue-on-error: true
 
       # R51 — keep data/player_backtest.json on the SAME substrate as the
       # player_history.json this run just refreshed. It used to be written only
@@ -122,6 +135,35 @@ jobs:
       - name: Resolve estimates against nflverse weekly actuals
         run: python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run
+
+      # R58 — PARLAY-LEG LEDGER. Append today's shipped legs (idempotent per
+      # parlays.json updated_utc; as-made pricing locks on first sight, post-kickoff
+      # legs are recorded unlocked), then score every locked leg against nflverse
+      # weekly yards. The resolver skips loudly while a week has no rows and
+      # writes an honest 0-resolved record — it never invents a log-loss.
+      # scripts/backtest_parlay.py (above) reads data/parlay_leg_scores.json for
+      # the live_2026 block and the weekly refit, so the refit sees yesterday's
+      # resolved legs — a one-day lag by design (the gate reproduces it from
+      # committed inputs).
+      - name: Parlay-leg ledger append (as-made pricing, locked pre-kickoff)
+        run: python scripts/build_parlay_ledger.py
+
+      - name: Resolve parlay legs against nflverse weekly yards
+        run: python scripts/resolve_parlay_legs.py
+        continue-on-error: true   # a stats outage degrades the record, never the run
+
+      # R71 — post-game review over resolved estimates + the parlay-leg ledger.
+      - name: Build post-game review (data/review.json)
+        run: python3 scripts/build_review.py
+
+      # R71 — OPTIONAL AI narrative (P10 exception): runs only when both the
+      # secret and the variable are set; otherwise one-line skip, exit 0.
+      - name: AI narrative (optional, env-gated)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REVIEW_NARRATIVE_MODEL: ${{ vars.REVIEW_NARRATIVE_MODEL }}
+        run: python3 scripts/build_review_narrative.py
+        continue-on-error: true
 
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts

@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-13T18:01:18Z",
+  "generated_utc": "2026-09-13T23:36:06Z",
   "model_candidate": "weekly_split_v2",
   "model_incumbent": "weekly_split_v1",
   "fixture": {
@@ -169,7 +169,9 @@
     "neutral_weeks": {
       "dvp_neutral_weeks": 0,
       "weather_no_forecast_weeks": 90003,
-      "venue_flat_weeks": 0
+      "venue_flat_weeks": 0,
+      "weather_forecast_weeks": 5084,
+      "weather_climatology_weeks": 0
     },
     "game_params": {
       "hfa": 45.0,
@@ -177,6 +179,53 @@
       "revert": 0.45
     },
     "elo_chain_from": 2019,
-    "runtime_s": 1.04
+    "runtime_s": 1.32
+  },
+  "live_2026": {
+    "season": 2026,
+    "weeks": 1,
+    "weeks_resolved": [
+      1
+    ],
+    "rows": 26,
+    "ledger": "data/estimates/2026.json",
+    "scores": "data/estimate_scores.json",
+    "shipped": {
+      "mae": 5.6062,
+      "rank_corr": 0.378,
+      "topk": 0.8947
+    },
+    "gated": {
+      "mae": 6.7946,
+      "rank_corr": 0.3997,
+      "topk": 0.7249
+    },
+    "candidate": {
+      "mae": 5.6062,
+      "rank_corr": 0.378,
+      "topk": 0.8947
+    },
+    "per_week": [
+      {
+        "week": 1,
+        "n": 26,
+        "shipped": {
+          "mae": 5.6062,
+          "rank_corr": 0.378,
+          "topk": 0.8947
+        },
+        "gated": {
+          "mae": 6.7946,
+          "rank_corr": 0.3997,
+          "topk": 0.7249
+        },
+        "candidate": {
+          "mae": 5.6062,
+          "rank_corr": 0.378,
+          "topk": 0.8947
+        }
+      }
+    ],
+    "note": "LIVE 2026: the shipped weekly estimate per player-week as made and locked before kickoff (data/estimates/2026.json) scored against resolved actual PPR (data/estimate_scores.json), not the 2023-25 corpus; measured only \u2014 the never-regress verdict above stays on the corpus"
   }
 }

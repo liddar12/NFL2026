@@ -128,6 +128,25 @@
           },
           "description": "Weather multipliers + thresholds (pass_dome, pass_outdoors, pass_cold_extra, rb_wind, cold_c, wind_kph) - documented priors; roof from environment_model.json, forecast from weather_forecast.json."
         },
+        "weather_sources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "forecast_days",
+            "climatology_min_n"
+          ],
+          "properties": {
+            "forecast_days": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "climatology_min_n": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "description": "R56: where the weather rows came from - the Open-Meteo forecast horizon (days) that produces `games` rows and the minimum games per stadium-month behind a `climatology` row in data/weather_forecast.json (docs/WEATHER_HORIZON.md)."
+        },
         "venue": {
           "type": "object",
           "additionalProperties": false,
@@ -156,7 +175,7 @@
             "type": "integer",
             "minimum": 0
           },
-          "description": "Player-weeks where a factor fell back to 1.0 for lack of data (dvp_neutral_weeks, weather_no_forecast_weeks, venue_flat_weeks). Absent data is neutral, never invented."
+          "description": "Player-weeks where a factor fell back to 1.0 for lack of data (dvp_neutral_weeks, weather_no_forecast_weeks, venue_flat_weeks), plus (R56) the outdoor player-weeks the weather factor served from a row: weather_forecast_weeks (kickoff-hour forecast, inside the 16-day horizon) and weather_climatology_weeks (stadium-month mean beyond it). Dome and retractable weeks count in none of the three. Absent data is neutral, never invented."
         },
         "backtest": {
           "type": "string",
