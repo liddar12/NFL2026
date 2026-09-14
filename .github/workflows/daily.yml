@@ -100,6 +100,12 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
         run: python -m scripts.build_predictions
 
+      # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
+      # (created on first sight, refreshed while open, frozen once every game is
+      # FINAL) and rebuild data/parlays/index.json. Idempotent per updated_utc.
+      - name: Parlay archive (per-week history + index)
+        run: python3 scripts/build_parlay_archive.py
+
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.

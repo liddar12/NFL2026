@@ -176,7 +176,10 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   const r = py(['scripts/resolve_parlay_legs.py', '--dry-run-with', FIXTURE, '--out', out]);
   assert.equal(r.status, 0, r.stderr);
   const doc = JSON.parse(readFileSync(out, 'utf8'));
-  assert.deepEqual(JSON.parse(printed.stdout), doc, 'stdout in a dry run IS the document');
+  // Two separate dry runs stamp their own generated_utc; compare everything else
+  // (CI caught the two runs straddling a second boundary).
+  const stripStamp = ({ generated_utc: _ignored, ...rest }) => rest;
+  assert.deepEqual(stripStamp(JSON.parse(printed.stdout)), stripStamp(doc), 'stdout in a dry run IS the document');
   assert.equal(doc.weeks_resolved, 1);
   assert.equal(doc.skipped, null);
   assert.match(doc.source, /dry run/);

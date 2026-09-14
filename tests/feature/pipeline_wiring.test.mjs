@@ -66,6 +66,8 @@ const WIRED_BUILDERS = [
   // R71 — the post-game review and its optional narrative layer.
   'build_review.py',
   'build_review_narrative.py',
+  // R73 — the per-week parlay archive + index.
+  'build_parlay_archive.py',
 ];
 
 test('every nflverse builder is run by some workflow', () => {

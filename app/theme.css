@@ -905,6 +905,17 @@ button { font: inherit; color: inherit; }
 }
 
 /* =============================================================================
+   R73 — PARLAY HISTORY (.pw-* only; additive). The parlays view reuses the
+   slate's .wkbar / .wk-chip idiom above for its week chips (one per archived
+   week plus the current week). A CLOSED (archived) week's chip wears a dashed
+   border until selected — same colors, so the audited pairs are unchanged —
+   and the header carries an ARCHIVED .est pill on a past week.
+   ========================================================================== */
+.pw-wkbar { margin-bottom: 2px; }
+.pw-wk--closed:not(.wk-chip--active) { border-style: dashed; }
+.pw-archived { margin-left: 6px; vertical-align: middle; }
+
+/* =============================================================================
    PLAYER WEEKLY STRIP — .p-expand toggle + .wkstrip 18-cell grid
    ========================================================================== */
 /* WEEKS toggle chip on the player card */
@@ -4131,3 +4142,26 @@ body.gate-locked { overflow: hidden; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* R73 — the $100 flat-stake P&L line under the bucket card (.rv-* only;
+   display only, the legend says so). Mirrors .rv-strip; the left rule turns
+   --pos / --neg with the sign of the net (same pairs the chips already use). */
+.rv-pnl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.rv-pnl--pos { border-left-color: var(--pos); }
+.rv-pnl--neg { border-left-color: var(--neg); }
+.rv-pnl-note { color: var(--muted); }

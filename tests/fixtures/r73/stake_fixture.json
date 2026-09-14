@@ -1,0 +1,267 @@
+{
+  "week": 1,
+  "parlays": [
+    {
+      "parlay_id": "W-allhit",
+      "scope": "week",
+      "game_id": null,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "AAA ML",
+          "market": "moneyline",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "DDD ML",
+          "market": "moneyline",
+          "game_id": "G2",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "W-push",
+      "scope": "week",
+      "game_id": null,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "AAA ML",
+          "market": "moneyline",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "CCC -1",
+          "market": "spread",
+          "game_id": "G2",
+          "result": "void",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "W-partial",
+      "scope": "week",
+      "game_id": null,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "AAA ML",
+          "market": "moneyline",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "FFF ML",
+          "market": "moneyline",
+          "game_id": "G3",
+          "result": "miss",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "W-pending",
+      "scope": "week",
+      "game_id": null,
+      "result": "pending",
+      "bucket": "pending",
+      "legs": [
+        {
+          "selection": "AAA ML",
+          "market": "moneyline",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "EEE ML",
+          "market": "moneyline",
+          "game_id": "G3",
+          "result": "pending",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "G1-allhit-prop",
+      "scope": "game",
+      "game_id": "G1",
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "AAA ML",
+          "market": "moneyline",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "R. Back 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "G1",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "G2-allmissed",
+      "scope": "game",
+      "game_id": "G2",
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "CCC ML",
+          "market": "moneyline",
+          "game_id": "G2",
+          "result": "miss",
+          "actual": null,
+          "why": "fixture"
+        },
+        {
+          "selection": "CCC -1",
+          "market": "spread",
+          "game_id": "G2",
+          "result": "miss",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "G4-heavy-fav",
+      "scope": "game",
+      "game_id": "G4",
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "HHH ML",
+          "market": "moneyline",
+          "game_id": "G4",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    },
+    {
+      "parlay_id": "G5-no-ledger-row",
+      "scope": "game",
+      "game_id": "G5",
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "JJJ ML",
+          "market": "moneyline",
+          "game_id": "G5",
+          "result": "hit",
+          "actual": null,
+          "why": "fixture"
+        }
+      ]
+    }
+  ],
+  "parlay_ledger": {
+    "season": 2026,
+    "generated_utc": "2026-09-13T00:00:00Z",
+    "legs": [
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "AAA ML",
+        "game_id": "G1",
+        "implied_prob": 0.5,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "DDD ML",
+        "game_id": "G2",
+        "implied_prob": 0.25,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "spread",
+        "selection": "CCC -1",
+        "game_id": "G2",
+        "implied_prob": 0.52,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "FFF ML",
+        "game_id": "G3",
+        "implied_prob": 0.4,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "EEE ML",
+        "game_id": "G3",
+        "implied_prob": 0.6,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "CCC ML",
+        "game_id": "G2",
+        "implied_prob": 0.7,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "moneyline",
+        "selection": "HHH ML",
+        "game_id": "G4",
+        "implied_prob": 0.995,
+        "locked": true
+      },
+      {
+        "season": 2026,
+        "week": 1,
+        "market": "rb_rush_yds",
+        "selection": "R. Back 60+ rush yds",
+        "game_id": "G1",
+        "implied_prob": 0.5,
+        "locked": true
+      }
+    ]
+  }
+}

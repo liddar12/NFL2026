@@ -42,6 +42,7 @@ const PATHS = Object.freeze({
   weeklyBacktest: '/data/weekly_backtest.json',
   parlayBacktest: '/data/parlay_backtest.json',
   lineReport: '/data/line_report.json',
+  parlaysIndex: '/data/parlays/index.json', // R73
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -120,6 +121,12 @@ export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
 // report). Annotation only - it changes no number. Same 404-graceful pattern:
 // absent, or `available:false`, -> the chips simply do not render.
 export const getLineReport = (opts) => loadJson(PATHS.lineReport, opts);
+// R73 — parlay history: index + one archived week (chip tap only; guarded path).
+export const getParlaysIndex = (opts) => loadJson(PATHS.parlaysIndex, opts);
+export function getParlayArchive(path, opts) {
+  const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
+  return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));
+}
 
 /**
  * Load the five core contracts at once. Uses allSettled so one bad feed does
@@ -154,4 +161,3 @@ export function clearCache() {
   cache.clear();
 }
 
-// Re-export config so callers can reach liveApi/env without a second import.

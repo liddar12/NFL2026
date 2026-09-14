@@ -96,7 +96,13 @@ const BOOT_MODULE_CEILING = 15; // measured 14 (R51: parlays view lazy); one mod
  * source, and this budget measures source bytes). Ceiling re-set with ~11%
  * headroom. If this trips again WITHOUT a lazy-leak, re-measure and decide
  * again in writing — never bump it to make a red bar green. */
-const BOOT_BYTE_CEILING = 360_000; // measured 325,257 (2026-08-15).
+/* R73 (2026-09-14): measured 359,967 — 33 bytes of headroom. The parlay
+ * history put two getters on app/data.js (boot graph) and nothing else: the
+ * week-list merge, the default-week rule and the (season, week) path builder
+ * all live in the lazy app/views/parlays.js, and the P&L reader/renderer in
+ * the lazy app/review.js. The NEXT boot-graph addition of any size trips this;
+ * the honest move then is a re-measure and a written decision, as above. */
+const BOOT_BYTE_CEILING = 360_000; // measured 325,257 (2026-08-15); 359,967 (2026-09-14, R73).
 // Depth is a LOOSE guard, not a lock: each level is one serialized round trip,
 // but the pre-fix graph was depth 3 too, so this ceiling would NOT have caught
 // R25-F3 on its own. It only catches a NEW, deeper chain.
@@ -183,7 +189,21 @@ const CONTRACT_ALLOWLIST = new Set([
   // by app/review.js, itself a LAZY import from the slate/parlays views after
   // paint; a 404 resolves to null once per session and nothing renders.
   'review.json',
+  // R73 — the parlay HISTORY index (data/parlays/index.json, a few hundred
+  // bytes: one row per archived week with its file path and counts). Joins
+  // the parlays mount's allSettled (cold 5 -> 6 below) so the week chips can
+  // render with the first paint; a 404 (no week archived yet) is one request
+  // and no chips. The per-week ARCHIVE files it points at are allowed by
+  // pattern (isAllowedContract) and are fetched ONLY on a week-chip tap —
+  // never on a cold mount, which the per-route ceilings below enforce.
+  'parlays/index.json',
 ]);
+
+// R73 — data/parlays/2026_wkNN.json: one archived parlays document per week
+// (the same size as parlays.json, ~60 KB). Reachable only through
+// app/data.js getParlayArchive, which refuses any path outside /data/parlays/.
+const PARLAY_ARCHIVE_RE = /^parlays\/\d{4}_wk\d{2}\.json$/;
+const isAllowedContract = (f) => CONTRACT_ALLOWLIST.has(f) || PARLAY_ARCHIVE_RE.test(f);
 
 // Contracts fetched on a COLD load of each route. Measured 3x per route, byte
 // identical every time — these are exact, not sampled. Ceilings equal the
@@ -207,7 +227,12 @@ const ROUTES = [
   { hash: '#/players', name: 'players', contracts: 11 },
   // R71 — 4 -> 5: the same review.json (cached across routes by data.js's
   // promise cache — the de-dupe test below still holds) for the leg marks.
-  { hash: '#/parlays', name: 'parlays', contracts: 5 },
+  // R73 — 5 -> 6: data/parlays/index.json (the history index, a few hundred
+  // bytes) joins the parlays mount's allSettled so the week chips paint with
+  // the cards; a 404 is still one request. The per-week archive files are
+  // NOT in this count: they are fetched only when a past week's chip is
+  // tapped, so a cold load never requests one (asserted below).
+  { hash: '#/parlays', name: 'parlays', contracts: 6 },
   { hash: '#/team', name: 'team', contracts: 9 },
   // R47 — the DEFAULT league now fields K and DEF (owner's pick: first-class
   // everywhere), so LINEUP's conditional second-wave kdst fetch is live on a
@@ -335,11 +360,12 @@ test.describe('R25 performance budget — static boot graph', () => {
     // Keeps the allowlist honest: adding a PATHS entry reds this until the
     // budget is updated, which is the review checkpoint for a new artifact.
     const src = readFileSync(resolve(REPO_ROOT, 'app/data.js'), 'utf8');
-    const declared = [...src.matchAll(/'\/data\/([A-Za-z0-9_.-]+\.json)'/g)].map((m) => m[1]);
+    // R73 — the character class admits '/' so data/parlays/index.json is checked too.
+    const declared = [...src.matchAll(/'\/data\/([A-Za-z0-9_./-]+\.json)'/g)].map((m) => m[1]);
     expect(declared.length, 'app/data.js declares at least one contract path')
       .toBeGreaterThan(0);
     for (const f of declared) {
-      expect(CONTRACT_ALLOWLIST.has(f), `app/data.js declares /data/${f}, which is `
+      expect(isAllowedContract(f), `app/data.js declares /data/${f}, which is `
         + 'not on the reviewed contract allowlist in tests/perf/budget.spec.mjs')
         .toBe(true);
     }
@@ -397,7 +423,7 @@ test.describe('R25 performance budget — runtime request counts', () => {
   });
 
   test('every contract a route fetches is on the reviewed allowlist', () => {
-    const unknown = [...new Set(walk.dataRequests)].filter((f) => !CONTRACT_ALLOWLIST.has(f));
+    const unknown = [...new Set(walk.dataRequests)].filter((f) => !isAllowedContract(f));
     expect(unknown, 'a route fetched a /data/ file that is not on the reviewed '
       + 'contract allowlist — add it to CONTRACT_ALLOWLIST only after checking '
       + 'its size').toEqual([]);
@@ -453,6 +479,10 @@ test.describe('R25 performance budget — per-route cold contract counts', () =>
         expect(got, `#/${r.name} must not fetch kdst_projections.json`)
           .not.toContain('kdst_projections.json');
       }
+      // R73 — a parlay ARCHIVE file is fetched only on a week-chip tap, never
+      // on a cold load of any route (the index alone joins the parlays mount).
+      expect(got.filter((f) => PARLAY_ARCHIVE_RE.test(f)),
+        `#/${r.name} fetched a parlay archive file on a cold load`).toEqual([]);
     });
   }
 });

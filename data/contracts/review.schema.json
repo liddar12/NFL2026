@@ -225,7 +225,7 @@
               },
               "parlays": {
                 "type": "object",
-                "required": ["n", "hit", "miss", "pending", "legs_n", "legs_hit", "buckets"],
+                "required": ["n", "hit", "miss", "pending", "legs_n", "legs_hit", "buckets", "stake_100"],
                 "properties": {
                   "n": {"type": "integer", "minimum": 0},
                   "hit": {"type": "integer", "minimum": 0},
@@ -242,6 +242,43 @@
                       "partial": {"type": "integer", "minimum": 0},
                       "all_missed": {"type": "integer", "minimum": 0},
                       "pending": {"type": "integer", "minimum": 0}
+                    }
+                  },
+                  "stake_100": {
+                    "type": "object",
+                    "description": "R73 (owner decision 3): a DISPLAY-ONLY $100 flat-stake P&L per scope, computed by scripts/build_review.stake_100 from the graded buckets and the as-made leg prices of the R58 ledger (data/estimates/parlays_<season>.json). Money is never a model input: no projection, weight, ranking or parlay probability reads it. Rounded to 2 decimals.",
+                    "required": ["week", "game"],
+                    "properties": {
+                    "week": {
+                      "type": "object",
+                      "required": ["n", "graded", "hit", "push", "staked", "net_fair", "net_vig2", "assumed_price_legs", "note"],
+                      "properties": {
+                        "n": {"type": "integer", "minimum": 0, "description": "Parlays of this scope in the week."},
+                        "graded": {"type": "integer", "minimum": 0, "description": "n minus the pending ones; only these are staked."},
+                        "hit": {"type": "integer", "minimum": 0, "description": "Graded parlays in the all_hit bucket (paid)."},
+                        "push": {"type": "integer", "minimum": 0, "description": "Graded parlays in the push bucket (pushed legs at 1.0)."},
+                        "staked": {"type": "number", "minimum": 0, "description": "100 x graded."},
+                        "net_fair": {"type": ["number", "null"], "description": "Sum over graded of 100 x (product of leg decimals - 1) for all_hit / push (void legs at 1.0), -100 otherwise; leg decimal = 1 / implied_prob of the as-made R58 ledger row (moneyline / spread); a leg with no book price is assumed at 1.9091. Null when nothing is graded."},
+                        "net_vig2": {"type": ["number", "null"], "description": "net_fair with every leg re-priced at implied_prob x 1.02 capped at 0.99. Null when nothing is graded."},
+                        "assumed_price_legs": {"type": "integer", "minimum": 0, "description": "Legs of the graded parlays with no book price (props, or a game leg the ledger never saw), priced at 1.9091 (-110)."},
+                        "note": {"type": "string", "minLength": 1, "description": "The rule and the counts in one sentence."}
+                      }
+                    },
+                    "game": {
+                      "type": "object",
+                      "required": ["n", "graded", "hit", "push", "staked", "net_fair", "net_vig2", "assumed_price_legs", "note"],
+                      "properties": {
+                        "n": {"type": "integer", "minimum": 0, "description": "Parlays of this scope in the week."},
+                        "graded": {"type": "integer", "minimum": 0, "description": "n minus the pending ones; only these are staked."},
+                        "hit": {"type": "integer", "minimum": 0, "description": "Graded parlays in the all_hit bucket (paid)."},
+                        "push": {"type": "integer", "minimum": 0, "description": "Graded parlays in the push bucket (pushed legs at 1.0)."},
+                        "staked": {"type": "number", "minimum": 0, "description": "100 x graded."},
+                        "net_fair": {"type": ["number", "null"], "description": "Sum over graded of 100 x (product of leg decimals - 1) for all_hit / push (void legs at 1.0), -100 otherwise; leg decimal = 1 / implied_prob of the as-made R58 ledger row (moneyline / spread); a leg with no book price is assumed at 1.9091. Null when nothing is graded."},
+                        "net_vig2": {"type": ["number", "null"], "description": "net_fair with every leg re-priced at implied_prob x 1.02 capped at 0.99. Null when nothing is graded."},
+                        "assumed_price_legs": {"type": "integer", "minimum": 0, "description": "Legs of the graded parlays with no book price (props, or a game leg the ledger never saw), priced at 1.9091 (-110)."},
+                        "note": {"type": "string", "minLength": 1, "description": "The rule and the counts in one sentence."}
+                      }
+                    }
                     }
                   }
                 }
