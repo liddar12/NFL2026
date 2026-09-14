@@ -20,6 +20,13 @@
  *     projected yards (gate-verified on 2023-25), or "seed pricing" when the
  *     feed says pricing === "seed" (or carries no pricing field at all — a
  *     pre-R51 document was seed-priced by construction).
+ *
+ * R72: the post-game review's five outcome BUCKETS (all hit / push / partial /
+ * all missed / pending) as a summary card ABOVE the list — a sibling painted
+ * into #parlay-buckets, never the list's first child — whose chips filter the
+ * painted list alongside scope + leg count (tap again to clear). Counts come
+ * from summary.parlays.buckets and each card's bucket from its own review row
+ * (app/review.js readers); this view never derives a bucket from legs.
  */
 
 import { getParlays, getScheduleFull } from '../data.js';
@@ -208,6 +215,13 @@ export default async function mountParlays(el) {
 
   let active = 'game';
   let activeLeg = 'all';
+  // R72 — the pressed bucket chip (null = no bucket filter) and the lazily
+  // imported review module once it has resolved (null until then / absent).
+  let activeBucket = null;
+  let reviewMod = null;
+  const reviewP = import('../review.js')
+    .then((m) => m.primeReview().then(() => m))
+    .catch(() => null);
 
   const scopeOf = (p) => (p.scope === 'week' ? 'week' : 'game');
   const legOf = (p) => (Array.isArray(p.legs) ? p.legs.length : 0);
@@ -225,23 +239,40 @@ export default async function mountParlays(el) {
     box.innerHTML = legSeg(legCountsForScope(), activeLeg);
   }
 
-  // Render the parlay cards for the active scope + leg filter into #parlays-list.
+  /** R72 — repaint the bucket summary card from the review document. */
+  function paintBuckets() {
+    const host = el.querySelector('#parlay-buckets');
+    if (!host || !reviewMod) return;
+    host.innerHTML = reviewMod.renderParlayBuckets(
+      data.week, reviewMod.parlayBucketCounts(data.week), activeBucket);
+  }
+
+  // Render the parlay cards for the active scope + leg filter (+ R72 bucket)
+  // into #parlays-list.
   function paintList() {
+    const bucketOf = activeBucket && reviewMod ? reviewMod.parlayBucketMap(data.week) : null;
     const filtered = parlays.filter((p) =>
       scopeOf(p) === active
-      && (activeLeg === 'all' || legOf(p) === Number(activeLeg)));
+      && (activeLeg === 'all' || legOf(p) === Number(activeLeg))
+      && (!bucketOf || bucketOf.get(String(p.parlay_id)) === activeBucket));
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
     listEl.innerHTML = filtered.length
       ? filtered.map((p) => renderParlayCard(p, matchupById)).join('')
-      : '<div class="state">No parlays at this leg count.</div>';
+      : (bucketOf
+        ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
+        : '<div class="state">No parlays at this leg count.</div>');
     if (filtered.length) annotateLegs(listEl, filtered);
     // R71 — post-game review marks (✓ / ✗ / – per leg, HIT / MISS / PENDING per
     // parlay, a summary line), lazily so app/review.js stays off the boot graph.
     // Absent data/review.json (or a failed import) paints nothing extra.
-    import('../review.js')
-      .then((mod) => mod.applyParlayReview(listEl, data.week))
-      .catch(() => { /* review layer unavailable — the cards stand on their own */ });
+    // R72 — the same resolved module paints the bucket card once it lands.
+    reviewP.then((mod) => {
+      if (!mod || !listEl.isConnected) return;
+      reviewMod = mod;
+      mod.applyParlayReview(listEl, data.week);
+      paintBuckets();
+    });
   }
 
   el.innerHTML =
@@ -249,9 +280,23 @@ export default async function mountParlays(el) {
     scopeSeg(active) +
     '<div id="leg-controls"></div>' +
     legend() +
+    '<div id="parlay-buckets"></div>' +
     '<div id="parlays-list" class="card-list"></div>';
   paintLegSeg();
   paintList();
+
+  // R72 — bucket chips (delegated on the persistent host; tap again clears).
+  const bucketBox = el.querySelector('#parlay-buckets');
+  if (bucketBox) {
+    bucketBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.rv-bucket');
+      if (!btn || !reviewMod) return;
+      const b = btn.dataset.bucket;
+      activeBucket = activeBucket === b ? null : b;
+      paintBuckets();
+      paintList();
+    });
+  }
 
   // Wire the scope control: switching scope resets the leg filter to ALL and
   // rebuilds the leg-count chips for the new scope.

@@ -1,0 +1,292 @@
+{
+  "_comment": "R72 fixture (tests/feature/r72_review_summary.test.mjs + build_review --selftest). Week 1 underway (MNF G4 still scheduled), week 2 on deck, week 3 beyond the pipeline week. G8 is a 20-20 tie (FINAL, ungradable). Lock files live in ./snapshots, the refit archive in ./model_tuning.json.",
+  "season": 2026,
+  "schedule": {
+    "season": 2026,
+    "updated_utc": "2026-09-14T11:00:00Z",
+    "games": [
+      {
+        "game_id": "G1",
+        "home": "AAA",
+        "away": "BBB",
+        "week": 1,
+        "kickoff_utc": "2026-09-13T17:00Z",
+        "roof": "outdoor",
+        "status": "STATUS_FINAL"
+      },
+      {
+        "game_id": "G2",
+        "home": "CCC",
+        "away": "DDD",
+        "week": 1,
+        "kickoff_utc": "2026-09-13T20:25Z",
+        "roof": "dome",
+        "status": "STATUS_FINAL"
+      },
+      {
+        "game_id": "G3",
+        "home": "EEE",
+        "away": "FFF",
+        "week": 1,
+        "kickoff_utc": "2026-09-13T20:25Z",
+        "roof": "outdoor",
+        "status": "STATUS_FINAL"
+      },
+      {
+        "game_id": "G8",
+        "home": "III",
+        "away": "JJJ",
+        "week": 1,
+        "kickoff_utc": "2026-09-14T00:20Z",
+        "roof": "outdoor",
+        "status": "STATUS_FINAL"
+      },
+      {
+        "game_id": "G4",
+        "home": "GGG",
+        "away": "HHH",
+        "week": 1,
+        "kickoff_utc": "2026-09-15T00:15Z",
+        "roof": "retractable",
+        "status": "STATUS_SCHEDULED"
+      },
+      {
+        "game_id": "G5",
+        "home": "AAA",
+        "away": "CCC",
+        "week": 2,
+        "kickoff_utc": "2026-09-20T17:00Z",
+        "roof": "outdoor",
+        "status": "STATUS_SCHEDULED"
+      },
+      {
+        "game_id": "G6",
+        "home": "BBB",
+        "away": "DDD",
+        "week": 2,
+        "kickoff_utc": "2026-09-21T00:20Z",
+        "roof": "dome",
+        "status": "STATUS_SCHEDULED"
+      },
+      {
+        "game_id": "G7",
+        "home": "EEE",
+        "away": "GGG",
+        "week": 3,
+        "kickoff_utc": "2026-09-27T17:00Z",
+        "roof": "outdoor",
+        "status": "STATUS_SCHEDULED"
+      }
+    ]
+  },
+  "predictions": {
+    "season": 2026,
+    "week": 1,
+    "updated_utc": "2026-09-14T11:00:00Z",
+    "games": []
+  },
+  "finals": [
+    {
+      "game_id": "G8",
+      "week": 1,
+      "home": "III",
+      "away": "JJJ",
+      "home_score": 20,
+      "away_score": 20,
+      "status": "STATUS_FINAL",
+      "final": true
+    }
+  ],
+  "estimate_scores": {
+    "season": 2026,
+    "generated_utc": "2026-09-14T11:00:00Z",
+    "resolved": [
+      {
+        "gsis_id": "P1",
+        "week": 1,
+        "position": "WR",
+        "shipped": 10.0,
+        "low": 6.0,
+        "high": 14.0,
+        "actual": 9.0,
+        "dnp": false
+      },
+      {
+        "gsis_id": "P2",
+        "week": 1,
+        "position": "RB",
+        "shipped": 12.0,
+        "low": 8.0,
+        "high": 16.0,
+        "actual": 20.0,
+        "dnp": false
+      },
+      {
+        "gsis_id": "P3",
+        "week": 1,
+        "position": "QB",
+        "shipped": 15.0,
+        "low": 9.0,
+        "high": 21.0,
+        "actual": null,
+        "dnp": true
+      },
+      {
+        "gsis_id": "P1",
+        "week": 2,
+        "position": "WR",
+        "shipped": 11.0,
+        "low": 7.0,
+        "high": 15.0,
+        "actual": 3.0,
+        "dnp": false
+      },
+      {
+        "gsis_id": "P2",
+        "week": 2,
+        "position": "RB",
+        "shipped": 13.0,
+        "low": 9.0,
+        "high": 17.0,
+        "actual": 10.0,
+        "dnp": false
+      }
+    ]
+  },
+  "projections": {
+    "season": 2026,
+    "updated_utc": "2026-09-14T11:00:00Z",
+    "players": [
+      {
+        "gsis_id": "P1",
+        "name": "Wide Receiver",
+        "team": "AAA",
+        "position": "WR",
+        "proj_points": 150.0
+      },
+      {
+        "gsis_id": "P2",
+        "name": "Running Back",
+        "team": "CCC",
+        "position": "RB",
+        "proj_points": 180.0
+      },
+      {
+        "gsis_id": "P3",
+        "name": "Quarter Back",
+        "team": "EEE",
+        "position": "QB",
+        "proj_points": 250.0
+      }
+    ]
+  },
+  "parlays": {
+    "season": 2026,
+    "week": 1,
+    "updated_utc": "2026-09-14T11:00:00Z",
+    "parlays": [
+      {
+        "parlay_id": "all-hit",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "AAA ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "DDD ML",
+            "market": "moneyline"
+          }
+        ]
+      },
+      {
+        "parlay_id": "partial",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "AAA ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "CCC ML",
+            "market": "moneyline"
+          }
+        ]
+      },
+      {
+        "parlay_id": "all-missed",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "BBB ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "CCC ML",
+            "market": "moneyline"
+          }
+        ]
+      },
+      {
+        "parlay_id": "push",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "AAA ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "III ML",
+            "market": "moneyline"
+          }
+        ]
+      },
+      {
+        "parlay_id": "pending",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "AAA ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "GGG ML",
+            "market": "moneyline"
+          }
+        ]
+      },
+      {
+        "parlay_id": "missed-with-void",
+        "scope": "week",
+        "game_id": null,
+        "legs": [
+          {
+            "selection": "BBB ML",
+            "market": "moneyline"
+          },
+          {
+            "selection": "III ML",
+            "market": "moneyline"
+          }
+        ]
+      }
+    ]
+  },
+  "sources": {
+    "schedule_full": "2026-09-14T11:00:00Z",
+    "locks": [
+      "tests/fixtures/r72/snapshots/2026_wk01_games_open.json",
+      "tests/fixtures/r72/snapshots/2026_wk02_games_open.json"
+    ],
+    "model_tuning": "2026-09-14T11:00:00Z",
+    "finals": "file:tests/fixtures/r72/review_inputs.json",
+    "stats": null
+  },
+  "stats_reason": "fixture: no stat line",
+  "notes": []
+}

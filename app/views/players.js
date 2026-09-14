@@ -104,7 +104,9 @@ const SORTS = [
   { key: 'ros', label: 'ROS' },
   { key: 'trend', label: 'TREND' },
   { key: 'sos', label: 'SOS' },
+  { key: 'review', label: 'REVIEW' }, // R72 — a graded week's actual − projected
 ];
+let reviewSortAvailable = false; // R72 — set per mount: a graded week exists
 
 /** Read the persisted scoring mode; unknown/unreadable values fall to ppr. */
 function loadScoring() {
@@ -759,7 +761,7 @@ function aiSegRow(on) {
 
 /** The inner buttons of the sort control (active one shows a ▼/▲ arrow). */
 function sortChips(activeKey, dir, weekLabel) {
-  return SORTS.map((s) => {
+  return SORTS.filter((s) => s.key !== 'review' || reviewSortAvailable).map((s) => {
     const on = s.key === activeKey;
     const arrow = on ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
     const label = s.key === 'proj' && weekLabel ? weekLabel : s.label;
@@ -812,6 +814,9 @@ export default async function mountPlayers(el) {
     import('../review.js').then((m) => m.primeReview().then(() => m)).catch(() => null),
   ]);
   const reviewMod = reviewRes.status === 'fulfilled' ? reviewRes.value : null;
+  // R72 — REVIEW needs a graded week; {weeks, week, on} is per-mount state.
+  const rv = reviewMod ? reviewMod.reviewState() : null;
+  reviewSortAvailable = !!rv;
   // null = not asked yet; false = asked and absent/unavailable; else the doc.
   let lineDoc = lineRes.status === 'fulfilled' ? (lineRes.value || (wantsLine ? false : null)) : false;
   if (projRes.status !== 'fulfilled') {
@@ -1246,6 +1251,9 @@ export default async function mountPlayers(el) {
       const s = sosOf(id);
       return s == null ? -Infinity : s; // players without SoS sink on desc
     }
+    if (sortKey === 'review') { // R72 — null (no row / DNP) sorts last
+      return rv ? reviewMod.playerReviewDelta(id, rv.week) : null;
+    }
     if (sortKey === 'ros') {
       const r = rosOf(id);
       return r == null ? -Infinity : r.points; // no weekly data sinks on desc
@@ -1280,17 +1288,22 @@ export default async function mountPlayers(el) {
     // rookie !== true excludes both veterans AND unstamped unknowns — a player
     // whose status we do not know must not appear under a filter that asserts it.
     if (rookiesOnly) base = base.filter((p) => p.rookie === true);
+    // R72 — REVIEW hides graded rows whose verdict chip is off; ungraded/DNP stay.
+    const reviewSort = sortKey === 'review' && !!rv;
+    if (reviewSort) base = base.filter((p) => reviewMod.verdictPasses(String(p.gsis_id), rv));
     // Decorate–sort–undecorate: compute each player's sort key ONCE (n calls),
     // then sort by the cached number — instead of recomputing sortVal (which can
     // do SoS/trend/model work) O(n log n) times inside the comparator.
     const byWeek = aiOn && sortKey === 'proj';
     const filtered = base
-      .map((p) => ({
+      .map((p, i) => ({
         p,
+        i,
         sv: sortVal(p),
         tb: byWeek ? model(p).player.proj_points : 0,
       }))
       .sort((a, b) => {
+        if (reviewSort) return reviewMod.compareReviewDelta(a.sv, b.sv, sortDir) || (a.i - b.i);
         const tie = String(a.p.gsis_id) < String(b.p.gsis_id) ? -1 : 1;
         // R51 — null sorts last either way; season breaks ties.
         const an = a.sv == null;
@@ -1315,7 +1328,10 @@ export default async function mountPlayers(el) {
           const ros = (aiOn || sortKey === 'ros') ? rosOf(id) : null;
           const card = withReviewRow(withEstimateRowLazy(withExtraRow(renderPlayerCard(m.player, {
             weekly: m.weekly, trend: m.trend, sos: m.sos, ros,
-          }), extraRow(id)), estimateRows(p)), reviewMod ? reviewMod.renderPlayerReview(id) : '');
+          }), extraRow(id)), estimateRows(p)), reviewMod
+            // R72 — season tally on every card; REVIEW shows the selected week
+            ? reviewMod.renderSeasonTally(id) + reviewMod.renderPlayerReview(id, reviewSort ? rv.week : undefined)
+            : '');
           if (!aiOn) return card;
           const wv = weekOf(id);
           const headed = withWeekHeadline(card, currentWk, weekOf(id), m.player.proj_points);
@@ -1348,6 +1364,7 @@ export default async function mountPlayers(el) {
     filterRow(active) +
     (hasRookieFlag ? rookieRow(rookiesOnly) : '') +
     sortRow(sortKey, sortDir, aiOn ? weekSortLabel : null) +
+    '<div id="review-controls"></div>' +
     (aiOn && aiCopy ? `<div class="ai-note">${esc(aiCopy)}</div>${lineLegendHtml()}` : '') +
     '<div id="players-list" class="card-list"></div>' +
     '<div id="rookie-starters" hidden></div>' +
@@ -1423,8 +1440,18 @@ export default async function mountPlayers(el) {
         sortDir = 'desc';
       }
       ss.innerHTML = sortChips(sortKey, sortDir, aiOn ? weekSortLabel : null);
+      paintReviewControls();
       paintList();
     });
+  }
+
+  // R72 — WK / verdict chips (bound on the per-mount host, never on `el`).
+  const rvHost = el.querySelector('#review-controls');
+  function paintReviewControls() {
+    if (rvHost) rvHost.innerHTML = sortKey === 'review' && rv ? reviewMod.renderReviewControls(rv) : '';
+  }
+  if (rvHost && rv) {
+    reviewMod.bindReviewControls(rvHost, rv, () => { shownCap = PAGE; paintReviewControls(); paintList(); });
   }
 
   // Wire the scoring seg (only rendered when weekly data exists).

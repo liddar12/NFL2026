@@ -232,7 +232,12 @@ const ROUTES = [
 // team 779, model 597, compare 108, lineup 26. One ceiling covers all routes;
 // the property it protects is that every list is CAPPED. Dropping the cap and
 // rendering the 300-player pool would land near 16,000.
-const VIEW_NODE_CEILING = 5000;
+// R71/R72 — 5,000 -> 5,600: the post-game review adds a hidden measured-why
+// panel to every graded player card (week 1: 53 graded cards x ~6 reasons =
+// ~300 nodes, 5,018 at the 2026-09-14 baseline) plus R72's season tally chip
+// and review controls (~+70). Measured on data, not code; the cap still holds
+// (an uncapped pool would be ~3x the ceiling).
+const VIEW_NODE_CEILING = 5600;
 
 // Listener growth per lap of (#/team -> #/). Measured +1.2 listeners/lap after
 // the R25 teardown fix, dead flat across 3 independent runs. Before the fix it
