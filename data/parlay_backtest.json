@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-13T20:58:48Z",
+  "generated_utc": "2026-09-14T11:54:08Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -350,12 +350,18 @@
     }
   },
   "live_2026": {
-    "weeks": 0,
-    "legs_resolved": 0,
-    "seed": null,
-    "calibrated": null,
+    "weeks": 1,
+    "legs_resolved": 20,
+    "seed": {
+      "log_loss": 0.6819,
+      "hit_rate": 0.6
+    },
+    "calibrated": {
+      "log_loss": 0.7179,
+      "hit_rate": 0.6
+    },
     "refit": null,
-    "note": "no 2026 leg resolved yet"
+    "note": "20 locked prop leg(s) resolved over week(s) [1]; seed vs calibrated on the 20 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit); the weekly refit arms at 100 resolved legs"
   },
   "correlations": {
     "pairs": [
