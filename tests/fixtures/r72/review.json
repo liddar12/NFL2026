@@ -1,0 +1,527 @@
+{
+  "season": 2026,
+  "generated_utc": "2026-09-14T12:00:00Z",
+  "sources": {},
+  "notes": [],
+  "learning": {
+    "graded_locks_total": 30,
+    "refit": {
+      "archived_utc": "2026-09-14T09:00:00Z",
+      "n_resolved": 30,
+      "adopted": false,
+      "verdict": "held"
+    },
+    "consumed_all": true,
+    "note": "every graded lock consumed by the 2026-09-14 refit"
+  },
+  "players_season": {
+    "fx-qb": {
+      "name": "QB One",
+      "position": "QB",
+      "team": "AAA",
+      "weeks": 2,
+      "over": 1,
+      "met": 1,
+      "under": 0,
+      "dnp": 0,
+      "met_rate": 0.5,
+      "by_week": {
+        "1": {
+          "verdict": "over",
+          "delta": 9.9,
+          "actual": 30.1,
+          "projected": 20.2
+        },
+        "2": {
+          "verdict": "met",
+          "delta": -2.0,
+          "actual": 18.2,
+          "projected": 20.2
+        }
+      }
+    },
+    "fx-rb": {
+      "name": "RB One",
+      "position": "RB",
+      "team": "BBB",
+      "weeks": 2,
+      "over": 1,
+      "met": 0,
+      "under": 1,
+      "dnp": 0,
+      "met_rate": 0.0,
+      "by_week": {
+        "1": {
+          "verdict": "under",
+          "delta": -6.0,
+          "actual": 8.0,
+          "projected": 14.0
+        },
+        "2": {
+          "verdict": "over",
+          "delta": 12.5,
+          "actual": 26.5,
+          "projected": 14.0
+        }
+      }
+    },
+    "fx-wr": {
+      "name": "WR One",
+      "position": "WR",
+      "team": "CCC",
+      "weeks": 2,
+      "over": 0,
+      "met": 1,
+      "under": 1,
+      "dnp": 0,
+      "met_rate": 0.5,
+      "by_week": {
+        "1": {
+          "verdict": "met",
+          "delta": 1.2,
+          "actual": 13.2,
+          "projected": 12.0
+        },
+        "2": {
+          "verdict": "under",
+          "delta": -8.0,
+          "actual": 4.0,
+          "projected": 12.0
+        }
+      }
+    },
+    "fx-dnp": {
+      "name": "TE One",
+      "position": "TE",
+      "team": "DDD",
+      "weeks": 1,
+      "over": 0,
+      "met": 0,
+      "under": 0,
+      "dnp": 1,
+      "met_rate": null,
+      "by_week": {
+        "1": {
+          "verdict": "dnp",
+          "delta": null,
+          "actual": null,
+          "projected": 9.0
+        }
+      }
+    }
+  },
+  "weeks": {
+    "1": {
+      "games": [],
+      "parlays": [
+        {
+          "parlay_id": "p1",
+          "scope": "game",
+          "game_id": null,
+          "result": "hit",
+          "bucket": "all_hit",
+          "legs": [
+            {
+              "selection": "A ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "hit",
+              "actual": null,
+              "why": "fixture"
+            },
+            {
+              "selection": "B ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "hit",
+              "actual": null,
+              "why": "fixture"
+            }
+          ]
+        },
+        {
+          "parlay_id": "p2",
+          "scope": "game",
+          "game_id": null,
+          "result": "void",
+          "bucket": "push",
+          "legs": [
+            {
+              "selection": "A ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "hit",
+              "actual": null,
+              "why": "fixture"
+            },
+            {
+              "selection": "B +3",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "void",
+              "actual": null,
+              "why": "fixture"
+            }
+          ]
+        },
+        {
+          "parlay_id": "p3",
+          "scope": "game",
+          "game_id": null,
+          "result": "miss",
+          "bucket": "partial",
+          "legs": [
+            {
+              "selection": "A ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "hit",
+              "actual": null,
+              "why": "fixture"
+            },
+            {
+              "selection": "B ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "miss",
+              "actual": null,
+              "why": "fixture"
+            }
+          ]
+        },
+        {
+          "parlay_id": "p4",
+          "scope": "game",
+          "game_id": null,
+          "result": "miss",
+          "bucket": "all_missed",
+          "legs": [
+            {
+              "selection": "A ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "miss",
+              "actual": null,
+              "why": "fixture"
+            },
+            {
+              "selection": "B ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "miss",
+              "actual": null,
+              "why": "fixture"
+            }
+          ]
+        },
+        {
+          "parlay_id": "p5",
+          "scope": "week",
+          "game_id": null,
+          "result": "pending",
+          "bucket": "pending",
+          "legs": [
+            {
+              "selection": "A ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "hit",
+              "actual": null,
+              "why": "fixture"
+            },
+            {
+              "selection": "B ML",
+              "market": "moneyline",
+              "game_id": null,
+              "result": "pending",
+              "actual": null,
+              "why": "fixture"
+            }
+          ]
+        }
+      ],
+      "players": [
+        {
+          "gsis_id": "fx-qb",
+          "name": "QB One",
+          "position": "QB",
+          "team": "AAA",
+          "week": 1,
+          "projected": 20.2,
+          "low": 14.2,
+          "high": 26.2,
+          "actual": 30.1,
+          "verdict": "over",
+          "delta": 9.9,
+          "why": {
+            "source": "measured",
+            "summary": "OVER fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        },
+        {
+          "gsis_id": "fx-rb",
+          "name": "RB One",
+          "position": "RB",
+          "team": "BBB",
+          "week": 1,
+          "projected": 14.0,
+          "low": 8.0,
+          "high": 20.0,
+          "actual": 8.0,
+          "verdict": "under",
+          "delta": -6.0,
+          "why": {
+            "source": "measured",
+            "summary": "UNDER fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        },
+        {
+          "gsis_id": "fx-wr",
+          "name": "WR One",
+          "position": "WR",
+          "team": "CCC",
+          "week": 1,
+          "projected": 12.0,
+          "low": 6.0,
+          "high": 18.0,
+          "actual": 13.2,
+          "verdict": "met",
+          "delta": 1.2,
+          "why": {
+            "source": "measured",
+            "summary": "MET fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        },
+        {
+          "gsis_id": "fx-dnp",
+          "name": "TE One",
+          "position": "TE",
+          "team": "DDD",
+          "week": 1,
+          "projected": 9.0,
+          "low": 3.0,
+          "high": 15.0,
+          "actual": null,
+          "verdict": "dnp",
+          "delta": null,
+          "why": {
+            "source": "measured",
+            "summary": "DNP fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        }
+      ],
+      "summary": {
+        "picks": {
+          "n": 16,
+          "won": 9,
+          "pct": 0.5625,
+          "brier": 0.4762,
+          "right": 9,
+          "wrong": 7,
+          "tbd": 0
+        },
+        "learning": {
+          "graded_locks": 16,
+          "refit": {
+            "archived_utc": "2026-09-14T09:00:00Z",
+            "n_resolved": 16,
+            "adopted": false,
+            "verdict": "held"
+          },
+          "note": "refit held: no variant cleared never-regress"
+        },
+        "parlays": {
+          "n": 5,
+          "hit": 1,
+          "miss": 2,
+          "pending": 1,
+          "legs_n": 10,
+          "legs_hit": 6,
+          "buckets": {
+            "all_hit": 1,
+            "push": 1,
+            "partial": 1,
+            "all_missed": 1,
+            "pending": 1
+          }
+        },
+        "players": {
+          "n": 4,
+          "over": 1,
+          "under": 1,
+          "met": 1,
+          "dnp": 1,
+          "band_coverage": 0.3333
+        }
+      }
+    },
+    "2": {
+      "games": [],
+      "parlays": [],
+      "players": [
+        {
+          "gsis_id": "fx-qb",
+          "name": "QB One",
+          "position": "QB",
+          "team": "AAA",
+          "week": 2,
+          "projected": 20.2,
+          "low": 14.2,
+          "high": 26.2,
+          "actual": 18.2,
+          "verdict": "met",
+          "delta": -2.0,
+          "why": {
+            "source": "measured",
+            "summary": "MET fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        },
+        {
+          "gsis_id": "fx-rb",
+          "name": "RB One",
+          "position": "RB",
+          "team": "BBB",
+          "week": 2,
+          "projected": 14.0,
+          "low": 8.0,
+          "high": 20.0,
+          "actual": 26.5,
+          "verdict": "over",
+          "delta": 12.5,
+          "why": {
+            "source": "measured",
+            "summary": "OVER fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        },
+        {
+          "gsis_id": "fx-wr",
+          "name": "WR One",
+          "position": "WR",
+          "team": "CCC",
+          "week": 2,
+          "projected": 12.0,
+          "low": 6.0,
+          "high": 18.0,
+          "actual": 4.0,
+          "verdict": "under",
+          "delta": -8.0,
+          "why": {
+            "source": "measured",
+            "summary": "UNDER fixture",
+            "reasons": [],
+            "expected_basis": "fixture",
+            "unattributed": 0.0,
+            "omitted": []
+          }
+        }
+      ],
+      "summary": {
+        "picks": {
+          "n": 16,
+          "won": 6,
+          "pct": 0.4286,
+          "brier": 0.2411,
+          "right": 6,
+          "wrong": 8,
+          "tbd": 2
+        },
+        "learning": {
+          "graded_locks": 14,
+          "refit": null,
+          "note": "below the 16-lock minimum"
+        },
+        "parlays": {
+          "n": 0,
+          "hit": 0,
+          "miss": 0,
+          "pending": 0,
+          "legs_n": 0,
+          "legs_hit": 0,
+          "buckets": {
+            "all_hit": 0,
+            "push": 0,
+            "partial": 0,
+            "all_missed": 0,
+            "pending": 0
+          }
+        },
+        "players": {
+          "n": 3,
+          "over": 1,
+          "under": 1,
+          "met": 1,
+          "dnp": 0,
+          "band_coverage": 0.3333
+        }
+      }
+    },
+    "3": {
+      "games": [],
+      "parlays": [],
+      "players": [],
+      "summary": {
+        "picks": {
+          "n": 16,
+          "won": 0,
+          "pct": null,
+          "brier": null,
+          "right": 0,
+          "wrong": 0,
+          "tbd": 16
+        },
+        "learning": {
+          "graded_locks": 0,
+          "refit": null,
+          "note": "no FINAL yet"
+        },
+        "parlays": {
+          "n": 0,
+          "hit": 0,
+          "miss": 0,
+          "pending": 0,
+          "legs_n": 0,
+          "legs_hit": 0,
+          "buckets": {
+            "all_hit": 0,
+            "push": 0,
+            "partial": 0,
+            "all_missed": 0,
+            "pending": 0
+          }
+        },
+        "players": {
+          "n": 0,
+          "over": 0,
+          "under": 0,
+          "met": 0,
+          "dnp": 0,
+          "band_coverage": null
+        }
+      }
+    }
+  }
+}

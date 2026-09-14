@@ -1434,3 +1434,50 @@
 [data-theme="hig"] .card.game.rv-graded--lost { border-left-width: 4px; }
 [data-theme="hig"] .rv-reason--rest,
 [data-theme="hig"] .rv-omitted { font-style: normal; }
+
+/* =============================================================================
+   R72 — REVIEW UI under HIG: the same .rv-* markup as capsule chips (SF text,
+   44pt targets, tinted-selected), rounded cards, no italics.
+   ========================================================================== */
+[data-theme="hig"] .rv-strip--week { gap: 6px; }
+[data-theme="hig"] .rv-learn { font-weight: 400; letter-spacing: 0; }
+[data-theme="hig"] .rv-buckets { border-radius: 12px; padding: 10px 14px; gap: 8px; }
+[data-theme="hig"] .rv-bucket,
+[data-theme="hig"] .rv-wk,
+[data-theme="hig"] .rv-vchip {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  font-weight: 510;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--ink);
+  background: var(--hig-fill-secondary);
+  border: none;
+  border-radius: 999px;
+  padding: 0 16px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  transition: background-color 180ms var(--hig-press), transform 180ms var(--hig-press);
+}
+[data-theme="hig"] .rv-bucket[aria-pressed="true"],
+[data-theme="hig"] .rv-bucket--active,
+[data-theme="hig"] .rv-wk[aria-pressed="true"],
+[data-theme="hig"] .rv-wk--active,
+[data-theme="hig"] .rv-vchip[aria-pressed="true"],
+[data-theme="hig"] .rv-vchip--active {
+  color: var(--brand-txt);
+  background: var(--hig-tint-soft);
+  border-color: transparent;
+  font-weight: 590;
+}
+[data-theme="hig"] .rv-bucket:active,
+[data-theme="hig"] .rv-wk:active,
+[data-theme="hig"] .rv-vchip:active { transform: scale(0.96); }
+[data-theme="hig"] .rv-bucket-n { color: inherit; font-weight: 700; }
+[data-theme="hig"] .rv-bchip,
+[data-theme="hig"] .rv-tally { font-size: 12px; padding: 2px 9px; font-style: normal; }
+[data-theme="hig"] .rv-pfilter { gap: 8px; margin-top: 10px; }
+[data-theme="hig"] .rv-pfilter-lbl { font-family: var(--sans); letter-spacing: 0.02em; font-size: 12px; }

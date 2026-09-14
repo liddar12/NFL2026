@@ -4043,3 +4043,91 @@ body.gate-locked { overflow: hidden; }
 .rv-leg--pending, .rv-leg--void { color: var(--muted); }
 .rv-player { display: block; margin-top: 6px; font-size: 12px; }
 .rv-line { margin-left: 6px; color: var(--muted); }
+
+/* =============================================================================
+   R72 — REVIEW UI (.rv-* only; additive). The slate week overview + LEARNING
+   line, the parlay outcome-bucket card + per-card chip, the PLAYERS review
+   controls (WK / verdict chips) and the season tally chip. Chips mirror the
+   audited .leg-chip / .pf-chip pairings (muted on --surface-2, ink on --elev,
+   --brand border when pressed); --warn on --surface is 9.3:1.
+   ========================================================================== */
+.rv-strip--week { display: flex; flex-direction: column; gap: 4px; }
+.rv-learn { color: var(--muted); letter-spacing: 0.03em; }
+.rv-buckets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.rv-bucket, .rv-wk, .rv-vchip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 11px;
+  min-height: 32px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rv-bucket[aria-pressed="true"], .rv-bucket--active,
+.rv-wk[aria-pressed="true"], .rv-wk--active,
+.rv-vchip[aria-pressed="true"], .rv-vchip--active {
+  color: var(--ink);
+  border-color: var(--brand);
+  background: var(--elev);
+}
+.rv-bucket-n { color: var(--ink); font-variant-numeric: tabular-nums; }
+.rv-bchip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rv-bchip--all_hit    { color: var(--pos-txt); border-color: var(--pos); }
+.rv-bchip--all_missed { color: var(--accent-txt); border-color: var(--neg); }
+.rv-bchip--partial    { color: var(--warn); border-color: var(--warn); }
+.rv-bchip--push, .rv-bchip--pending { color: var(--muted); }
+.rv-pfilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+.rv-pfilter-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.rv-pfilter-lbl--gap { margin-left: 6px; }
+.rv-tally {
+  display: inline-block;
+  margin-top: 6px;
+  margin-right: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
