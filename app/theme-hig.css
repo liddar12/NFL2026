@@ -1408,6 +1408,17 @@
 }
 
 /* =============================================================================
+   R73 — PARLAY HISTORY under HIG (.pw-* only): the week chips are the same
+   capsules as the slate's; a closed (archived) week's chip carries a hairline
+   dashed ring until selected, so history reads as history at a glance.
+   ========================================================================== */
+[data-theme="hig"] .pw-wk--closed:not(.wk-chip--active) {
+  border: 1px dashed var(--hig-separator-opaque);
+  padding: 0 15px;
+}
+[data-theme="hig"] .pw-archived { border-radius: 999px; }
+
+/* =============================================================================
    R71 — POST-GAME REVIEW under HIG: the same .rv-* markup, capsule chips with
    the tinted-selected look, SF text ladder, no italics. Tokens already carry
    the light/dark palettes, so only shape and type are restated here.
@@ -1481,3 +1492,17 @@
 [data-theme="hig"] .rv-tally { font-size: 12px; padding: 2px 9px; font-style: normal; }
 [data-theme="hig"] .rv-pfilter { gap: 8px; margin-top: 10px; }
 [data-theme="hig"] .rv-pfilter-lbl { font-family: var(--sans); letter-spacing: 0.02em; font-size: 12px; }
+
+/* R73 — the P&L line under HIG: SF text ladder, rounded, hairline left rule. */
+[data-theme="hig"] .rv-pnl {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  border-left-width: 2px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  gap: 4px;
+}
+[data-theme="hig"] .rv-pnl-note { font-weight: 400; }

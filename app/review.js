@@ -29,6 +29,12 @@
  * (players_season) and the per-week delta / verdict readers behind the REVIEW
  * sort. Every count is READ from the document — nothing here recomputes a
  * bucket, a tally or a verdict from legs or rows (the builder is the truth).
+ *
+ * R73 (additive, parlay section): the $100 FLAT-STAKE P&L line, read from
+ * summary.parlays.stake_100[scope] ({n, graded, hit, push, staked, net_fair,
+ * net_vig2, assumed_price_legs, note}) — pending parlays are excluded by the
+ * builder (graded < n), the money is the builder's arithmetic and this file
+ * only formats it. DISPLAY ONLY: the dollar figures never feed a model.
  */
 
 import { loadJson } from './data.js';
@@ -288,6 +294,61 @@ export function renderParlaySummary(week, summary) {
     `<div class="rv-strip rv-strip--parlay" role="status" data-week="${esc(week)}">` +
       `WK ${esc(week)} PARLAYS: ${esc(p.hit)}/${esc(p.n)} hit · legs ${esc(p.legs_hit)}/${esc(p.legs_n)}` +
       (p.pending ? ` · ${esc(p.pending)} pending` : '') +
+    '</div>'
+  );
+}
+
+/* R73 — the $100 flat-stake P&L line (display only) ----------------------- */
+
+/** summary.parlays.stake_100[scope] for `week`, or null when the document
+ * has none (an R72-shaped file, an unknown week, a scope it did not price). */
+export function parlayStake100(week, scope, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const s100 = blk && blk.summary && blk.summary.parlays && blk.summary.parlays.stake_100;
+  const st = s100 && typeof s100 === 'object' ? s100[scope === 'week' ? 'week' : 'game'] : null;
+  return st && typeof st === 'object' ? st : null;
+}
+
+/** "+$10,200" / "−$1,250" / "$0" — whole dollars, thousands grouped. */
+export function fmtMoney(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v) || v === 0) return '$0';
+  const abs = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${v > 0 ? '+' : '−'}$${abs}`;
+}
+
+/**
+ * The P&L line's text, from one stake_100 block:
+ *   "WEEK 1 · 16/18 hit · +$10,200 at $100 flat (book vig 2%/leg; fair +$11,564)"
+ * A push count rides after the hit ratio only when there is one. '' until the
+ * week has a graded parlay (graded > 0) — pending parlays are never counted.
+ */
+export function pnlLineText(week, st) {
+  if (!st || !isNum(st.graded) || st.graded <= 0) return '';
+  const hit = isNum(st.hit) ? st.hit : 0;
+  const push = isNum(st.push) && st.push > 0 ? ` · ${st.push} push` : '';
+  return `WEEK ${week} · ${hit}/${st.graded} hit${push} · ${fmtMoney(st.net_vig2)} at $100 flat `
+    + `(book vig 2%/leg; fair ${fmtMoney(st.net_fair)})`;
+}
+
+/** "3 legs priced at -110 (no book price)" when the builder assumed a price. */
+export function pnlAssumedText(st) {
+  const n = st && isNum(st.assumed_price_legs) ? st.assumed_price_legs : 0;
+  if (n <= 0) return '';
+  return `${n} leg${n === 1 ? '' : 's'} priced at -110 (no book price)`;
+}
+
+/** The .rv-pnl line for `week` at `scope`; '' when nothing is graded yet. */
+export function renderParlayPnl(week, scope, st) {
+  const text = pnlLineText(week, st);
+  if (!text) return '';
+  const net = isNum(st.net_vig2) ? st.net_vig2 : 0;
+  const tone = net > 0 ? 'pos' : (net < 0 ? 'neg' : 'flat');
+  const assumed = pnlAssumedText(st);
+  return (
+    `<div class="rv-pnl rv-pnl--${tone}" role="status" data-week="${esc(week)}" data-scope="${esc(scope)}">` +
+      `<span class="rv-pnl-line">${esc(text)}</span>` +
+      (assumed ? `<span class="rv-pnl-note">${esc(assumed)}</span>` : '') +
     '</div>'
   );
 }
