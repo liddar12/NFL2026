@@ -20,6 +20,15 @@
  * HONESTY: everything shown is the builder's measured attribution
  * (source "measured"); the narrative is display-only, labeled, and never a
  * substitute — when it is absent the measured why still renders.
+ *
+ * R72 (additive, same file): the SLATE strip becomes a week OVERVIEW
+ * ("WK n · R RIGHT · W WRONG · T TBD · Brier b") plus a LEARNING line read
+ * verbatim from summary.learning / the document's learning block; PARLAYS gain
+ * the five outcome BUCKETS (summary.parlays.buckets + each row's `bucket`) as
+ * a tappable filter card and a per-card chip; PLAYERS gain the season tally
+ * (players_season) and the per-week delta / verdict readers behind the REVIEW
+ * sort. Every count is READ from the document — nothing here recomputes a
+ * bucket, a tally or a verdict from legs or rows (the builder is the truth).
  */
 
 import { loadJson } from './data.js';
@@ -112,6 +121,72 @@ export function renderReviewStrip(week, summary) {
   );
 }
 
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * R72 — the LEARNING line, worded from the data and nothing else:
+ *   refit on file : "LEARNING: 14 graded locks → game-model refit (n=14, held, 2026-09-14)"
+ *   refit null    : "LEARNING: 14 graded locks → refit pending (<note>)"
+ * `learn` is the week's summary.learning ({graded_locks, refit|null, note});
+ * `top` is the document's learning block ({graded_locks_total, refit|null,
+ * consumed_all, note}) and is the fallback when the week carries none. The
+ * verdict is the refit's own `verdict` (adopted | held); a refit that shows no
+ * verdict and no `adopted: true` is reported HELD — adoption is never assumed.
+ * Returns '' when neither block names a graded-lock count.
+ */
+export function renderLearningLine(learn, top) {
+  const src = learn && typeof learn === 'object' ? learn : (top && typeof top === 'object' ? top : null);
+  if (!src) return '';
+  const graded = isNum(src.graded_locks) ? src.graded_locks
+    : (isNum(src.graded_locks_total) ? src.graded_locks_total : null);
+  if (graded == null) return '';
+  const refit = src.refit && typeof src.refit === 'object' ? src.refit : null;
+  let tail;
+  if (refit) {
+    const verdict = (refit.verdict === 'adopted' || refit.verdict === 'held')
+      ? refit.verdict : (refit.adopted === true ? 'adopted' : 'held');
+    const parts = [];
+    if (isNum(refit.n_resolved)) parts.push(`n=${refit.n_resolved}`);
+    parts.push(verdict);
+    if (typeof refit.archived_utc === 'string' && refit.archived_utc) parts.push(refit.archived_utc.slice(0, 10));
+    tail = `game-model refit (${parts.join(', ')})`;
+  } else {
+    const note = typeof src.note === 'string' ? src.note.trim() : '';
+    tail = note ? `refit pending (${note})` : 'refit pending';
+  }
+  return `LEARNING: ${graded} graded locks → ${tail}`;
+}
+
+/** "WK 1 · 8 RIGHT · 4 WRONG · 2 TBD · Brier 0.48" (Brier omitted when null). */
+export function overviewText(week, picks) {
+  if (!picks || !isNum(picks.right) || !isNum(picks.wrong) || !isNum(picks.tbd)) return '';
+  const brier = picks.brier == null ? '' : ` · Brier ${Number(picks.brier).toFixed(2)}`;
+  return `WK ${week} · ${picks.right} RIGHT · ${picks.wrong} WRONG · ${picks.tbd} TBD${brier}`;
+}
+
+/**
+ * R72 — the week OVERVIEW strip for the slate. Renders whenever the week block
+ * carries the R72 picks shape (right / wrong / tbd) — a TBD-only week shows
+ * "0 RIGHT · 0 WRONG · 16 TBD" — with the LEARNING line beneath it. A document
+ * still in the R71 shape falls back to the R71 strip, unchanged.
+ */
+export function renderWeekOverview(week, summary, topLearning) {
+  const ov = overviewText(week, summary && summary.picks);
+  const learn = renderLearningLine(summary && summary.learning, topLearning);
+  if (!ov) {
+    const legacy = renderReviewStrip(week, summary);
+    if (!learn) return legacy;
+    if (!legacy) return '';
+  }
+  const head = ov || `WK ${esc(week)} REVIEW: ${esc(summary.picks.won)}/${esc(summary.picks.n)} picks`;
+  return (
+    `<div class="rv-strip rv-strip--week" role="status" data-week="${esc(week)}">` +
+      `<span class="rv-ov">${esc(head)}</span>` +
+      (learn ? `<span class="rv-learn">${esc(learn)}</span>` : '') +
+    '</div>'
+  );
+}
+
 /**
  * Decorate the painted slate cards in `listEl` for `week`. Idempotent per paint
  * (the view repaints innerHTML on every week switch and calls this again). One
@@ -140,7 +215,7 @@ export async function applySlateReview(listEl, week) {
     card.setAttribute('aria-expanded', 'false');
     card.insertAdjacentHTML('beforeend', renderWhy(g.why, g.narrative));
   });
-  placeStrip(listEl, '.rv-strip', renderReviewStrip(week, blk.summary));
+  placeStrip(listEl, '.rv-strip', renderWeekOverview(week, blk.summary, doc && doc.learning));
   if (!listEl.dataset.rvBound) {
     listEl.dataset.rvBound = '1';
     listEl.addEventListener('click', (e) => {
@@ -159,6 +234,52 @@ export async function applySlateReview(listEl, week) {
  * ------------------------------------------------------------------------ */
 
 const LEG_MARK = { hit: '✓', miss: '✗', pending: '–', void: '–' };
+
+/** R72 — the five outcome buckets, in display order, with their labels. */
+export const BUCKET_ORDER = Object.freeze(['all_hit', 'push', 'partial', 'all_missed', 'pending']);
+export const BUCKET_LABEL = Object.freeze({
+  all_hit: 'ALL HIT', push: 'PUSH', partial: 'PARTIAL', all_missed: 'ALL MISSED', pending: 'PENDING',
+});
+
+/** summary.parlays.buckets for `week` (null when the document has none). */
+export function parlayBucketCounts(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const b = blk && blk.summary && blk.summary.parlays && blk.summary.parlays.buckets;
+  return b && typeof b === 'object' ? b : null;
+}
+
+/** parlay_id -> bucket for `week`, from each row's own `bucket` field only. */
+export function parlayBucketMap(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const out = new Map();
+  ((blk && blk.parlays) || []).forEach((p) => {
+    if (p && BUCKET_LABEL[p.bucket]) out.set(String(p.parlay_id), p.bucket);
+  });
+  return out;
+}
+
+/**
+ * The bucket summary card: one tappable chip per bucket whose count the
+ * document carries, "ALL HIT 12". `active` marks the pressed chip. '' when
+ * the document has no buckets (an R71-shaped file), so nothing invents a 0.
+ */
+export function renderParlayBuckets(week, buckets, active) {
+  if (!buckets || typeof buckets !== 'object') return '';
+  const chips = BUCKET_ORDER.filter((b) => isNum(buckets[b])).map((b) => {
+    const on = b === active;
+    return (
+      `<button type="button" class="rv-bucket${on ? ' rv-bucket--active' : ''}" ` +
+        `data-bucket="${b}" aria-pressed="${on ? 'true' : 'false'}">` +
+        `${BUCKET_LABEL[b]} <b class="rv-bucket-n">${esc(buckets[b])}</b></button>`
+    );
+  }).join('');
+  if (!chips) return '';
+  return (
+    `<div class="rv-buckets" role="group" aria-label="Filter parlays by outcome" data-week="${esc(week)}">` +
+      chips +
+    '</div>'
+  );
+}
 
 export function renderParlaySummary(week, summary) {
   const p = summary && summary.parlays;
@@ -187,6 +308,14 @@ export async function applyParlayReview(listEl, week) {
       chip.className = `rv-pchip rv-pchip--${p.result}`;
       chip.textContent = String(p.result).toUpperCase();
       head.appendChild(chip);
+      // R72 — the row's own bucket, never recomputed from its legs here.
+      if (BUCKET_LABEL[p.bucket]) {
+        const b = document.createElement('span');
+        b.className = `rv-bchip rv-bchip--${p.bucket}`;
+        b.textContent = BUCKET_LABEL[p.bucket];
+        head.appendChild(b);
+        card.dataset.rvBucket = p.bucket;
+      }
     }
     card.classList.add('rv-parlay', `rv-parlay--${p.result}`);
     card.dataset.rvResult = p.result;
@@ -218,11 +347,29 @@ export function playerReviewRow(gsisId, week, doc = docSync) {
   const weeks = week != null ? [String(week)]
     : Object.keys(doc.weeks).sort((a, b) => Number(b) - Number(a));
   for (const wk of weeks) {
-    const blk = doc.weeks[wk];
-    const row = blk && (blk.players || []).find((p) => String(p.gsis_id) === String(gsisId));
+    const row = rowIndex(doc, wk).get(String(gsisId));
     if (row) return row;
   }
   return null;
+}
+
+// R72 — gsis_id -> row per (document, week), built once: the REVIEW sort reads
+// a row per player per paint, and a linear find over 200 rows x 300 players
+// per repaint is work the phone does not need to do.
+const rowIndexes = new WeakMap();
+function rowIndex(doc, wk) {
+  let byWeek = rowIndexes.get(doc);
+  if (!byWeek) { byWeek = new Map(); rowIndexes.set(doc, byWeek); }
+  let idx = byWeek.get(wk);
+  if (!idx) {
+    idx = new Map();
+    const blk = doc.weeks[wk];
+    ((blk && blk.players) || []).forEach((p) => {
+      if (p && p.gsis_id != null && !idx.has(String(p.gsis_id))) idx.set(String(p.gsis_id), p);
+    });
+    byWeek.set(wk, idx);
+  }
+  return idx;
 }
 
 /**
@@ -242,4 +389,135 @@ export function renderPlayerReview(gsisId, week) {
       renderWhy(row.why, row.narrative, { hidden: false }) +
     '</div>'
   );
+}
+
+/* --------------------------------------------------------------------------
+ * PLAYERS — R72: the REVIEW sort's readers and the season tally.
+ * ------------------------------------------------------------------------ */
+
+/** Weeks (ascending numbers) whose block carries at least one graded player row. */
+export function gradedPlayerWeeks(doc = docSync) {
+  if (!doc || !doc.weeks) return [];
+  return Object.keys(doc.weeks)
+    .filter((w) => Array.isArray(doc.weeks[w].players) && doc.weeks[w].players.length > 0)
+    .map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+}
+
+/** The row's verdict for `week` (over | met | under | dnp) or null when no row. */
+export function playerReviewVerdict(gsisId, week, doc = docSync) {
+  const row = playerReviewRow(gsisId, week, doc);
+  return row && row.verdict != null ? String(row.verdict) : null;
+}
+
+/** The row's delta for `week`; null when no row or the row has none (DNP). */
+export function playerReviewDelta(gsisId, week, doc = docSync) {
+  const row = playerReviewRow(gsisId, week, doc);
+  return row && isNum(row.delta) ? row.delta : null;
+}
+
+/**
+ * Comparator over two deltas for the REVIEW sort: biggest over-performance
+ * first under 'desc' (the default), reversed under 'asc'; a null delta sorts
+ * LAST either way and two nulls compare equal (0), so a stable sort keeps
+ * their incoming relative order.
+ */
+export function compareReviewDelta(a, b, dir = 'desc') {
+  const an = !isNum(a);
+  const bn = !isNum(b);
+  if (an || bn) return an - bn;
+  const d = b - a;
+  return dir === 'asc' ? -d : d;
+}
+
+/** The players_season entry for one player, or null. */
+export function seasonEntry(gsisId, doc = docSync) {
+  const ps = doc && doc.players_season;
+  const e = ps && typeof ps === 'object' ? ps[String(gsisId)] : null;
+  return e && typeof e === 'object' ? e : null;
+}
+
+/** "3 MET · 1 OVER · 1 UNDER" from a players_season entry ('' when nothing graded). */
+export function seasonTallyText(entry) {
+  if (!entry || typeof entry !== 'object') return '';
+  const parts = [];
+  for (const [k, label] of [['met', 'MET'], ['over', 'OVER'], ['under', 'UNDER'], ['dnp', 'DNP']]) {
+    if (isNum(entry[k]) && entry[k] > 0) parts.push(`${entry[k]} ${label}`);
+  }
+  return parts.join(' · ');
+}
+
+/** The season tally chip for a card, or '' when the player has no graded week. */
+export function renderSeasonTally(gsisId, doc = docSync) {
+  const e = seasonEntry(gsisId, doc);
+  const text = seasonTallyText(e);
+  if (!text) return '';
+  const weeks = isNum(e.weeks) ? e.weeks : null;
+  const title = weeks == null ? 'season vs the calibrated week band'
+    : `${weeks} graded week${weeks === 1 ? '' : 's'} vs the calibrated week band`;
+  return `<span class="rv-tally" data-gsis="${esc(gsisId)}" title="${esc(title)}">${esc(text)}</span>`;
+}
+
+/**
+ * The REVIEW sort's per-mount state for the players view: the graded weeks,
+ * the selected week (default = the latest graded) and the verdict chips that
+ * are on (default all). null when no week has a graded player row, which is
+ * what hides the sort chip. Kept here, off the boot graph, with the controls.
+ */
+export const REVIEW_VERDICTS = Object.freeze(['over', 'met', 'under']);
+export function reviewState(doc = docSync) {
+  const weeks = gradedPlayerWeeks(doc);
+  if (!weeks.length) return null;
+  return { weeks, week: weeks[weeks.length - 1], on: new Set(REVIEW_VERDICTS) };
+}
+
+/** Under the REVIEW filter: a graded row passes when its verdict chip is on;
+ * rows the week did not grade (and DNP) always pass and sort last. */
+export function verdictPasses(gsisId, rv, doc = docSync) {
+  if (rv.on.size >= REVIEW_VERDICTS.length) return true;
+  const v = playerReviewVerdict(gsisId, rv.week, doc);
+  return !REVIEW_VERDICTS.includes(v) || rv.on.has(v);
+}
+
+/** The controls: a WK chip per graded week (single-select) and the OVER / MET /
+ * UNDER verdict chips (multi-select), from a reviewState(). */
+export function renderReviewControls(rv) {
+  if (!rv || !Array.isArray(rv.weeks) || !rv.weeks.length) return '';
+  const wk = rv.weeks.map((w) => {
+    const on = Number(w) === Number(rv.week);
+    return (
+      `<button type="button" class="rv-wk${on ? ' rv-wk--active' : ''}" ` +
+        `data-rv-week="${esc(w)}" aria-pressed="${on ? 'true' : 'false'}">WK ${esc(w)}</button>`
+    );
+  }).join('');
+  const on = rv.on instanceof Set ? rv.on : new Set(rv.on || []);
+  const vc = REVIEW_VERDICTS.map((v) => (
+    `<button type="button" class="rv-vchip rv-vchip--${v}${on.has(v) ? ' rv-vchip--active' : ''}" ` +
+      `data-rv-verdict="${v}" aria-pressed="${on.has(v) ? 'true' : 'false'}">${v.toUpperCase()}</button>`
+  )).join('');
+  return (
+    '<div class="rv-pfilter" role="group" aria-label="Review week and verdict">' +
+      `<span class="rv-pfilter-lbl">GRADED WEEK</span>${wk}` +
+      `<span class="rv-pfilter-lbl rv-pfilter-lbl--gap">VERDICT</span>${vc}` +
+    '</div>'
+  );
+}
+
+/** Delegate the controls' clicks onto `rv` (week select / verdict toggle),
+ * then call onChange(); a tap on the already-selected week is a no-op. */
+export function bindReviewControls(host, rv, onChange) {
+  host.addEventListener('click', (e) => {
+    const wk = e.target.closest('.rv-wk');
+    const vc = e.target.closest('.rv-vchip');
+    if (wk) {
+      const w = Number(wk.dataset.rvWeek);
+      if (!Number.isFinite(w) || w === rv.week) return;
+      rv.week = w;
+    } else if (vc) {
+      const v = vc.dataset.rvVerdict;
+      if (rv.on.has(v)) rv.on.delete(v); else rv.on.add(v);
+    } else {
+      return;
+    }
+    onChange();
+  });
 }
