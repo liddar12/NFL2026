@@ -1,0 +1,79 @@
+{
+  "season": 2026,
+  "week": 1,
+  "updated_utc": "2026-09-13T10:00:00Z",
+  "parlays": [
+    {
+      "parlay_id": "G1-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.55,
+          "model_prob": 0.6
+        },
+        {
+          "market": "spread",
+          "selection": "AAA -3",
+          "implied_prob": 0.52,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE - priced flat"
+        }
+      ],
+      "model_ev": 0.05,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment.",
+      "game_id": "G1"
+    },
+    {
+      "parlay_id": "G1-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.55,
+          "model_prob": 0.6
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "R. Back 60+ rush yds",
+          "implied_prob": 0.5,
+          "model_prob": 0.55,
+          "pricing": "calibrated",
+          "estimate": true,
+          "line": 59.5,
+          "mu": 62.0,
+          "sd": 30.0,
+          "z": 0.08
+        }
+      ],
+      "model_ev": 0.1,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment.",
+      "game_id": "G1"
+    },
+    {
+      "parlay_id": "week-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.55,
+          "model_prob": 0.6
+        },
+        {
+          "market": "moneyline",
+          "selection": "DDD ML",
+          "implied_prob": 0.3,
+          "model_prob": 0.3
+        }
+      ],
+      "model_ev": -0.02,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    }
+  ]
+}

@@ -67,9 +67,25 @@ R72 (owner decisions, final) — the same document also carries:
     (newest_refit, the exact rule of app/views/model.js resolvedLockCount). Never
     a claim the archive does not show.
 
+R73 (owner decision 3) — `summary.parlays.stake_100`, a DISPLAY-ONLY $100
+flat-stake P&L per scope ({week, game}), computed here from the as-made leg
+prices of the R58 ledger (data/estimates/parlays_<season>.json, the row keyed
+(week, game_id, market, selection)) and the graded buckets:
+  * every parlay of the scope in the week is staked $100; a pending parlay is
+    excluded from staked/net and counted in n only;
+  * all_hit pays 100 x (product of leg decimals - 1); push pays the same with
+    the pushed legs dropped out at 1.0; partial / all_missed lose 100;
+  * leg decimal = 1 / implied_prob of the ledger row (moneyline / spread — the
+    only legs that ever carry a book price); a prop leg, or a game leg with no
+    ledger row, is priced at 1.9091 (-110), counted in assumed_price_legs and
+    stated in the note;
+  * net_vig2 re-prices every leg at implied_prob x 1.02 capped at 0.99;
+  * money is never a model input: nothing downstream reads it.
+
 Pure core (no I/O): review_game, review_player, review_parlay, parlay_bucket,
-leg_outcomes_from_ledger, summarize, review_weeks, learning_block,
-players_season, build. Thin shell: load_inputs + main.
+leg_outcomes_from_ledger, ledger_price_index, leg_decimal, stake_100,
+summarize, review_weeks, learning_block, players_season, build.
+Thin shell: load_inputs + main.
   python3 scripts/build_review.py --selftest   fixture-driven, never writes data/
   python3 scripts/build_review.py --offline    committed inputs only (no network)
   python3 scripts/build_review.py              runner: ESPN finals + nflverse stats
@@ -99,6 +115,7 @@ LOCK_GLOB = os.path.join(SNAPSHOT_DIR, "*_games_open.json")
 TUNING_PATH = os.path.join(DATA, "model_tuning.json")
 FIXTURE_DIR = os.path.join(_ROOT, "tests", "fixtures", "r71")
 FIXTURE_DIR_R72 = os.path.join(_ROOT, "tests", "fixtures", "r72")
+FIXTURE_DIR_R73 = os.path.join(_ROOT, "tests", "fixtures", "r73")
 
 PARLAY_BUCKETS = ("all_hit", "push", "partial", "all_missed", "pending")
 # result <-> bucket consistency (owner decision 3), locked by the selftest.
@@ -107,6 +124,12 @@ BUCKET_OF_RESULT = {"hit": ("all_hit",), "void": ("push",),
 
 PROP_MARKETS = frozenset(["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"])
 GAME_MARKETS = frozenset(["moneyline", "spread"])
+# R73 stake_100 (display-only money): flat stake, the -110 decimal a leg with no
+# book price is assumed at, and the vig re-pricing of the net_vig2 column.
+STAKE = 100.0
+ASSUMED_DECIMAL = 1.9091
+VIG2_FACTOR = 1.02
+VIG2_CAP = 0.99
 POSITIONS = ("QB", "RB", "WR", "TE")
 _POS_ALIAS = {"FB": "RB", "HB": "RB"}
 BLOWOUT_MARGIN = 17          # >= 17 points (three scores) is reported as a blowout
@@ -670,6 +693,91 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
             "result": pres, "bucket": bucket, "legs": legs_out}
 
 
+def ledger_price_index(parlay_ledger):
+    """{(week, game_id, market, selection): implied_prob} over the R58 leg ledger
+    rows that carry a numeric price in (0, 1) — the as-made price locked on first
+    sight. A row without one (the r71 fixture's bare game legs) is not a price."""
+    out = {}
+    for l in (parlay_ledger or {}).get("legs") or []:
+        ip = l.get("implied_prob")
+        if isinstance(ip, bool) or not isinstance(ip, (int, float)) or not 0 < ip < 1:
+            continue
+        out[(int(l["week"]), str(l.get("game_id")), l.get("market"), l.get("selection"))] = float(ip)
+    return out
+
+
+def leg_decimal(leg, week, price_index):
+    """(decimal odds, assumed) for one reviewed leg. The book price exists only for
+    a moneyline / spread leg with a ledger row; everything else (a prop, a game
+    leg the ledger never saw, a leg whose game is unidentified) is assumed at
+    -110 = 1.9091 and flagged so the note can say how many were."""
+    if leg.get("market") in GAME_MARKETS and leg.get("game_id"):
+        ip = price_index.get((int(week), str(leg["game_id"]), leg.get("market"),
+                              leg.get("selection")))
+        if ip is not None:
+            return 1.0 / ip, False
+    return ASSUMED_DECIMAL, True
+
+
+def _vig2(decimal):
+    """The same leg re-priced at implied_prob x 1.02, capped at 0.99."""
+    return 1.0 / min(VIG2_CAP, (1.0 / decimal) * VIG2_FACTOR)
+
+
+def stake_100(parlays, week, price_index):
+    """Owner decision 3 (R73): a $100 flat stake on every parlay of each scope,
+    display-only. One block per scope {week, game}:
+      n            parlays of the scope in the week
+      graded       n minus the pending ones (only these are staked)
+      hit / push   all_hit / push buckets among the graded
+      staked       100 x graded
+      net_fair     sum over graded of: all_hit 100 x (prod decimals - 1);
+                   push the same with pushed (void) legs at 1.0; else -100
+      net_vig2     the same with every leg re-priced at implied x 1.02 (cap 0.99)
+      assumed_price_legs  legs of the graded parlays priced at 1.9091 (-110)
+                   because no book price exists (props, no ledger row)
+      note         the rule, with the counts, in one sentence
+    net_* are null (never 0) when nothing is graded. Money never feeds a model."""
+    out = {}
+    for scope in ("week", "game"):
+        rows = [p for p in parlays if p.get("scope") == scope]
+        graded = [p for p in rows if p.get("bucket") != "pending"]
+        hit = sum(1 for p in graded if p.get("bucket") == "all_hit")
+        push = sum(1 for p in graded if p.get("bucket") == "push")
+        lost = len(graded) - hit - push
+        net_fair = net_vig2 = 0.0
+        assumed = 0
+        for p in graded:
+            fair = vig = 1.0
+            for leg in p.get("legs") or []:
+                dec, is_assumed = leg_decimal(leg, week, price_index)
+                assumed += 1 if is_assumed else 0
+                if leg.get("result") == "hit":
+                    fair *= dec
+                    vig *= _vig2(dec)
+                # a void leg drops out at 1.0; a missed leg is settled below
+            if p.get("bucket") in ("all_hit", "push"):
+                net_fair += STAKE * (fair - 1.0)
+                net_vig2 += STAKE * (vig - 1.0)
+            else:
+                net_fair -= STAKE
+                net_vig2 -= STAKE
+        note = ("$100 flat on each of the %d %s-scope parlays: %d graded (%d all_hit paid, "
+                "%d push with pushed legs at 1.0, %d lost -100), %d pending excluded; leg "
+                "decimal = 1/implied_prob of the as-made R58 ledger row (moneyline/spread), "
+                "%d leg(s) with no book price (props, or no ledger row) assumed at -110 "
+                "(1.9091); net_vig2 re-prices every leg at implied x 1.02 capped at 0.99. "
+                "Display-only money, never a model input."
+                % (len(rows), scope, len(graded), hit, push, lost, len(rows) - len(graded),
+                   assumed))
+        out[scope] = {"n": len(rows), "graded": len(graded), "hit": hit, "push": push,
+                      "staked": _r(STAKE * len(graded)),
+                      "net_fair": _r(net_fair) if graded else None,
+                      "net_vig2": _r(net_vig2) if graded else None,
+                      "assumed_price_legs": assumed, "note": note}
+    return out
+
+
 def parlay_bucket(leg_results):
     """Owner decision 3 — the five outcome buckets, decided in this order:
       pending     any leg still pending (or no legs at all)
@@ -696,12 +804,14 @@ def parlay_bucket(leg_results):
 # summary + document                                                            #
 # --------------------------------------------------------------------------- #
 
-def summarize(games, parlays, players, learning=None):
+def summarize(games, parlays, players, learning=None, week=None, price_index=None):
     """Week summary. picks: n/won/pct/brier over the graded picks, plus (R72)
     right (== won), wrong (n - won) and tbd — games with NO FINAL evidence yet
     (final null). A tie is FINAL but ungradable against a 2-way pick: it is in
     none of right / wrong / tbd. `learning` is the week's learning block (see
-    learning_for_week); None -> the honest "no lock file" block."""
+    learning_for_week); None -> the honest "no lock file" block. parlays.stake_100
+    (R73) is the display-only flat-stake P&L over the reviewed parlays priced from
+    `price_index` (ledger_price_index); `week` keys the price lookup."""
     graded = [g for g in games if g.get("result") in ("won", "lost")]
     won = sum(1 for g in graded if g["result"] == "won")
     briers = [g["brier"] for g in graded if isinstance(g.get("brier"), (int, float))]
@@ -720,7 +830,9 @@ def summarize(games, parlays, players, learning=None):
                     "legs_n": len(legs),
                     "legs_hit": sum(1 for l in legs if l["result"] == "hit"),
                     "buckets": {b: sum(1 for p in parlays if p.get("bucket") == b)
-                                for b in PARLAY_BUCKETS}},
+                                for b in PARLAY_BUCKETS},
+                    "stake_100": stake_100(parlays, week if week is not None else -1,
+                                           price_index or {})},
         "learning": learning if learning is not None else learning_for_week([], None),
         "players": {"n": len(players),
                     "over": sum(1 for p in players if p["verdict"] == "over"),
@@ -984,6 +1096,7 @@ def build(inputs, now):
     by_np, names = index_stats(inputs.get("stats_rows") or [])
     stats_available = bool(inputs.get("stats_rows"))
     outcomes = leg_outcomes_from_ledger(inputs.get("leg_scores"))
+    price_index = ledger_price_index(inputs.get("parlay_ledger"))
     ledger_legs = {}
     for l in (inputs.get("parlay_ledger") or {}).get("legs") or []:
         ledger_legs.setdefault((int(l["week"]), l.get("market"), l.get("selection")),
@@ -1057,7 +1170,8 @@ def build(inputs, now):
                              % (wk, parlays_doc.get("week")))
         out_weeks[str(wk)] = {"games": games, "parlays": parlays, "players": players,
                               "summary": summarize(games, parlays, players,
-                                                   learning_for_week(lock_rows, refit))}
+                                                   learning_for_week(lock_rows, refit),
+                                                   wk, price_index)}
     if not stats_available:
         notes.append("stats: no nflverse stat line loaded — player touchdowns/volume/"
                      "efficiency/turnovers factors omitted on every row (%s)"
@@ -1360,12 +1474,15 @@ def selftest():
                                   "note": "no graded lock receipts yet and no in-season refit pass archived"} \
         and not _validate_against_schema(empty)
     _selftest_r72()
+    _selftest_r73()
     print("selftest OK: status gating (FINAL/receipt grade, halftime and 0-0 stubs never), "
           "band verdicts incl. boundaries, DNP null not 0, measured why sums to delta, "
           "adapter on C's ledger shapes, parlay hit/miss/pending/void, summary math, "
           "narrative carry-forward, schema + JSON convention; R72 right/wrong/tbd, "
           "week blocks through the pipeline week, five parlay buckets <-> result, "
-          "players_season tally, the learning proof from lock files + refit archive")
+          "players_season tally, the learning proof from lock files + refit archive; "
+          "R73 stake_100 P&L (all_hit / push drop-out / loss / pending excluded / "
+          "assumed -110 / vig re-pricing)")
 
 
 def _selftest_r72():
@@ -1445,6 +1562,61 @@ def _selftest_r72():
     # on-disk convention
     blob = json.dumps(doc, ensure_ascii=True, indent=2) + "\n"
     assert json.loads(blob) == doc
+
+
+def _selftest_r73():
+    """R73 owner decision 3 on the stake fixture: reviewed parlay rows + the R58
+    ledger rows that price them. Every number below is the rule applied by hand."""
+    fx = _load(os.path.join(FIXTURE_DIR_R73, "stake_fixture.json"))
+    idx = ledger_price_index(fx["parlay_ledger"])
+    assert idx[(1, "G1", "moneyline", "AAA ML")] == 0.5 and len(idx) == 8
+    assert ledger_price_index({"legs": [{"week": 1, "game_id": "G", "market": "moneyline",
+                                         "selection": "X ML"}]}) == {}, "no price is no price"
+    s = stake_100(fx["parlays"], fx["week"], idx)
+    w, g = s["week"], s["game"]
+    # week scope: all_hit 2.0 x 4.0 -> +700; push (void at 1.0) 2.0 -> +100; partial -100;
+    # pending excluded from staked / net, counted in n
+    assert (w["n"], w["graded"], w["hit"], w["push"], w["staked"]) == (4, 3, 1, 1, 300.0), w
+    assert w["net_fair"] == 700.0 + 100.0 - 100.0 == 700.0, w["net_fair"]
+    assert w["assumed_price_legs"] == 0, w
+    v = lambda ip: 1.0 / min(VIG2_CAP, ip * VIG2_FACTOR)  # noqa: E731
+    exp_w = STAKE * (v(0.5) * v(0.25) - 1) + STAKE * (v(0.5) - 1) - STAKE
+    assert w["net_vig2"] == round(exp_w, 2) == 665.01, (w["net_vig2"], exp_w)
+    # game scope: ML 2.0 x prop assumed 1.9091 -> +281.82; all_missed -100; a 0.995
+    # favourite +0.5 fair but its vig price caps at 0.99 -> +1.01; a hit ML leg the
+    # ledger never saw is assumed too
+    assert (g["n"], g["graded"], g["hit"], g["push"], g["staked"]) == (4, 4, 3, 0, 400.0), g
+    exp_g = STAKE * (2.0 * ASSUMED_DECIMAL - 1) - STAKE + STAKE * (1 / 0.995 - 1) \
+        + STAKE * (ASSUMED_DECIMAL - 1)
+    assert g["net_fair"] == round(exp_g, 2) == 273.23, (g["net_fair"], exp_g)
+    assert round(STAKE * (2.0 * ASSUMED_DECIMAL - 1), 2) == 281.82, "ML 2.0 x prop -110 by hand"
+    ip_a = 1.0 / ASSUMED_DECIMAL
+    exp_gv = STAKE * (v(0.5) * v(ip_a) - 1) - STAKE + STAKE * (1 / VIG2_CAP - 1) \
+        + STAKE * (v(ip_a) - 1)
+    assert g["net_vig2"] == round(exp_gv, 2) == 255.17, (g["net_vig2"], exp_gv)
+    assert round(1 / VIG2_CAP - 1, 4) == 0.0101, "the cap binds at 0.99"
+    assert g["assumed_price_legs"] == 2 and "2 leg(s) with no book price" in g["note"], g["note"]
+    assert "Display-only" in w["note"] and "4 week-scope parlays: 3 graded" in w["note"], w["note"]
+    # nothing graded -> staked 0, net null (never 0); no rows -> the same
+    z = stake_100([fx["parlays"][3]], 1, idx)["week"]
+    assert z == {"n": 1, "graded": 0, "hit": 0, "push": 0, "staked": 0.0, "net_fair": None,
+                 "net_vig2": None, "assumed_price_legs": 0, "note": z["note"]}, z
+    assert stake_100([], 1, {})["game"]["n"] == 0 and stake_100([], 1, {})["game"]["net_fair"] is None
+    # wired into the document (r71 fixture: its ledger rows carry no price, so every
+    # graded leg is assumed) and the schema
+    doc = build(_fixture_inputs(), "2026-09-14T12:00:00Z")
+    st = doc["weeks"]["1"]["summary"]["parlays"]["stake_100"]
+    assert set(st) == {"week", "game"} and st["week"]["n"] == 2 and st["game"]["n"] == 3
+    assert st["game"]["graded"] == 2 and st["game"]["staked"] == 200.0 \
+        and st["game"]["net_fair"] == round(STAKE * (ASSUMED_DECIMAL ** 2 - 1) - STAKE, 2), st["game"]
+    assert st["week"]["graded"] == 1 and st["week"]["push"] == 1 \
+        and st["week"]["net_fair"] == round(STAKE * (ASSUMED_DECIMAL - 1), 2), st["week"]
+    assert not _validate_against_schema(doc)
+    bad = json.loads(json.dumps(doc))
+    bad["weeks"]["1"]["summary"]["parlays"]["stake_100"]["week"]["net_fair"] = "700"
+    assert _validate_against_schema(bad), "a string net is red"
+    del bad["weeks"]["1"]["summary"]["parlays"]["stake_100"]
+    assert _validate_against_schema(bad), "stake_100 is required on every week block"
 
 
 def main(argv=None):

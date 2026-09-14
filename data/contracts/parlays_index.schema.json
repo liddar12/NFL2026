@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlays_index.schema.json",
+  "title": "Parlay archive index (R73)",
+  "description": "data/parlays/index.json, written by scripts/build_parlay_archive.py: every archived week of the season (data/parlays/<season>_wk<NN>.json, contract parlays_archive.schema.json) sorted by week, plus current_week = the week data/parlays.json holds (the pipeline's default week: scripts/build_predictions.current_week, the earliest week not entirely FINAL). Rewritten only when an entry changes. OPTIONAL: absent until the first archive run; validated strictly when present.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "current_week",
+    "weeks"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18,
+      "description": "The week data/parlays.json held when the index was written - the PARLAYS default week."
+    },
+    "weeks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "week",
+          "path",
+          "updated_utc",
+          "archived_utc",
+          "closed",
+          "n_parlays",
+          "n_week_scope",
+          "n_game_scope"
+        ],
+        "properties": {
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^data/parlays/[0-9]{4}_wk[0-9]{2}\\.json$",
+            "description": "Repo-relative path of the week's archive file (prefix '/' to fetch from the PWA root)."
+          },
+          "updated_utc": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The archived parlays.json updated_utc (the last priced state)."
+          },
+          "archived_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "Every game of the week FINAL; the file is frozen."
+          },
+          "n_parlays": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_week_scope": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_game_scope": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

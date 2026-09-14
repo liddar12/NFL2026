@@ -128,6 +128,8 @@ SCHEMA_TO_DATA = {
     # R71 — the post-game review (scripts/build_review.py): measured attribution
     # over lock receipts, finals, the calibrated band and the stat line.
     "review.schema.json": "review.json",
+    # R73 — the parlay-archive index (scripts/build_parlay_archive.py).
+    "parlays_index.schema.json": "parlays/index.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -138,6 +140,11 @@ ESTIMATES_SCHEMA = "estimate_ledger.schema.json"
 # has its own contract; routed by filename prefix below.
 PARLAY_LEDGER_PREFIX = "parlays_"
 PARLAY_LEDGER_SCHEMA = "parlay_ledger.schema.json"
+# R73 — the per-week parlay archive (data/parlays/<season>_wk<NN>.json, one file a
+# week, frozen once the week is FINAL) is walked like the ledger directory; its
+# index (data/parlays/index.json) is a registered OPTIONAL file below.
+PARLAY_ARCHIVE_DIR = os.path.join(DATA, "parlays")
+PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -169,6 +176,9 @@ OPTIONAL_DATA = frozenset([
     "line_report.json",
     # R71 — runner-built (finals + nflverse stats); a clone without it is not red.
     "review.json",
+    # R73 — written by the archive step (daily + gameday); absent until the first
+    # run, validated strictly when present.
+    "parlays/index.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -1725,6 +1735,40 @@ def _selftest():
     del _bad["finals_source"]
     _schema_red(_bad, _sc_schema, "a score document that does not say where finals came from")
 
+    # R73 — the parlay archive + index contracts (scripts/build_parlay_archive.py).
+    _ar_schema = _load(os.path.join(CONTRACTS, PARLAY_ARCHIVE_SCHEMA))
+    _ar = {"season": 2026, "week": 1, "updated_utc": "2026-09-14T16:44:55Z",
+           "parlays": [{"parlay_id": "G1-g1", "scope": "game", "game_id": "G1",
+                        "legs": [{"market": "moneyline", "selection": "AAA ML",
+                                  "implied_prob": 0.55, "model_prob": 0.6}],
+                        "model_ev": 0.05, "confidence_tier": "low",
+                        "correlation_note": "same-game"}],
+           "archived_utc": "2026-09-14T17:00:00Z", "closed": False,
+           "history": [{"updated_utc": "2026-09-14T16:44:55Z",
+                        "archived_utc": "2026-09-14T17:00:00Z"}]}
+    validate_against_schema(_ar, _ar_schema, "parlay archive selftest")
+    _bad = copy.deepcopy(_ar)
+    _bad["closed"] = "yes"
+    _schema_red(_bad, _ar_schema, "an archive whose closed flag is a string")
+    _bad = copy.deepcopy(_ar)
+    del _bad["history"]
+    _schema_red(_bad, _ar_schema, "an archive without its history")
+    _bad = copy.deepcopy(_ar)
+    _bad["parlays"][0]["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _ar_schema, "an undeclared field on an archived leg")
+    _ix_schema = _load(os.path.join(CONTRACTS, "parlays_index.schema.json"))
+    _ix = {"season": 2026, "generated_utc": "t", "current_week": 1,
+           "weeks": [{"week": 1, "path": "data/parlays/2026_wk01.json",
+                      "updated_utc": "2026-09-14T16:44:55Z", "archived_utc": "2026-09-14T17:00:00Z",
+                      "closed": False, "n_parlays": 1, "n_week_scope": 0, "n_game_scope": 1}]}
+    validate_against_schema(_ix, _ix_schema, "parlay index selftest")
+    _bad = copy.deepcopy(_ix)
+    _bad["weeks"][0]["path"] = "parlays/2026_wk01.json"
+    _schema_red(_bad, _ix_schema, "an index path that is not repo-relative data/parlays/...")
+    _bad = copy.deepcopy(_ix)
+    _bad["current_week"] = None
+    _schema_red(_bad, _ix_schema, "an index without a current week")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -1814,6 +1858,23 @@ def main():
                     validate_against_schema(_load(os.path.join(ESTIMATES_DIR, f)),
                                             schemas[schema_name], "estimates/" + f)
                     print("ok    estimates/%-30s vs %s" % (f, schema_name))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 1d) R73 — the per-week parlay archive (data/parlays/<season>_wk<NN>.json),
+    # when present. OPTIONAL directory: absent on a fresh clone until the first
+    # archive run; every file present is validated strictly (index.json is a
+    # registered file above, not part of this walk).
+    if os.path.isdir(PARLAY_ARCHIVE_DIR):
+        arch_files = [f for f in sorted(os.listdir(PARLAY_ARCHIVE_DIR))
+                      if f.endswith(".json") and "_wk" in f]
+        if arch_files:
+            try:
+                arch_schema = _load(os.path.join(CONTRACTS, PARLAY_ARCHIVE_SCHEMA))
+                for f in arch_files:
+                    validate_against_schema(_load(os.path.join(PARLAY_ARCHIVE_DIR, f)),
+                                            arch_schema, "parlays/" + f)
+                    print("ok    parlays/%-30s vs %s" % (f, PARLAY_ARCHIVE_SCHEMA))
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 

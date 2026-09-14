@@ -187,9 +187,10 @@ print(json.dumps(games["G2"]["brier"]))`);
   assert.equal(r.picks.brier, Number(((0.16 + g2) / 2).toFixed(4)), 'mean Brier over the graded picks only');
   assert.deepEqual(r.players, { n: 5, over: 1, under: 1, met: 2, dnp: 1, band_coverage: 0.5 });
   assert.equal(r.players.over + r.players.under + r.players.met + r.players.dnp, r.players.n);
-  // R72 added the five outcome buckets (locked in r72_review_summary.test.mjs).
+  // R72 added the five outcome buckets (locked in r72_review_summary.test.mjs);
+  // R73 added stake_100 (locked in r73_parlay_archive.test.mjs).
   assert.deepEqual(r.parlays, { n: 5, hit: 1, miss: 1, pending: 2, legs_n: 10, legs_hit: 5,
-    buckets: r.parlays.buckets });
+    buckets: r.parlays.buckets, stake_100: r.parlays.stake_100 });
 });
 
 /* --------------------------------------------------------- 6. artifact */
