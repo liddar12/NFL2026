@@ -1,0 +1,147 @@
+{
+  "season": 2026,
+  "week": 1,
+  "updated_utc": "2026-09-11T19:46:26Z",
+  "parlays": [
+    {
+      "parlay_id": "401872931-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.4486,
+          "model_prob": 0.5938
+        },
+        {
+          "market": "spread",
+          "selection": "DEN +2.5",
+          "implied_prob": 0.5043,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        }
+      ],
+      "model_ev": 1.0812,
+      "confidence_tier": "high",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872931"
+    },
+    {
+      "parlay_id": "401872931-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "P. Mahomes 225+ pass yds",
+          "implied_prob": 0.4323,
+          "model_prob": 0.4137,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 215.59,
+          "sd": 76.66,
+          "z": -0.1163,
+          "line": 224.5
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "R. Rice 60+ rec yds",
+          "implied_prob": 0.4142,
+          "model_prob": 0.4401,
+          "pricing": "calibrated",
+          "estimate": true,
+          "mu": 63.2,
+          "sd": 31.1,
+          "z": 0.119,
+          "line": 59.5
+        }
+      ],
+      "model_ev": 0.0412,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872931"
+    },
+    {
+      "parlay_id": "401872940-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "BUF ML",
+          "implied_prob": 0.6102,
+          "model_prob": 0.6644
+        },
+        {
+          "market": "spread",
+          "selection": "BUF -3.5",
+          "implied_prob": 0.4957,
+          "model_prob": 0.5,
+          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress"
+        }
+      ],
+      "model_ev": 0.0903,
+      "confidence_tier": "high",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). Book prices legs independently, so the edge lives in that gap.",
+      "game_id": "401872940"
+    },
+    {
+      "parlay_id": "week-2leg-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.4486,
+          "model_prob": 0.5938
+        },
+        {
+          "market": "moneyline",
+          "selection": "BUF ML",
+          "implied_prob": 0.6102,
+          "model_prob": 0.6644
+        }
+      ],
+      "model_ev": 0.4415,
+      "confidence_tier": "high",
+      "correlation_note": "Cross-game legs are combined as independent (rho=0); the book prices them the same way."
+    },
+    {
+      "parlay_id": "week-3leg-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.4486,
+          "model_prob": 0.5938
+        },
+        {
+          "market": "moneyline",
+          "selection": "BUF ML",
+          "implied_prob": 0.6102,
+          "model_prob": 0.6644
+        },
+        {
+          "market": "moneyline",
+          "selection": "PHI ML",
+          "implied_prob": 0.6402,
+          "model_prob": 0.6011
+        }
+      ],
+      "model_ev": 0.3534,
+      "confidence_tier": "medium",
+      "correlation_note": "Cross-game legs are combined as independent (rho=0); the book prices them the same way."
+    }
+  ],
+  "archived_utc": "2026-09-15T09:00:00Z",
+  "closed": true,
+  "history": [
+    {
+      "updated_utc": "2026-09-09T19:40:02Z",
+      "n_parlays": 5
+    },
+    {
+      "updated_utc": "2026-09-11T19:46:26Z",
+      "n_parlays": 5
+    }
+  ]
+}

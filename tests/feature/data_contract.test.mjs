@@ -51,7 +51,8 @@ function appSources() {
 function referencedDataPaths() {
   const hits = new Map(); // file -> Set(path)
   for (const [rel, src] of appSources()) {
-    for (const m of src.matchAll(/['"`](\/data\/[A-Za-z0-9_.-]+\.json)['"`]/g)) {
+    // R73 — '/' admitted so /data/parlays/index.json is caught by the allowlist.
+    for (const m of src.matchAll(/['"`](\/data\/[A-Za-z0-9_./-]+\.json)['"`]/g)) {
       if (!hits.has(m[1])) hits.set(m[1], new Set());
       hits.get(m[1]).add(rel);
     }
@@ -61,12 +62,26 @@ function referencedDataPaths() {
 
 /* -------------------------------------------------------- 1. the allowlist */
 
+// R73 — the parlay HISTORY lives under data/parlays/: index.json (the week
+// list) plus one archived parlays document per week (2026_wk01.json ...).
+// app/data.js is the only reader (getParlaysIndex / getParlayArchive, the
+// latter refusing any path outside the prefix); archives are fetched only on
+// a past-week chip tap. Both are allowed here by prefix + pattern.
+const PARLAY_HISTORY_PREFIX = '/data/parlays/';
+const PARLAY_ARCHIVE_RE = /^\/data\/parlays\/\d{4}_wk\d{2}\.json$/;
+
 test('app/data.js PATHS is the app-reachable contract allowlist, and every entry exists', () => {
   const src = readFileSync(join(APP_DIR, 'data.js'), 'utf8');
-  const paths = [...src.matchAll(/'(\/data\/[A-Za-z0-9_.-]+\.json)'/g)].map((m) => m[1]);
+  // R73 — the character class admits '/' so the parlays/ history paths are counted.
+  const paths = [...src.matchAll(/'(\/data\/[A-Za-z0-9_./-]+\.json)'/g)].map((m) => m[1]);
   assert.ok(paths.length >= 14, `expected the frozen PATHS allowlist, found ${paths.length} entries`);
   assert.equal(new Set(paths).size, paths.length, 'PATHS has a duplicate contract path');
   for (const p of paths) {
+    // R73 — data/parlays/ is written by the parlay ledger only once a week has
+    // been archived, so on a checkout that predates the first archive the
+    // index is legitimately absent (the app treats its 404 as "no history").
+    // Its presence is asserted by the ledger's own tests, not here.
+    if (p.startsWith(PARLAY_HISTORY_PREFIX)) continue;
     assert.ok(
       statSync(join(REPO_ROOT, p.slice(1)), { throwIfNoEntry: false }),
       `app/data.js promises ${p} but the file does not exist`,
@@ -116,9 +131,13 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // R71 — app/review.js: the post-game review, read through loadJson (same
     // promise cache), lazily imported by the slate/parlays views after paint.
     '/data/review.json',
+    // R73 — the parlay history index (see PARLAY_HISTORY_PREFIX above); the
+    // per-week archives it names match PARLAY_ARCHIVE_RE and are never literal.
+    '/data/parlays/index.json',
   ]);
+  const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {
-    assert.ok(allowed.has(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);
+    assert.ok(isAllowed(p), `app/ references non-allowlisted contract ${p} in ${[...files].join(', ')}`);
   }
   // and specifically: none of the heavy pipeline artifacts, by name
   for (const name of NAMED_PIPELINE_ARTIFACTS) {
