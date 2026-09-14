@@ -51,8 +51,25 @@ WHAT THE PLAYER `why` MEASURES (top factors by |PPR points|):
   the remainder (actual - shipped - the shown numeric factors) is `unattributed`,
   so the reasons a reader sees always reconcile to the delta.
 
-Pure core (no I/O): review_game, review_player, review_parlay,
-leg_outcomes_from_ledger, summarize, build. Thin shell: load_inputs + main.
+R72 (owner decisions, final) — the same document also carries:
+  * picks RIGHT / WRONG / TBD per week (`summary.picks.right|wrong|tbd`), and a
+    week block for EVERY week up to the pipeline week (review_weeks), even when
+    nothing is FINAL: games then carry result null and picks n=0 / tbd=<count>.
+  * five parlay outcome buckets (parlay_bucket): pending, push, all_hit,
+    all_missed, partial — `bucket` on every parlay row, counted in
+    `summary.parlays.buckets`; `result` stays hit/miss/pending/void and the two
+    agree (hit<->all_hit, void<->push, miss<->partial|all_missed).
+  * a season tally per player (`players_season`) over every week block.
+  * PROOF of the self-learning loop from committed data (`summary.learning` per
+    week, top-level `learning`): the graded lock receipts refit consumes
+    (graded_lock_rows, the exact rule of scripts/refit._collect_resolved_rows)
+    against the newest in-season refit pass archived in model_tuning.json
+    (newest_refit, the exact rule of app/views/model.js resolvedLockCount). Never
+    a claim the archive does not show.
+
+Pure core (no I/O): review_game, review_player, review_parlay, parlay_bucket,
+leg_outcomes_from_ledger, summarize, review_weeks, learning_block,
+players_season, build. Thin shell: load_inputs + main.
   python3 scripts/build_review.py --selftest   fixture-driven, never writes data/
   python3 scripts/build_review.py --offline    committed inputs only (no network)
   python3 scripts/build_review.py              runner: ESPN finals + nflverse stats
@@ -77,8 +94,16 @@ from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "review.json")
-LOCK_GLOB = os.path.join(DATA, "snapshots", "*_games_open.json")
+SNAPSHOT_DIR = os.path.join(DATA, "snapshots")
+LOCK_GLOB = os.path.join(SNAPSHOT_DIR, "*_games_open.json")
+TUNING_PATH = os.path.join(DATA, "model_tuning.json")
 FIXTURE_DIR = os.path.join(_ROOT, "tests", "fixtures", "r71")
+FIXTURE_DIR_R72 = os.path.join(_ROOT, "tests", "fixtures", "r72")
+
+PARLAY_BUCKETS = ("all_hit", "push", "partial", "all_missed", "pending")
+# result <-> bucket consistency (owner decision 3), locked by the selftest.
+BUCKET_OF_RESULT = {"hit": ("all_hit",), "void": ("push",),
+                    "miss": ("partial", "all_missed"), "pending": ("pending",)}
 
 PROP_MARKETS = frozenset(["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"])
 GAME_MARKETS = frozenset(["moneyline", "spread"])
@@ -638,16 +663,45 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
         pres = "void"        # every leg graded, none missed, a push/tie among them
     else:
         pres = "hit"
+    bucket = parlay_bucket(results)
+    assert bucket in BUCKET_OF_RESULT[pres], (pres, bucket)
     return {"parlay_id": parlay.get("parlay_id"), "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
-            "result": pres, "legs": legs_out}
+            "result": pres, "bucket": bucket, "legs": legs_out}
+
+
+def parlay_bucket(leg_results):
+    """Owner decision 3 — the five outcome buckets, decided in this order:
+      pending     any leg still pending (or no legs at all)
+      push        at least one leg push/void and EVERY other leg hit
+      all_hit     every leg hit
+      all_missed  no leg hit (misses, or misses among voids)
+      partial     some hit, some missed
+    Pure over the leg result strings (hit | miss | pending | void)."""
+    results = list(leg_results or [])
+    if not results or "pending" in results:
+        return "pending"
+    hits = sum(1 for r in results if r == "hit")
+    voids = sum(1 for r in results if r == "void")
+    if voids and hits + voids == len(results):
+        return "push"
+    if hits == len(results):
+        return "all_hit"
+    if hits == 0:
+        return "all_missed"
+    return "partial"
 
 
 # --------------------------------------------------------------------------- #
 # summary + document                                                            #
 # --------------------------------------------------------------------------- #
 
-def summarize(games, parlays, players):
+def summarize(games, parlays, players, learning=None):
+    """Week summary. picks: n/won/pct/brier over the graded picks, plus (R72)
+    right (== won), wrong (n - won) and tbd — games with NO FINAL evidence yet
+    (final null). A tie is FINAL but ungradable against a 2-way pick: it is in
+    none of right / wrong / tbd. `learning` is the week's learning block (see
+    learning_for_week); None -> the honest "no lock file" block."""
     graded = [g for g in games if g.get("result") in ("won", "lost")]
     won = sum(1 for g in graded if g["result"] == "won")
     briers = [g["brier"] for g in graded if isinstance(g.get("brier"), (int, float))]
@@ -656,13 +710,18 @@ def summarize(games, parlays, players):
     return {
         "picks": {"n": len(graded), "won": won,
                   "pct": _r(won / len(graded), 4) if graded else None,
-                  "brier": _r(sum(briers) / len(briers), 4) if briers else None},
+                  "brier": _r(sum(briers) / len(briers), 4) if briers else None,
+                  "right": won, "wrong": len(graded) - won,
+                  "tbd": sum(1 for g in games if g.get("final") is None)},
         "parlays": {"n": len(parlays),
                     "hit": sum(1 for p in parlays if p["result"] == "hit"),
                     "miss": sum(1 for p in parlays if p["result"] == "miss"),
                     "pending": sum(1 for p in parlays if p["result"] == "pending"),
                     "legs_n": len(legs),
-                    "legs_hit": sum(1 for l in legs if l["result"] == "hit")},
+                    "legs_hit": sum(1 for l in legs if l["result"] == "hit"),
+                    "buckets": {b: sum(1 for p in parlays if p.get("bucket") == b)
+                                for b in PARLAY_BUCKETS}},
+        "learning": learning if learning is not None else learning_for_week([], None),
         "players": {"n": len(players),
                     "over": sum(1 for p in players if p["verdict"] == "over"),
                     "under": sum(1 for p in players if p["verdict"] == "under"),
@@ -671,6 +730,204 @@ def summarize(games, parlays, players):
                     "band_coverage": _r(sum(1 for p in band if p["verdict"] == "met")
                                         / len(band), 4) if band else None},
     }
+
+
+# --------------------------------------------------------------------------- #
+# R72: weeks in scope, the learning proof, the season tally                     #
+# --------------------------------------------------------------------------- #
+
+def _parse_utc(s):
+    """'2026-09-15T00:15Z' / '2026-09-14T11:56:07Z' -> aware datetime; None otherwise."""
+    if not isinstance(s, str) or not s:
+        return None
+    txt = s[:-1] if s.endswith("Z") else s
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+        try:
+            return dt.datetime.strptime(txt, fmt).replace(tzinfo=dt.timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def pipeline_week(schedule_games, predictions_week, now):
+    """The current pipeline week — the last week the review must carry a block for.
+
+    Starts from scripts/build_predictions.current_week's rule (the earliest week
+    on the schedule not entirely FINAL). Once that week is UNDERWAY (any of its
+    games FINAL or kicked off by `now`) the on-deck week is in the pipeline too
+    (its slate, forecast and parlays are being built while the last game of the
+    current week is still to be played), so the review moves one week on — as
+    far as the schedule reaches. game_predictions.json's own `week` is a floor.
+    None when there is no schedule and no predictions week (nothing to review).
+    """
+    by_week = {}
+    for g in schedule_games or []:
+        try:
+            by_week.setdefault(int(g.get("week")), []).append(g)
+        except (TypeError, ValueError):
+            continue
+    cur = None
+    if by_week:
+        cur = max(by_week)
+        for wk in sorted(by_week):
+            if not all(g.get("status") in FINAL_STATUSES for g in by_week[wk]):
+                cur = wk
+                break
+        t_now = _parse_utc(now)
+        underway = any(
+            g.get("status") in FINAL_STATUSES
+            or (t_now is not None and _parse_utc(g.get("kickoff_utc")) is not None
+                and _parse_utc(g.get("kickoff_utc")) <= t_now)
+            for g in by_week[cur])
+        if underway and (cur + 1) in by_week:
+            cur += 1
+    if isinstance(predictions_week, int) and predictions_week >= 1:
+        cur = predictions_week if cur is None else max(cur, predictions_week)
+    return cur
+
+
+def review_weeks(schedule_games, predictions_week, locks, scores, now):
+    """Sorted weeks the document carries: every week with a lock file or a
+    resolved player-week (R71), plus (R72) every week 1..pipeline_week that has
+    games on the schedule — so a week with nothing FINAL still gets its block."""
+    weeks = set(int(w) for w in (locks or {})) | set(int(r["week"]) for r in (scores or []))
+    through = pipeline_week(schedule_games, predictions_week, now)
+    if through is not None:
+        sched_weeks = set()
+        for g in schedule_games or []:
+            try:
+                sched_weeks.add(int(g.get("week")))
+            except (TypeError, ValueError):
+                continue
+        weeks |= set(w for w in sched_weeks if w <= through)
+        if isinstance(predictions_week, int) and predictions_week >= 1:
+            weeks.add(predictions_week)
+    return sorted(weeks)
+
+
+def graded_lock_rows(lock_rows):
+    """The lock rows scripts/refit.py consumes — the EXACT rule of
+    refit._collect_resolved_rows("game"): event_type "game", resolved true, and a
+    measured (estimate false) row. scripts/resolve_locks.resolve_rows writes
+    `resolved` only for a FINAL game (snapshot.resolve attaches actual/brier/
+    log_loss), so every row here is a graded receipt."""
+    return [r for r in lock_rows or []
+            if r.get("event_type") == "game" and r.get("resolved")
+            and not r.get("estimate", True)]
+
+
+def newest_refit(tuning):
+    """The newest IN-SEASON game_params refit pass in model_tuning.json history —
+    the exact rule of app/views/model.js resolvedLockCount: kind "game_params",
+    search != null, no eval_seasons key (a backtest entry has one), n_resolved a
+    finite number > 0; newest by generated_utc, a tie falling to the later entry.
+    Returns {archived_utc, n_resolved, adopted, verdict} or None."""
+    best = None
+    for h in (tuning or {}).get("history") or []:
+        if not isinstance(h, dict) or h.get("kind") != "game_params" \
+                or h.get("search") is None or "eval_seasons" in h:
+            continue
+        n = h.get("n_resolved")
+        if isinstance(n, bool) or not isinstance(n, (int, float)) or n <= 0:
+            continue
+        if best is None or str(h.get("generated_utc") or "") >= str(best.get("generated_utc") or ""):
+            best = h
+    if best is None:
+        return None
+    adopted = best.get("adopted") is True
+    return {"archived_utc": best.get("generated_utc"), "n_resolved": int(best["n_resolved"]),
+            "adopted": adopted, "verdict": "adopted" if adopted else "held"}
+
+
+def learning_for_week(lock_rows, refit):
+    """One week's learning block: how many of this week's lock receipts are graded
+    (refit's rule) and the refit pass they fed. The archive records n_resolved
+    across ALL lock files, never per week, so `refit` is the newest pass (the
+    same one the top-level block names) and is null when this week fed nothing."""
+    graded = len(graded_lock_rows(lock_rows))
+    if lock_rows is None:
+        return {"graded_locks": 0, "refit": None,
+                "note": "no lock file for this week yet — nothing graded, nothing fed to refit"}
+    if graded == 0:
+        return {"graded_locks": 0, "refit": None,
+                "note": "no graded receipts in this week's lock file yet (%d rows pending)"
+                        % len([r for r in lock_rows if r.get("event_type") == "game"])}
+    if refit is None:
+        return {"graded_locks": graded, "refit": None,
+                "note": "%d graded receipts, but model_tuning.json history holds no in-season "
+                        "refit pass yet — not consumed" % graded}
+    return {"graded_locks": graded, "refit": dict(refit),
+            "note": "%d graded receipts feed scripts/refit.py; newest pass %s consumed "
+                    "n_resolved=%d across all lock files and was %s" % (
+                        graded, refit["archived_utc"], refit["n_resolved"], refit["verdict"])}
+
+
+def learning_block(locks, tuning):
+    """Top-level proof of the loop from committed data ONLY. graded_locks_total =
+    the receipts under data/snapshots/*_games_open.json that refit consumes;
+    refit = the newest in-season pass in model_tuning.json; consumed_all =
+    (refit.n_resolved == graded_locks_total) when a pass exists, else null with
+    the reason. Adoption is reported exactly as archived — never inferred."""
+    total = sum(len(graded_lock_rows(rows)) for rows in (locks or {}).values())
+    refit = newest_refit(tuning)
+    if refit is None:
+        if total == 0:
+            note = "no graded lock receipts yet and no in-season refit pass archived"
+        else:
+            note = ("%d graded lock receipts on file, but model_tuning.json history holds "
+                    "no in-season refit pass yet (receipts graded after the last refit "
+                    "pass, or refit has not run)" % total)
+        return {"graded_locks_total": total, "refit": None, "consumed_all": None, "note": note}
+    consumed = refit["n_resolved"] == total
+    if consumed:
+        note = ("all %d graded lock receipts were consumed by the refit pass archived %s "
+                "(n_resolved=%d); verdict %s" % (total, refit["archived_utc"],
+                                                 refit["n_resolved"], refit["verdict"]))
+    elif refit["n_resolved"] < total:
+        note = ("%d graded lock receipts on file but the newest refit pass (%s) consumed "
+                "n_resolved=%d — %d receipt(s) graded after the last refit pass" % (
+                    total, refit["archived_utc"], refit["n_resolved"],
+                    total - refit["n_resolved"]))
+    else:
+        note = ("the newest refit pass (%s) archived n_resolved=%d but only %d graded lock "
+                "receipts are on file — the archive and the lock files disagree" % (
+                    refit["archived_utc"], refit["n_resolved"], total))
+    return {"graded_locks_total": total, "refit": refit, "consumed_all": consumed, "note": note}
+
+
+def players_season(weeks):
+    """{gsis_id: {name, position, team, weeks, over, met, under, dnp, met_rate,
+    by_week: {"<wk>": {verdict, delta, actual, projected}}}} over every week block,
+    for every player with at least one review row. weeks = graded rows (dnp is a
+    resolved row); met_rate = met / weeks, null at 0. Sorted by gsis_id."""
+    out = {}
+    for wk in sorted(weeks, key=lambda w: int(w)):
+        for p in (weeks[wk].get("players") or []):
+            e = out.setdefault(p["gsis_id"], {
+                "name": p.get("name"), "position": p.get("position"), "team": p.get("team"),
+                "weeks": 0, "over": 0, "met": 0, "under": 0, "dnp": 0, "met_rate": None,
+                "by_week": {}})
+            e["weeks"] += 1
+            e[p["verdict"]] += 1
+            e["by_week"][str(int(p["week"]))] = {"verdict": p["verdict"], "delta": p.get("delta"),
+                                                 "actual": p.get("actual"),
+                                                 "projected": p.get("projected")}
+    for e in out.values():
+        e["met_rate"] = _r(e["met"] / e["weeks"], 4) if e["weeks"] else None
+    return {k: out[k] for k in sorted(out)}
+
+
+def load_locks(snapshot_dir, season):
+    """{week: rows} + [relative paths] for <season>_wkNN_games_open.json under
+    `snapshot_dir` — the same walk scripts/refit.py and resolve_locks.py do."""
+    locks, files = {}, []
+    for path in sorted(glob.glob(os.path.join(snapshot_dir, "*_games_open.json"))):
+        sw = week_of_lock_file(path)
+        if sw is None or sw[0] != int(season):
+            continue
+        locks[sw[1]] = _load(path)
+        files.append(path)
+    return locks, files
 
 
 def carry_narratives(doc, previous):
@@ -736,11 +993,17 @@ def build(inputs, now):
     parlays_doc = inputs.get("parlays") or {}
     previous = inputs.get("previous") or {}
 
-    weeks = sorted(set(int(w) for w in locks) | set(int(r["week"]) for r in scores))
+    tuning = inputs.get("tuning") or {}
+    refit = newest_refit(tuning)
+    pred_week = (inputs.get("predictions") or {}).get("week")
+    pred_week = int(pred_week) if isinstance(pred_week, int) and not isinstance(pred_week, bool) else None
+    weeks = review_weeks(list(sched.values()), pred_week, locks, scores, now)
+    through = pipeline_week(list(sched.values()), pred_week, now)
     out_weeks = {}
     for wk in weeks:
         wk_games = [g for g in sched.values() if int(g.get("week", -1)) == wk]
-        lidx = lock_index(locks.get(wk) or locks.get(str(wk)) or [])
+        lock_rows = locks.get(wk) if wk in locks else locks.get(str(wk))
+        lidx = lock_index(lock_rows or [])
         # a lock without a schedule row still reviews (the lock is the record)
         for eid, lock in lidx.items():
             if eid not in sched:
@@ -793,7 +1056,8 @@ def build(inputs, now):
                 notes.append("wk %d: no parlays on file (parlays.json holds week %s)"
                              % (wk, parlays_doc.get("week")))
         out_weeks[str(wk)] = {"games": games, "parlays": parlays, "players": players,
-                              "summary": summarize(games, parlays, players)}
+                              "summary": summarize(games, parlays, players,
+                                                   learning_for_week(lock_rows, refit))}
     if not stats_available:
         notes.append("stats: no nflverse stat line loaded — player touchdowns/volume/"
                      "efficiency/turnovers factors omitted on every row (%s)"
@@ -805,7 +1069,12 @@ def build(inputs, now):
     if not inputs.get("leg_scores"):
         notes.append("parlays: data/parlay_leg_scores.json absent — spread/prop legs "
                      "pending; moneyline legs graded from the lock receipts")
-    doc = {"season": season, "generated_utc": now, "weeks": out_weeks,
+    if not tuning:
+        notes.append("learning: data/model_tuning.json not loaded — refit archive unknown, "
+                     "consumed_all null")
+    doc = {"season": season, "generated_utc": now, "review_through_week": through,
+           "weeks": out_weeks, "learning": learning_block(locks, tuning),
+           "players_season": players_season(out_weeks),
            "sources": inputs.get("sources") or {}, "notes": notes}
     kept = carry_narratives(doc, previous)
     if kept:
@@ -840,17 +1109,14 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     sched = _load(os.path.join(data, "schedule_full.json"))
     gp = _load_opt(os.path.join(data, "game_predictions.json"))
     season = int(season or sched.get("season") or (gp or {}).get("season"))
-    locks, lock_files = {}, []
-    for path in sorted(glob.glob(os.path.join(data, "snapshots", "*_games_open.json"))):
-        sw = week_of_lock_file(path)
-        if sw is None or sw[0] != season:
-            continue
-        locks[sw[1]] = _load(path)
-        lock_files.append(os.path.relpath(path, root))
+    locks, lock_paths = load_locks(os.path.join(data, "snapshots"), season)
+    lock_files = [os.path.relpath(p, root) for p in lock_paths]
     notes, sources = [], {}
     sources["schedule_full"] = _stamp(sched, "updated_utc")
     sources["game_predictions"] = _stamp(gp, "updated_utc")
     sources["locks"] = lock_files
+    tuning = _load_opt(os.path.join(data, "model_tuning.json"))
+    sources["model_tuning"] = _stamp(tuning, "generated_utc")
     es = _load_opt(os.path.join(data, "estimate_scores.json"))
     sources["estimate_scores"] = _stamp(es, "generated_utc")
     weekly = _load_opt(os.path.join(data, "player_weekly.json"))
@@ -915,7 +1181,8 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             stats_rows = rows
             sources["stats"] = RELEASE_URL.format(season=season)
 
-    return {"season": season, "schedule": sched, "locks": locks, "finals": finals,
+    return {"season": season, "schedule": sched, "predictions": gp, "tuning": tuning,
+            "locks": locks, "finals": finals,
             "finals_reason": finals_reason, "estimate_scores": es, "weekly": weekly,
             "projections": proj, "injuries": inj, "forecast": fc, "parlays": parlays,
             "ledger": ledger, "parlay_ledger": pledger, "leg_scores": legs,
@@ -939,15 +1206,20 @@ def run(offline=False, finals_path=None, stats_csv=None, out_path=OUT_PATH, now=
     write(doc, out_path)
     for wk, blk in doc["weeks"].items():
         s = blk["summary"]
-        print("build_review: wk %s — picks %d/%d (brier %s), parlays %d (%d hit, %d pending), "
-              "players %d (over %d / under %d / met %d / dnp %d)" % (
-                  wk, s["picks"]["won"], s["picks"]["n"], s["picks"]["brier"],
-                  s["parlays"]["n"], s["parlays"]["hit"], s["parlays"]["pending"],
+        print("build_review: wk %s — picks right %d / wrong %d / tbd %d (brier %s), parlays %d "
+              "(%d hit, %d pending; buckets %s), players %d (over %d / under %d / met %d / "
+              "dnp %d), graded locks %d" % (
+                  wk, s["picks"]["right"], s["picks"]["wrong"], s["picks"]["tbd"],
+                  s["picks"]["brier"], s["parlays"]["n"], s["parlays"]["hit"],
+                  s["parlays"]["pending"], s["parlays"]["buckets"],
                   s["players"]["n"], s["players"]["over"], s["players"]["under"],
-                  s["players"]["met"], s["players"]["dnp"]))
+                  s["players"]["met"], s["players"]["dnp"], s["learning"]["graded_locks"]))
+    lb = doc["learning"]
+    print("build_review: learning — graded locks %d, refit %s, consumed_all %s" % (
+        lb["graded_locks_total"], lb["refit"], lb["consumed_all"]))
     if not doc["weeks"]:
-        print("build_review: no lock files or resolved player-weeks yet — empty weeks "
-              "(clean no-op document)")
+        print("build_review: no schedule weeks, lock files or resolved player-weeks yet — "
+              "empty weeks (clean no-op document)")
     for n in doc["notes"]:
         print("  note: " + n)
     return doc
@@ -964,6 +1236,15 @@ def _fixture_inputs():
               encoding="utf-8", newline="") as fh:
         fx["stats_rows"] = list(csv.DictReader(fh))
     fx["locks"] = {int(k): v for k, v in fx["locks"].items()}
+    return fx
+
+
+def _fixture_inputs_r72():
+    """The R72 fixture: inputs JSON + lock FILES under tests/fixtures/r72/snapshots
+    (walked by load_locks, the same walk the runner does) + a refit archive."""
+    fx = _load(os.path.join(FIXTURE_DIR_R72, "review_inputs.json"))
+    fx["locks"], _ = load_locks(os.path.join(FIXTURE_DIR_R72, "snapshots"), fx["season"])
+    fx["tuning"] = _load(os.path.join(FIXTURE_DIR_R72, "model_tuning.json"))
     return fx
 
 
@@ -1036,7 +1317,15 @@ def selftest():
     assert pr["G3-g1"]["result"] == "pending", "a halftime game grades nothing"
     # summary math
     s = wk["summary"]
-    assert s["picks"] == {"n": 2, "won": 1, "pct": 0.5, "brier": round((0.16 + g["G2"]["brier"]) / 2, 4)}
+    assert s["picks"] == {"n": 2, "won": 1, "pct": 0.5, "brier": round((0.16 + g["G2"]["brier"]) / 2, 4),
+                          "right": 1, "wrong": 1, "tbd": 2}, s["picks"]
+    assert sorted(doc["weeks"]) == ["1", "2"], "week 2 (on deck, nothing FINAL) gets a block"
+    assert doc["weeks"]["2"]["summary"]["picks"] == {"n": 0, "won": 0, "pct": None, "brier": None,
+                                                     "right": 0, "wrong": 0, "tbd": 1}
+    assert doc["weeks"]["2"]["games"][0]["picked"] is None and doc["weeks"]["2"]["games"][0]["result"] is None
+    assert doc["review_through_week"] == 2
+    assert doc["learning"]["refit"] is None and doc["learning"]["consumed_all"] is None, \
+        "no archive in the r71 fixture -> nothing claimed"
     assert s["players"]["n"] == 5 and s["players"]["over"] == 1 and s["players"]["under"] == 1 \
         and s["players"]["met"] == 2 and s["players"]["dnp"] == 1 and s["players"]["band_coverage"] == 0.5
     assert s["parlays"]["n"] == 5 and s["parlays"]["hit"] == 1 and s["parlays"]["legs_hit"] == 5
@@ -1066,11 +1355,96 @@ def selftest():
     # empty inputs -> honest empty document
     empty = build({"season": 2026, "schedule": {"games": []}, "locks": {}, "finals": [],
                    "estimate_scores": {"resolved": []}, "sources": {}}, "2026-09-01T00:00:00Z")
-    assert empty["weeks"] == {} and not _validate_against_schema(empty)
+    assert empty["weeks"] == {} and empty["players_season"] == {} \
+        and empty["learning"] == {"graded_locks_total": 0, "refit": None, "consumed_all": None,
+                                  "note": "no graded lock receipts yet and no in-season refit pass archived"} \
+        and not _validate_against_schema(empty)
+    _selftest_r72()
     print("selftest OK: status gating (FINAL/receipt grade, halftime and 0-0 stubs never), "
           "band verdicts incl. boundaries, DNP null not 0, measured why sums to delta, "
           "adapter on C's ledger shapes, parlay hit/miss/pending/void, summary math, "
-          "narrative carry-forward, schema + JSON convention")
+          "narrative carry-forward, schema + JSON convention; R72 right/wrong/tbd, "
+          "week blocks through the pipeline week, five parlay buckets <-> result, "
+          "players_season tally, the learning proof from lock files + refit archive")
+
+
+def _selftest_r72():
+    """R72 owner decisions on the r72 fixture (lock FILES + refit archive)."""
+    fx = _fixture_inputs_r72()
+    doc = build(fx, "2026-09-14T12:00:00Z")
+    errs = _validate_against_schema(doc)
+    assert not errs, "schema (r72): " + "; ".join(errs[:5])
+    # weeks: 1 (underway) and 2 (on deck) — never week 3
+    assert sorted(doc["weeks"]) == ["1", "2"] and doc["review_through_week"] == 2, sorted(doc["weeks"])
+    w1, w2 = doc["weeks"]["1"], doc["weeks"]["2"]
+    g1 = {g["game_id"]: g for g in w1["games"]}
+    assert g1["G3"]["result"] == "won", "an estimate lock still grades the PICK"
+    assert g1["G8"]["result"] is None and g1["G8"]["final"]["winner"] is None, "tie: FINAL, ungradable"
+    assert w1["summary"]["picks"] == {"n": 3, "won": 2, "pct": 0.6667,
+                                      "brier": w1["summary"]["picks"]["brier"],
+                                      "right": 2, "wrong": 1, "tbd": 1}, w1["summary"]["picks"]
+    assert w1["summary"]["picks"]["right"] + w1["summary"]["picks"]["wrong"] == \
+        sum(1 for g in w1["games"] if g["result"] in ("won", "lost"))
+    assert w2["summary"]["picks"] == {"n": 0, "won": 0, "pct": None, "brier": None,
+                                      "right": 0, "wrong": 0, "tbd": 2}
+    assert [(g["game_id"], g["picked"], g["result"], g["status"]) for g in w2["games"]] == \
+        [("G5", "AAA", None, "STATUS_SCHEDULED"), ("G6", None, None, "STATUS_SCHEDULED")], \
+        "week 2: the locked game carries its as-made pick, the unlocked one picked null"
+    # parlays: every bucket, and result <-> bucket
+    pr = {p["parlay_id"]: (p["result"], p["bucket"]) for p in w1["parlays"]}
+    assert pr == {"all-hit": ("hit", "all_hit"), "partial": ("miss", "partial"),
+                  "all-missed": ("miss", "all_missed"), "push": ("void", "push"),
+                  "pending": ("pending", "pending"), "missed-with-void": ("miss", "all_missed")}, pr
+    assert w1["summary"]["parlays"]["buckets"] == {"all_hit": 1, "push": 1, "partial": 1,
+                                                   "all_missed": 2, "pending": 1}
+    assert sum(w1["summary"]["parlays"]["buckets"].values()) == w1["summary"]["parlays"]["n"]
+    assert parlay_bucket([]) == "pending" and parlay_bucket(["void", "void"]) == "push" \
+        and parlay_bucket(["miss", "void"]) == "all_missed" and parlay_bucket(["hit", "miss", "void"]) == "partial"
+    # players_season across the two week blocks
+    ps = doc["players_season"]
+    assert ps["P1"]["weeks"] == 2 and ps["P1"]["met"] == 1 and ps["P1"]["under"] == 1 \
+        and ps["P1"]["met_rate"] == 0.5 and ps["P1"]["by_week"]["2"] == {
+            "verdict": "under", "delta": -8.0, "actual": 3.0, "projected": 11.0}, ps["P1"]
+    assert ps["P2"]["over"] == 1 and ps["P2"]["met"] == 1 and ps["P2"]["met_rate"] == 0.5
+    assert ps["P3"] == {"name": "Quarter Back", "position": "QB", "team": "EEE", "weeks": 1,
+                        "over": 0, "met": 0, "under": 0, "dnp": 1, "met_rate": 0.0,
+                        "by_week": {"1": {"verdict": "dnp", "delta": None, "actual": None,
+                                          "projected": 15.0}}}, ps["P3"]
+    # THE LEARNING LOCK: receipts counted from the lock FILES by refit's rule
+    # (G3 is an estimate row -> graded pick, NOT a refit input; 2025 file ignored)
+    lb = doc["learning"]
+    assert lb["graded_locks_total"] == 2, lb
+    assert lb["refit"] == {"archived_utc": "2026-09-14T04:00:00Z", "n_resolved": 2,
+                           "adopted": False, "verdict": "held"}, lb
+    assert lb["consumed_all"] is True
+    assert w1["summary"]["learning"]["graded_locks"] == 2 and w1["summary"]["learning"]["refit"] == lb["refit"]
+    assert w2["summary"]["learning"] == {"graded_locks": 0, "refit": None,
+                                         "note": "no graded receipts in this week's lock file yet (1 rows pending)"}
+    # a receipt graded after the last refit pass -> consumed_all false, said plainly
+    fx2 = json.loads(json.dumps(fx))
+    fx2["locks"] = {int(k): v for k, v in fx2["locks"].items()}
+    fx2["locks"][2][0].update({"resolved": True, "actual": 0, "brier": 0.2304, "log_loss": 0.6539})
+    lb2 = build(fx2, "2026-09-14T12:00:00Z")["learning"]
+    assert lb2["graded_locks_total"] == 3 and lb2["consumed_all"] is False \
+        and "1 receipt(s) graded after the last refit pass" in lb2["note"], lb2
+    # adoption is reported only as archived
+    fx3 = json.loads(json.dumps(fx))
+    fx3["locks"] = {int(k): v for k, v in fx3["locks"].items()}
+    fx3["tuning"]["history"][0]["adopted"] = True
+    lb3 = build(fx3, "2026-09-14T12:00:00Z")["learning"]
+    assert lb3["refit"]["verdict"] == "adopted" and lb3["refit"]["adopted"] is True
+    # no archive -> nothing claimed
+    fx4 = json.loads(json.dumps(fx))
+    fx4["locks"] = {int(k): v for k, v in fx4["locks"].items()}
+    fx4["tuning"] = None
+    lb4 = build(fx4, "2026-09-14T12:00:00Z")["learning"]
+    assert lb4["refit"] is None and lb4["consumed_all"] is None and lb4["graded_locks_total"] == 2
+    assert newest_refit({"history": [{"kind": "game_params", "search": None, "eval_seasons": [2025],
+                                      "n_resolved": 999, "adopted": True}]}) is None, \
+        "a backtest entry is never the in-season pass"
+    # on-disk convention
+    blob = json.dumps(doc, ensure_ascii=True, indent=2) + "\n"
+    assert json.loads(blob) == doc
 
 
 def main(argv=None):

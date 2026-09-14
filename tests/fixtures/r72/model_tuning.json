@@ -1,0 +1,106 @@
+{
+  "_comment": "R72 fixture refit archive: history is NOT in time order and interleaves a backtest entry (eval_seasons), a signal_promotion entry and an n_resolved=0 pass - the newest IN-SEASON game_params pass (2026-09-14T04:00:00Z, n_resolved=2) must win, as app/views/model.js resolvedLockCount decides.",
+  "generated_utc": "2026-09-14T04:00:00Z",
+  "objective": "log_loss",
+  "margin": 0.002,
+  "game_params": {
+    "hfa_elo": 45.0,
+    "revert": 0.45,
+    "adopted_utc": "2026-07-17T17:16:18Z",
+    "source": "fixture backtest"
+  },
+  "history": [
+    {
+      "generated_utc": "2026-09-14T04:00:00Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "folds": 2,
+      "margin": 0.002,
+      "n_resolved": 2,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 50.0,
+        "revert": 0.4
+      },
+      "heldout_current_loss": 0.69,
+      "heldout_candidate_loss": 0.7,
+      "improvement": -0.01,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "fixture"
+    },
+    {
+      "generated_utc": "2026-07-17T17:16:18Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": null,
+      "eval_seasons": [
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "n_resolved": 1084,
+      "adopted": true,
+      "reason": "fixture backtest grid"
+    },
+    {
+      "generated_utc": "2026-09-13T12:00:00Z",
+      "kind": "signal_promotion",
+      "signal": "fixture",
+      "adopted": false,
+      "reason": "fixture"
+    },
+    {
+      "generated_utc": "2026-09-11T01:00:00Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "folds": 2,
+      "margin": 0.002,
+      "n_resolved": 1,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 50.0,
+        "revert": 0.4
+      },
+      "heldout_current_loss": 0.69,
+      "heldout_candidate_loss": 0.7,
+      "improvement": -0.01,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "fixture"
+    },
+    {
+      "generated_utc": "2026-09-15T00:00:00Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "folds": 2,
+      "margin": 0.002,
+      "n_resolved": 0,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 50.0,
+        "revert": 0.4
+      },
+      "heldout_current_loss": 0.69,
+      "heldout_candidate_loss": 0.7,
+      "improvement": -0.01,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "fixture",
+      "refusal": "fixture: zero usable rows"
+    }
+  ]
+}

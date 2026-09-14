@@ -1,4 +1,4 @@
-# Post-game review (R71) — `data/review.json`
+# Post-game review (R71 + R72) — `data/review.json`
 
 After a game is FINAL and a week's stat lines are published, the app shows what the
 model predicted, what happened, and — measured from the model's own inputs and the
@@ -11,24 +11,105 @@ PLAYERS). Selftests: `python3 scripts/build_review.py --selftest`,
 ## The contract
 
 ```
-{season, generated_utc, sources: {...}, notes: [...],
+{season, generated_utc, review_through_week, sources: {...}, notes: [...],
  weeks: {"1": {
    games:   [{game_id, home, away, kickoff_utc, picked, pick_prob,
               final: {home_score, away_score, winner} | null, status, final_source,
               result: "won"|"lost"|null, brier, why: {source:"measured", summary, reasons[]},
               narrative?: {text, source:"ai_narrative", generated_utc, why_hash}}],
    parlays: [{parlay_id, scope, game_id, result: "hit"|"miss"|"pending"|"void",
+              bucket: "all_hit"|"push"|"partial"|"all_missed"|"pending",
               legs: [{selection, market, game_id, result, actual, why}]}],
    players: [{gsis_id, name, position, team, week, projected, low, high, actual,
               verdict: "over"|"under"|"met"|"dnp", delta,
               why: {source:"measured", summary, reasons:[{factor, points, text}],
                     expected_basis, unattributed, omitted[]}, narrative?}],
-   summary: {picks: {n, won, pct, brier}, parlays: {n, hit, miss, pending, legs_n, legs_hit},
-             players: {n, over, under, met, dnp, band_coverage}}}}}
+   summary: {picks:   {n, won, pct, brier, right, wrong, tbd},
+             parlays: {n, hit, miss, pending, legs_n, legs_hit,
+                       buckets: {all_hit, push, partial, all_missed, pending}},
+             players: {n, over, under, met, dnp, band_coverage},
+             learning: {graded_locks, refit: {archived_utc, n_resolved, adopted, verdict} | null, note}}}},
+ learning: {graded_locks_total, refit: {archived_utc, n_resolved, adopted, verdict} | null,
+            consumed_all: bool | null, note},
+ players_season: {"<gsis_id>": {name, position, team, weeks, over, met, under, dnp, met_rate,
+                                by_week: {"1": {verdict, delta, actual, projected}}}}}
 ```
 
 Every value is traceable to a committed input or the fetched stat line (`sources`
 names each input and its timestamp). **Absent is null, never 0.**
+
+## R72 — week overview, buckets, season tally, the learning proof (owner decisions, final)
+
+**Weeks in scope (`review_weeks`).** A week block exists for every week that has a lock
+file or a resolved player-week (R71) AND for every scheduled week `1..review_through_week`,
+even when nothing is FINAL. `review_through_week` is the pipeline week (`pipeline_week`):
+start from `scripts/build_predictions.current_week`'s rule — the earliest week on
+`schedule_full.json` not entirely FINAL — and, once that week is underway (any of its games
+FINAL or kicked off by `generated_utc`), move one week on if the schedule has it: the
+on-deck week's slate, forecast and parlays are already being built while the current
+week's last game is still to be played. `game_predictions.json`'s own `week` is a floor.
+On 2026-09-14 (week 1 down to its Monday game, week 2 on deck) that is weeks 1 and 2. In a
+week with nothing FINAL every game carries `result: null`, `status` as on the schedule, and
+`picked` from the lock receipt when one exists (`null` when the lock file is not written
+yet); `summary.picks = {n:0, won:0, pct:null, brier:null, right:0, wrong:0, tbd:<count>}`.
+
+**Picks RIGHT / WRONG / TBD.** `right == won`, `wrong == n - won` (only FINAL grades a pick —
+the status gate is unchanged), `tbd` = games in the week with no FINAL evidence at all
+(`final: null`). A tie is FINAL but ungradable against a 2-way pick: it is in none of the
+three, so `right + wrong + tbd == games` only when the week had no tie.
+
+**Parlay buckets (`parlay_bucket`, decided in this order).**
+
+| bucket | rule |
+|---|---|
+| `pending` | any leg still pending (or a parlay with no legs) |
+| `push` | at least one leg push/void and EVERY other leg hit |
+| `all_hit` | every leg hit |
+| `all_missed` | no leg hit (misses, or misses among voids) |
+| `partial` | some legs hit, some missed |
+
+`result` keeps its R71 meaning and the two always agree — `hit` ⇔ `all_hit`, `void` ⇔
+`push`, `miss` ⇔ `partial` or `all_missed`, `pending` ⇔ `pending` (`BUCKET_OF_RESULT`, asserted
+on every row). `summary.parlays.buckets` counts the week's rows per bucket and sums to `n`.
+
+**`players_season`.** One entry per player with at least one review row in any week block:
+`weeks` = graded rows (a `dnp` row is a resolved row), `over/met/under/dnp` tallies,
+`met_rate = met / weeks` (`null` at 0), and `by_week["<wk>"] = {verdict, delta, actual, projected}`.
+
+**The learning proof — from committed data only.** The loop is: `scripts/build_predictions.py`
+locks every pre-kickoff game prediction as a measurable row (`estimate: false`) in
+`data/snapshots/<season>_wkNN_games_open.json`; `scripts/resolve_locks.py`
+(`resolve_rows` → `scripts.harness.snapshot.resolve`) grades a row IN PLACE only when its
+game is FINAL, attaching `resolved`, `actual`, `brier`, `log_loss`; `scripts/refit.py`
+(`_collect_resolved_rows("game")`, then `usable_rows` → `cross_validated_refit`) consumes
+exactly the rows with `event_type == "game"`, `resolved == true` and `estimate == false`,
+and archives EVERY pass — adopted or held — as a `kind: "game_params"` entry in
+`data/model_tuning.json` `history` with `n_resolved`. The review reproduces that:
+
+* `graded_lock_rows` counts receipts by refit's exact rule (an `estimate: true` receipt
+  still grades the PICK in `summary.picks`, but is never a refit input and is not counted
+  here). `summary.learning.graded_locks` is the week's lock file; `learning.graded_locks_total`
+  is every `<season>_wk*_games_open.json` (other seasons' files are ignored).
+* `newest_refit` is the newest IN-SEASON pass, by the exact rule of
+  `app/views/model.js resolvedLockCount`: `kind == "game_params"`, `search != null`, no
+  `eval_seasons` key (a backtest entry has one), `n_resolved > 0`; newest by `generated_utc`,
+  a tie falling to the later entry. Reported as `{archived_utc, n_resolved, adopted,
+  verdict: "adopted"|"held"}` — `adopted` is the archived flag, never inferred.
+* `consumed_all = (refit.n_resolved == graded_locks_total)` when a pass exists; otherwise
+  `null` and `note` says why (no in-season pass yet, receipts graded after the last pass, or
+  an archive/lock-file disagreement). Per week, `refit` is that same newest pass (the archive
+  records `n_resolved` across all lock files, never per week) and is `null` for a week that
+  fed nothing.
+
+**What the UI (partition U) renders from this.** SLATE week overview: `summary.picks`
+right / wrong / tbd for the selected week and `summary.learning` +
+top-level `learning` as the "graded picks feed the refit" proof line (graded_locks,
+refit archived_utc / n_resolved / verdict, consumed_all). PLAYERS: per-week met / over /
+under sort from each week's `players[]` verdicts and the season tally from
+`players_season` (`met_rate`, `by_week`). PARLAYS: the five `summary.parlays.buckets`
+counts with each row's `bucket`. Fixture for both sides: `tests/fixtures/r72/`
+(inputs, lock files under `snapshots/`, refit archive `model_tuning.json`); lock:
+`tests/feature/r72_review_summary.test.mjs`.
 
 ## Rules
 
