@@ -1,15 +1,66 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "review.schema.json",
-  "title": "Post-game review (R71) - data/review.json",
-  "description": "Per week: every locked game with its as-made pick, the STATUS-gated final and won/lost result, and a MEASURED why (source 'measured', deterministic over committed inputs and the stat line); every shipped parlay with hit/miss/pending/void per leg; every resolved player-week with the calibrated band verdict (over/under/met/dnp) and its measured attribution. Optional `narrative` (source 'ai_narrative') is a display-only restatement attached by the opt-in runner step scripts/build_review_narrative.py - the measured why is the source of truth. Absent is null, never 0. Written by scripts/build_review.py. Contract keys are required and typed; extra diagnostic keys are tolerated.",
+  "title": "Post-game review (R71 + R72) - data/review.json",
+  "description": "Per week: every locked game with its as-made pick, the STATUS-gated final and won/lost result, and a MEASURED why (source 'measured', deterministic over committed inputs and the stat line); every shipped parlay with hit/miss/pending/void per leg and (R72) one of five outcome buckets; every resolved player-week with the calibrated band verdict (over/under/met/dnp) and its measured attribution. R72: a week block exists for every scheduled week through `review_through_week` (the pipeline week) even when nothing is FINAL (picks n=0, tbd=<count>); summary.picks carries right/wrong/tbd; summary.learning and the top-level `learning` PROVE the self-learning loop from committed data (graded lock receipts under data/snapshots/*_games_open.json - the rows scripts/refit.py consumes - against the newest in-season refit pass archived in data/model_tuning.json; adoption reported only as archived); `players_season` tallies every reviewed player across the week blocks. Optional `narrative` (source 'ai_narrative') is a display-only restatement attached by the opt-in runner step scripts/build_review_narrative.py - the measured why is the source of truth. Absent is null, never 0. Written by scripts/build_review.py. Contract keys are required and typed; extra diagnostic keys are tolerated.",
   "type": "object",
-  "required": ["season", "generated_utc", "weeks", "sources", "notes"],
+  "required": ["season", "generated_utc", "review_through_week", "weeks", "learning", "players_season", "sources", "notes"],
   "properties": {
     "season": {"type": "integer", "minimum": 2020, "maximum": 2100},
     "generated_utc": {"type": "string", "minLength": 1},
+    "review_through_week": {"type": ["integer", "null"], "minimum": 1, "maximum": 22},
     "sources": {"type": "object"},
     "notes": {"type": "array", "items": {"type": "string"}},
+    "learning": {
+      "type": "object",
+      "required": ["graded_locks_total", "refit", "consumed_all", "note"],
+      "properties": {
+        "graded_locks_total": {"type": "integer", "minimum": 0},
+        "refit": {
+          "type": ["object", "null"],
+          "required": ["archived_utc", "n_resolved", "adopted", "verdict"],
+          "properties": {
+            "archived_utc": {"type": ["string", "null"]},
+            "n_resolved": {"type": "integer", "minimum": 1},
+            "adopted": {"type": "boolean"},
+            "verdict": {"type": "string", "enum": ["adopted", "held"]}
+          }
+        },
+        "consumed_all": {"type": ["boolean", "null"]},
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "players_season": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "position", "team", "weeks", "over", "met", "under", "dnp", "met_rate", "by_week"],
+        "properties": {
+          "name": {"type": ["string", "null"]},
+          "position": {"type": ["string", "null"]},
+          "team": {"type": ["string", "null"]},
+          "weeks": {"type": "integer", "minimum": 1},
+          "over": {"type": "integer", "minimum": 0},
+          "met": {"type": "integer", "minimum": 0},
+          "under": {"type": "integer", "minimum": 0},
+          "dnp": {"type": "integer", "minimum": 0},
+          "met_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+          "by_week": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["verdict", "delta", "actual", "projected"],
+              "properties": {
+                "verdict": {"type": "string", "enum": ["over", "under", "met", "dnp"]},
+                "delta": {"type": ["number", "null"]},
+                "actual": {"type": ["number", "null"]},
+                "projected": {"type": "number"}
+              }
+            }
+          }
+        }
+      }
+    },
     "weeks": {
       "type": "object",
       "additionalProperties": {
@@ -78,12 +129,13 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["parlay_id", "scope", "game_id", "result", "legs"],
+              "required": ["parlay_id", "scope", "game_id", "result", "bucket", "legs"],
               "properties": {
                 "parlay_id": {"type": "string", "minLength": 1},
                 "scope": {"type": "string", "enum": ["game", "week"]},
                 "game_id": {"type": ["string", "null"]},
                 "result": {"type": "string", "enum": ["hit", "miss", "pending", "void"]},
+                "bucket": {"type": "string", "enum": ["all_hit", "push", "partial", "all_missed", "pending"]},
                 "legs": {
                   "type": "array",
                   "items": {
@@ -156,28 +208,60 @@
           },
           "summary": {
             "type": "object",
-            "required": ["picks", "parlays", "players"],
+            "required": ["picks", "parlays", "players", "learning"],
             "properties": {
               "picks": {
                 "type": "object",
-                "required": ["n", "won", "pct", "brier"],
+                "required": ["n", "won", "pct", "brier", "right", "wrong", "tbd"],
                 "properties": {
                   "n": {"type": "integer", "minimum": 0},
                   "won": {"type": "integer", "minimum": 0},
                   "pct": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
-                  "brier": {"type": ["number", "null"], "minimum": 0, "maximum": 2}
+                  "brier": {"type": ["number", "null"], "minimum": 0, "maximum": 2},
+                  "right": {"type": "integer", "minimum": 0},
+                  "wrong": {"type": "integer", "minimum": 0},
+                  "tbd": {"type": "integer", "minimum": 0}
                 }
               },
               "parlays": {
                 "type": "object",
-                "required": ["n", "hit", "miss", "pending", "legs_n", "legs_hit"],
+                "required": ["n", "hit", "miss", "pending", "legs_n", "legs_hit", "buckets"],
                 "properties": {
                   "n": {"type": "integer", "minimum": 0},
                   "hit": {"type": "integer", "minimum": 0},
                   "miss": {"type": "integer", "minimum": 0},
                   "pending": {"type": "integer", "minimum": 0},
                   "legs_n": {"type": "integer", "minimum": 0},
-                  "legs_hit": {"type": "integer", "minimum": 0}
+                  "legs_hit": {"type": "integer", "minimum": 0},
+                  "buckets": {
+                    "type": "object",
+                    "required": ["all_hit", "push", "partial", "all_missed", "pending"],
+                    "properties": {
+                      "all_hit": {"type": "integer", "minimum": 0},
+                      "push": {"type": "integer", "minimum": 0},
+                      "partial": {"type": "integer", "minimum": 0},
+                      "all_missed": {"type": "integer", "minimum": 0},
+                      "pending": {"type": "integer", "minimum": 0}
+                    }
+                  }
+                }
+              },
+              "learning": {
+                "type": "object",
+                "required": ["graded_locks", "refit", "note"],
+                "properties": {
+                  "graded_locks": {"type": "integer", "minimum": 0},
+                  "refit": {
+                    "type": ["object", "null"],
+                    "required": ["archived_utc", "n_resolved", "adopted", "verdict"],
+                    "properties": {
+                      "archived_utc": {"type": ["string", "null"]},
+                      "n_resolved": {"type": "integer", "minimum": 1},
+                      "adopted": {"type": "boolean"},
+                      "verdict": {"type": "string", "enum": ["adopted", "held"]}
+                    }
+                  },
+                  "note": {"type": "string", "minLength": 1}
                 }
               },
               "players": {
