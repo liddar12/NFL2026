@@ -94,6 +94,12 @@ jobs:
 
       # LIVE / FINAL SCORE REFRESH. The scraper status-gates: only FINAL rows become
       # actuals. Loud on 0 events (silent-404 lesson). Placeholder CLI wired at Gate 2.
+      # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
+      # (created on first sight, refreshed while open, frozen once every game is
+      # FINAL) and rebuild data/parlays/index.json. Idempotent per updated_utc.
+      - name: Parlay archive (per-week history + index)
+        run: python3 scripts/build_parlay_archive.py
+
       - name: Refresh scores (status-gated)
         if: ${{ github.event.inputs.mode != 'lock' }}
         run: |

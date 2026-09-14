@@ -72,6 +72,8 @@ python3 scripts/backtest_lines.py --selftest || fail "lines backtest selftest"
 # R71 — the post-game review builder and its optional narrative layer.
 python3 scripts/build_review.py --selftest || fail "post-game review selftest"
 python3 scripts/build_review_narrative.py --selftest || fail "review narrative selftest"
+# R73 — the per-week parlay archive + index.
+python3 scripts/build_parlay_archive.py --selftest || fail "parlay archive selftest"
 python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
