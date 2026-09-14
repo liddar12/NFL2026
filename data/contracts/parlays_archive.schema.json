@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "parlays_archive.schema.json",
+  "title": "Archived week of parlays (R73)",
+  "description": "One file per (season, week) under data/parlays/<season>_wk<NN>.json, written by scripts/build_parlay_archive.py: data/parlays.json VERBATIM (season, week, updated_utc, parlays - the same leg contract as parlays.schema.json, implied_prob display-only) plus archived_utc, closed and history. Created on first sight of the week, refreshed on every run while the week is open (the last priced state before close; as-made prices live in the R58 leg ledger), and NEVER rewritten once closed = every game of the week FINAL in schedule_full.json. Validated by scripts/validate_data.py (optional directory).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "week",
+    "updated_utc",
+    "parlays",
+    "archived_utc",
+    "closed",
+    "history"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18
+    },
+    "updated_utc": {
+      "type": "string"
+    },
+    "parlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parlay_id",
+          "scope",
+          "legs",
+          "model_ev",
+          "confidence_tier",
+          "correlation_note"
+        ],
+        "properties": {
+          "parlay_id": {
+            "type": "string",
+            "description": "Stable parlay identifier."
+          },
+          "scope": {
+            "type": "string",
+            "description": "'game' = same-game (correlation-critical); 'week' = cross-game.",
+            "enum": [
+              "game",
+              "week"
+            ]
+          },
+          "game_id": {
+            "type": "string",
+            "description": "Present for scope='game' parlays; the game they attach to."
+          },
+          "legs": {
+            "type": "array",
+            "description": "Individual parlay legs.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "market",
+                "selection",
+                "implied_prob",
+                "model_prob"
+              ],
+              "properties": {
+                "market": {
+                  "type": "string",
+                  "description": "Market type, e.g. 'moneyline', 'spread', 'total', 'anytime_td'."
+                },
+                "selection": {
+                  "type": "string",
+                  "description": "The specific pick within the market."
+                },
+                "implied_prob": {
+                  "type": "number",
+                  "description": "DISPLAY ONLY market column: the book's de-vigged probability for this exact selection when a real price was fetched, otherwise model_prob re-vigged by the standard hold (no book price exists for that leg). Never an input to anything we produce.",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "model_prob": {
+                  "type": "number",
+                  "description": "OUR probability for this leg, computed without any market price (owner policy: market prices are display only). Moneyline = the game model's win probability; spread = exactly 0.5 at the book's handicap since R51 (the cover model measured below coin-flip on 2023-25 - see edge_note); props = the calibrated logistic on this week's projected yards (or the labelled seed fallback). A market's de-vigged probability may never appear here - a market with no model of ours yields no leg at all.",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "edge_note": {
+                  "type": "string",
+                  "description": "Spread legs only (R51): states that the cover model measured no edge and the leg is priced flat at 0.5 until a margin model clears never-regress."
+                },
+                "pricing": {
+                  "type": "string",
+                  "description": "Prop legs only: 'calibrated' = sigmoid(a + b*z + c*(p_team-0.5)) with coefficients from data/parlay_backtest.json; 'seed' = the pre-R51 fallback (calibration file absent or position uncovered), always paired with estimate_note.",
+                  "enum": [
+                    "calibrated",
+                    "seed"
+                  ]
+                },
+                "estimate": {
+                  "type": "boolean",
+                  "description": "Prop legs: the line is a documented seed threshold, not a book line."
+                },
+                "estimate_note": {
+                  "type": "string",
+                  "description": "Prop legs priced by the seed fallback carry this note so the fallback is never silent."
+                },
+                "mu": {
+                  "type": "number",
+                  "description": "Prop legs: the player's projected yards this week (season component x weekly share)."
+                },
+                "sd": {
+                  "type": "number",
+                  "description": "Prop legs (calibrated): residual sd of yards for the position, from data/parlay_backtest.json."
+                },
+                "z": {
+                  "type": "number",
+                  "description": "Prop legs (calibrated): (mu - line) / sd."
+                },
+                "line": {
+                  "type": "number",
+                  "description": "Prop legs: the yardage line the leg is evaluated at."
+                }
+              }
+            }
+          },
+          "model_ev": {
+            "type": "number",
+            "description": "Model expected value of the parlay (edge vs implied odds)."
+          },
+          "confidence_tier": {
+            "type": "string",
+            "description": "Ordinal band from a HARD-CODED edge threshold, not a calibration: high >= 0.12, medium >= 0.04 on (combined model_prob - combined implied_prob) minus 0.01 per leg beyond two. Nothing about it is calibrated and it states NO coverage guarantee - scripts/harness/conformal.py plays no part in producing it. Read it as a ranking, never as a probability of covering.",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "correlation_note": {
+            "type": "string",
+            "description": "How leg correlation was handled (required, may be 'independent legs')."
+          }
+        }
+      }
+    },
+    "archived_utc": {
+      "type": "string",
+      "minLength": 1,
+      "description": "UTC stamp of the last write of this file (creation, a refresh while open, or the close)."
+    },
+    "closed": {
+      "type": "boolean",
+      "description": "true once every game of the week carries a FINAL status in data/schedule_full.json (scripts.scrape.espn.FINAL_STATUSES). A closed file is never rewritten."
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per DISTINCT parlays.json updated_utc this archive saw for the week, in the order seen; archived_utc is the run that first saw it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "updated_utc",
+          "archived_utc"
+        ],
+        "properties": {
+          "updated_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "archived_utc": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

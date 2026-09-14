@@ -1,0 +1,50 @@
+{
+  "season": 2026,
+  "week": 2,
+  "updated_utc": "2026-09-15T10:00:00Z",
+  "parlays": [
+    {
+      "parlay_id": "G3-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "EEE ML",
+          "implied_prob": 0.5,
+          "model_prob": 0.55
+        },
+        {
+          "market": "spread",
+          "selection": "EEE -2",
+          "implied_prob": 0.52,
+          "model_prob": 0.5
+        }
+      ],
+      "model_ev": 0.0,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment.",
+      "game_id": "G3"
+    },
+    {
+      "parlay_id": "week-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "EEE ML",
+          "implied_prob": 0.5,
+          "model_prob": 0.55
+        },
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.6,
+          "model_prob": 0.62
+        }
+      ],
+      "model_ev": 0.01,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    }
+  ]
+}
