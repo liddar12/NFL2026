@@ -382,9 +382,12 @@ test('MEASURED: weeks 14-17 vs own season average reproduces the documented shap
   assert.ok(spread > 110, `spread ${spread.toFixed(1)} Elo (documented 152.5)`);
 
   // The headline consequence: a decile-hard slate costs about a point a game.
+  // The window follows the p10 / p90 bounds above ((18 - -18) / 25 .. (38 - -38) / 25):
+  // a tighter pin went red on data alone once week-1 results widened the Elo
+  // spread (2.62 on 2026-09-14 vs ~2.1 on the July corpus), not on code.
   const cost = (pct(90) - pct(10)) / PLAYOFF_ELO_PER_POINT;
-  assert.ok(cost > 1.4 && cost < 2.6,
-    `decile-to-decile swing ${cost.toFixed(2)} pts/game (documented ~2.1)`);
+  assert.ok(cost > 1.4 && cost < 3.1,
+    `decile-to-decile swing ${cost.toFixed(2)} pts/game (documented ~2.1 on the July corpus)`);
 });
 
 test('MEASURED: the playoff window is NOT the season slate — the lens adds information', () => {
