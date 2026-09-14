@@ -201,7 +201,10 @@ const ROUTES = [
   // allSettled, so first paint is unchanged; they still land inside this
   // test's 2.5 s window. Owner's decision: Sleeper's number beside OURS on
   // every card, so there is no user gesture to hang the fetch on.
-  { hash: '#/players', name: 'players', contracts: 10 },
+  // R71 — 10 -> 11: data/review.json joins the players mount's allSettled so
+  // the OVER / UNDER / MET chip rides the first paint on every card (the same
+  // document the slate and parlays read; one request, cached across routes).
+  { hash: '#/players', name: 'players', contracts: 11 },
   // R71 — 4 -> 5: the same review.json (cached across routes by data.js's
   // promise cache — the de-dupe test below still holds) for the leg marks.
   { hash: '#/parlays', name: 'parlays', contracts: 5 },
@@ -212,7 +215,7 @@ const ROUTES = [
   // because its K/DST rows are fetched lazily on the first K/DEF chip tap.
   // R70 — 6 -> 7: data/line_report.json (the OL / DL-front LINE REPORT chips
   // on every starter row) joins the lineup mount's allSettled; a 404 is still
-  // one request. PLAYERS stays at 10: it fetches the report only when AI+ is on.
+  // one request. PLAYERS fetches the report only when AI+ is on (its 11 is R71's).
   { hash: '#/lineup', name: 'lineup', contracts: 7 },
   // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
   // (a 404 is still one request, so the count holds with the files absent).
