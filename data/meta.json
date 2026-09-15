@@ -55,7 +55,7 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-09-15T03:50:08Z",
+    "changed_utc": "2026-09-15T11:10:06Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
       "proj_points",
@@ -85,7 +85,7 @@
       "pooled_rho_ppg_rule": 0.5887,
       "pooled_mae_total_rule": 60.263,
       "pooled_mae_ppg_rule": 61.8526,
-      "measured_utc": "2026-09-15T03:50:08Z"
+      "measured_utc": "2026-09-15T11:10:06Z"
     },
     "candidate": {
       "signals_applied": [
@@ -103,20 +103,20 @@
   },
   "learning_record": {
     "weeks_resolved": 1,
-    "players_scored": 200,
-    "mae_ppr": 6.127,
-    "bias_ppr": -1.523,
-    "candidate_mae_ppr": 6.127,
-    "candidate_bias_ppr": -1.523,
-    "gated_mae_ppr": 6.379,
-    "gated_bias_ppr": -1.811,
-    "band_coverage": 0.47,
+    "players_scored": 216,
+    "mae_ppr": 6.146,
+    "bias_ppr": -1.339,
+    "candidate_mae_ppr": 6.146,
+    "candidate_bias_ppr": -1.339,
+    "gated_mae_ppr": 6.377,
+    "gated_bias_ppr": -1.627,
+    "band_coverage": 0.4583,
     "signals_with_weight": [],
     "ledger": "data/estimates/2026.json",
     "objective_ready": true,
     "adoption_margin_mae": 0.1,
     "note": "shipped, candidate and gated scored on locked pre-kickoff estimates; the never-regress comparison is candidate vs gated on the walk-forward player objective (scripts/fit_player_signals.py) \u2014 shipped == candidate under the R49 owner override",
-    "updated_utc": "2026-09-14T21:48:49Z",
+    "updated_utc": "2026-09-15T11:12:01Z",
     "last_proposal": null,
     "backtest_2025": {
       "baseline_mae": 61.088,

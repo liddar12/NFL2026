@@ -1,40 +1,40 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-14T21:48:50Z",
+  "generated_utc": "2026-09-15T11:12:01Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only, from the graded lock receipts data/snapshots/*_games_open.json (scripts/resolve_locks.py, STATUS-gated FINAL); spread legs need scores and stay unresolved",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 1,
   "legs": {
-    "on_file": 87,
-    "locked": 73,
+    "on_file": 159,
+    "locked": 145,
     "unlocked": 14,
-    "resolved": 49,
-    "unresolved": 21
+    "resolved": 53,
+    "unresolved": 20
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 34,
-      "hit_rate": 0.4412,
+      "n": 37,
+      "hit_rate": 0.4054,
       "model": {
-        "log_loss": 0.6834,
-        "brier": 0.2456
+        "log_loss": 0.6602,
+        "brier": 0.2345
       },
       "seed": {
-        "log_loss": 0.6932,
-        "brier": 0.25
+        "log_loss": 0.6914,
+        "brier": 0.2491
       },
       "by_pricing": {
-        "calibrated": 34
+        "calibrated": 37
       }
     },
     "moneyline": {
-      "n": 15,
-      "hit_rate": 0.6,
-      "log_loss": 0.6676,
-      "brier": 0.2373
+      "n": 16,
+      "hit_rate": 0.5625,
+      "log_loss": 0.6822,
+      "brier": 0.2445
     },
     "spread": {
       "n": 0,
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 9,
-      "hit_rate": 0.2222,
+      "n": 10,
+      "hit_rate": 0.2,
       "model": {
-        "log_loss": 0.7482,
-        "brier": 0.2776
+        "log_loss": 0.7114,
+        "brier": 0.2598
       },
       "seed": {
-        "log_loss": 0.7173,
-        "brier": 0.262
+        "log_loss": 0.7077,
+        "brier": 0.2572
       },
       "by_pricing": {
-        "calibrated": 9
+        "calibrated": 10
       }
     },
     "RB": {
-      "n": 13,
-      "hit_rate": 0.4615,
+      "n": 14,
+      "hit_rate": 0.4286,
       "model": {
-        "log_loss": 0.6674,
-        "brier": 0.2375
+        "log_loss": 0.6415,
+        "brier": 0.2254
       },
       "seed": {
-        "log_loss": 0.6897,
-        "brier": 0.2483
+        "log_loss": 0.6955,
+        "brier": 0.2512
       },
       "by_pricing": {
-        "calibrated": 13
+        "calibrated": 14
       }
     },
     "WR": {
-      "n": 12,
-      "hit_rate": 0.5833,
+      "n": 13,
+      "hit_rate": 0.5385,
       "model": {
-        "log_loss": 0.6522,
-        "brier": 0.2303
+        "log_loss": 0.6409,
+        "brier": 0.2247
       },
       "seed": {
-        "log_loss": 0.6789,
-        "brier": 0.2428
+        "log_loss": 0.6744,
+        "brier": 0.2406
       },
       "by_pricing": {
-        "calibrated": 12
+        "calibrated": 13
       }
     }
   },
@@ -94,25 +94,25 @@
     {
       "week": 1,
       "props": {
-        "n": 34,
-        "hit_rate": 0.4412,
+        "n": 37,
+        "hit_rate": 0.4054,
         "model": {
-          "log_loss": 0.6834,
-          "brier": 0.2456
+          "log_loss": 0.6602,
+          "brier": 0.2345
         },
         "seed": {
-          "log_loss": 0.6932,
-          "brier": 0.25
+          "log_loss": 0.6914,
+          "brier": 0.2491
         },
         "by_pricing": {
-          "calibrated": 34
+          "calibrated": 37
         }
       },
       "moneyline": {
-        "n": 15,
-        "hit_rate": 0.6,
-        "log_loss": 0.6676,
-        "brier": 0.2373
+        "n": 16,
+        "hit_rate": 0.5625,
+        "log_loss": 0.6822,
+        "brier": 0.2445
       },
       "spread": {
         "n": 0,
@@ -252,23 +252,16 @@
     {
       "week": 1,
       "game_id": "401872931",
-      "market": "qb_pass_yds",
-      "selection": "P. Mahomes 225+ pass yds",
-      "reason": "no_stat_line"
+      "market": "spread",
+      "selection": "DEN +2.5",
+      "reason": "no_final_score"
     },
     {
       "week": 1,
       "game_id": "401872931",
-      "market": "rb_rush_yds",
-      "selection": "R. Harvey 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 1,
-      "game_id": "401872931",
-      "market": "wr_rec_yds",
-      "selection": "R. Rice 60+ rec yds",
-      "reason": "no_stat_line"
+      "market": "spread",
+      "selection": "DEN +3",
+      "reason": "no_final_score"
     }
   ],
   "resolved": [
@@ -1126,6 +1119,77 @@
       "model_prob": 0.5145,
       "seed_prob": 0.4819,
       "actual": 28.0,
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "moneyline",
+      "selection": "DEN ML",
+      "team": "DEN",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5938,
+      "actual": {
+        "winner": "home"
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "P. Mahomes 225+ pass yds",
+      "player": "Patrick Mahomes",
+      "team": "KC",
+      "line": 224.5,
+      "mu": 187.33,
+      "sd": 76.66,
+      "z": -0.4849,
+      "p_team": 0.4062,
+      "pricing": "calibrated",
+      "model_prob": 0.3162,
+      "seed_prob": 0.4625,
+      "actual": 184.0,
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "R. Harvey 60+ rush yds",
+      "player": "RJ Harvey",
+      "team": "DEN",
+      "line": 59.5,
+      "mu": 28.72,
+      "sd": 38.87,
+      "z": -0.7918,
+      "p_team": 0.5938,
+      "pricing": "calibrated",
+      "model_prob": 0.2628,
+      "seed_prob": 0.5375,
+      "actual": 18.0,
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "R. Rice 60+ rec yds",
+      "player": "Rashee Rice",
+      "team": "KC",
+      "line": 59.5,
+      "mu": 52.95,
+      "sd": 41.58,
+      "z": -0.1574,
+      "p_team": 0.4062,
+      "pricing": "calibrated",
+      "model_prob": 0.3964,
+      "seed_prob": 0.4625,
+      "actual": 19.0,
       "hit": false
     }
   ]
