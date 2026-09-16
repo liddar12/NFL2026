@@ -142,9 +142,8 @@ test('rel18: scheme_matchup ships with its application path DARK', () => {
   const app = doc.application;
   assert.ok(app, 'scheme_history declares an application block');
   assert.equal(app.applied, false,
-    'FTN has no 2026 release, so scheme_matchup is BACKTEST-ONLY');
-  assert.equal(app.dark, true, 'the dark state is stated, not implied');
-  assert.ok(String(app.reason || '').length > 0, 'a dark path carries its reason');
+    'scheme_matchup is BACKTEST-ONLY: nothing in build_predictions.py reads it');
+  assert.ok(String(app.reason || '').length > 0, 'the application state carries its reason');
   assert.equal(doc.first_ftn_season, 2022);
   // Seasons before FTN are ABSENT, never zero-filled: "we do not know" and
   // "there was none" are different claims.
@@ -154,20 +153,48 @@ test('rel18: scheme_matchup ships with its application path DARK', () => {
   // The credit is rendered FROM the data, so removing the feed removes it.
   assert.ok(doc.attribution && doc.license, 'FTN attribution + licence carried');
 
-  // ...and the family REFUSES a dark season rather than pricing it at 0.0.
-  const raised = py(`
-import json
+  // DARK is derived from the artifact, never pinned to a calendar year: the
+  // live season is dark while the artifact carries no charted play for it,
+  // whatever the release host is currently serving. (FTN published the 2026
+  // release in Sept 2026 while the build still ingested 2022-2025; a test that
+  // asserted `dark === true` locked the date instead of the rule.)
+  const covered = (doc.seasons_covered || []).map(Number);
+  const live = Number(app.live_season);
+  const uncovered = covered.includes(live) ? Math.max(...covered, live) + 1 : live;
+
+  // ...and the family REFUSES such a season rather than pricing it at 0.0.
+  // The refusal must be SchemeDark specifically: a KeyError or a TypeError is a
+  // crash, and "something threw" is not the same guarantee.
+  const got = py(`
+import json, sys
+sys.path.insert(0, ".")
 from scripts.signals import scheme_matchup as sm
+doc = sm.load_doc()
+feats, _ = sm.build_features(doc, [${uncovered}])
+live = {"scheme_hfa": {"applied": True, "scale": 120.0}}
+g = {"home": "KC", "away": "BUF", "week": 8}
+out = {"is_dark": sm.is_dark(${uncovered}, feats, doc)}
 try:
-    sm.delta_from_params({}, 2026)
-    out = False
-except Exception:
-    out = True
-print(json.dumps({"raises": out}))
+    out["value"] = sm.delta_from_params(live, ${uncovered}, g, feats, doc)
+    out["raises"] = False
+except sm.SchemeDark as e:
+    out["raises"] = True
+    out["msg"] = str(e)
+try:
+    sm.scheme_current(${uncovered})
+    out["current_raises"] = False
+except sm.SchemeDark:
+    out["current_raises"] = True
+print(json.dumps(out))
 `);
-  assert.equal(raised.raises, true,
-    'delta_from_params must RAISE on a dark season — a family that silently '
-    + 'no-ops is indistinguishable from one that works');
+  assert.equal(got.is_dark, true,
+    `season ${uncovered} is absent from seasons_covered [${covered}], so it is dark`);
+  assert.equal(got.raises, true,
+    'delta_from_params must RAISE SchemeDark on a season with no charting — a '
+    + 'family that silently no-ops is indistinguishable from one that works');
+  assert.match(got.msg, new RegExp(String(uncovered)), 'the refusal names the season');
+  assert.equal(got.current_raises, true,
+    'and the prediction-time input loader refuses it too, by the same rule');
 });
 
 test('rel18: only divisional joins APPLIABLE; the other four are measured-only', () => {
