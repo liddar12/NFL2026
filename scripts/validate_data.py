@@ -568,6 +568,46 @@ _SPREAD_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ([+-]?\d+(?:\.\d+)?)$")
 _ML_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ML$")
 
 
+def check_parlay_one_leg_per_side(parlays, label="parlays.json"):
+    """No parlay may carry two bets on the SAME TEAM'S OUTCOME in one game.
+
+    A moneyline on a team and that team's spread are one opinion: winning
+    outright guarantees the cover on any non-negative handicap, so stacking them
+    quotes a payout for risk the bettor never took. The builder refuses the pair
+    (parlay_builder.same_side_game_pair); this checks the SHIPPED document, so a
+    hand-edited file or a future writer cannot reintroduce it.
+
+    The written legs carry no side field — it is stripped before write — so the
+    team is read off the selection's leading token, which is how both 'BUF ML'
+    and 'BUF -5.5' name their side.
+
+    Owner rule, 2026-09-16. It shipped on 16 of 66 week-2 parlays before this
+    existed, because the builder ranks pairs by |rho| and this pair is the
+    strongest correlation in the table.
+    """
+    problems = []
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+        sides = {}
+        for leg in parlay.get("legs", []) or []:
+            if leg.get("market") not in _PARLAY_MODELLED_MARKETS:
+                continue
+            token = str(leg.get("selection", "")).split(" ")[0].strip()
+            if not token:
+                continue
+            sides.setdefault(token, []).append(str(leg.get("selection", "")))
+        for team, sels in sorted(sides.items()):
+            if len(sels) > 1:
+                problems.append(
+                    "%s stacks %d bets on %s's own outcome (%s)"
+                    % (pid, len(sels), team, ", ".join(sorted(sels))))
+    if problems:
+        raise ValidationError(
+            "%s: one leg per game side — a moneyline and that team's spread are "
+            "one opinion, not two legs:\n  - %s"
+            % (label, "\n  - ".join(problems)))
+
+
 def check_parlay_model_independence(parlays, predictions, label="parlays.json",
                                     tol=1.5e-3):
     """Every parlay leg's `model_prob` is OURS, recomputed, for the team it names.
@@ -611,6 +651,7 @@ def check_parlay_model_independence(parlays, predictions, label="parlays.json",
 
     for parlay in (parlays or {}).get("parlays", []) or []:
         pid = parlay.get("parlay_id", "?")
+
         for leg in parlay.get("legs", []) or []:
             market = leg.get("market")
             sel = str(leg.get("selection", ""))
@@ -1574,6 +1615,21 @@ def _selftest():
         {"parlays": [{"legs": [{"model_prob": 0.6, "implied_prob": 0.5}]}]})
 
     # The fixed shape passes: OUR margin model for the team named, book in IMPL.
+    # R74 — the one-leg-per-side rule: catches the stack, allows the honest pair.
+    _stacked = {"parlays": [{"parlay_id": "p1", "legs": [
+        {"market": "moneyline", "selection": "DEN ML", "model_prob": 0.6, "implied_prob": 0.62},
+        {"market": "spread", "selection": "DEN +3", "model_prob": 0.5, "implied_prob": 0.52}]}]}
+    try:
+        check_parlay_one_leg_per_side(_stacked)
+        raise AssertionError("check_parlay_one_leg_per_side did NOT catch a DEN ML + DEN +3 stack")
+    except ValidationError:
+        pass
+    check_parlay_one_leg_per_side({"parlays": [{"parlay_id": "p2", "legs": [
+        {"market": "moneyline", "selection": "DEN ML", "model_prob": 0.6, "implied_prob": 0.62},
+        {"market": "spread", "selection": "KC -3", "model_prob": 0.5, "implied_prob": 0.52},
+        {"market": "qb_pass_yds", "selection": "DEN QB 225+", "model_prob": 0.55, "implied_prob": 0.57}]}]})
+    print("ok    selftest: one leg per game side (stack caught, opposite side and props allowed)")
+
     check_parlay_model_independence(_parlay([
         {"market": "spread", "selection": "DEN +3",
          "model_prob": 0.5, "implied_prob": 0.5108},
@@ -1948,6 +2004,9 @@ def main():
         )
         print("ok    parlays.json legs carry OUR probability (no market price in "
               "model_prob)")
+        # R74 — and no parlay sells one opinion as two legs.
+        check_parlay_one_leg_per_side(_load(os.path.join(DATA, "parlays.json")))
+        print("ok    parlays.json keeps one leg per game side")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:
