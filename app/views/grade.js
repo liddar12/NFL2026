@@ -649,10 +649,15 @@ async function loadSleeperLeague(idText, out, host) {
       return lineChipsHtml(teams, teamOf.get(String(id)), row && row.opp != null ? row.opp : null);
     };
   };
-  if (lineDoc && lineReportTeams(lineDoc, currentWk)) {
-    notes.push('LINE REPORT chips on the week folds ("OL: n out" = that player\'s own offensive '
-      + 'line, "vs DL: n out" = the opponent\'s defensive front) are depth-chart starters crossed '
-      + 'with the injury report — facts for this week that change no number here.');
+  // The chips render on whichever week fold the report covers, so the legend
+  // must follow the REPORT's week, not the current one: gating it on currentWk
+  // meant a week-1 report in week 2 painted chips with no explanation of them.
+  const lineWk = lineDoc && lineDoc.week != null ? Number(lineDoc.week) : currentWk;
+  if (lineDoc && lineReportTeams(lineDoc, lineWk)) {
+    notes.push(`LINE REPORT chips on the WK ${lineWk} fold ("OL: n out" = that player's own `
+      + 'offensive line, "vs DL: n out" = the opponent\'s defensive front) are depth-chart '
+      + `starters crossed with the injury report — facts for WK ${lineWk} that change no number `
+      + 'here.');
   }
 
   const painted = paint(
