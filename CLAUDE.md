@@ -44,6 +44,37 @@ CONCURRENCY RULE
 - The real limit is partitioning, not count. Concurrency equals the number of genuinely independent partitions (disjoint file ownership) so agents do not collide on shared files.
 - Default 4 to 6 concurrent. Scale toward 16 only when the architecture has that many independent modules.
 
+CODEX DELEGATION (Claude orchestrates, Codex implements and adversarially reviews)
+The openai/codex-plugin-cc plugin is installed. Division of labour, in force for every task:
+- CLAUDE IS THE ORCHESTRATOR. Claude plans, partitions work into disjoint-file briefs, writes
+  each brief, dispatches it, collects results, runs the regression gate, resolves merges, opens
+  the PR, ships and verifies prod. Claude does not write feature code when Codex can.
+- CODEX IS THE IMPLEMENTER. Every implementation task goes to Codex through the
+  `codex:codex-rescue` subagent (or `/codex:rescue`), write-capable, `--background` for anything
+  multi-step. One background job per independent partition; the CONCURRENCY RULE above still
+  governs how many run at once (disjoint file ownership, default 4 to 6).
+- CODEX IS THE ADVERSARIAL REVIEWER. The stop-time review gate is enabled for this repo
+  (`/codex:setup --enable-review-gate`): any turn that edits code is challenged by Codex and must
+  come back ALLOW before Claude may stop. Run `/codex:adversarial-review` before every PR as well.
+- A BLOCK is never bypassed silently. Fix it, or state in chat exactly why the block is wrong and
+  what evidence refutes it. Never disable the gate to get past a review.
+
+Model: one source of truth. The Codex model is pinned in `~/.codex/config.toml` (`model = "..."`).
+Never pass `--model` per command and never hard-code a model id in this repo, in code, in commits
+or in PR bodies. Changing which model codes is a one-line edit to that file.
+
+What Claude still does inline (a round trip would cost more than it saves): one-line config edits,
+test-pin adjustments, merge-conflict resolution, workflow YAML, and reading/validating results.
+
+Verification is unchanged and non-negotiable: Codex output is never trusted on its own word. Claude
+re-runs the full regression gate on exit codes, and the honest-data rules (no fabricated values,
+absent is not zero, skip loudly, never claim an unwired mechanism) apply to Codex's work exactly as
+they apply to Claude's.
+
+Briefs handed to Codex must be self-contained: goal, repo-relative file ownership, the contract it
+must match, the exact commands that must exit 0, and the honesty rules. A brief that assumes this
+conversation's context will produce work that fails the gate.
+
 ITERATE
 Build, test in sandbox (local: npm run serve, and Netlify deploy previews), then production, looping until 100% of regression passes. Add or extend a regression test for every fix and lock the exact behavior changed.
 
