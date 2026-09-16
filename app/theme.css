@@ -799,6 +799,25 @@ button { font: inherit; color: inherit; }
   color: var(--muted);
 }
 
+/* R75 — the card's own $100 figure, beside MODEL EV in the foot. Same shape as
+   .ev (number + .k key underneath), same sign colours the P&L line uses, and
+   tabular figures so a sorted column reads straight down. Display only. */
+.pay {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.pay--pos { color: var(--pos-txt); }
+.pay--neg { color: var(--accent-txt); }
+/* the SORT label sits inline with its chips, not as a chip */
+.sortseg-k { margin-right: 2px; }
+
 /* ---- correlation note ----------------------------------------------------- */
 .corr {
   display: flex;

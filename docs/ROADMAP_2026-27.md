@@ -143,28 +143,28 @@ nothing ships without one.
   class of failure where a test goes red, or worse silently toothless, as the season moves.
 - **MoS:** all three symptoms reproduced on a pristine checkout before and after → met. · **LOE** —
 
-#### ▢ R75 · PARLAYS sorting, filtering and the $100 wager — **new, next up**
-- **Confidence-tier chips** — ALL / LOW / MEDIUM / HIGH, reading `confidence_tier` straight off
-  each parlay (today's week-2 slate: 53 low, 12 medium, 1 high). Tiers with no cards in the active
-  scope do not render a dead chip.
-- **Sort control** — MODEL EV (desc, the default), $100 RETURN (desc), LEG COUNT (asc). `model_ev`
-  is already on every parlay; nothing new is computed for it.
-- **A $100 number on every card** — for an ungraded parlay, the potential return
-  `100 × (∏ leg decimal − 1)`, using the *same* `leg_decimal` rule R73 already ships in
-  `build_review.py`: the as-made R58 ledger `implied_prob` where a book price exists, −110
-  (1.9091) assumed otherwise, with the assumed count named on the card. One rule, so the card and
-  the week footer can never disagree.
-- **Graded weeks keep the realized number** — a closed week shows what the stake actually returned
-  (the existing `stake_100` P&L), not a hypothetical; the card switches, the footer does not move.
-- **Composes with what exists** — tier and sort stack with the scope selector, leg-count chips,
-  R72 outcome buckets and R73 week chips, and reset per week exactly as those do.
-- **Display-only money**, per rule 1: no dollar figure, tier or EV ever reaches a projection input.
-- **Costs no boot bytes** — `app/views/parlays.js` and `app/review.js` are lazy, and both fields
-  are already in feeds the view reads; with 33 bytes of headroom, this item must add nothing to
-  the boot graph (`app/data.js`), and the perf project is the guard.
-- **MoS:** a browser test that (a) filters to HIGH and gets only high-tier cards, (b) sorts by
-  return and reads a non-increasing sequence, (c) recomputes one card's return from the ledger and
-  matches it exactly, and (d) the perf project stays green under both ceilings. · **LOE** 1 d
+#### ✅ R75 · PARLAYS sorting, filtering and the $100 wager — *shipped 2026-09-16*
+- **Confidence-tier chips** — ALL / HIGH / MEDIUM / LOW off each parlay's `confidence_tier`, built
+  from the tiers **present in the active scope**, so the row never offers an empty bucket.
+- **Sort control** — SLATE (the default), MODEL EV (desc), $100 (desc), LEGS (asc). SLATE is the
+  document's own order: enabling a sort is not the same as reordering the page for a user who
+  never asked, and the R73 lock caught the first attempt to make EV the default.
+- **A $100 figure on every card** — the builder stamps `money` on every reviewed parlay row:
+  `settled` (what the stake returned) on a graded parlay, `potential` (what it would return if
+  every leg hit, `net_vig2` null — a quote is one price, not two) while it is pending.
+- **One arithmetic, not two** — both the card and the R73 week footer come from
+  `build_review.parlay_money`, so they cannot disagree. The gate asserts the invariant on real
+  data: the settled cards of a scope **sum to that scope's footer** (week 1, week scope:
+  $11,563.90 across 18 cards vs a footer of $11,563.91 — rounding to the cent, never a dollar).
+- **The client never prices a parlay** — `app/review.js` formats the builder's number and nothing
+  else; a row with no `money` simply gets no cell, and the $100 sort chip stays hidden rather than
+  sorting on nothing.
+- **Display-only money**, per rule 1: no dollar figure, tier or EV reaches a projection input.
+- **Zero boot bytes** — both modules are lazy, the chips reuse `.leg-chip` (HIG and AA contrast
+  for free), and nothing was added to `app/data.js`; the 33-byte headroom is untouched.
+- **MoS:** met — 8 feature tests, 4 browser tests on the committed slate (tier filter, EV and $100
+  ordering, each card equal to the builder's to the cent, and the sum invariant), full gate green
+  at 1,584 unit / 260 browser. · **LOE** 1 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

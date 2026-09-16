@@ -82,8 +82,21 @@ prices of the R58 ledger (data/estimates/parlays_<season>.json, the row keyed
   * net_vig2 re-prices every leg at implied_prob x 1.02 capped at 0.99;
   * money is never a model input: nothing downstream reads it.
 
+R75 — the same money, per parlay, on every parlay row (`money`), so the PARLAYS
+card can show what a $100 wager did or would do without pricing anything itself:
+  * a GRADED parlay carries kind "settled": exactly its contribution to the
+    footer above. Both come from parlay_money, and the selftest asserts that the
+    settled rows of a scope sum to summary.parlays.stake_100[scope] — the card
+    and the week footer can never disagree, because there is one arithmetic.
+  * a PENDING parlay carries kind "potential": 100 x (product of ALL leg
+    decimals - 1), what the stake would return if every leg hit. It is a price,
+    not a result, quoted at one price only (net_vig2 null), and the card labels
+    it so. A pending parlay is still never staked in the footer.
+  * same leg-decimal rule, same -110 assumption, counted per parlay.
+
 Pure core (no I/O): review_game, review_player, review_parlay, parlay_bucket,
-leg_outcomes_from_ledger, ledger_price_index, leg_decimal, stake_100,
+leg_outcomes_from_ledger, ledger_price_index, leg_decimal, parlay_money,
+potential_return, stamp_parlay_money, stake_100,
 summarize, review_weeks, learning_block, players_season, build.
 Thin shell: load_inputs + main.
   python3 scripts/build_review.py --selftest   fixture-driven, never writes data/
@@ -724,6 +737,67 @@ def _vig2(decimal):
     return 1.0 / min(VIG2_CAP, (1.0 / decimal) * VIG2_FACTOR)
 
 
+def parlay_money(parlay, week, price_index):
+    """R75 — the $100 flat stake settled on ONE reviewed parlay, or None while it
+    is pending (a pending parlay is never staked). Returns raw floats
+    (net_fair, net_vig2, assumed_price_legs) under exactly the R73 rule:
+      all_hit / push   100 x (prod of the hit legs' decimals - 1); a void leg
+                       drops out at 1.0, which is what makes a push a push
+      anything else    -100, the stake
+    stake_100 below is the sum of this over a scope, so the number on a card and
+    the number in the week footer come from one function and cannot disagree —
+    the selftest asserts the sum. Display-only money, never a model input."""
+    if parlay.get("bucket") == "pending":
+        return None
+    fair = vig = 1.0
+    assumed = 0
+    for leg in parlay.get("legs") or []:
+        dec, is_assumed = leg_decimal(leg, week, price_index)
+        assumed += 1 if is_assumed else 0
+        if leg.get("result") == "hit":
+            fair *= dec
+            vig *= _vig2(dec)
+        # a void leg drops out at 1.0; a missed leg is settled below
+    if parlay.get("bucket") in ("all_hit", "push"):
+        return STAKE * (fair - 1.0), STAKE * (vig - 1.0), assumed
+    return -STAKE, -STAKE, assumed
+
+
+def potential_return(parlay, week, price_index):
+    """R75 — what a $100 stake WOULD return if every leg of this parlay hit, at
+    the same prices: 100 x (prod of all leg decimals - 1). This is the only
+    figure an ungraded parlay can honestly carry — it is a price, not a result,
+    and the card labels it so. (net, assumed_price_legs)."""
+    dec = 1.0
+    assumed = 0
+    for leg in parlay.get("legs") or []:
+        d, is_assumed = leg_decimal(leg, week, price_index)
+        assumed += 1 if is_assumed else 0
+        dec *= d
+    return STAKE * (dec - 1.0), assumed
+
+
+def stamp_parlay_money(parlays, week, price_index):
+    """R75 — attach `money` to every reviewed parlay row, in place, so a card
+    never has to price a parlay itself:
+      settled    a graded parlay: what the $100 stake actually returned
+                 (net_fair, net_vig2), the R73 arithmetic per parlay
+      potential  an ungraded parlay: what $100 WOULD return if every leg hit,
+                 at the same prices — a price, not a result, and the card says so
+    The settled rows of a scope sum to summary.parlays.stake_100[scope] because
+    both come from parlay_money; the selftest asserts that sum."""
+    for parlay in parlays or []:
+        settled = parlay_money(parlay, week, price_index)
+        if settled is None:
+            net, assumed = potential_return(parlay, week, price_index)
+            parlay["money"] = {"kind": "potential", "net_fair": _r(net),
+                               "net_vig2": None, "assumed_price_legs": assumed}
+        else:
+            fair, vig, assumed = settled
+            parlay["money"] = {"kind": "settled", "net_fair": _r(fair),
+                               "net_vig2": _r(vig), "assumed_price_legs": assumed}
+
+
 def stake_100(parlays, week, price_index):
     """Owner decision 3 (R73): a $100 flat stake on every parlay of each scope,
     display-only. One block per scope {week, game}:
@@ -748,20 +822,11 @@ def stake_100(parlays, week, price_index):
         net_fair = net_vig2 = 0.0
         assumed = 0
         for p in graded:
-            fair = vig = 1.0
-            for leg in p.get("legs") or []:
-                dec, is_assumed = leg_decimal(leg, week, price_index)
-                assumed += 1 if is_assumed else 0
-                if leg.get("result") == "hit":
-                    fair *= dec
-                    vig *= _vig2(dec)
-                # a void leg drops out at 1.0; a missed leg is settled below
-            if p.get("bucket") in ("all_hit", "push"):
-                net_fair += STAKE * (fair - 1.0)
-                net_vig2 += STAKE * (vig - 1.0)
-            else:
-                net_fair -= STAKE
-                net_vig2 -= STAKE
+            # R75: one function settles a parlay, here and on its card.
+            f, v, a = parlay_money(p, week, price_index)
+            net_fair += f
+            net_vig2 += v
+            assumed += a
         note = ("$100 flat on each of the %d %s-scope parlays: %d graded (%d all_hit paid, "
                 "%d push with pushed legs at 1.0, %d lost -100), %d pending excluded; leg "
                 "decimal = 1/implied_prob of the as-made R58 ledger row (moneyline/spread), "
@@ -1168,6 +1233,9 @@ def build(inputs, now):
             elif parlays_doc:
                 notes.append("wk %d: no parlays on file (parlays.json holds week %s)"
                              % (wk, parlays_doc.get("week")))
+        # R75 — each row carries its own $100 figure, from the same price index
+        # the footer sums, so the card and the footer cannot disagree.
+        stamp_parlay_money(parlays, wk, price_index)
         out_weeks[str(wk)] = {"games": games, "parlays": parlays, "players": players,
                               "summary": summarize(games, parlays, players,
                                                    learning_for_week(lock_rows, refit),
@@ -1481,7 +1549,7 @@ def selftest():
           "narrative carry-forward, schema + JSON convention; R72 right/wrong/tbd, "
           "week blocks through the pipeline week, five parlay buckets <-> result, "
           "players_season tally, the learning proof from lock files + refit archive; "
-          "R73 stake_100 P&L (all_hit / push drop-out / loss / pending excluded / "
+          "R75 per-parlay money (settled rows sum to the footer, a pending parlay is quoted not settled, schema); R73 stake_100 P&L (all_hit / push drop-out / loss / pending excluded / "
           "assumed -110 / vig re-pricing)")
 
 
@@ -1617,6 +1685,43 @@ def _selftest_r73():
     assert _validate_against_schema(bad), "a string net is red"
     del bad["weeks"]["1"]["summary"]["parlays"]["stake_100"]
     assert _validate_against_schema(bad), "stake_100 is required on every week block"
+
+    # R75 — every row carries its own $100 figure, and the SETTLED rows of a
+    # scope sum to that scope's footer. This is the whole point of routing both
+    # through parlay_money: a card and the week footer cannot disagree.
+    rows = fx["parlays"]
+    stamp_parlay_money(rows, fx["week"], idx)
+    assert all("money" in r for r in rows), "every row is stamped, pending included"
+    for scope in ("week", "game"):
+        settled = [r["money"] for r in rows
+                   if r.get("scope") == scope and r["money"]["kind"] == "settled"]
+        foot = s[scope]
+        assert len(settled) == foot["graded"], (scope, len(settled), foot["graded"])
+        assert abs(sum(m["net_fair"] for m in settled) - foot["net_fair"]) <= 0.01 * len(settled)
+        assert abs(sum(m["net_vig2"] for m in settled) - foot["net_vig2"]) <= 0.01 * len(settled)
+        assert sum(m["assumed_price_legs"] for m in settled) == foot["assumed_price_legs"]
+    # a pending row is quoted, never settled: the return if every leg hits, at one
+    # price (net_vig2 null). The week fixture's pending parlay is AAA ML (0.5) x
+    # EEE ML (0.6) -> 2.0 x 1.6667, quoted even though one leg has not kicked off.
+    pend = [r for r in rows if r["money"]["kind"] == "potential"]
+    assert len(pend) == 1 and pend[0]["bucket"] == "pending", pend
+    assert [l["result"] for l in pend[0]["legs"]] == ["hit", "pending"], "a live parlay"
+    assert pend[0]["money"]["net_fair"] \
+        == round(STAKE * ((1 / 0.5) * (1 / 0.6) - 1), 2) == 233.33, pend[0]["money"]
+    assert pend[0]["money"]["net_vig2"] is None, "a quote is one price, not two"
+    # a potential quote prices EVERY leg; a settled one only the legs that hit.
+    one = [r for r in rows if r.get("scope") == "week" and r["bucket"] == "partial"][0]
+    assert one["money"]["kind"] == "settled" and one["money"]["net_fair"] == -100.0
+    assert potential_return(one, fx["week"], idx)[0] > 0, "the same parlay quotes positive"
+    # and in the built document, where the r71 fixture's legs are all assumed
+    prow = {r["parlay_id"]: r for r in doc["weeks"]["1"]["parlays"]}
+    assert all("money" in r for r in prow.values()) and not _validate_against_schema(doc)
+    bad2 = json.loads(json.dumps(doc))
+    del bad2["weeks"]["1"]["parlays"][0]["money"]
+    assert _validate_against_schema(bad2), "money is required on every parlay row"
+    bad2 = json.loads(json.dumps(doc))
+    bad2["weeks"]["1"]["parlays"][0]["money"]["kind"] = "guess"
+    assert _validate_against_schema(bad2), "kind is settled or potential, nothing else"
 
 
 def main(argv=None):

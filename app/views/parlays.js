@@ -41,6 +41,23 @@
  * active scope, read from summary.parlays.stake_100 (display only). Index
  * absent (404): the current week alone, no chips. Archive absent: a .state
  * message — never a blank page.
+ *
+ * R75: two more controls over the SAME painted list, in the idiom the leg-count
+ * chips already set.
+ *   TIER   .tierseg chips (ALL / LOW / MEDIUM / HIGH) reading each parlay's own
+ *          confidence_tier. Built from the tiers PRESENT in the active scope,
+ *          so it never offers an empty bucket (the current slate is mostly LOW;
+ *          a HIGH chip appears only on a week that has one).
+ *   SORT   .sortseg chips: SLATE, MODEL EV (desc), $100 (desc), LEGS (asc).
+ *          SLATE is the DEFAULT and is the document's own order: enabling a
+ *          sort is not the same as reordering the page for everyone, so the
+ *          view a returning user opens is unchanged until they choose.
+ *          The $100 chip appears only once app/review.js has resolved, because
+ *          the dollar figure is the BUILDER's (each row's `money` block) and
+ *          this view never prices a parlay itself; it sorts by the number the
+ *          card shows (dataset.rvPay), so what you sort is what you read.
+ * Both compose with scope + leg count + bucket + week, and both reset with the
+ * week for the same reason the leg chips do: the chips are per-week.
  */
 
 import { getParlays, getScheduleFull, getParlaysIndex, getParlayArchive } from '../data.js';
@@ -91,6 +108,63 @@ function legSeg(counts, activeLeg) {
     '<div class="legseg" role="group" aria-label="Filter by number of legs">' +
       chip('all', 'ALL') +
       counts.map((n) => chip(n, `${n} LEG`)).join('') +
+    '</div>'
+  );
+}
+
+/* R75 — tier + sort -------------------------------------------------------- */
+
+const TIER_ORDER = ['high', 'medium', 'low'];
+// value -> [label, comparator]. A null comparator means "leave the document's
+// own order alone" (SLATE) or "the comparator needs data this module does not
+// hold" ($100, built in paintList from the money map).
+const SORTS = {
+  slate: ['SLATE', null],
+  ev: ['MODEL EV', (a, b) => num(b.model_ev) - num(a.model_ev)],
+  pay: ['$100', null],
+  legs: ['LEGS', (a, b) => (legsOf(a) - legsOf(b))],
+};
+
+function num(v) { return Number.isFinite(Number(v)) ? Number(v) : 0; }
+function legsOf(p) { return Array.isArray(p.legs) ? p.legs.length : 0; }
+function tierOf(p) {
+  const t = String(p && p.confidence_tier || '').toLowerCase();
+  return TIER_ORDER.includes(t) ? t : null;
+}
+
+/** Tier chips for the tiers present in the active scope, plus ALL. '' when the
+ * scope carries no tier at all (nothing to filter). */
+export function tierSeg(tiers, activeTier) {
+  if (!tiers.length) return '';
+  const chip = (val, label) => {
+    const on = String(val) === String(activeTier);
+    return (
+      `<button type="button" class="leg-chip${on ? ' leg-chip--active' : ''}" ` +
+        `data-tier="${val}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`
+    );
+  };
+  return (
+    '<div class="legseg tierseg" role="group" aria-label="Filter by confidence tier">' +
+      chip('all', 'ALL') +
+      tiers.map((t) => chip(t, t.toUpperCase())).join('') +
+    '</div>'
+  );
+}
+
+/** Sort chips. `withPay` adds the $100 chip — only once the money is readable. */
+export function sortSeg(activeSort, withPay) {
+  const keys = ['slate', 'ev', 'legs'];
+  if (withPay) keys.splice(2, 0, 'pay');
+  const chips = keys.map((k) => {
+    const on = k === activeSort;
+    return (
+      `<button type="button" class="leg-chip${on ? ' leg-chip--active' : ''}" ` +
+        `data-sort="${k}" aria-pressed="${on ? 'true' : 'false'}">${SORTS[k][0]}</button>`
+    );
+  }).join('');
+  return (
+    '<div class="legseg sortseg" role="group" aria-label="Sort parlays">' +
+      '<span class="k sortseg-k">SORT</span>' + chips +
     '</div>'
   );
 }
@@ -207,9 +281,15 @@ function legend() {
       '<span class="legend-item"><b>MODEL EV</b> our combined probability vs the book’s '
         + 'parlay price. Same-game legs are correlation-adjusted (measured rho, 2023-25); '
         + 'cross-game legs are combined as independent — see each card’s note</span>' +
-      '<span class="legend-item"><b>TIER</b> confidence: high &gt; medium &gt; low (more legs = lower)</span>' +
+      '<span class="legend-item"><b>TIER</b> confidence: high &gt; medium &gt; low (more legs = lower). '
+        + 'The TIER chips filter to one</span>' +
+      '<span class="legend-item"><b>$100 PAYS</b> what a $100 wager on that card would return if '
+        + 'every leg hit, at the prices shown; <b>$100 RETURNED</b> is what it actually did once '
+        + 'the parlay graded. A leg with no book price is charged −110 — tap and hold the figure '
+        + 'to see how many. Display only — never a model input</span>' +
       '<span class="legend-item"><b>P&amp;L</b> a $100 flat stake on every graded parlay at the '
-        + 'book’s price (2%/leg vig; “fair” = no vig). Display only — never a model input</span>' +
+        + 'book’s price (2%/leg vig; “fair” = no vig) — the sum of the RETURNED figures above. '
+        + 'Display only — never a model input</span>' +
       '<span class="est">ESTIMATE</span>' +
     '</div>'
   );
@@ -317,6 +397,11 @@ export default async function mountParlays(el) {
   // R72 — the pressed bucket chip (null = no bucket filter) and the lazily
   // imported review module once it has resolved (null until then / absent).
   let activeBucket = null;
+  // R75 — the tier filter ('all' = off) and the sort key. `payReady` flips once
+  // app/review.js has resolved and the week's rows actually carry money.
+  let activeTier = 'all';
+  let activeSort = 'slate';
+  let payReady = false;
   let reviewMod = null;
   const reviewP = import('../review.js')
     .then((m) => m.primeReview().then(() => m))
@@ -336,6 +421,31 @@ export default async function mountParlays(el) {
     const box = el.querySelector('#leg-controls');
     if (!box) return;
     box.innerHTML = legSeg(legCountsForScope(), activeLeg);
+  }
+
+  /** R75 — distinct tiers present in the active scope, strongest first. */
+  function tiersForScope() {
+    const set = new Set(parlays.filter((p) => scopeOf(p) === active)
+      .map(tierOf).filter(Boolean));
+    return TIER_ORDER.filter((t) => set.has(t));
+  }
+
+  /** R75 — repaint the tier chips (keeps the host node). */
+  function paintTierSeg() {
+    const box = el.querySelector('#tier-controls');
+    if (!box) return;
+    const tiers = tiersForScope();
+    // a tier that vanished with the scope/week must not stay pressed
+    if (activeTier !== 'all' && !tiers.includes(activeTier)) activeTier = 'all';
+    box.innerHTML = tierSeg(tiers, activeTier);
+  }
+
+  /** R75 — repaint the sort chips. The $100 chip only once money is readable. */
+  function paintSortSeg() {
+    const box = el.querySelector('#sort-controls');
+    if (!box) return;
+    if (!payReady && activeSort === 'pay') activeSort = 'slate';
+    box.innerHTML = sortSeg(activeSort, payReady);
   }
 
   /** R72 — repaint the bucket summary card from the review document. */
@@ -368,6 +478,11 @@ export default async function mountParlays(el) {
       mod.applyParlayReview(listEl, week);
       paintBuckets();
       paintPnl();
+      // R75 — the $100 sort is offered only when this week's rows actually
+      // carry the builder's money (a pre-R75 document, or a week the review
+      // has no block for, leaves the chip off rather than sorting on nothing).
+      const ready = mod.parlayMoneyMap(week).size > 0;
+      if (ready !== payReady) { payReady = ready; paintSortSeg(); }
     });
   }
 
@@ -378,15 +493,39 @@ export default async function mountParlays(el) {
     const filtered = parlays.filter((p) =>
       scopeOf(p) === active
       && (activeLeg === 'all' || legOf(p) === Number(activeLeg))
+      && (activeTier === 'all' || tierOf(p) === activeTier)
       && (!bucketOf || bucketOf.get(String(p.parlay_id)) === activeBucket));
+    // R75 — sort a COPY; `parlays` stays in the document's own order so a
+    // re-render is never order-dependent. The $100 sort reads the builder's
+    // money map (the same numbers the cards show); a parlay the map does not
+    // price sorts last rather than pretending to be 0.
+    const money = activeSort === 'pay' && reviewMod
+      ? reviewMod.parlayMoneyMap(selWeek) : null;
+    const payOf = (x) => {
+      const m = money && money.get(String(x.parlay_id));
+      return m ? Number(m.net_fair) : -Infinity;
+    };
+    const cmp = activeSort === 'pay' && money
+      ? (a, b) => payOf(b) - payOf(a)
+      : SORTS[activeSort][1];
+    // SLATE (the default) leaves the document's order untouched — the page a
+    // returning user opens is the page they opened yesterday. A chosen sort
+    // orders a COPY, with the parlay id breaking ties so equal cards never
+    // shuffle between renders.
+    const shown = cmp
+      ? filtered.slice().sort((a, b) =>
+        cmp(a, b) || String(a.parlay_id).localeCompare(String(b.parlay_id)))
+      : filtered;
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
-    listEl.innerHTML = filtered.length
-      ? filtered.map((p) => renderParlayCard(p, matchupById)).join('')
+    listEl.innerHTML = shown.length
+      ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
-        : '<div class="state">No parlays at this leg count.</div>');
-    if (filtered.length) annotateLegs(listEl, filtered);
+        : (activeTier !== 'all'
+          ? '<div class="state">No parlays in that tier at this scope and leg count.</div>'
+          : '<div class="state">No parlays at this leg count.</div>'));
+    if (shown.length) annotateLegs(listEl, shown);
     // R71 — post-game review marks (✓ / ✗ / – per leg, HIT / MISS / PENDING per
     // parlay, a summary line), lazily so app/review.js stays off the boot graph.
     // Absent data/review.json (or a failed import) paints nothing extra.
@@ -415,12 +554,14 @@ export default async function mountParlays(el) {
     selWeek = week;
     activeLeg = 'all';
     activeBucket = null;
+    activeTier = 'all';   // R75 — the tier chips are per-week, like the leg chips
     const entry = weeks.find((w) => w.week === week) || null;
     syncWeekChrome(week, !!(entry && entry.closed && week !== curWeek));
     const seq = ++paintSeq;
     if (week === curWeek) {
       parlays = curParlays;
       paintLegSeg();
+      paintTierSeg();
       paintList();
       return;
     }
@@ -435,6 +576,7 @@ export default async function mountParlays(el) {
       if (seq !== paintSeq) return;
       parlays = [];
       paintLegSeg();
+      paintTierSeg();
       stateMsg(listEl, `Week ${week} is not archived — no parlay history for this week yet.`);
       if (reviewMod) { paintBuckets(); paintPnl(); }
       paintReview(listEl, week);
@@ -443,6 +585,7 @@ export default async function mountParlays(el) {
     if (seq !== paintSeq) return; // a newer selection already painted
     parlays = (doc && Array.isArray(doc.parlays)) ? doc.parlays : [];
     paintLegSeg();
+    paintTierSeg();
     if (!parlays.length) {
       stateMsg(listEl, `Week ${week} archive holds no parlays.`);
       if (reviewMod) { paintBuckets(); paintPnl(); }
@@ -457,11 +600,15 @@ export default async function mountParlays(el) {
     wkBar(weeks, selWeek) +
     scopeSeg(active) +
     '<div id="leg-controls"></div>' +
+    '<div id="tier-controls"></div>' +
+    '<div id="sort-controls"></div>' +
     legend() +
     '<div id="parlay-buckets"></div>' +
     '<div id="parlay-pnl"></div>' +
     '<div id="parlays-list" class="card-list"></div>';
   paintLegSeg();
+  paintTierSeg();
+  paintSortSeg();
   paintList();
 
   // R73 — week chips (event delegation, one listener; a tap on the selected
@@ -506,6 +653,7 @@ export default async function mountParlays(el) {
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
       paintLegSeg();
+      paintTierSeg();
       paintList();
     });
   }
@@ -518,6 +666,38 @@ export default async function mountParlays(el) {
       if (!btn) return;
       activeLeg = btn.dataset.leg;
       legBox.querySelectorAll('.leg-chip').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('leg-chip--active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      paintList();
+    });
+  }
+
+  // R75 — tier chips (delegated on the persistent host, same idiom).
+  const tierBox = el.querySelector('#tier-controls');
+  if (tierBox) {
+    tierBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.leg-chip');
+      if (!btn || !btn.dataset.tier) return;
+      activeTier = btn.dataset.tier;
+      tierBox.querySelectorAll('.leg-chip').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('leg-chip--active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      paintList();
+    });
+  }
+
+  // R75 — sort chips. The list re-sorts; no filter and no fetch changes.
+  const sortBox = el.querySelector('#sort-controls');
+  if (sortBox) {
+    sortBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.leg-chip');
+      if (!btn || !btn.dataset.sort || btn.dataset.sort === activeSort) return;
+      activeSort = btn.dataset.sort;
+      sortBox.querySelectorAll('.leg-chip').forEach((b) => {
         const on = b === btn;
         b.classList.toggle('leg-chip--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
