@@ -204,19 +204,28 @@ test.describe('R23-B2 · a LIVE snake draft can record any pick the room actuall
     // A player far outside the top of the consensus board — the reach this
     // room's calibration exists to measure. Read his name off the board
     // itself so the test never invents a player (HONEST DATA).
+    // Proportional, never a pinned index: the consensus board SHRINKS in-season
+    // as real drafts finish (163 rows in preseason, 110 by week 2), and the old
+    // rows[120] became undefined — a TypeError, not an honest failure. Eight
+    // tenths of the way down is "far outside the top" at any board depth.
     const deep = await page.evaluate(async () => {
       const doc = await (await fetch('/data/adp.json')).json();
       const rows = doc.players || doc;
-      return rows[120].name;
+      const i = Math.floor((rows.length - 1) * 0.8);
+      return { name: rows[i].name, depth: rows.length, index: i };
     });
+    expect(deep.depth, 'the board is too shallow for "deep" to mean anything')
+      .toBeGreaterThan(40);
+    expect(deep.index, 'the pick must sit outside the first two rounds of a 12-team room')
+      .toBeGreaterThan(24);
 
-    await find.fill(deep);
-    await expect(chips.first()).toContainText(deep, { timeout: 15000 });
+    await find.fill(deep.name);
+    await expect(chips.first()).toContainText(deep.name, { timeout: 15000 });
     expect(await chips.count()).toBeLessThan(15);
 
     // Tapping it records THAT player as the opponent's pick — the whole point.
     await chips.first().click();
-    await expect(page.locator('.ds-log').first()).toContainText(deep);
+    await expect(page.locator('.ds-log').first()).toContainText(deep.name);
     // And the filter resets, so the next opponent starts from the full board.
     await expect(page.locator('.ds-livefind')).toHaveValue('');
     expect(await chips.count()).toBeGreaterThan(15);
