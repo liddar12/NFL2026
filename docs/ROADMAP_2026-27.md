@@ -1,6 +1,7 @@
 # Roadmap 2026-27 — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
-**Author:** product management pass, 2026-09-02 · **Horizon:** 2026 season + offseason, to Aug 2027
+**Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
+re-derived from shipped code and committed data) · **Horizon:** 2026 season + offseason, to Aug 2027
 **Repos:** `liddar12/SelfLearning` (the domain-agnostic self-learning spine) · `liddar12/NFL2026`
 (the NFL adapter and product) · `liddar12/wc2026-tracker` (prior work; second sports adapter candidate)
 **Companion:** `docs/sports-roadmap.md` in SelfLearning carries the spine-side detail.
@@ -12,111 +13,330 @@ against the real outcome, scores it, and adjusts itself only when the adjustment
 better on data it could not have seen — with sports prediction markets as the first family of
 adapters and NFL2026 as the adapter that is live today.
 
-**Rules that do not move** (all measured against this session's shipped code):
+**Rules that do not move** (all measured against shipped code):
 1. Market prices (books, Kalshi, Polymarket, Sleeper's numbers) are display and yardstick only,
-   never a projection input.
+   never a projection input. Money on screen — including the $100 stake lines — is display only.
 2. Every learned change ships behind never-regress: walk-forward, held-out, exit-code gated.
 3. Absent data is absent, never 0; every estimate is labelled; every claim on screen is wired.
 4. Autonomy is staged (SelfLearning L0 monitor → L1 calibration → L2 weights → L3/L4) and a task
    earns the next level only with `min_resolved` outcomes behind it.
 5. No build step, stdlib pipelines, Apple HIG; the regression gate is 100% green before any deploy.
 
-## 1. Where we start (measured, 2026-09-02)
+## 1. Where we start (measured 2026-09-16, two weeks into the season)
 
 | Area | Today | Evidence |
 |---|---|---|
-| Weekly player split | `weekly_split_v2` adopted: pooled MAE 6.050→6.003, rank corr 0.369→0.381 (2023-25 walk-forward) | `data/weekly_backtest.json` |
-| Parlay props | calibrated player model: 2025 fold log-loss 0.682→0.671, pick hit 55.8%→59.9%; spread legs NO EDGE (0.723 vs 0.693 flat) | `data/parlay_backtest.json` |
+| Weekly player split | `weekly_split_v2` adopted on the corpus: pooled MAE 6.0498→6.003, rank corr 0.3694→0.3814 (2023-25 walk-forward); held-out 2025 MAE 6.079 | `data/weekly_backtest.json` |
+| Weekly split, **live** | week 1 resolved as made: 216 player-weeks, shipped MAE 6.1457 / rank corr 0.3664 / top-k 0.7525, bias −1.339, band coverage 45.8%; gated variant worse at 6.3775 | `weekly_backtest.json` → `live_2026` |
+| Parlay props | calibrated player model on the corpus: 2025 fold log-loss 0.682→0.671, pick hit 55.8%→59.9%; spread legs NO EDGE (0.723 vs 0.693 flat) | `data/parlay_backtest.json` |
+| Parlay legs, **live** | 37 locked prop legs resolved (week 1): seed log-loss 0.6914 → calibrated 0.6602, hit rate 40.5%; the weekly refit arms at 100 resolved legs | `parlay_backtest.json` → `live_2026` |
+| Parlay slate | 66 parlays a week (18 week-scope, 48 game-scope); week 1 archived and frozen, week 2 open; 0 same-team ML+spread stacks since R74 | `data/parlays/index.json` |
 | Moneyline | Elo log-loss 0.637 vs market 0.608 (yardstick); no feature family clears the gate | MODEL tab, `promote_signals` |
-| Player signals | 32 named, all weight 0.0; ledger has 0 resolved weeks (week 1 kicks off ~09-10) | `data/meta.json` |
+| Player signals | 32 named, all weight 0.0; 1 resolved week in the ledger (`signals_with_weight: []`) | `data/meta.json` → `learning_record` |
 | Season level | SCENARIO candidate over-projects 2025 by ~9% (WR 16%); a fixed correction failed walk-forward | R51 analysis |
-| K / DEF | flat per-game average, no weekly split | `grade-weekly.js` |
-| Weather | forecast horizon covers week 1 only: 3,126 player-weeks fall back to roof-only | `player_weekly.json` meta |
+| K / DEF | still a flat per-game average, no weekly split | `kdst_projections.json`, `grade-weekly.js` |
+| Weather | forecast for every non-dome home game with a climatology fallback beyond the horizon | R56, `player_weekly.json` |
+| Line-injury cascade | measured and **not adopted**: 0 of 15 variants cleared never-regress; the LINE REPORT chips display, no factor prices | R70 phase 1 |
 | QA coverage | 18 of 309 acceptance criteria asserted (6.1%) at last audit; QA-D1–D9 closed, D10 open | `docs/backlog/QA_COVERAGE.md` |
 | Code health | 0 unimported exports, 0 unreferenced Python defs, 225 test-only exports pending a decision | `docs/qa/R52_DEAD_CODE_REPORT.md` |
-| SelfLearning spine | Prediction/Outcome/Score, walk-forward, SQLite + Postgres schema, scorer + calibration + registry + L1 policy merged; store swappable; Supabase not provisioned | SelfLearning `docs/roadmap.md` |
+| Boot budget | 359,967 bytes of a 360,000 ceiling — **33 bytes of headroom**; the next boot-graph addition of any size trips it and needs a written re-measure | `tests/perf/budget.spec.mjs` |
+| SelfLearning spine | Prediction/Outcome/Score, walk-forward, SQLite + Postgres schema, scorer + calibration + registry + L1 policy merged; store swappable; no shared store provisioned | SelfLearning `docs/roadmap.md` |
 
 ## 2. The plan by quarter
 
 Legend: **S** = SelfLearning release · **R** = NFL2026 release · 🔒 = needs an owner decision ·
-each item names its **measure of success** (MoS); nothing ships without one.
+✅ shipped · ▢ not started. Every item names its **measure of success** (MoS);
+nothing ships without one.
 
 ### Q3 2026 (Sep–Oct) — Learning turns on
 
-| Item | What | MoS | LOE |
-|---|---|---|---|
-| R53 · Ledger live | Week 1 actuals resolve `data/estimates/2026.json`; `fit_player_signals --propose` archives its first walk-forward verdict; MODEL LEARNING RECORD shows resolved weeks, MAE, bias (shipped vs gated vs candidate) | ≥1 resolved week with a non-null MAE on prod by 09-16 | 0.5 d |
-| R54 · Weekly harness on live weeks | `backtest_weekly.py` gains a 2026 fold that scores the shipped `player_weekly.json` as-made against nflverse actuals (same never-regress rule) | 2026 fold present in `weekly_backtest.json` from week 2 | 1 d |
-| R55 · K/DEF weekly split | opponent-allowed K/DEF points, dome/outdoor, home field → weekly K/DEF numbers behind the weekly gate | K/DEF MAE not worse than flat average on 2023-25 | 1.5 d |
-| R56 · Weather horizon | Open-Meteo 14-day forecast for every scheduled game, refreshed daily; `weather_no_forecast_weeks` → 0 for the next two weeks | fallback count ≤ 1 week ahead | 0.5 d |
-| R57 · Live scores edge (N6) | Vercel `/api/nfl` with STATUS gating (FINAL only), RENAMES mirrored, poller + ESPN fallback (the WC2026 pattern) | live score ≤ 15 s on open app; only FINAL moves actuals | 2 d |
-| R58 · Parlay ledger | every prop leg logged as made and resolved weekly; calibration re-fit each Tuesday under the parlay gate | first re-fit with ≥100 resolved 2026 legs | 1 d |
-| S1 · Sports task contract | `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`) with feature/prediction/outcome shapes; validator; docs | NFL snapshots + ledger rows validate as Prediction/Outcome | 1 d |
-| S2 · NFL adapter (read side) | `SportsAdapter` ingests NFL2026 `data/snapshots/*` and `data/estimates/*` into the store; nightly job | 100% of locked NFL rows in the store with `as_of` ≤ kickoff | 2 d |
-| S3 · Scores for sports tasks | general scorer emits per-task, per-cohort (position, week, tier) `Score` rows with Wilson CIs; terminal Scores tab reads them | MODEL tab and terminal show the same MAE for the same week | 1.5 d |
-| 🔒 Store | Supabase Postgres for the shared store (schema variant merged in #4) | decision | — |
+#### ✅ R53 · Ledger live — *shipped 2026-09-13 (#73)*
+- Week 1 actuals resolve `data/estimates/2026.json`; a dry-run resolver runs first so a bad match
+  never writes.
+- Players the resolver cannot match are **named**, not silently dropped (76 unmatched at week 1).
+- `fit_player_signals --propose` archives its first walk-forward verdict.
+- MODEL LEARNING RECORD renders resolved weeks, MAE, bias and band coverage for three lines at
+  once: shipped, gated and candidate.
+- **MoS:** ≥1 resolved week with a non-null MAE on prod by 09-16 → met (1 week, MAE 6.146). · **LOE** 0.5 d
+
+#### ✅ R54 · Weekly harness on live weeks — *shipped with R53*
+- `backtest_weekly.py` gained a `live_2026` fold that scores the shipped `player_weekly.json`
+  **as made and locked before kickoff**, never a re-projection after the fact.
+- Scored against nflverse actuals under the same never-regress rule as the corpus.
+- The corpus fold stays the promotion authority; the live fold is measurement only, and says so in
+  its own `note`.
+- **MoS:** 2026 fold present in `weekly_backtest.json` from week 2 → met. · **LOE** 1 d
+
+#### ▢ R55 · K/DEF weekly split
+- Opponent-allowed K and D/ST points per week, dome/outdoor, home field → a weekly K/DEF number
+  instead of today's flat season average.
+- Rides the existing weekly gate; K/DEF keeps its separate contract (merging it into
+  `player_projections.json` would evict ~74 offensive players from the 300-row cut).
+- **MoS:** K/DEF MAE not worse than the flat average on 2023-25. · **LOE** 1.5 d
+
+#### ✅ R56 · Weather horizon — *shipped with R53*
+- Open-Meteo forecast for every scheduled non-dome home game, refreshed daily.
+- Beyond the forecast horizon, a **climatology fallback** (stadium/month normals) replaces the
+  old roof-only blank, and is labelled as climatology wherever it is used.
+- **MoS:** fallback count ≤ 1 week ahead → met. · **LOE** 0.5 d
+
+#### ▢ R57 · Live scores edge (N6)
+- Vercel `/api/nfl` Edge Function with STATUS gating — only FINAL records move actuals, live and
+  half-time records display only.
+- RENAMES mirrored across the edge function, the client and the Python scrapers.
+- Poller with direct-ESPN fallback (the WC2026 pattern, proven in that repo).
+- Note: the git pipeline stays the durable record; this is a display path.
+- **MoS:** live score ≤ 15 s on an open app; only FINAL moves actuals. · **LOE** 2 d
+
+#### ✅ R58 · Parlay ledger — *shipped with R53*
+- Every prop leg logged **as made**, priced at first sight before kickoff, into
+  `data/estimates/parlays_2026.json` — append-only, keyed `(season, week, game_id, market, selection)`.
+- Weekly resolver grades each leg; the calibration re-fit runs under the parlay never-regress gate.
+- The refit is **armed but not fired**: 37 of the 100 resolved legs it needs.
+- **MoS:** first re-fit with ≥100 resolved 2026 legs → pending, 37/100. · **LOE** 1 d
+
+#### ✅ R70 phase 1 · Line-injury cascade — *shipped with R53, measured, not adopted*
+- OL/DL availability cascades into a LINE REPORT with per-team chips on the GRADE tab.
+- 15 pricing variants measured against never-regress; **0 cleared**, so no factor prices anything.
+- Shipped as an honest negative result: the chips inform, the model does not move.
+- **MoS:** every variant has a walk-forward row and the tab says which shipped → met. · **LOE** —
+
+#### ✅ R71 · Post-game review — *shipped with R53*
+- Slate pick circles drawn from the as-made locks, green when the predicted team won.
+- Parlay leg and whole-parlay outcomes graded per week.
+- Every player marked OVER / UNDER / MET against the calibrated band, with a **measured** why
+  (usage, opponent, game script), plus an optional env-gated AI narrative on top.
+- **MoS:** every circle traceable to a lock written before kickoff → met. · **LOE** —
+
+#### ✅ R72 · Right/wrong overview and review sorting — *shipped 2026-09-14 (#74)*
+- SLATE: a per-week header counting picks RIGHT / WRONG / TBD, plus a line proving the learning
+  loop is real (which resolved weeks fed which fit).
+- PLAYERS: sort and filter by met / over / under expectations alongside the trend and SoS filters,
+  with a season tally per player.
+- PARLAYS: outcome buckets — all-hit, push, partial, all-wrong — as filter chips.
+- **MoS:** the counts reconcile to the ledger row-for-row → met. · **LOE** —
+
+#### ✅ R73 · Parlay history and the $100 P&L line — *shipped 2026-09-15 (#75)*
+- `data/parlays/` week archive: a file per week, written on first sight, refreshed while the week
+  is open, and **frozen forever** once every game is FINAL.
+- `index.json` with `current_week`; the PARLAYS week chips default to the live NFL week.
+- Past weeks show their outcomes and a display-only `$100` flat-stake P&L per scope: fair and
+  vig-adjusted, with legs that have no book price assumed at −110 and counted in the note.
+- **MoS:** a closed week's file never changes again; the P&L reconciles to the graded buckets → met. · **LOE** —
+
+#### ✅ R74 · One leg per game side — *shipped 2026-09-16 (#77)*
+- A moneyline and that same team's spread are **one opinion, not two legs** — the builder now
+  refuses the pair (it was being selected precisely because its ρ 0.71 ranked highest).
+- `validate_data.py` gained a standalone `check_parlay_one_leg_per_side` so the rule is gated, not
+  merely coded, with its own message and its own selftest.
+- Week 2 rebuilt from the shipped document so real book prices survived the correction rather than
+  degrading to model-seeded placeholders; week 1 verified unchanged.
+- Archive idempotence fixed: an open week now refreshes on **content** change, not timestamp alone.
+- **MoS:** 0 same-side stacks in `parlays.json` and in every open archived week → met. · **LOE** —
+
+#### ✅ Red-main repair — *shipped 2026-09-15 (#76)*
+- One live defect: a published upstream FTN release was read as permission to price a season the
+  artifact does not carry (silent 0.0, bare KeyError, `applied: True`). Coverage is now
+  authoritative and the probe may only veto; the history builder forces `dark` back on and the
+  next cron self-heals.
+- Six in-season test locks re-derived from committed data instead of preseason snapshots — the
+  class of failure where a test goes red, or worse silently toothless, as the season moves.
+- **MoS:** all three symptoms reproduced on a pristine checkout before and after → met. · **LOE** —
+
+#### ▢ R75 · PARLAYS sorting, filtering and the $100 wager — **new, next up**
+- **Confidence-tier chips** — ALL / LOW / MEDIUM / HIGH, reading `confidence_tier` straight off
+  each parlay (today's week-2 slate: 53 low, 12 medium, 1 high). Tiers with no cards in the active
+  scope do not render a dead chip.
+- **Sort control** — MODEL EV (desc, the default), $100 RETURN (desc), LEG COUNT (asc). `model_ev`
+  is already on every parlay; nothing new is computed for it.
+- **A $100 number on every card** — for an ungraded parlay, the potential return
+  `100 × (∏ leg decimal − 1)`, using the *same* `leg_decimal` rule R73 already ships in
+  `build_review.py`: the as-made R58 ledger `implied_prob` where a book price exists, −110
+  (1.9091) assumed otherwise, with the assumed count named on the card. One rule, so the card and
+  the week footer can never disagree.
+- **Graded weeks keep the realized number** — a closed week shows what the stake actually returned
+  (the existing `stake_100` P&L), not a hypothetical; the card switches, the footer does not move.
+- **Composes with what exists** — tier and sort stack with the scope selector, leg-count chips,
+  R72 outcome buckets and R73 week chips, and reset per week exactly as those do.
+- **Display-only money**, per rule 1: no dollar figure, tier or EV ever reaches a projection input.
+- **Costs no boot bytes** — `app/views/parlays.js` and `app/review.js` are lazy, and both fields
+  are already in feeds the view reads; with 33 bytes of headroom, this item must add nothing to
+  the boot graph (`app/data.js`), and the perf project is the guard.
+- **MoS:** a browser test that (a) filters to HIGH and gets only high-tier cards, (b) sorts by
+  return and reads a non-increasing sequence, (c) recomputes one card's return from the ledger and
+  matches it exactly, and (d) the perf project stays green under both ceilings. · **LOE** 1 d
+
+#### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
+- `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
+  declared feature / prediction / outcome shape.
+- A validator so NFL snapshots and ledger rows can be checked as Prediction/Outcome rows.
+- **MoS:** NFL snapshots + ledger validate against the contract. · **LOE** 1 d
+
+#### ▢ S2 · NFL adapter (read side)
+- `SportsAdapter` ingests NFL2026 `data/snapshots/*` and `data/estimates/*` into the store.
+- Nightly job, idempotent, `as_of` never later than kickoff.
+- **MoS:** 100% of locked NFL rows in the store with `as_of` ≤ kickoff. · **LOE** 2 d
+
+#### ▢ S3 · Scores for sports tasks
+- A general scorer emitting per-task, per-cohort (position, week, tier) `Score` rows with Wilson CIs.
+- The terminal Scores tab reads them; the MODEL tab keeps reading the repo feeds.
+- **MoS:** MODEL tab and terminal show the same MAE for the same week. · **LOE** 1.5 d
+
+#### 🔒 Store — *decision effectively made; see §4.1*
+- Recommendation now on the table: a **git-backed store** (rows as reviewable JSON diffs,
+  gate-validatable, `git revert`-able) rather than Supabase, because no second writer exists yet.
+- It blocks the **live edge endpoint (R57) and the second adapter (S8)**, not the nightly ingest.
 
 ### Q4 2026 (Nov–Jan) — Learn from the record
 
-| Item | What | MoS | LOE |
-|---|---|---|---|
-| R59 · Level-bias as a signal | regression-to-mean term enters the registry at weight 0; the ledger fit may award it weight only if it clears never-regress on resolved 2026 weeks | proposal archived with CI; adoption is a human act | 1 d |
-| R60 · Signal proposals cadence | weekly `--propose` review page on MODEL: which of the 32 signals cleared, by how much, on how many weeks; one-click adopt stays manual | every Tuesday a proposal row exists | 1 d |
-| R61 · Playoff mode | GRADE: league playoff bracket with weekly-optimal totals, conditioned title odds; LINEUP: playoff-week waivers | bracket renders for P.T.I. weeks 15-17 | 2 d |
-| R62 · Test-only exports decision | 225 exports kept as seams or tests moved to behavioural entry points; scanner promoted to a never-regress gate step | dead-export count gated at 0 | 1 d |
-| R63 · QA-D10 | tests written with the unbuilt modules (P3 ensemble, N3 detail) | AC coverage reported by `QA_COVERAGE.md` ≥ 50% | 3 d |
-| S4 · L1 calibration for sports | Platt/isotonic calibration applied per task once `min_resolved` (30) is met; proposed as a `Change`, never auto-applied | `Change` rows for `nfl.parlay_leg` and `nfl.game` with rationale | 1.5 d |
-| S5 · Never-regress as a registry policy | port NFL2026's margin + significance gate as the spine's promotion rule for any task | one policy, two adapters, identical verdicts on the NFL fixtures | 1.5 d |
-| S6 · WC2026 corpus import | tournament predictions and results from wc2026-tracker as a resolved `wc.match` corpus (prior work reused as-is) | scorer produces Brier/log-loss for `wc.match` with CIs | 1.5 d |
-| 🔒 Autonomy threshold | confirm `min_resolved` 30 and which tasks may reach L2 | decision | — |
+#### ▢ R59 · Level-bias as a signal
+- The regression-to-mean term enters the registry at weight 0 like every other signal.
+- The ledger fit may award it weight **only** if it clears never-regress on resolved 2026 weeks.
+- Adoption stays a human act; the proposal is archived either way.
+- **MoS:** proposal archived with a CI; no silent adoption. · **LOE** 1 d
+
+#### ▢ R60 · Signal proposals cadence
+- A weekly `--propose` review page on MODEL: which of the 32 signals cleared, by how much, on how
+  many resolved weeks.
+- One-click adopt stays manual, and an empty week must render as an honest "none cleared".
+- **MoS:** every Tuesday a proposal row exists. · **LOE** 1 d
+
+#### ▢ R61 · Playoff mode
+- GRADE: the league playoff bracket with weekly-optimal totals and conditioned title odds.
+- LINEUP: playoff-week waiver handling.
+- **MoS:** the bracket renders for P.T.I. weeks 15-17. · **LOE** 2 d
+
+#### ▢ R62 · Test-only exports decision
+- The 225 test-only exports are either kept deliberately as seams or the tests move to behavioural
+  entry points — one written decision, not a drift.
+- The dead-code scanner is promoted to a never-regress gate step.
+- **MoS:** dead-export count gated at 0. · **LOE** 1 d
+
+#### ▢ R63 · QA-D10
+- Tests written alongside the still-unbuilt modules (P3 ensemble, N3 detail) instead of after.
+- **MoS:** `QA_COVERAGE.md` ≥ 50%. · **LOE** 3 d
+
+#### ▢ S4 · L1 calibration for sports
+- Platt / isotonic calibration per task, applied only once `min_resolved` (default 30) is met.
+- Proposed as a `Change` row with a rationale, never auto-applied.
+- **MoS:** `Change` rows for `nfl.parlay_leg` and `nfl.game`. · **LOE** 1.5 d
+
+#### ▢ S5 · Never-regress as a registry policy
+- Port NFL2026's margin + significance gate into the spine as the promotion rule for any task.
+- **MoS:** one policy, two adapters, identical verdicts on the NFL fixtures. · **LOE** 1.5 d
+
+#### ▢ S6 · WC2026 corpus import
+- Tournament predictions and results from `wc2026-tracker` imported as a resolved `wc.match`
+  corpus — prior work reused as-is, no new data collection.
+- **MoS:** the scorer produces Brier / log-loss for `wc.match` with CIs. · **LOE** 1.5 d
+
+#### 🔒 Autonomy threshold
+- Confirm `min_resolved` = 30 and which tasks may ever reach L2.
 
 ### Q1 2027 (Feb–Apr) — Extract the platform
 
-| Item | What | MoS | LOE |
-|---|---|---|---|
-| S7 · Harness extraction | NFL2026 `scripts/harness/*`, `never_regress`, signal registry, conformal, ledger objective move into `selflearn-core` as packages; NFL2026 pins the package | NFL2026 gate green with byte-identical `data/*.json` before and after | 4 d |
-| S8 · Second live adapter | WC2026 (or the next tournament) wired to the spine live: predictions logged before kickoff, resolved by the results pipeline | two adapters, one store, one Scores view | 3 d |
-| S9 · Market yardstick service | Kalshi/Polymarket/closing-line ingestion as **measurement only** (policy), per task | market vs ours log-loss on MODEL and terminal, same number both places | 1.5 d |
-| R64 · Offseason signals | draft/free-agency/coaching-change signals computed for 2027, entering at weight 0; backtested on 2023-26 corpus | each signal has a walk-forward row, none adopted by hand | 3 d |
-| R65 · Rookie model | facts-only rookie cards become a measured projection with its own gate (no invented points) | rookie MAE vs prior_ppg baseline reported | 2 d |
-| R66 · Contract + boot budget review | re-measure the 360 KB boot ceiling and route contracts after extraction | perf project green with reasoned numbers | 0.5 d |
+#### ▢ S7 · Harness extraction
+- `scripts/harness/*`, `never_regress`, the signal registry, conformal bands and the ledger
+  objective move into `selflearn-core` as packages; NFL2026 pins the package.
+- **MoS:** NFL2026 gate green with **byte-identical** `data/*.json` before and after. · **LOE** 4 d
+
+#### ▢ S8 · Second live adapter
+- WC2026 (or the next tournament) wired live: predictions logged before kickoff, resolved by the
+  results pipeline.
+- **MoS:** two adapters, one store, one Scores view. · **LOE** 3 d
+
+#### ▢ S9 · Market yardstick service
+- Kalshi / Polymarket / closing-line ingestion as **measurement only**, enforced by policy per task.
+- **MoS:** market-vs-ours log-loss on MODEL and terminal, the same number in both places. · **LOE** 1.5 d
+
+#### ▢ R64 · Offseason signals
+- Draft, free-agency and coaching-change signals computed for 2027, entering at weight 0.
+- Backtested on the 2023-26 corpus.
+- **MoS:** each signal has a walk-forward row; none adopted by hand. · **LOE** 3 d
+
+#### ▢ R65 · Rookie model
+- The facts-only rookie cards (R45) become a measured projection with its own gate — no invented
+  points, and a visible fallback when the facts run out.
+- **MoS:** rookie MAE reported against the `prior_ppg` baseline. · **LOE** 2 d
+
+#### ▢ R66 · Contract + boot budget review
+- Re-measure the 360 KB boot ceiling and the route contracts after extraction — the honest
+  re-measure the budget file already demands, not a bump to turn a red bar green.
+- **MoS:** perf project green with reasoned numbers written down. · **LOE** 0.5 d
 
 ### Q2 2027 (May–Aug) — Second season ready
 
-| Item | What | MoS | LOE |
-|---|---|---|---|
-| S10 · L2 weights across adapters | ensemble/weight updater proposes cross-adapter reweights under the registry policy | proposals with CIs; still human-applied | 2 d |
-| S11 · Multi-sport scores | terminal and MODEL tab render per-adapter learning curves (resolved n, MAE, calibration) from one store | both sports on one page | 1.5 d |
-| S12 · Packaging (M4) | `selflearn-core` published as a zero-dep package; adapters pin a version | NFL2026 and WC2026 install from the package | 1 d |
-| R67 · Draft room 2027 | auction-memory epic (observed prices seed the opponent model), Sleeper full sync, ADP display-only | auction sim fills every roster, prices from memory when present | 3 d |
-| R68 · Pre-season gate | 2027 corpus refresh, weekly + parlay + player gates re-baselined, ledger reset for 2027 | full gate green on 2027 fixtures | 1 d |
-| R69 · QA coverage ≥ 80% | remaining acceptance criteria asserted, self-referential ones retired | `QA_COVERAGE.md` ≥ 80% | 4 d |
+#### ▢ S10 · L2 weights across adapters
+- The ensemble / weight updater proposes cross-adapter reweights under the registry policy.
+- **MoS:** proposals carry CIs and stay human-applied. · **LOE** 2 d
+
+#### ▢ S11 · Multi-sport scores
+- Terminal and MODEL render per-adapter learning curves (resolved n, MAE, calibration) from one store.
+- **MoS:** both sports on one page. · **LOE** 1.5 d
+
+#### ▢ S12 · Packaging (M4)
+- `selflearn-core` published as a zero-dependency package; adapters pin a version.
+- **MoS:** NFL2026 and WC2026 both install from the package. · **LOE** 1 d
+
+#### ▢ R67 · Draft room 2027
+- Auction-memory epic: observed prices seed the opponent model.
+- Sleeper full sync; ADP stays display-only (rule 1).
+- **MoS:** the auction sim fills every roster, pricing from memory when present. · **LOE** 3 d
+
+#### ▢ R68 · Pre-season gate
+- 2027 corpus refresh; weekly, parlay and player gates re-baselined; the ledger reset for 2027.
+- **MoS:** the full gate green on 2027 fixtures. · **LOE** 1 d
+
+#### ▢ R69 · QA coverage ≥ 80%
+- The remaining acceptance criteria asserted; self-referential ones retired rather than faked.
+- **MoS:** `QA_COVERAGE.md` ≥ 80%. · **LOE** 4 d
 
 ## 3. KPIs the roadmap is judged on
 
-| KPI | Now | Q4 2026 | Aug 2027 |
+| KPI | Now (2026-09-16) | Q4 2026 | Aug 2027 |
 |---|---|---|---|
 | Weekly MAE (pooled 2023-25 harness) | 6.003 | ≤ 5.95 | ≤ 5.85 |
-| Weekly rank corr | 0.381 | ≥ 0.39 | ≥ 0.41 |
+| Weekly MAE (live 2026, as made) | 6.146 (1 week, n=216) | reported every week | ≤ corpus + 0.15 |
+| Weekly rank corr (corpus / live) | 0.381 / 0.366 | ≥ 0.39 | ≥ 0.41 |
 | Prop pick hit rate (held-out fold) | 59.9% | ≥ 60% on 2026 legs | ≥ 61% |
+| Parlay leg log-loss (live, calibrated) | 0.660 over 37 legs | measured weekly | ≤ 0.650 |
 | Moneyline log-loss gap to market | 0.029 | measured weekly | ≤ 0.025 |
-| Ledger resolved weeks | 0 | 13 | 18 + WC corpus |
+| Ledger resolved weeks | 1 | 13 | 18 + WC corpus |
+| Resolved parlay legs (refit arms at 100) | 37 | ≥ 400 | ≥ 900 |
 | Signals with earned weight | 0 of 32 | first honest adoption or an honest "none" | reported per adapter |
 | Adapters on the spine | 0 | 1 (NFL) | 2 (NFL + WC) |
 | Acceptance-criteria coverage | 6.1% | ≥ 50% | ≥ 80% |
 | Unimported exports / unreferenced defs | 0 / 0 | 0 / 0 (gated) | 0 / 0 |
+| Boot bytes (ceiling 360,000) | 359,967 | re-measured, with a written decision | re-based after S7 |
 
 ## 4. Decisions the owner must make (🔒)
 
-1. **Supabase for the shared store** — unblocks S2/S3 live logging; SQLite cannot be shared by a Vercel writer and a Python reader.
+1. **Shared store** — *recommendation, pending your yes:* a **git-backed store** (JSON rows
+   committed by the pipeline) rather than Supabase. No Vercel writer exists today, so the real
+   constraint is the ephemeral runner, not SQLite sharing; git gives reviewable diffs, gate
+   validation and `git revert`. It blocks **R57 (live edge) and S8 (second live adapter)** —
+   *not* the nightly ingest, which the repo already serves.
 2. **`min_resolved` threshold** (default 30) and which sports tasks may advance past L1.
-3. **Market yardstick sources** — which prices may be ingested for measurement only (policy stands: never an input).
-4. **Second adapter** — WC2026 (prior work, zero new data) or a new sport; recommendation: WC2026 first.
-5. **Extraction timing** — Q1 2027 offseason (recommended) versus in-season; in-season extraction risks the live ledger.
+3. **Market yardstick sources** — which prices may be ingested for measurement only (policy
+   stands: never an input).
+4. **Second adapter** — WC2026 (prior work, zero new data) or a new sport; recommendation: WC2026.
+5. **Extraction timing** — Q1 2027 offseason (recommended) versus in-season; in-season extraction
+   risks the live ledger.
+6. **2026 FTN charting ingest** — `LAST_FTN_SEASON` is pinned at 2025 and the scheme path is
+   deliberately dark. Lighting it needs a never-regress run, not a flag flip.
 
 ## 5. Risks
 
-- **Spend limits and runner throttling** interrupt long builds; every release keeps partitions small and worktree-resumable.
-- **A weak-signal season**: it is possible no player signal clears the gate in 2026. That is an honest result and the MODEL tab must say so; the roadmap does not assume adoptions.
-- **Extraction parity**: moving the harness must not change a single shipped number; the byte-identical gate in S7 is the guard.
+- **Spend limits and runner throttling** interrupt long builds; every release keeps partitions small
+  and worktree-resumable, and the branch is pushed after every merge (a container was reclaimed
+  mid-release once already).
+- **A weak-signal season**: it is possible no player signal clears the gate in 2026. That is an
+  honest result and the MODEL tab must say so; the roadmap does not assume adoptions.
+- **In-season data drift**: tests pinned to preseason snapshots go red — or worse, silently
+  toothless — as the season moves. Six such locks were re-derived in the red-main repair; the class
+  is not closed.
+- **Boot headroom**: 33 bytes. The next boot-graph addition of any size trips the budget and forces
+  a written re-measure. Lazy views are the escape hatch, not a ceiling bump.
+- **Extraction parity**: moving the harness must not change a single shipped number; the
+  byte-identical gate in S7 is the guard.
 - **Policy drift**: any market number found on the input side of a projection is a P0 bug.
