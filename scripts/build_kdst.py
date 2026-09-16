@@ -583,6 +583,187 @@ def aggregate_defenses(team_rows_by_season, scores_by_game, team_names=None):
     return out, skipped
 
 
+# R55 — the weekly D/ST split. Parameters are MEASURED, not chosen: the grid in
+# scripts/backtest_kdst.py walks 2023-25 forward and the gate refuses a change
+# that does not beat the flat season average it replaces.
+#   SPLIT_SHRINK   how much of the opponent's surrendered-points ratio is taken
+#   SPLIT_CLAMP    the ratio's floor/ceiling, so one blowout cannot own a week
+#   SPLIT_HOME     home-field tilt on the same multiplicative footing
+# Kickers get NO split: measured at every setting of this same grid, the best
+# kicker result was -0.008 +/- 0.014 MAE (not significant) and it turned WORSE
+# as the shrink rose. A kicker week is season / games and the contract says so.
+SPLIT_MODEL = "kdst_split_v1"
+SPLIT_SHRINK = 0.5
+SPLIT_CLAMP = (0.75, 1.25)
+SPLIT_HOME = 0.02
+SPLIT_PRIOR_WEIGHT = 0.5    # prior season at half weight, as weekly_split_v2 does
+KICKER_SPLIT_REASON = (
+    "measured, not adopted: over the same walk-forward grid the D/ST split "
+    "clears (scripts/backtest_kdst.py), the best kicker configuration moved MAE "
+    "by -0.008 +/- 0.014 (not significant) and every stronger setting made it "
+    "worse. A kicker week is season / games; nothing here pretends otherwise."
+)
+
+
+def dst_game_points(row, pts_allowed):
+    """ONE team-week's D/ST fantasy score under the mirrored default scoring.
+
+    aggregate_defenses sums stats across a season and scores once; the split
+    needs the per-GAME score, because what a defense surrenders to the other
+    side's D/ST is a per-game fact. Same keys, same table, same arithmetic --
+    the yards-allowed tiers are left out on purpose: they are inert under the
+    default profile and would make this number disagree with proj_points for a
+    league that does not score them."""
+    t = dict.fromkeys(DEF_KEYS, 0.0)
+    t["def_td"] = _num(row, "def_tds")
+    t["def_st_td"] = _num(row, "special_teams_tds")
+    t["sack"] = _num(row, "def_sacks")
+    t["int"] = _num(row, "def_interceptions")
+    t["fum_rec"] = _num(row, "fumble_recovery_opp")
+    t["safe"] = _num(row, "def_safeties")
+    t["blk_kick"] = (_num(row, "def_punt_blocks") + _num(row, "def_pat_blocks")
+                     + _num(row, "def_fg_blocks"))
+    t[_tier(pts_allowed, _PTS_TIERS)] = 1.0
+    return _score(t)
+
+
+def aggregate_allowed(team_rows_by_season, scores_by_game):
+    """{team: {season: {"pts": total surrendered, "games": n}}} -- the D/ST
+    fantasy points each team SURRENDERS to the defense it is playing.
+
+    This is the weekly signal: a defense facing a turnover-prone offense scores;
+    one facing a clean offense does not. It is OUR OWN scoring of a real result,
+    never a market number. Same skip discipline as aggregate_defenses -- a game
+    without a score row is dropped whole, never half-counted. Pure -- no I/O."""
+    acc = {}
+    for season in sorted(team_rows_by_season):
+        rows = [r for r in team_rows_by_season[season]
+                if str(r.get("season_type") or "").upper() == "REG"]
+        for r in rows:
+            team = normalize_team(r.get("team"))
+            opp = normalize_team(r.get("opponent_team"))
+            game = scores_by_game.get(str(r.get("game_id") or ""))
+            if team is None or opp is None or game is None:
+                continue
+            if team == game["home"]:
+                pts_allowed = game["away_score"]
+            elif team == game["away"]:
+                pts_allowed = game["home_score"]
+            else:
+                continue
+            if pts_allowed is None:
+                continue
+            # `team`'s defense scored this; `opp`'s offense surrendered it.
+            per = acc.setdefault(opp, {}).setdefault(season, {"pts": 0.0, "games": 0})
+            per["pts"] += dst_game_points(r, pts_allowed)
+            per["games"] += 1
+    return acc
+
+
+def allowed_rate(allowed, team, season):
+    """Surrendered D/ST points per game for `team` going into `season`: the
+    prior season at SPLIT_PRIOR_WEIGHT blended with the season before it at full
+    weight, mirroring weekly_split_v2's DvP blend. None when the team has no
+    history at all -- a team with no rate takes factor 1.0 and is counted."""
+    per = (allowed or {}).get(team) or {}
+    num = den = 0.0
+    for back, weight in ((1, SPLIT_PRIOR_WEIGHT), (2, 1.0)):
+        blk = per.get(season - back)
+        if not blk or not blk["games"]:
+            continue
+        num += weight * blk["pts"]
+        den += weight * blk["games"]
+    return (num / den) if den else None
+
+
+def league_allowed_rate(allowed, season):
+    """The same blend over every team -- the denominator the ratio is taken
+    against, so the factor is relative and the season total is preserved."""
+    num = den = 0.0
+    for team in allowed or {}:
+        for back, weight in ((1, SPLIT_PRIOR_WEIGHT), (2, 1.0)):
+            blk = (allowed[team] or {}).get(season - back)
+            if not blk or not blk["games"]:
+                continue
+            num += weight * blk["pts"]
+            den += weight * blk["games"]
+    return (num / den) if den else None
+
+
+def split_factor(rate, league):
+    """clamp(1 + shrink x (rate/league - 1)) -- 1.0 when either side is absent,
+    so a missing opponent is a NEUTRAL week, never a guessed one."""
+    if not rate or not league:
+        return 1.0
+    lo, hi = SPLIT_CLAMP
+    f = 1.0 + SPLIT_SHRINK * (rate / league - 1.0)
+    return lo if f < lo else (hi if f > hi else f)
+
+
+def weekly_split(defenses, allowed, schedule_games, season):
+    """Attach `weekly` to every D/ST row: a dimensionless FACTOR per week,
+    normalised so the factors of a team's season average EXACTLY 1.0.
+
+      raw    = opponent factor x home tilt
+      factor = raw / mean(raw)      -> sum(factor) == weeks played
+
+    A FACTOR, not a points total, and that is deliberate. app/kdst.js prices the
+    stat line under the LEAGUE's own scoring profile, which is not the default
+    profile this script scores with; shipping absolute weekly points here would
+    hand a custom league a split computed against the wrong scoring table. A
+    multiplier is league-agnostic: the client takes its own season/games number
+    and multiplies. The invariant survives too -- factors averaging 1.0 IS the
+    season total being preserved, whatever the league pays per sack.
+
+    A bye week is simply absent from the list -- the same rule build_weekly uses
+    for players. Returns (rows_touched, meta)."""
+    by_team = {}
+    for g in schedule_games or []:
+        try:
+            wk = int(g.get("week"))
+        except (TypeError, ValueError):
+            continue
+        home, away = normalize_team(g.get("home")), normalize_team(g.get("away"))
+        if home is None or away is None:
+            continue
+        by_team.setdefault(home, []).append((wk, away, True))
+        by_team.setdefault(away, []).append((wk, home, False))
+
+    league = league_allowed_rate(allowed, season)
+    touched = neutral = 0
+    for row in defenses:
+        games = sorted(by_team.get(row["team"]) or [])
+        if not games:
+            row["weekly"] = None
+            continue
+        raw = []
+        for wk, opp, home in games:
+            rate = allowed_rate(allowed, opp, season)
+            if rate is None:
+                neutral += 1
+            factor = split_factor(rate, league)
+            factor *= (1.0 + SPLIT_HOME) if home else (1.0 - SPLIT_HOME)
+            raw.append((wk, opp, home, factor))
+        mean = sum(x[3] for x in raw) / len(raw)
+        scale = (1.0 / mean) if mean > 0 else 1.0
+        row["weekly"] = [
+            {"week": wk, "opp": opp, "home": home, "factor": round(f * scale, 4)}
+            for wk, opp, home, f in raw
+        ]
+        touched += 1
+    meta = {
+        "model": SPLIT_MODEL,
+        "teams_split": touched,
+        "neutral_weeks": neutral,
+        "league_allowed_pg": round(league, 3) if league else None,
+        "shrink": SPLIT_SHRINK,
+        "clamp": list(SPLIT_CLAMP),
+        "home_coef": SPLIT_HOME,
+        "prior_weight": SPLIT_PRIOR_WEIGHT,
+    }
+    return touched, meta
+
+
 def games_index(game_rows):
     """{game_id: {home, away, home_score, away_score}} from nfldata games.csv.
 
@@ -616,6 +797,18 @@ def _fixture_rows(name):
         return list(csv.DictReader(fh))
 
 
+def _fixture_schedule():
+    """A two-team, four-week schedule for the R55 split's selftest. Deliberately
+    tiny and written here rather than committed as a file: the split's arithmetic
+    is what is under test, not a schedule parser."""
+    return [
+        {"week": 1, "home": "KC", "away": "BUF"},
+        {"week": 2, "home": "BUF", "away": "KC"},
+        {"week": 3, "home": "KC", "away": "BUF"},
+        {"week": 4, "home": "BUF", "away": "KC"},
+    ]
+
+
 def team_names():
     """{abbrev: 'City Nickname'} from the committed data/fixtures/teams.json, for
     D/ST display names. No network. An unreadable file degrades to abbreviations
@@ -631,6 +824,20 @@ def team_names():
         if ab and t.get("name"):
             out[ab] = str(t["name"])
     return out
+
+
+def load_schedule(path=None):
+    """The 2026 schedule's games, for the R55 split's opponent per week. Absent
+    or unreadable -> [], and the split simply does not fire (every D/ST row
+    keeps weekly=null and the document says how many were split)."""
+    try:
+        with open(path or os.path.join(DATA, "schedule_full.json"),
+                  encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    games = doc.get("games")
+    return games if isinstance(games, list) else []
 
 
 def build(selftest=False):
@@ -694,6 +901,14 @@ def build(selftest=False):
     skipped.extend(k_skipped)
     skipped.extend(d_skipped)
 
+    # R55 — the D/ST weekly split, from the very rows scored above so the
+    # surrendered-points table and the projections can never drift apart.
+    allowed = aggregate_allowed(team_by_season, scores)
+    schedule = _fixture_schedule() if selftest else load_schedule()
+    _, split_meta = weekly_split(defenses, allowed, schedule, SEASON)
+    for row in kickers:
+        row["weekly"] = None          # measured: no kicker signal (see the policy)
+
     now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
         "season": SEASON,
@@ -714,6 +929,7 @@ def build(selftest=False):
         },
         "unmodelled_keys": [dict(k) for k in UNMODELLED_KEYS],
         "partial_scoring": {"K": False, "DEF": True},
+        "weekly_split": dict(split_meta, kicker_reason=KICKER_SPLIT_REASON),
         "skipped": skipped,
         "kickers": kickers,
         "defenses": defenses,

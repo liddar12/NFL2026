@@ -45,7 +45,7 @@ adapters and NFL2026 as the adapter that is live today.
 ## 2. The plan by quarter
 
 Legend: **S** = SelfLearning release · **R** = NFL2026 release · 🔒 = needs an owner decision ·
-✅ shipped · ▢ not started. Every item names its **measure of success** (MoS);
+✅ shipped or decided · ✂ dropped · ▢ not started. Every item names its **measure of success** (MoS);
 nothing ships without one.
 
 ### Q3 2026 (Sep–Oct) — Learning turns on
@@ -67,12 +67,25 @@ nothing ships without one.
   its own `note`.
 - **MoS:** 2026 fold present in `weekly_backtest.json` from week 2 → met. · **LOE** 1 d
 
-#### ▢ R55 · K/DEF weekly split
-- Opponent-allowed K and D/ST points per week, dome/outdoor, home field → a weekly K/DEF number
-  instead of today's flat season average.
-- Rides the existing weekly gate; K/DEF keeps its separate contract (merging it into
-  `player_projections.json` would evict ~74 offensive players from the 300-row cut).
-- **MoS:** K/DEF MAE not worse than the flat average on 2023-25. · **LOE** 1.5 d
+#### ✅ R55 · D/ST weekly split — *shipped 2026-09-16; the kicker half is a measured negative*
+- **D/ST ships.** A defence's week is now its season average reshaped by what the opponent
+  surrenders to opposing defences, plus home field — `kdst_split_v1`. Walk-forward 2023-25:
+  **MAE 4.4418 → 4.3227**, 95% CI [−0.162, −0.076], and better in **each season independently**
+  (2023 −0.080, 2024 −0.150, 2025 −0.127). Held out on 2025 with parameters fit only on 2023-24:
+  still better.
+- **Kickers do not, and that is the finding.** Over the same grid the best kicker configuration
+  moved MAE by **−0.008 ± 0.014 — not significant** — and every stronger setting made it worse.
+  Dome/outdoor added nothing. A kicker week stays season ÷ games and every surface says so.
+- **A shape, never a level.** The contract ships a dimensionless factor per week, normalised so a
+  team's factors average exactly 1.0. Season projections were byte-identical across the rebuild:
+  0 of 74 rows moved. A factor rather than points because the split is computed under the default
+  profile while `app/kdst.js` prices under the league's — only a multiplier survives that.
+- New `data/kdst_weekly_history.json` (2,718 resolved team-weeks, 2021-25) so the gate runs
+  **offline** in CI, the same arrangement `dvp_positional_history.json` gives the player gate.
+- New gate step 6, `scripts/backtest_kdst.py --gate`: refuses a tie, refuses a corpus too short to
+  answer, and its selftest plants a signal to prove the harness finds one and shuffles it to prove
+  the harness refuses noise.
+- **MoS:** met — not worse was the bar; measurably better in every season is the result. · **LOE** 1.5 d
 
 #### ✅ R56 · Weather horizon — *shipped with R53*
 - Open-Meteo forecast for every scheduled non-dome home game, refreshed daily.
@@ -80,13 +93,14 @@ nothing ships without one.
   old roof-only blank, and is labelled as climatology wherever it is used.
 - **MoS:** fallback count ≤ 1 week ahead → met. · **LOE** 0.5 d
 
-#### ▢ R57 · Live scores edge (N6)
-- Vercel `/api/nfl` Edge Function with STATUS gating — only FINAL records move actuals, live and
-  half-time records display only.
-- RENAMES mirrored across the edge function, the client and the Python scrapers.
-- Poller with direct-ESPN fallback (the WC2026 pattern, proven in that repo).
-- Note: the git pipeline stays the durable record; this is a display path.
-- **MoS:** live score ≤ 15 s on an open app; only FINAL moves actuals. · **LOE** 2 d
+#### ✂ R57 · Live scores edge (N6) — *dropped 2026-09-16, owner decision*
+- Cut on the owner's call: real-time scores are not wanted, an interval refresh is.
+- The git pipeline already refreshes scores on its schedule and is the durable record for scoring,
+  the bracket and the ledger, so nothing is lost by not building a second path to the same numbers.
+- Saves 2 d of build and a Vercel service to keep honest — and it was the main thing the store
+  decision was blocking.
+- Reopen only if the cron cadence turns out to annoy in-season; the WC2026 pattern is still the
+  design if it ever comes back.
 
 #### ✅ R58 · Parlay ledger — *shipped with R53*
 - Every prop leg logged **as made**, priced at first sight before kickoff, into
@@ -182,10 +196,16 @@ nothing ships without one.
 - The terminal Scores tab reads them; the MODEL tab keeps reading the repo feeds.
 - **MoS:** MODEL tab and terminal show the same MAE for the same week. · **LOE** 1.5 d
 
-#### 🔒 Store — *decision effectively made; see §4.1*
-- Recommendation now on the table: a **git-backed store** (rows as reviewable JSON diffs,
-  gate-validatable, `git revert`-able) rather than Supabase, because no second writer exists yet.
-- It blocks the **live edge endpoint (R57) and the second adapter (S8)**, not the nightly ingest.
+#### ✅ Store — *decided 2026-09-16: git-backed, with a written trigger*
+- **Git-backed store.** Spine rows ship as JSON committed by the pipeline: reviewable as a diff,
+  validated by the gate, revertable with `git revert`.
+- Graded against the owner's three criteria — performance **B**, self-learning discipline **A**,
+  Claude Code + Codex automation **A** (overall **A**). Supabase graded **C+**: its query strengths
+  do not match a workload that reads the whole corpus repeatedly, and it costs an agent the
+  diff-shaped audit trail, offline gate validation and `git revert`.
+- **The trigger that forces Postgres, written down so the migration has a plan:** a genuine second
+  concurrent writer, or a write that must land between cron runs. Neither exists today.
+- S2/S3 are unblocked. R57, the other thing this was blocking, is dropped above.
 
 ### Q4 2026 (Nov–Jan) — Learn from the record
 
@@ -311,11 +331,10 @@ nothing ships without one.
 
 ## 4. Decisions the owner must make (🔒)
 
-1. **Shared store** — *recommendation, pending your yes:* a **git-backed store** (JSON rows
-   committed by the pipeline) rather than Supabase. No Vercel writer exists today, so the real
-   constraint is the ephemeral runner, not SQLite sharing; git gives reviewable diffs, gate
-   validation and `git revert`. It blocks **R57 (live edge) and S8 (second live adapter)** —
-   *not* the nightly ingest, which the repo already serves.
+1. ~~**Shared store**~~ — **DECIDED 2026-09-16: git-backed, with a written trigger.** Graded A
+   against performance / self-learning / agent-automation, versus C+ for Supabase. Postgres is
+   revisited only on the written trigger: a second concurrent writer, or a write that must land
+   between cron runs.
 2. **`min_resolved` threshold** (default 30) and which sports tasks may advance past L1.
 3. **Market yardstick sources** — which prices may be ingested for measurement only (policy
    stands: never an input).

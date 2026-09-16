@@ -14,6 +14,7 @@
     "modelled_keys",
     "unmodelled_keys",
     "partial_scoring",
+    "weekly_split",
     "skipped",
     "kickers",
     "defenses"
@@ -112,6 +113,22 @@
         }
       }
     },
+    "weekly_split": {
+      "type": "object",
+      "description": "R55: how the D/ST weekly split was built, and why kickers have none. Parameters are MEASURED by scripts/backtest_kdst.py walking 2023-25 forward; the gate refuses any change that does not beat the flat season average it replaces.",
+      "required": ["model", "teams_split", "neutral_weeks", "shrink", "clamp", "home_coef", "prior_weight", "kicker_reason"],
+      "properties": {
+        "model": {"type": "string", "minLength": 1},
+        "teams_split": {"type": "integer", "minimum": 0, "description": "Defenses that got a weekly list; 0 means the schedule was unreadable and every row kept the flat average."},
+        "neutral_weeks": {"type": "integer", "minimum": 0, "description": "Weeks whose opponent had no surrendered-points history, taking factor 1.0. Counted rather than hidden: a neutral week is an absent signal, not a measured one."},
+        "league_allowed_pg": {"type": ["number", "null"], "description": "The league-wide surrendered rate the per-team ratio is taken against."},
+        "shrink": {"type": "number", "minimum": 0},
+        "clamp": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+        "home_coef": {"type": "number"},
+        "prior_weight": {"type": "number", "minimum": 0},
+        "kicker_reason": {"type": "string", "minLength": 1, "description": "The measured reason kickers carry no split."}
+      }
+    },
     "partial_scoring": {
       "type": "object",
       "description": "Per position: true when unmodelled_keys contains at least one key for it.",
@@ -185,7 +202,8 @@
           "weighted_games",
           "low_sample",
           "stats",
-          "proj_points"
+          "proj_points",
+          "weekly"
         ],
         "properties": {
           "player_id": {
@@ -271,6 +289,10 @@
           "proj_points": {
             "type": "number",
             "description": "sum(stat x points-per-stat) under app/league.js DEFAULT_PROFILE scoring. Recompute from `stats` with applyScoring(stats, profile) for a real league. NOT a scale factor applied to anything."
+          },
+          "weekly": {
+            "type": "null",
+            "description": "R55: ALWAYS null on a kicker, and that is a measured result rather than an omission. Over the same walk-forward grid the D/ST split clears, the best kicker configuration moved MAE by -0.008 +/- 0.014 (not significant) and every stronger setting made it worse (scripts/backtest_kdst.py). A kicker week is season / games and app/kdst.js keeps labelling it a season average."
           }
         }
       }
@@ -291,7 +313,8 @@
           "weighted_games",
           "low_sample",
           "stats",
-          "proj_points"
+          "proj_points",
+          "weekly"
         ],
         "properties": {
           "player_id": {
@@ -377,6 +400,21 @@
           "proj_points": {
             "type": "number",
             "description": "sum(stat x points-per-stat) under app/league.js DEFAULT_PROFILE scoring. Recompute from `stats` with applyScoring(stats, profile) for a real league. NOT a scale factor applied to anything."
+          },
+          "weekly": {
+            "type": ["array", "null"],
+            "description": "R55 weekly split: one entry per week this defense plays, or null when the split could not place the team on the schedule (it then keeps the flat season average). FACTORS, never points: the split is computed under the DEFAULT profile while app/kdst.js prices under the LEAGUE's, so only a dimensionless multiplier survives that difference. The factors of a team average exactly 1.0, which IS the statement that the season total is unchanged and only the weekly shape moved.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["week", "opp", "home", "factor"],
+              "properties": {
+                "week": {"type": "integer", "minimum": 1, "description": "Regular-season week. A bye is ABSENT from this list, never a zero entry."},
+                "opp": {"type": "string", "minLength": 2, "description": "Canonical opponent abbreviation for that week."},
+                "home": {"type": "boolean", "description": "True when this defense is at home; the home tilt rides on the same multiplicative footing as the opponent factor."},
+                "factor": {"type": "number", "exclusiveMinimum": 0, "description": "Multiply the flat season average by this. clamp(1 + shrink x (opponent surrendered rate / league rate - 1)) x home tilt, then normalised so the team's factors average 1.0."}
+              }
+            }
           }
         }
       }

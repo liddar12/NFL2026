@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "updated_utc": "2026-09-15T12:19:11Z",
+  "updated_utc": "2026-09-16T18:32:17Z",
   "source": "nflverse release CSVs (stats_player_week / stats_team_week) + nfldata games.csv scores",
   "seasons_used": [
     2023,
@@ -79,6 +79,20 @@
     "K": false,
     "DEF": true
   },
+  "weekly_split": {
+    "model": "kdst_split_v1",
+    "teams_split": 32,
+    "neutral_weeks": 0,
+    "league_allowed_pg": 5.977,
+    "shrink": 0.5,
+    "clamp": [
+      0.75,
+      1.25
+    ],
+    "home_coef": 0.02,
+    "prior_weight": 0.5,
+    "kicker_reason": "measured, not adopted: over the same walk-forward grid the D/ST split clears (scripts/backtest_kdst.py), the best kicker configuration moved MAE by -0.008 +/- 0.014 (not significant) and every stronger setting made it worse. A kicker week is season / games; nothing here pretends otherwise."
+  },
   "skipped": [],
   "kickers": [
     {
@@ -104,7 +118,8 @@
         "fgm_50p": 10.84,
         "fgmiss": 4.67
       },
-      "proj_points": 188.72
+      "proj_points": 188.72,
+      "weekly": null
     },
     {
       "player_id": "00-0040530",
@@ -127,7 +142,8 @@
         "fgm_50p": 0.0,
         "fgmiss": 0.0
       },
-      "proj_points": 181.36
+      "proj_points": 181.36,
+      "weekly": null
     },
     {
       "player_id": "00-0037692",
@@ -152,7 +168,8 @@
         "fgm_50p": 11.83,
         "fgmiss": 5.67
       },
-      "proj_points": 180.95
+      "proj_points": 180.95,
+      "weekly": null
     },
     {
       "player_id": "00-0031492",
@@ -177,7 +194,8 @@
         "fgm_50p": 8.17,
         "fgmiss": 6.0
       },
-      "proj_points": 167.0
+      "proj_points": 167.0,
+      "weekly": null
     },
     {
       "player_id": "00-0037224",
@@ -202,7 +220,8 @@
         "fgm_50p": 6.67,
         "fgmiss": 2.83
       },
-      "proj_points": 165.52
+      "proj_points": 165.52,
+      "weekly": null
     },
     {
       "player_id": "00-0039576",
@@ -226,7 +245,8 @@
         "fgm_50p": 2.22,
         "fgmiss": 2.22
       },
-      "proj_points": 162.62
+      "proj_points": 162.62,
+      "weekly": null
     },
     {
       "player_id": "00-0039404",
@@ -250,7 +270,8 @@
         "fgm_50p": 10.82,
         "fgmiss": 3.97
       },
-      "proj_points": 159.17
+      "proj_points": 159.17,
+      "weekly": null
     },
     {
       "player_id": "00-0039229",
@@ -273,7 +294,8 @@
         "fgm_50p": 11.33,
         "fgmiss": 11.33
       },
-      "proj_points": 158.63
+      "proj_points": 158.63,
+      "weekly": null
     },
     {
       "player_id": "00-0031136",
@@ -298,7 +320,8 @@
         "fgm_50p": 9.83,
         "fgmiss": 3.83
       },
-      "proj_points": 156.83
+      "proj_points": 156.83,
+      "weekly": null
     },
     {
       "player_id": "00-0039498",
@@ -321,7 +344,8 @@
         "fgm_50p": 1.89,
         "fgmiss": 1.89
       },
-      "proj_points": 153.01
+      "proj_points": 153.01,
+      "weekly": null
     },
     {
       "player_id": "00-0033862",
@@ -345,7 +369,8 @@
         "fgm_50p": 9.15,
         "fgmiss": 5.67
       },
-      "proj_points": 151.66
+      "proj_points": 151.66,
+      "weekly": null
     },
     {
       "player_id": "00-0035358",
@@ -370,7 +395,8 @@
         "fgm_50p": 9.33,
         "fgmiss": 4.0
       },
-      "proj_points": 150.15
+      "proj_points": 150.15,
+      "weekly": null
     },
     {
       "player_id": "00-0039172",
@@ -394,7 +420,8 @@
         "fgm_50p": 4.8,
         "fgmiss": 5.4
       },
-      "proj_points": 147.8
+      "proj_points": 147.8,
+      "weekly": null
     },
     {
       "player_id": "00-0039409",
@@ -418,7 +445,8 @@
         "fgm_50p": 6.8,
         "fgmiss": 3.2
       },
-      "proj_points": 145.0
+      "proj_points": 145.0,
+      "weekly": null
     },
     {
       "player_id": "00-0040200",
@@ -441,7 +469,8 @@
         "fgm_50p": 4.0,
         "fgmiss": 5.0
       },
-      "proj_points": 142.0
+      "proj_points": 142.0,
+      "weekly": null
     },
     {
       "player_id": "00-0040074",
@@ -464,7 +493,8 @@
         "fgm_50p": 1.0,
         "fgmiss": 4.0
       },
-      "proj_points": 138.0
+      "proj_points": 138.0,
+      "weekly": null
     },
     {
       "player_id": "00-0032569",
@@ -489,7 +519,8 @@
         "fgm_50p": 4.17,
         "fgmiss": 3.67
       },
-      "proj_points": 137.83
+      "proj_points": 137.83,
+      "weekly": null
     },
     {
       "player_id": "00-0033303",
@@ -514,7 +545,8 @@
         "fgm_50p": 4.34,
         "fgmiss": 4.52
       },
-      "proj_points": 137.46
+      "proj_points": 137.46,
+      "weekly": null
     },
     {
       "player_id": "00-0029822",
@@ -539,7 +571,8 @@
         "fgm_50p": 4.2,
         "fgmiss": 5.67
       },
-      "proj_points": 137.05
+      "proj_points": 137.05,
+      "weekly": null
     },
     {
       "player_id": "00-0038562",
@@ -564,7 +597,8 @@
         "fgm_50p": 3.78,
         "fgmiss": 8.5
       },
-      "proj_points": 134.11
+      "proj_points": 134.11,
+      "weekly": null
     },
     {
       "player_id": "00-0035269",
@@ -589,7 +623,8 @@
         "fgm_50p": 5.2,
         "fgmiss": 7.6
       },
-      "proj_points": 133.8
+      "proj_points": 133.8,
+      "weekly": null
     },
     {
       "player_id": "00-0034173",
@@ -614,7 +649,8 @@
         "fgm_50p": 4.67,
         "fgmiss": 2.8
       },
-      "proj_points": 132.44
+      "proj_points": 132.44,
+      "weekly": null
     },
     {
       "player_id": "00-0025565",
@@ -639,7 +675,8 @@
         "fgm_50p": 6.95,
         "fgmiss": 1.1
       },
-      "proj_points": 131.63
+      "proj_points": 131.63,
+      "weekly": null
     },
     {
       "player_id": "00-0031203",
@@ -664,7 +701,8 @@
         "fgm_50p": 6.2,
         "fgmiss": 4.6
       },
-      "proj_points": 131.38
+      "proj_points": 131.38,
+      "weekly": null
     },
     {
       "player_id": "00-0038905",
@@ -689,7 +727,8 @@
         "fgm_50p": 6.7,
         "fgmiss": 6.7
       },
-      "proj_points": 129.83
+      "proj_points": 129.83,
+      "weekly": null
     },
     {
       "player_id": "00-0035189",
@@ -714,7 +753,8 @@
         "fgm_50p": 1.48,
         "fgmiss": 2.22
       },
-      "proj_points": 129.35
+      "proj_points": 129.35,
+      "weekly": null
     },
     {
       "player_id": "00-0036854",
@@ -739,7 +779,8 @@
         "fgm_50p": 5.17,
         "fgmiss": 4.8
       },
-      "proj_points": 129.14
+      "proj_points": 129.14,
+      "weekly": null
     },
     {
       "player_id": "00-0037542",
@@ -763,7 +804,8 @@
         "fgm_50p": 2.93,
         "fgmiss": 6.45
       },
-      "proj_points": 128.96
+      "proj_points": 128.96,
+      "weekly": null
     },
     {
       "player_id": "00-0033787",
@@ -788,7 +830,8 @@
         "fgm_50p": 3.5,
         "fgmiss": 6.5
       },
-      "proj_points": 123.49
+      "proj_points": 123.49,
+      "weekly": null
     },
     {
       "player_id": "00-0038567",
@@ -813,7 +856,8 @@
         "fgm_50p": 5.06,
         "fgmiss": 7.41
       },
-      "proj_points": 122.42
+      "proj_points": 122.42,
+      "weekly": null
     },
     {
       "player_id": "00-0023853",
@@ -838,7 +882,8 @@
         "fgm_50p": 3.4,
         "fgmiss": 2.67
       },
-      "proj_points": 121.22
+      "proj_points": 121.22,
+      "weekly": null
     },
     {
       "player_id": "00-0035192",
@@ -863,7 +908,8 @@
         "fgm_50p": 7.21,
         "fgmiss": 6.87
       },
-      "proj_points": 120.04
+      "proj_points": 120.04,
+      "weekly": null
     },
     {
       "player_id": "00-0033702",
@@ -888,7 +934,8 @@
         "fgm_50p": 4.05,
         "fgmiss": 8.63
       },
-      "proj_points": 119.06
+      "proj_points": 119.06,
+      "weekly": null
     },
     {
       "player_id": "00-0036816",
@@ -913,7 +960,8 @@
         "fgm_50p": 2.68,
         "fgmiss": 3.13
       },
-      "proj_points": 118.3
+      "proj_points": 118.3,
+      "weekly": null
     },
     {
       "player_id": "00-0039750",
@@ -937,7 +985,8 @@
         "fgm_50p": 4.4,
         "fgmiss": 7.33
       },
-      "proj_points": 117.82
+      "proj_points": 117.82,
+      "weekly": null
     },
     {
       "player_id": "00-0038152",
@@ -961,7 +1010,8 @@
         "fgm_50p": 4.72,
         "fgmiss": 4.72
       },
-      "proj_points": 115.22
+      "proj_points": 115.22,
+      "weekly": null
     },
     {
       "player_id": "00-0034161",
@@ -986,7 +1036,8 @@
         "fgm_50p": 5.0,
         "fgmiss": 5.17
       },
-      "proj_points": 113.67
+      "proj_points": 113.67,
+      "weekly": null
     },
     {
       "player_id": "00-0038428",
@@ -1009,7 +1060,8 @@
         "fgm_50p": 5.0,
         "fgmiss": 3.0
       },
-      "proj_points": 108.0
+      "proj_points": 108.0,
+      "weekly": null
     },
     {
       "player_id": "00-0034084",
@@ -1033,7 +1085,8 @@
         "fgm_50p": 3.29,
         "fgmiss": 1.65
       },
-      "proj_points": 105.28
+      "proj_points": 105.28,
+      "weekly": null
     },
     {
       "player_id": "00-0040279",
@@ -1056,7 +1109,8 @@
         "fgm_50p": 2.0,
         "fgmiss": 5.0
       },
-      "proj_points": 103.0
+      "proj_points": 103.0,
+      "weekly": null
     },
     {
       "player_id": "00-0026858",
@@ -1081,7 +1135,8 @@
         "fgm_50p": 3.95,
         "fgmiss": 5.14
       },
-      "proj_points": 100.38
+      "proj_points": 100.38,
+      "weekly": null
     },
     {
       "player_id": "00-0039934",
@@ -1105,7 +1160,8 @@
         "fgm_50p": 0.0,
         "fgmiss": 0.0
       },
-      "proj_points": 53.41
+      "proj_points": 53.41,
+      "weekly": null
     }
   ],
   "defenses": [
@@ -1151,7 +1207,111 @@
         "tkl_loss": 82.0,
         "def_pass_def": 80.0
       },
-      "proj_points": 145.46
+      "proj_points": 145.46,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.8946
+        },
+        {
+          "week": 2,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9659
+        },
+        {
+          "week": 3,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8548
+        },
+        {
+          "week": 4,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9487
+        },
+        {
+          "week": 5,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.92
+        },
+        {
+          "week": 6,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1117
+        },
+        {
+          "week": 7,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9726
+        },
+        {
+          "week": 8,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9311
+        },
+        {
+          "week": 9,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.0108
+        },
+        {
+          "week": 11,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2629
+        },
+        {
+          "week": 12,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9551
+        },
+        {
+          "week": 13,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1117
+        },
+        {
+          "week": 14,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.0761
+        },
+        {
+          "week": 15,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2134
+        },
+        {
+          "week": 16,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7577
+        },
+        {
+          "week": 17,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.0554
+        },
+        {
+          "week": 18,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9576
+        }
+      ]
     },
     {
       "player_id": "DST-SEA",
@@ -1195,7 +1355,111 @@
         "tkl_loss": 82.83,
         "def_pass_def": 85.5
       },
-      "proj_points": 140.55
+      "proj_points": 140.55,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1252
+        },
+        {
+          "week": 2,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9962
+        },
+        {
+          "week": 3,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9228
+        },
+        {
+          "week": 4,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9809
+        },
+        {
+          "week": 5,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0114
+        },
+        {
+          "week": 6,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8184
+        },
+        {
+          "week": 7,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9537
+        },
+        {
+          "week": 8,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0539
+        },
+        {
+          "week": 9,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.0369
+        },
+        {
+          "week": 10,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2429
+        },
+        {
+          "week": 12,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9718
+        },
+        {
+          "week": 13,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0403
+        },
+        {
+          "week": 14,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.244
+        },
+        {
+          "week": 15,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8494
+        },
+        {
+          "week": 16,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8756
+        },
+        {
+          "week": 17,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.0354
+        },
+        {
+          "week": 18,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8413
+        }
+      ]
     },
     {
       "player_id": "DST-HOU",
@@ -1239,7 +1503,111 @@
         "tkl_loss": 95.0,
         "def_pass_def": 86.67
       },
-      "proj_points": 135.32
+      "proj_points": 135.32,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7709
+        },
+        {
+          "week": 2,
+          "opp": "CIN",
+          "home": true,
+          "factor": 1.0181
+        },
+        {
+          "week": 3,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9782
+        },
+        {
+          "week": 4,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0333
+        },
+        {
+          "week": 5,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.2345
+        },
+        {
+          "week": 6,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9442
+        },
+        {
+          "week": 7,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.2356
+        },
+        {
+          "week": 9,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9361
+        },
+        {
+          "week": 10,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.2345
+        },
+        {
+          "week": 11,
+          "opp": "IND",
+          "home": true,
+          "factor": 1.0181
+        },
+        {
+          "week": 12,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7709
+        },
+        {
+          "week": 13,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9717
+        },
+        {
+          "week": 14,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9166
+        },
+        {
+          "week": 15,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9827
+        },
+        {
+          "week": 16,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8437
+        },
+        {
+          "week": 17,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8259
+        },
+        {
+          "week": 18,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2849
+        }
+      ]
     },
     {
       "player_id": "DST-MIN",
@@ -1283,7 +1651,111 @@
         "tkl_loss": 95.0,
         "def_pass_def": 70.33
       },
-      "proj_points": 133.84
+      "proj_points": 133.84,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8935
+        },
+        {
+          "week": 2,
+          "opp": "CHI",
+          "home": false,
+          "factor": 1.0454
+        },
+        {
+          "week": 3,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9545
+        },
+        {
+          "week": 4,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1757
+        },
+        {
+          "week": 5,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.1144
+        },
+        {
+          "week": 7,
+          "opp": "IND",
+          "home": true,
+          "factor": 1.0583
+        },
+        {
+          "week": 8,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7699
+        },
+        {
+          "week": 9,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.8013
+        },
+        {
+          "week": 10,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8585
+        },
+        {
+          "week": 11,
+          "opp": "SF",
+          "home": false,
+          "factor": 1.0033
+        },
+        {
+          "week": 12,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0775
+        },
+        {
+          "week": 13,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.1126
+        },
+        {
+          "week": 14,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.1161
+        },
+        {
+          "week": 15,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.8013
+        },
+        {
+          "week": 16,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9917
+        },
+        {
+          "week": 17,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.138
+        },
+        {
+          "week": 18,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0881
+        }
+      ]
     },
     {
       "player_id": "DST-PIT",
@@ -1327,7 +1799,111 @@
         "tkl_loss": 84.5,
         "def_pass_def": 84.0
       },
-      "proj_points": 126.98
+      "proj_points": 126.98,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0319
+        },
+        {
+          "week": 2,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.0689
+        },
+        {
+          "week": 3,
+          "opp": "CIN",
+          "home": true,
+          "factor": 1.0135
+        },
+        {
+          "week": 4,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.2289
+        },
+        {
+          "week": 5,
+          "opp": "IND",
+          "home": true,
+          "factor": 1.0135
+        },
+        {
+          "week": 6,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9141
+        },
+        {
+          "week": 7,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0673
+        },
+        {
+          "week": 8,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.279
+        },
+        {
+          "week": 10,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9737
+        },
+        {
+          "week": 11,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8399
+        },
+        {
+          "week": 12,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8423
+        },
+        {
+          "week": 13,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9883
+        },
+        {
+          "week": 14,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9399
+        },
+        {
+          "week": 15,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7674
+        },
+        {
+          "week": 16,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0655
+        },
+        {
+          "week": 17,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.2289
+        },
+        {
+          "week": 18,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7373
+        }
+      ]
     },
     {
       "player_id": "DST-PHI",
@@ -1371,7 +1947,111 @@
         "tkl_loss": 73.67,
         "def_pass_def": 87.33
       },
-      "proj_points": 126.2
+      "proj_points": 126.2,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.924
+        },
+        {
+          "week": 2,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.1957
+        },
+        {
+          "week": 3,
+          "opp": "CHI",
+          "home": false,
+          "factor": 0.9741
+        },
+        {
+          "week": 4,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8424
+        },
+        {
+          "week": 5,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9145
+        },
+        {
+          "week": 6,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0367
+        },
+        {
+          "week": 7,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0008
+        },
+        {
+          "week": 8,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.8878
+        },
+        {
+          "week": 9,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.1968
+        },
+        {
+          "week": 11,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9796
+        },
+        {
+          "week": 12,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9615
+        },
+        {
+          "week": 13,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9584
+        },
+        {
+          "week": 14,
+          "opp": "IND",
+          "home": true,
+          "factor": 0.9861
+        },
+        {
+          "week": 15,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.0955
+        },
+        {
+          "week": 16,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9616
+        },
+        {
+          "week": 17,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9349
+        },
+        {
+          "week": 18,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1498
+        }
+      ]
     },
     {
       "player_id": "DST-BUF",
@@ -1415,7 +2095,111 @@
         "tkl_loss": 86.33,
         "def_pass_def": 64.17
       },
-      "proj_points": 119.99
+      "proj_points": 119.99,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9607
+        },
+        {
+          "week": 2,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7765
+        },
+        {
+          "week": 3,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9813
+        },
+        {
+          "week": 4,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1256
+        },
+        {
+          "week": 5,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8416
+        },
+        {
+          "week": 6,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2434
+        },
+        {
+          "week": 8,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7765
+        },
+        {
+          "week": 9,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.07
+        },
+        {
+          "week": 10,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.1027
+        },
+        {
+          "week": 11,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1392
+        },
+        {
+          "week": 12,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9541
+        },
+        {
+          "week": 13,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.0815
+        },
+        {
+          "week": 14,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8318
+        },
+        {
+          "week": 15,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0543
+        },
+        {
+          "week": 16,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8188
+        },
+        {
+          "week": 17,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.0945
+        },
+        {
+          "week": 18,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1477
+        }
+      ]
     },
     {
       "player_id": "DST-LAR",
@@ -1459,7 +2243,111 @@
         "tkl_loss": 67.83,
         "def_pass_def": 78.0
       },
-      "proj_points": 118.17
+      "proj_points": 118.17,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0194
+        },
+        {
+          "week": 2,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.2538
+        },
+        {
+          "week": 3,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8249
+        },
+        {
+          "week": 4,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8561
+        },
+        {
+          "week": 5,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7822
+        },
+        {
+          "week": 6,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.045
+        },
+        {
+          "week": 7,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2526
+        },
+        {
+          "week": 8,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9886
+        },
+        {
+          "week": 9,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9301
+        },
+        {
+          "week": 10,
+          "opp": "ARI",
+          "home": false,
+          "factor": 1.004
+        },
+        {
+          "week": 12,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8722
+        },
+        {
+          "week": 13,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9612
+        },
+        {
+          "week": 14,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9794
+        },
+        {
+          "week": 15,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0484
+        },
+        {
+          "week": 16,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.1027
+        },
+        {
+          "week": 17,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9317
+        },
+        {
+          "week": 18,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1477
+        }
+      ]
     },
     {
       "player_id": "DST-CHI",
@@ -1503,7 +2391,111 @@
         "tkl_loss": 69.5,
         "def_pass_def": 73.33
       },
-      "proj_points": 115.82
+      "proj_points": 115.82,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.06
+        },
+        {
+          "week": 2,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.1397
+        },
+        {
+          "week": 3,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.9051
+        },
+        {
+          "week": 4,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1745
+        },
+        {
+          "week": 5,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8513
+        },
+        {
+          "week": 6,
+          "opp": "ATL",
+          "home": false,
+          "factor": 1.0266
+        },
+        {
+          "week": 7,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1519
+        },
+        {
+          "week": 8,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.1201
+        },
+        {
+          "week": 9,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9851
+        },
+        {
+          "week": 11,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.1502
+        },
+        {
+          "week": 12,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7634
+        },
+        {
+          "week": 13,
+          "opp": "JAX",
+          "home": true,
+          "factor": 1.0129
+        },
+        {
+          "week": 14,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.1201
+        },
+        {
+          "week": 15,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7634
+        },
+        {
+          "week": 16,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.886
+        },
+        {
+          "week": 17,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7946
+        },
+        {
+          "week": 18,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.095
+        }
+      ]
     },
     {
       "player_id": "DST-LAC",
@@ -1547,7 +2539,111 @@
         "tkl_loss": 82.33,
         "def_pass_def": 84.83
       },
-      "proj_points": 114.04
+      "proj_points": 114.04,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.0466
+        },
+        {
+          "week": 2,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.3057
+        },
+        {
+          "week": 3,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7527
+        },
+        {
+          "week": 4,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.1043
+        },
+        {
+          "week": 5,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8598
+        },
+        {
+          "week": 6,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9249
+        },
+        {
+          "week": 8,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8492
+        },
+        {
+          "week": 9,
+          "opp": "HOU",
+          "home": true,
+          "factor": 1.0089
+        },
+        {
+          "week": 10,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7527
+        },
+        {
+          "week": 11,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.158
+        },
+        {
+          "week": 12,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1357
+        },
+        {
+          "week": 13,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9331
+        },
+        {
+          "week": 14,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2545
+        },
+        {
+          "week": 15,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0209
+        },
+        {
+          "week": 16,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.1043
+        },
+        {
+          "week": 17,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9626
+        },
+        {
+          "week": 18,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8261
+        }
+      ]
     },
     {
       "player_id": "DST-JAX",
@@ -1591,7 +2687,111 @@
         "tkl_loss": 76.0,
         "def_pass_def": 92.17
       },
-      "proj_points": 111.46
+      "proj_points": 111.46,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.2535
+        },
+        {
+          "week": 2,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.7931
+        },
+        {
+          "week": 3,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.0903
+        },
+        {
+          "week": 4,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9543
+        },
+        {
+          "week": 5,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8567
+        },
+        {
+          "week": 6,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9686
+        },
+        {
+          "week": 8,
+          "opp": "IND",
+          "home": true,
+          "factor": 0.9932
+        },
+        {
+          "week": 9,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7226
+        },
+        {
+          "week": 10,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.2043
+        },
+        {
+          "week": 11,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1582
+        },
+        {
+          "week": 12,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2535
+        },
+        {
+          "week": 13,
+          "opp": "CHI",
+          "home": false,
+          "factor": 0.9811
+        },
+        {
+          "week": 14,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9866
+        },
+        {
+          "week": 15,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9306
+        },
+        {
+          "week": 16,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9685
+        },
+        {
+          "week": 17,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9307
+        },
+        {
+          "week": 18,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9543
+        }
+      ]
     },
     {
       "player_id": "DST-BAL",
@@ -1635,7 +2835,111 @@
         "tkl_loss": 73.17,
         "def_pass_def": 79.17
       },
-      "proj_points": 111.15
+      "proj_points": 111.15,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9501
+        },
+        {
+          "week": 2,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.0839
+        },
+        {
+          "week": 3,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9643
+        },
+        {
+          "week": 4,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.248
+        },
+        {
+          "week": 5,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.9674
+        },
+        {
+          "week": 6,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.1991
+        },
+        {
+          "week": 7,
+          "opp": "CIN",
+          "home": true,
+          "factor": 0.9889
+        },
+        {
+          "week": 8,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7194
+        },
+        {
+          "week": 9,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9545
+        },
+        {
+          "week": 10,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9463
+        },
+        {
+          "week": 11,
+          "opp": "CAR",
+          "home": false,
+          "factor": 0.9989
+        },
+        {
+          "week": 12,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9265
+        },
+        {
+          "week": 14,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9283
+        },
+        {
+          "week": 15,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9438
+        },
+        {
+          "week": 16,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.248
+        },
+        {
+          "week": 17,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9501
+        },
+        {
+          "week": 18,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9823
+        }
+      ]
     },
     {
       "player_id": "DST-CLE",
@@ -1679,7 +2983,111 @@
         "tkl_loss": 110.5,
         "def_pass_def": 67.83
       },
-      "proj_points": 109.96
+      "proj_points": 109.96,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9254
+        },
+        {
+          "week": 2,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9
+        },
+        {
+          "week": 3,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0491
+        },
+        {
+          "week": 4,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9913
+        },
+        {
+          "week": 5,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.0731
+        },
+        {
+          "week": 6,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7556
+        },
+        {
+          "week": 7,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.21
+        },
+        {
+          "week": 8,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9524
+        },
+        {
+          "week": 9,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0508
+        },
+        {
+          "week": 10,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9731
+        },
+        {
+          "week": 12,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2593
+        },
+        {
+          "week": 13,
+          "opp": "CIN",
+          "home": true,
+          "factor": 0.9979
+        },
+        {
+          "week": 14,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.016
+        },
+        {
+          "week": 15,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1636
+        },
+        {
+          "week": 16,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.726
+        },
+        {
+          "week": 17,
+          "opp": "IND",
+          "home": true,
+          "factor": 0.9979
+        },
+        {
+          "week": 18,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9587
+        }
+      ]
     },
     {
       "player_id": "DST-NO",
@@ -1723,7 +3131,111 @@
         "tkl_loss": 81.0,
         "def_pass_def": 87.0
       },
-      "proj_points": 106.52
+      "proj_points": 106.52,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7306
+        },
+        {
+          "week": 2,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7306
+        },
+        {
+          "week": 3,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2674
+        },
+        {
+          "week": 4,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0226
+        },
+        {
+          "week": 5,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.0908
+        },
+        {
+          "week": 6,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.171
+        },
+        {
+          "week": 7,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9976
+        },
+        {
+          "week": 9,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.2674
+        },
+        {
+          "week": 10,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0558
+        },
+        {
+          "week": 11,
+          "opp": "CHI",
+          "home": false,
+          "factor": 0.992
+        },
+        {
+          "week": 12,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9649
+        },
+        {
+          "week": 13,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8479
+        },
+        {
+          "week": 14,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.0144
+        },
+        {
+          "week": 15,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9058
+        },
+        {
+          "week": 16,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.0159
+        },
+        {
+          "week": 17,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.9825
+        },
+        {
+          "week": 18,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9427
+        }
+      ]
     },
     {
       "player_id": "DST-GB",
@@ -1767,7 +3279,111 @@
         "tkl_loss": 78.33,
         "def_pass_def": 59.5
       },
-      "proj_points": 105.66
+      "proj_points": 105.66,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0775
+        },
+        {
+          "week": 2,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.1104
+        },
+        {
+          "week": 3,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0514
+        },
+        {
+          "week": 4,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9313
+        },
+        {
+          "week": 5,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0616
+        },
+        {
+          "week": 6,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.048
+        },
+        {
+          "week": 7,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7512
+        },
+        {
+          "week": 8,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0856
+        },
+        {
+          "week": 9,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.089
+        },
+        {
+          "week": 10,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.1215
+        },
+        {
+          "week": 12,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8475
+        },
+        {
+          "week": 13,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0874
+        },
+        {
+          "week": 14,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7819
+        },
+        {
+          "week": 15,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1471
+        },
+        {
+          "week": 16,
+          "opp": "CHI",
+          "home": false,
+          "factor": 1.02
+        },
+        {
+          "week": 17,
+          "opp": "HOU",
+          "home": true,
+          "factor": 1.0069
+        },
+        {
+          "week": 18,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7819
+        }
+      ]
     },
     {
       "player_id": "DST-DET",
@@ -1811,7 +3427,111 @@
         "tkl_loss": 68.17,
         "def_pass_def": 86.67
       },
-      "proj_points": 104.52
+      "proj_points": 104.52,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.0781
+        },
+        {
+          "week": 2,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7156
+        },
+        {
+          "week": 3,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1009
+        },
+        {
+          "week": 4,
+          "opp": "CAR",
+          "home": false,
+          "factor": 0.9935
+        },
+        {
+          "week": 5,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.956
+        },
+        {
+          "week": 7,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8305
+        },
+        {
+          "week": 8,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.0683
+        },
+        {
+          "week": 9,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.0499
+        },
+        {
+          "week": 10,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.0797
+        },
+        {
+          "week": 11,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9233
+        },
+        {
+          "week": 12,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0113
+        },
+        {
+          "week": 13,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.9622
+        },
+        {
+          "week": 14,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2413
+        },
+        {
+          "week": 15,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0264
+        },
+        {
+          "week": 16,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.1937
+        },
+        {
+          "week": 17,
+          "opp": "CHI",
+          "home": false,
+          "factor": 0.9716
+        },
+        {
+          "week": 18,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.7979
+        }
+      ]
     },
     {
       "player_id": "DST-TB",
@@ -1855,7 +3575,111 @@
         "tkl_loss": 80.5,
         "def_pass_def": 65.5
       },
-      "proj_points": 103.75
+      "proj_points": 103.75,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9849
+        },
+        {
+          "week": 2,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.2938
+        },
+        {
+          "week": 3,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.1134
+        },
+        {
+          "week": 4,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8656
+        },
+        {
+          "week": 5,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9996
+        },
+        {
+          "week": 6,
+          "opp": "PIT",
+          "home": true,
+          "factor": 1.0184
+        },
+        {
+          "week": 7,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.0355
+        },
+        {
+          "week": 8,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0438
+        },
+        {
+          "week": 9,
+          "opp": "CHI",
+          "home": false,
+          "factor": 1.0127
+        },
+        {
+          "week": 11,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7458
+        },
+        {
+          "week": 12,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0778
+        },
+        {
+          "week": 13,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.981
+        },
+        {
+          "week": 14,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7458
+        },
+        {
+          "week": 15,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.1236
+        },
+        {
+          "week": 16,
+          "opp": "ATL",
+          "home": false,
+          "factor": 1.0029
+        },
+        {
+          "week": 17,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8757
+        },
+        {
+          "week": 18,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0796
+        }
+      ]
     },
     {
       "player_id": "DST-ATL",
@@ -1899,7 +3723,111 @@
         "tkl_loss": 83.17,
         "def_pass_def": 76.5
       },
-      "proj_points": 103.52
+      "proj_points": 103.52,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9873
+        },
+        {
+          "week": 2,
+          "opp": "CAR",
+          "home": true,
+          "factor": 1.0876
+        },
+        {
+          "week": 3,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8392
+        },
+        {
+          "week": 4,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0894
+        },
+        {
+          "week": 5,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7833
+        },
+        {
+          "week": 6,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0636
+        },
+        {
+          "week": 7,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0208
+        },
+        {
+          "week": 8,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.933
+        },
+        {
+          "week": 9,
+          "opp": "CIN",
+          "home": true,
+          "factor": 1.0345
+        },
+        {
+          "week": 10,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9625
+        },
+        {
+          "week": 12,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0795
+        },
+        {
+          "week": 13,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7833
+        },
+        {
+          "week": 14,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.2544
+        },
+        {
+          "week": 15,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9314
+        },
+        {
+          "week": 16,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9711
+        },
+        {
+          "week": 17,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.1339
+        },
+        {
+          "week": 18,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.045
+        }
+      ]
     },
     {
       "player_id": "DST-MIA",
@@ -1943,7 +3871,111 @@
         "tkl_loss": 76.33,
         "def_pass_def": 63.0
       },
-      "proj_points": 96.88
+      "proj_points": 96.88,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2662
+        },
+        {
+          "week": 2,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.99
+        },
+        {
+          "week": 3,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9716
+        },
+        {
+          "week": 4,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0897
+        },
+        {
+          "week": 5,
+          "opp": "CIN",
+          "home": true,
+          "factor": 1.0443
+        },
+        {
+          "week": 7,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.123
+        },
+        {
+          "week": 8,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1463
+        },
+        {
+          "week": 9,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7908
+        },
+        {
+          "week": 10,
+          "opp": "IND",
+          "home": false,
+          "factor": 1.0033
+        },
+        {
+          "week": 11,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7597
+        },
+        {
+          "week": 12,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1688
+        },
+        {
+          "week": 13,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8338
+        },
+        {
+          "week": 14,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0737
+        },
+        {
+          "week": 15,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8471
+        },
+        {
+          "week": 16,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9993
+        },
+        {
+          "week": 17,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7908
+        },
+        {
+          "week": 18,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.1014
+        }
+      ]
     },
     {
       "player_id": "DST-KC",
@@ -1987,7 +4019,111 @@
         "tkl_loss": 78.5,
         "def_pass_def": 65.67
       },
-      "proj_points": 96.02
+      "proj_points": 96.02,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8401
+        },
+        {
+          "week": 2,
+          "opp": "IND",
+          "home": true,
+          "factor": 1.0108
+        },
+        {
+          "week": 3,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.079
+        },
+        {
+          "week": 4,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2257
+        },
+        {
+          "week": 6,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9673
+        },
+        {
+          "week": 7,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.079
+        },
+        {
+          "week": 8,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8071
+        },
+        {
+          "week": 9,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1314
+        },
+        {
+          "week": 10,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.9889
+        },
+        {
+          "week": 11,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.0225
+        },
+        {
+          "week": 12,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7354
+        },
+        {
+          "week": 13,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8296
+        },
+        {
+          "week": 14,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9712
+        },
+        {
+          "week": 15,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1096
+        },
+        {
+          "week": 16,
+          "opp": "SF",
+          "home": true,
+          "factor": 0.9974
+        },
+        {
+          "week": 17,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9294
+        },
+        {
+          "week": 18,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2757
+        }
+      ]
     },
     {
       "player_id": "DST-IND",
@@ -2031,7 +4167,111 @@
         "tkl_loss": 84.5,
         "def_pass_def": 70.0
       },
-      "proj_points": 95.87
+      "proj_points": 95.87,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.748
+        },
+        {
+          "week": 2,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.8831
+        },
+        {
+          "week": 3,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9633
+        },
+        {
+          "week": 4,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.8894
+        },
+        {
+          "week": 5,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9428
+        },
+        {
+          "week": 6,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2467
+        },
+        {
+          "week": 7,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0308
+        },
+        {
+          "week": 8,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9161
+        },
+        {
+          "week": 9,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0026
+        },
+        {
+          "week": 10,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.0974
+        },
+        {
+          "week": 11,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9255
+        },
+        {
+          "week": 12,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.1989
+        },
+        {
+          "week": 14,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8186
+        },
+        {
+          "week": 15,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.1978
+        },
+        {
+          "week": 16,
+          "opp": "CIN",
+          "home": true,
+          "factor": 0.9878
+        },
+        {
+          "week": 17,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.1978
+        },
+        {
+          "week": 18,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9535
+        }
+      ]
     },
     {
       "player_id": "DST-NE",
@@ -2075,7 +4315,111 @@
         "tkl_loss": 75.17,
         "def_pass_def": 68.83
       },
-      "proj_points": 94.69
+      "proj_points": 94.69,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.1066
+        },
+        {
+          "week": 2,
+          "opp": "PIT",
+          "home": true,
+          "factor": 1.0298
+        },
+        {
+          "week": 3,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9614
+        },
+        {
+          "week": 4,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7542
+        },
+        {
+          "week": 5,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.3084
+        },
+        {
+          "week": 6,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1603
+        },
+        {
+          "week": 7,
+          "opp": "CHI",
+          "home": false,
+          "factor": 1.0241
+        },
+        {
+          "week": 8,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.1066
+        },
+        {
+          "week": 9,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8753
+        },
+        {
+          "week": 10,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7542
+        },
+        {
+          "week": 12,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9532
+        },
+        {
+          "week": 13,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.785
+        },
+        {
+          "week": 14,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.126
+        },
+        {
+          "week": 15,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9268
+        },
+        {
+          "week": 16,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.1148
+        },
+        {
+          "week": 17,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8616
+        },
+        {
+          "week": 18,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1517
+        }
+      ]
     },
     {
       "player_id": "DST-DAL",
@@ -2119,7 +4463,111 @@
         "tkl_loss": 78.0,
         "def_pass_def": 56.67
       },
-      "proj_points": 93.77
+      "proj_points": 93.77,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.2067
+        },
+        {
+          "week": 2,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9698
+        },
+        {
+          "week": 3,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7836
+        },
+        {
+          "week": 4,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9696
+        },
+        {
+          "week": 5,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9715
+        },
+        {
+          "week": 6,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8395
+        },
+        {
+          "week": 7,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8576
+        },
+        {
+          "week": 8,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.0469
+        },
+        {
+          "week": 9,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9943
+        },
+        {
+          "week": 10,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0212
+        },
+        {
+          "week": 11,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.3061
+        },
+        {
+          "week": 12,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8926
+        },
+        {
+          "week": 13,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.1046
+        },
+        {
+          "week": 15,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8494
+        },
+        {
+          "week": 16,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9989
+        },
+        {
+          "week": 17,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.256
+        },
+        {
+          "week": 18,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9317
+        }
+      ]
     },
     {
       "player_id": "DST-CIN",
@@ -2163,7 +4611,111 @@
         "tkl_loss": 62.0,
         "def_pass_def": 76.67
       },
-      "proj_points": 87.58
+      "proj_points": 87.58,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9413
+        },
+        {
+          "week": 2,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9395
+        },
+        {
+          "week": 3,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.957
+        },
+        {
+          "week": 4,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9679
+        },
+        {
+          "week": 5,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.0703
+        },
+        {
+          "week": 7,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7295
+        },
+        {
+          "week": 8,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2655
+        },
+        {
+          "week": 9,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.981
+        },
+        {
+          "week": 10,
+          "opp": "PIT",
+          "home": true,
+          "factor": 0.9961
+        },
+        {
+          "week": 11,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9028
+        },
+        {
+          "week": 12,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.0991
+        },
+        {
+          "week": 13,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.2159
+        },
+        {
+          "week": 14,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.933
+        },
+        {
+          "week": 15,
+          "opp": "CAR",
+          "home": false,
+          "factor": 1.0129
+        },
+        {
+          "week": 16,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9634
+        },
+        {
+          "week": 17,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7593
+        },
+        {
+          "week": 18,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.2655
+        }
+      ]
     },
     {
       "player_id": "DST-SF",
@@ -2207,7 +4759,111 @@
         "tkl_loss": 66.33,
         "def_pass_def": 66.0
       },
-      "proj_points": 87.17
+      "proj_points": 87.17,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8276
+        },
+        {
+          "week": 2,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1202
+        },
+        {
+          "week": 3,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.02
+        },
+        {
+          "week": 4,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.838
+        },
+        {
+          "week": 5,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.0763
+        },
+        {
+          "week": 6,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9449
+        },
+        {
+          "week": 7,
+          "opp": "ATL",
+          "home": false,
+          "factor": 0.9864
+        },
+        {
+          "week": 9,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2726
+        },
+        {
+          "week": 10,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9832
+        },
+        {
+          "week": 11,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.0952
+        },
+        {
+          "week": 12,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1202
+        },
+        {
+          "week": 13,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1758
+        },
+        {
+          "week": 14,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8614
+        },
+        {
+          "week": 15,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9271
+        },
+        {
+          "week": 16,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9014
+        },
+        {
+          "week": 17,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8697
+        },
+        {
+          "week": 18,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.98
+        }
+      ]
     },
     {
       "player_id": "DST-NYG",
@@ -2251,7 +4907,111 @@
         "tkl_loss": 88.17,
         "def_pass_def": 72.0
       },
-      "proj_points": 85.32
+      "proj_points": 85.32,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0384
+        },
+        {
+          "week": 2,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8397
+        },
+        {
+          "week": 3,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2912
+        },
+        {
+          "week": 4,
+          "opp": "ARI",
+          "home": true,
+          "factor": 1.035
+        },
+        {
+          "week": 5,
+          "opp": "WAS",
+          "home": false,
+          "factor": 0.9211
+        },
+        {
+          "week": 6,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.1214
+        },
+        {
+          "week": 7,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9586
+        },
+        {
+          "week": 9,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8479
+        },
+        {
+          "week": 10,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9587
+        },
+        {
+          "week": 11,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.9875
+        },
+        {
+          "week": 12,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.983
+        },
+        {
+          "week": 13,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0096
+        },
+        {
+          "week": 14,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.0921
+        },
+        {
+          "week": 15,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.2912
+        },
+        {
+          "week": 16,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7444
+        },
+        {
+          "week": 17,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9977
+        },
+        {
+          "week": 18,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8825
+        }
+      ]
     },
     {
       "player_id": "DST-LV",
@@ -2295,7 +5055,111 @@
         "tkl_loss": 91.67,
         "def_pass_def": 62.33
       },
-      "proj_points": 80.0
+      "proj_points": 80.0,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1281
+        },
+        {
+          "week": 2,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9336
+        },
+        {
+          "week": 3,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0693
+        },
+        {
+          "week": 4,
+          "opp": "KC",
+          "home": true,
+          "factor": 0.9448
+        },
+        {
+          "week": 5,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.071
+        },
+        {
+          "week": 6,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7689
+        },
+        {
+          "week": 7,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8675
+        },
+        {
+          "week": 8,
+          "opp": "NYJ",
+          "home": false,
+          "factor": 1.092
+        },
+        {
+          "week": 9,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9627
+        },
+        {
+          "week": 10,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1281
+        },
+        {
+          "week": 11,
+          "opp": "DEN",
+          "home": false,
+          "factor": 0.8108
+        },
+        {
+          "week": 12,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.2313
+        },
+        {
+          "week": 14,
+          "opp": "LAC",
+          "home": true,
+          "factor": 0.9717
+        },
+        {
+          "week": 15,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8439
+        },
+        {
+          "week": 16,
+          "opp": "TEN",
+          "home": true,
+          "factor": 1.2815
+        },
+        {
+          "week": 17,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9869
+        },
+        {
+          "week": 18,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9078
+        }
+      ]
     },
     {
       "player_id": "DST-NYJ",
@@ -2339,7 +5203,111 @@
         "tkl_loss": 81.17,
         "def_pass_def": 67.67
       },
-      "proj_points": 77.52
+      "proj_points": 77.52,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.2259
+        },
+        {
+          "week": 2,
+          "opp": "GB",
+          "home": true,
+          "factor": 0.8536
+        },
+        {
+          "week": 3,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7356
+        },
+        {
+          "week": 4,
+          "opp": "CHI",
+          "home": false,
+          "factor": 0.9987
+        },
+        {
+          "week": 5,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.276
+        },
+        {
+          "week": 6,
+          "opp": "NE",
+          "home": false,
+          "factor": 1.0663
+        },
+        {
+          "week": 7,
+          "opp": "MIA",
+          "home": true,
+          "factor": 1.1232
+        },
+        {
+          "week": 8,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.276
+        },
+        {
+          "week": 9,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9038
+        },
+        {
+          "week": 10,
+          "opp": "BUF",
+          "home": true,
+          "factor": 0.7656
+        },
+        {
+          "week": 11,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9296
+        },
+        {
+          "week": 12,
+          "opp": "MIA",
+          "home": false,
+          "factor": 1.0792
+        },
+        {
+          "week": 14,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8403
+        },
+        {
+          "week": 15,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9827
+        },
+        {
+          "week": 16,
+          "opp": "NE",
+          "home": true,
+          "factor": 1.1098
+        },
+        {
+          "week": 17,
+          "opp": "MIN",
+          "home": true,
+          "factor": 1.0981
+        },
+        {
+          "week": 18,
+          "opp": "BUF",
+          "home": false,
+          "factor": 0.7356
+        }
+      ]
     },
     {
       "player_id": "DST-TEN",
@@ -2383,7 +5351,111 @@
         "tkl_loss": 84.17,
         "def_pass_def": 58.33
       },
-      "proj_points": 76.38
+      "proj_points": 76.38,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1387
+        },
+        {
+          "week": 2,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8775
+        },
+        {
+          "week": 3,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1863
+        },
+        {
+          "week": 4,
+          "opp": "BAL",
+          "home": false,
+          "factor": 0.7402
+        },
+        {
+          "week": 5,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9921
+        },
+        {
+          "week": 6,
+          "opp": "IND",
+          "home": false,
+          "factor": 0.9775
+        },
+        {
+          "week": 7,
+          "opp": "CLE",
+          "home": true,
+          "factor": 1.284
+        },
+        {
+          "week": 8,
+          "opp": "CIN",
+          "home": false,
+          "factor": 0.9775
+        },
+        {
+          "week": 10,
+          "opp": "JAX",
+          "home": true,
+          "factor": 0.982
+        },
+        {
+          "week": 11,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9921
+        },
+        {
+          "week": 12,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9435
+        },
+        {
+          "week": 13,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9534
+        },
+        {
+          "week": 14,
+          "opp": "DET",
+          "home": false,
+          "factor": 0.7402
+        },
+        {
+          "week": 15,
+          "opp": "IND",
+          "home": true,
+          "factor": 1.0174
+        },
+        {
+          "week": 16,
+          "opp": "LV",
+          "home": false,
+          "factor": 1.2336
+        },
+        {
+          "week": 17,
+          "opp": "PIT",
+          "home": true,
+          "factor": 1.0107
+        },
+        {
+          "week": 18,
+          "opp": "HOU",
+          "home": false,
+          "factor": 0.9532
+        }
+      ]
     },
     {
       "player_id": "DST-WAS",
@@ -2427,7 +5499,111 @@
         "tkl_loss": 75.67,
         "def_pass_def": 68.0
       },
-      "proj_points": 76.35
+      "proj_points": 76.35,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8228
+        },
+        {
+          "week": 2,
+          "opp": "DAL",
+          "home": false,
+          "factor": 0.9681
+        },
+        {
+          "week": 3,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.103
+        },
+        {
+          "week": 4,
+          "opp": "IND",
+          "home": true,
+          "factor": 0.9928
+        },
+        {
+          "week": 5,
+          "opp": "NYG",
+          "home": true,
+          "factor": 1.2049
+        },
+        {
+          "week": 6,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.9412
+        },
+        {
+          "week": 8,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8563
+        },
+        {
+          "week": 9,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8481
+        },
+        {
+          "week": 10,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1577
+        },
+        {
+          "week": 11,
+          "opp": "CIN",
+          "home": true,
+          "factor": 0.9928
+        },
+        {
+          "week": 12,
+          "opp": "ARI",
+          "home": false,
+          "factor": 0.9649
+        },
+        {
+          "week": 13,
+          "opp": "TEN",
+          "home": false,
+          "factor": 1.2038
+        },
+        {
+          "week": 14,
+          "opp": "HOU",
+          "home": true,
+          "factor": 0.9682
+        },
+        {
+          "week": 15,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0109
+        },
+        {
+          "week": 16,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.036
+        },
+        {
+          "week": 17,
+          "opp": "JAX",
+          "home": false,
+          "factor": 0.9207
+        },
+        {
+          "week": 18,
+          "opp": "DAL",
+          "home": true,
+          "factor": 1.0076
+        }
+      ]
     },
     {
       "player_id": "DST-CAR",
@@ -2471,7 +5647,111 @@
         "tkl_loss": 63.33,
         "def_pass_def": 65.33
       },
-      "proj_points": 75.33
+      "proj_points": 75.33,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "CHI",
+          "home": true,
+          "factor": 1.0709
+        },
+        {
+          "week": 2,
+          "opp": "ATL",
+          "home": false,
+          "factor": 1.019
+        },
+        {
+          "week": 3,
+          "opp": "CLE",
+          "home": false,
+          "factor": 1.263
+        },
+        {
+          "week": 4,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7887
+        },
+        {
+          "week": 6,
+          "opp": "PHI",
+          "home": false,
+          "factor": 0.8632
+        },
+        {
+          "week": 7,
+          "opp": "TB",
+          "home": true,
+          "factor": 0.9778
+        },
+        {
+          "week": 8,
+          "opp": "GB",
+          "home": false,
+          "factor": 0.8449
+        },
+        {
+          "week": 9,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8656
+        },
+        {
+          "week": 10,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0969
+        },
+        {
+          "week": 11,
+          "opp": "BAL",
+          "home": true,
+          "factor": 0.7887
+        },
+        {
+          "week": 12,
+          "opp": "TB",
+          "home": false,
+          "factor": 0.9394
+        },
+        {
+          "week": 13,
+          "opp": "MIN",
+          "home": false,
+          "factor": 1.0869
+        },
+        {
+          "week": 14,
+          "opp": "NO",
+          "home": true,
+          "factor": 1.1416
+        },
+        {
+          "week": 15,
+          "opp": "CIN",
+          "home": true,
+          "factor": 1.0416
+        },
+        {
+          "week": 16,
+          "opp": "PIT",
+          "home": false,
+          "factor": 0.9941
+        },
+        {
+          "week": 17,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1572
+        },
+        {
+          "week": 18,
+          "opp": "ATL",
+          "home": true,
+          "factor": 1.0606
+        }
+      ]
     },
     {
       "player_id": "DST-ARI",
@@ -2515,7 +5795,111 @@
         "tkl_loss": 74.67,
         "def_pass_def": 72.5
       },
-      "proj_points": 70.96
+      "proj_points": 70.96,
+      "weekly": [
+        {
+          "week": 1,
+          "opp": "LAC",
+          "home": false,
+          "factor": 0.9436
+        },
+        {
+          "week": 2,
+          "opp": "SEA",
+          "home": true,
+          "factor": 1.1401
+        },
+        {
+          "week": 3,
+          "opp": "SF",
+          "home": false,
+          "factor": 0.973
+        },
+        {
+          "week": 4,
+          "opp": "NYG",
+          "home": false,
+          "factor": 1.1967
+        },
+        {
+          "week": 5,
+          "opp": "DET",
+          "home": true,
+          "factor": 0.7771
+        },
+        {
+          "week": 6,
+          "opp": "LAR",
+          "home": false,
+          "factor": 0.8423
+        },
+        {
+          "week": 7,
+          "opp": "DEN",
+          "home": true,
+          "factor": 0.8529
+        },
+        {
+          "week": 8,
+          "opp": "DAL",
+          "home": false,
+          "factor": 1.0007
+        },
+        {
+          "week": 9,
+          "opp": "SEA",
+          "home": false,
+          "factor": 1.0954
+        },
+        {
+          "week": 10,
+          "opp": "LAR",
+          "home": true,
+          "factor": 0.8767
+        },
+        {
+          "week": 11,
+          "opp": "KC",
+          "home": false,
+          "factor": 0.9174
+        },
+        {
+          "week": 12,
+          "opp": "WAS",
+          "home": true,
+          "factor": 0.9617
+        },
+        {
+          "week": 13,
+          "opp": "PHI",
+          "home": true,
+          "factor": 0.8852
+        },
+        {
+          "week": 15,
+          "opp": "NYJ",
+          "home": true,
+          "factor": 1.1486
+        },
+        {
+          "week": 16,
+          "opp": "NO",
+          "home": false,
+          "factor": 1.0807
+        },
+        {
+          "week": 17,
+          "opp": "LV",
+          "home": true,
+          "factor": 1.2952
+        },
+        {
+          "week": 18,
+          "opp": "SF",
+          "home": true,
+          "factor": 1.0127
+        }
+      ]
     }
   ],
   "notes": [

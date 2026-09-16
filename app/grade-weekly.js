@@ -26,9 +26,12 @@
  *     a player with no projection for the week is listed in `noProjection`,
  *     never priced at 0.0 as if that were a forecast;
  *   - K/DEF points come from the kdst index (the league's own scoring on the
- *     contract's stat line), never from an offence conversion of proj_points;
- *     the contract has NO weekly split, so a K/DEF week is season ÷ games and
- *     the caller must SAY so;
+ *     contract's stat line), never from an offence conversion of proj_points.
+ *     R55: a D/ST week is that season average scaled by the week's measured
+ *     opponent factor when the contract carries one; a KICKER week, and any
+ *     D/ST week the split did not reach, is still season ÷ games and the row
+ *     says so through `seasonAvg` — which is now per ROW AND WEEK, not a
+ *     blanket true for every K/DEF;
  *   - no market input anywhere; self-learning signals are at weight 0 and
  *     move nothing here — the view labels that;
  *   - seeded RNG (mulberry32) so the same inputs give the same season.
@@ -38,6 +41,7 @@ import { bestLineup, canonPosition } from './lineup.js';
 import { scoringAdjust, weeklyPoints, extraPtsOf } from './team-logic.js';
 import { availabilityOf } from './availability.js';
 import { mulberry32, SD_FRAC, SD_MIN } from './grade.js';
+import { hasWeeklySplit, weeklyPointsFor } from './kdst.js';
 
 /** Positions priced by the kdst contract, never by the offence conversion. */
 const KDST_POS = new Set(['K', 'DEF']);
@@ -112,13 +116,15 @@ export function teamWeekPoints({
       const onBye = Number.isFinite(bye) && Number(bye) === wk;
       if (onBye) byes.push(id);
       if (e.unscored) noProjection.push(id);
+      // R55 — the week's own number when the contract splits this row, the flat
+      // average otherwise. `seasonAvg` reads the SAME map the number came from,
+      // so the label can never claim a split the points did not get.
+      const split = hasWeeklySplit(e, wk);
       rows.push({
         id, name: e.name || p.name || id, pos,
-        pts: (onBye || e.unscored) ? 0 : (Number(e.weeklyPoints) || 0),
+        pts: (onBye || e.unscored) ? 0 : weeklyPointsFor(e, wk),
         onBye, playable: true, projected: !e.unscored,
-        // FLAT PER-GAME AVERAGE (season ÷ games) — the contract has no weekly
-        // split. The view says so beside every such row.
-        seasonAvg: true,
+        seasonAvg: !split,
       });
       continue;
     }

@@ -74,8 +74,21 @@ jobs:
       - name: Build weekly player usage (in-season cuts, weight 0)
         run: python scripts/build_player_usage_weekly.py
 
+      # R55 ORDER MATTERS. The corpus is built FIRST so build_kdst's weekly
+      # split and the gate that judges it are looking at the same weeks; the
+      # gate then runs here, not only in CI, so a cron that quietly stops
+      # beating the flat season average is caught by the cron itself.
+      - name: Build resolved D/ST week corpus (R55 gate raw material)
+        run: python scripts/build_kdst_history.py
+
       - name: Build K/DST projections (separate contract from player_projections)
         run: python scripts/build_kdst.py
+
+      - name: R55 D/ST weekly split never-regress verdict
+        run: python scripts/backtest_kdst.py
+
+      - name: R55 gate — the split must still beat the flat season average
+        run: python scripts/backtest_kdst.py --gate
 
       # Rel18 family inputs. These three feed the five new candidate families
       # (divisional, coach_quality, coach_regime, dvp_mismatch, scheme_matchup)

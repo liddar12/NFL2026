@@ -103,6 +103,7 @@ ALLOW = {  # path -> reason (all: compact-writer, size-driven; builder named)
     "data/epa_history.json": "build_epa_history.py compact writer, 1.4 MB",
     "data/game_context.json": "build_game_context.py compact writer, 3.2 MB",
     "data/injury_history.json": "build_injury_history.py compact writer, 553 KB",
+    "data/kdst_weekly_history.json": "build_kdst_history.py compact writer, 194 KB (348 KB at indent=2, 1.8x) — the R55 gate corpus, cron-rewritten",
     "data/market_baseline.json": "build_market_baseline.py compact writer, 38 KB",
     "data/player_usage.json": "build_player_usage.py compact writer, 80 KB",
     "data/player_usage_history.json": "build_player_usage_history.py compact writer, 236 KB",

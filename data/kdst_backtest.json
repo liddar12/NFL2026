@@ -1,0 +1,87 @@
+{
+  "generated_utc": "2026-09-16T18:45:42Z",
+  "model": "kdst_split_v1",
+  "corpus": {
+    "rows": 2718,
+    "seasons": [
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "folds": [
+      2023,
+      2024,
+      2025
+    ]
+  },
+  "params": {
+    "shrink": 0.5,
+    "clamp": [
+      0.75,
+      1.25
+    ],
+    "home_coef": 0.02,
+    "prior_weight": 0.5
+  },
+  "pooled": {
+    "n": 1632,
+    "flat_mae": 4.4418,
+    "split_mae": 4.3227,
+    "delta": -0.1191,
+    "ci95": [
+      -0.1624,
+      -0.0758
+    ],
+    "margin": 0.02,
+    "beats_flat": true,
+    "why": "split beats flat by 0.1191, 95% CI [-0.1624, -0.0758] excludes 0"
+  },
+  "per_season": {
+    "2023": {
+      "n": 544,
+      "flat_mae": 4.5027,
+      "split_mae": 4.423,
+      "delta": -0.0796,
+      "ci95": [
+        -0.1487,
+        -0.0105
+      ],
+      "margin": 0.02,
+      "beats_flat": true,
+      "why": "split beats flat by 0.0796, 95% CI [-0.1487, -0.0105] excludes 0"
+    },
+    "2024": {
+      "n": 544,
+      "flat_mae": 4.3793,
+      "split_mae": 4.2291,
+      "delta": -0.1503,
+      "ci95": [
+        -0.2285,
+        -0.0721
+      ],
+      "margin": 0.02,
+      "beats_flat": true,
+      "why": "split beats flat by 0.1503, 95% CI [-0.2285, -0.0721] excludes 0"
+    },
+    "2025": {
+      "n": 544,
+      "flat_mae": 4.4435,
+      "split_mae": 4.316,
+      "delta": -0.1275,
+      "ci95": [
+        -0.2047,
+        -0.0503
+      ],
+      "margin": 0.02,
+      "beats_flat": true,
+      "why": "split beats flat by 0.1275, 95% CI [-0.2047, -0.0503] excludes 0"
+    }
+  },
+  "kicker": {
+    "split": false,
+    "reason": "measured, not adopted: over the same walk-forward grid the D/ST split clears (scripts/backtest_kdst.py), the best kicker configuration moved MAE by -0.008 +/- 0.014 (not significant) and every stronger setting made it worse. A kicker week is season / games; nothing here pretends otherwise."
+  },
+  "note": "flat = the season projection divided by games played, every week, which is what shipped before R55. split = the same level reshaped by the opponent's surrendered D/ST points and home field, renormalised so the season total is unchanged. Both arms score identical rows, so the interval is paired. No market number is read anywhere in this file."
+}

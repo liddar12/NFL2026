@@ -95,6 +95,12 @@ SCHEMA_TO_DATA = {
     "player_backtest.schema.json": "player_backtest.json",
     "adp_history.schema.json": "adp_history.json",
     "kdst_projections.schema.json": "kdst_projections.json",
+    # R55 — the resolved D/ST week corpus the split's gate reads OFFLINE, and
+    # the gate's own verdict. Both are runner-built (network), so both are
+    # OPTIONAL: a fresh clone has them, but a clone that has never run the
+    # builder must not go red for a file no test needs to exist.
+    "kdst_weekly_history.schema.json": "kdst_weekly_history.json",
+    "kdst_backtest.schema.json": "kdst_backtest.json",
     "game_context.schema.json": "game_context.json",
     "scheme_history.schema.json": "scheme_history.json",
     "dvp_positional_history.schema.json": "dvp_positional_history.json",
@@ -150,6 +156,8 @@ PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
 # their upstream): validated strictly when present, but absence is not a
 # failure until the bootstrap workflow has run.
 OPTIONAL_DATA = frozenset([
+    # R55 — both are built from nflverse releases on a runner.
+    "kdst_weekly_history.json", "kdst_backtest.json",
     "epa_history.json", "weather_history.json", "weather_forecast.json",
     "market_baseline.json", "injury_history.json", "player_usage.json",
     "player_usage_history.json", "player_usage_weekly.json",
