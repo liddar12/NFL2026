@@ -285,6 +285,43 @@ def _pair_rho(a, b, corr=None):
     return _clamp(rho, -0.95, 0.95)
 
 
+# Markets that are bets on the SAME EVENT: which team wins, and by how much.
+_GAME_OUTCOME_MARKETS = frozenset(("moneyline", "spread"))
+
+
+def same_side_game_pair(a, b):
+    """True when two legs are bets on the SAME TEAM'S OUTCOME in the same game.
+
+    A moneyline on a team and that team's spread are one opinion, not two. Winning
+    outright guarantees the cover on any non-negative handicap, so stacking them
+    sells a single view as a multi-leg parlay and quotes a payout for risk the
+    bettor never took. The correlation table measures the pair at rho 0.71 — the
+    strongest in the book — and `build_game_parlays` ranks pairs by |rho|, so the
+    ranking actively SELECTED this pair as the flagship. It shipped on 16 of 66
+    week-2 parlays before this rule existed.
+
+    Owner rule (2026-09-16): one leg per game side. Pricing the correlation was
+    considered and rejected — honest arithmetic on a parlay that should not be
+    offered is still a parlay that should not be offered.
+    """
+    if a.get("market") not in _GAME_OUTCOME_MARKETS:
+        return False
+    if b.get("market") not in _GAME_OUTCOME_MARKETS:
+        return False
+    sa, sb = a.get("_side"), b.get("_side")
+    return sa is not None and sa == sb
+
+
+def legs_violating_one_per_side(legs):
+    """Every (i, j) pair in `legs` that breaks the one-leg-per-game-side rule."""
+    out = []
+    for i in range(len(legs)):
+        for j in range(i + 1, len(legs)):
+            if same_side_game_pair(legs[i], legs[j]):
+                out.append((i, j))
+    return out
+
+
 def _combine_two(p_joint, p_next, rho):
     """Combine a running joint probability with the next leg under correlation `rho`.
 
@@ -720,6 +757,11 @@ def build_game_parlays(game_pred, market=None, props=None,
     for i in range(len(legs)):
         for j in range(i + 1, len(legs)):
             pair = [legs[i], legs[j]]
+            # ONE LEG PER GAME SIDE. Skipped before ranking, so the flagship
+            # same-game parlay becomes the strongest pair that is genuinely two
+            # opinions (ML + a prop from that game), not the same one twice.
+            if same_side_game_pair(legs[i], legs[j]):
+                continue
             rho = _pair_rho(legs[i], legs[j], corr)
             model_p, implied_p = _combined_probs(pair, correlated=True, corr=corr)
             ev = (model_p / implied_p - 1.0) if implied_p > 0 else -1.0

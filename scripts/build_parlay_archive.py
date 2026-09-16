@@ -122,8 +122,15 @@ def archive_doc(parlays_doc, existing, closed, now):
     upd = parlays_doc.get("updated_utc")
     if upd not in seen:
         history.append({"updated_utc": upd, "archived_utc": now})
+    # R74 — an OPEN week refreshes when its CONTENT changes, even at the same
+    # updated_utc. Keying idempotence on the timestamp alone meant a correction
+    # to a live slate was silently ignored: the one-leg-per-game-side fix
+    # rebuilt week 2's cards and this returned "unchanged", leaving the bad
+    # slate archived. A CLOSED week is still never rewritten — that is the
+    # record of what shipped and it stays immutable.
+    same_cards = (existing or {}).get("parlays") == parlays_doc.get("parlays")
     if existing is not None and existing.get("updated_utc") == upd \
-            and existing.get("closed") is False and not closed:
+            and existing.get("closed") is False and not closed and same_cards:
         return None, "unchanged"
     doc["archived_utc"] = now
     doc["closed"] = bool(closed)
