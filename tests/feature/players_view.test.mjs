@@ -520,9 +520,25 @@ test('a K/DEF league prices identically on both tabs (the R21 shape-argument bug
   });
   const clampedCfg = cfgFromProfile(clampedProfile).cfg;
   assert.equal(clampedCfg.rb, 3, 'the fixture must actually be clamped by ROSTER_BOUNDS');
-  const bridged = fairDollars(pool, adjOf, clampedProfile.shape.teams,
+
+  // THE SELF-CHECK RUNS ON A SYNTHETIC POOL, NOT THE ADP FEED. What it proves is
+  // a property of fairDollars — hand it a raw LeagueProfile instead of the
+  // draft-sim shape and the sheet moves — so it must not depend on how many
+  // players the ADP feed happens to carry today. It did, and it went silently
+  // toothless in-season: the pool fell from 163 players to 110 as drafts
+  // finished, the replacement index for every position ran past the end of the
+  // shorter position lists, both shapes resolved the same replacement level and
+  // `moved` fell to 0. The assertion below then failed honestly, which is the
+  // only reason this was caught rather than quietly proving nothing.
+  const ladder = (pos, n, top) => Array.from({ length: n }, (_, i) => ({
+    gsis_id: `${pos}-${i}`, position: pos, proj_points: top - i * (top / (n + 1)),
+  }));
+  const deepPool = [...ladder('QB', 40, 380), ...ladder('RB', 90, 330),
+    ...ladder('WR', 90, 320), ...ladder('TE', 40, 230)];
+  const deepAdj = (r) => Number(r.proj_points);
+  const bridged = fairDollars(deepPool, deepAdj, clampedProfile.shape.teams,
     Number(adp.auction_budget), rosterShape(clampedCfg));
-  const rawProfileShape = fairDollars(pool, adjOf, clampedProfile.shape.teams,
+  const rawProfileShape = fairDollars(deepPool, deepAdj, clampedProfile.shape.teams,
     Number(adp.auction_budget), clampedProfile);
   let moved = 0;
   for (const [id, v] of bridged) if (rawProfileShape.get(id) !== v) moved += 1;

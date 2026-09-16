@@ -291,8 +291,18 @@ test('shipped: team codes reconcile to the canonical 32 after renames',
 
 test('shipped: completed games only, and the record shape is uniform',
   { skip: skipIfUnbuilt }, () => {
-    assert.equal(Object.keys(shipped.games).length, 7276);
-    assert.equal(shipped.diagnostics.games, 7276);
+    // 7,276 is the 1999-2025 corpus the reconcile above proves is fully joined.
+    // The shipped artifact also carries the CURRENT season's completed games, so
+    // the total grows week by week — derived, never pinned (week 1 of 2026 turned
+    // the old flat pin of 7,276 into 7,292 on 2026-09-16).
+    const CORPUS_GAMES = 7276;
+    const keys = Object.keys(shipped.games);
+    assert.equal(keys.length, shipped.diagnostics.games,
+      'the artifact must count exactly what it ships');
+    assert.equal(shipped.diagnostics.corpus_reconcile.joined, CORPUS_GAMES);
+    const inSeason = keys.filter((k) => Number(k.split('|')[0]) > 2025);
+    assert.equal(keys.length - CORPUS_GAMES, inSeason.length,
+      'growth beyond the corpus is the current season only — nothing else may appear');
     assert.ok(shipped.diagnostics.unplayed_rows_skipped > 0,
       'unplayed rows exist upstream and must be reported, not hidden');
     for (const [key, rec] of Object.entries(shipped.games)) {

@@ -4,18 +4,26 @@ sums that describe HOW a team plays, for the `scheme_matchup` gate family
 
 THE APPLICATION PATH IS DARK, AND THIS FILE SAYS SO IN THE DATA
 ---------------------------------------------------------------
-FTN charting exists from 2022. It does NOT exist for the live 2026 season: the
-release URL 404s. So this feed can support a BACKTEST of `scheme_matchup` and
-it can NOT support applying that family to a live 2026 game. A family that
-silently prices every 2026 game at a neutral 0.0 is indistinguishable from a
-family that is working, so the artifact carries an explicit `application`
-block, probed at build time rather than asserted:
+FTN charting exists from 2022 and THIS BUILD INGESTS 2022-2025 (FIRST_FTN_SEASON
+to LAST_FTN_SEASON). The live season is not ingested, so this feed can support a
+BACKTEST of `scheme_matchup` and it can NOT support applying that family to a
+live game. A family that silently prices every live-season game at a neutral 0.0
+is indistinguishable from a family that is working, so the artifact carries an
+explicit `application` block, PROBED at build time rather than asserted:
 
-    "application": {"live_season": 2026, "applied": false, "dark": true,
-                    "http_status": 404, "reason": "...", "checked_utc": "..."}
+    "application": {"live_season": 2026, "applied": false,
+                    "dark": <from the probe>, "http_status": <from the probe>,
+                    "reason": "...", "checked_utc": "..."}
 
-`scheme_matchup.delta_from_params` RAISES on a season this block calls dark; it
-never returns a neutral number for it. See that module's docstring.
+The probe answers ONE question: is the release published upstream. It does not
+answer whether this artifact carries the season — `seasons_covered` does — and
+`scheme_matchup.is_dark` treats the probe as a veto only. When the live release
+is published while LAST_FTN_SEASON still excludes it, the season stays dark
+because there are no charted plays in hand, not because the file is missing.
+
+`scheme_matchup.delta_from_params` RAISES on any season there is no charted
+play in hand for; it never returns a neutral number for it. See that module's
+docstring.
 
 THE JOIN (the thing that has broken every previous attempt)
 -----------------------------------------------------------
@@ -360,8 +368,13 @@ def probe_live_season(season=LIVE_SEASON):
     """Ask the release host whether the LIVE season has an FTN file yet.
 
     The `application` block is derived from this answer, never asserted. If FTN
-    ever publishes 2026 mid-season, a rebuild flips `dark` to false on its own
-    and nobody has to remember to edit a constant.
+    publishes the live season mid-season, a rebuild flips `dark` to false on its
+    own and nobody has to remember to edit a constant.
+
+    That flip does NOT light the application path. It says the file exists
+    upstream; it says nothing about whether this build ingested it. Ingesting it
+    means extending LAST_FTN_SEASON and re-running, and applying it on top of
+    that means wiring a prediction-time reader and clearing never-regress.
     """
     url = FTN_URL.format(season=int(season))
     checked = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -390,9 +403,10 @@ def probe_live_season(season=LIVE_SEASON):
             "family that silently no-ops is indistinguishable from one that "
             "works."
             if dark else
-            f"FTN charting {season} is published (HTTP 200 at {url}); the input "
-            "exists, but `applied` stays false until a prediction-time reader "
-            "is wired into scripts/build_predictions.py."),
+            f"FTN charting {season} is published (HTTP 200 at {url}): the "
+            "release exists upstream. Whether THIS artifact carries the season "
+            "is a separate question, answered by `seasons_covered` and "
+            "reconciled into this block by `document`."),
     }
 
 
@@ -400,8 +414,40 @@ def probe_live_season(season=LIVE_SEASON):
 # document                                                                     #
 # --------------------------------------------------------------------------- #
 
+def reconcile_application(application, covered):
+    """The application block, with THIS artifact's coverage given the last word.
+
+    `probe_live_season` answers one question — is the release published upstream
+    — and a published release is not an ingested one. If the live season is not
+    among the seasons this build actually folded, the application path is dark
+    no matter what the host serves, so `dark` is forced back to true and the
+    reason says which fact made it dark. The probe's own answer is kept verbatim
+    in `http_status`/`checked_utc`/`url`, because that is evidence and is never
+    overwritten.
+    """
+    app = dict(application or {})
+    live = app.get("live_season")
+    if live is None or int(live) in covered:
+        return app
+    if app.get("dark", True):
+        return app
+    app["dark"] = True
+    app["applied"] = False
+    app["reason"] = (
+        f"FTN charting {int(live)} is published upstream (HTTP "
+        f"{app.get('http_status')} at {app.get('url')}), but this build ingests "
+        f"{covered}; a published release is not an ingested one. scheme_matchup "
+        f"holds no charted play for {int(live)}, so its application path is DARK: "
+        "it RAISES rather than pricing the season at a neutral 0.0. Ingesting "
+        "the season means raising LAST_FTN_SEASON and rebuilding; APPLYING it "
+        "additionally needs a prediction-time reader wired into "
+        "scripts/build_predictions.py and a never-regress run.")
+    return app
+
+
 def document(seasons_map, diagnostics, application):
     covered = sorted(int(y) for y in seasons_map)
+    application = reconcile_application(application, covered)
     return {
         "generated_utc": dt.datetime.now(dt.timezone.utc)
                            .strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -598,6 +644,22 @@ def selftest():
     assert doc["attribution"] == ATTRIBUTION and doc["license"] == LICENSE
     assert doc["application"]["dark"] is True
     assert doc["application"]["applied"] is False
+    # PUBLISHED IS NOT INGESTED: a probe that finds the live release published
+    # cannot light an application path for a season this build never folded.
+    # `document` reconciles it back to dark and says which fact made it so,
+    # while keeping the probe's own answer as evidence.
+    probed = {"live_season": LIVE_SEASON, "applied": False, "dark": False,
+              "http_status": 200, "checked_utc": "2026-01-01T00:00:00Z",
+              "url": FTN_URL.format(season=LIVE_SEASON)}
+    rec = document({2099: {"AAA": {"1": {"off_plays": 1}}}, }, {}, probed)
+    assert rec["application"]["dark"] is True, rec["application"]
+    assert rec["application"]["applied"] is False, rec["application"]
+    assert rec["application"]["http_status"] == 200, rec["application"]
+    assert "ingest" in rec["application"]["reason"], rec["application"]
+    assert probed["dark"] is False, "the probe's own record is not mutated"
+    # ...and a live season the build DID fold keeps the probe's answer.
+    kept = reconcile_application(probed, [2099, LIVE_SEASON])
+    assert kept["dark"] is False, kept
     assert doc["seasons_covered"] == [2099]
     assert doc["season_type"] == "REG"
     # Weeks are emitted in numeric order, not lexical: "10" must not sort

@@ -5,13 +5,19 @@
  * actually go wrong is everything around it, and every single failure mode
  * below has caused a wrong build of this feature before:
  *
- *   1. THE APPLICATION PATH IS DARK, AND MUST STAY LOUD ABOUT IT. FTN charting
- *      has no 2026 release. A family that answers "0.0" for 2026 is byte-for-
+ *   1. THE APPLICATION PATH IS DARK, AND MUST STAY LOUD ABOUT IT. The artifact
+ *      carries charted plays for the seasons it INGESTED and no others. A
+ *      family that answers "0.0" for a season it holds no play for is byte-for-
  *      byte indistinguishable from a family that is working perfectly and
  *      finding nothing. So `delta_from_params` and `scheme_current` must RAISE
- *      on a dark season, the artifact must carry a probed `application` block,
+ *      on such a season, the artifact must carry a probed `application` block,
  *      and `scheme_matchup` must be absent from `promote_signals.APPLIABLE`.
  *      That is three independent locks and all three are tested.
+ *      Every season boundary below is DERIVED from the shipped artifact. FTN
+ *      publishes on its schedule and the build ingests on ours: in Sept 2026
+ *      the probe flipped to HTTP 200 for a season the build still did not
+ *      carry, and "published" was read as permission — the refusal became a
+ *      silent 0.0. Published is not ingested, and ingested is not applied.
  *   2. THE FTN COLUMN NAME. It is `is_screen_pass`, not `is_screen_p`. A
  *      rename must raise, never silently read zero forever.
  *   3. THE JOIN. The FTN release has NO posteam/defteam column, so a charted
@@ -235,105 +241,211 @@ print(json.dumps({"diag": diag, "weeks": sorted(teams["AAA"])}))
  * 4. THE APPLICATION PATH IS DARK                                     *
  * ------------------------------------------------------------------ */
 
-test('scheme: the shipped artifact carries a PROBED application block saying dark', () => {
-  assert.ok(existsSync(ARTIFACT), 'data/scheme_history.json present');
+/* Read once: every season boundary below is DERIVED from the shipped artifact,
+ * never pinned to a calendar year. FTN publishes on its own schedule and the
+ * build ingests on ours; a test that hard-codes "2026 is dark" locks a date,
+ * not a rule, and goes red the morning the two diverge. */
+function artifact() {
   const doc = JSON.parse(readFileSync(ARTIFACT, 'utf8'));
-  const app = doc.application;
+  const covered = (doc.seasons_covered || []).map(Number);
+  const live = Number(doc.application.live_season);
+  return {
+    doc,
+    app: doc.application,
+    covered,
+    /* a season the artifact demonstrably HAS charted plays for */
+    lit: Math.max(...covered),
+    /* a season it demonstrably has NONE for: the live season while it is
+     * uningested, otherwise the year after everything we hold */
+    uncovered: covered.includes(live) ? Math.max(...covered, live) + 1 : live,
+    preFtn: Number(doc.first_ftn_season) - 1,
+    live,
+  };
+}
+
+test('scheme: the shipped artifact carries a PROBED application block that can never read as permission', () => {
+  assert.ok(existsSync(ARTIFACT), 'data/scheme_history.json present');
+  const { doc, app, covered, live } = artifact();
   assert.ok(app, 'the artifact carries an application block');
   assert.equal(app.applied, false, 'the family is not applied to the live season');
-  assert.equal(app.dark, true, 'and it says WHY in the data, not only in a comment');
-  assert.equal(app.live_season, 2026);
-  assert.notEqual(app.http_status, 200,
-    'dark means the probe did not find a live-season FTN release');
+
+  /* PROBED, not asserted: the block carries the evidence of an actual check —
+   * when it ran, what it asked for, and what the host answered. */
+  assert.ok(Number.isInteger(live), 'the live season is named in the data');
+  assert.match(String(app.checked_utc), /^\d{4}-\d{2}-\d{2}T/, 'WHEN the probe ran');
+  assert.match(String(app.url), /^https:\/\//, 'WHAT it probed');
+  assert.ok(app.http_status === null || Number.isInteger(app.http_status),
+    'what the host answered, including null for a probe that failed in transport');
+  assert.equal(typeof app.dark, 'boolean', 'the state is in the data, not in a comment');
+
+  /* WHY, in the data. */
   assert.ok(String(app.reason).length > 40, 'the reason is a sentence, not a flag');
-  assert.match(String(app.reason), /2026/, 'the reason names the season it cannot price');
+  assert.match(String(app.reason), new RegExp(String(live)),
+    'the reason names the season it is talking about');
+
+  /* THE RULE, derived: `dark` is a state that must be JUSTIFIED by evidence in
+   * the same block, in both directions.
+   *   - claiming DARK needs a failed/absent probe OR an ingest gap;
+   *   - claiming LIT needs a probe that actually found the release (200).
+   * Neither direction may be a bare flag, and neither may be inferred from the
+   * other: "published" and "ingested" are different facts. (2026-09: the probe
+   * flipped to 200 while the build still ingested 2022-2025, and the old code
+   * read that flip as permission and priced a season it holds no play for.) */
+  if (app.dark) {
+    assert.ok(app.http_status !== 200 || !covered.includes(live),
+      'a DARK claim must be backed by a probe that found nothing, or by the '
+      + `live season being absent from seasons_covered [${covered}]`);
+  } else {
+    assert.equal(app.http_status, 200,
+      'a NOT-dark claim must be backed by a probe that actually found the release');
+  }
+
+  /* And whatever `dark` says, application itself takes more than a file
+   * existing: the season must be in hand AND the family must be wired. */
+  if (app.applied) {
+    assert.ok(covered.includes(live),
+      'applied:true on a season absent from seasons_covered would be pricing a '
+      + 'season with no charted play behind it');
+    const m = readFileSync(PROMOTE, 'utf8').match(/APPLIABLE\s*=\s*\{([^}]*)\}/);
+    assert.ok(m && m[1].includes('scheme_matchup'),
+      'applied:true while the family is absent from APPLIABLE would claim an '
+      + 'application path that nothing calls');
+  }
+
   /* Coverage is a claim about what exists, not a rounding of it. */
   assert.ok(Array.isArray(doc.seasons_covered) && doc.seasons_covered.length > 0);
-  assert.ok(Math.min(...doc.seasons_covered) >= doc.first_ftn_season,
+  assert.ok(Math.min(...covered) >= doc.first_ftn_season,
     'no season before FTN began may appear');
-  assert.ok(!Object.keys(doc.seasons).includes('2021'),
-    'a pre-FTN season is ABSENT, never present-and-zero');
+  for (const yr of Object.keys(doc.seasons)) {
+    assert.ok(Number(yr) >= doc.first_ftn_season,
+      `season ${yr} predates FTN: a pre-FTN season is ABSENT, never present-and-zero`);
+  }
+  assert.deepEqual(Object.keys(doc.seasons).map(Number).sort((a, b) => a - b),
+    [...covered].sort((a, b) => a - b),
+    'seasons_covered is read off the seasons actually carried, never asserted');
   /* The credit travels with the data so it cannot go stale. */
   assert.equal(doc.attribution, 'FTN Data via nflverse');
   assert.equal(doc.license, 'CC-BY-SA 4.0');
   assert.equal(doc.season_type, 'REG');
 });
 
-test('scheme: the application path RAISES on a dark season, never returns 0.0', () => {
+test('scheme: the application path RAISES on a season it holds no charting for, never returns 0.0', () => {
+  const { app, covered, lit, uncovered, preFtn, live } = artifact();
   const got = py(`
 import json, sys
 sys.path.insert(0, ".")
 from scripts.signals import scheme_matchup as sm
+LIT, UNCOVERED, PRE = ${lit}, ${uncovered}, ${preFtn}
 doc = sm.load_doc()
-feats, _diag = sm.build_features(doc, [2024, 2025, 2026])
+feats, _diag = sm.build_features(doc, [LIT, UNCOVERED, PRE])
 live = {"scheme_hfa": {"applied": True, "scale": 120.0}}
 g = {"home": "KC", "away": "BUF", "week": 8}
 res = {"covered_seasons": sorted(feats)}
 
 # an INERT params block is 0.0 everywhere, dark or not
-res["inert_dark"] = sm.delta_from_params({}, 2026, g, feats, doc)
+res["inert_dark"] = sm.delta_from_params({}, UNCOVERED, g, feats, doc)
 res["inert_off"] = sm.delta_from_params(
-    {"scheme_hfa": {"applied": False, "scale": 120.0}}, 2026, g, feats, doc)
+    {"scheme_hfa": {"applied": False, "scale": 120.0}}, UNCOVERED, g, feats, doc)
 
-# an ACTIVE block on a DARK season must RAISE
-for season in (2026, 2019):
+# an ACTIVE block on a season with no charting must RAISE — and raise
+# SchemeDark specifically: any other exception (a KeyError from indexing an
+# absent season, say) is a crash, not a refusal, and would let a broken
+# refusal path pass a test that only asked "did something throw".
+for label, season in (("dark", UNCOVERED), ("pre", PRE)):
     try:
         v = sm.delta_from_params(live, season, g, feats, doc)
-        res["dark_%d" % season] = {"raised": False, "value": v}
+        res[label] = {"raised": False, "value": v}
     except sm.SchemeDark as e:
-        res["dark_%d" % season] = {"raised": True, "msg": str(e)}
+        res[label] = {"raised": True, "msg": str(e)}
 
-# scheme_current is the live input loader: same rule
+# scheme_current is the live input loader: same rule, same exception type
 try:
-    sm.scheme_current(2026)
-    res["current_2026"] = {"raised": False}
+    sm.scheme_current(UNCOVERED)
+    res["current_dark"] = {"raised": False}
 except sm.SchemeDark as e:
-    res["current_2026"] = {"raised": True, "msg": str(e)}
-res["current_2025_ok"] = bool(sm.scheme_current(2025))
+    res["current_dark"] = {"raised": True, "msg": str(e)}
+res["current_lit_ok"] = bool(sm.scheme_current(LIT))
 
 # and an ACTIVE block on a COVERED season prices normally (a real, finite number)
-v = sm.delta_from_params(live, 2025, g, feats, doc)
-res["covered_value"] = v
-res["is_dark"] = {"2025": sm.is_dark(2025, feats, doc),
-                  "2026": sm.is_dark(2026, feats, doc),
-                  "1999": sm.is_dark(1999, feats, doc)}
+res["covered_value"] = sm.delta_from_params(live, LIT, g, feats, doc)
+res["is_dark"] = {"lit": sm.is_dark(LIT, feats, doc),
+                  "uncovered": sm.is_dark(UNCOVERED, feats, doc),
+                  "pre": sm.is_dark(PRE, feats, doc)}
 print(json.dumps(res))
 `);
+  assert.deepEqual(got.covered_seasons, [lit],
+    'the feature build carries exactly the seasons the artifact holds');
   assert.equal(Math.abs(got.inert_dark), 0, 'an unapplied block is inert, not an error');
   assert.equal(Math.abs(got.inert_off), 0, 'applied:false is inert too');
-  assert.equal(got.dark_2026.raised, true,
-    'THE CORE RULE: a dark season is a refusal, not a neutral number');
-  assert.match(got.dark_2026.msg, /2026/);
-  assert.equal(got.dark_2019.raised, true,
+  assert.equal(got.dark.raised, true,
+    `THE CORE RULE: season ${uncovered} has no charted play in data/scheme_history.json `
+    + `(covered: [${covered}]), so pricing it is a refusal, not a neutral number`);
+  assert.match(got.dark.msg, new RegExp(String(uncovered)),
+    'the refusal names the season it will not price');
+  assert.equal(got.pre.raised, true,
     'a pre-FTN season is dark for exactly the same reason');
-  assert.equal(got.current_2026.raised, true, 'the live input loader refuses too');
-  assert.equal(got.current_2025_ok, true, 'a covered season still loads');
+  assert.equal(got.current_dark.raised, true, 'the live input loader refuses too');
+  assert.equal(got.current_lit_ok, true, 'a covered season still loads');
   assert.equal(typeof got.covered_value, 'number');
-  assert.deepEqual(got.is_dark, { 2025: false, 2026: true, 1999: true });
+  assert.ok(Number.isFinite(got.covered_value));
+  assert.deepEqual(got.is_dark, { lit: false, uncovered: true, pre: true });
+
+  /* The specific trap, stated as a rule rather than as a year: a release the
+   * host has PUBLISHED is not an input the build has INGESTED. While the probe
+   * says 200 for a live season that is absent from seasons_covered, the family
+   * must still refuse it — that flip is what silently turned this path into a
+   * 0.0 for every live-season game in 2026-09. */
+  if (!covered.includes(live)) {
+    assert.equal(uncovered, live, 'the uncovered season under test IS the live season');
+    assert.equal(got.dark.raised, true,
+      `the probe answered HTTP ${app.http_status} for ${live} and the artifact still `
+      + 'carries no play for it — a published release is not permission to price');
+  }
 });
 
-test('scheme: adoption can never turn into application while the season is dark', () => {
+test('scheme: adoption can never turn into application on a season the artifact does not carry', () => {
+  const { app } = artifact();
   const got = py(`
 import json, sys
 sys.path.insert(0, ".")
 from scripts.signals import scheme_matchup as sm
 doc = sm.load_doc()
-dark = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z",
-                         application=doc["application"])
+shipped = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z",
+                            application=doc["application"])
+# a season that is published AND wired: the only shape that may be applied
 lit = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z",
                         application={"live_season": 2030, "dark": False})
 none = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z")
-print(json.dumps({"dark": dark, "lit": lit, "none": none}))
+# published upstream, but the producer says the family may not price it
+unwired = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z",
+                            application={"live_season": 2030, "dark": False,
+                                         "applied": False})
+# a stale permission flag on a dark season
+stale = sm.adoption_block({"scale": 120.0}, "2026-01-01T00:00:00Z",
+                          application={"live_season": 2030, "dark": True,
+                                       "applied": True})
+print(json.dumps({"shipped": shipped, "lit": lit, "none": none,
+                  "unwired": unwired, "stale": stale}))
 `);
-  assert.equal(got.dark.applied, false,
-    'a winning backtest is not permission to price a season whose input is missing');
-  assert.equal(got.dark.dark, true);
-  assert.equal(got.dark.attribution, 'FTN Data via nflverse');
-  assert.equal(got.dark.license, 'CC-BY-SA 4.0');
-  assert.ok(String(got.dark.reason).length > 40, 'the block carries the reason');
-  assert.equal(got.lit.applied, true, 'a published season would be appliable');
+  assert.equal(got.shipped.applied, false,
+    'a winning backtest is not permission to price the live season: the shipped '
+    + 'application record says applied:false, and an adoption may not overrule it');
+  assert.equal(got.shipped.dark, app.dark,
+    'the block MIRRORS the probed state read from the artifact, never invents one');
+  assert.equal(got.shipped.attribution, 'FTN Data via nflverse');
+  assert.equal(got.shipped.license, 'CC-BY-SA 4.0');
+  assert.ok(String(got.shipped.reason).length > 40, 'the block carries the reason');
+  assert.deepEqual(got.shipped.application, app,
+    'and carries the probed block verbatim, so the caveat cannot be dropped');
+  assert.equal(got.lit.applied, true,
+    'a published season the producer does authorise would be appliable');
   assert.equal(got.none.applied, false,
     'with no application record at all the default is DARK, never lit');
+  assert.equal(got.unwired.applied, false,
+    'a release existing upstream is not a wired reader: application needs BOTH, '
+    + 'and the artifact\'s own applied flag is the one that says so');
+  assert.equal(got.stale.applied, false,
+    'and a stale applied:true can never survive a dark season');
 });
 
 test('scheme: the family is absent from APPLIABLE, so a win records would_adopt', () => {
@@ -512,7 +624,12 @@ print(json.dumps(cov))
   assert.equal(got.attribution, 'FTN Data via nflverse',
     'the credit is read FROM the artifact, never hardcoded at the render site');
   assert.equal(got.license, 'CC-BY-SA 4.0');
-  assert.equal(got.application.dark, true, 'the coverage record carries the dark flag too');
+  assert.deepEqual(got.application, artifact().app,
+    'the coverage record carries the artifact\'s PROBED application block '
+    + 'verbatim — read FROM the data, never restated at the render site, so a '
+    + 'reader of the promotion entry sees the same caveat the artifact carries');
+  assert.equal(got.application.applied, false,
+    'and a coverage record can never announce an application');
 });
 
 /* ------------------------------------------------------------------ *

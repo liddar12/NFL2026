@@ -3,12 +3,21 @@ shipped with its APPLICATION PATH DARK.
 
 ## THE HEADLINE: THIS FAMILY CANNOT BE APPLIED TO THE LIVE SEASON
 
-FTN charting exists for 2022-2025. There is no 2026 release — the URL 404s, and
-`scripts/build_scheme_history.py` PROBES that at build time and records the
-answer in `data/scheme_history.json.application`:
+`data/scheme_history.json` INGESTS 2022-2025: those are the seasons it actually
+carries charted plays for, and `seasons_covered` says so. Separately,
+`scripts/build_scheme_history.py` PROBES the live season's release at build time
+and records whatever the probe answered in `.application`:
 
-    {"live_season": 2026, "applied": false, "dark": true, "http_status": 404,
-     "reason": "...", "checked_utc": "..."}
+    {"live_season": 2026, "applied": false, "dark": <from the probe>,
+     "http_status": <from the probe>, "reason": "...", "checked_utc": "..."}
+
+THOSE ARE TWO DIFFERENT FACTS AND CONFUSING THEM IS THE DEFECT THIS MODULE
+EXISTS TO PREVENT. The probe answers "is the file published upstream"; `seasons`
+answers "do we hold charted plays for it". Only the second can light the
+application path: `is_dark` treats the probe as a VETO and never as permission,
+because a published release the build has not ingested still leaves this family
+with nothing to price. A probe flip alone therefore changes nothing here, and
+`applied` additionally stays false until a prediction-time reader is wired.
 
 So this family may be MEASURED on the backtest corpus and it may NOT be applied
 to a live game. Two independent mechanisms enforce that, because one is a
@@ -446,25 +455,55 @@ def coverage_block(feats, eval_seasons, finals_by_year, doc=None):
 # --------------------------------------------------------------------------- #
 
 def is_dark(season, feats=None, doc=None):
-    """True when `season` has no FTN charting behind it.
+    """True when there is no FTN charting IN HAND for `season`.
 
-    A season is dark when the features carry nothing for it. The artifact's own
-    `application` block is consulted too, so a build that probed the live season
-    and got a 404 keeps that answer even if a future caller hands in features
-    built for a different season set.
+    Darkness is a claim about the input this artifact CARRIES, never about what
+    the release host publishes. A season is lit only when the feature table
+    actually holds it — or, when no feature table is handed in, when the
+    artifact's own `seasons` holds it. The `application` block is consulted too,
+    but it can only ever ADD darkness (a probe that failed in transport, or a
+    live season this build did not ingest). It can NEVER light a season there
+    are no charted plays for: `dark: false` in that block means "the release is
+    published", and a published release is not an ingested one.
+
+    That asymmetry is the whole point, and it was learned the hard way. When FTN
+    published the live season mid-season the probe flipped `dark` to false while
+    the build still covered 2022-2025 only; under the old "the block wins" rule
+    `delta_from_params` stopped raising and returned a neutral 0.0 for every
+    live-season game, which is byte-for-byte what a working family that finds
+    nothing looks like. Coverage decides, and the probe may only veto.
     """
-    if feats is not None and int(season) in feats:
-        return False
+    yr = int(season)
+    covered = ((yr in feats) if feats is not None
+               else (str(yr) in ((doc or {}).get("seasons") or {})))
+    if not covered:
+        return True
     app = (doc or {}).get("application") or {}
-    if app.get("live_season") == int(season):
-        return bool(app.get("dark", True))
-    return True
+    return bool(app.get("live_season") == yr and app.get("dark", True))
 
 
 def dark_reason(season, doc=None):
-    """The sentence recorded or raised when a dark season is asked for."""
+    """The sentence recorded or raised when a dark season is asked for.
+
+    The artifact's own probed sentence is used only while that block is ITSELF
+    dark. A block that reports the release as published cannot explain a
+    refusal, so the refusal states the reason that actually applies: the release
+    exists upstream and was never ingested here.
+    """
+    yr = int(season)
     app = (doc or {}).get("application") or {}
-    if app.get("live_season") == int(season) and app.get("reason"):
+    if app.get("live_season") == yr and not app.get("dark", True):
+        covered = sorted(int(y) for y in ((doc or {}).get("seasons") or {}))
+        where = app.get("url") or "the release host"
+        return (f"FTN charting {yr} is published upstream (HTTP "
+                f"{app.get('http_status')} at {where}), but "
+                f"data/scheme_history.json does not carry it: the "
+                f"seasons ingested are {covered}. A published release is not an "
+                f"ingested one, so scheme_matchup still has no charted play for "
+                f"{yr} and refuses to price it rather than returning a neutral "
+                f"0.0. Rebuild the artifact with scripts/build_scheme_history.py "
+                f"--seasons {yr} to make the season real.")
+    if app.get("live_season") == yr and app.get("reason"):
         return str(app["reason"])
     return (f"FTN charting has no data for season {int(season)}, so "
             "scheme_matchup cannot be applied to it. Refusing to return a "
@@ -498,9 +537,16 @@ def adoption_block(best, now, coverage=None, application=None):
     trial measured. Adoption of a backtest result is not permission to price a
     season whose input does not exist.
     """
-    dark = bool((application or {}).get("dark", True))
+    app = application or {}
+    dark = bool(app.get("dark", True))
+    # `applied` is PERMISSION, not a measurement of the backtest. It takes BOTH
+    # a lit season and the artifact's own application record saying the family
+    # may price it — the builder writes `applied: false` for as long as no
+    # prediction-time reader is wired. So a probe that merely finds the release
+    # published can never, by itself, turn an adoption into a live application.
+    applied = (not dark) and bool(app.get("applied", True))
     blk = {
-        "applied": not dark,
+        "applied": applied,
         "dark": dark,
         "scale": best["scale"],
         "n0_plays": SCHEME_N0,
@@ -770,6 +816,27 @@ def selftest():
     lit = adoption_block({"scale": 80.0}, "2026-01-01T00:00:00Z",
                          application={"live_season": 2100, "dark": False})
     assert lit["applied"] is True and lit["dark"] is False, lit
+
+    # --- PUBLISHED IS NOT INGESTED (the 2026 regression, in miniature) ------
+    # A probe that finds the live release published flips the block to
+    # dark:false while the build still carries 2098-2099. Coverage must win:
+    # the season is still dark, the path still raises, and an adoption still
+    # refuses to claim application. Under the old "the block wins" rule every
+    # one of these three silently reversed.
+    pub = dict(doc)
+    pub["application"] = {"live_season": 2100, "applied": False, "dark": False,
+                          "http_status": 200, "url": "https://example/2100.csv"}
+    assert is_dark(2100, f2, pub) is True, "a published release is not an input"
+    assert "2100" in dark_reason(2100, pub) and "ingested" in dark_reason(2100, pub)
+    try:
+        delta_from_params(live, 2100, gg, f2, pub)
+    except SchemeDark as exc:
+        assert "2100" in str(exc), exc
+    else:                                                  # pragma: no cover
+        raise AssertionError("a published-but-uningested season must RAISE")
+    pub_blk = adoption_block({"scale": 80.0}, "2026-01-01T00:00:00Z",
+                             application=pub["application"])
+    assert pub_blk["applied"] is False, pub_blk
 
     # --- loader: absent artifact -> None, and scheme_current RAISES ---------
     missing = os.path.join(_ROOT, "no_such_scheme.json")
