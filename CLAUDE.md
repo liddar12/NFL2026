@@ -59,9 +59,11 @@ The openai/codex-plugin-cc plugin is installed. Division of labour, in force for
 - A BLOCK is never bypassed silently. Fix it, or state in chat exactly why the block is wrong and
   what evidence refutes it. Never disable the gate to get past a review.
 
-Model: one source of truth. The Codex model is pinned in `~/.codex/config.toml` (`model = "..."`).
-Never pass `--model` per command and never hard-code a model id in this repo, in code, in commits
-or in PR bodies. Changing which model codes is a one-line edit to that file.
+Model: one source of truth. The Codex model and its reasoning effort are pinned in
+`~/.codex/config.toml` (`model` and `model_reasoning_effort`). The plugin leaves `--model` and
+`--effort` unset, so every Codex run inherits them. Never pass either per command, and never write
+a model id into this repo, into code, into commits or into PR bodies — changing which model codes,
+or how hard it thinks, is a one-line edit to that file and nothing here needs to know.
 
 What Claude still does inline (a round trip would cost more than it saves): one-line config edits,
 test-pin adjustments, merge-conflict resolution, workflow YAML, and reading/validating results.
