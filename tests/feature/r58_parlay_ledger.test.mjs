@@ -51,13 +51,17 @@ function gradedGameLegs() {
       if (r && r.event_type === 'game' && r.resolved) resolved.add(String(r.event_id));
     }
   }
-  let moneyline = 0; let spread = 0; const weeks = new Set();
+  let moneyline = 0; let spread = 0; let lockedProps = 0; const weeks = new Set();
   for (const l of ledger.legs) {
-    if (!l.locked || !resolved.has(String(l.game_id))) continue;
+    if (!l.locked) continue;
+    // Prop legs of EVERY week count: the fixture covers one week, so the rest
+    // are the no_stat_line population the conservation law below is built on.
+    if (l.market !== 'moneyline' && l.market !== 'spread') { lockedProps += 1; continue; }
+    if (!resolved.has(String(l.game_id))) continue;
     if (l.market === 'moneyline') { moneyline += 1; weeks.add(l.week); }
-    else if (l.market === 'spread') spread += 1;
+    else spread += 1;
   }
-  return { moneyline, spread, weeks: weeks.size };
+  return { moneyline, spread, lockedProps, weeks: weeks.size };
 }
 
 function runPy(code) {
@@ -184,20 +188,28 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   assert.equal(doc.skipped, null);
   assert.match(doc.source, /dry run/);
   const g = gradedGameLegs();
-  assert.equal(doc.legs.resolved, 30 + g.moneyline, '30 fixture props + receipt-graded moneylines');
-  assert.equal(doc.legs.unresolved, 10 + g.spread, '10 absent props + spreads awaiting a score');
+  // FIXTURE_PROPS is a fact about two immutable things: the committed fixture CSV
+  // and week 1's locked ledger legs. Everything else is DERIVED, so the ledger
+  // growing week by week can never stale this file (week 2's legs turned the old
+  // absent-prop pin of 10 into 52 on 2026-09-16).
+  const FIXTURE_PROPS = 30;
+  const absentProps = g.lockedProps - FIXTURE_PROPS;
+  assert.equal(doc.legs.resolved, FIXTURE_PROPS + g.moneyline,
+    'fixture-covered props + receipt-graded moneylines');
+  assert.equal(doc.legs.unresolved, absentProps + g.spread,
+    'every locked prop the fixture does not cover, plus spreads awaiting a score');
   // locked + unlocked (post-kickoff first sight) account for every leg on file
   assert.equal(doc.legs.locked + doc.legs.unlocked, doc.legs.on_file);
   const p = doc.pooled.props;
-  assert.equal(p.n, 30);
+  assert.equal(p.n, FIXTURE_PROPS);
   assert.equal(p.hit_rate, 0.6667);
-  assert.deepEqual(p.by_pricing, { calibrated: 30 });
+  assert.deepEqual(p.by_pricing, { calibrated: FIXTURE_PROPS });
   assert.equal(typeof p.model.log_loss, 'number');
   assert.equal(typeof p.seed.log_loss, 'number');
   assert.equal(typeof p.model.brier, 'number');
   // identical legs: every resolved prop row carries BOTH probabilities
   const props = doc.resolved.filter((x) => x.position);
-  assert.equal(props.length, 30);
+  assert.equal(props.length, FIXTURE_PROPS);
   for (const row of props) {
     assert.equal(typeof row.model_prob, 'number');
     assert.equal(typeof row.seed_prob, 'number');
@@ -216,12 +228,22 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   assert.equal(kw.hit, true);
   // unresolved legs: the 10 players with no fixture row, never a miss; a spread
   // leg of a receipt-graded game waits for a score (no_final_score), never a miss
-  assert.equal(doc.unresolved.length, 10 + g.spread);
+  assert.equal(doc.unresolved.length, absentProps + g.spread);
+  // Identity is (week, game_id, market, selection) — the same prop selection text
+  // recurs week to week, so comparing on selection alone collides once the ledger
+  // holds more than one week.
+  const legKey = (x) => `${x.week}|${x.game_id}|${x.market}|${x.selection}`;
+  const resolvedKeys = new Set(doc.resolved.map(legKey));
   for (const u of doc.unresolved) {
     assert.equal(u.reason, u.market === 'spread' ? 'no_final_score' : 'no_stat_line');
-    assert.ok(!doc.resolved.some((x) => x.selection === u.selection));
+    assert.ok(!resolvedKeys.has(legKey(u)), `${legKey(u)} is both resolved and unresolved`);
   }
-  assert.equal(doc.unresolved.filter((u) => u.reason === 'no_stat_line').length, 10);
+  // conservation: every locked prop either resolved from the fixture or is
+  // honestly unresolved — none is quietly dropped, none is scored as a miss
+  assert.equal(doc.unresolved.filter((u) => u.reason === 'no_stat_line').length, absentProps);
+  assert.equal(props.length + absentProps, g.lockedProps);
+  // the fixture covers exactly one week; nothing outside it may resolve
+  assert.deepEqual([...new Set(props.map((x) => x.week))], [1]);
   // counts conserve across weeks / positions
   assert.equal(doc.weeks.reduce((s, w) => s + w.props.n, 0), p.n);
   assert.equal(Object.values(doc.by_position).reduce((s, b) => s + b.n, 0), p.n);

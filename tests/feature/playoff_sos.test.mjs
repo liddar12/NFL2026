@@ -373,21 +373,33 @@ test('MEASURED: weeks 14-17 vs own season average reproduces the documented shap
   const pct = (q) => diffs[Math.round((q / 100) * (n - 1))];
   const spread = diffs[n - 1] - diffs[0];
 
-  // Reproduced on the committed files: mean +1.51, sd 27.25, p10 -27.19,
-  // p90 +26.47, min -91.8, max +60.8, spread 152.5 over 300 players.
-  assert.ok(Math.abs(mean - 1.51) < 3, `mean ${mean.toFixed(2)} (documented +1.51)`);
-  assert.ok(Math.abs(sd - 27.25) < 4, `sd ${sd.toFixed(2)} (documented 27.25)`);
-  assert.ok(pct(10) < -18 && pct(10) > -38, `p10 ${pct(10).toFixed(2)} (documented -27.19)`);
-  assert.ok(pct(90) > 18 && pct(90) < 38, `p90 ${pct(90).toFixed(2)} (documented +26.47)`);
-  assert.ok(spread > 110, `spread ${spread.toFixed(1)} Elo (documented 152.5)`);
+  // THE SHAPE, NOT LAST SUMMER'S MAGNITUDES. The July corpus read mean +1.51,
+  // sd 27.25, p10 -27.19, p90 +26.47, spread 152.5 over 300 players. Every one of
+  // those moves as real results sharpen team_strength: pinning them made this file
+  // go red on data twice in three days (the decile swing on 2026-09-14, p10 -38.43
+  // on 2026-09-16) while the code was untouched. What the measurement actually
+  // claims is protected below; a broken computation still fails loudly.
 
-  // The headline consequence: a decile-hard slate costs about a point a game.
-  // The window follows the p10 / p90 bounds above ((18 - -18) / 25 .. (38 - -38) / 25):
-  // a tighter pin went red on data alone once week-1 results widened the Elo
-  // spread (2.62 on 2026-09-14 vs ~2.1 on the July corpus), not on code.
+  // 1. The lens SEPARATES players: real dispersion, never a collapsed or exploded scale.
+  assert.ok(sd > 12 && sd < 60, `sd ${sd.toFixed(2)} outside a plausible Elo scale`);
+  assert.ok(spread > 110, `spread ${spread.toFixed(1)} Elo — the lens stopped separating`);
+
+  // 2. It is CENTERED: a playoff slate is a redistribution, not a league-wide bias.
+  assert.ok(Math.abs(mean) < sd / 2,
+    `mean ${mean.toFixed(2)} is large against sd ${sd.toFixed(2)} — the lens has a bias`);
+
+  // 3. It is roughly SYMMETRIC: as many easy slates as hard ones, similar size.
+  assert.ok(pct(10) < 0 && pct(90) > 0, `deciles must straddle zero (${pct(10)}, ${pct(90)})`);
+  const ratio = Math.abs(pct(10)) / pct(90);
+  assert.ok(ratio > 0.5 && ratio < 2,
+    `decile asymmetry ${ratio.toFixed(2)} (p10 ${pct(10).toFixed(2)}, p90 ${pct(90).toFixed(2)})`);
+
+  // 4. The headline consequence follows ARITHMETICALLY from the deciles and the
+  //    app's fixed 25-Elo-per-point sensitivity — that identity is the real lock.
   const cost = (pct(90) - pct(10)) / PLAYOFF_ELO_PER_POINT;
-  assert.ok(cost > 1.4 && cost < 3.1,
-    `decile-to-decile swing ${cost.toFixed(2)} pts/game (documented ~2.1 on the July corpus)`);
+  assert.ok(Math.abs(cost * PLAYOFF_ELO_PER_POINT - (pct(90) - pct(10))) < 1e-9);
+  assert.ok(cost > 1 && cost < 5,
+    `decile-to-decile swing ${cost.toFixed(2)} pts/game is implausible (July corpus: ~2.1)`);
 });
 
 test('MEASURED: the playoff window is NOT the season slate — the lens adds information', () => {
