@@ -30,6 +30,14 @@
  * sort. Every count is READ from the document — nothing here recomputes a
  * bucket, a tally or a verdict from legs or rows (the builder is the truth).
  *
+ * R75 (additive, parlay section): each parlay card gains its own $100 figure in
+ * the card foot, read from the row's `money` block — kind "settled" is what the
+ * stake returned on a graded parlay, kind "potential" is what it WOULD return if
+ * every leg hit. Both are the BUILDER's arithmetic (scripts/build_review.
+ * stamp_parlay_money): this file formats, it never prices a parlay, so a card
+ * and the P&L line below cannot disagree. A row with no `money` (a document
+ * built before R75) simply gets no cell. Display only, like every dollar here.
+ *
  * R73 (additive, parlay section): the $100 FLAT-STAKE P&L line, read from
  * summary.parlays.stake_100[scope] ({n, graded, hit, push, staked, net_fair,
  * net_vig2, assumed_price_legs, note}) — pending parlays are excluded by the
@@ -353,6 +361,46 @@ export function renderParlayPnl(week, scope, st) {
   );
 }
 
+/* R75 — per-parlay money ---------------------------------------------------- */
+
+/** The label under a card's dollar figure — what the money IS, so a quote is
+ * never mistaken for a result. */
+const PAY_KIND = { settled: '$100 RETURNED', potential: '$100 PAYS' };
+
+/** parlay_id -> the row's own `money` block for `week`. Rows without one are
+ * absent from the map (a pre-R75 document paints no money at all). */
+export function parlayMoneyMap(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const out = new Map();
+  ((blk && blk.parlays) || []).forEach((p) => {
+    const m = p && p.money;
+    if (m && typeof m === 'object' && isNum(m.net_fair) && PAY_KIND[m.kind]) {
+      out.set(String(p.parlay_id), m);
+    }
+  });
+  return out;
+}
+
+/** The tooltip naming this parlay's assumed prices, '' when every leg is priced. */
+export function payAssumedText(m) {
+  const n = m && isNum(m.assumed_price_legs) ? m.assumed_price_legs : 0;
+  if (n <= 0) return '';
+  return `${n} leg${n === 1 ? '' : 's'} priced at -110 (no book price)`;
+}
+
+/** The .pay cell for one card's money block; '' when there is none. */
+export function renderPay(m) {
+  if (!m || !isNum(m.net_fair) || !PAY_KIND[m.kind]) return '';
+  const tone = m.net_fair > 0 ? 'pos' : (m.net_fair < 0 ? 'neg' : 'flat');
+  const assumed = payAssumedText(m);
+  return (
+    `<div class="pay pay--${tone}" data-kind="${esc(m.kind)}"` +
+      (assumed ? ` title="${esc(assumed)}"` : '') + '>' +
+      `${esc(fmtMoney(m.net_fair))}<span class="k">${PAY_KIND[m.kind]}</span>` +
+    '</div>'
+  );
+}
+
 /** Mark the painted parlay cards in `listEl` from the week's review. */
 export async function applyParlayReview(listEl, week) {
   const doc = await primeReview();
@@ -380,6 +428,15 @@ export async function applyParlayReview(listEl, week) {
     }
     card.classList.add('rv-parlay', `rv-parlay--${p.result}`);
     card.dataset.rvResult = p.result;
+    // R75 — the card's own $100 figure, beside MODEL EV in the foot. The sort
+    // control reads dataset.rvPay, so it sorts the number the card shows.
+    const foot = card.querySelector('.p-foot');
+    const pay = renderPay(p.money);
+    if (foot && pay) {
+      foot.insertAdjacentHTML('beforeend', pay);
+      card.dataset.rvPay = String(p.money.net_fair);
+      card.dataset.rvPayKind = p.money.kind;
+    }
     const legNodes = card.querySelectorAll('.legs > .leg');
     (p.legs || []).forEach((leg, i) => {
       const node = legNodes[i];

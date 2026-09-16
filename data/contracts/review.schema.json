@@ -129,13 +129,24 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["parlay_id", "scope", "game_id", "result", "bucket", "legs"],
+              "required": ["parlay_id", "scope", "game_id", "result", "bucket", "legs", "money"],
               "properties": {
                 "parlay_id": {"type": "string", "minLength": 1},
                 "scope": {"type": "string", "enum": ["game", "week"]},
                 "game_id": {"type": ["string", "null"]},
                 "result": {"type": "string", "enum": ["hit", "miss", "pending", "void"]},
                 "bucket": {"type": "string", "enum": ["all_hit", "push", "partial", "all_missed", "pending"]},
+                "money": {
+                  "type": "object",
+                  "description": "R75: this parlay's own DISPLAY-ONLY $100 flat stake, from scripts/build_review.stamp_parlay_money. kind=settled is what the stake returned on a graded parlay - the settled rows of a scope sum to summary.parlays.stake_100[scope] because both come from parlay_money. kind=potential is what $100 WOULD return if every leg hit, at the same prices: a price, not a result, carried by a parlay that is still pending. Same leg-decimal rule as stake_100. Money is never a model input.",
+                  "required": ["kind", "net_fair", "net_vig2", "assumed_price_legs"],
+                  "properties": {
+                    "kind": {"type": "string", "enum": ["settled", "potential"], "description": "settled = graded and paid out; potential = pending, the return if every leg hits."},
+                    "net_fair": {"type": "number", "description": "Settled: 100 x (product of the hit legs' decimals - 1) for all_hit / push (void legs at 1.0), -100 otherwise. Potential: 100 x (product of ALL leg decimals - 1)."},
+                    "net_vig2": {"type": ["number", "null"], "description": "net_fair with every leg re-priced at implied_prob x 1.02 capped at 0.99. Null on a potential row - an unsettled parlay is quoted at one price, not two."},
+                    "assumed_price_legs": {"type": "integer", "minimum": 0, "description": "Legs of THIS parlay with no book price, priced at 1.9091 (-110)."}
+                  }
+                },
                 "legs": {
                   "type": "array",
                   "items": {
