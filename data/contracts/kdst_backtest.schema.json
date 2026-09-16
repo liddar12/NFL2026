@@ -1,0 +1,227 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kdst_backtest.schema.json",
+  "title": "R55 D/ST weekly split never-regress verdict",
+  "description": "scripts/backtest_kdst.py's walk-forward comparison of the R55 weekly split against the flat season average it replaces. Both arms share one season level computed from PRIOR seasons only, so the only thing compared is the weekly SHAPE. Intervals are PAIRED because both arms score identical rows. --gate exits non-zero unless the split beats flat by more than the margin AND the 95% interval excludes zero; a tie is a refusal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "model",
+    "corpus",
+    "params",
+    "pooled",
+    "per_season",
+    "kicker",
+    "note"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "corpus": {
+      "type": "object",
+      "required": [
+        "rows",
+        "seasons",
+        "folds"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seasons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "folds": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "required": [
+        "shrink",
+        "clamp",
+        "home_coef",
+        "prior_weight"
+      ],
+      "properties": {
+        "shrink": {
+          "type": "number"
+        },
+        "clamp": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "home_coef": {
+          "type": "number"
+        },
+        "prior_weight": {
+          "type": "number"
+        }
+      }
+    },
+    "pooled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "n",
+        "flat_mae",
+        "split_mae",
+        "delta",
+        "ci95",
+        "beats_flat",
+        "why"
+      ],
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "flat_mae": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Null at 0 rows \u2014 never 0.0, which would read as a perfect model."
+        },
+        "split_mae": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "delta": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "split_mae - flat_mae. Negative is an improvement."
+        },
+        "ci95": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "margin": {
+          "type": "number"
+        },
+        "beats_flat": {
+          "type": "boolean"
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "per_season": {
+      "type": "object",
+      "description": "One verdict per fold season. Inlined rather than $ref'd: scripts/validate_data refuses $ref because it does not resolve them, and an unresolved $ref is an unvalidated hole.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n",
+          "flat_mae",
+          "split_mae",
+          "delta",
+          "ci95",
+          "beats_flat",
+          "why"
+        ],
+        "properties": {
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "flat_mae": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Null at 0 rows \u2014 never 0.0, which would read as a perfect model."
+          },
+          "split_mae": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "delta": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "split_mae - flat_mae. Negative is an improvement."
+          },
+          "ci95": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "margin": {
+            "type": "number"
+          },
+          "beats_flat": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "kicker": {
+      "type": "object",
+      "required": [
+        "split",
+        "reason"
+      ],
+      "properties": {
+        "split": {
+          "type": "boolean",
+          "description": "Always false: measured, not adopted."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "kdst_weekly_history.schema.json",
+  "title": "Resolved D/ST week corpus",
+  "description": "The resolved per-week D/ST fantasy score for every team-week in the corpus seasons, written by scripts/build_kdst_history.py and read OFFLINE by scripts/backtest_kdst.py so the R55 never-regress gate can run in CI without the network. Regular season only: a playoff week is not part of a fantasy season and would bias the surrendered-points table toward the teams that reach January. Scored by scripts.build_kdst.dst_game_points, the same function the split itself uses, so the corpus and the model cannot disagree about what a D/ST point is. MARKET POLICY: nfldata games.csv is read for game_id / teams / SCORES ONLY.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_utc", "source", "scoring", "season_range", "seasons", "rows_by_season", "skipped", "skipped_total", "rows"],
+  "properties": {
+    "generated_utc": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "scoring": {"type": "string", "minLength": 1},
+    "season_range": {"type": "array", "items": {"type": "integer"}, "maxItems": 2},
+    "seasons": {"type": "array", "items": {"type": "integer"}},
+    "rows_by_season": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "skipped": {
+      "type": "array",
+      "description": "Dropped games, capped at 50 for size. A game without a score row is dropped WHOLE — points allowed decides a tier, so half a game is not a row.",
+      "items": {"type": "object"}
+    },
+    "skipped_total": {"type": "integer", "minimum": 0},
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["season", "week", "team", "opp", "home", "pts"],
+        "properties": {
+          "season": {"type": "integer", "minimum": 1999},
+          "week": {"type": "integer", "minimum": 1, "maximum": 18, "description": "Regular season only — 18 is the ceiling by contract."},
+          "team": {"type": "string", "minLength": 2},
+          "opp": {"type": "string", "minLength": 2},
+          "home": {"type": "boolean"},
+          "pts": {"type": "number", "description": "D/ST fantasy points this defense actually scored that week."}
+        }
+      }
+    }
+  }
+}

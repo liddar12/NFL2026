@@ -9,11 +9,26 @@
  * WHAT THE CONTRACT ACTUALLY CARRIES, and what that forces on us:
  *
  *   1. SEASON TOTALS, NOT WEEKS. Every `stats` value is a projected SEASON
- *      total over `games_projected` games. There is no per-week split and no
- *      opponent adjustment for K or D/ST. So `weeklyPoints` here is a flat
- *      per-game average — season / games — and it is LABELLED as such by every
- *      caller. Presenting a flat average as a week-specific projection would be
- *      the same species of lie as printing 0.0 for a slot with no feed.
+ *      total over `games_projected` games, so `weeklyPoints` is a flat per-game
+ *      average — season / games — and it is LABELLED as such by every caller.
+ *      Presenting a flat average as a week-specific projection would be the
+ *      same species of lie as printing 0.0 for a slot with no feed.
+ *
+ *      R55 changes this for D/ST ONLY. The contract now carries a `weekly`
+ *      list per defence: one dimensionless FACTOR per week, normalised so a
+ *      team's factors average exactly 1.0. weeklyPointsFor(entry, week)
+ *      multiplies the flat average by that week's factor, so the season total
+ *      is untouched and only the shape moves. A factor rather than a points
+ *      total because the split is built under the DEFAULT profile while this
+ *      module prices under the LEAGUE's — a multiplier is the only form that
+ *      survives that difference.
+ *
+ *      KICKERS KEEP THE FLAT AVERAGE, and that is a measured result, not an
+ *      omission: over the same walk-forward grid the D/ST split clears, the
+ *      best kicker configuration moved MAE by -0.008 +/- 0.014 (not
+ *      significant) and every stronger setting made it worse
+ *      (scripts/backtest_kdst.py). `weekly` is null on every kicker row and
+ *      hasWeeklySplit() stays false, so callers keep saying "season average".
  *
  *   2. STAT LINES, NOT POINTS. `proj_points` is the contract's own convenience
  *      total under DEFAULT_PROFILE. This module NEVER reads it for scoring: it
@@ -326,9 +341,14 @@ function shapeEntry(raw, row, games, profile) {
     lowSample: row.low_sample === true,
     games,
     seasonPoints: round2(seasonPoints),
-    /* FLAT PER-GAME AVERAGE. Not opponent-adjusted, not week-specific. Every
-     * caller must say so where it renders this number. */
+    /* FLAT PER-GAME AVERAGE. Not opponent-adjusted, not week-specific. A caller
+     * that does not consult `weekly` below must say so where it renders this. */
     weeklyPoints: round2(seasonPoints / games),
+    /* R55 — week -> factor for a D/ST row that carries a split; an EMPTY map for
+     * a kicker, or for a defence the split could not place on the schedule. An
+     * empty map is the honest "no split", never a map of 1.0s pretending to be
+     * one: hasWeeklySplit() and the callers' SEASON AVG label both read it. */
+    weekly: weeklyFactors(row),
     scoredKeys,
     /* True when the league scores NOTHING this stat line carries: the 0 above is
      * a fact about the scoring table, not about the player. */
@@ -347,6 +367,44 @@ function shapeEntry(raw, row, games, profile) {
  * on `ok`: a contract that ships kickers but no defenses leaves DEF honestly
  * unprojected, and that path has to keep working.
  */
+/** week -> factor from a contract row's `weekly` list. A malformed or absent
+ * list yields an EMPTY map, so a broken feed degrades to the flat average
+ * rather than to a silent 1.0 that would look like a real split. */
+function weeklyFactors(row) {
+  const out = new Map();
+  for (const w of asArray(row && row.weekly)) {
+    if (!isObj(w)) continue;
+    const week = Number(w.week);
+    const factor = Number(w.factor);
+    if (!Number.isInteger(week) || week < 1) continue;
+    if (!isNum(factor) || factor <= 0) continue;
+    if (!out.has(week)) out.set(week, factor);   // first row wins, ids are unique
+  }
+  return out;
+}
+
+/** True when this row's week is genuinely split rather than a season average. */
+export function hasWeeklySplit(entry, week) {
+  return Boolean(entry && entry.weekly instanceof Map
+    && entry.weekly.has(Number(week)));
+}
+
+/**
+ * R55 — this entry's points for ONE week.
+ *
+ * A D/ST with a split returns the flat average scaled by that week's factor; a
+ * kicker, a bye week, or any row without a factor returns the flat average
+ * unchanged. Callers pair it with hasWeeklySplit() so the label matches the
+ * number: the two must never disagree, which is why they read the same map.
+ */
+export function weeklyPointsFor(entry, week) {
+  if (!entry) return 0;
+  const flat = Number(entry.weeklyPoints) || 0;
+  if (!(entry.weekly instanceof Map)) return flat;
+  const factor = entry.weekly.get(Number(week));
+  return isNum(factor) && factor > 0 ? round2(flat * factor) : flat;
+}
+
 export function shapeKdst(raw, profile) {
   const empty = {
     ok: false,
