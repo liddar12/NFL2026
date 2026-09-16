@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "leg_pool_backtest.schema.json",
+  "title": "MY PARLAYS leg-pool calibration verdict",
+  "description": "scripts/backtest_leg_pool.py's walk-forward comparison of a calibration refit on the WIDE player universe against the shipped slate coefficients, scored on the wide corpus. --gate exits non-zero unless the refit is better calibrated by more than the margin, keeps skill, AND carries information in absolute terms (skill > min_skill) - a perfectly calibrated coin flip is honest and useless, and without that floor the gate would adopt it. The shipped slate's own calibration lives in parlay_backtest.json and is never written here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "model",
+    "ladder",
+    "support",
+    "residual_sd",
+    "corpus",
+    "verdict",
+    "per_fold_coefficients",
+    "calibration",
+    "reliability",
+    "note"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ladder": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "residual_sd": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "required": [
+        "rows",
+        "refused_out_of_support",
+        "seasons",
+        "players"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refused_out_of_support": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seasons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "players": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": [
+        "refit",
+        "shipped",
+        "adopt",
+        "why"
+      ],
+      "properties": {
+        "refit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "arm",
+            "n",
+            "skill",
+            "ece",
+            "log_loss"
+          ],
+          "properties": {
+            "arm": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skill": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "1 - loss / base-rate loss, against the SAME set's own base rate, so an easier population cannot inflate it the way raw log-loss can."
+            },
+            "ece": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Expected calibration error: when we say 60%, does it land 60%? THE metric for a leg pool, because a parlay multiplies its legs."
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "shipped": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "arm",
+            "n",
+            "skill",
+            "ece",
+            "log_loss"
+          ],
+          "properties": {
+            "arm": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skill": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "1 - loss / base-rate loss, against the SAME set's own base rate, so an easier population cannot inflate it the way raw log-loss can."
+            },
+            "ece": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Expected calibration error: when we say 60%, does it land 60%? THE metric for a leg pool, because a parlay multiplies its legs."
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "ece_margin": {
+          "type": "number"
+        },
+        "min_skill": {
+          "type": "number"
+        },
+        "adopt": {
+          "type": "boolean"
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "per_fold_coefficients": {
+      "type": "object",
+      "description": "Coefficients per fold season, fit on earlier seasons only - the no-peek record."
+    },
+    "calibration": {
+      "type": "object",
+      "description": "The final fit the pool builder prices with. Null for a position with no rows.",
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "required": [
+          "a",
+          "b",
+          "c"
+        ],
+        "properties": {
+          "a": {
+            "type": "number"
+          },
+          "b": {
+            "type": "number"
+          },
+          "c": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "reliability": {
+      "type": "array",
+      "description": "Said vs happened per probability bin, so a miscalibration is visible as a shape and not only as a scalar.",
+      "items": {
+        "type": "object",
+        "required": [
+          "bin",
+          "n",
+          "said",
+          "happened",
+          "gap"
+        ],
+        "properties": {
+          "bin": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "said": {
+            "type": "number"
+          },
+          "happened": {
+            "type": "number"
+          },
+          "gap": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "narrow_guard": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "The shipped slate's population under both fits. Recorded, never gating: the slate does not read these coefficients. It exists so the trade - one fit cannot serve both populations - stays on the record.",
+      "properties": {
+        "pool_fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "arm",
+            "n",
+            "skill",
+            "ece",
+            "log_loss"
+          ],
+          "properties": {
+            "arm": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skill": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "1 - loss / base-rate loss, against the SAME set's own base rate, so an easier population cannot inflate it the way raw log-loss can."
+            },
+            "ece": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Expected calibration error: when we say 60%, does it land 60%? THE metric for a leg pool, because a parlay multiplies its legs."
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "shipped_fit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "arm",
+            "n",
+            "skill",
+            "ece",
+            "log_loss"
+          ],
+          "properties": {
+            "arm": {
+              "type": "string",
+              "minLength": 1
+            },
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skill": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "1 - loss / base-rate loss, against the SAME set's own base rate, so an easier population cannot inflate it the way raw log-loss can."
+            },
+            "ece": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Expected calibration error: when we say 60%, does it land 60%? THE metric for a leg pool, because a parlay multiplies its legs."
+            },
+            "log_loss": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

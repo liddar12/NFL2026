@@ -75,6 +75,9 @@ python3 scripts/build_review_narrative.py --selftest || fail "review narrative s
 # R73 — the per-week parlay archive + index.
 python3 scripts/build_parlay_archive.py --selftest || fail "parlay archive selftest"
 python3 scripts/backtest_parlay.py --selftest || fail "parlay backtest selftest"
+# R76 — the MY PARLAYS leg pool: its own calibration gate and the pool builder.
+python3 scripts/backtest_leg_pool.py --selftest || fail "leg pool calibration selftest"
+python3 scripts/build_leg_pool.py --selftest || fail "leg pool builder selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
 python3 scripts/audit_dead_code.py --selftest || fail "dead-code scanner selftest"
