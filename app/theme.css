@@ -863,6 +863,46 @@ button { font: inherit; color: inherit; }
 .mp-seeds:not(:empty) { margin-top: 8px; }
 .mp-card .leg-prov { color: var(--muted); }
 
+/* R82 — MY PARLAYS card layout. Three measured faults, no new UI.
+ *
+ * (1) THE NAME. On a MY card the selection IS the bet, and it was the one thing
+ *     you could not read. renderCard's legs never carried .leg--annot, so the
+ *     why-line (.leg-prov, flex-basis:100%) stayed on the name's flex line and,
+ *     being shrinkable, took it: .leg-nm measured 62px against a 155px name at
+ *     1280px ("J. Gibb…") and 54px at 402px, where it stacked one word per line
+ *     — 5 lines for "J. Gibbs 20+ rush yds", a 106px leg. The class is now
+ *     emitted by renderCard; the rule below is the other half. .leg-nm is
+ *     nowrap+ellipsis above 719px, which is right for the SLATE (a fixed set of
+ *     short game legs) and wrong here, where every leg is a prop whose line and
+ *     units are in the name and an ellipsis eats exactly the number you came
+ *     for. MY names wrap instead — the same two declarations the ≤719px rule
+ *     already uses, applied at every width.
+ * (2) RAGGED ROWS. .card-list is align-items:start, so a 2-leg card beside a
+ *     3-leg one left their footers 58px apart (measured, 1280px) and nothing on
+ *     a row lined up. The MY list stretches its row and anchors .p-foot — and
+ *     the .corr note that follows it — to the card bottom. .parlay is already a
+ *     flex column, so an auto top margin is the whole mechanism.
+ * (3) NARROW COLUMNS. minmax(300px,1fr) puts four columns on the 1320px canvas
+ *     and .p-foot ran out of room: the EV cell wrapped to a second line. A
+ *     360px minimum gives 3-up at 1320px and 2-up around 800-1100px, and the EV
+ *     cell is pinned to one line so the foot can never wrap again.
+ * Scoped to #mp-list / .mp-card throughout: the slate lists keep their own
+ * density, which nothing here was measured against.
+ */
+.mp-card .leg-nm { white-space: normal; overflow: visible; }
+.mp-card .legcount { white-space: nowrap; }
+
+@media (min-width: 820px) {
+  #mp-list.card-list {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    align-items: stretch;
+  }
+  .mp-card .p-foot { margin-top: auto; }
+}
+@media (min-width: 1200px) {
+  #mp-list.card-list { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+}
+
 /* ---- correlation note ----------------------------------------------------- */
 .corr {
   display: flex;
