@@ -42,7 +42,7 @@
 
 import { loadJson } from '../data.js';
 import {
-  combinedProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
+  combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
   modelEv, violatesOnePerSide,
 } from '../parlay-math.js';
 
@@ -63,7 +63,13 @@ const esc = (v) => String(v == null ? '' : v)
 /** Every leg in the pool, flattened: one per player-rung plus each game leg. */
 export function poolLegs(pool) {
   const out = [];
+  const sides = new Map();
   for (const row of (pool && pool.players) || []) {
+    const key = `${row.game_id}|${row.team}`;
+    if (row.game_id && row.team && ['home', 'away'].includes(row.side)) {
+      // A disagreement is not resolved by whichever player happens to be last.
+      sides.set(key, !sides.has(key) || sides.get(key) === row.side ? row.side : null);
+    }
     for (const rung of row.rungs || []) {
       const leg = legFromPool(row, rung);
       leg.owner = row.gsis_id;          // one leg per player, enforced below
@@ -79,7 +85,11 @@ export function poolLegs(pool) {
     }
   }
   for (const g of (pool && pool.game_legs) || []) {
-    const leg = legFromGame(g);
+    const key = `${g.game_id}|${g.team}`;
+    const side = g.side || sides.get(key);
+    if (!g.game_id || !g.team || !['home', 'away'].includes(side)) continue;
+    if (sides.has(key) && sides.get(key) !== side) continue;
+    const leg = legFromGame({ ...g, side });
     leg.owner = `team:${g.team || g.selection}`;
     leg.label = g.team || g.selection;
     out.push(leg);
@@ -125,15 +135,16 @@ function compatible(legs, next) {
 
 /** Conviction: the combined model probability, correlation-aware within a game. */
 export function conviction(legs, table) {
-  const sameGame = legs.every((l) => l.game_id && l.game_id === legs[0].game_id);
-  return combinedProbs(legs, sameGame, table)[0];
+  return combinedGameProbs(legs, table)[0];
 }
 
 /** Everything a card shows, from its legs alone. */
 export function scoreCard(legs, table) {
   const sameGame = legs.length > 1
     && legs.every((l) => l.game_id && l.game_id === legs[0].game_id);
-  const [model, implied] = combinedProbs(legs, sameGame, table);
+  const games = legs.map((l) => l.game_id).filter(Boolean);
+  const mixedGame = !sameGame && new Set(games).size < games.length;
+  const [model, implied] = combinedGameProbs(legs, table);
   const decimal = implied > 0 ? 1 / implied : 0;
   return {
     legs,
@@ -142,6 +153,7 @@ export function scoreCard(legs, table) {
     ev: modelEv(model, implied),
     tier: confidenceTier(model, implied, legs.length),
     sameGame,
+    mixedGame,
     // What $100 would return if every leg hit, at the prices shown. A price, not
     // a result: these cards are never graded, so there is no realized figure.
     payout: decimal > 0 ? STAKE * (decimal - 1) : 0,
@@ -250,7 +262,7 @@ export function renderCard(card, i) {
   return (
     `<article class="card parlay mp-card" data-mp="${i}" data-scope="my">`
       + '<div class="p-head">'
-        + `<span class="lbl">${card.legs.length} LEG · ${card.sameGame ? 'SAME GAME' : 'CROSS GAME'}</span>`
+        + `<span class="lbl">${card.legs.length} LEG · ${card.sameGame ? 'SAME GAME' : card.mixedGame ? 'MIXED GAMES' : 'CROSS GAME'}</span>`
         + `<span class="tier tier--${esc(card.tier)}">${esc(card.tier.toUpperCase())}</span>`
       + '</div>'
       + `<div class="legs">${legs}</div>`
@@ -321,6 +333,8 @@ export default async function mountMyParlays(el) {
   state.pool = poolR.value;
   state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
   state.legs = poolLegs(state.pool);
+  const unavailable = (state.pool.game_legs || []).length
+    - state.legs.filter((l) => l.market === 'moneyline' || l.market === 'spread').length;
   const options = seedOptions(state.pool);
   const byName = new Map(options.map((o) => [o.name.toLowerCase(), o]));
 
@@ -338,6 +352,8 @@ export default async function mountMyParlays(el) {
       + `<span class="legend-item"><b>$100 PAYS</b> what a $100 wager returns if every `
       + `leg hits, at the prices shown. Display only — never a model input</span>`
       + `<span class="est">ESTIMATE</span></div>`
+    + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
+      + 'event or team-side identity could not be verified.</div>' : '')
     + '<div id="mp-list" class="card-list"></div>';
 
   const input = el.querySelector('#mp-input');

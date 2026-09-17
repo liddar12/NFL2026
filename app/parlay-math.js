@@ -22,7 +22,7 @@
  * Python module's docstring; this is the contract):
  *
  *   combineTwo      Gaussian-copula-lite. joint = p*q + rho*sqrt(p(1-p)q(1-q)),
- *                   clamped to the Frechet bound min(p, q). At rho = 0 it is the
+ *                   clamped to both Frechet bounds. At rho = 0 it is the
  *                   independence product.
  *   combinedProbs   The MODEL side folds legs in one at a time with the pairwise
  *                   rho of each incoming leg against the previous one. The IMPLIED
@@ -106,7 +106,7 @@ export function pairRho(a, b, table) {
 export function combineTwo(pJoint, pNext, rho) {
   const indep = pJoint * pNext;
   const adjust = rho * Math.sqrt(pJoint * (1 - pJoint) * pNext * (1 - pNext));
-  return clamp(indep + adjust, 0, Math.min(pJoint, pNext));
+  return clamp(indep + adjust, Math.max(0, pJoint + pNext - 1), Math.min(pJoint, pNext));
 }
 
 /**
@@ -130,6 +130,28 @@ export function combinedProbs(legs, correlated, table) {
   for (let i = 1; i < legs.length; i += 1) {
     model = combineTwo(model, legs[i].model_prob, pairRho(legs[i - 1], legs[i], table));
   }
+  return [model, implied];
+}
+
+/**
+ * Mixed cards: correlate within each event, then multiply independent events.
+ * An unidentified leg is a singleton, never a shared "unknown" event. Callers
+ * building offered cards must resolve event identity before admitting a leg.
+ * This preserves the existing within-event estimator; it does not validate the
+ * sequential approximation for three or more legs in one event (RCA F03).
+ */
+export function combinedGameProbs(legs, table) {
+  if (!legs || !legs.length) return [0, 0];
+  const groups = new Map();
+  let implied = 1;
+  for (const leg of legs) {
+    const key = leg.game_id || Symbol();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(leg);
+    implied *= leg.implied_prob;
+  }
+  let model = 1;
+  for (const group of groups.values()) model *= combinedProbs(group, true, table)[0];
   return [model, implied];
 }
 

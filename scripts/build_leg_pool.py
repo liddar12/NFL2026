@@ -168,7 +168,7 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
     return legs, counts
 
 
-def game_legs_from_slate(parlays_doc, game_by_team=None):
+def game_legs_from_slate(parlays_doc, game_by_team=None, side_by_team=None):
     """Moneyline / spread legs lifted VERBATIM from the shipped slate, de-duped.
 
     Copied rather than re-derived on purpose: the slate's legs already carry the
@@ -180,8 +180,9 @@ def game_legs_from_slate(parlays_doc, game_by_team=None):
     but My Parlays does: without the game it cannot correlation-adjust a same-game
     pair, and it cannot apply R74's one-leg-per-game-side rule. The team named by
     the selection ("BAL ML", "BAL -3.5") identifies the game, so it is looked up.
-    A leg whose team does not resolve keeps game_id null and is still offered --
-    it simply cannot be paired by the correlation rules."""
+    The side is preserved from new slates or recovered from the SAME current
+    game prediction for older slates. Missing identity remains null; the client
+    refuses unresolved legs instead of assuming same-side correlation."""
     # Keyed on (market, selection), NOT on the game: a team plays once a week, so
     # "BAL ML" is one bet however many cards carry it. Keying on game_id would let
     # the same bet appear twice — once from a game-scope card that knows its game
@@ -194,12 +195,28 @@ def game_legs_from_slate(parlays_doc, game_by_team=None):
             team = str(leg.get("selection", "")).split(" ")[0].strip()
             gid = parlay.get("game_id") or (game_by_team or {}).get(team)
             gid = str(gid) if gid else None
+            side = leg.get("side")
+            # Only recover identity when the event agrees. Mixing a historical
+            # slate with this week's predictions must not invent a team side.
+            mapped_gid = (game_by_team or {}).get(team)
+            mapped_side = (side_by_team or {}).get(team)
+            if mapped_gid is not None and str(mapped_gid) == gid:
+                if side in ("home", "away") and mapped_side in ("home", "away") \
+                        and side != mapped_side:
+                    raise ValueError("conflicting side for %s in game %s" % (team, gid))
+                side = side or mapped_side
             key = (leg["market"], leg["selection"])
-            if key in best and best[key]["game_id"] is not None:
-                continue            # keep the copy that knows its game
+            if key in best:
+                old = best[key]
+                old_identity = (old["game_id"] is not None,
+                                old.get("side") in ("home", "away"))
+                new_identity = (gid is not None, side in ("home", "away"))
+                if old_identity >= new_identity:
+                    continue        # keep the copy with more complete identity
             row = dict(leg)
             row["game_id"] = gid
             row["team"] = team or None
+            row["side"] = side if side in ("home", "away") else None
             row["source"] = "parlays.json (as-made book price)"
             best[key] = row
     out = list(best.values())
@@ -222,12 +239,13 @@ def build(inputs):
     game_preds = (inputs["game_predictions"] or {}).get("games", []) or []
 
     props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder)
-    game_by_team = {}
+    game_by_team, side_by_team = {}, {}
     for gp in game_preds:
         for side in ("home", "away"):
             if gp.get(side):
                 game_by_team[gp[side]] = str(gp.get("game_id"))
-    games = game_legs_from_slate(inputs.get("parlays"), game_by_team)
+                side_by_team[gp[side]] = side
+    games = game_legs_from_slate(inputs.get("parlays"), game_by_team, side_by_team)
     parlays_doc = inputs.get("parlays") or {}
     return {
         "season": parlays_doc.get("season"),
