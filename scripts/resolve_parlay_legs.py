@@ -7,12 +7,20 @@ Scores every LOCKED (pre-kickoff) leg in data/estimates/parlays_<season>.json:
               scripts/resolve_estimates.py reads (fetch_csv + cache reused by
               import, never copied). `hit` = the market's yards >= the locked
               line (passing_yards / rushing_yards / receiving_yards).
-  ML / SPREAD legs against FINAL results: a --finals file (the shape
-              scripts.scrape.espn.fetch_final_results returns, i.e. what the game
-              ledger grades against), or — offline — the graded lock receipts in
-              data/snapshots/*_games_open.json, which carry the winner only, so
-              moneyline resolves and spread is `unresolved: no_final_score`.
-              When neither is available the document says so (`finals_source`).
+  ML / SPREAD legs against FINAL results, LAYERED (R80, fixing the 17 week-1
+              spread legs that sat `no_final_score` while their scores were on
+              file): a --finals file wins outright; otherwise the layers merge,
+              later ones overriding earlier ones per game —
+                1. the graded lock receipts in data/snapshots/*_games_open.json
+                   (winner only: moneyline resolves, spread cannot),
+                2. data/review.json, the committed post-game review, whose FINAL
+                   game rows carry both scores (STATUS-gated, espn_final) — the
+                   OFFLINE score source, so the gate and a laptop run grade
+                   spreads too,
+                3. ESPN live (scripts.scrape.espn.fetch_scores, final_only) for
+                   every week the ledger holds a locked game leg — the runner's
+                   source, the same one build_review reads.
+              `finals_source` names exactly which layers contributed.
 
 HONESTY RULES
   * A week with no stats rows yet is SKIPPED (pending), loudly. No 2026 week has
@@ -395,14 +403,56 @@ def read_csv(path):
         return list(csv.DictReader(fh))
 
 
-def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB):
-    """(finals index, source label). A --finals file wins; else the graded lock
-    receipts (winner only); else nothing."""
+REVIEW_PATH = os.path.join(DATA, "review.json")
+_FINAL_STATUSES = frozenset(["STATUS_FINAL", "STATUS_FINAL_OVERTIME"])
+
+
+def finals_from_review(review_doc):
+    """{game_id: {"home_score", "away_score"}} from data/review.json's FINAL game
+    rows. STATUS-gated twice: the row's status must be FINAL and its `final`
+    block must carry BOTH integer scores (a winner-only block grades nothing
+    here). Pure."""
+    out = {}
+    weeks = (review_doc or {}).get("weeks") or {}
+    for wk in weeks.values() if isinstance(weeks, dict) else weeks:
+        for g in (wk or {}).get("games") or []:
+            fin = g.get("final") or {}
+            hs, as_ = fin.get("home_score"), fin.get("away_score")
+            if g.get("status") not in _FINAL_STATUSES or hs is None or as_ is None:
+                continue
+            out[str(g.get("game_id"))] = {"home_score": int(hs), "away_score": int(as_)}
+    return out
+
+
+def fetch_finals_espn(season, weeks, fetch=None):
+    """(finals index, [notes]) from ESPN's STATUS-gated scoreboard for `weeks`.
+    A week whose fetch fails is noted and skipped — never invented. Runner only."""
+    if fetch is None:
+        from scripts.scrape import espn  # noqa: PLC0415 (runner only; guarded)
+        fetch = lambda wk: espn.fetch_scores(season, week=wk, final_only=True)  # noqa: E731
+    rows, notes = [], []
+    for wk in sorted(set(int(w) for w in weeks)):
+        try:
+            rows.extend(fetch(wk) or [])
+        except Exception as exc:  # noqa: BLE001 — degrade, never fabricate
+            notes.append("wk %d: ESPN finals fetch failed (%s)" % (wk, str(exc)[:120]))
+    return finals_index(rows), notes
+
+
+def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB, season=None, weeks=(),
+                offline=False, review_path=REVIEW_PATH, espn_fetch=None):
+    """(finals index, source label). A --finals file wins outright. Otherwise the
+    layers merge, later ones overriding earlier ones per game: lock receipts
+    (winner only) < data/review.json (scores, offline) < ESPN live (scores, on
+    the runner when `weeks` are given and not `offline`). The label names every
+    layer that contributed a game, so the document never claims a source it
+    did not use."""
     if finals_path:
         doc = _load(finals_path)
         rows = doc.get("games") if isinstance(doc, dict) else doc
         return finals_index(rows), "final scores from %s (scripts.scrape.espn " \
             "fetch_final_results shape — the game ledger's source)" % finals_path
+    merged, used = {}, []
     docs = []
     for f in sorted(glob.glob(snapshot_glob)):
         try:
@@ -411,10 +461,27 @@ def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB):
             continue
     winners = winners_from_locks(docs)
     if winners:
-        return winners, ("winner only, from the graded lock receipts data/snapshots/"
-                         "*_games_open.json (scripts/resolve_locks.py, STATUS-gated "
-                         "FINAL); spread legs need scores and stay unresolved")
-    return {}, "none reachable offline: no --finals file and no graded lock receipt yet"
+        merged.update(winners)
+        used.append("winner only from the graded lock receipts data/snapshots/"
+                    "*_games_open.json (%d games)" % len(winners))
+    if review_path and os.path.exists(review_path):
+        try:
+            rv = finals_from_review(_load(review_path))
+        except (OSError, ValueError):
+            rv = {}
+        if rv:
+            merged.update(rv)
+            used.append("scores from data/review.json FINAL rows (%d games)" % len(rv))
+    if weeks and not offline and season is not None:
+        live, notes = fetch_finals_espn(season, weeks, fetch=espn_fetch)
+        if live:
+            merged.update(live)
+            used.append("scores from ESPN live, STATUS-gated FINAL (%d games)" % len(live))
+        used.extend(notes)
+    if not merged:
+        return {}, "none reachable: no --finals file, no graded lock receipt, no " \
+                   "FINAL row in data/review.json"
+    return merged, "; ".join(used)
 
 
 def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_csv=None,
@@ -426,7 +493,16 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     ledger_rel = os.path.relpath(lpath, _ROOT)
     ledger, prop_rows, game_rows, unresolved, skipped = None, [], [], [], None
     source = None
-    finals, finals_source = load_finals(finals_path)
+    # The weeks whose finals matter: every week with a locked game leg on file.
+    game_weeks = ()
+    if os.path.exists(lpath):
+        try:
+            game_weeks = sorted({int(l["week"]) for l in _load(lpath).get("legs") or []
+                                 if l.get("locked") and l.get("market") in GAME_MARKETS})
+        except (OSError, ValueError, KeyError, TypeError):
+            game_weeks = ()
+    finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
+                                        offline=offline)
     if not os.path.exists(lpath):
         skipped = ("no ledger at %s yet — scripts/build_parlay_ledger.py appends the first "
                    "legs on the daily run; nothing to resolve" % ledger_rel)
@@ -594,6 +670,29 @@ def selftest():
     games3, g_unres3 = resolve_games(ledger, winners)
     assert [(g["selection"], g["hit"]) for g in games3] == [("SEA ML", False)]
     assert [u["reason"] for u in g_unres3] == ["no_final_score"]
+    # R80 — review.json is a SCORE source: both scores, FINAL-gated; a winner-only
+    # or non-final row grades nothing.
+    rv = finals_from_review({"weeks": {"1": {"games": [
+        {"game_id": "g1", "status": "STATUS_FINAL",
+         "final": {"home_score": 24, "away_score": 20, "winner": "SEA"}},
+        {"game_id": "g2", "status": "STATUS_FINAL",
+         "final": {"home_score": None, "away_score": None, "winner": "SEA"}},
+        {"game_id": "g3", "status": "STATUS_IN_PROGRESS",
+         "final": {"home_score": 3, "away_score": 0}}]}}})
+    assert rv == {"g1": {"home_score": 24, "away_score": 20}}, rv
+    games4, g_unres4 = resolve_games(ledger, rv)
+    assert {(g["selection"], g["hit"]) for g in games4} == {("SEA ML", True), ("SEA -3", True)}, \
+        "with review.json scores the spread resolves too"
+    assert g_unres4 == []
+    # the layers merge, scores overriding a winner-only receipt for the same game
+    layered = dict(winners); layered.update(rv)
+    games5, _ = resolve_games(ledger, layered)
+    assert len(games5) == 2
+    # ESPN live: a failed week is noted, never invented
+    live, notes = fetch_finals_espn(2026, [1, 2], fetch=lambda wk: (
+        [{"game_id": "g1", "home_score": 30, "away_score": 27}] if wk == 1
+        else (_ for _ in ()).throw(RuntimeError("boom"))))
+    assert live == {"g1": {"home_score": 30, "away_score": 27}} and len(notes) == 1
     # scoring: seed and model are scored on the SAME legs; counts conserve
     doc = document(2026, ledger, "data/estimates/parlays_2026.json", props, games,
                    unres + g_unres, None, "test", "2026-09-15T00:00:00Z")

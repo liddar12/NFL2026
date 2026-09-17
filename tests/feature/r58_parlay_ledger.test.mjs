@@ -41,27 +41,59 @@ const PY_ENV = { ...process.env, PYTHONPATH: REPO_ROOT };
  * Derived from data/snapshots + the ledger on every run — never pinned to a
  * day-zero count, so the in-season data state cannot stale this file.
  */
+/* R80 — the OFFLINE finals the resolver can see, layered exactly as
+ * load_finals() layers them: the graded lock receipts (winner only) under
+ * data/review.json's FINAL rows (both scores). A spread leg grades only where a
+ * score is on file; a push (own + line == opp) is unresolved, never a miss. */
 function gradedGameLegs() {
   const ledger = JSON.parse(readFileSync(LEDGER, 'utf8'));
   const dir = resolve(REPO_ROOT, 'data/snapshots');
-  const resolved = new Set();
+  const finals = new Map(); // game_id -> { winner } | { home_score, away_score }
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('_games_open.json')) continue;
     for (const r of JSON.parse(readFileSync(join(dir, f), 'utf8'))) {
-      if (r && r.event_type === 'game' && r.resolved) resolved.add(String(r.event_id));
+      if (r && r.event_type === 'game' && r.resolved && (r.actual === 0 || r.actual === 1)) {
+        finals.set(String(r.event_id), { winner: r.actual === 0 ? 'home' : 'away' });
+      }
     }
   }
-  let moneyline = 0; let spread = 0; let lockedProps = 0; const weeks = new Set();
+  const REVIEW = resolve(REPO_ROOT, 'data/review.json');
+  if (existsSync(REVIEW)) {
+    const rv = JSON.parse(readFileSync(REVIEW, 'utf8'));
+    for (const wk of Object.values(rv.weeks || {})) {
+      for (const g of wk.games || []) {
+        const fin = g.final || {};
+        const isFinal = g.status === 'STATUS_FINAL' || g.status === 'STATUS_FINAL_OVERTIME';
+        if (isFinal && fin.home_score != null && fin.away_score != null) {
+          finals.set(String(g.game_id), { home_score: fin.home_score, away_score: fin.away_score });
+        }
+      }
+    }
+  }
+  let moneyline = 0; let spread = 0; let spreadPush = 0; let spreadPending = 0;
+  let lockedProps = 0; let scored = false; const weeks = new Set();
   for (const l of ledger.legs) {
     if (!l.locked) continue;
     // Prop legs of EVERY week count: the fixture covers one week, so the rest
     // are the no_stat_line population the conservation law below is built on.
     if (l.market !== 'moneyline' && l.market !== 'spread') { lockedProps += 1; continue; }
-    if (!resolved.has(String(l.game_id))) continue;
-    if (l.market === 'moneyline') { moneyline += 1; weeks.add(l.week); }
-    else spread += 1;
+    const fin = finals.get(String(l.game_id));
+    if (!fin) continue;
+    const hasScore = fin.home_score != null;
+    if (hasScore) scored = true;
+    if (l.market === 'moneyline') {
+      if (hasScore && fin.home_score === fin.away_score) continue; // tie: unresolved
+      moneyline += 1; weeks.add(l.week);
+    } else if (!hasScore) {
+      spreadPending += 1;
+    } else {
+      const own = l.side === 'home' ? fin.home_score : fin.away_score;
+      const opp = l.side === 'home' ? fin.away_score : fin.home_score;
+      if (own + Number(l.line) - opp === 0) spreadPush += 1;
+      else { spread += 1; weeks.add(l.week); }
+    }
   }
-  return { moneyline, spread, lockedProps, weeks: weeks.size };
+  return { moneyline, spread, spreadPush, spreadPending, lockedProps, weeks: weeks.size, scored };
 }
 
 function runPy(code) {
@@ -194,9 +226,9 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   // absent-prop pin of 10 into 52 on 2026-09-16).
   const FIXTURE_PROPS = 30;
   const absentProps = g.lockedProps - FIXTURE_PROPS;
-  assert.equal(doc.legs.resolved, FIXTURE_PROPS + g.moneyline,
-    'fixture-covered props + receipt-graded moneylines');
-  assert.equal(doc.legs.unresolved, absentProps + g.spread,
+  assert.equal(doc.legs.resolved, FIXTURE_PROPS + g.moneyline + g.spread,
+    'fixture-covered props + graded moneylines + spreads with a score on file (R80)');
+  assert.equal(doc.legs.unresolved, absentProps + g.spreadPending + g.spreadPush,
     'every locked prop the fixture does not cover, plus spreads awaiting a score');
   // locked + unlocked (post-kickoff first sight) account for every leg on file
   assert.equal(doc.legs.locked + doc.legs.unlocked, doc.legs.on_file);
@@ -226,16 +258,18 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   assert.ok(kw, 'K. Williams (LAR) must resolve from a team=LA stats row');
   assert.equal(kw.team, 'LAR');
   assert.equal(kw.hit, true);
-  // unresolved legs: the 10 players with no fixture row, never a miss; a spread
-  // leg of a receipt-graded game waits for a score (no_final_score), never a miss
-  assert.equal(doc.unresolved.length, absentProps + g.spread);
+  // unresolved legs: the players with no fixture row, never a miss; a spread
+  // leg of a receipt-graded game with no score on file waits (no_final_score),
+  // and a spread that lands exactly on the line is a push — never a miss
+  assert.equal(doc.unresolved.length, absentProps + g.spreadPending + g.spreadPush);
   // Identity is (week, game_id, market, selection) — the same prop selection text
   // recurs week to week, so comparing on selection alone collides once the ledger
   // holds more than one week.
   const legKey = (x) => `${x.week}|${x.game_id}|${x.market}|${x.selection}`;
   const resolvedKeys = new Set(doc.resolved.map(legKey));
   for (const u of doc.unresolved) {
-    assert.equal(u.reason, u.market === 'spread' ? 'no_final_score' : 'no_stat_line');
+    if (u.market === 'spread') assert.ok(['no_final_score', 'push'].includes(u.reason), u.reason);
+    else assert.equal(u.reason, 'no_stat_line');
     assert.ok(!resolvedKeys.has(legKey(u)), `${legKey(u)} is both resolved and unresolved`);
   }
   // conservation: every locked prop either resolved from the fixture or is
@@ -247,13 +281,14 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   // counts conserve across weeks / positions
   assert.equal(doc.weeks.reduce((s, w) => s + w.props.n, 0), p.n);
   assert.equal(Object.values(doc.by_position).reduce((s, b) => s + b.n, 0), p.n);
-  // no finals reachable offline: moneylines grade from the receipts on file
-  // (winner only), spreads stay pending, and the doc says which every time
+  // finals offline (R80): the receipts grade moneylines (winner only) and
+  // review.json's FINAL rows grade spreads too; the doc names every layer used
   assert.equal(doc.pooled.moneyline.n, g.moneyline);
-  assert.equal(doc.pooled.spread.n, 0);
-  assert.match(doc.finals_source, g.moneyline ? /graded lock receipts/ : /none reachable offline/);
+  assert.equal(doc.pooled.spread.n, g.spread);
+  if (g.scored) assert.match(doc.finals_source, /scores from data\/review\.json/);
+  else assert.match(doc.finals_source, g.moneyline ? /graded lock receipts/ : /none reachable/);
   for (const row of doc.resolved.filter((x) => !x.position)) {
-    assert.equal(row.market, 'moneyline');
+    assert.ok(['moneyline', 'spread'].includes(row.market));
     assert.equal(typeof row.hit, 'boolean');
   }
   // the dry-run document honours the contract
@@ -275,7 +310,7 @@ test('resolver --offline writes the honest record: no prop resolves, game legs o
   assert.equal(r.status, 0, r.stderr);
   if (g.moneyline === 0) assert.match(r.stderr, /SKIPPED \(0 weeks resolved\): offline run/);
   // (the skip line goes to stderr; a resolved summary is the run's stdout line)
-  else assert.match(r.stdout + r.stderr, new RegExp(`${g.weeks} weeks, ${g.moneyline} legs resolved`));
+  else assert.match(r.stdout + r.stderr, new RegExp(`${g.weeks} weeks, ${g.moneyline + g.spread} legs resolved`));
   const doc = JSON.parse(readFileSync(out, 'utf8'));
   assert.equal(doc.weeks_resolved, g.weeks);
   // props never resolve offline: no stat line was fetched, so no number is invented
@@ -283,9 +318,10 @@ test('resolver --offline writes the honest record: no prop resolves, game legs o
   assert.equal(doc.pooled.props.hit_rate, null);
   assert.equal(doc.pooled.props.model.log_loss, null);
   assert.equal(doc.pooled.props.seed.log_loss, null);
-  assert.equal(doc.legs.resolved, g.moneyline, 'only receipt-graded moneylines resolve offline');
+  assert.equal(doc.legs.resolved, g.moneyline + g.spread,
+    'offline: receipt-graded moneylines plus review.json-scored spreads resolve (R80)');
   assert.ok(doc.legs.locked > 0, 'the ledger on file has locked legs');
-  assert.ok(doc.resolved.every((x) => x.market === 'moneyline' && typeof x.hit === 'boolean'));
+  assert.ok(doc.resolved.every((x) => ['moneyline', 'spread'].includes(x.market) && typeof x.hit === 'boolean'));
   // the committed artifact is the same honest shape for the data state on file:
   // props stay unresolved until the runner fetches the stat line (then skipped
   // is null and the prop log-loss a number — both admitted, never a pinned 0).
