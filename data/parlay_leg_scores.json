@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-17T11:05:22Z",
+  "generated_utc": "2026-09-17T16:58:08Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only, from the graded lock receipts data/snapshots/*_games_open.json (scripts/resolve_locks.py, STATUS-gated FINAL); spread legs need scores and stay unresolved",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (16 games); scores from data/review.json FINAL rows (16 games); scores from ESPN live, STATUS-gated FINAL (16 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 1,
@@ -10,8 +10,8 @@
     "on_file": 176,
     "locked": 162,
     "unlocked": 14,
-    "resolved": 53,
-    "unresolved": 20
+    "resolved": 69,
+    "unresolved": 4
   },
   "skipped": null,
   "pooled": {
@@ -37,10 +37,10 @@
       "brier": 0.2445
     },
     "spread": {
-      "n": 0,
-      "hit_rate": null,
-      "log_loss": null,
-      "brier": null
+      "n": 16,
+      "hit_rate": 0.375,
+      "log_loss": 0.6931,
+      "brier": 0.25
     }
   },
   "by_position": {
@@ -115,10 +115,10 @@
         "brier": 0.2445
       },
       "spread": {
-        "n": 0,
-        "hit_rate": null,
-        "log_loss": null,
-        "brier": null
+        "n": 16,
+        "hit_rate": 0.375,
+        "log_loss": 0.6931,
+        "brier": 0.25
       }
     }
   ],
@@ -135,14 +135,7 @@
       "game_id": "401872656",
       "market": "spread",
       "selection": "SEA -3",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872657",
-      "market": "spread",
-      "selection": "LAR -3.5",
-      "reason": "no_final_score"
+      "reason": "push"
     },
     {
       "week": 1,
@@ -153,115 +146,10 @@
     },
     {
       "week": 1,
-      "game_id": "401872658",
-      "market": "spread",
-      "selection": "PIT -3.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872659",
-      "market": "spread",
-      "selection": "IND +3.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872660",
-      "market": "spread",
-      "selection": "HOU +1.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872661",
-      "market": "spread",
-      "selection": "CHI -3",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872922",
-      "market": "spread",
-      "selection": "JAX -8.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872923",
-      "market": "spread",
-      "selection": "DET -7",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872924",
-      "market": "spread",
-      "selection": "TEN -1.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872925",
-      "market": "spread",
-      "selection": "CIN -3.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872926",
-      "market": "spread",
-      "selection": "LAC -10",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
       "game_id": "401872927",
       "market": "rb_rush_yds",
       "selection": "J. Jacobs 60+ rush yds",
       "reason": "no_stat_line"
-    },
-    {
-      "week": 1,
-      "game_id": "401872927",
-      "market": "spread",
-      "selection": "MIN -1.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872928",
-      "market": "spread",
-      "selection": "MIA +3.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872929",
-      "market": "spread",
-      "selection": "PHI -5.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872930",
-      "market": "spread",
-      "selection": "NYG +3",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872931",
-      "market": "spread",
-      "selection": "DEN +2.5",
-      "reason": "no_final_score"
-    },
-    {
-      "week": 1,
-      "game_id": "401872931",
-      "market": "spread",
-      "selection": "DEN +3",
-      "reason": "no_final_score"
     }
   ],
   "resolved": [
@@ -275,7 +163,8 @@
       "line": null,
       "model_prob": 0.61,
       "actual": {
-        "winner": "home"
+        "home_score": 13,
+        "away_score": 10
       },
       "hit": true
     },
@@ -308,7 +197,8 @@
       "line": null,
       "model_prob": 0.5927,
       "actual": {
-        "winner": "away"
+        "home_score": 7,
+        "away_score": 27
       },
       "hit": false
     },
@@ -333,6 +223,21 @@
     },
     {
       "week": 1,
+      "game_id": "401872657",
+      "market": "spread",
+      "selection": "LAR -3.5",
+      "team": "LAR",
+      "side": "home",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 7,
+        "away_score": 27
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
       "game_id": "401872658",
       "market": "moneyline",
       "selection": "PIT ML",
@@ -341,7 +246,8 @@
       "line": null,
       "model_prob": 0.5926,
       "actual": {
-        "winner": "home"
+        "home_score": 20,
+        "away_score": 13
       },
       "hit": true
     },
@@ -362,6 +268,21 @@
       "model_prob": 0.5802,
       "seed_prob": 0.463,
       "actual": 83.0,
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872658",
+      "market": "spread",
+      "selection": "PIT -3.5",
+      "team": "PIT",
+      "side": "home",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 20,
+        "away_score": 13
+      },
       "hit": true
     },
     {
@@ -393,7 +314,8 @@
       "line": null,
       "model_prob": 0.5307,
       "actual": {
-        "winner": "away"
+        "home_score": 23,
+        "away_score": 41
       },
       "hit": false
     },
@@ -438,6 +360,21 @@
     {
       "week": 1,
       "game_id": "401872659",
+      "market": "spread",
+      "selection": "IND +3.5",
+      "team": "IND",
+      "side": "home",
+      "line": 3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 23,
+        "away_score": 41
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872659",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "Z. Flowers 60+ rec yds",
@@ -464,7 +401,8 @@
       "line": null,
       "model_prob": 0.5896,
       "actual": {
-        "winner": "away"
+        "home_score": 31,
+        "away_score": 36
       },
       "hit": false
     },
@@ -485,6 +423,21 @@
       "model_prob": 0.6338,
       "seed_prob": 0.4642,
       "actual": 57.0,
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872660",
+      "market": "spread",
+      "selection": "HOU +1.5",
+      "team": "HOU",
+      "side": "home",
+      "line": 1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 36
+      },
       "hit": false
     },
     {
@@ -516,7 +469,8 @@
       "line": null,
       "model_prob": 0.5173,
       "actual": {
-        "winner": "away"
+        "home_score": 37,
+        "away_score": 59
       },
       "hit": true
     },
@@ -541,6 +495,21 @@
     },
     {
       "week": 1,
+      "game_id": "401872661",
+      "market": "spread",
+      "selection": "CHI -3",
+      "team": "CHI",
+      "side": "away",
+      "line": -3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 37,
+        "away_score": 59
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
       "game_id": "401872922",
       "market": "moneyline",
       "selection": "JAX ML",
@@ -549,7 +518,8 @@
       "line": null,
       "model_prob": 0.7299,
       "actual": {
-        "winner": "home"
+        "home_score": 34,
+        "away_score": 10
       },
       "hit": true
     },
@@ -594,6 +564,21 @@
     {
       "week": 1,
       "game_id": "401872922",
+      "market": "spread",
+      "selection": "JAX -8.5",
+      "team": "JAX",
+      "side": "home",
+      "line": -8.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 34,
+        "away_score": 10
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872922",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "J. Meyers 60+ rec yds",
@@ -620,7 +605,8 @@
       "line": null,
       "model_prob": 0.6224,
       "actual": {
-        "winner": "home"
+        "home_score": 31,
+        "away_score": 30
       },
       "hit": true
     },
@@ -665,6 +651,21 @@
     {
       "week": 1,
       "game_id": "401872923",
+      "market": "spread",
+      "selection": "DET -7",
+      "team": "DET",
+      "side": "home",
+      "line": -7.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872923",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "A. St. Brown 60+ rec yds",
@@ -691,7 +692,8 @@
       "line": null,
       "model_prob": 0.5829,
       "actual": {
-        "winner": "away"
+        "home_score": 10,
+        "away_score": 23
       },
       "hit": false
     },
@@ -736,6 +738,21 @@
     {
       "week": 1,
       "game_id": "401872924",
+      "market": "spread",
+      "selection": "TEN -1.5",
+      "team": "TEN",
+      "side": "home",
+      "line": -1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 10,
+        "away_score": 23
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872924",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "G. Wilson 60+ rec yds",
@@ -762,7 +779,8 @@
       "line": null,
       "model_prob": 0.5583,
       "actual": {
-        "winner": "home"
+        "home_score": 33,
+        "away_score": 27
       },
       "hit": true
     },
@@ -787,6 +805,21 @@
     },
     {
       "week": 1,
+      "game_id": "401872925",
+      "market": "spread",
+      "selection": "CIN -3.5",
+      "team": "CIN",
+      "side": "home",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 33,
+        "away_score": 27
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
       "game_id": "401872926",
       "market": "moneyline",
       "selection": "LAC ML",
@@ -795,7 +828,8 @@
       "line": null,
       "model_prob": 0.705,
       "actual": {
-        "winner": "away"
+        "home_score": 14,
+        "away_score": 26
       },
       "hit": false
     },
@@ -840,6 +874,21 @@
     {
       "week": 1,
       "game_id": "401872926",
+      "market": "spread",
+      "selection": "LAC -10",
+      "team": "LAC",
+      "side": "home",
+      "line": -10.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 14,
+        "away_score": 26
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872926",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "L. McConkey 60+ rec yds",
@@ -866,7 +915,8 @@
       "line": null,
       "model_prob": 0.5881,
       "actual": {
-        "winner": "home"
+        "home_score": 39,
+        "away_score": 22
       },
       "hit": true
     },
@@ -888,6 +938,21 @@
       "seed_prob": 0.5352,
       "actual": 18.0,
       "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872927",
+      "market": "spread",
+      "selection": "MIN -1.5",
+      "team": "MIN",
+      "side": "home",
+      "line": -1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 39,
+        "away_score": 22
+      },
+      "hit": true
     },
     {
       "week": 1,
@@ -918,7 +983,8 @@
       "line": null,
       "model_prob": 0.5353,
       "actual": {
-        "winner": "home"
+        "home_score": 27,
+        "away_score": 13
       },
       "hit": false
     },
@@ -963,6 +1029,21 @@
     {
       "week": 1,
       "game_id": "401872928",
+      "market": "spread",
+      "selection": "MIA +3.5",
+      "team": "MIA",
+      "side": "away",
+      "line": 3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 27,
+        "away_score": 13
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872928",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "T. Tucker 60+ rec yds",
@@ -989,7 +1070,8 @@
       "line": null,
       "model_prob": 0.6564,
       "actual": {
-        "winner": "home"
+        "home_score": 24,
+        "away_score": 22
       },
       "hit": true
     },
@@ -1034,6 +1116,21 @@
     {
       "week": 1,
       "game_id": "401872929",
+      "market": "spread",
+      "selection": "PHI -5.5",
+      "team": "PHI",
+      "side": "home",
+      "line": -5.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 24,
+        "away_score": 22
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872929",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "D. Smith 60+ rec yds",
@@ -1060,7 +1157,8 @@
       "line": null,
       "model_prob": 0.5452,
       "actual": {
-        "winner": "home"
+        "home_score": 28,
+        "away_score": 20
       },
       "hit": true
     },
@@ -1105,6 +1203,21 @@
     {
       "week": 1,
       "game_id": "401872930",
+      "market": "spread",
+      "selection": "NYG +3",
+      "team": "NYG",
+      "side": "home",
+      "line": 3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 28,
+        "away_score": 20
+      },
+      "hit": true
+    },
+    {
+      "week": 1,
+      "game_id": "401872930",
       "market": "wr_rec_yds",
       "position": "WR",
       "selection": "G. Pickens 60+ rec yds",
@@ -1131,7 +1244,8 @@
       "line": null,
       "model_prob": 0.5938,
       "actual": {
-        "winner": "home"
+        "home_score": 31,
+        "away_score": 10
       },
       "hit": false
     },
@@ -1171,6 +1285,36 @@
       "model_prob": 0.2628,
       "seed_prob": 0.5375,
       "actual": 18.0,
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "spread",
+      "selection": "DEN +2.5",
+      "team": "DEN",
+      "side": "away",
+      "line": 2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 10
+      },
+      "hit": false
+    },
+    {
+      "week": 1,
+      "game_id": "401872931",
+      "market": "spread",
+      "selection": "DEN +3",
+      "team": "DEN",
+      "side": "away",
+      "line": 3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 10
+      },
       "hit": false
     },
     {
