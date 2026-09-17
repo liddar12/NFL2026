@@ -218,6 +218,33 @@ Full gate on the untouched tree (`bash tests/run_gate.sh`, main `886b5bb`):
 The gate is green because nothing above is a defect *against the tests as
 written*; §3 names the tests that lock the degenerate behaviour.
 
+## 5a. Status after the independent review (2026-09-17, later the same day)
+
+An independent review reproduced every root cause above with its own probes
+(`docs/reviews/2026-09-17/`) and added findings this RCA did not check
+(`docs/qa/CODEX_REVIEW_R82_FOR_CLAUDE.md`). Its release R83–R85 (main
+`5bf4399`) closed part of the numbers section and none of the spacing section:
+
+| item | state after R83–R85 |
+|---|---|
+| RC-N1 rung selection | **open** — 1,280 of 1,280 prop legs still at the lowest rung; first DET card still 82 % · −9.1 % · +$10 |
+| RC-N2 ladder floor | open (unchanged) |
+| RC-N3 two `$100 PAYS` conventions | **closed** — one shared simulation (`app/parlay-simulation.js`) on every surface, labelled `$100 SIM NET`; review money is re-derived in memory from each card's own comparison prices |
+| RC-N4 two probabilities per leg | open (unchanged) |
+| RC-N5 correlation chain | **contained** — pairs clamped to both Fréchet bounds, more than two legs in one game refused, mixed cards grouped by game (review F01–F03) |
+| RC-N6 clamp / IMPL\* 99 | open, now labelled as an assumed comparison |
+| RC-L1 83 px void | **open** — still 83 px on 5 of 10 cards at 1395 px; footer grew from 32 px to 84 px |
+| RC-L2 0 px host rhythm | open |
+| RC-L3 3-up splits the pairs | open |
+
+Owner decision on §6 Q1: **option B** (one rung per player at a risk dial,
+EVEN ≈ 50 % by default, ranked by model hit chance within the dial), because
+legs near 50 % are where the model's calibrated skill lives and where resolved
+outcomes inform the weekly refits; a 90 % leg teaches the loop nothing. Built
+as R86 with the RC-L1..L3 fixes. Recording the cards MY offers (so the
+learning loop can grade them) is the follow-up, since it needs a pipeline
+step.
+
 ## 6. Options, rated (risk · LOE · recommendation)
 
 ### Q1 — the objective (fixes RC-N1, RC-N2, RC-N6)
