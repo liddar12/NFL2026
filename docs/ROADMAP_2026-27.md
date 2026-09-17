@@ -211,8 +211,9 @@ nothing ships without one.
   the builder's own arithmetic and re-settled by `build_review`'s own money. **A variant is
   reported, never adopted**: no gate, no promotion path, and the only file it writes is its own
   record. Runs every pipeline run after the leg resolver; shown on the MODEL tab as
-  `REPLAY LAB · CANDIDATES vs SHIPPED`. Week 1 (53 legs): every candidate `same` — no CI excluded
-  0. See `docs/REPLAY_LAB.md`. · **LOE** 1 d
+  `REPLAY LAB · CANDIDATES vs SHIPPED`. Week 1 (69 legs): `spread_margin_model` is `worse`
+  (the retired spread rule loses to shipped, CI excludes 0); every other candidate `same`.
+  See `docs/REPLAY_LAB.md`. · **LOE** 1 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
