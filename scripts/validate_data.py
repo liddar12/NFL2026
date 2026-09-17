@@ -142,6 +142,9 @@ SCHEMA_TO_DATA = {
     "review.schema.json": "review.json",
     # R73 — the parlay-archive index (scripts/build_parlay_archive.py).
     "parlays_index.schema.json": "parlays/index.json",
+    # R77 — each team's latest depth chart (QB), the source the this-week gate
+    # reads. Runner-built (nflverse); the last-good file stands in on a failure.
+    "depth_chart.schema.json": "depth_chart.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -195,6 +198,8 @@ OPTIONAL_DATA = frozenset([
     # R73 — written by the archive step (daily + gameday); absent until the first
     # run, validated strictly when present.
     "parlays/index.json",
+    # R77 — the depth chart behind the QB gate (nflverse, runner-built).
+    "depth_chart.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -624,6 +629,81 @@ def check_parlay_one_leg_per_side(parlays, label="parlays.json"):
             % (label, "\n  - ".join(problems)))
 
 
+def check_no_unplayable_legs(weekly, parlays, leg_pool=None):
+    """R77: no shipped prop leg is priced on a player who does not play this week.
+
+    weekly   : data/player_weekly.json (the gate lives on its rows).
+    parlays  : data/parlays.json — every prop leg (qb_pass_yds / rb_rush_yds /
+               wr_rec_yds) must name its player (`gsis_id`), that player's row
+               must not say this_week.playable false, and his row for
+               parlays.week must not be avail:false. A leg's `availability`
+               may only be QUESTIONABLE and only when his row says so.
+    leg_pool : data/leg_pool.json (optional) — the same three rules per pooled
+               player, plus counts.not_playable must be stated.
+
+    Applies only to a document built WITH the gate (model.this_week present);
+    an older weekly file has no fact to check against and is not faked green
+    or red — the schema gate still covers it.
+    """
+    gate_meta = (weekly.get("model") or {}).get("this_week")
+    if not isinstance(gate_meta, dict):
+        return
+    rows = {p.get("gsis_id"): p for p in weekly.get("players", []) or []}
+    problems = []
+
+    def judge(label, gsis, sel, avail_label, wk):
+        rec = rows.get(gsis)
+        if rec is None:
+            problems.append("%s: %s names %r, not in player_weekly.json" % (label, sel, gsis))
+            return
+        tw = rec.get("this_week")
+        if isinstance(tw, dict) and tw.get("playable") is False:
+            problems.append("%s: %s is priced on a player who does not play this week "
+                            "(%s%s)" % (label, sel, tw.get("reason"),
+                                       " " + str(tw.get("status") or tw.get("depth") or "")))
+        row = next((w for w in rec.get("weeks", []) if w.get("wk") == wk), None)
+        if row is not None and row.get("avail") is False:
+            problems.append("%s: %s is priced on a zeroed week (wk%s avail:false)"
+                            % (label, sel, wk))
+        st = (rec.get("availability") or {}).get("status")
+        if avail_label is not None:
+            if avail_label != "QUESTIONABLE":
+                problems.append("%s: %s carries availability %r; only QUESTIONABLE is "
+                                "priced" % (label, sel, avail_label))
+            elif st != "QUESTIONABLE":
+                problems.append("%s: %s labelled QUESTIONABLE but his row says %r"
+                                % (label, sel, st))
+        elif st == "QUESTIONABLE":
+            problems.append("%s: %s is QUESTIONABLE but the leg does not say so"
+                            % (label, sel))
+
+    wk = (parlays or {}).get("week")
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+        for leg in parlay.get("legs", []) or []:
+            if leg.get("market") not in _PROP_MARKETS:
+                continue
+            sel = leg.get("selection")
+            if not leg.get("gsis_id"):
+                problems.append("parlays.json %s: prop leg %r names no gsis_id, so the "
+                                "gate cannot be checked" % (pid, sel))
+                continue
+            judge("parlays.json %s" % pid, leg["gsis_id"], sel, leg.get("availability"), wk)
+
+    if leg_pool is not None:
+        counts = leg_pool.get("counts") or {}
+        if "not_playable" not in counts:
+            problems.append("leg_pool.json: counts.not_playable is not stated — a pool "
+                            "built without the gate")
+        for row in leg_pool.get("players", []) or []:
+            judge("leg_pool.json", row.get("gsis_id"), row.get("player"),
+                  row.get("availability"), leg_pool.get("week"))
+    if problems:
+        raise ValidationError(
+            "no unplayable legs — a player who sits this week is not a bet:\n  - %s"
+            % "\n  - ".join(problems))
+
+
 def check_parlay_model_independence(parlays, predictions, label="parlays.json",
                                     tol=1.5e-3):
     """Every parlay leg's `model_prob` is OURS, recomputed, for the team it names.
@@ -1046,6 +1126,10 @@ def _norm_name(name):
 _AVAIL_CODES = frozenset([
     "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED",
 ])
+# R77 — scripts/availability.NOT_PLAYABLE, mirrored as a literal for the same
+# reason. QUESTIONABLE is deliberately absent (priced + labelled, never gated).
+_NOT_PLAYABLE = frozenset(["DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED"])
+_PROP_MARKETS = frozenset(["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"])
 
 
 def check_component_lines(weekly):
@@ -1108,8 +1192,16 @@ def _absence_in_total(projection_row):
             and int(projection_row.get("absence_weeks") or 0) > 0)
 
 
-def check_weekly_availability(weekly, projections, injuries):
+def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
     """Rel17: player_weekly.json's availability story must agree with itself.
+
+    R77 adds the THIS-WEEK GATE (rules 6-8, below the five): a `this_week`
+    block is the applied "he does not play this week" fact, and it must agree
+    with the week row it zeroed, with the status or depth chart that justified
+    it, and — the strongest rule — every player whose status says he sits
+    MUST carry one when his team plays that week. `depth_chart` is the
+    data/depth_chart.json document (None when absent; a depth-reason block is
+    then an orphan).
 
     Five rules, each one a bug this release fixed:
 
@@ -1174,13 +1266,95 @@ def check_weekly_availability(weekly, projections, injuries):
     season_players = 0
     season_ending = 0
     points_lost = 0.0
+    # R77 — the gate's own bookkeeping
+    gate_meta = (weekly.get("model") or {}).get("this_week")
+    gate_wk = gate_meta.get("wk") if isinstance(gate_meta, dict) else None
+    skip_teams = set((gate_meta or {}).get("skipped_final_teams") or [])
+    depth_teams = (depth_chart or {}).get("teams") if isinstance(depth_chart, dict) else None
+    gate_counts = {"status": 0, "depth": 0, "promoted": 0}
 
     for pl in weekly.get("players", []):
         pid = pl.get("gsis_id")
         weeks = pl.get("weeks", [])
         non_bye = [w for w in weeks if not w.get("bye")]
-        blocked = [w for w in non_bye if w.get("avail") is False]
+        blocked_all = [w for w in non_bye if w.get("avail") is False]
         avail = pl.get("availability")
+        record = proj.get(pid)
+        tw = pl.get("this_week")
+
+        # --- R77: rules 6-8, the this-week gate -------------------------------
+        season_block = bool(avail and avail.get("class") == "season"
+                            and (avail.get("weeks_out") or avail.get("out_for_season")))
+        gated = []
+        if tw is not None:
+            if gate_meta is None:
+                problems.append("%s: carries this_week but model.this_week is absent" % pid)
+            elif tw.get("wk") != gate_wk:
+                problems.append("%s: this_week.wk %r != model.this_week.wk %r"
+                                % (pid, tw.get("wk"), gate_wk))
+            row = next((w for w in weeks if w.get("wk") == tw.get("wk")), None)
+            if row is None or row.get("bye"):
+                problems.append("%s: this_week names wk %r, which is a bye or absent — "
+                                "nothing is gated on a bye" % (pid, tw.get("wk")))
+            elif tw.get("playable") is False and row.get("avail") is not False:
+                problems.append("%s: this_week says not playable but wk%s is not "
+                                "avail:false" % (pid, tw.get("wk")))
+            elif tw.get("playable") is not False and row.get("avail") is False \
+                    and not season_block:
+                problems.append("%s: this_week says playable but wk%s is avail:false"
+                                % (pid, tw.get("wk")))
+            if record is not None and record.get("team") in skip_teams:
+                problems.append("%s: gated although %s's game was already FINAL"
+                                % (pid, record.get("team")))
+            reason = tw.get("reason")
+            if reason == "status":
+                st = tw.get("status")
+                if st not in _NOT_PLAYABLE:
+                    problems.append("%s: this_week.status %r is not a not-playable code"
+                                    % (pid, st))
+                if not avail or avail.get("status") != st:
+                    problems.append("%s: this_week.status %r but availability says %r"
+                                    % (pid, st, (avail or {}).get("status")))
+                gate_counts["status"] += 1
+            elif reason in ("depth", "depth_promoted"):
+                team = (record or {}).get("team")
+                chart = (depth_teams or {}).get(team) or {}
+                listed = chart.get("QB") or []
+                if not listed:
+                    problems.append("%s: this_week reason %s but data/depth_chart.json "
+                                    "lists no QB for %s — a depth claim needs its chart"
+                                    % (pid, reason, team))
+                else:
+                    eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+                    mine = [r for r in listed
+                            if (eid and str(r.get("espn_id")) == eid)
+                            or str(r.get("gsis_id")) == str(pid)
+                            or _norm_name(r.get("name")) == _norm_name((record or {}).get("name"))]
+                    rank = mine[0].get("rank") if mine else None
+                    if tw.get("depth") != rank:
+                        problems.append("%s: this_week.depth %r but the chart ranks him %r"
+                                        % (pid, tw.get("depth"), rank))
+                    named = tw.get("starter") if reason == "depth" else tw.get("starter_out")
+                    if named not in {r.get("name") for r in listed}:
+                        problems.append("%s: this_week names %r, who is not on %s's chart"
+                                        % (pid, named, team))
+                gate_counts["promoted" if reason == "depth_promoted" else "depth"] += 1
+            else:
+                problems.append("%s: this_week.reason %r unknown" % (pid, reason))
+            if tw.get("playable") is False and row is not None and not season_block:
+                gated = [w for w in blocked_all if w.get("wk") == tw.get("wk")]
+        # Rule 8 — NO SILENT SITTER: a not-playable status with a game this week
+        # must have been gated (unless the game was already FINAL).
+        if gate_wk is not None and avail and avail.get("status") in _NOT_PLAYABLE \
+                and record is not None and record.get("team") not in skip_teams:
+            row = next((w for w in weeks if w.get("wk") == gate_wk), None)
+            if row is not None and not row.get("bye") and \
+                    (tw is None or tw.get("playable") is not False):
+                problems.append("%s (%s %s): status %s but wk%s is not gated — a player "
+                                "who sits may not carry points or a leg"
+                                % (pid, record.get("team"), record.get("name"),
+                                   avail.get("status"), gate_wk))
+        blocked = [w for w in blocked_all if not any(w is g for g in gated)]
 
         # A blocked week with no availability block is a flag with no story.
         if blocked and not avail:
@@ -1195,7 +1369,6 @@ def check_weekly_availability(weekly, projections, injuries):
                                 % (pid, w.get("wk"), w.get("pts")))
 
         # --- rule 1 -----------------------------------------------------------
-        record = proj.get(pid)
         if record is None:
             problems.append("%s: in player_weekly.json but not in "
                             "player_projections.json" % pid)
@@ -1208,6 +1381,12 @@ def check_weekly_availability(weekly, projections, injuries):
                 target = record["proj_points"] * (len(non_bye) - len(blocked)) / len(non_bye)
                 law = "proj %.2f * %d playable / %d non-bye" % (
                     record["proj_points"], len(non_bye) - len(blocked), len(non_bye))
+            if gated:
+                # R77 — the gate week takes its pro-rata share of what remained
+                # (build_weekly.player_weeks, mechanic (c)).
+                n_av = len(non_bye) - len(blocked) - len(gated)
+                target = target * n_av / (n_av + len(gated))
+                law += ", then x %d / %d for the this-week gate" % (n_av, n_av + len(gated))
             total = sum(w.get("pts", 0.0) for w in non_bye)
             if abs(total - target) > 0.1:
                 problems.append(
@@ -1284,6 +1463,23 @@ def check_weekly_availability(weekly, projections, injuries):
         if avail.get("confidence") == "rule" and avail.get("evidence"):
             problems.append("%s: confidence 'rule' means nothing was stated, so it "
                             "may not carry evidence" % pid)
+
+    # --- R77 rule 7: the model summary counts what the rows carry -------------
+    if isinstance(gate_meta, dict):
+        got = {"gated": gate_counts["status"] + gate_counts["depth"],
+               "status": gate_counts["status"], "depth": gate_counts["depth"],
+               "promoted": gate_counts["promoted"]}
+        said = {"gated": gate_meta.get("gated"),
+                "status": (gate_meta.get("by_reason") or {}).get("status"),
+                "depth": (gate_meta.get("by_reason") or {}).get("depth"),
+                "promoted": gate_meta.get("promoted")}
+        if got != said:
+            problems.append("model.this_week says %r but the rows carry %r" % (said, got))
+        if gate_counts["depth"] + gate_counts["promoted"] and not depth_teams:
+            problems.append("depth-chart gates present but data/depth_chart.json is "
+                            "absent or empty")
+    elif any(p.get("this_week") for p in weekly.get("players", [])):
+        problems.append("players carry this_week but model.this_week is absent")
 
     # --- rule 5 ---------------------------------------------------------------
     model = (weekly.get("model") or {}).get("availability")
@@ -1963,12 +2159,14 @@ def main():
         failures.append(str(exc))
     try:
         inj_path = os.path.join(DATA, "injuries.json")
+        dc_path = os.path.join(DATA, "depth_chart.json")
         check_weekly_availability(
             _load(os.path.join(DATA, "player_weekly.json")),
             _load(os.path.join(DATA, "player_projections.json")),
             _load(inj_path) if os.path.exists(inj_path) else None,
+            depth_chart=_load(dc_path) if os.path.exists(dc_path) else None,
         )
-        print("ok    player_weekly.json availability cross-file invariant")
+        print("ok    player_weekly.json availability cross-file invariant (+ R77 gate)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:
@@ -2023,6 +2221,13 @@ def main():
         # R74 — and no parlay sells one opinion as two legs.
         check_parlay_one_leg_per_side(_load(os.path.join(DATA, "parlays.json")))
         print("ok    parlays.json keeps one leg per game side")
+        # R77 — and no leg is priced on a player who sits this week.
+        _lp = os.path.join(DATA, "leg_pool.json")
+        check_no_unplayable_legs(
+            _load(os.path.join(DATA, "player_weekly.json")),
+            _load(os.path.join(DATA, "parlays.json")),
+            _load(_lp) if os.path.exists(_lp) else None)
+        print("ok    no prop leg on a player who does not play this week (slate + pool)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

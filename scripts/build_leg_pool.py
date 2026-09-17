@@ -55,7 +55,8 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from scripts.models.parlay_builder import (  # noqa: E402
-    _PROP_SEEDS, _clamp, _sigmoid, project_prop_yards,
+    _PROP_SEEDS, _clamp, _sigmoid, playable_this_week, project_prop_yards,
+    questionable_label,
 )
 
 DATA = os.path.join(_ROOT, "data")
@@ -100,7 +101,8 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
 
     legs = []
     counts = {"no_game": 0, "no_weekly_row": 0, "no_projection": 0,
-              "no_calibration": 0, "refused_out_of_support": 0, "players_with_no_leg": 0}
+              "no_calibration": 0, "refused_out_of_support": 0, "players_with_no_leg": 0,
+              "not_playable": 0}
     for p in players:
         pos = p.get("position")
         if pos not in POSITIONS:
@@ -109,6 +111,13 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
         rec = weekly_by_id.get(gsis)
         if rec is None:
             counts["no_weekly_row"] += 1
+            continue
+        # R77 -- THE GATE. A player who does not play this week (his weekly row
+        # says so: OUT / DOUBTFUL / IR / suspended / a QB2 behind a healthy
+        # starter) gets no leg at any rung. His zeroed week would price to a
+        # near-certain UNDER, which is not a bet, it is a bug wearing odds.
+        if not playable_this_week(rec):
+            counts["not_playable"] += 1
             continue
         slot = by_team.get(p.get("team"))
         if slot is None:
@@ -144,13 +153,17 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
         # is the unit the view looks up -- and the fields that do not vary across
         # his rungs (team, game, projection, team win probability) are stated once
         # instead of 2-8 times, which is most of the file.
-        legs.append({
+        row = {
             "gsis_id": gsis, "player": p.get("name"), "team": p.get("team"),
             "position": pos, "market": MARKET_OF[pos],
             "game_id": str(gp.get("game_id")), "side": side,
             "mu": round(mu, 2), "p_team": round(p_team, 4),
             "pricing": "pool_calibrated", "rungs": rungs,
-        })
+        }
+        q = questionable_label(rec)
+        if q:
+            row["availability"] = q      # priced, and labelled -- never silent
+        legs.append(row)
     legs.sort(key=lambda r: (r["game_id"], r["position"], r["player"] or "", r["gsis_id"]))
     return legs, counts
 
@@ -241,6 +254,10 @@ def build(inputs):
             % (counts["refused_out_of_support"], counts["players_with_no_leg"]),
             "GAME legs are copied verbatim from parlays.json so the pool and the "
             "shipped card can never disagree about the same bet.",
+            "%d player(s) who do not play this week (OUT / DOUBTFUL / IR / suspended, "
+            "or a quarterback listed behind a healthy starter) carry no leg; a "
+            "QUESTIONABLE player is priced and labelled `availability`."
+            % counts["not_playable"],
             "Money and book prices are display and the terms of the bet. No market "
             "number reaches model_prob.",
         ],

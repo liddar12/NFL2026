@@ -71,6 +71,10 @@ export function poolLegs(pool) {
       leg.mu = row.mu;
       leg.line = rung.line;
       leg.position = row.position;
+      // R77 — a QUESTIONABLE player stays in the pool at his full price (Q is
+      // priced + labelled; DOUBTFUL and worse never reach the pool). The flag
+      // rides the leg so the card can say so, and it changes no number.
+      if (row.availability) leg.availability = row.availability;
       out.push(leg);
     }
   }
@@ -219,6 +223,10 @@ const money = (n) => {
   return `${v < 0 ? '−' : '+'}$${abs}`;
 };
 
+/** R77 — the same Q chip PARLAYS paints in annotateLegs, same copy, same tone. */
+const qChip = (l) => (l.availability === 'QUESTIONABLE'
+  ? '<span class="est leg-q" title="Questionable — game-time decision">Q</span>' : '');
+
 export function renderCard(card, i) {
   const pct = (p) => Math.round(p * 100);
   const evCls = card.ev >= 0 ? 'ev--pos' : 'ev--neg';
@@ -226,6 +234,7 @@ export function renderCard(card, i) {
     '<div class="leg">'
       + `<div class="leg-nm">${esc(l.selection)}</div>`
       + '<div class="leg-od">'
+        + qChip(l)
         + `<span class="mo">MODEL <b>${pct(l.model_prob)}</b></span>`
         + `<span class="im">${l.priced ? 'IMPL' : 'IMPL*'} ${pct(l.implied_prob)}</span>`
       + '</div>'

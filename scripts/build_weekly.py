@@ -547,6 +547,177 @@ def blocked_week_count(view):
     return 0, None                        # SUSPENDED of unstated length
 
 
+DEPTH_PATH = os.path.join(_ROOT, "data", "depth_chart.json")
+# R77 -- the positions the depth chart gates. QB only: one starter takes every
+# snap, so a listed QB2 behind a healthy QB1 projects to nothing this week. RB /
+# WR / TE depth is a committee/handcuff listing, not a workload claim (the R45
+# rookie-starters rule), so it gates nothing.
+DEPTH_GATED_POSITIONS = ("QB",)
+
+
+def _counter_free(factors):
+    """A shallow copy of a factors table whose `counts` are a throwaway dict, so
+    a second split pass (R77 points_lost) leaves the document's counts alone."""
+    if not factors:
+        return factors
+    fx = dict(factors)
+    fx["counts"] = dict(factors.get("counts") or {})
+    return fx
+
+
+def load_depth_chart(path=DEPTH_PATH):
+    """data/depth_chart.json, or None when absent/unreadable (loud, never a guess)."""
+    if not os.path.exists(path):
+        print(f"[warn] {os.path.relpath(path, _ROOT)} absent -> no depth-chart gate",
+              file=sys.stderr)
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print(f"[warn] depth chart unreadable ({exc}) -> no depth-chart gate",
+              file=sys.stderr)
+        return None
+    return doc if isinstance(doc, dict) and isinstance(doc.get("teams"), dict) else None
+
+
+def _proj_ids(p):
+    """The identifiers a projection row can be joined on: its gsis_id, and the
+    bare ESPN id when the pool's id is the `espn-<id>` spelling."""
+    gid = str(p.get("gsis_id") or "")
+    ids = {gid} if gid else set()
+    if gid.startswith("espn-"):
+        ids.add(("espn", gid[5:]))
+    return ids
+
+
+def _depth_row_ids(r):
+    ids = set()
+    if r.get("gsis_id"):
+        ids.add(str(r["gsis_id"]))
+    if r.get("espn_id"):
+        ids.add(("espn", str(r["espn_id"])))
+    return ids
+
+
+def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
+                   skip_teams=()):
+    """{gsis_id: this_week block} for week `wk` plus the model summary. Pure.
+
+    THE ONE PLACE "does he play this week?" is decided (R77). Two sources, in
+    priority order, both of them facts a feed stated -- never a guess:
+
+      status  -- his canonical injury status is in availability.NOT_PLAYABLE
+                 (OUT / DOUBTFUL / IR / PUP / NFI / SUSPENDED). QUESTIONABLE
+                 stays playable (owner rule: priced and labelled, not zeroed).
+      depth   -- he is a quarterback and NOT the highest-ranked PLAYABLE QB on
+                 his team's latest depth chart. The starter is the first listed
+                 QB whose status is playable, so a QB2 behind an OUT QB1 is
+                 PROMOTED (playable, stated as such) and a QB3 behind him is
+                 not. A projected QB his team's chart does not list at all is
+                 not the starter either (depth: null). Rank ties at the top
+                 gate nobody -- two listed co-starters is not a fact we resolve.
+
+    Nothing is gated on a bye week, for a team in `skip_teams` (its game is
+    already FINAL -- a played week is never retro-zeroed) or when the depth
+    chart is absent (status still gates; the summary says the chart was missing).
+    Returns (gates, meta).
+    """
+    gates = {}
+    meta = {"wk": wk, "gated": 0, "by_reason": {"status": 0, "depth": 0},
+            "promoted": 0, "depth_snapshot": None,
+            "skipped_final_teams": sorted(set(skip_teams or ()))}
+    if wk is None:
+        return gates, meta
+    wk = int(wk)
+    skip = set(skip_teams or ())
+
+    def plays(team):
+        return team not in skip and wk in sched_by_team.get(team, {})
+
+    # --- status --------------------------------------------------------------
+    for p in projections:
+        view = unavail.get(p["gsis_id"])
+        if not view or not plays(p.get("team")):
+            continue
+        if not availability.status_playable(view["status"]):
+            gates[p["gsis_id"]] = {"wk": wk, "playable": False, "reason": "status",
+                                   "status": view["status"]}
+            meta["by_reason"]["status"] += 1
+
+    # --- depth (QB) ----------------------------------------------------------
+    teams = (depth_doc or {}).get("teams") if isinstance(depth_doc, dict) else None
+    if not teams:
+        meta["gated"] = len(gates)
+        return gates, meta
+    meta["depth_snapshot"] = depth_doc.get("updated_utc")
+    index = availability.index_report(injuries)
+    by_name = availability.index_report_by_name(injuries)
+    ambiguous = availability.dup_names(projections)
+    by_team = {}
+    for p in projections:
+        if p.get("position") in DEPTH_GATED_POSITIONS:
+            by_team.setdefault(p.get("team"), []).append(p)
+
+    def status_ok(team, row, pid):
+        """Playable by STATUS: the projected row's own view when he is projected,
+        else the injury report joined on (team, name)."""
+        if pid is not None:
+            view = unavail.get(pid)
+            return availability.status_playable(view["status"]) if view else True
+        view = availability.lookup_report(index, by_name, team, row.get("name"),
+                                          ambiguous)
+        return availability.status_playable(view["availability"]) if view else True
+
+    for team, chart in teams.items():
+        if not plays(team):
+            continue
+        for pos in DEPTH_GATED_POSITIONS:
+            rows = sorted((r for r in (chart.get(pos) or []) if r.get("name")),
+                          key=lambda r: (int(r.get("rank") or 99), r.get("name")))
+            if not rows:
+                continue
+            projected = by_team.get(team, [])
+            # projected row <-> chart row, by id first, then by (team, name)
+            row_of = {}
+            for p in projected:
+                pids = _proj_ids(p)
+                hit = next((r for r in rows if pids & _depth_row_ids(r)), None)
+                if hit is None:
+                    nm = availability.norm_name(p.get("name"))
+                    hit = next((r for r in rows
+                                if availability.norm_name(r.get("name")) == nm), None)
+                row_of[p["gsis_id"]] = hit
+            pid_of = {id(r): pid for pid, r in row_of.items() if r is not None}
+            playable_rows = [r for r in rows if status_ok(team, r, pid_of.get(id(r)))]
+            if not playable_rows:
+                continue          # every listed QB is out: the chart says nothing
+            top = int(playable_rows[0].get("rank") or 99)
+            # Co-listed starters (two rank-1 QBs) are not ours to resolve: none
+            # of them is gated or promoted, everyone ranked below them still is.
+            starters = [r for r in playable_rows if int(r.get("rank") or 99) == top]
+            starter = starters[0]
+            for p in projected:
+                pid = p["gsis_id"]
+                if pid in gates:
+                    continue      # already gated by status; that reason wins
+                r = row_of.get(pid)
+                if any(r is x for x in starters):
+                    if len(starters) == 1 and int(r.get("rank") or 99) > 1:
+                        gates[pid] = {"wk": wk, "playable": True,
+                                      "reason": "depth_promoted",
+                                      "depth": int(r["rank"]),
+                                      "starter_out": rows[0].get("name")}
+                        meta["promoted"] += 1
+                    continue
+                gates[pid] = {"wk": wk, "playable": False, "reason": "depth",
+                              "depth": int(r["rank"]) if r is not None else None,
+                              "starter": starter.get("name")}
+                meta["by_reason"]["depth"] += 1
+    meta["gated"] = sum(1 for g in gates.values() if g["playable"] is False)
+    return gates, meta
+
+
 def team_schedule(schedule_games):
     """{team: {week: (opp, home_bool)}} from schedule_full-shaped game rows.
 
@@ -612,7 +783,8 @@ def scale_prior_lines(ratio, receptions=None, completions=None, components=None)
 
 def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
                  unavailable_weeks=0, first_week=1, round_dp=2,
-                 absence_in_total=False, position=None, factors=None):
+                 absence_in_total=False, position=None, factors=None,
+                 gate_week=None):
     """18 week rows {wk, opp, home, bye, pts} for one player.
 
     position / factors (weekly_split_v2): the player's position selects the Elo
@@ -647,6 +819,16 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
     zeroed, but the playable weeks renormalize to the FULL season_proj rather than
     a pro-rata share, so the absence is not subtracted twice. Ignored when nothing
     is blocked.
+
+    gate_week (R77): mechanic (c), THE THIS-WEEK GATE. Exactly that one week (and
+    only when the team plays it -- a bye is not a gate) is zeroed and marked
+    "avail": False, whatever the player's status class: an OUT, a DOUBTFUL, a
+    suspension of unstated length or a backup quarterback behind a healthy
+    starter all take no snap this week, and a number on that week would be a
+    claim no feed backs. The gate week is excluded from the renormalization
+    like a mechanic-(b) block, so the total drops by that week's share of what
+    remained; when it already sits inside the season blocks it changes nothing.
+    None (the default, and every offline caller) is byte-identical to pre-R77.
     """
     sched = sched_by_team.get(team, {})
     base = season_proj / len(sched) if sched else 0.0
@@ -670,7 +852,14 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
     n_block = max(0, int(unavailable_weeks or 0))
     blocked = [i for i in raw if rows[i]["wk"] >= first_week][:n_block]
     blocked_set = set(blocked)
-    available = [i for i in raw if i not in blocked_set]
+    # Mechanic (c): the gate week, when the team plays it and it is not already a
+    # season block. Kept apart from `blocked` so the R49 rule below (the total
+    # already excludes the SEASON absence) is not misread as excluding the gate.
+    gated = [i for i in raw
+             if gate_week is not None and rows[i]["wk"] == int(gate_week)
+             and i not in blocked_set]
+    gated_set = set(gated)
+    available = [i for i in raw if i not in blocked_set and i not in gated_set]
 
     # Mechanic (a): shape the first INJURY_WEEKS PLAYABLE weeks only.
     if injury_mult != 1.0:
@@ -682,13 +871,16 @@ def player_weeks(season_proj, team, sched_by_team, elos, injury_mult=1.0,
     if absence_in_total and blocked:
         target = season_proj
     else:
-        target = (season_proj * len(available) / n_total) if n_total else 0.0
+        target = (season_proj * (len(available) + len(gated)) / n_total) if n_total else 0.0
+    # ... and the gate week takes its pro-rata share of what remained.
+    if gated:
+        target = target * len(available) / (len(available) + len(gated))
     total = sum(rows[i]["pts"] for i in available)
     scale = (target / total) if total > 0 else 0.0
     for i in available:
         pts = rows[i]["pts"] * scale
         rows[i]["pts"] = round(pts, round_dp) if round_dp is not None else pts
-    for i in blocked:
+    for i in blocked + gated:
         rows[i]["pts"] = 0.0
         rows[i]["avail"] = False   # emitted ONLY when false; absent means available
     return rows
@@ -699,8 +891,17 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           injuries_path=INJURIES_PATH, first_week=1,
                           completions_by_id=None, components_by_id=None,
                           factors=None, dvp_path=DVP_PATH, env_path=ENV_PATH,
-                          forecast_path=FORECAST_PATH):
+                          forecast_path=FORECAST_PATH, this_week=None,
+                          depth_chart=None, gate_skip_teams=()):
     """The full player_weekly.json document. Pure given its inputs.
+
+    this_week / depth_chart / gate_skip_teams (R77): the THIS-WEEK GATE. When
+    `this_week` is a week number, every projected player who is not playable
+    that week (see this_week_gate) has that week zeroed, carries a `this_week`
+    block saying why, and the model summary counts them. `depth_chart` is the
+    data/depth_chart.json document (None -> status gates only, stated in the
+    summary); `gate_skip_teams` are teams whose game that week is already FINAL.
+    this_week=None (every offline caller) is byte-identical to pre-R77.
 
     factors: build_factors(...) for the v2 multipliers; None -> the three feeds
     are loaded ONCE from dvp_path / env_path / forecast_path (tests and the
@@ -727,6 +928,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     mults = injury_multipliers(projections, injuries)
     unavail = unavailability(projections, injuries)
     sched_by_team = team_schedule(schedule_games)
+    gates, gate_meta = this_week_gate(projections, unavail, injuries, depth_chart,
+                                      this_week, sched_by_team, gate_skip_teams)
 
     players = []
     n_blocked_players = 0
@@ -737,11 +940,22 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         view = unavail.get(pid)
         n_block, confidence = blocked_week_count(view)
         in_total = absence_in_total(p)
+        gate = gates.get(pid)
+        gate_wk = this_week if gate and gate["playable"] is False else None
+        split_kw = dict(injury_mult=mults.get(pid, 1.0),
+                        unavailable_weeks=n_block, first_week=first_week,
+                        absence_in_total=in_total,
+                        position=p.get("position"), factors=factors)
         weeks = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
-                             injury_mult=mults.get(pid, 1.0),
-                             unavailable_weeks=n_block, first_week=first_week,
-                             absence_in_total=in_total,
-                             position=p.get("position"), factors=factors)
+                             gate_week=gate_wk, **split_kw)
+        if gate_wk is not None:
+            # What the gate cost him: the same split without it. The factor
+            # counters are per-document totals and must not double-count, so
+            # the ungated pass runs against a throwaway copy of them.
+            ungated = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,
+                                   **dict(split_kw, factors=_counter_free(factors)))
+            gate = dict(gate, points_lost=round(
+                sum(w["pts"] for w in ungated) - sum(w["pts"] for w in weeks), 2))
         row = {
             "gsis_id": pid,
             "receptions_prior": round(float(receptions_by_id.get(pid, 0.0) or 0.0), 1),
@@ -774,7 +988,9 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         if view is not None:
             block = {"status": view["status"], "class": view["class"]}
             actually_blocked = sum(1 for w in weeks if w.get("avail") is False)
-            if actually_blocked:
+            if n_block and actually_blocked:
+                # (n_block: the gate alone zeroes a week too, but it states no
+                # DURATION -- it reports under `this_week`, never here.)
                 # The five season keys ride ONLY on a player whose weeks really were
                 # zeroed. A flagged-but-unblocked row (a suspension of unstated
                 # length) states nothing about duration, so it claims nothing.
@@ -803,6 +1019,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                 n_season_ending += 1 if view["out_for_season"] else 0
                 points_removed += lost
             row["availability"] = block
+        if gate is not None:
+            row["this_week"] = gate
         row["weeks"] = weeks
         players.append(row)
 
@@ -818,6 +1036,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     if mults:
         # statuses_used = projected players whose split was actually shaped.
         model["injury_shape"] = {"applied": True, "statuses_used": len(mults)}
+    if this_week is not None:
+        model["this_week"] = gate_meta
     if n_blocked_players:
         model["availability"] = {
             "applied": True,

@@ -100,12 +100,18 @@ test('non-bye weekly points sum to the AVAILABILITY-ADJUSTED season projection',
     const a = p.availability || null;
 
     if (!a || a.class !== 'season') {
-      // Healthy or week-shaped only: the original law, character for character.
-      assert.equal(blocked, 0,
+      // Healthy or week-shaped only: the original law — except for the R77
+      // this-week gate, which may zero exactly ONE week (the one `this_week`
+      // names) and takes that week's pro-rata share off the total.
+      const tw = p.this_week;
+      const gated = (tw && tw.playable === false)
+        ? p.weeks.filter((w) => !w.bye && w.avail === false && Number(w.wk) === Number(tw.wk)).length : 0;
+      assert.equal(blocked - gated, 0,
         `${p.gsis_id}: weeks blocked without a season-class availability block`);
+      const target = season * (nonBye - gated) / nonBye;
       assert.ok(
-        Math.abs(sum - season) <= 0.1,
-        `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != season ${season} (>0.1 off)`,
+        Math.abs(sum - target) <= 0.1,
+        `${p.gsis_id}: weekly sum ${sum.toFixed(2)} != ${gated ? 'gate-adjusted target' : 'season'} ${target.toFixed(2)} (>0.1 off)`,
       );
       return;
     }

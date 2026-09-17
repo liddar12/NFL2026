@@ -309,6 +309,18 @@ function propProvenance(leg) {
 }
 
 /**
+ * R77 — the Q chip for a prop leg, or null. A QUESTIONABLE player is still
+ * PRICED and still on the card (owner's call: Q is priced and labelled; DOUBTFUL
+ * and worse never reach the feed) — the chip is the label, and it changes no
+ * number. Pure and exported so the copy is testable without a DOM.
+ */
+export function propQChip(leg) {
+  return leg && leg.availability === 'QUESTIONABLE'
+    ? { cls: 'est leg-q', text: 'Q', title: 'Questionable — game-time decision' }
+    : null;
+}
+
+/**
  * R51 — stamp each painted .leg with its pricing honesty. renderParlayCard
  * (app/render.js) paints the contract's four leg fields; the annotations live
  * on the feed's legs and are added here, INSIDE each .leg node so the card's
@@ -336,6 +348,16 @@ function annotateLegs(listEl, filtered) {
         else node.appendChild(chip);
       } else if (PROP_MARKETS.has(leg.market)) {
         node.classList.add('leg--annot');
+        const q = propQChip(leg);
+        if (q) {
+          const chip = document.createElement('span');
+          chip.className = q.cls;
+          chip.textContent = q.text;
+          chip.title = q.title;
+          const od = node.querySelector('.leg-od');
+          if (od) od.insertBefore(chip, od.firstChild);
+          else node.appendChild(chip);
+        }
         const prov = document.createElement('div');
         prov.className = 'leg-prov';
         prov.dataset.pricing = leg.pricing === 'calibrated' ? 'calibrated' : 'seed';

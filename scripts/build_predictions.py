@@ -265,6 +265,63 @@ def _team_sos_and_bye(schedule_games, ratings):
     return out
 
 
+def _depth_chart_doc(now, fetch_dc=None):
+    """R77 -- data/depth_chart.json: each team's LATEST nflverse depth-chart
+    snapshot, for the positions the this-week gate reads (QB). Facts only:
+    rank, name and ids as listed. Per-TEAM latest `dt`, not the file's, so a
+    team missing from the newest snapshot day keeps its last chart instead of
+    vanishing. Returns None on any feed failure (the caller degrades to the
+    last-good file, loudly) -- never an invented chart."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.build_line_report import normalize_depth_rows  # noqa: PLC0415
+    fetch_dc = fetch_dc or (lambda: nflverse.fetch_depth_charts_release(SEASON))
+    try:
+        raw = fetch_dc()
+    except Exception as exc:  # noqa: BLE001 -- degrade, never fabricate
+        print(f"[warn] depth chart skipped -- nflverse feed unreachable: {exc}",
+              file=sys.stderr)
+        return None
+    rows = [r for r in normalize_depth_rows(raw)
+            if r.get("pos") in build_weekly.DEPTH_GATED_POSITIONS]
+    latest = {}
+    for r in rows:
+        snap = str(r.get("snap"))
+        if snap > latest.get(r["team"], ""):
+            latest[r["team"]] = snap
+    teams = {}
+    for r in rows:
+        if str(r.get("snap")) != latest.get(r["team"]):
+            continue
+        slot = teams.setdefault(r["team"], {"snapshot": latest[r["team"]]})
+        lst = slot.setdefault(r["pos"], [])
+        # one entry per listed player; the BEST (lowest) rank wins a duplicate
+        nm = r["name"]
+        dup = next((x for x in lst if x["name"] == nm), None)
+        if dup is not None:
+            dup["rank"] = min(dup["rank"], int(r["rank"]))
+            continue
+        lst.append({"rank": int(r["rank"]), "name": nm,
+                    "gsis_id": r.get("gsis_id"), "espn_id": r.get("espn_id")})
+    for slot in teams.values():
+        for pos in build_weekly.DEPTH_GATED_POSITIONS:
+            if pos in slot:
+                slot[pos].sort(key=lambda x: (x["rank"], x["name"]))
+    if not teams:
+        print("[warn] depth chart skipped -- no rows for the gated positions",
+              file=sys.stderr)
+        return None
+    return {
+        "season": SEASON, "updated_utc": now,
+        "source": f"nflverse_depth_charts_{SEASON} (per-team latest snapshot; "
+                  f"positions {', '.join(build_weekly.DEPTH_GATED_POSITIONS)})",
+        "positions": list(build_weekly.DEPTH_GATED_POSITIONS),
+        "counts": {"teams": len(teams),
+                   "rows": sum(len(v) for t in teams.values()
+                               for k, v in t.items() if k != "snapshot")},
+        "teams": dict(sorted(teams.items())),
+    }
+
+
 def _rookie_starters(schedule_games, ratings, fetch_dc=None, fetch_roster=None):
     """FACTS-ONLY rookie starters (R45, owner's pick): rookies (roster
     years_exp == 0) listed at pos_rank 1 in the LATEST nflverse depth-chart
@@ -1236,11 +1293,38 @@ def main():
     print(f"league components: {len(components_by_id)} of {len(players_in)} "
           f"players carry a verified stat line ({n_bonus} with measured "
           f"bonus-game counts); absent = unverified, never zero")
+    # R77 -- THE THIS-WEEK GATE. The depth chart is fetched fresh (and written
+    # to data/depth_chart.json so the validator and the app read the same
+    # chart the split used); on a feed failure the last-good file stands in,
+    # its age visible in feed health. Teams whose game this week is already
+    # FINAL are never gated: a played week is not retro-zeroed.
+    depth_doc = _depth_chart_doc(now)
+    if depth_doc is not None:
+        _write(os.path.join(DATA, "depth_chart.json"), depth_doc)
+        feeds["depth_chart"] = {"rows": depth_doc["counts"]["rows"], "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    else:
+        depth_doc = build_weekly.load_depth_chart()
+        _age = _hours_since(depth_doc.get("updated_utc")) if depth_doc else None
+        feeds["depth_chart"] = {"rows": (depth_doc or {}).get("counts", {}).get("rows", 0),
+                                "age_hours": _age if depth_doc else 999.0,
+                                "last_success_utc": (depth_doc or {}).get("updated_utc"),
+                                "status": "degraded" if depth_doc else "down"}
+        print(f"[warn] depth chart: {'last-good file' if depth_doc else 'NONE'} -> "
+              f"{'stale' if depth_doc else 'no'} QB depth gate this run", file=sys.stderr)
+    gate_skip = sorted({t for g in predicted if g.get("week") == wk
+                        and g.get("status") in espn.FINAL_STATUSES
+                        for t in (g.get("home"), g.get("away")) if t})
     weekly_doc = build_weekly.build_weekly_document(
         projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
         first_week=wk, completions_by_id=completions_by_id,
-        components_by_id=components_by_id)
+        components_by_id=components_by_id, this_week=wk, depth_chart=depth_doc,
+        gate_skip_teams=gate_skip)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
+    _tw = weekly_doc["model"].get("this_week") or {}
+    print(f"this-week gate (wk {wk}): {_tw.get('gated', 0)} player(s) not playable "
+          f"({_tw.get('by_reason')}), {_tw.get('promoted', 0)} backup QB(s) promoted, "
+          f"depth snapshot {_tw.get('depth_snapshot')}, final teams skipped {gate_skip}")
 
     # R45 — FACTS-ONLY rookie starters (owner's pick: facts, never invented
     # points). Guarded enrichment: a feed failure keeps the last-good file and

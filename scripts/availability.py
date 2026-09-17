@@ -125,6 +125,22 @@ def status_class(code):
     return None
 
 
+# R77 -- THE THIS-WEEK GATE. "Will he play this week?" is a first-class fact, and
+# this is its ONE definition. A status in NOT_PLAYABLE means the player takes no
+# snap in the current week: his week row is zeroed, no prop leg is priced on him,
+# and no parlay may carry him. QUESTIONABLE is deliberately NOT here (owner rule,
+# 2026-09-17: "Q priced + labelled, D excluded") -- a game-time decision is priced
+# and shown with its chip, a Doubtful is treated as sitting. ACTIVE and None
+# (unknown) are playable: unknown is not evidence of absence any more than it is
+# evidence of health, and a WRONG zero is worse than a missed one.
+NOT_PLAYABLE = frozenset({DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED})
+
+
+def status_playable(code):
+    """True unless the canonical code says he does not play this week."""
+    return code not in NOT_PLAYABLE
+
+
 def norm_name(name):
     """Casefold + strip periods so 'A.J. Brown' joins 'AJ Brown'.
 
@@ -374,6 +390,13 @@ def selftest():
     assert status_class(ACTIVE) is None and status_class(None) is None
 
     assert norm_name("A.J. Brown") == norm_name("AJ  brown") == "aj brown"
+    # --- R77 this-week gate: the vocabulary's own answer to "does he play?" -------
+    assert NOT_PLAYABLE == {DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED}
+    assert status_playable(ACTIVE) and status_playable(QUESTIONABLE)
+    assert status_playable(None), "unknown is not a zero"
+    for code in NOT_PLAYABLE:
+        assert not status_playable(code), code
+
 
     # --- enrich: the three real behaviours ----------------------------------------
     ir_null = enrich({"team": "SF", "player": "Ricky Pearsall",
