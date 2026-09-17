@@ -91,6 +91,9 @@ function scopeSeg(active) {
     '<div class="scopeseg" role="tablist" aria-label="Parlay scope">' +
       seg('game', 'GAME') +
       seg('week', 'WEEK') +
+      // R76 — MY is a MODE, not a route: a new route costs 644 bytes on a boot
+      // graph with 33 to spare, and this is where parlays already live.
+      seg('my', 'MY') +
     '</div>'
   );
 }
@@ -605,11 +608,53 @@ export default async function mountParlays(el) {
     legend() +
     '<div id="parlay-buckets"></div>' +
     '<div id="parlay-pnl"></div>' +
-    '<div id="parlays-list" class="card-list"></div>';
+    '<div id="parlays-list" class="card-list"></div>' +
+    '<div id="myparlays-host" hidden></div>';
   paintLegSeg();
   paintTierSeg();
   paintSortSeg();
   paintList();
+
+  /**
+   * R76 — MY mode. The seed-driven builder and the ~294 KB leg pool it searches
+   * are BOTH loaded here, on the tap, and never on a cold mount: a user who
+   * stays on GAME or WEEK pays nothing for either. The slate's own chrome (week
+   * chips, leg counts, tiers, sort, buckets, the P&L line) is hidden rather than
+   * rebuilt, because none of it describes a card you just invented.
+   */
+  const myChrome = ['.pw-wkbar', '#leg-controls', '#tier-controls', '#sort-controls',
+    '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list'];
+  let myMounted = false;
+
+  function enterMyMode() {
+    myChrome.forEach((sel) => {
+      const node = el.querySelector(sel);
+      if (node) node.hidden = true;
+    });
+    const host = el.querySelector('#myparlays-host');
+    if (!host) return;
+    host.hidden = false;
+    if (myMounted) return;
+    myMounted = true;
+    host.innerHTML = '<div class="state state--loading">Loading My Parlays…</div>';
+    import('./myparlays.js')
+      .then((mod) => mod.default(host))
+      .catch((err) => {
+        console.warn('[nfl2026] my parlays failed to load:', err);
+        myMounted = false;
+        host.innerHTML = '<div class="state">My Parlays unavailable — the view '
+          + 'failed to load.</div>';
+      });
+  }
+
+  function exitMyMode() {
+    myChrome.forEach((sel) => {
+      const node = el.querySelector(sel);
+      if (node) node.hidden = false;
+    });
+    const host = el.querySelector('#myparlays-host');
+    if (host) host.hidden = true;
+  }
 
   // R73 — week chips (event delegation, one listener; a tap on the selected
   // week is a no-op).
@@ -652,6 +697,8 @@ export default async function mountParlays(el) {
         b.setAttribute('aria-selected', on ? 'true' : 'false');
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      if (active === 'my') { enterMyMode(); return; }
+      exitMyMode();
       paintLegSeg();
       paintTierSeg();
       paintList();

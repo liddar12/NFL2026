@@ -126,6 +126,11 @@ const LAZY_ONLY_MODULES = [
   'app/views/league.js', // R48 — the LEAGUE tab, needed by #/league only
   'app/synclog.js', //       R48 — its sync log + diff engine, reachable only from the view
   'app/grade-weekly.js', // R48 — weekly-optimal season engine, reachable only from the grade view
+  // R76 — MY PARLAYS. The view and the maths it uses load on the MY chip tap,
+  // never on a cold mount: a static edge to either would put the seed search
+  // (and, through it, a ~294 KB leg pool) on every boot of every route.
+  'app/views/myparlays.js',
+  'app/parlay-math.js',
   'app/sleeper-proj.js', // R49 — Sleeper's display-only estimate, lazy after first paint (players/grade)
   'app/waivers.js', //       R49 — waiver-wire engine (BEST FIT / BEST AVAILABLE), lineup view only
   'app/league-rosters.js', // R49 — league rosters + NFL week memory, reachable from team/lineup only

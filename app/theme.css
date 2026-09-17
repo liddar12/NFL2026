@@ -373,6 +373,16 @@ button { font: inherit; color: inherit; }
   padding: 14px;
 }
 
+/* The `hidden` ATTRIBUTE must always hide, whatever a class says about display.
+   The UA rule is `[hidden] { display: none }` at the same specificity as any
+   class, so a class that sets `display` — .card-list below sets flex — silently
+   beats it and the element stays on screen while the DOM says it is hidden.
+   That already bit once (see .gr-est-sl[hidden] further down, a narrow patch for
+   two classes) and bit again when R76 hid the slate's list behind MY PARLAYS,
+   leaving both lists painted on top of each other. One general rule instead of a
+   third narrow one. */
+[hidden] { display: none !important; }
+
 /* Nested card container (#slate-list / #players-list / #parlays-list). The
    .view gap only reaches direct children — this restores the same 12px rhythm
    for cards painted inside a list wrapper. */
@@ -817,6 +827,34 @@ button { font: inherit; color: inherit; }
 .pay--neg { color: var(--accent-txt); }
 /* the SORT label sits inline with its chips, not as a chip */
 .sortseg-k { margin-right: 2px; }
+
+/* R76 — MY PARLAYS. Reuses .card.parlay, .leg, .tier, .ev, .pay and .legseg
+   wholesale; only the seed input is new, and it borrows the chip row's shape so
+   the tab reads as one surface rather than a bolted-on tool. */
+.mp-head { display: flex; flex-direction: column; gap: 6px; }
+.mp-label {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mp-input {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  width: 100%;
+  min-height: 44px;              /* HIG touch target */
+  box-sizing: border-box;
+}
+.mp-input:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+.mp-seeds:not(:empty) { margin-top: 8px; }
+.mp-card .leg-prov { color: var(--muted); }
 
 /* ---- correlation note ----------------------------------------------------- */
 .corr {
