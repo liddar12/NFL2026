@@ -14,7 +14,9 @@
  *      has a sign error.
  *   5. THE CARDS ARE THE BEST AVAILABLE at their leg count — the beam search is
  *      checked against exhaustive enumeration on a small pool, so "it returned
- *      ten cards" is never mistaken for "it returned the right ten".
+ *      ten cards" is never mistaken for "it returned the right ten". R86: both
+ *      sides of that oracle now run over the DIALLED pool (one rung per player),
+ *      which is the universe the view hands the beam.
  *
  * Also asserted: a seed nobody can price comes back empty rather than inventing a
  * card, and the $100 figure is the payout at the prices shown.
@@ -27,7 +29,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import {
-  buildCards, conviction, matchesSeed, poolLegs, scoreCard, seedOptions, whyLine,
+  DIALS, buildCards, conviction, dialLegs, matchesSeed, poolLegs, scoreCard,
+  seedOptions, whyLine,
 } from '../../app/views/myparlays.js';
 import { correlationTable, violatesOnePerSide } from '../../app/parlay-math.js';
 
@@ -67,6 +70,10 @@ function toyPool() {
 
 const TOY = toyPool();
 const TOY_LEGS = poolLegs(TOY);
+/* R86 — what the view actually searches. paint() runs dialLegs BEFORE buildCards,
+ * so one rung per player reaches the beam; the oracle below has to enumerate the
+ * same universe or it is comparing the beam against a search nobody performs. */
+const TOY_DIALLED = dialLegs(TOY_LEGS, DIALS.even);
 
 /* 1-3 — the rules a card must satisfy ------------------------------------- */
 
@@ -112,11 +119,11 @@ test('the beam matches exhaustive enumeration on a pool small enough to enumerat
   const size = 3;
   // every legal 3-leg card containing a seed, by brute force
   const best = [];
-  const n = TOY_LEGS.length;
+  const n = TOY_DIALLED.length;
   for (let a = 0; a < n; a += 1) {
     for (let b = a + 1; b < n; b += 1) {
       for (let c = b + 1; c < n; c += 1) {
-        const legs = [TOY_LEGS[a], TOY_LEGS[b], TOY_LEGS[c]];
+        const legs = [TOY_DIALLED[a], TOY_DIALLED[b], TOY_DIALLED[c]];
         const owners = legs.map((l) => l.owner);
         if (new Set(owners).size !== owners.length) continue;
         if (violatesOnePerSide(legs)) continue;
@@ -128,7 +135,7 @@ test('the beam matches exhaustive enumeration on a pool small enough to enumerat
   }
   best.sort((x, y) => y.model - x.model);
   assert.ok(best.length >= 2, 'the brute force found candidates');
-  const beam = buildCards(TOY_LEGS, seeds, TABLE, { counts: [size], perCount: 2 });
+  const beam = buildCards(TOY_DIALLED, seeds, TABLE, { counts: [size], perCount: 2 });
   assert.equal(beam.length, 2);
   assert.ok(Math.abs(beam[0].model - best[0].model) < 1e-12,
     `beam best ${beam[0].model} vs true best ${best[0].model}`);

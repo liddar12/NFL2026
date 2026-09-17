@@ -239,6 +239,57 @@ nothing ships without one.
   `tests/web/r82_myparlays_layout.spec.mjs` (the geometry at 402×874 and 1280×900, the width
   sweep, and the banner staying hidden when MY is opened before the lazy review module lands).
   · **LOE** 0.5 d
+- **R86 · MY PARLAYS risk dial + leg-count rows — built 2026-09-17 (RCA: the cards that always
+  paid $10).** **The selection was degenerate (RC-N1).** `buildCards` ranks by conviction and let
+  EVERY rung of every player compete, but a ladder is a set of NESTED events — clearing 60 clears
+  20 — so a player's most probable rung is always his lowest line. Measured on the committed pool:
+  **1,280 of 1,280 prop legs across all 32 team seeds (100%) sat on the ladder floor**, mean prop
+  model probability **0.906**, and the best 2-leg DET card read *J. Gibbs 20+ rush yds · J. Cook III
+  30+ rush yds — 82% CONVICTION, −9.1% SIM EV, +$10 $100 SIM NET*. The maths reconciled with itself
+  and answered a question nobody asked. **Changed:** a **RISK DIAL** — `dialLegs(legs, target)` keeps
+  ONE rung per player before the search, the rung nearest the dial's target model probability
+  (`DIALS = { safe: 0.65, even: 0.50, longshot: 0.35 }`, `DEFAULT_DIAL = 'even'`), ties to the higher
+  line. **The dial applies to game legs too**, as a band rather than a pick: a moneyline or spread is
+  one fixed number with no ladder to choose from, so it is offered only when its own model chance is
+  within `GAME_LEG_BAND = 0.15` of the target. Without that band conviction ranking took the heaviest
+  favourite in the league ahead of every leg the dial had just chosen — measured at EVEN, 905 of the
+  1,280 legs on cards were game legs and MY stopped being about the players you typed; with it, 610
+  (props 29.3% → **52.3%**). Nothing is re-priced, so market prices still never reach a model
+  probability. Three `SAFE / EVEN / LONGSHOT` chips (`.mp-dial`, `aria-pressed`, the existing
+  `.leg-chip` pill) sit below the seed chips and persist per viewer in
+  `nfl2026.myparlays.dial.v1` (try/catch, default EVEN). Ranking WITHIN the dial stays conviction —
+  now a comparison between legs of comparable difficulty rather than a race to the floor — and the
+  legend says so. **After (32 seeds, 320 cards, all ten cards built at every dial):** prop legs on the
+  ladder floor **100% → 6.9%** at EVEN (46 of 670, and every one of them is a ladder whose floor
+  genuinely IS the rung nearest 0.50), mean prop model probability **0.906 → 0.684 SAFE / 0.530 EVEN /
+  0.450 LONGSHOT**, player props **29.3% → 74.8 / 52.3 / 50.9%** of the legs on the cards, and the DET
+  2-leg card reads *J. Goff 200+ pass yds · J. Williams 40+ rec yds — 36% CONVICTION, +$220* at EVEN
+  (it read *J. Gibbs 20+ · J. Cook III 30+ — 82%, +$10* before). **Three layout faults (RC-L1..L3), measured at
+  1395×704 dark:** an **83px void** between the last leg and the footer inside the shorter card of
+  every mixed row (5 of 10 cards — R82 stretches the row and anchors `.p-foot`); **0px** between the
+  seed chips and the legend and **0px** between the legend and the grid (`#myparlays-host` is one
+  `.view` child, so the `.view` gap never reached its own children); and **three** auto-fill columns
+  at 1395px, which split the five leg-count PAIRS the list is built as and made every row a mixed
+  row. **Changed:** `#myparlays-host` is a flex column with a **12px** gap (`#mp-seeds:empty` hides,
+  the one-sided 8px seed margin retired); `#mp-list` is **`repeat(2, minmax(0,1fr))`** at ≥820px with
+  the ≥1200px auto-fill override removed, so a row IS a leg-count band; and a `.mp-band` eyebrow
+  (`2 LEGS` … `6 LEGS`, the `.slate-day` style, `grid-column: 1 / -1`) opens each pair. **After:**
+  void **12px on all ten cards** at 402, 1280 and 1395; every host-child gap **12px**; **2** columns;
+  **5** eyebrows; row-bottom spread **0px**; no horizontal scroll. (One residual, named not hidden: at
+  SAFE a card carrying R77's QUESTIONABLE chip is 5.4px taller than its row partner, so that partner
+  shows **17.4px** of void — content variance inside a band, not the mixed-row fault.) **Locked by**
+  `tests/feature/r86_my_dial.test.mjs` (dialLegs as a pure function, the 32-seed sweep over the
+  committed pool, the invariant that a floor rung is only ever chosen when it IS the nearest rung,
+  the legend, and the CSS read as text) and `tests/web/r86_my_dial.spec.mjs` (402×874, 1280×900 and
+  1395×704: the default chip, ten cards, three different leg sets across the dials, the reload,
+  the 12px rhythm, five eyebrows, two columns, equal row bottoms, the void, no console errors).
+  `tests/feature/r76_myparlays_search.test.mjs` now runs its beam-vs-exhaustive oracle over the
+  DIALLED pool, which is the universe the view actually searches, and `nfl2026.myparlays.dial.v1`
+  joins `RESET_ALL_KEYS` so RESET ALL clears the dial. **Open, surfaced not introduced:** with the
+  cards now on fair-line legs, the RCA's latent RC-N5 is visible — the highest SIM EV in the EVEN
+  sweep is **+107.6%** on a 6-leg card. The chained same-game adjustment is bounded here (at most two
+  legs per game, so it is only ever pairwise) but it is still unvalidated, and the RCA's proposed
+  “no MY card prints EV > +100%” test is not written. · **LOE** 0.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

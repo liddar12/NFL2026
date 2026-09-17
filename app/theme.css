@@ -394,8 +394,12 @@ button { font: inherit; color: inherit; }
 
 /* Slate day-group header (THU/SUN/MON…): a quiet eyebrow rule so the day is
    stated ONCE per group instead of repeated on every card. Spans all columns
-   in the wide-screen card grid and opens a fresh row. */
-.slate-day {
+   in the wide-screen card grid and opens a fresh row.
+   R86 — .mp-band is the same eyebrow over the MY list ("2 LEGS", "3 LEGS"): the
+   MY list is built as five leg-count PAIRS and nothing on screen said so. Same
+   declarations, deliberately, so the two lists read as one product. */
+.slate-day,
+.mp-band {
   grid-column: 1 / -1;
   margin: 6px 0 -2px;
   font-family: var(--mono);
@@ -407,13 +411,15 @@ button { font: inherit; color: inherit; }
   align-items: center;
   gap: 10px;
 }
-.slate-day::after {
+.slate-day::after,
+.mp-band::after {
   content: "";
   flex: 1;
   height: 1px;
   background: var(--border);
 }
-.slate-day:first-child { margin-top: 0; }
+.slate-day:first-child,
+.mp-band:first-child { margin-top: 0; }
 
 /* Broadcast display numerals — big italic mono for hero numbers */
 .p-num {
@@ -874,7 +880,21 @@ button { font: inherit; color: inherit; }
   box-sizing: border-box;
 }
 .mp-input:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
-.mp-seeds:not(:empty) { margin-top: 8px; }
+/* R86 — RC-L2: the MY host had no vertical rhythm of its own. #myparlays-host is
+   one .view child, so the .view gap never reached ITS children and the seed chips
+   sat 0px from the legend and the legend 0px from the grid (measured 1395x704
+   dark). One flex column with the same 12px gap the rest of the app uses. The
+   `:empty` rule is the other half: an empty #mp-seeds is still a flex item, so
+   before any seed is typed it would contribute a second 12px gap for nothing.
+   The old one-sided 8px top margin on the seed chip row is retired — on top of
+   the host gap it measured 20px where the rhythm says 12px. */
+#myparlays-host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#mp-seeds:empty { display: none; }
+.mp-dial { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .mp-card .leg-prov { color: var(--muted); }
 
 /* R82 — MY PARLAYS card layout. Three measured faults, no new UI.
@@ -906,15 +926,21 @@ button { font: inherit; color: inherit; }
 .mp-card .leg-nm { white-space: normal; overflow: visible; }
 .mp-card .legcount { white-space: nowrap; }
 
+/* R86 — RC-L1/RC-L3: TWO columns, not auto-fill. The list is ten cards built as
+ * five PAIRS (PER_COUNT = 2, one pair per leg count). auto-fill put three columns
+ * on the 1395px canvas, which splits every pair across rows: each row then mixed
+ * a 2-leg card with a 3-leg one, and R82's equal-height rows paid for that by
+ * opening an 83px void between the shorter card's last leg and its footer
+ * (measured on 5 of 10 cards at 1395x704 and 1280x900). At exactly two columns a
+ * row IS a leg-count band, the two cards are naturally the same height, and the
+ * stretch costs nothing: void 12px on every card. The 1200px override is gone —
+ * it only ever restated the 820px rule and a third column is precisely the fault. */
 @media (min-width: 820px) {
   #mp-list.card-list {
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
   }
   .mp-card .p-foot { margin-top: auto; }
-}
-@media (min-width: 1200px) {
-  #mp-list.card-list { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
 }
 
 /* ---- correlation note ----------------------------------------------------- */
