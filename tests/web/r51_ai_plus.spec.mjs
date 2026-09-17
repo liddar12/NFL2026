@@ -18,7 +18,7 @@ const weeklyDoc = JSON.parse(
  * the rest are the this-week gate naming WHY he is not playable (status code, or
  * his depth-chart rung), plus · STARTS for a promoted backup. */
 const GATE_TAG = /· (OUT|D|SUSP|IR|PUP|NFI|QB[23]|NOT STARTING)$/;
-const WK_TAG = /^WK \d+ · (MATCHUP( · STARTS)?|BYE|NO WEEKLY ROW|OUT|D|SUSP|IR|PUP|NFI|QB[23]|NOT STARTING)$/;
+const WK_TAG = /^WK \d+ · (MATCHUP( · STARTS)?|BYE|NO WEEKLY ROW|INACTIVE|OUT|D|SUSP|IR|PUP|NFI|QB[23]|NOT STARTING)$/;
 
 async function waitForPlayers(page) {
   await page.waitForFunction(

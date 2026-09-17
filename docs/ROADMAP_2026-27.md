@@ -195,9 +195,13 @@ nothing ships without one.
   and MY PARLAYS legs carry a `Q` chip.
 - **Gated, not merely coded** — validator rules 6–8 (a gate agrees with its row, its source and
   the summary; **no silent sitter**) and `check_no_unplayable_legs` over the slate and the pool.
-- **Cadence** — crons are throttled by hours; a Routine calling `workflow_dispatch` drives 3
-  refreshes a day plus T-3h / T-75min before each game window (next: `prekick.yml`, game-day
-  inactives as a third source). See `docs/PLAYABLE_GATE.md`.
+- **Cadence (R78)** — `daily.yml` carries the owner's schedule at off-the-hour minutes (06:07 /
+  18:07 ET daily, 19:15 ET Mon/Thu, 12:03 / 15:15 / 19:20 ET Sunday), with Claude Routines
+  dispatching the same workflow as a second layer. See `docs/PLAYABLE_GATE.md`.
+- **Game-day inactives (R79)** — ESPN's posted lists (per-competition roster `didNotPlay`)
+  become the gate's FIRST source for games inside the window (kickoff-3h until FINAL): a healthy
+  scratch at any position is zeroed and loses its legs; the file is removed outside the window
+  so a stale list can never gate a later game. Validator rule 9: no silent inactive.
 - **MoS:** 0 not-playable players with a leg in `parlays.json` / `leg_pool.json`, 0 not-playable
   players carrying points on the current week — asserted by the gate on every run. · **LOE** 1 d
 

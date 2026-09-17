@@ -244,6 +244,7 @@ export function gateTag(g) {
   if (!g) return null;
   if (g.playable !== false) return g.reason === 'depth_promoted' ? ['MATCHUP · STARTS', ''] : null;
   const pre = 'Not playable this week — ';
+  if (g.reason === 'inactive') return ['INACTIVE', `${pre}on the posted game-day inactive list`];
   if (g.reason === 'depth') {
     const d = Number(g.depth);
     return d >= 2 ? [`QB${d}`, `${pre}QB${d}${g.starter ? ` behind ${g.starter}` : ''}`]

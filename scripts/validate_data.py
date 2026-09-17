@@ -145,6 +145,9 @@ SCHEMA_TO_DATA = {
     # R77 — each team's latest depth chart (QB), the source the this-week gate
     # reads. Runner-built (nflverse); the last-good file stands in on a failure.
     "depth_chart.schema.json": "depth_chart.json",
+    # R79 — the posted game-day inactive lists inside the window; absent by
+    # design outside it (build_predictions removes the file).
+    "inactives.schema.json": "inactives.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -200,6 +203,8 @@ OPTIONAL_DATA = frozenset([
     "parlays/index.json",
     # R77 — the depth chart behind the QB gate (nflverse, runner-built).
     "depth_chart.json",
+    # R79 — present only while a game is inside the inactives window.
+    "inactives.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -1192,7 +1197,8 @@ def _absence_in_total(projection_row):
             and int(projection_row.get("absence_weeks") or 0) > 0)
 
 
-def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
+def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
+                              inactives=None):
     """Rel17: player_weekly.json's availability story must agree with itself.
 
     R77 adds the THIS-WEEK GATE (rules 6-8, below the five): a `this_week`
@@ -1271,7 +1277,17 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
     gate_wk = gate_meta.get("wk") if isinstance(gate_meta, dict) else None
     skip_teams = set((gate_meta or {}).get("skipped_final_teams") or [])
     depth_teams = (depth_chart or {}).get("teams") if isinstance(depth_chart, dict) else None
-    gate_counts = {"status": 0, "depth": 0, "promoted": 0}
+    gate_counts = {"inactive": 0, "status": 0, "depth": 0, "promoted": 0}
+    # R79 — {espn athlete id: (team, game_id)} the posted lists name this week.
+    # An inactive-reason block must be backed by it, and (rule 9, NO SILENT
+    # INACTIVE) every projected player it names must be gated.
+    inact_ids = {}
+    if isinstance(inactives, dict) and inactives.get("week") in (None, gate_wk):
+        for _g in inactives.get("games") or []:
+            for _team, _rows in (_g.get("inactive") or {}).items():
+                for _r in _rows or []:
+                    if _r.get("espn_id"):
+                        inact_ids[str(_r["espn_id"])] = (_team, str(_g.get("game_id")))
 
     for pl in weekly.get("players", []):
         pid = pl.get("gsis_id")
@@ -1307,7 +1323,20 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
                 problems.append("%s: gated although %s's game was already FINAL"
                                 % (pid, record.get("team")))
             reason = tw.get("reason")
-            if reason == "status":
+            if reason == "inactive":
+                eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+                hit = inact_ids.get(eid) if eid else None
+                if hit is None:
+                    problems.append("%s: this_week reason inactive but data/inactives.json "
+                                    "does not name him — a game-day claim needs its list"
+                                    % pid)
+                elif tw.get("game_id") != hit[1] or (record or {}).get("team") != hit[0]:
+                    problems.append("%s: this_week.game_id %r / team %r disagree with the "
+                                    "list (%r, %r)" % (pid, tw.get("game_id"),
+                                                       (record or {}).get("team"),
+                                                       hit[1], hit[0]))
+                gate_counts["inactive"] += 1
+            elif reason == "status":
                 st = tw.get("status")
                 if st not in _NOT_PLAYABLE:
                     problems.append("%s: this_week.status %r is not a not-playable code"
@@ -1343,6 +1372,18 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
                 problems.append("%s: this_week.reason %r unknown" % (pid, reason))
             if tw.get("playable") is False and row is not None and not season_block:
                 gated = [w for w in blocked_all if w.get("wk") == tw.get("wk")]
+        # Rule 9 (R79) — NO SILENT INACTIVE: a projected player the posted list
+        # names, whose team plays this week and is not FINAL, must be gated.
+        _eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+        if gate_wk is not None and _eid in inact_ids and record is not None \
+                and record.get("team") not in skip_teams \
+                and inact_ids[_eid][0] == record.get("team"):
+            row = next((w for w in weeks if w.get("wk") == gate_wk), None)
+            if row is not None and not row.get("bye") and \
+                    (tw is None or tw.get("playable") is not False):
+                problems.append("%s (%s %s): on the posted inactive list but wk%s is not "
+                                "gated" % (pid, record.get("team"), record.get("name"),
+                                           gate_wk))
         # Rule 8 — NO SILENT SITTER: a not-playable status with a game this week
         # must have been gated (unless the game was already FINAL).
         if gate_wk is not None and avail and avail.get("status") in _NOT_PLAYABLE \
@@ -1466,10 +1507,13 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None):
 
     # --- R77 rule 7: the model summary counts what the rows carry -------------
     if isinstance(gate_meta, dict):
-        got = {"gated": gate_counts["status"] + gate_counts["depth"],
+        got = {"gated": gate_counts["inactive"] + gate_counts["status"] + gate_counts["depth"],
+               "inactive": gate_counts["inactive"],
                "status": gate_counts["status"], "depth": gate_counts["depth"],
                "promoted": gate_counts["promoted"]}
         said = {"gated": gate_meta.get("gated"),
+                # absent on a pre-R79 document: read as 0, which the rows confirm
+                "inactive": (gate_meta.get("by_reason") or {}).get("inactive", 0),
                 "status": (gate_meta.get("by_reason") or {}).get("status"),
                 "depth": (gate_meta.get("by_reason") or {}).get("depth"),
                 "promoted": gate_meta.get("promoted")}
@@ -2160,13 +2204,15 @@ def main():
     try:
         inj_path = os.path.join(DATA, "injuries.json")
         dc_path = os.path.join(DATA, "depth_chart.json")
+        in_path = os.path.join(DATA, "inactives.json")
         check_weekly_availability(
             _load(os.path.join(DATA, "player_weekly.json")),
             _load(os.path.join(DATA, "player_projections.json")),
             _load(inj_path) if os.path.exists(inj_path) else None,
             depth_chart=_load(dc_path) if os.path.exists(dc_path) else None,
+            inactives=_load(in_path) if os.path.exists(in_path) else None,
         )
-        print("ok    player_weekly.json availability cross-file invariant (+ R77 gate)")
+        print("ok    player_weekly.json availability cross-file invariant (+ R77/R79 gate)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

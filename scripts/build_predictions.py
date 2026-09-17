@@ -265,6 +265,72 @@ def _team_sos_and_bye(schedule_games, ratings):
     return out
 
 
+INACTIVES_WINDOW_HOURS = 3.0
+
+
+def _parse_kick(iso):
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return dt.datetime.strptime(str(iso), fmt).replace(tzinfo=dt.timezone.utc)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def games_in_inactive_window(games, now_utc, hours=INACTIVES_WINDOW_HOURS):
+    """The week's games whose inactive list is worth reading NOW: kickoff is
+    within `hours` ahead (the NFL posts inactives ~90 minutes out), or the game
+    has kicked off and is not yet FINAL (the list stays true while it plays).
+    A FINAL game is skipped: the split never retro-zeroes a played week. Pure."""
+    out = []
+    for g in games or []:
+        if g.get("status") in espn.FINAL_STATUSES:
+            continue
+        kick = _parse_kick(g.get("kickoff_utc"))
+        if kick is None:
+            continue
+        if kick - dt.timedelta(hours=hours) <= now_utc:
+            out.append(g)
+    return out
+
+
+def _inactives_doc(now, week_games, week, now_utc=None, fetch=None):
+    """data/inactives.json for the current week: one entry per game in the
+    window, each carrying the two posted lists. A game whose fetch fails is
+    recorded under `failed` (loud), never invented. None when no game is in
+    the window (nothing to state)."""
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
+    fetch = fetch or espn.fetch_game_inactives
+    todo = games_in_inactive_window(week_games, now_utc)
+    if not todo:
+        return None
+    games, failed = [], []
+    for g in todo:
+        try:
+            r = fetch(str(g["game_id"]))
+        except Exception as exc:  # noqa: BLE001 -- degrade, never fabricate
+            failed.append({"game_id": str(g["game_id"]), "error": str(exc)[:200]})
+            print(f"[warn] inactives for game {g['game_id']} unreachable: {exc}",
+                  file=sys.stderr)
+            continue
+        if {r["home"], r["away"]} != {g["home"], g["away"]}:
+            failed.append({"game_id": str(g["game_id"]),
+                           "error": f"ESPN teams {r['home']}/{r['away']} != schedule "
+                                    f"{g['home']}/{g['away']}"})
+            continue
+        games.append({"game_id": str(g["game_id"]), "home": g["home"], "away": g["away"],
+                      "kickoff_utc": g.get("kickoff_utc"), "status": g.get("status"),
+                      "fetched_utc": now, "inactive": r["inactive"]})
+    return {
+        "season": SEASON, "week": week, "updated_utc": now,
+        "source": "espn core competitors/<team>/roster didNotPlay (game-day inactives)",
+        "window_hours": INACTIVES_WINDOW_HOURS,
+        "counts": {"games": len(games), "failed": len(failed),
+                   "players": sum(len(v) for g in games for v in g["inactive"].values())},
+        "games": games, "failed": failed,
+    }
+
+
 def _depth_chart_doc(now, fetch_dc=None):
     """R77 -- data/depth_chart.json: each team's LATEST nflverse depth-chart
     snapshot, for the positions the this-week gate reads (QB). Facts only:
@@ -1315,16 +1381,38 @@ def main():
     gate_skip = sorted({t for g in predicted if g.get("week") == wk
                         and g.get("status") in espn.FINAL_STATUSES
                         for t in (g.get("home"), g.get("away")) if t})
+    # R79 -- GAME-DAY INACTIVES, the gate's first source. Read only for games
+    # inside the window (kickoff-3h until FINAL); outside it the file is
+    # removed so a stale list from an earlier window can never gate a later
+    # game. A fetch failure keeps that game out of the file for the run (feed
+    # health says so) -- the status and depth sources still gate.
+    _inact_path = os.path.join(DATA, "inactives.json")
+    inact_doc = _inactives_doc(now, [g for g in predicted if g.get("week") == wk], wk)
+    if inact_doc is not None:
+        _write(_inact_path, inact_doc)
+        _c = inact_doc["counts"]
+        feeds["inactives"] = {"rows": _c["players"], "age_hours": 0.0,
+                              "last_success_utc": now,
+                              "status": "ok" if not _c["failed"] else "degraded",
+                              "note": f"{_c['games']} game(s) in the {INACTIVES_WINDOW_HOURS:g}h "
+                                      f"window, {_c['failed']} fetch failure(s)"}
+    else:
+        if os.path.exists(_inact_path):
+            os.remove(_inact_path)
+        feeds["inactives"] = {"rows": 0, "age_hours": 0.0, "last_success_utc": now,
+                              "status": "ok",
+                              "note": "no game inside the inactives window this run"}
     weekly_doc = build_weekly.build_weekly_document(
         projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
         first_week=wk, completions_by_id=completions_by_id,
         components_by_id=components_by_id, this_week=wk, depth_chart=depth_doc,
-        gate_skip_teams=gate_skip)
+        gate_skip_teams=gate_skip, inactives=inact_doc)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
     _tw = weekly_doc["model"].get("this_week") or {}
     print(f"this-week gate (wk {wk}): {_tw.get('gated', 0)} player(s) not playable "
           f"({_tw.get('by_reason')}), {_tw.get('promoted', 0)} backup QB(s) promoted, "
-          f"depth snapshot {_tw.get('depth_snapshot')}, final teams skipped {gate_skip}")
+          f"depth snapshot {_tw.get('depth_snapshot')}, inactives "
+          f"{_tw.get('inactives_fetched')}, final teams skipped {gate_skip}")
 
     # R45 — FACTS-ONLY rookie starters (owner's pick: facts, never invented
     # points). Guarded enrichment: a feed failure keeps the last-good file and
