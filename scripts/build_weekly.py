@@ -600,13 +600,49 @@ def _depth_row_ids(r):
     return ids
 
 
+INACTIVES_PATH = os.path.join(_ROOT, "data", "inactives.json")
+
+
+def load_inactives(path=INACTIVES_PATH):
+    """data/inactives.json, or None when absent/unreadable (loud, never a guess)."""
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print(f"[warn] inactives unreadable ({exc}) -> no game-day gate", file=sys.stderr)
+        return None
+    return doc if isinstance(doc, dict) and isinstance(doc.get("games"), list) else None
+
+
+def inactive_ids(inactives_doc, wk=None):
+    """{espn athlete id: (team, game_id)} over every fetched game in the document
+    (for week `wk` when given). Pure."""
+    out = {}
+    if not isinstance(inactives_doc, dict):
+        return out
+    if wk is not None and inactives_doc.get("week") not in (None, wk):
+        return out
+    for g in inactives_doc.get("games") or []:
+        for team, rows in (g.get("inactive") or {}).items():
+            for r in rows or []:
+                if r.get("espn_id"):
+                    out[str(r["espn_id"])] = (team, str(g.get("game_id")))
+    return out
+
+
 def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
-                   skip_teams=()):
+                   skip_teams=(), inactives=None):
     """{gsis_id: this_week block} for week `wk` plus the model summary. Pure.
 
-    THE ONE PLACE "does he play this week?" is decided (R77). Two sources, in
-    priority order, both of them facts a feed stated -- never a guess:
+    THE ONE PLACE "does he play this week?" is decided (R77). Three sources, in
+    priority order, all of them facts a feed stated -- never a guess:
 
+      inactive -- (R79) his ESPN athlete id is on his team's posted game-day
+                 inactive list (data/inactives.json, fetched from kickoff-3h
+                 until FINAL). The most authoritative fact there is: a healthy
+                 scratch at any position is caught here and nowhere else.
       status  -- his canonical injury status is in availability.NOT_PLAYABLE
                  (OUT / DOUBTFUL / IR / PUP / NFI / SUSPENDED). QUESTIONABLE
                  stays playable (owner rule: priced and labelled, not zeroed).
@@ -624,8 +660,9 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
     Returns (gates, meta).
     """
     gates = {}
-    meta = {"wk": wk, "gated": 0, "by_reason": {"status": 0, "depth": 0},
+    meta = {"wk": wk, "gated": 0, "by_reason": {"inactive": 0, "status": 0, "depth": 0},
             "promoted": 0, "depth_snapshot": None,
+            "inactives_fetched": None,
             "skipped_final_teams": sorted(set(skip_teams or ()))}
     if wk is None:
         return gates, meta
@@ -635,10 +672,31 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
     def plays(team):
         return team not in skip and wk in sched_by_team.get(team, {})
 
+    # --- inactive (R79) ------------------------------------------------------
+    inact = inactive_ids(inactives, wk)
+    if isinstance(inactives, dict):
+        meta["inactives_fetched"] = inactives.get("updated_utc")
+
+    def espn_of(p):
+        gid = str(p.get("gsis_id") or "")
+        return gid[5:] if gid.startswith("espn-") else None
+
+    for p in projections:
+        eid = espn_of(p)
+        hit = inact.get(eid) if eid else None
+        if hit is None or not plays(p.get("team")):
+            continue
+        team, game_id = hit
+        if team != p.get("team"):
+            continue          # the list names a team the pool disagrees with: not ours to resolve
+        gates[p["gsis_id"]] = {"wk": wk, "playable": False, "reason": "inactive",
+                               "game_id": game_id}
+        meta["by_reason"]["inactive"] += 1
+
     # --- status --------------------------------------------------------------
     for p in projections:
         view = unavail.get(p["gsis_id"])
-        if not view or not plays(p.get("team")):
+        if not view or not plays(p.get("team")) or p["gsis_id"] in gates:
             continue
         if not availability.status_playable(view["status"]):
             gates[p["gsis_id"]] = {"wk": wk, "playable": False, "reason": "status",
@@ -660,9 +718,15 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
             by_team.setdefault(p.get("team"), []).append(p)
 
     def status_ok(team, row, pid):
-        """Playable by STATUS: the projected row's own view when he is projected,
-        else the injury report joined on (team, name)."""
+        """Playable by STATUS and not on the inactive list: the projected row's
+        own view when he is projected, else the injury report joined on
+        (team, name); the chart row's own espn_id checks the inactive list."""
+        hit = inact.get(str(row.get("espn_id") or ""))
+        if hit is not None and hit[0] == team:
+            return False      # the posted list names him, for THIS team
         if pid is not None:
+            if pid in gates and gates[pid]["playable"] is False:
+                return False
             view = unavail.get(pid)
             return availability.status_playable(view["status"]) if view else True
         view = availability.lookup_report(index, by_name, team, row.get("name"),
@@ -892,7 +956,7 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           completions_by_id=None, components_by_id=None,
                           factors=None, dvp_path=DVP_PATH, env_path=ENV_PATH,
                           forecast_path=FORECAST_PATH, this_week=None,
-                          depth_chart=None, gate_skip_teams=()):
+                          depth_chart=None, gate_skip_teams=(), inactives=None):
     """The full player_weekly.json document. Pure given its inputs.
 
     this_week / depth_chart / gate_skip_teams (R77): the THIS-WEEK GATE. When
@@ -900,8 +964,10 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     that week (see this_week_gate) has that week zeroed, carries a `this_week`
     block saying why, and the model summary counts them. `depth_chart` is the
     data/depth_chart.json document (None -> status gates only, stated in the
-    summary); `gate_skip_teams` are teams whose game that week is already FINAL.
-    this_week=None (every offline caller) is byte-identical to pre-R77.
+    summary); `gate_skip_teams` are teams whose game that week is already FINAL;
+    `inactives` (R79) is the data/inactives.json document (None -> no game-day
+    source, stated in the summary). this_week=None (every offline caller) is
+    byte-identical to pre-R77.
 
     factors: build_factors(...) for the v2 multipliers; None -> the three feeds
     are loaded ONCE from dvp_path / env_path / forecast_path (tests and the
@@ -929,7 +995,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     unavail = unavailability(projections, injuries)
     sched_by_team = team_schedule(schedule_games)
     gates, gate_meta = this_week_gate(projections, unavail, injuries, depth_chart,
-                                      this_week, sched_by_team, gate_skip_teams)
+                                      this_week, sched_by_team, gate_skip_teams,
+                                      inactives=inactives)
 
     players = []
     n_blocked_players = 0

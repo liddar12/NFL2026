@@ -241,6 +241,60 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
     return out
 
 
+# R79 -- game-day inactives. ESPN's core API carries a per-competition roster for
+# each competitor; once the inactive list is posted (about 90 minutes before
+# kickoff) the seven scratches -- and the emergency third quarterback -- carry
+# `didNotPlay: true`. `playerId` is the ESPN athlete id, the same id the
+# projection pool spells `espn-<id>`, so the join is exact and needs no name.
+_CORE_COMPETITION_URL = ("https://sports.core.api.espn.com/v2/sports/football/leagues/"
+                         "nfl/events/{gid}/competitions/{gid}")
+
+
+def parse_game_roster(entries):
+    """The inactive players in ONE competitor roster payload: [{espn_id, name}].
+
+    Pure. `didNotPlay` is the marker (the `active` flag is False for every
+    entry of a not-yet-played game and means nothing here). Entries without a
+    playerId are dropped, never guessed."""
+    out = []
+    for e in entries or []:
+        if not e.get("didNotPlay"):
+            continue
+        pid = e.get("playerId")
+        if pid in (None, ""):
+            continue
+        out.append({"espn_id": str(pid), "name": e.get("displayName") or ""})
+    out.sort(key=lambda r: (r["name"], r["espn_id"]))
+    return out
+
+
+def fetch_game_inactives(game_id):
+    """{home, away, inactive: {ABBR: [{espn_id, name}]}} for one ESPN event.
+
+    Two core-API reads per team (competition -> competitor -> roster). Loud on
+    a non-200 or an unmappable team; an EMPTY inactive list is valid data (the
+    list is not posted yet), never an error."""
+    comp = _get_json(_CORE_COMPETITION_URL.format(gid=game_id))
+    sides = {}
+    for c in comp.get("competitors") or []:
+        team_ref = (c.get("team") or {}).get("$ref")
+        roster_ref = (c.get("roster") or {}).get("$ref")
+        if not team_ref or not roster_ref:
+            raise FeedError(f"ESPN competition {game_id}: competitor without team/roster refs")
+        team = _get_json(team_ref)
+        abbrev = normalize_team(team.get("abbreviation") or team.get("displayName"))
+        if abbrev is None:
+            raise FeedError(f"ESPN team {team.get('abbreviation')!r} in game {game_id} did "
+                            f"not map to a canonical abbreviation.")
+        roster = _get_json(roster_ref)
+        sides[c.get("homeAway")] = (abbrev, parse_game_roster(roster.get("entries")))
+    if set(sides) != {"home", "away"}:
+        raise FeedError(f"ESPN competition {game_id}: expected home+away, got {sorted(sides)}")
+    return {"home": sides["home"][0], "away": sides["away"][0],
+            "inactive": {sides["home"][0]: sides["home"][1],
+                         sides["away"][0]: sides["away"][1]}}
+
+
 def fetch_injuries(min_rows=1, carry_positions=False):
     """Per-team injury reports, enriched with the canonical availability reading.
 

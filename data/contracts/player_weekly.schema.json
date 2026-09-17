@@ -212,6 +212,11 @@
                 "depth"
               ],
               "properties": {
+                "inactive": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "R79: gated by the posted game-day inactive list. Absent on a document built before R79."
+                },
                 "status": {
                   "type": "integer",
                   "minimum": 0
@@ -232,6 +237,13 @@
                 "null"
               ],
               "description": "data/depth_chart.json updated_utc the QB gate read; null when no chart was available (status still gated, depth did not)."
+            },
+            "inactives_fetched": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "R79: data/inactives.json updated_utc the gate read; null when no game was inside the inactives window (or the file was absent)."
             },
             "skipped_final_teams": {
               "type": "array",
@@ -377,11 +389,12 @@
               "reason": {
                 "type": "string",
                 "enum": [
+                  "inactive",
                   "status",
                   "depth",
                   "depth_promoted"
                 ],
-                "description": "status = his injury status says he sits. depth = a listed QB behind a healthy starter (or a QB his team's chart does not list). depth_promoted = playable:true, the listed starter is out and this QB starts."
+                "description": "inactive = (R79) he is on his team's posted game-day inactive list (data/inactives.json). status = his injury status says he sits. depth = a listed QB behind a healthy starter (or a QB his team's chart does not list). depth_promoted = playable:true, the listed starter is out and this QB starts."
               },
               "status": {
                 "type": "string",
@@ -394,6 +407,11 @@
                   "SUSPENDED"
                 ],
                 "description": "reason status only: the code that gated him (availability.NOT_PLAYABLE)."
+              },
+              "game_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "reason inactive only: the ESPN game whose posted list names him (data/inactives.json games[].game_id)."
               },
               "depth": {
                 "type": [

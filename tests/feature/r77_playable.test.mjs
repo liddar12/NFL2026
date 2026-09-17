@@ -155,7 +155,7 @@ emit({"meta": doc["model"]["this_week"],
       "keys": list(p["espn-4"].keys())})`);
   const m = out.meta;
   assert.equal(m.wk, 3);
-  assert.deepEqual(m.by_reason, { status: 3, depth: 3 });
+  assert.deepEqual(m.by_reason, { inactive: 0, status: 3, depth: 3 });
   assert.equal(m.gated, 6);
   assert.equal(m.promoted, 0);
   assert.equal(m.depth_snapshot, '2026-09-16T12:34:22Z');
@@ -200,7 +200,7 @@ emit({"one": p["espn-1"].get("this_week"), "two": p["espn-2"].get("this_week"),
   assert.ok(out.two_wk3 > 0, 'the promoted QB2 keeps his week');
   assert.deepEqual(out.three, { wk: 3, playable: false, reason: 'depth', depth: 3, starter: 'QB Two', points_lost: out.three.points_lost });
   assert.equal(out.meta.promoted, 1);
-  assert.deepEqual(out.meta.by_reason, { status: 4, depth: 2 }, 'OUT RB, IR TE, SUSP WR, D QB1 by status; QB3 and DAL QB2 by depth');
+  assert.deepEqual(out.meta.by_reason, { inactive: 0, status: 4, depth: 2 }, 'OUT RB, IR TE, SUSP WR, D QB1 by status; QB3 and DAL QB2 by depth');
 });
 
 test('R77: no gate on a bye, none for a FINAL team, none without this_week; co-listed starters and an unlisted QB', () => {
