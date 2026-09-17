@@ -117,11 +117,20 @@ test('R51: RoS equals the sum of the remaining non-bye priced weeks of the same 
         assert.ok(Math.abs(ros.points - sum) < 0.1 + 1e-9,
           `${id} ${mode} wk${wk}: RoS ${ros.points} vs Σ weeks ${sum}`);
         assert.equal(ros.gamesLeft, games);
-        // And every week is the season number's share, never a re-split.
+        // And every week is the season number's share, never a re-split —
+        // the AVAILABILITY-ADJUSTED share: a blocked week (a season absence, or
+        // the R77 this-week gate) carries 0 and takes its pro-rata share off
+        // the total, exactly as validate_data's rule 1 states it.
         const season = projSeason(p, w, mode);
         const all = w.weeks.reduce((a, row) => a + (row.bye ? 0 : weekValue(p, w, mode, row.wk).points), 0);
-        assert.ok(Math.abs(all - season) < 0.05 * Math.max(1, season) + 1e-6,
-          `${id} ${mode}: the 18 priced weeks sum to the season number (${all} vs ${season})`);
+        const nonBye = w.weeks.filter((row) => !row.bye).length;
+        const blocked = w.weeks.filter((row) => !row.bye && row.avail === false).length;
+        const av = w.availability || null;
+        const inTotal = p.baseline_rule === 'prior_ppg_x_projected_games' && Number(p.absence_weeks) > 0
+          && !!(av && av.class === 'season' && (av.weeks_out || av.out_for_season));
+        const expected = inTotal ? season : season * (nonBye - blocked) / nonBye;
+        assert.ok(Math.abs(all - expected) < 0.05 * Math.max(1, expected) + 1e-6,
+          `${id} ${mode}: the 18 priced weeks sum to the availability-adjusted season number (${all} vs ${expected})`);
       }
     }
     checked += 1;

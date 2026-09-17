@@ -144,7 +144,11 @@ _TIER_MED_EDGE = 0.04
 
 # Leg annotation keys that survive _strip_leg (all optional, all honesty markers).
 _LEG_ANNOTATIONS = ("edge_note", "pricing", "estimate", "estimate_note",
-                    "mu", "sd", "z", "line")
+                    "mu", "sd", "z", "line",
+                    # R77 -- a prop leg names its player by id (so the gate can be
+                    # checked against player_weekly.json) and carries the one
+                    # status that is priced-but-labelled: QUESTIONABLE.
+                    "gsis_id", "availability")
 
 
 def _clamp(x, lo, hi):
@@ -626,9 +630,30 @@ def _calibration_covers(calib, pos):
 def _report_skipped_props(skipped):
     """ONE stderr line per skip reason (house rule: skipped loudly, counted)."""
     for reason, n in sorted(skipped.items()):
-        if n:
+        if not n:
+            continue
+        if reason == "not_playable":
+            print("parlay_builder: %d candidate(s) not playable this week — never a "
+                  "prop leg (R77 gate)" % n, file=sys.stderr)
+        else:
             print("parlay_builder: %d prop leg(s) skipped — %s (no yards projection "
                   "to price from; nothing invented)" % (n, reason), file=sys.stderr)
+
+
+def playable_this_week(weekly_rec):
+    """R77 -- False iff the player's weekly row says he does not play this week
+    (`this_week.playable` false, written by build_weekly.this_week_gate). A row
+    without the block, or no row, is playable: absence is not a zero."""
+    tw = (weekly_rec or {}).get("this_week")
+    return not (isinstance(tw, dict) and tw.get("playable") is False)
+
+
+def questionable_label(weekly_rec):
+    """R77 -- "QUESTIONABLE" when the row carries that status, else None. The
+    one status a leg is priced WITH and labelled; every other non-ACTIVE code
+    is gated out before pricing (owner rule: Q priced + labelled, D excluded)."""
+    st = ((weekly_rec or {}).get("availability") or {}).get("status")
+    return "QUESTIONABLE" if st == "QUESTIONABLE" else None
 
 
 def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
@@ -647,9 +672,13 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
     calibration_path       : data/parlay_backtest.json (props.calibration,
                              props.residual_sd). Absent -> seed fallback, stamped.
 
-    Player choice is unchanged: the top-projected QB (market qb_pass_yds), RB
-    (rb_rush_yds) and WR (wr_rec_yds) among the two teams' players by proj_points desc,
-    ties broken by gsis_id asc (deterministic).
+    Player choice: the top-projected QB (market qb_pass_yds), RB (rb_rush_yds) and
+    WR (wr_rec_yds) among the two teams' players by proj_points desc, ties broken by
+    gsis_id asc (deterministic) -- among the players who are PLAYABLE this week
+    (R77): a weekly row whose `this_week.playable` is false (OUT / DOUBTFUL / IR /
+    suspended / a QB2 behind a healthy starter) is never a candidate, so the next
+    playable player takes the slot. QUESTIONABLE stays a candidate and the leg
+    carries `availability: "QUESTIONABLE"` so the card can say so.
 
     Pricing (R51): mu = project_prop_yards (season component x weekly share);
     model_prob = clamp(sigmoid(a + b*z + c*(p_team - 0.5)), 0.05, 0.95) with
@@ -671,7 +700,8 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
         if rec.get("gsis_id"):
             weekly_by_id[rec["gsis_id"]] = rec
     players = (player_projections_doc or {}).get("players", []) or []
-    skipped = {"no_component": 0, "no_week_row": 0, "zero_season_pts": 0}
+    skipped = {"no_component": 0, "no_week_row": 0, "zero_season_pts": 0,
+               "not_playable": 0}
 
     out = {}
     for gp in game_preds:
@@ -688,6 +718,12 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
                 and p.get("team") in (home, away)
                 and p.get("gsis_id") in weekly_by_id
             ]
+            # R77 -- the gate: a player who does not play this week is not a
+            # candidate. Counted, so a slate with fewer props says why.
+            gated = [p for p in cands
+                     if not playable_this_week(weekly_by_id.get(p.get("gsis_id")))]
+            skipped["not_playable"] += len(gated)
+            cands = [p for p in cands if not any(p is g for g in gated)]
             # Stable rank: proj_points desc, tie by gsis_id asc (deterministic).
             cands.sort(key=lambda p: (-float(p.get("proj_points", 0.0)),
                                       str(p.get("gsis_id"))))
@@ -712,6 +748,9 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
                 "line": line,
                 "estimate": True,
             }
+            q = questionable_label(weekly_by_id.get(top.get("gsis_id")))
+            if q:
+                leg["availability"] = q
             if _calibration_covers(calib, pos):
                 if mu is None:
                     # Calibration exists but this player's yards cannot be projected:

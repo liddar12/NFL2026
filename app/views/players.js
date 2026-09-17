@@ -208,7 +208,8 @@ export function rosValue(p, w, mode, currentWk) {
 }
 
 /** R51 — THIS WEEK's league-priced points from the same weeklyPoints() split
- * RoS uses: { points, bye, opp }, or null with no row (renders "—", never 0). */
+ * RoS uses: { points, bye, opp, gate }, or null with no row (renders "—", never 0).
+ * R77 — `gate` is the row's `this_week` fact when it is ABOUT this week, else null. */
 export function weekValue(p, w, mode, wk) {
   if (!w || !Array.isArray(w.weeks)) return null;
   const i = w.weeks.findIndex((x) => x && Number(x.wk) === Number(wk));
@@ -216,7 +217,9 @@ export function weekValue(p, w, mode, wk) {
   const pts = weeklyPoints(w, projSeason(p, w, mode), Number(p ? p.proj_points : NaN))[i];
   if (!Number.isFinite(pts)) return null;
   const row = w.weeks[i];
-  return { points: pts, bye: row.bye === true, opp: row.opp == null ? null : String(row.opp) };
+  const tw = w.this_week;
+  return { points: pts, bye: row.bye === true, opp: row.opp == null ? null : String(row.opp),
+    gate: tw && Number(tw.wk) === Number(wk) ? tw : null };
 }
 
 /** R51 — what AI+ may claim: factors only for the measured weekly_split_v2. */
@@ -230,6 +233,26 @@ export function aiPlusCopy(modelName) {
       + 'split GRADE and LINEUP use. ESTIMATE.';
 }
 
+/* R77 — the this-week gate as [tag, spelled-out title], or null. A gated week is
+ * already 0.0 (avail:false zeroed it); 0.0 under "MATCHUP" reads as a projection
+ * rather than a benching, so the tag names WHY. Promoted backups say so too. */
+const GATE_STATUS = {
+  OUT: ['OUT', 'ruled out'], DOUBTFUL: ['D', 'doubtful'], SUSPENDED: ['SUSP', 'suspended'],
+  IR: ['IR', 'on injured reserve'], PUP: ['PUP', 'on the PUP list'], NFI: ['NFI', 'on the NFI list'],
+};
+export function gateTag(g) {
+  if (!g) return null;
+  if (g.playable !== false) return g.reason === 'depth_promoted' ? ['MATCHUP · STARTS', ''] : null;
+  const pre = 'Not playable this week — ';
+  if (g.reason === 'depth') {
+    const d = Number(g.depth);
+    return d >= 2 ? [`QB${d}`, `${pre}QB${d}${g.starter ? ` behind ${g.starter}` : ''}`]
+      : ['NOT STARTING', `${pre}not on the depth chart`];
+  }
+  const st = GATE_STATUS[String(g.status || '').toUpperCase()];
+  return st ? [st[0], pre + st[1]] : null;
+}
+
 /** R51 — the AI+ headline, spliced like withExtraRow: the card keeps its
  * SEASON band; the headline reads this week, the season as BASE. */
 const HEAD_START = '<div class="p-proj">';
@@ -240,10 +263,12 @@ export function withWeekHeadline(cardHtml, week, wv, season) {
   const j = i < 0 ? -1 : html.indexOf(HEAD_END, i);
   if (i < 0 || j < 0) return html;
   const have = wv != null && Number.isFinite(Number(wv.points));
-  const tag = !have ? 'NO WEEKLY ROW' : wv.bye ? 'BYE' : 'MATCHUP';
+  const gt = have && !wv.bye ? gateTag(wv.gate) : null;
+  const tag = gt ? gt[0] : (!have ? 'NO WEEKLY ROW' : wv.bye ? 'BYE' : 'MATCHUP');
+  const ttl = gt && gt[1] ? ` title="${esc(gt[1])}"` : '';
   const inner =
     `<div class="p-num${have ? '' : ' pv-none'}">${have ? esc(fix1(wv.points)) : '—'}</div>` +
-    `<div class="p-unit">WK ${esc(week)} · ${tag}</div>` +
+    `<div class="p-unit"${ttl}>WK ${esc(week)} · ${tag}</div>` +
     `<div class="p-unit">BASE ${esc(fix1(season))} · SEASON</div>`;
   return html.slice(0, i + HEAD_START.length) + inner + html.slice(j + HEAD_END.length);
 }

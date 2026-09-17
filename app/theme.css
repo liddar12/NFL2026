@@ -773,6 +773,13 @@ button { font: inherit; color: inherit; }
 }
 .leg-prov[data-pricing="seed"] { color: var(--accent-txt); }
 .leg-noedge { font-size: 10px; white-space: nowrap; }
+/* R77 — QUESTIONABLE prop leg. Same .est pill geometry as NO EDGE, in the
+   `watch` tone the availability chips already use (.av-chip--watch, --warn):
+   one colour vocabulary for "your call" across every surface. No new token. */
+.leg-q {
+  font-size: 10px; white-space: nowrap;
+  color: var(--warn); border-color: var(--warn);
+}
 
 /* ---- foot: EV + leg count ------------------------------------------------- */
 .p-foot {

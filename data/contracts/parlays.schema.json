@@ -105,6 +105,16 @@
                 "line": {
                   "type": "number",
                   "description": "Prop legs: the yardage line the leg is evaluated at."
+                },
+                "gsis_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "R77: prop legs, the player the leg is priced on (player_weekly.json id), so the this-week gate can be checked against his weekly row."
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": ["QUESTIONABLE"],
+                  "description": "R77: the one non-ACTIVE status a leg is priced WITH (owner rule: Q priced + labelled, D excluded). Every other status is gated out before pricing, so no other value can appear."
                 }
               }
             }

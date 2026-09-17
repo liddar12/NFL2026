@@ -180,6 +180,67 @@
         "backtest": {
           "type": "string",
           "description": "Path of the never-regress record that admits this split (data/weekly_backtest.json)."
+        },
+        "this_week": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "wk",
+            "gated",
+            "by_reason",
+            "promoted",
+            "depth_snapshot",
+            "skipped_final_teams"
+          ],
+          "description": "R77: present whenever the document was built for a current week (build_predictions always). Counts the players[].this_week blocks.",
+          "properties": {
+            "wk": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 18
+            },
+            "gated": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Players with this_week.playable false."
+            },
+            "by_reason": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "depth"
+              ],
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "depth": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "promoted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "depth_snapshot": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "data/depth_chart.json updated_utc the QB gate read; null when no chart was available (status still gated, depth did not)."
+            },
+            "skipped_final_teams": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Teams whose game this week was already FINAL when the split ran; never gated (a played week is not retro-zeroed)."
+            }
+          }
         }
       }
     },
@@ -291,6 +352,69 @@
                 "type": "number",
                 "minimum": 0,
                 "description": "proj_points minus the sum of the surviving weeks. The reduction F2 never made."
+              }
+            }
+          },
+          "this_week": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "wk",
+              "playable",
+              "reason"
+            ],
+            "description": "R77 THE THIS-WEEK GATE. Present ONLY when the player is NOT playable in the current week, or when a backup quarterback is PROMOTED to start. Written by build_weekly.this_week_gate from two stated facts, never a guess: his canonical status (OUT / DOUBTFUL / IR / PUP / NFI / SUSPENDED -> reason status) or his team's latest depth chart (a QB who is not the highest-ranked PLAYABLE QB -> reason depth). QUESTIONABLE is priced and labelled, never gated. When playable is false the week row carries avail:false and pts 0.0, no prop leg is priced on him and no parlay may carry him.",
+            "properties": {
+              "wk": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18,
+                "description": "The gated week; equals model.this_week.wk."
+              },
+              "playable": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "status",
+                  "depth",
+                  "depth_promoted"
+                ],
+                "description": "status = his injury status says he sits. depth = a listed QB behind a healthy starter (or a QB his team's chart does not list). depth_promoted = playable:true, the listed starter is out and this QB starts."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "DOUBTFUL",
+                  "OUT",
+                  "IR",
+                  "PUP",
+                  "NFI",
+                  "SUSPENDED"
+                ],
+                "description": "reason status only: the code that gated him (availability.NOT_PLAYABLE)."
+              },
+              "depth": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "description": "reason depth / depth_promoted: his pos_rank on the team's chart; null when the chart does not list him."
+              },
+              "starter": {
+                "type": "string",
+                "description": "reason depth: the playable QB the chart names ahead of him."
+              },
+              "starter_out": {
+                "type": "string",
+                "description": "reason depth_promoted: the rank-1 QB whose status is not playable."
+              },
+              "points_lost": {
+                "type": "number",
+                "minimum": 0,
+                "description": "playable:false only: what zeroing the week cost his season split (the same split without the gate, minus with it). 0.0 when the week was already a season block."
               }
             }
           },

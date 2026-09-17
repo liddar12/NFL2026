@@ -180,6 +180,27 @@ nothing ships without one.
   ordering, each card equal to the builder's to the cent, and the sum invariant), full gate green
   at 1,584 unit / 260 browser. · **LOE** 1 d
 
+#### ✅ R77 · The this-week gate — *built 2026-09-17 (RCA: sitters priced as bets)*
+- **RCA.** "Will he play this week?" was never a first-class fact: an OUT kept 55% of his week, a
+  DOUBTFUL 70%, a suspension of unstated length 100%, no consumer read a depth chart, and the leg
+  pool / slate props priced everyone with a weekly row (Josh Jacobs OUT at 36.5 rush yds, Sam
+  Darnold DOUBTFUL at 168 pass yds, four IR players in the week-2 pool).
+- **One predicate** — `availability.NOT_PLAYABLE` + `build_weekly.this_week_gate`: status first
+  (D/OUT/IR/PUP/NFI/SUSP), then the QB depth chart (`data/depth_chart.json`, nflverse, fetched
+  every run): a QB behind a healthy starter is zeroed, a QB2 behind an OUT QB1 is **promoted**.
+  Owner rules: *zero unless QB1 is out*; *Q priced + labelled, D excluded*.
+- **Written once, read everywhere** — `player_weekly.json players[].this_week` (+ the zeroed
+  week row), `model.this_week`; prop legs name their `gsis_id` and carry a `Q` label; the pool
+  counts `not_playable`. PLAYERS headline reads `WK n · OUT / D / SUSP / IR / QB2 / QB3`; PARLAYS
+  and MY PARLAYS legs carry a `Q` chip.
+- **Gated, not merely coded** — validator rules 6–8 (a gate agrees with its row, its source and
+  the summary; **no silent sitter**) and `check_no_unplayable_legs` over the slate and the pool.
+- **Cadence** — crons are throttled by hours; a Routine calling `workflow_dispatch` drives 3
+  refreshes a day plus T-3h / T-75min before each game window (next: `prekick.yml`, game-day
+  inactives as a third source). See `docs/PLAYABLE_GATE.md`.
+- **MoS:** 0 not-playable players with a leg in `parlays.json` / `leg_pool.json`, 0 not-playable
+  players carrying points on the current week — asserted by the gate on every run. · **LOE** 1 d
+
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.

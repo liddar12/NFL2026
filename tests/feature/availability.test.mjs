@@ -388,8 +388,17 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
   let ending = 0;
   let removed = 0;
   weekly.players.forEach((p, i) => {
-    const nBlocked = p.weeks.filter((w) => w.avail === false).length;
     const a = p.availability;
+    // R77 — the this-week gate zeroes ONE week on its own authority (OUT /
+    // DOUBTFUL / a suspension of unstated length / a backup QB) and reports it
+    // under `this_week`, never as a duration. It is a season block only when
+    // the block already covers it, so it is set aside before the duration
+    // arithmetic below — which is unchanged.
+    const tw = p.this_week;
+    const seasonBlock = !!(a && a.class === 'season' && (a.weeks_out || a.out_for_season));
+    const gated = (tw && tw.playable === false && !seasonBlock)
+      ? p.weeks.filter((w) => w.avail === false && Number(w.wk) === Number(tw.wk)).length : 0;
+    const nBlocked = p.weeks.filter((w) => w.avail === false).length - gated;
     if (!a) {
       assert.equal(nBlocked, 0, `${p.gsis_id}: weeks blocked with no availability block`);
       return;

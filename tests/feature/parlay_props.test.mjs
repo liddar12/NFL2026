@@ -162,7 +162,8 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     // contract fields are always present; anything else is a declared honesty
     // annotation (parlays.schema.json) — here the seed-fallback stamps.
     const allowed = new Set(['implied_prob', 'market', 'model_prob', 'selection',
-      'edge_note', 'pricing', 'estimate', 'estimate_note', 'mu', 'sd', 'z', 'line']);
+      'edge_note', 'pricing', 'estimate', 'estimate_note', 'mu', 'sd', 'z', 'line',
+      'gsis_id', 'availability']); // R77: the player the leg names + the Q label
     for (const leg of p.legs) {
       const keys = Object.keys(leg);
       assert.ok(!keys.some((k) => k.startsWith('_')), `internal key shipped: ${keys}`);

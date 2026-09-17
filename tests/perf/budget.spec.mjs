@@ -102,7 +102,18 @@ const BOOT_MODULE_CEILING = 15; // measured 14 (R51: parlays view lazy); one mod
  * all live in the lazy app/views/parlays.js, and the P&L reader/renderer in
  * the lazy app/review.js. The NEXT boot-graph addition of any size trips this;
  * the honest move then is a re-measure and a written decision, as above. */
-const BOOT_BYTE_CEILING = 360_000; // measured 325,257 (2026-08-15); 359,967 (2026-09-14, R73).
+/* R77 (2026-09-17): measured 361,266, which trips the 360,000 ceiling R73 left
+ * 33 bytes of headroom under — exactly the "NEXT addition of any size" that note
+ * predicted. Re-measured and decided in writing, per the policy at the top of
+ * this file. The growth is 1,299 bytes in app/views/players.js and nothing else:
+ * R77's this-week gate (gateTag + the `gate` field on weekValue) tags the AI+
+ * headline with WHY a player cannot play this week instead of printing his
+ * pipeline 0.0 under "MATCHUP". It is legitimate boot-module content, not a lazy
+ * leak — players.js was already on the boot graph, the module count is unchanged
+ * at 14 and the lazy-only guard above still passes (the parlay Q chip landed in
+ * the lazy app/views/parlays.js and app/views/myparlays.js, which are off it).
+ * Ceiling re-set to the measurement plus ~2% headroom. */
+const BOOT_BYTE_CEILING = 368_500; // measured 325,257 (2026-08-15); 359,967 (2026-09-14, R73); 361,266 (2026-09-17, R77).
 // Depth is a LOOSE guard, not a lock: each level is one serialized round trip,
 // but the pre-fix graph was depth 3 too, so this ceiling would NOT have caught
 // R25-F3 on its own. It only catches a NEW, deeper chain.

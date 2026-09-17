@@ -14,6 +14,12 @@ const weeklyDoc = JSON.parse(
   readFileSync(new URL('../../data/player_weekly.json', import.meta.url), 'utf8'),
 );
 
+/* R77 — the tags a headline may carry. MATCHUP / BYE / NO WEEKLY ROW are R51's;
+ * the rest are the this-week gate naming WHY he is not playable (status code, or
+ * his depth-chart rung), plus · STARTS for a promoted backup. */
+const GATE_TAG = /· (OUT|D|SUSP|IR|PUP|NFI|QB[23]|NOT STARTING)$/;
+const WK_TAG = /^WK \d+ · (MATCHUP( · STARTS)?|BYE|NO WEEKLY ROW|OUT|D|SUSP|IR|PUP|NFI|QB[23]|NOT STARTING)$/;
+
 async function waitForPlayers(page) {
   await page.waitForFunction(
     () => document.querySelectorAll('.card.player').length > 0,
@@ -44,23 +50,29 @@ test.describe('PLAYERS AI+ = this week (R51)', () => {
     await expect(page.locator('.aiseg button[data-ai="on"]')).toHaveAttribute('aria-pressed', 'true');
 
     const ai = await heads(page, 8);
-    // Every visible headline is a week label; the first card is a real matchup number.
-    for (const h of ai) expect(h.unit).toMatch(/^WK \d+ · (MATCHUP|BYE|NO WEEKLY ROW)$/);
-    expect(ai[0].unit).toMatch(/^WK \d+ · MATCHUP$/);
+    // Every visible headline is a week label. R77 added the this-week gate: a
+    // player the pipeline says cannot play is tagged with the REASON instead of
+    // MATCHUP (status code, or his depth-chart rung), and a promoted backup keeps
+    // MATCHUP with · STARTS appended. Whatever the committed data holds today,
+    // at least one card must still read a plain MATCHUP.
+    for (const h of ai) expect(h.unit).toMatch(WK_TAG);
+    expect(ai.filter((h) => /^WK \d+ · MATCHUP$/.test(h.unit)).length).toBeGreaterThanOrEqual(1);
     expect(ai[0].num).toMatch(/^\d+\.\d$/);
     // The headline numbers changed vs BASE (a week is not a season).
     const baseNums = base.map((h) => h.num);
     const aiNums = ai.map((h) => h.num);
     expect(aiNums).not.toEqual(baseNums);
     for (const h of ai) {
-      if (h.unit.endsWith('MATCHUP')) {
+      if (h.unit.includes('MATCHUP')) {
         expect(Number(h.num)).toBeGreaterThan(0);
         expect(Number(h.num)).toBeLessThan(60); // a week, not a season total
       }
       if (h.unit.endsWith('NO WEEKLY ROW')) expect(h.num).toBe('—');
+      // R77 — a gated week is the pipeline's 0.0, never a projection.
+      if (GATE_TAG.test(h.unit)) expect(h.num).toBe('0.0');
     }
     // Sorted by this week's points, descending.
-    const wkNums = ai.filter((h) => h.unit.endsWith('MATCHUP')).map((h) => Number(h.num));
+    const wkNums = ai.filter((h) => h.unit.includes('MATCHUP')).map((h) => Number(h.num));
     for (let i = 1; i < wkNums.length; i += 1) expect(wkNums[i]).toBeLessThanOrEqual(wkNums[i - 1] + 1e-6);
 
     // BASE (season) stays visible on the card, RoS rides every card, the
