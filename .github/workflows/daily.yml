@@ -173,6 +173,15 @@ jobs:
         run: python scripts/resolve_parlay_legs.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
+      # R81 — PARLAY REPLAY LAB (measure only). Replays candidate pricing and
+      # selection rules against the weeks already played, on the legs that were
+      # actually locked, and writes data/replay_lab.json. It adopts NOTHING: no
+      # gate, no promotion path, and no write to any calibration or slate file.
+      # Runs right after the resolver so it always sees the newest outcomes.
+      - name: Replay lab (candidate parlay rules vs shipped, measure only)
+        run: python3 scripts/replay_lab.py
+        continue-on-error: true   # a measure-only bench never degrades the run
+
       # R71 — post-game review over resolved estimates + the parlay-leg ledger.
       - name: Build post-game review (data/review.json)
         run: python3 scripts/build_review.py

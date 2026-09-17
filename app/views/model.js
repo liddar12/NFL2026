@@ -35,6 +35,10 @@ import {
 // app/data.js, so the boot graph does not pay for a lazy view's feeds.
 export const loadWeeklyBacktest = (opts) => loadJson('/data/weekly_backtest.json', opts).catch(() => null);
 export const loadParlayBacktest = (opts) => loadJson('/data/parlay_backtest.json', opts).catch(() => null);
+// R81 — the measure-only REPLAY LAB record (scripts/replay_lab.py). Same
+// resolve-to-null-on-404 contract as the two above: absent means the card says
+// so, never a placeholder number. Nothing this file reads is ever adopted.
+export const loadReplayLab = (opts) => loadJson('/data/replay_lab.json', opts).catch(() => null);
 import { teamTint } from '../render.js';
 
 /** Signals pinned display-only by validate_data.py MARKET_DISPLAY_ONLY —
@@ -1242,6 +1246,138 @@ export function parlayGateCard(doc) {
   );
 }
 
+/* ---- R81: REPLAY LAB · CANDIDATES vs SHIPPED ---------------------------------
+ * data/replay_lab.json (scripts/replay_lab.py) replays candidate parlay rules
+ * against the weeks already played, on the legs that were actually locked.
+ *
+ * THIS CARD CHANGES NOTHING. It is a bench report: a variant is measured and
+ * printed, never adopted, and no number on it feeds a shipped leg. The verdict
+ * chips deliberately do NOT reuse the ADOPTED / RETAINED vocabulary of the two
+ * gate cards above, because those words describe a promotion and this card has
+ * no promotion path to describe.
+ *
+ * Absent file, or 0 weeks replayed: an honest state line, never a placeholder.
+ * Only classes theme.css already styles (.pf-tbl, .gate-chip, .gate-note,
+ * .mp-src, .m-explain, .state).
+ */
+
+const REPLAY_EXPLAIN = '<div class="m-explain">Candidate parlay rules re-priced '
+  + 'on the SAME locked legs the slate shipped, then the archived parlays '
+  + 're-combined and re-settled at the book’s own prices. Log-loss: lower is '
+  + 'better, so a negative delta is the candidate winning. A verdict is claimed '
+  + 'only when the 90% paired-bootstrap CI excludes 0. Nothing on this card '
+  + 'changes a shipped number — this is a measurement bench, and no variant '
+  + 'here is adopted by it.</div>';
+
+/** The chip for a replay verdict. Measurement words only — never ADOPTED. */
+export function replayChip(verdict, isBaseline) {
+  if (isBaseline) {
+    return '<span class="gate-chip" title="The probability actually locked on the '
+      + 'leg — every other row is measured against this">BASELINE</span>';
+  }
+  if (verdict === 'better') {
+    return '<span class="gate-chip" title="Lower log-loss than shipped, 90% CI '
+      + 'excludes 0. MEASURED, not adopted">BETTER</span>';
+  }
+  if (verdict === 'worse') {
+    return '<span class="gate-chip gate-chip--nopath" title="Higher log-loss than '
+      + 'shipped, 90% CI excludes 0">WORSE</span>';
+  }
+  if (verdict === 'same') {
+    return '<span class="gate-chip gate-chip--skipped" title="The 90% CI straddles '
+      + '0 — no difference was measured">SAME</span>';
+  }
+  return '<span class="gate-chip gate-chip--skipped" title="Nothing resolved to '
+    + 'measure on">—</span>';
+}
+
+/**
+ * The best selection rule in a variant's `rules` block by ROI at fair prices,
+ * among the rules that actually selected something. Null when none did — an
+ * empty selection has no ROI, and 0 would read as break-even.
+ */
+export function bestSelectionRule(rules) {
+  if (!isObj(rules)) return null;
+  let best = null;
+  for (const name of Object.keys(rules)) {
+    const r = rules[name];
+    if (!isObj(r) || !Number.isFinite(Number(r.n)) || Number(r.n) <= 0) continue;
+    if (!Number.isFinite(Number(r.roi_fair))) continue;
+    if (best === null || Number(r.roi_fair) > Number(best.roi_fair)) {
+      best = { name, ...r };
+    }
+  }
+  return best;
+}
+
+/** "REPLAY LAB · CANDIDATES vs SHIPPED" — one row per variant. */
+export function replayLabCard(doc) {
+  if (!isObj(doc)) {
+    return REPLAY_EXPLAIN
+      + state('NOT PRESENT — data/replay_lab.json has not been written on this '
+        + 'deploy yet, so there is nothing to report. The lab runs on every '
+        + 'pipeline run, right after the parlay-leg resolver.');
+  }
+  const weeks = Array.isArray(doc.weeks_replayed) ? doc.weeks_replayed : [];
+  const legs = isObj(doc.legs) ? doc.legs : {};
+  const baseline = typeof doc.baseline === 'string' ? doc.baseline : 'shipped';
+  const stamp = `<div class="mp-src">${runLine(doc.generated_utc)} · baseline `
+    + `${esc(baseline)} · weeks ${weeks.length ? weeks.map((w) => esc(w)).join('/') : '—'}`
+    + ` · ${Number.isFinite(Number(legs.resolved)) ? esc(legs.resolved) : '—'} resolved leg(s)`
+    + '</div>';
+  if (!weeks.length) {
+    return REPLAY_EXPLAIN
+      + state('0 WEEKS REPLAYED — no locked parlay leg has resolved yet, so every '
+        + 'metric in the record is null. Nothing is measured here, and nothing '
+        + 'is claimed.')
+      + stamp;
+  }
+  const variants = isObj(doc.variants) ? doc.variants : {};
+  const names = Object.keys(variants);
+  // baseline first, then the candidates in registry order.
+  names.sort((a, b) => (a === baseline ? -1 : b === baseline ? 1 : 0));
+  const rows = names.map((name) => {
+    const v = isObj(variants[name]) ? variants[name] : {};
+    const pooled = isObj(v.legs) && isObj(v.legs.pooled) ? v.legs.pooled : {};
+    const isBase = name === baseline;
+    // The baseline has no CI to show: it is not being compared to anything, and
+    // a [0.0000, 0.0000] there reads as a measurement of zero difference.
+    const ci = !isBase && Array.isArray(pooled.ci90) && pooled.ci90.length === 2
+      ? `[${signed(pooled.ci90[0], 4)}, ${signed(pooled.ci90[1], 4)}]` : '—';
+    const delta = isBase ? '—'
+      : deltaText(pooled.shipped_log_loss_same_legs, pooled.log_loss,
+        { digits: 4, lowerIsBetter: true });
+    const best = bestSelectionRule(isObj(v.parlays) ? v.parlays.rules : null);
+    const roi = best
+      ? `${esc(best.name)} ${fmtPct(best.roi_fair)} (n ${esc(best.n)})`
+      : '—';
+    return '<tr>'
+      + `<td>${esc(name)}</td>`
+      + `<td>${Number.isFinite(Number(pooled.n)) ? esc(pooled.n) : '—'}</td>`
+      + `<td>${dash(pooled.log_loss, 4)} ${delta}</td>`
+      + `<td>${ci}</td>`
+      + `<td>${replayChip(v.verdict, isBase)}</td>`
+      + `<td>${roi}</td>`
+      + '</tr>';
+  }).join('');
+  const table = '<table class="pf-tbl"><thead><tr><th>VARIANT</th><th>N</th>'
+    + '<th>LOG-LOSS vs SHIPPED</th><th>90% CI OF Δ</th><th>VERDICT</th>'
+    + '<th>BEST RULE · ROI ON $100</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table>`;
+  const reasons = isObj(legs.unresolved_by_reason) ? legs.unresolved_by_reason : {};
+  const reasonTxt = Object.keys(reasons).sort()
+    .map((k) => `${esc(k)} ${esc(reasons[k])}`).join(' · ');
+  const bench = '<div class="gate-bench">LEGS · '
+    + `${Number.isFinite(Number(legs.locked)) ? esc(legs.locked) : '—'} locked · `
+    + `${Number.isFinite(Number(legs.resolved)) ? esc(legs.resolved) : '—'} resolved`
+    + (reasonTxt ? ` · unresolved ${reasonTxt}` : '') + '</div>';
+  // The first two limits are the two a reader of THIS table needs: what the lab
+  // cannot replay at all, and why the ROI column moves only through selection.
+  const limits = Array.isArray(doc.limits) ? doc.limits.filter((x) => typeof x === 'string') : [];
+  const notes = limits.slice(0, 2).map((t) => `<div class="gate-note">${esc(t)}</div>`).join('');
+  return REPLAY_EXPLAIN + table + bench + notes + stamp;
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountModel(el) {
@@ -1282,11 +1418,14 @@ export default async function mountModel(el) {
   }
 
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
-  const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes] = await Promise.allSettled([
-    getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
-    // R51 — both resolve to null when absent (never reject); null paints nothing.
-    loadWeeklyBacktest(), loadParlayBacktest(),
-  ]);
+  const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes, replayRes] =
+    await Promise.allSettled([
+      getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
+      // R51 — both resolve to null when absent (never reject); null paints nothing.
+      loadWeeklyBacktest(), loadParlayBacktest(),
+      // R81 — the replay lab; null paints the card's honest NOT PRESENT line.
+      loadReplayLab(),
+    ]);
   const meta = metaRes.status === 'fulfilled' ? metaRes.value : null;
   const tuning = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
   const odds = oddsRes.status === 'fulfilled' ? oddsRes.value : null;
@@ -1294,6 +1433,7 @@ export default async function mountModel(el) {
   const status = statusRes.status === 'fulfilled' ? statusRes.value : null;
   const weeklyBacktest = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
   const parlayBacktest = parlayRes.status === 'fulfilled' ? parlayRes.value : null;
+  const replayLab = replayRes.status === 'fulfilled' ? replayRes.value : null;
   // R51 — painted once; '' means the file is absent and the card is omitted.
   const weeklyHtml = weeklyGateCard(weeklyBacktest);
   const parlayHtml = parlayGateCard(parlayBacktest);
@@ -1333,6 +1473,10 @@ export default async function mountModel(el) {
     // sit before the status / forward-looking cards. Both omitted when absent.
     (weeklyHtml ? card('WEEKLY SPLIT GATE · CANDIDATE vs INCUMBENT', weeklyHtml, 'm-weekly-gate', 'measured') : '') +
     (parlayHtml ? card('PARLAY GATE · MONEYLINE · SPREAD · PROPS', parlayHtml, 'm-parlay-gate', 'measured') : '') +
+    // R81 — the measure-only replay bench, directly after the PARLAY GATE it
+    // reports beside. ALWAYS rendered: when the file is absent the card says so
+    // in one line, which is the honest state and not an omission.
+    card('REPLAY LAB · CANDIDATES vs SHIPPED', replayLabCard(replayLab), 'm-replay-lab', 'measured') +
     card('SEASON LOCKS', locksCard(tuning), 'm-locks') +
     card('PLAYOFF ODDS — OURS vs THE MARKETS', playoffsCard(odds, markets), 'm-playoffs', 'estimate') +
     card('SIGNAL REGISTRY', signalsCard(meta), 'm-signals') +

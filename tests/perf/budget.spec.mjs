@@ -224,6 +224,11 @@ const CONTRACT_ALLOWLIST = new Set([
   // pattern (isAllowedContract) and are fetched ONLY on a week-chip tap —
   // never on a cold mount, which the per-route ceilings below enforce.
   'parlays/index.json',
+  // R81 — the measure-only REPLAY LAB record (data/replay_lab.json, a few KB:
+  // five variant blocks of scalars, no per-leg or per-parlay arrays). Fetched
+  // by #/model only; a 404 resolves to null and the card paints its honest
+  // NOT PRESENT line, so the request is the whole cost either way.
+  'replay_lab.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week
@@ -271,7 +276,9 @@ const ROUTES = [
   { hash: '#/lineup', name: 'lineup', contracts: 7 },
   // R51 — 6 -> 8: the two backtest records join the model mount's allSettled
   // (a 404 is still one request, so the count holds with the files absent).
-  { hash: '#/model', name: 'model', contracts: 8 },
+  // R81 — 8 -> 9: data/replay_lab.json joins the same allSettled; same shape,
+  // same cost, and the card renders its honest state line on a 404.
+  { hash: '#/model', name: 'model', contracts: 9 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
   // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
   // LEAGUE tab reads the saved profile, the league id and the sync log from

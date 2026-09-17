@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "replay_lab.schema.json",
+  "title": "R81 parlay replay lab (measure only)",
+  "description": "scripts/replay_lab.py's replay of candidate parlay-improvement rules against the weeks already played. Every variant re-prices the SAME resolved legs from the inputs the ledger locked (mu, sd, z, line, p_team, side, market), and the archived parlays are re-combined with the builder's own arithmetic and re-settled with build_review's own money. This document REPORTS; it never adopts. There is no gate, no promotion path and no write from here to any calibration or slate artifact. Market numbers (implied_prob) appear only as the terms of the bet - the EV denominator and the leg decimal - and are never handed to a variant. A leg with no outcome is counted under its reason and never scored; with no resolved week every metric is null, never 0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "weeks_replayed",
+    "legs",
+    "baseline",
+    "variants",
+    "selection_rules",
+    "bootstrap",
+    "policy",
+    "limits",
+    "note"
+  ],
+  "properties": {
+    "season": {
+      "type": ["integer", "null"]
+    },
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "weeks_replayed": {
+      "type": "array",
+      "description": "The weeks that carry at least one resolved locked leg. Empty is a valid, honest document.",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "legs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_file", "locked", "unlocked", "resolved", "unresolved_by_reason"],
+      "properties": {
+        "on_file": { "type": "integer", "minimum": 0 },
+        "locked": { "type": "integer", "minimum": 0 },
+        "unlocked": { "type": "integer", "minimum": 0 },
+        "resolved": { "type": "integer", "minimum": 0 },
+        "unresolved_by_reason": {
+          "type": "object",
+          "description": "Every locked leg that did not resolve, counted under the resolver's own reason - or 'week_not_resolved' when the resolver has not reached that week at all. Absence is never a zero.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "baseline": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The variant every other one is measured against: 'shipped', the probability actually locked on the leg."
+    },
+    "variants": {
+      "type": "object",
+      "description": "One block per candidate rule. A future variant is one pure function plus one registry entry.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "legs", "parlays", "verdict", "note"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "legs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pooled", "by_week", "by_market", "skipped_legs", "changed_legs"],
+            "properties": {
+              "pooled": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["n", "hit_rate", "log_loss", "brier", "shipped_log_loss_same_legs", "delta_log_loss", "ci90", "verdict"],
+                "properties": {
+                  "n": { "type": "integer", "minimum": 0 },
+                  "hit_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                  "log_loss": { "type": ["number", "null"], "minimum": 0 },
+                  "brier": { "type": ["number", "null"], "minimum": 0 },
+                  "shipped_log_loss_same_legs": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "description": "The baseline's log-loss on EXACTLY the legs this variant priced - never on its own larger set."
+                  },
+                  "delta_log_loss": {
+                    "type": ["number", "null"],
+                    "description": "Mean per-leg log-loss difference (variant - shipped) on identical legs. Negative is better."
+                  },
+                  "ci90": {
+                    "type": ["array", "null"],
+                    "description": "90% paired-bootstrap interval of delta_log_loss. A verdict is claimed only when it excludes 0.",
+                    "items": { "type": "number" },
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "verdict": {
+                    "type": ["string", "null"],
+                    "enum": ["better", "worse", "same", null]
+                  }
+                }
+              },
+              "by_week": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["week", "n", "hit_rate", "log_loss", "brier", "shipped_log_loss_same_legs", "delta_log_loss", "ci90", "verdict"],
+                  "properties": {
+                    "week": { "type": "integer", "minimum": 0 },
+                    "n": { "type": "integer", "minimum": 0 },
+                    "hit_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                    "log_loss": { "type": ["number", "null"], "minimum": 0 },
+                    "brier": { "type": ["number", "null"], "minimum": 0 },
+                    "shipped_log_loss_same_legs": { "type": ["number", "null"], "minimum": 0 },
+                    "delta_log_loss": { "type": ["number", "null"] },
+                    "ci90": {
+                      "type": ["array", "null"],
+                      "items": { "type": "number" },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    "verdict": { "type": ["string", "null"], "enum": ["better", "worse", "same", null] }
+                  }
+                }
+              },
+              "by_market": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["n", "hit_rate", "log_loss", "brier", "shipped_log_loss_same_legs", "delta_log_loss", "ci90", "verdict"],
+                  "properties": {
+                    "n": { "type": "integer", "minimum": 0 },
+                    "hit_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+                    "log_loss": { "type": ["number", "null"], "minimum": 0 },
+                    "brier": { "type": ["number", "null"], "minimum": 0 },
+                    "shipped_log_loss_same_legs": { "type": ["number", "null"], "minimum": 0 },
+                    "delta_log_loss": { "type": ["number", "null"] },
+                    "ci90": {
+                      "type": ["array", "null"],
+                      "items": { "type": "number" },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    "verdict": { "type": ["string", "null"], "enum": ["better", "worse", "same", null] }
+                  }
+                }
+              },
+              "skipped_legs": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Resolved legs this variant legitimately could not price (e.g. outside the wide pool's measured support). Skipped loudly and counted - never zero-filled, never scored."
+              },
+              "changed_legs": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Legs whose probability this variant actually moved. 0 means the variant is the baseline on the legs resolved so far, and its 'same' verdict measures nothing."
+              }
+            }
+          },
+          "parlays": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["eligible", "excluded_by_reason", "rules"],
+            "properties": {
+              "eligible": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Archived parlays every leg of which resolved AND this variant priced. A parlay settled on a subset of its legs is not that parlay."
+              },
+              "excluded_by_reason": {
+                "type": "object",
+                "additionalProperties": { "type": "integer", "minimum": 0 }
+              },
+              "rules": {
+                "type": "object",
+                "description": "Selection replays on top of this variant. They choose among the parlays that were ACTUALLY BUILT; they cannot invent a parlay that was never on the slate.",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["n", "hit", "staked", "net_fair", "net_vig2", "roi_fair", "roi_vig2", "assumed_price_legs"],
+                  "properties": {
+                    "n": { "type": "integer", "minimum": 0 },
+                    "hit": { "type": "integer", "minimum": 0 },
+                    "staked": { "type": ["number", "null"], "minimum": 0 },
+                    "net_fair": { "type": ["number", "null"] },
+                    "net_vig2": { "type": ["number", "null"] },
+                    "roi_fair": { "type": ["number", "null"] },
+                    "roi_vig2": { "type": ["number", "null"] },
+                    "assumed_price_legs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Legs with no book price in the ledger, settled at build_review's assumed -110 (1.9091)."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "verdict": {
+            "type": ["string", "null"],
+            "enum": ["better", "worse", "same", null],
+            "description": "The pooled verdict. Null for the baseline, and null when nothing has resolved."
+          },
+          "note": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "selection_rules": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resamples", "seed", "ci_level", "statistic"],
+      "properties": {
+        "resamples": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer" },
+        "ci_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "statistic": { "type": "string", "minLength": 1 }
+      }
+    },
+    "policy": {
+      "type": "array",
+      "description": "The honesty rules this document is written under, in its own words. The first one must say the lab measures and never adopts.",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 20 }
+    },
+    "limits": {
+      "type": "array",
+      "description": "What this lab CANNOT replay, stated so nobody has to infer it. The first entry names the input-snapshot limit.",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 20 }
+    },
+    "note": { "type": "string", "minLength": 1 }
+  }
+}
