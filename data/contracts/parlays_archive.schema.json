@@ -126,6 +126,16 @@
                 "line": {
                   "type": "number",
                   "description": "Prop legs: the yardage line the leg is evaluated at."
+                },
+                "gsis_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "R77: prop legs, the player the leg is priced on (mirrors parlays.schema.json; the open week's archive is a verbatim copy of parlays.json)."
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": ["QUESTIONABLE"],
+                  "description": "R77: the one non-ACTIVE status a leg is priced WITH (mirrors parlays.schema.json)."
                 }
               }
             }

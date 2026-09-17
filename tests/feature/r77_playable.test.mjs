@@ -327,6 +327,26 @@ def real_teams(d):
     return d
 validate_against_schema(real_teams(doc), schema, "player_weekly.json")
 validate_against_schema(DEPTH, dc_schema, "depth_chart.json")
+# the two new leg fields must be accepted by BOTH parlay contracts: the open
+# week's archive (data/parlays/<season>_wk<NN>.json) is a verbatim copy of
+# parlays.json, and the pipeline's first R77 run failed exactly there
+# (2026-09-17, run 120: "additional property 'gsis_id' not allowed").
+legdoc = {"season": 2026, "week": 3, "updated_utc": "2026-09-17T00:00:00Z", "parlays": [{
+    "parlay_id": "p1", "scope": "game", "game_id": "G1", "legs": [
+        {"market": "wr_rec_yds", "selection": "Q. WR 60+ rec yds", "implied_prob": 0.5,
+         "model_prob": 0.55, "pricing": "calibrated", "estimate": True, "mu": 66.0,
+         "sd": 30.0, "z": 0.2, "line": 59.5, "gsis_id": "espn-5", "availability": "QUESTIONABLE"},
+        {"market": "moneyline", "selection": "SF ML", "implied_prob": 0.5, "model_prob": 0.6}],
+    "model_ev": 0.01, "combined_prob": 0.33, "implied_combined": 0.25,
+    "confidence_tier": "low", "estimate": True}]}
+for name in ("parlays.schema.json", "parlays_archive.schema.json"):
+    sch = _load(os.path.join("data", "contracts", name))
+    try:
+        validate_against_schema(legdoc, sch, name)
+    except ValidationError as exc:
+        # only leg-level complaints matter here; the fixture is not a full document
+        bad = [l for l in str(exc).splitlines() if "legs[" in l]
+        assert not bad, (name, bad)
 res["green"] = True
 # also green: QB1 out / promoted
 doc2 = build(inj=INJ + [{"team": "SFX", "player": "QB One", "status": "Doubtful"}])
