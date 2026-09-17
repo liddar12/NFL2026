@@ -205,26 +205,35 @@ test('the SLATE keeps its own ellipsized leg name — R82 is scoped to MY', () =
   assert.match(base, /text-overflow:\s*ellipsis/);
 });
 
-test('the MY grid uses a 360px minimum column at BOTH desktop breakpoints', () => {
+test('the MY grid is TWO columns on desktop, from one rule (R82 minimum, R86 count)', () => {
+  // R82 pinned a 360px auto-fill minimum at two breakpoints, which fixed the
+  // wrapped foot (the 300px inherited minimum fits FOUR 318px columns on the
+  // 1320px canvas and the .p-foot EV cell wrapped: .legcount 15.9px -> 31.9px at
+  // 1440px and 1100px). R86 keeps that outcome and pins the COUNT instead:
+  // auto-fill gave three columns at 1395px, which splits the five leg-count
+  // PAIRS the list is built as across rows, and R82's equal-height rows then
+  // opened an 83px void under the shorter card's legs. Two columns == one
+  // leg-count band per row. The 1200px override is gone; a third column is the
+  // fault, so there is nothing left for it to say.
   const rules = [...CSS.matchAll(/#mp-list\.card-list\s*\{([^}]*)\}/g)].map((m) => m[1]);
-  assert.equal(rules.length, 2,
-    `expected two #mp-list.card-list rules (the 820px and 1200px breakpoints), `
-    + `found ${rules.length}`);
-  for (const [i, body] of rules.entries()) {
-    assert.match(body, /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(360px,\s*1fr\)\)/,
-      `#mp-list.card-list rule ${i} must pin a 360px minimum column. At the `
-      + 'inherited 300px the 1320px canvas fits FOUR 318px columns and the '
-      + '.p-foot EV cell wraps to a second line (measured: .legcount 15.9px -> '
-      + '31.9px at 1440px and 1100px). 360px gives 3-up at 1320px, 2-up at '
-      + '~800-1100px, and a foot that fits. R82.');
-    assert.ok(!/minmax\(3[02]0px/.test(body),
-      `#mp-list.card-list rule ${i} still carries the old 300/320px minimum`);
-  }
-  // both must sit inside a min-width media query, not leak to the phone
-  for (const w of ['820px', '1200px']) {
-    const at = CSS.indexOf(`@media (min-width: ${w})`);
-    assert.ok(at >= 0, `@media (min-width: ${w}) block missing`);
-  }
+  assert.equal(rules.length, 1,
+    `expected ONE #mp-list.card-list rule after R86, found ${rules.length}`);
+  assert.match(rules[0], /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    '#mp-list.card-list must be repeat(2, minmax(0, 1fr))');
+  assert.ok(!/auto-fill/.test(rules[0]),
+    '#mp-list.card-list must not go back to auto-fill — the column COUNT is the '
+    + 'property R86 locks, and auto-fill cannot express it');
+  assert.ok(!/minmax\(3[026]0px/.test(rules[0]),
+    '#mp-list.card-list still carries a pixel minimum; minmax(0, 1fr) is what '
+    + 'lets two columns hold at 820px as well as 1600px');
+  // and it must sit inside a min-width media query, not leak to the phone
+  assert.ok(CSS.indexOf('@media (min-width: 820px)') >= 0,
+    '@media (min-width: 820px) block missing');
+  const at = CSS.indexOf('#mp-list.card-list');
+  const media = CSS.lastIndexOf('@media (min-width: 820px)', at);
+  assert.ok(media >= 0 && CSS.slice(media, at).indexOf('\n}') < 0,
+    'the two-column rule must stay inside the 820px block — one column is right '
+    + 'on a phone, where the cards are a single scrolling list');
 });
 
 test('the SLATE grid keeps its own 320/300px columns', () => {

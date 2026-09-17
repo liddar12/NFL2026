@@ -202,6 +202,12 @@ export const RESET_ALL_KEYS = Object.freeze([
   MOCKS_KEY,         // draft history + auction room memory (v2)
   MOCKS_KEY_V1,      // the legacy history key the migration reads
   'nfl2026.theme.v1', // the retired R31 theme choice
+  // R86 — the MY PARLAYS risk dial (SAFE/EVEN/LONGSHOT). Spelled out rather
+  // than imported: app/views/myparlays.js is lazy-only by budget (it carries
+  // the ~294 KB leg pool behind it) and importing it here would put a static
+  // edge from this view onto a module the perf budget keeps off every graph
+  // but the MY tap's own.
+  'nfl2026.myparlays.dial.v1',
 ]);
 
 /** The ambient localStorage, or null when unavailable/blocked. Same defensive

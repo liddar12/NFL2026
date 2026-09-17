@@ -10,9 +10,20 @@
  *
  * WHAT IT DOES. You type one or more players or teams. Every card it offers
  * contains at least one of them; the rest of each card is filled from the pool
- * by conviction, subject to the rules below. Ten cards, two at each leg count
+ * by conviction among the legs the risk dial admits, subject to the rules below. Ten cards, two at each leg count
  * from 2 to 6 — ranked purely by conviction a 2-leg card always wins, so the
  * leg-count bands are what make the list worth reading.
+ *
+ * ONE LINE PER PLAYER, CHOSEN BY A RISK DIAL (R86). The ladder a player carries
+ * is a set of NESTED events — clearing 60 clears 20 — so his most probable rung
+ * is always his lowest line. Letting every rung compete for a conviction ranking
+ * therefore had exactly one answer: measured on the committed pool before R86,
+ * 1,280 of 1,280 prop legs across all 32 team seeds sat on the ladder floor,
+ * mean model probability 0.906, and the best 2-leg card in the product paid about
+ * +$10 on a $100 simulation. dialLegs keeps ONE rung per player before the search
+ * — the rung nearest the dial's target probability (SAFE 0.65, EVEN 0.50 default,
+ * LONGSHOT 0.35), ties to the higher line. The dial re-prices nothing: it only
+ * decides which already-calibrated rung is eligible.
  *
  * RANKED BY CONVICTION, NOT EV, and that is forced rather than chosen. There is
  * no player-prop odds feed, so a prop leg's implied price is our own number plus
@@ -53,6 +64,20 @@ const PER_COUNT = 2;          // two cards per leg count -> ten cards
 const BEAM = 24;              // partial cards kept at each step
 const POOL_CAP = 220;         // strongest non-seed legs considered, by conviction
 const STAKE = 100;
+
+/* R86 — the risk dial. Target MODEL probability for a leg. For a player it picks
+ * the rung nearest the target, which is the only rung of his ladder the search
+ * ever sees; for a game leg, which has no ladder to pick from, it is a BAND: keep
+ * the leg only when it is within GAME_LEG_BAND of the target. Without the band a
+ * 77% moneyline out-convicts every ~50% prop and MY stops being about the players
+ * you typed — measured at EVEN before the band, 905 of the 1,280 legs on cards
+ * were game legs. These are difficulty bands over legs the calibration already
+ * priced, not new prices. */
+export const DIALS = { safe: 0.65, even: 0.50, longshot: 0.35 };
+export const GAME_LEG_BAND = 0.15;
+export const DEFAULT_DIAL = 'even';
+const DIAL_ORDER = [['safe', 'SAFE'], ['even', 'EVEN'], ['longshot', 'LONGSHOT']];
+const DIAL_KEY = 'nfl2026.myparlays.dial.v1';
 
 export function upcomingLegs(legs, games, now = Date.now()) {
   const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
@@ -103,6 +128,50 @@ export function poolLegs(pool) {
     out.push(leg);
   }
   return out;
+}
+
+/** A prop leg: an unpriced rung owned by a PLAYER. Game legs own a `team:` id. */
+const isPropLeg = (leg) => !leg.priced && leg.owner && !String(leg.owner).startsWith('team:');
+
+/**
+ * R86 — the dial, applied to EVERY leg.
+ *
+ * A PLAYER has a ladder, so the dial PICKS: one rung per player, the one whose
+ * model probability is nearest `target`. Ties go to the HIGHER line — 0.55 and
+ * 0.45 are equidistant from EVEN, the higher line is the harder bet, and pinning
+ * the tie-break stops the selection depending on the order the pool happens to be
+ * flattened in.
+ *
+ * A GAME LEG has no ladder, so the dial FILTERS: keep it only when its model
+ * probability is within GAME_LEG_BAND of the target. A moneyline is one fixed
+ * number; leaving every one of them eligible meant conviction ranking took the
+ * heaviest favourite in the league ahead of any leg the dial had just chosen, and
+ * the cards filled with moneylines instead of the players you typed. The band is
+ * the same question asked of a leg that cannot be re-chosen: is this the
+ * difficulty you asked for?
+ *
+ * Pure: it neither mutates the legs nor re-prices them, and it returns a new
+ * array in the input's order. Nothing here touches a price: the dial only decides
+ * which already-calibrated leg is eligible.
+ */
+export function dialLegs(legs, target) {
+  const t = Number(target);
+  const chosen = new Map();
+  for (const leg of legs || []) {
+    if (!isPropLeg(leg)) continue;
+    const cur = chosen.get(leg.owner);
+    if (!cur) { chosen.set(leg.owner, leg); continue; }
+    const d = Math.abs(leg.model_prob - t);
+    const dCur = Math.abs(cur.model_prob - t);
+    if (d < dCur || (d === dCur && Number(leg.line) > Number(cur.line))) chosen.set(leg.owner, leg);
+  }
+  // The band edge is INCLUSIVE, and binary floating point has to be told so:
+  // |0.65 - 0.50| evaluates to 0.15000000000000002, which would silently drop the
+  // leg that sits exactly on the edge the legend promises.
+  const inBand = (p) => Math.abs(Number(p) - t) - GAME_LEG_BAND <= 1e-9;
+  return (legs || []).filter((leg) => (isPropLeg(leg)
+    ? chosen.get(leg.owner) === leg
+    : inBand(leg.model_prob)));
 }
 
 /** Seed suggestions: every player and every team the pool can actually price. */
@@ -292,7 +361,31 @@ export function renderCard(card, i) {
 
 /* ---- mount -------------------------------------------------------------- */
 
-const state = { seeds: [], pool: null, table: null, legs: null };
+const state = { seeds: [], pool: null, table: null, legs: null, dial: DEFAULT_DIAL };
+
+/* The dial is a per-VIEWER preference, not data: it says which of his own legs a
+ * person wants to look at. localStorage throws outright in Safari private mode,
+ * so every touch is guarded and an unreadable store simply means EVEN. */
+function readDial() {
+  try {
+    const v = localStorage.getItem(DIAL_KEY);
+    if (v && Object.prototype.hasOwnProperty.call(DIALS, v)) return v;
+  } catch { /* private mode, blocked storage: the default is honest */ }
+  return DEFAULT_DIAL;
+}
+
+function writeDial(v) {
+  try { localStorage.setItem(DIAL_KEY, v); } catch { /* nothing to do, nothing lost */ }
+}
+
+/** The three risk chips, reusing the leg-chip pill the leg-count selector uses. */
+function renderDial() {
+  return DIAL_ORDER.map(([key, label]) => {
+    const on = state.dial === key;
+    return `<button type="button" class="leg-chip${on ? ' leg-chip--active' : ''}" `
+      + `data-dial="${key}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`;
+  }).join('');
+}
 
 function renderSeeds() {
   if (!state.seeds.length) return '';
@@ -305,7 +398,9 @@ function renderSeeds() {
 function paint(el) {
   const list = el.querySelector('#mp-list');
   const seedBox = el.querySelector('#mp-seeds');
+  const dialBox = el.querySelector('.mp-dial');
   if (seedBox) seedBox.innerHTML = renderSeeds();
+  if (dialBox) dialBox.innerHTML = renderDial();
   if (!list) return;
   if (!state.seeds.length) {
     list.innerHTML = '<div class="state">Type a player or a team above — every card '
@@ -313,11 +408,28 @@ function paint(el) {
     return;
   }
   const eligible = upcomingLegs(state.legs, state.games);
-  const cards = buildCards(eligible, state.seeds, state.table);
-  list.innerHTML = cards.length
-    ? cards.map(renderCard).join('')
-    : '<div class="state">No upcoming card is available for those names. Started, finished, '
-      + 'or unverified events are excluded.</div>';
+  // R86 — the dial narrows each player's ladder to ONE rung BEFORE the search, so
+  // conviction ranks legs of comparable difficulty instead of racing to the floor.
+  const target = DIALS[state.dial] != null ? DIALS[state.dial] : DIALS[DEFAULT_DIAL];
+  const cards = buildCards(dialLegs(eligible, target), state.seeds, state.table);
+  if (!cards.length) {
+    list.innerHTML = '<div class="state">No upcoming card is available for those names. Started, '
+      + 'finished, or unverified events are excluded.</div>';
+    return;
+  }
+  // The list is built as leg-count PAIRS; the eyebrow says so, once per band,
+  // instead of every card repeating its own count in isolation.
+  const html = [];
+  let band = null;
+  cards.forEach((card, i) => {
+    const n = card.legs.length;
+    if (n !== band) {
+      band = n;
+      html.push(`<div class="mp-band" role="heading" aria-level="3">${n} LEGS</div>`);
+    }
+    html.push(renderCard(card, i));
+  });
+  list.innerHTML = html.join('');
 }
 
 /**
@@ -342,6 +454,7 @@ export default async function mountMyParlays(el) {
     return null;
   }
   state.pool = poolR.value;
+  state.dial = readDial();          // R86 — the viewer's own risk band, or EVEN
   state.games = scheduleR.status === 'fulfilled' ? scheduleR.value?.games || [] : [];
   state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
   state.legs = poolLegs(state.pool);
@@ -358,9 +471,14 @@ export default async function mountMyParlays(el) {
       + `<datalist id="mp-opts">${options.map((o) => `<option value="${esc(o.name)}">`).join('')}</datalist>`
     + '</div>'
     + '<div id="mp-seeds"></div>'
+    + '<div class="mp-dial" role="group" aria-label="Risk dial"></div>'
     + `<div class="legend" id="mp-note"><span class="legend-item"><b>CONVICTION</b> our `
-      + `combined probability the whole card hits. Cards are ranked by model hit chance `
-      + `within each leg count, never by payout. Search is approximate, not a guaranteed optimum. `
+      + `combined probability the whole card hits. Cards carry ONE line per player, chosen by `
+      + `the RISK dial above (SAFE \u2248 65%, EVEN \u2248 50%, LONGSHOT \u2248 35% model chance per leg). `
+      + `The dial applies to EVERY leg: a moneyline or spread is only offered when its own model `
+      + `chance is within 15 points of the dial. Cards are ranked by model hit chance within that `
+      + `dial, never by payout. `
+      + `Search is approximate, not a guaranteed optimum. `
       + `At most two legs per game are supported</span>`
       + `<span class="legend-item"><b>$100 SIM NET</b> hypothetical profit, excluding the stake, `
       + `using the independent product of displayed IMPL assumptions. Not a sportsbook quote or actual wager</span>`
@@ -379,6 +497,13 @@ export default async function mountMyParlays(el) {
   };
   input.addEventListener('change', add);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  el.querySelector('.mp-dial').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dial]');
+    if (!btn || btn.dataset.dial === state.dial) return;
+    state.dial = btn.dataset.dial;
+    writeDial(state.dial);
+    paint(el);
+  });
   el.querySelector('#mp-seeds').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-drop]');
     if (!btn) return;
