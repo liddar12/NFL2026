@@ -148,6 +148,12 @@ SCHEMA_TO_DATA = {
     # R79 — the posted game-day inactive lists inside the window; absent by
     # design outside it (build_predictions removes the file).
     "inactives.schema.json": "inactives.json",
+    # R81 — the PARLAY REPLAY LAB (scripts/replay_lab.py): candidate parlay
+    # rules replayed against the weeks already played. MEASURE ONLY — nothing
+    # in it is adopted and nothing in it writes a shipped number. Runner-built
+    # after the leg resolver, so OPTIONAL like its neighbours; a 0-resolved-week
+    # document is valid and carries nulls, never zeros.
+    "replay_lab.schema.json": "replay_lab.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -205,6 +211,9 @@ OPTIONAL_DATA = frozenset([
     "depth_chart.json",
     # R79 — present only while a game is inside the inactives window.
     "inactives.json",
+    # R81 — the replay lab, written by the daily runner right after the parlay-leg
+    # resolver; absent on a clone that has never run it, strict when present.
+    "replay_lab.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,

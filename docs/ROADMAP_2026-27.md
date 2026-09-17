@@ -204,6 +204,16 @@ nothing ships without one.
   so a stale list can never gate a later game. Validator rule 9: no silent inactive.
 - **MoS:** 0 not-playable players with a leg in `parlays.json` / `leg_pool.json`, 0 not-playable
   players carrying points on the current week — asserted by the gate on every run. · **LOE** 1 d
+- **R81 · Replay lab — built 2026-09-17; measure-only.** `scripts/replay_lab.py` →
+  `data/replay_lab.json` replays candidate parlay rules (`seed`, `pool_calibration`,
+  `spread_margin_model`, `shrink_to_half`) against the weeks already played, on the legs that were
+  actually locked, with a paired bootstrap CI per variant and the archived parlays re-combined by
+  the builder's own arithmetic and re-settled by `build_review`'s own money. **A variant is
+  reported, never adopted**: no gate, no promotion path, and the only file it writes is its own
+  record. Runs every pipeline run after the leg resolver; shown on the MODEL tab as
+  `REPLAY LAB · CANDIDATES vs SHIPPED`. Week 1 (69 legs): `spread_margin_model` is `worse`
+  (the retired spread rule loses to shipped, CI excludes 0); every other candidate `same`.
+  See `docs/REPLAY_LAB.md`. · **LOE** 1 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

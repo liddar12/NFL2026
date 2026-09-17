@@ -87,13 +87,17 @@ test.describe('R51 — WEEKLY SPLIT GATE + PARLAY GATE on #/model', () => {
     await expect(weekly.locator('.state')).toHaveCount(0);
     await expect(parlay.locator('.state')).toHaveCount(0);
 
-    // Order: … CALIBRATION → WEEKLY SPLIT GATE → PARLAY GATE → SEASON LOCKS …
+    // Order: … CALIBRATION → WEEKLY SPLIT GATE → PARLAY GATE → REPLAY LAB →
+    // SEASON LOCKS … (R81 inserted the measure-only replay bench directly after
+    // the PARLAY GATE it reports beside; unlike the two gate cards it is ALWAYS
+    // present, because "the file is absent" is itself a state it states.)
     const order = await cardOrder(page);
     const i = (c) => order.indexOf(c);
     expect(i('m-cal')).toBeGreaterThan(-1);
     expect(i('m-weekly-gate')).toBe(i('m-cal') + 1);
     expect(i('m-parlay-gate')).toBe(i('m-weekly-gate') + 1);
-    expect(i('m-locks')).toBe(i('m-parlay-gate') + 1);
+    expect(i('m-replay-lab')).toBe(i('m-parlay-gate') + 1);
+    expect(i('m-locks')).toBe(i('m-replay-lab') + 1);
 
     // WEEKLY SPLIT GATE — header, MEASURED stamp, ADOPTED chip, the numbers.
     await expect(weekly.locator('.m-head')).toContainText('WEEKLY SPLIT GATE');

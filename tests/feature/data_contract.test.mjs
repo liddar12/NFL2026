@@ -140,6 +140,10 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // because the feature IS searching it; app/parlay-math.js, which only does
     // arithmetic over legs handed to it, deliberately names no contract at all.
     '/data/leg_pool.json',
+    // R81 — app/views/model.js: the measure-only REPLAY LAB record, read
+    // through the same resolve-to-null-on-404 loader as the two R51 backtest
+    // records. Reporting only; nothing it carries is ever adopted.
+    '/data/replay_lab.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {
