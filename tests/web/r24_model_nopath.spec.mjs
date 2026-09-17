@@ -44,6 +44,18 @@ test('the shipped artifact actually carries the distinction the chip renders', (
   expect(canApply.length, 'artifact has at least one appliable family').toBeGreaterThan(0);
 });
 
+/* R78 — the MODEL tab is passphrase-gated (obscurity, not security: the data
+ * feeds stay public, only the VIEW hides). Any spec that drives #/model seeds
+ * the unlock digest so it exercises the dashboard, not the lock card. The
+ * gate's own behaviour is covered by tests/web/r78_model_lock.spec.mjs. */
+const unlockModel = (page) => page.addInitScript(() => {
+  try {
+    localStorage.setItem('nfl2026.model.unlock.v1', '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b');
+  } catch (_) { /* storage blocked — the spec will show the lock card and fail loudly */ }
+});
+
+test.beforeEach(async ({ page }) => { await unlockModel(page); });
+
 // R51: the WEEKLY SPLIT GATE and PARLAY GATE cards reuse .gate-row/.gate-note, so every
 // locator here is scoped to the promotion-gate card (.m-gate), as web.spec.mjs already does.
 test('a non-appliable family renders NO PATH, and an appliable one never does',

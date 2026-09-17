@@ -38,6 +38,10 @@ export const ROUTES = [
 /** Init script: unlock the password gate + install the in-page recorder. */
 export const INIT_SCRIPT = `
 try { localStorage.setItem('nfl2026.unlock.v1', '1'); } catch (_) {}
+// R78 — #/model is passphrase-gated (obscurity, not security). A LOCKED model
+// route fetches zero contracts and paints one card, so measuring it locked would
+// report a mount cost the owner never pays. Seed the unlock digest.
+try { localStorage.setItem('nfl2026.model.unlock.v1', '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b'); } catch (_) {}
 (() => {
   const R = {
     longTasks: [],

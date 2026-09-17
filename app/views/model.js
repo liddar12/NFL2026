@@ -58,6 +58,64 @@ function esc(v) {
     .replace(/'/g, '&#39;');
 }
 
+/* ---- R78: the MODEL tab passphrase gate -------------------------------------
+ * OBSCURITY, NOT SECURITY — stated plainly so nobody mistakes it for access
+ * control. This is a public static site with no server: /data/*.json stays
+ * world-readable, this module ships to every visitor, and anyone who opens
+ * devtools can set the unlock key by hand. The gate hides the VIEW so the
+ * MODEL section is not something a casual visitor stumbles into; it protects
+ * nothing at the HTTP layer and must never be described as if it did. (Real
+ * protection would be Netlify password protection in front of the origin.)
+ *
+ * Only the SHA-256 of the owner's passphrase lives here — the plaintext is
+ * never written into the repo, in code, tests, comments or docs. Rotating the
+ * passphrase is a one-line edit to the digest below (every unlocked browser
+ * re-locks, because the stored value IS the digest).
+ */
+export const MODEL_LOCK_KEY = 'nfl2026.model.unlock.v1';
+export const MODEL_PASS_SHA256 = '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b';
+
+/** Lowercase hex SHA-256 of `text`. Needs a secure context (crypto.subtle);
+ * Node 22 exposes the same API on globalThis.crypto, so this is unit-testable. */
+export async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(String(text == null ? '' : text));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** True iff this browser has already unlocked. A storage that throws (private
+ * mode, blocked cookies) or is absent reads as LOCKED — never as unlocked. */
+export function isModelUnlocked(storage) {
+  try {
+    return storage.getItem(MODEL_LOCK_KEY) === MODEL_PASS_SHA256;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** The view header, shared by the locked and unlocked renders so the tab keeps
+ * its identity (and its title) whichever one is painted. */
+const MODEL_HEAD =
+  '<header class="view-head">' +
+    '<h1 class="view-title">MODEL</h1>' +
+    '<span class="view-sub">WHAT THE AI HAS LEARNED · FULL TRANSPARENCY</span>' +
+  '</header>';
+
+/** The locked view: the MODEL header plus one card carrying the passphrase
+ * form. `msg` (optional) paints an alert line under it. Pure — unit-tested. */
+export function renderLockCard(msg) {
+  return MODEL_HEAD +
+    '<section class="card mcard m-lock">' +
+      '<div class="m-explain">This section is for the owner. Enter the passphrase.</div>' +
+      '<form class="m-lock-form">' +
+        '<input class="mp-input" type="password" name="pass" ' +
+          'autocomplete="current-password" aria-label="Passphrase" placeholder="Passphrase">' +
+        '<button type="submit" class="mp-btn">UNLOCK</button>' +
+      '</form>' +
+      (msg ? `<div class="m-lock-msg" role="alert">${esc(msg)}</div>` : '') +
+    '</section>';
+}
+
 /** Percent with one decimal ("15.0%"); '—' for non-finite. */
 export function fmtPct(p) {
   const n = Number(p);
@@ -606,7 +664,36 @@ function signalsCard(meta) {
   );
 }
 
-function playoffsCard(odds, markets) {
+/** "as of <stamp>" for the PLAYOFF ODDS card. `updated_utc` is written by the
+ * season simulator on every pipeline run; an artifact without it says so rather
+ * than inventing a time (absent is not "now"). Pure — unit-tested. */
+export function asofLine(odds) {
+  const raw = odds && odds.updated_utc;
+  const t = raw ? Date.parse(raw) : NaN;
+  const sims = Number(odds && odds.sims);
+  const simsTxt = Number.isFinite(sims) ? sims.toLocaleString('en-US') : '0';
+  const stamp = Number.isFinite(t)
+    ? `as of <time datetime="${esc(raw)}">${new Date(t).toISOString().slice(0, 10)} `
+      + `${new Date(t).toISOString().slice(11, 16)} UTC</time>`
+    : 'as of — (no timestamp in playoff_odds.json)';
+  return `<div class="m-asof">${stamp} · refreshed on every pipeline run `
+    + `(${simsTxt} simulated seasons)</div>`;
+}
+
+/** " KALSHI: no priced events in the latest feed." for each market column that
+ * came back with ZERO rows. An empty column is a feed fact, not a modelling
+ * one, and the card has to say which — a blank column otherwise reads as
+ * "the market has no opinion". Pure. */
+export function emptyMarketNote(markets) {
+  const f = (markets && markets.futures) || {};
+  const rows = (k) => (Array.isArray(f[k]) ? f[k].length : 0);
+  return [['kalshi', 'KALSHI'], ['polymarket', 'POLYMKT']]
+    .filter(([key]) => rows(key) === 0)
+    .map(([, label]) => ` ${label}: no priced events in the latest feed.`)
+    .join('');
+}
+
+export function playoffsCard(odds, markets) {
   if (!odds || !odds.teams) {
     return state('Playoff odds unavailable — the season simulator has not run on this deploy.');
   }
@@ -632,9 +719,11 @@ function playoffsCard(odds, markets) {
     '</div>'
   )).join('');
   return (
+    asofLine(odds) +
     `<div class="m-explain">${esc(`Simulated from OUR fitted Elo (${(odds.sims || 0).toLocaleString()} seasons, simplified tiebreakers) — no market input. `)}` +
       'KALSHI / POLYMKT columns are the markets\' Super Bowl prices for comparison ' +
-      '<span class="ms-badge">MARKET · DISPLAY ONLY</span></div>' +
+      '<span class="ms-badge">MARKET · DISPLAY ONLY</span>' +
+      esc(emptyMarketNote(markets)) + '</div>' +
     head + rows
   );
 }
@@ -1156,6 +1245,42 @@ export function parlayGateCard(doc) {
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountModel(el) {
+  /* R78 — the passphrase gate, FIRST: a locked view must not fetch a single
+   * model contract (the network tab is a view too). Obscurity, not security —
+   * see MODEL_PASS_SHA256 above. */
+  if (!isModelUnlocked(typeof localStorage === 'undefined' ? null : localStorage)) {
+    const paint = (msg) => {
+      el.innerHTML = renderLockCard(msg);
+      const form = el.querySelector('.m-lock-form');
+      const input = el.querySelector('.mp-input');
+      if (input) input.focus();
+      if (!form) return;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        let hex = '';
+        try {
+          hex = await sha256Hex((input && input.value) || '');
+        } catch (_) {
+          // No crypto.subtle: an insecure context or a very old browser. Say so
+          // and stay locked — never fall through to an unlocked render.
+          paint('Passphrase check needs a secure (https) page.');
+          return;
+        }
+        if (hex === MODEL_PASS_SHA256) {
+          try { localStorage.setItem(MODEL_LOCK_KEY, MODEL_PASS_SHA256); } catch (_) { /* session-only */ }
+          mountModel(el);
+        } else {
+          paint('Wrong passphrase.');
+        }
+      });
+    };
+    // crypto.subtle is absent outside a secure context; the form could never
+    // succeed there, so the card says why up front instead of failing silently.
+    const subtle = (typeof crypto !== 'undefined' && crypto && crypto.subtle) || null;
+    paint(subtle ? undefined : 'Passphrase check needs a secure (https) page.');
+    return;
+  }
+
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
   const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes] = await Promise.allSettled([
     getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
@@ -1195,10 +1320,7 @@ export default async function mountModel(el) {
   );
 
   el.innerHTML =
-    '<header class="view-head">' +
-      '<h1 class="view-title">MODEL</h1>' +
-      '<span class="view-sub">WHAT THE AI HAS LEARNED · FULL TRANSPARENCY</span>' +
-    '</header>' +
+    MODEL_HEAD +
     card('DATA FRESHNESS · FEEDS & UPDATE SCHEDULE',
       freshnessCard(status, Date.now()), 'm-fresh', 'measured') +
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params', 'estimate') +

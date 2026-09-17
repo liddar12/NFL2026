@@ -38,6 +38,20 @@ async function goRoute(page, hash) {
   );
 }
 
+/* R78 — the MODEL tab is passphrase-gated (obscurity, not security: the data
+ * feeds stay public, only the VIEW hides). Several describes below drive
+ * #/model, so every page in this file is seeded unlocked and they exercise the
+ * dashboard rather than the lock card. The gate's own behaviour — including
+ * that a LOCKED #/model fetches nothing — lives in tests/web/r78_model_lock.spec.mjs.
+ * The key is inert on every other route. */
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('nfl2026.model.unlock.v1', '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b');
+    } catch (_) { /* storage blocked — #/model would show the lock card and fail loudly */ }
+  });
+});
+
 test.describe('web (in-browser) experience', () => {
   test('app shell renders and reports display-mode: browser', async ({ page }) => {
     await page.goto('/');
