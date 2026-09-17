@@ -119,6 +119,10 @@ const STAKE_NONE = {
 function reviewDoc({ curStake = STAKE_CUR } = {}) {
   const pastRows = reviewRows(archiveDoc().parlays);
   const curRows = reviewRows(currentDoc().parlays);
+  if (curStake === STAKE_NONE) curRows.forEach((r) => {
+    r.result = r.bucket = 'pending';
+    r.legs.forEach((l) => { l.result = 'pending'; });
+  });
   const empty = { picks: { n: 16, won: 0, pct: null, brier: null, right: 0, wrong: 0, tbd: 16 },
     learning: { graded_locks: 0, refit: null, note: 'no FINAL yet' },
     players: { n: 0, over: 0, under: 0, met: 0, dnp: 0, band_coverage: null } };
@@ -157,6 +161,16 @@ function collectData(page) {
 }
 const cardIds = (page) => page.locator('.card.parlay').evaluateAll((els) => els.map((e) => e.dataset.parlayId));
 
+// Assert the rendered total against the actual simulated cards, not stale fixture totals.
+async function expectSimulationTotal(page) {
+  const net = await page.locator('.card.parlay[data-rv-pay-kind="settled"]').evaluateAll(
+    (cards) => cards.reduce((n, c) => n + Number(c.dataset.rvPay), 0));
+  const rounded = Math.round(net);
+  const formatted = `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}$${Math.abs(rounded).toLocaleString('en-US')}`;
+  await expect(page.locator('#parlay-pnl .rv-pnl-line')).toContainText(`SIM NET ${formatted}`);
+  await expect(page.locator('#parlay-pnl .rv-pnl-line')).toContainText('not actual betting returns');
+}
+
 test.describe('R73 — PARLAYS week chips + history', () => {
   test('default week is parlays.json\'s (stale index ignored); chips from the index; archive never fetched cold', async ({ page }) => {
     const errors = collectErrors(page);
@@ -169,7 +183,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${CUR}"]`)).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-selected', 'false');
     await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveClass(/pw-wk--closed/);
-    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · MODEL EV`);
+    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);
     await expect(page.locator('.view-sub .pw-archived')).toHaveCount(0);
     // the current list is parlays.json's (no "-a" ids)
     const ids = await cardIds(page);
@@ -177,9 +191,8 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     expect(ids.every((id) => !id.endsWith('-a'))).toBe(true);
     // the P&L line renders for the current week too once it has graded parlays
     await page.waitForSelector('#parlay-pnl .rv-pnl', { timeout: 15000 });
-    await expect(page.locator('#parlay-pnl .rv-pnl-line')).toHaveText(
-      `WEEK ${CUR} · 2/4 hit · +$280 at $100 flat (book vig 2%/leg; fair +$310)`);
-    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toHaveText('1 leg priced at -110 (no book price)');
+    await expectSimulationTotal(page);
+    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
     // under the bucket card, above the list
     expect(await page.evaluate(() => {
       const b = document.querySelector('#parlay-buckets');
@@ -210,7 +223,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
 
     await page.click(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`);
     await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.view-sub')).toContainText(`WEEK ${WEEK} · MODEL EV`);
+    await expect(page.locator('.view-sub')).toContainText(`WEEK ${WEEK} · SIM EV`);
     await expect(page.locator('.view-sub .pw-archived')).toHaveText('ARCHIVED');
     await page.waitForSelector('.card.parlay[data-parlay-id$="-a"]', { timeout: 15000 });
     // every painted card is the archive's
@@ -233,10 +246,8 @@ test.describe('R73 — PARLAYS week chips + history', () => {
       await expect(page.locator(`.rv-bucket[data-bucket="${b}"] .rv-bucket-n`)).toHaveText(String(counts[b]));
     }
     await expect(page.locator(`#parlay-pnl .rv-pnl[data-week="${WEEK}"][data-scope="game"]`)).toHaveCount(1);
-    await expect(page.locator('#parlay-pnl .rv-pnl')).toHaveClass(/rv-pnl--neg/);
-    await expect(page.locator('#parlay-pnl .rv-pnl-line')).toHaveText(
-      `WEEK ${WEEK} · 12/40 hit · 1 push · −$1,250 at $100 flat (book vig 2%/leg; fair −$820)`);
-    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toHaveText('7 legs priced at -110 (no book price)');
+    await expectSimulationTotal(page);
+    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
     // the R51 leg annotations still ride the archived cards
     await expect(page.locator('.card.parlay .leg-noedge').first()).toHaveText('NO EDGE');
 
@@ -251,10 +262,8 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     // WEEK scope on the past week: the P&L line follows the scope; leg-count chips filter
     await page.click('.seg-btn[data-seg="week"]');
     await expect(page.locator('#parlay-pnl .rv-pnl[data-scope="week"]')).toHaveCount(1);
-    await expect(page.locator('#parlay-pnl .rv-pnl')).toHaveClass(/rv-pnl--pos/);
-    await expect(page.locator('#parlay-pnl .rv-pnl-line')).toHaveText(
-      `WEEK ${WEEK} · 16/18 hit · +$10,200 at $100 flat (book vig 2%/leg; fair +$11,564)`);
-    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toHaveCount(0);
+    await expectSimulationTotal(page);
+    await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
     const weekRows = pastRows.filter((p) => p.scope === 'week');
     await expect(page.locator('.card.parlay')).toHaveCount(weekRows.length);
     await page.waitForSelector('.leg-chip[data-leg="3"]', { timeout: 5000 });
@@ -270,7 +279,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
 
     // back to the current week: no refetch, the current ids, filters reset, current P&L
     await page.click(`.pw-wkbar .wk-chip[data-wk="${CUR}"]`);
-    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · MODEL EV`);
+    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);
     await expect(page.locator('.view-sub .pw-archived')).toHaveCount(0);
     await page.waitForSelector('.card.parlay:not([data-parlay-id$="-a"])', { timeout: 15000 });
     const back = await cardIds(page);
@@ -296,7 +305,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 15000 });
     await expect(page.locator('.pw-wkbar')).toHaveCount(0);
     await expect(page.locator('.wk-chip')).toHaveCount(0);
-    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · MODEL EV`);
+    await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);
     await expect(page.locator('#parlay-pnl .rv-pnl')).toHaveCount(0);
     expect((await cardIds(page)).length).toBe(PARLAYS.parlays.filter((p) => p.scope !== 'week').length);
     expect(errors).toEqual([]);
@@ -311,7 +320,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await page.waitForSelector('#parlays-list .state:not(.state--loading)', { timeout: 15000 });
     await expect(page.locator('#parlays-list .state')).toContainText(`Week ${WEEK} is not archived`);
     await expect(page.locator('.card.parlay')).toHaveCount(0);
-    await expect(page.locator('.view-sub')).toContainText(`WEEK ${WEEK} · MODEL EV`);
+    await expect(page.locator('.view-sub')).toContainText(`WEEK ${WEEK} · SIM EV`);
     await expect(page.locator('.scopeseg')).toHaveCount(1);
     await expect(page.locator('.pw-wkbar .wk-chip')).toHaveCount(2);
     await page.click(`.pw-wkbar .wk-chip[data-wk="${CUR}"]`);

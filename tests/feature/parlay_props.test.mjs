@@ -163,7 +163,7 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     // annotation (parlays.schema.json) — here the seed-fallback stamps.
     const allowed = new Set(['implied_prob', 'market', 'model_prob', 'selection',
       'edge_note', 'pricing', 'estimate', 'estimate_note', 'mu', 'sd', 'z', 'line',
-      'gsis_id', 'availability', 'side']); // R83: preserve public correlation identity
+      'gsis_id', 'availability', 'side', 'price_source']); // identity and explicit price provenance
     for (const leg of p.legs) {
       const keys = Object.keys(leg);
       assert.ok(!keys.some((k) => k.startsWith('_')), `internal key shipped: ${keys}`);

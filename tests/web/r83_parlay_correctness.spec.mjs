@@ -14,6 +14,13 @@ const pool = (side) => ({
     ...(side ? { side } : {}) }],
 });
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/data/schedule_full.json', (route) => route.fulfill({ json: {
+    season: 2026, games: ['g1', 'g2'].map((game_id) => ({ game_id, home: 'AAA', away: 'BBB',
+      week: 2, status: 'STATUS_SCHEDULED', kickoff_utc: '2099-09-18T00:00:00Z' })),
+  } }));
+});
+
 for (const side of [null, 'home']) {
   test(`R83: mixed cards retain correlation with ${side ? 'new' : 'legacy'} pool identity`, async ({ page }) => {
     const errors = [];
@@ -32,7 +39,7 @@ for (const side of [null, 'home']) {
     await expect(card).toContainText('AAA ML');
     // Independent oracle: (.8*.6 + .1*sqrt(.8*.2*.6*.4)) * .7 = .349717…
     // R82 multiplied all three marginals, displaying 34 instead of 35.
-    await expect(card.locator('.ev')).toHaveText('35CONVICTION');
+    await expect(card.locator('.ev')).toHaveText('35%CONVICTION');
     await expect(page.locator('#myparlays-host [role="status"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });

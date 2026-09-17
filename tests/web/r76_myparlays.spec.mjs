@@ -81,7 +81,7 @@ test.describe('R76 — MY PARLAYS', () => {
 
     // every card states conviction, EV and the $100 figure
     await expect(cards.first().locator('.ev .k')).toHaveText('CONVICTION');
-    await expect(cards.first().locator('.pay .k')).toHaveText('$100 PAYS');
+    await expect(cards.first().locator('.pay .k')).toHaveText('$100 SIM NET');
     await expect(cards.first().locator('.legcount')).toContainText('EV');
     // and a prop leg says its price is not a book price
     await expect(page.locator('.mp-card .im').first()).toContainText('IMPL');

@@ -58,12 +58,8 @@ export default async function mountSlate(el) {
   // Market prices are OPTIONAL adornment (DISPLAY ONLY — never a model input):
   // a 404 or empty file simply means no strips render, zero behavior change.
   let marketGames = {};
-  try {
-    const mp = await getMarketPrices();
-    if (mp && mp.games && typeof mp.games === 'object') marketGames = mp.games;
-  } catch (err) {
-    marketGames = {};
-  }
+  const marketRequest = getMarketPrices({ timeoutMs: 2000 }).catch(() => null);
+  if (!el.isConnected) return;
 
   const defaultGames = (data && Array.isArray(data.games)) ? data.games : [];
   if (defaultGames.length === 0) {
@@ -162,6 +158,11 @@ export default async function mountSlate(el) {
   // re-sync the topbar chip in case a prior visit left it on another week.
   setTopbarWeek(defaultWeek);
   paintGames(defaultGames);
+  marketRequest.then((mp) => {
+    if (!el.isConnected || active !== defaultWeek || !mp?.games) return;
+    marketGames = mp.games;
+    paintGames(defaultGames);
+  });
 
   // Wire the week bar (event delegation, one listener).
   const bar = el.querySelector('.wkbar');

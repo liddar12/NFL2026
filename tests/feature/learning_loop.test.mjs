@@ -69,6 +69,8 @@ finals = {
     "g-final": {"game_id": "g-final", "home_score": 27, "away_score": 20},
     "g-tie":   {"game_id": "g-tie",   "home_score": 21, "away_score": 21},
 }
+for game in finals.values():
+    game.update(status="STATUS_FINAL", kickoff_utc="2026-09-10T00:00:00Z")
 s1 = resolve_rows(rows, finals)
 after1 = copy.deepcopy(rows)
 s2 = resolve_rows(rows, finals)  # idempotence pass

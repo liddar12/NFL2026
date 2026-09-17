@@ -229,7 +229,7 @@ for (const [label, size] of [['iPhone 402x874', PHONE], ['desktop 1280x900', DES
       'no .rv-strip--parlay on the slate — the committed data/review.json no '
       + 'longer renders the R71 banner, so this test is not exercising it')
       .toBe(1);
-    expect(before.sub).toContain('MODEL EV');
+    expect(before.sub).toContain('SIM EV');
 
     // IN MY MODE: the pool's week, and no banner grading a slate these cards
     // are not on.

@@ -19,9 +19,8 @@
  * the standard vig (app/parlay-math.impliedFromModel) and its EV is a constant
  * -vig. Ranking props by EV is ranking by nothing. Conviction — the combined
  * model probability — is the only ordering here that carries information. EV is
- * still shown on every card, because it is what the card is worth against its
- * price, and because the game legs DO carry real book prices and can genuinely
- * be positive.
+ * shown as a simulation using per-leg comparison prices. Even a sourced single-leg
+ * price does not establish an executable quote for the complete combination.
  *
  * THE RULES A CARD MUST SATISFY (each one is a bet not being sold twice):
  *   - at least one leg from a seed you typed, or the card is not yours;
@@ -40,7 +39,8 @@
  * typed a second ago cannot have been narrated in advance.
  */
 
-import { loadJson } from '../data.js';
+import { loadJson, getScheduleFull } from '../data.js';
+import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
   modelEv, violatesOnePerSide,
@@ -53,6 +53,14 @@ const PER_COUNT = 2;          // two cards per leg count -> ten cards
 const BEAM = 24;              // partial cards kept at each step
 const POOL_CAP = 220;         // strongest non-seed legs considered, by conviction
 const STAKE = 100;
+
+export function upcomingLegs(legs, games, now = Date.now()) {
+  const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
+  return legs.filter((leg) => {
+    const g = byId.get(String(leg.game_id));
+    return g?.status === 'STATUS_SCHEDULED' && Date.parse(g.kickoff_utc) > now;
+  });
+}
 
 const esc = (v) => String(v == null ? '' : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -126,6 +134,7 @@ export function matchesSeed(leg, seeds) {
 
 /** Two legs may not sit in one card when they are the same opinion twice. */
 function compatible(legs, next) {
+  if (next.game_id && legs.filter((l) => l.game_id === next.game_id).length >= 2) return false;
   for (const leg of legs) {
     if (leg.owner === next.owner) return false;      // one leg per player / team
     if (leg.selection === next.selection) return false;
@@ -216,7 +225,10 @@ export function buildCards(legs, seeds, table, opts = {}) {
 /** The measured reason this leg is on the card. Numbers only, no adjectives. */
 export function whyLine(leg) {
   if (leg.market === 'moneyline' || leg.market === 'spread') {
-    return `book price ${Math.round(leg.implied_prob * 100)} vs our ${Math.round(leg.model_prob * 100)}`;
+    const source = leg.price_source === 'fair_market' ? 'fair market comparison'
+      : leg.price_source === 'book_quote' ? 'single-leg book price'
+        : leg.price_source === 'assumed' ? 'assumed comparison' : 'legacy comparison (source unknown)';
+    return `${source} ${Math.round(leg.implied_prob * 100)} vs our ${Math.round(leg.model_prob * 100)}`;
   }
   const mu = Number(leg.mu);
   if (!Number.isFinite(mu) || !Number.isFinite(Number(leg.line))) return '';
@@ -241,7 +253,6 @@ const qChip = (l) => (l.availability === 'QUESTIONABLE'
 
 export function renderCard(card, i) {
   const pct = (p) => Math.round(p * 100);
-  const evCls = card.ev >= 0 ? 'ev--pos' : 'ev--neg';
   // R82 — `leg--annot` (flex-wrap:wrap) is REQUIRED here, not decorative. Every
   // leg on a MY card carries a why-line, and `.leg-prov` is flex-basis:100% by
   // design: without the wrap it stays on the name's flex line and, being
@@ -263,20 +274,18 @@ export function renderCard(card, i) {
     `<article class="card parlay mp-card" data-mp="${i}" data-scope="my">`
       + '<div class="p-head">'
         + `<span class="lbl">${card.legs.length} LEG · ${card.sameGame ? 'SAME GAME' : card.mixedGame ? 'MIXED GAMES' : 'CROSS GAME'}</span>`
-        + `<span class="tier tier--${esc(card.tier)}">${esc(card.tier.toUpperCase())}</span>`
+        + `<span class="tier tier--${esc(card.tier)}" title="Simulated edge category, not calibrated confidence">SIM ${esc(card.tier.toUpperCase())}</span>`
       + '</div>'
       + `<div class="legs">${legs}</div>`
       + '<div class="p-foot">'
-        + `<div class="ev ${evCls}">${pct(card.model)}<span class="k">CONVICTION</span></div>`
-        + `<div class="legcount">${(card.ev * 100).toFixed(1)}% EV</div>`
-        + `<div class="pay">${money(card.payout)}<span class="k">$100 PAYS</span></div>`
+        + `<div class="ev" title="Model-estimated chance that every leg hits; not a guarantee">${pct(card.model)}%<span class="k">CONVICTION</span></div>`
+        + `<div class="legcount">${(card.ev * 100).toFixed(1)}% SIM EV</div>`
+        + `<div class="pay">${money(card.payout)}<span class="k">$100 SIM NET</span><span class="pay-detail">${esc(simulationBreakdown(simulateMoney(card.legs)))}</span></div>`
       + '</div>'
-      + (card.assumed
-        ? `<div class="corr"><span class="lk" aria-hidden="true">*</span><span>`
-          + `${card.assumed} leg${card.assumed === 1 ? '' : 's'} has no book price — `
-          + `IMPL* is our number plus the standard vig, so its EV is the vig. `
-          + `Display only.</span></div>`
-        : '')
+      + '<div class="corr"><span class="lk" aria-hidden="true">*</span><span>'
+        + 'SIMULATION · multiply 1/IMPL for each leg; no same-game book adjustment. '
+        + 'Prop IMPL* = model probability × 1.045 (capped below 100%), not a book price. '
+        + 'Higher hit-probability lines produce lower simulated returns. Net excludes the stake; no executable quote.</span></div>'
     + '</article>'
   );
 }
@@ -303,11 +312,12 @@ function paint(el) {
       + 'we build will contain at least one of them.</div>';
     return;
   }
-  const cards = buildCards(state.legs, state.seeds, state.table);
+  const eligible = upcomingLegs(state.legs, state.games);
+  const cards = buildCards(eligible, state.seeds, state.table);
   list.innerHTML = cards.length
     ? cards.map(renderCard).join('')
-    : '<div class="state">No card can be built from those names this week — '
-      + 'the pool has no line we can price for them without guessing.</div>';
+    : '<div class="state">No upcoming card is available for those names. Started, finished, '
+      + 'or unverified events are excluded.</div>';
 }
 
 /**
@@ -322,15 +332,17 @@ function paint(el) {
  */
 export default async function mountMyParlays(el) {
   el.innerHTML = '<div class="state state--loading">Loading the leg pool…</div>';
-  const [poolR, calibR] = await Promise.allSettled([
-    loadJson(POOL_PATH), loadJson(CALIB_PATH),
+  const [poolR, calibR, scheduleR] = await Promise.allSettled([
+    loadJson(POOL_PATH), loadJson(CALIB_PATH), getScheduleFull(),
   ]);
+  if (!el.isConnected) return null;
   if (poolR.status !== 'fulfilled' || !poolR.value) {
     el.innerHTML = '<div class="state">My Parlays unavailable — the leg pool has '
       + 'not been built yet.</div>';
     return null;
   }
   state.pool = poolR.value;
+  state.games = scheduleR.status === 'fulfilled' ? scheduleR.value?.games || [] : [];
   state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
   state.legs = poolLegs(state.pool);
   const unavailable = (state.pool.game_legs || []).length
@@ -347,10 +359,11 @@ export default async function mountMyParlays(el) {
     + '</div>'
     + '<div id="mp-seeds"></div>'
     + `<div class="legend" id="mp-note"><span class="legend-item"><b>CONVICTION</b> our `
-      + `combined probability the whole card hits — the ranking, because prop legs `
-      + `have no book price and their EV is the vig by construction</span>`
-      + `<span class="legend-item"><b>$100 PAYS</b> what a $100 wager returns if every `
-      + `leg hits, at the prices shown. Display only — never a model input</span>`
+      + `combined probability the whole card hits. Cards are ranked by model hit chance `
+      + `within each leg count, never by payout. Search is approximate, not a guaranteed optimum. `
+      + `At most two legs per game are supported</span>`
+      + `<span class="legend-item"><b>$100 SIM NET</b> hypothetical profit, excluding the stake, `
+      + `using the independent product of displayed IMPL assumptions. Not a sportsbook quote or actual wager</span>`
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
@@ -373,6 +386,19 @@ export default async function mountMyParlays(el) {
     paint(el);
   });
   paint(el);
+  // Recheck at the next kickoff even when the tab stays open in the foreground.
+  let timer;
+  const scheduleCutoff = () => {
+    const next = Math.min(...state.games.map((g) => Date.parse(g.kickoff_utc)).filter((t) => t > Date.now()));
+    if (Number.isFinite(next)) timer = setTimeout(() => {
+      if (el.isConnected) { paint(el); scheduleCutoff(); }
+    }, Math.min(next - Date.now() + 25, 2147483647));
+  };
+  scheduleCutoff();
+  const observer = new MutationObserver(() => {
+    if (!el.isConnected) { clearTimeout(timer); observer.disconnect(); }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
   // R82 — the pool's own week, for the MY-mode subtitle the header paints.
   const wk = Number(state.pool.week);
   return Number.isFinite(wk) ? wk : null;

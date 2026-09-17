@@ -32,6 +32,7 @@ Honesty invariant (enforced in honesty.py, produced correctly here):
 
 import json
 import os
+import datetime as dt
 
 from . import metrics
 
@@ -47,8 +48,46 @@ SNAPSHOT_DIR = os.path.join(_REPO_ROOT, "data", "snapshots")
 EVENT_TYPES = ("game", "player_week")
 
 
+def utc_time(value):
+    """Parse an aware timestamp; an absent/naive timestamp is not evidence."""
+    try:
+        stamp = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return stamp.astimezone(dt.timezone.utc) if stamp.tzinfo else None
+    except (TypeError, ValueError):
+        return None
+
+
+def pregame_lock(row, kickoff=None):
+    asof = utc_time(row.get("as_of_utc"))
+    locked = utc_time(row.get("locked_utc"))
+    start = utc_time(kickoff or row.get("kickoff_utc"))
+    return bool(asof and locked and start and asof <= locked < start)
+
+
+def append_game_locks(existing, games, now):
+    """Append only missing, scheduled, future events; existing rows are immutable."""
+    rows = list(existing)
+    seen = {str(r.get("event_id")) for r in rows}
+    skipped = []
+    for game in games:
+        gid = str(game["game_id"])
+        if gid in seen:
+            continue
+        receipt = {"as_of_utc": now, "locked_utc": now}
+        if game.get("status") != "STATUS_SCHEDULED" or not pregame_lock(receipt, game.get("kickoff_utc")):
+            skipped.append(gid)
+            continue
+        rows.append(make_row(gid, "game", game["model"], now, now,
+                             probs=[game["probs"]["home"], game["probs"]["away"]],
+                             estimate=False, kickoff_utc=game["kickoff_utc"],
+                             status=game["status"]))
+        seen.add(gid)
+    return rows, skipped
+
+
 def make_row(event_id, event_type, model, locked_utc, as_of_utc,
-             probs=None, point=None, interval=None, estimate=True):
+             probs=None, point=None, interval=None, estimate=True,
+             kickoff_utc=None, status=None):
     """Construct a snapshot row (unresolved).
 
     A freshly made row is always unresolved (`resolved: False`) and carries no
@@ -79,6 +118,11 @@ def make_row(event_id, event_type, model, locked_utc, as_of_utc,
         "estimate": bool(estimate),
         "resolved": False,
     }
+    if event_type == "game" and not estimate:
+        if status != "STATUS_SCHEDULED" or not pregame_lock(row, kickoff_utc):
+            raise ValueError("measured game locks require as_of <= locked < kickoff and scheduled status")
+    if kickoff_utc is not None:
+        row["kickoff_utc"] = kickoff_utc
     if probs is not None:
         # Store a plain list of floats (defensive copy).
         row["probs"] = [float(p) for p in probs]
@@ -105,6 +149,9 @@ def resolve(row, actual):
     `actual` for a probs row is the integer index of the realized outcome within
     `probs` (e.g. 0 = home win). For a point row `actual` is the realized value.
     """
+    if row.get("event_type") == "game" and not row.get("estimate", True) \
+            and row.get("kickoff_utc") and not pregame_lock(row):
+        raise ValueError("cannot score a late or invalid game lock")
     row["resolved"] = True
     row["actual"] = actual
 

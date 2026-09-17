@@ -68,7 +68,7 @@ def resolve_rows(rows, finals_by_id):
     Rows that are not game rows, are already resolved, or whose game is not FINAL
     are left byte-identical — idempotence is the contract.
     """
-    resolved_now = already = pending = ties = 0
+    resolved_now = already = pending = ties = invalid = 0
     for row in rows:
         if row.get("resolved"):
             already += 1
@@ -80,6 +80,10 @@ def resolve_rows(rows, finals_by_id):
         if final is None:
             pending += 1  # not FINAL yet — display-only statuses never grade a lock
             continue
+        if final.get("status") not in espn.FINAL_STATUSES \
+                or not snap.pregame_lock(row, final.get("kickoff_utc")):
+            invalid += 1
+            continue
         idx = outcome_index(final)
         if idx is None:
             ties += 1  # tie (or scoreless payload): ungradable vs a 2-way vector
@@ -89,6 +93,7 @@ def resolve_rows(rows, finals_by_id):
 
     scored = [r for r in rows
               if r.get("resolved") and not r.get("estimate", True)
+              and snap.pregame_lock(r, (finals_by_id.get(str(r.get("event_id"))) or {}).get("kickoff_utc"))
               and isinstance(r.get("brier"), (int, float))]
     n = len(scored)
     return {
@@ -97,6 +102,7 @@ def resolve_rows(rows, finals_by_id):
         "already_resolved": already,
         "pending": pending,
         "ties_skipped": ties,
+        "invalid_locks": invalid,
         "scored_rows": n,
         "brier_mean": round(sum(r["brier"] for r in scored) / n, 6) if n else None,
         "log_loss_mean": round(sum(r["log_loss"] for r in scored) / n, 6) if n else None,
@@ -118,7 +124,7 @@ def resolve_all_locks(schedule_finals):
 
     total = {"files": len(paths), "rows": 0, "resolved_now": 0,
              "already_resolved": 0, "pending": 0, "ties_skipped": 0,
-             "scored_rows": 0, "brier_mean": None, "log_loss_mean": None}
+             "scored_rows": 0, "invalid_locks": 0, "brier_mean": None, "log_loss_mean": None}
     briers, losses = [], []
 
     for path in paths:
@@ -129,12 +135,13 @@ def resolve_all_locks(schedule_finals):
             snap.write_snapshot(name, rows)
         print(f"  {name}: rows={s['rows']} resolved_now={s['resolved_now']} "
               f"already={s['already_resolved']} pending={s['pending']} "
-              f"ties_skipped={s['ties_skipped']}")
+              f"ties_skipped={s['ties_skipped']} invalid_locks={s['invalid_locks']}")
         for key in ("rows", "resolved_now", "already_resolved", "pending",
-                    "ties_skipped", "scored_rows"):
+                    "ties_skipped", "scored_rows", "invalid_locks"):
             total[key] += s[key]
         for r in rows:
             if (r.get("resolved") and not r.get("estimate", True)
+                    and snap.pregame_lock(r, (finals_by_id.get(str(r.get("event_id"))) or {}).get("kickoff_utc"))
                     and isinstance(r.get("brier"), (int, float))):
                 briers.append(r["brier"])
                 losses.append(r["log_loss"])

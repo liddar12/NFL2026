@@ -143,7 +143,7 @@ _TIER_HIGH_EDGE = 0.12
 _TIER_MED_EDGE = 0.04
 
 # Leg annotation keys that survive _strip_leg (all optional, all honesty markers).
-_LEG_ANNOTATIONS = ("edge_note", "pricing", "estimate", "estimate_note",
+_LEG_ANNOTATIONS = ("edge_note", "pricing", "price_source", "estimate", "estimate_note",
                     "mu", "sd", "z", "line",
                     # R77 -- a prop leg names its player by id (so the gate can be
                     # checked against player_weekly.json) and carries the one
@@ -249,6 +249,7 @@ def make_leg(market, selection, model_prob, implied_prob=None, hold=_DEFAULT_HOL
         "selection": selection,
         "implied_prob": round(ip, 4),
         "model_prob": round(mp, 4),
+        "price_source": "assumed" if implied_prob is None else "fair_market",
         # Non-schema helper fields consumed internally then stripped before output.
         "_corr_tag": corr_tag or market,
         "_side": side,
@@ -358,6 +359,8 @@ def _combined_probs(legs, correlated, corr=None):
     """
     if not legs:
         return 0.0, 0.0
+    if correlated and len(legs) > 2:
+        raise ValueError("At most two same-event legs are supported")
 
     # Implied: always the independent product.
     implied = 1.0
@@ -407,11 +410,11 @@ def _make_parlay(parlay_id, scope, legs, game_id=None, corr=None):
     if correlated:
         note = (
             "Same-game legs are correlated; combined probability uses a pairwise "
-            "correlation adjustment (not the independence product). Book prices legs "
-            "independently, so the edge lives in that gap."
+            "correlation adjustment (not the independence product). SIMULATED EV "
+            "uses independent 1/implied_prob prices, not an executable same-game quote."
         )
     else:
-        note = "Cross-game legs treated as independent (rho=0)."
+        note = "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
 
     parlay = {
         "parlay_id": parlay_id,

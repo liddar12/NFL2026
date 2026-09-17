@@ -102,19 +102,19 @@ test('P&L line: hit/graded (pending excluded), money at $100 flat with the fair 
   const week = m.parlayStake100(1, 'week');
   const game = m.parlayStake100(1, 'game');
   assert.equal(week.graded, 2);
-  assert.equal(m.pnlLineText(1, week), 'WEEK 1 · 1/2 hit · +$144 at $100 flat (book vig 2%/leg; fair +$166)');
-  assert.equal(m.pnlLineText(1, game), 'WEEK 1 · 1/2 hit · +$123 at $100 flat (book vig 2%/leg; fair +$141)');
+  assert.equal(m.pnlLineText(1, week), 'WEEK 1 · 1/2 hit · SIM NET +$166 at $100 flat (stake excluded; not actual betting returns)');
+  assert.equal(m.pnlLineText(1, game), 'WEEK 1 · 1/2 hit · SIM NET +$141 at $100 flat (stake excluded; not actual betting returns)');
   assert.equal(m.pnlAssumedText(week), '');
-  assert.equal(m.pnlAssumedText(game), '2 legs priced at -110 (no book price)');
-  assert.equal(m.pnlAssumedText({ assumed_price_legs: 1 }), '1 leg priced at -110 (no book price)');
+  assert.equal(m.pnlAssumedText(game), '2 legs with assumed or unverified comparison prices');
+  assert.equal(m.pnlAssumedText({ assumed_price_legs: 1 }), '1 leg with assumed or unverified comparison prices');
   // pending excluded: n is 3 on the game side but the ratio reads graded (2)
   assert.equal(game.n, 3);
   assert.doesNotMatch(m.pnlLineText(1, game), /\/3 hit/);
   // a push shows only when there is one; a loss is a minus sign
   assert.equal(m.pnlLineText(4, { graded: 18, hit: 16, push: 1, net_fair: 11564, net_vig2: 10200 }),
-    'WEEK 4 · 16/18 hit · 1 push · +$10,200 at $100 flat (book vig 2%/leg; fair +$11,564)');
+    'WEEK 4 · 16/18 hit · 1 push · SIM NET +$11,564 at $100 flat (stake excluded; not actual betting returns)');
   assert.equal(m.pnlLineText(2, { graded: 5, hit: 0, push: 0, net_fair: -500, net_vig2: -500 }),
-    'WEEK 2 · 0/5 hit · −$500 at $100 flat (book vig 2%/leg; fair −$500)');
+    'WEEK 2 · 0/5 hit · SIM NET −$500 at $100 flat (stake excluded; not actual betting returns)');
   // nothing graded -> nothing painted
   assert.equal(m.pnlLineText(2, { n: 5, graded: 0, hit: 0 }), '');
   assert.equal(m.pnlLineText(2, null), '');
@@ -126,8 +126,8 @@ test('P&L line: hit/graded (pending excluded), money at $100 flat with the fair 
   // the rendered line: tone from the sign of net_vig2, the note as its own span
   const html = m.renderParlayPnl(1, 'game', game);
   assert.match(html, /^<div class="rv-pnl rv-pnl--pos" role="status" data-week="1" data-scope="game">/);
-  assert.match(html, /<span class="rv-pnl-line">WEEK 1 · 1\/2 hit · \+\$123 at \$100 flat \(book vig 2%\/leg; fair \+\$141\)<\/span>/);
-  assert.match(html, /<span class="rv-pnl-note">2 legs priced at -110 \(no book price\)<\/span>/);
+  assert.ok(html.includes(m.pnlLineText(1, game)));
+  assert.match(html, /<span class="rv-pnl-note">2 legs with assumed or unverified comparison prices<\/span>/);
   assert.doesNotMatch(m.renderParlayPnl(1, 'week', week), /rv-pnl-note/);
   assert.match(m.renderParlayPnl(2, 'game', { graded: 5, hit: 0, net_vig2: -500, net_fair: -500 }), /rv-pnl--neg/);
   // an unknown week / an R72-shaped document (no stake_100) reads null, never a 0
@@ -251,7 +251,9 @@ test('app layer: index in the mount allSettled, archive only on tap via data.js,
   assert.match(view, /not archived/, 'the missing-archive state message');
   // the legend labels the money display-only, in one line
   const legend = view.slice(view.indexOf('function legend()'), view.indexOf('/** Provenance line'));
-  assert.match(legend, /<b>P&amp;L<\/b>[^<]*\$100 flat[^<]*Display only — never a model input/);
+  assert.match(legend, /SIM NET TOTAL/);
+  assert.match(legend, /not actual betting returns/);
+  assert.match(legend, /never a model input/);
   // CSS: the .pw-* block sits BEFORE the R71 marker (whose lock scans to EOF for .rv-* only)
   for (const f of ['app/theme.css', 'app/theme-hig.css']) {
     const css = src(f);

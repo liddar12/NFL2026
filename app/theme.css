@@ -699,6 +699,7 @@ button { font: inherit; color: inherit; }
 
 .p-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -783,11 +784,13 @@ button { font: inherit; color: inherit; }
 
 /* ---- foot: EV + leg count ------------------------------------------------- */
 .p-foot {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
 }
+.p-foot > * { min-width: 0; overflow-wrap: anywhere; }
+.p-foot .ev { flex-wrap: wrap; }
 .ev {
   font-family: var(--mono);
   font-weight: 800;
@@ -821,14 +824,25 @@ button { font: inherit; color: inherit; }
    tabular figures so a sorted column reads straight down. Display only. */
 .pay {
   display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
   align-items: baseline;
   gap: 6px;
   font-family: var(--mono);
   font-weight: 700;
   font-size: 15px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  white-space: normal;
   color: var(--ink);
+}
+.pay .k { min-width: 0; overflow-wrap: anywhere; }
+.pay-detail {
+  flex-basis: 100%;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 .pay--pos { color: var(--pos-txt); }
 .pay--neg { color: var(--accent-txt); }

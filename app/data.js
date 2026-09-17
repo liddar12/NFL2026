@@ -49,22 +49,39 @@ const PATHS = Object.freeze({
 // resolved value) de-dupes concurrent callers so a page that asks twice on the
 // same tick issues a single network request.
 const cache = new Map();
+const freshAt = new Map();
+export const DATA_TTL_MS = 60000;
+export const DATA_TIMEOUT_MS = 8000;
 
 /**
- * Fetch + cache one JSON contract. `_headers` sets
- * `max-age=0, stale-while-revalidate=120` on /data/*, so the browser cache
- * handles freshness; this cache just avoids redundant in-session fetches.
- * Pass { force: true } to bypass it.
+ * Fetch + cache one JSON contract for at most one minute. Revalidation is
+ * requested from the HTTP cache and every request has a bounded deadline.
+ * Pass { force: true } to bypass the in-memory cache.
  */
-export async function loadJson(path, { force = false } = {}) {
-  if (!force && cache.has(path)) return cache.get(path);
+export async function loadJson(path, { force = false, ttlMs = DATA_TTL_MS,
+  timeoutMs = DATA_TIMEOUT_MS } = {}) {
+  if (!force && cache.has(path) && (!freshAt.has(path)
+      || Date.now() - freshAt.get(path) < ttlMs)) return cache.get(path);
 
-  const p = fetch(path, { credentials: 'same-origin' }).then((res) => {
+  const controller = new AbortController();
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`[data] ${path} -> timed out; retry when connected`));
+    }, timeoutMs);
+  });
+  const request = fetch(path, { credentials: 'same-origin', cache: 'no-cache',
+    signal: controller.signal }).then((res) => {
     if (!res.ok) {
       throw new Error(`[data] ${path} -> HTTP ${res.status}`);
     }
     return res.json();
   });
+  const p = Promise.race([request, deadline]).then((value) => {
+    if (cache.get(path) === p) freshAt.set(path, Date.now());
+    return value;
+  }).finally(() => clearTimeout(timer));
 
   // Store immediately (the promise) so concurrent callers share it. On failure,
   // evict so a later call can retry instead of caching a rejected promise.
@@ -77,7 +94,8 @@ export async function loadJson(path, { force = false } = {}) {
   // already in hand. Only evict the entry this promise actually owns. Mirrors
   // the identical guard in app/kdst.js getKdstProjections.
   cache.set(path, p);
-  p.catch(() => { if (cache.get(path) === p) cache.delete(path); });
+  freshAt.delete(path);
+  p.catch(() => { if (cache.get(path) === p) { cache.delete(path); freshAt.delete(path); } });
   return p;
 }
 
@@ -159,5 +177,5 @@ export async function getAll(opts) {
 /** Drop all cached contracts (e.g. after a known data refresh). */
 export function clearCache() {
   cache.clear();
+  freshAt.clear();
 }
-

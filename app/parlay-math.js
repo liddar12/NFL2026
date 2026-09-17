@@ -24,11 +24,10 @@
  *   combineTwo      Gaussian-copula-lite. joint = p*q + rho*sqrt(p(1-p)q(1-q)),
  *                   clamped to both Frechet bounds. At rho = 0 it is the
  *                   independence product.
- *   combinedProbs   The MODEL side folds legs in one at a time with the pairwise
- *                   rho of each incoming leg against the previous one. The IMPLIED
- *                   side is ALWAYS the independence product, because that is how
- *                   books price a parlay — the gap between the two is the entire
- *                   reason a correlated card is interesting.
+ *   combinedProbs   The MODEL side supports at most two same-event legs using
+ *                   pairwise rho. Three or more are refused, not order-folded.
+ *                   IMPLIED is an independent product used ONLY as a display
+ *                   simulation assumption, never an exact sportsbook quote.
  *   pairRho         Measured rho by correlation tag. Opposing sides of one game
  *                   use their own measurement when one exists, otherwise the
  *                   same-side rho with its sign flipped: betting both sides of a
@@ -118,6 +117,7 @@ export function combineTwo(pJoint, pNext, rho) {
  */
 export function combinedProbs(legs, correlated, table) {
   if (!legs || legs.length === 0) return [0, 0];
+  if (correlated && legs.length > 2) throw new RangeError('At most two same-event legs are supported');
   let implied = 1;
   for (const leg of legs) implied *= leg.implied_prob;
 
@@ -137,8 +137,7 @@ export function combinedProbs(legs, correlated, table) {
  * Mixed cards: correlate within each event, then multiply independent events.
  * An unidentified leg is a singleton, never a shared "unknown" event. Callers
  * building offered cards must resolve event identity before admitting a leg.
- * This preserves the existing within-event estimator; it does not validate the
- * sequential approximation for three or more legs in one event (RCA F03).
+ * Three or more legs in one event are explicitly unsupported (RCA F03).
  */
 export function combinedGameProbs(legs, table) {
   if (!legs || !legs.length) return [0, 0];
@@ -203,6 +202,9 @@ export function legFromPool(row, rung) {
     corr_tag: row.market,
     side: row.side,
     game_id: row.game_id,
+    kickoff_utc: row.kickoff_utc,
+    status: row.status,
+    price_source: 'assumed',
     player: row.player,
     team: row.team,
     line: rung.line,
@@ -221,8 +223,11 @@ export function legFromGame(leg) {
     corr_tag: leg.market,
     side: leg.side || null,
     game_id: leg.game_id,
+    kickoff_utc: leg.kickoff_utc,
+    status: leg.status,
     team: leg.team,
-    priced: typeof leg.implied_prob === 'number',
+    price_source: leg.price_source || 'unavailable',
+    priced: leg.price_source === 'book_quote',
   };
 }
 

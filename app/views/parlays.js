@@ -123,7 +123,7 @@ const TIER_ORDER = ['high', 'medium', 'low'];
 // hold" ($100, built in paintList from the money map).
 const SORTS = {
   slate: ['SLATE', null],
-  ev: ['MODEL EV', (a, b) => num(b.model_ev) - num(a.model_ev)],
+  ev: ['SIM EV', (a, b) => num(b.model_ev) - num(a.model_ev)],
   pay: ['$100', null],
   legs: ['LEGS', (a, b) => (legsOf(a) - legsOf(b))],
 };
@@ -241,7 +241,7 @@ function wkBar(weeks, active) {
 
 /** "WEEK n · MODEL EV", with an ARCHIVED pill on a closed past week. */
 function subText(week, archived) {
-  return `WEEK ${week != null ? week : ''} · MODEL EV`
+  return `WEEK ${week != null ? week : ''} · SIM EV`
     + (archived ? ' <span class="est pw-archived">ARCHIVED</span>' : '');
 }
 
@@ -295,21 +295,17 @@ function legend() {
         + 'no book input. Spread legs are priced flat at 50 (NO EDGE: the cover model '
         + 'measured below coin-flip on 2023-25); prop legs are priced from this week’s '
         + 'projected yards, calibrated on 2023-25 — a seed-priced leg says so</span>' +
-      '<span class="legend-item"><b>IMPL</b> the price to beat: the book’s de-vigged '
-        + 'line (live odds feed) on game legs; on prop legs, our number plus the '
-        + 'standard vig until a prop feed lands. Display only — never a model input</span>' +
-      '<span class="legend-item"><b>MODEL EV</b> our combined probability vs the book’s '
-        + 'parlay price. Same-game legs are correlation-adjusted (measured rho, 2023-25); '
-        + 'cross-game legs are combined as independent — see each card’s note</span>' +
-      '<span class="legend-item"><b>TIER</b> confidence: high &gt; medium &gt; low (more legs = lower). '
-        + 'The TIER chips filter to one</span>' +
-      '<span class="legend-item"><b>$100 PAYS</b> what a $100 wager on that card would return if '
-        + 'every leg hit, at the prices shown; <b>$100 RETURNED</b> is what it actually did once '
-        + 'the parlay graded. A leg with no book price is charged −110 — tap and hold the figure '
-        + 'to see how many. Display only — never a model input</span>' +
-      '<span class="legend-item"><b>P&amp;L</b> a $100 flat stake on every graded parlay at the '
-        + 'book’s price (2%/leg vig; “fair” = no vig) — the sum of the RETURNED figures above. '
-        + 'Display only — never a model input</span>' +
+      '<span class="legend-item"><b>IMPL</b> comparison probability, potentially assumed, de-vigged '
+        + 'or unverified. A number alone does not establish a sportsbook quote; never a model input</span>' +
+      '<span class="legend-item"><b>SIM EV</b> combined MODEL ÷ product of IMPL − 1. '
+        + 'Same-game model legs are correlation-adjusted; cross-game groups are combined as independent. '
+        + 'Independent per-leg pricing assumption, including same-game cards; not executable book EV</span>' +
+      '<span class="legend-item"><b>TIER</b> simulated-edge heuristic, not calibrated confidence</span>' +
+      '<span class="legend-item"><b>$100 SIM NET</b> $100 × (product of 1/IMPL − 1), excluding '
+        + 'the stake. No same-game book adjustment. IF HIT is potential profit; GRADED applies '
+        + 'the recorded outcomes. Voids drop out; a loss costs $100. Missing pricing is unavailable</span>' +
+      '<span class="legend-item"><b>SIM NET TOTAL</b> sum of graded simulated net profit, '
+        + 'not actual betting returns. No extra vig scenario is mixed into this total. Display only — never a model input</span>' +
       '<span class="est">ESTIMATE</span>' +
     '</div>'
   );
@@ -517,12 +513,13 @@ export default async function mountParlays(el) {
     reviewP.then((mod) => {
       if (!mod || !listEl.isConnected || week !== selWeek) return;
       reviewMod = mod;
+      mod.prepareParlaySimulation(week, parlays);
       // R82 — applyParlayReview REPLACES the review strip node (review.js
       // placeStrip removes the old one and re-inserts). A MY-mode entry that
       // beat this lazy import set `hidden` on a node that no longer exists, so
       // the banner reappeared over the MY cards. Re-hide once it has landed;
       // the chrome, not the timing, decides what MY mode shows.
-      Promise.resolve(mod.applyParlayReview(listEl, week))
+      Promise.resolve(mod.applyParlayReview(listEl, week, parlays))
         .then(() => { if (active === 'my') setMyChromeHidden(true); });
       paintBuckets();
       paintPnl();
@@ -566,6 +563,7 @@ export default async function mountParlays(el) {
       : filtered;
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
+    listEl.dataset.parlayWeek = String(selWeek);
     listEl.innerHTML = shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf

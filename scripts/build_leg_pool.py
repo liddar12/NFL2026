@@ -217,7 +217,8 @@ def game_legs_from_slate(parlays_doc, game_by_team=None, side_by_team=None):
             row["game_id"] = gid
             row["team"] = team or None
             row["side"] = side if side in ("home", "away") else None
-            row["source"] = "parlays.json (as-made book price)"
+            row["source"] = "parlays.json (comparison probability; not an exact-card quote)"
+            row["price_source"] = leg.get("price_source", "unavailable")
             best[key] = row
     out = list(best.values())
     out.sort(key=lambda l: (str(l.get("game_id")), l["market"], l["selection"]))

@@ -2,6 +2,17 @@
 
 Read [the full RCA and code review](CODEX_REVIEW_R82_FOR_CLAUDE.md), then [the evidence bundle](../reviews/2026-09-17/README.md).
 
+Subsequent owner-authorized **local-only** implementation: [R83 correctness](R83_PARLAY_CORRECTNESS_RELEASE.md)
+and [R84 simulated-money preview and remaining work](R84_LOCAL_PREVIEW_FOR_CLAUDE.md).
+**Read the latest [R84 payout/overflow incident RCA](RCA_R84_PARLAY_PAYOUT_AND_OVERFLOW.md)
+before continuing:** acceptance is reopened despite the existing green gate;
+the report includes measured evidence and proposed release-blocking regressions.
+Owner-authorized local follow-up: [R85 responsive cards and pricing disclosure](R85_PARLAY_ACCEPTANCE_FIX.md).
+The owner clarified that MY must retain highest-model-hit-chance selection, not
+switch to lower-probability lines to increase simulated returns.
+The original review below remains pinned to R82; do not mistake its baseline for
+the current local working tree, or either preview for a production deployment.
+
 ## Owner request and baseline
 
 Review UI/UX, data, pipelines and AI/self-learning, prioritizing **Parlay → Slate → Players**, and prepare this report for Claude. The owner selected latest main/R82 when the requested `docs/RCA_MYPARLAYS_CARDS.md` was not present. The review is pinned to `886b5bb40e68e90f6074489723fbe4c3703c0935`; compare against current main before acting.

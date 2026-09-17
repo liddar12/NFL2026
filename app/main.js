@@ -11,7 +11,7 @@
  * links, not a tablist), and announce the loaded view's name in #announce.
  */
 
-import { getPipelineStatus, getGamePredictions } from './data.js';
+import { getPipelineStatus, getGamePredictions, clearCache, DATA_TTL_MS } from './data.js';
 import { loadProfile, isDefaultProfile, loadLeagueId, leagueChipText } from './league.js';
 import { renderHealth, healthMod } from './render.js';
 import { ensureUnlocked } from './gate.js';
@@ -133,14 +133,8 @@ const ROUTES = {
 // user switches tabs faster than a view resolves — only the latest wins.
 let navSeq = 0;
 
-// Mount queue. Every view paints into the SAME #view element, so two mounts must
-// never be in flight at once: whichever resolves LAST wins the element,
-// regardless of which route the user actually asked for. That is not
-// theoretical — booting at "/" and tapping a tab before the slate's feeds
-// resolve left the tab bar on TEAM while SLATE content sat in the view. Chaining
-// serializes mounts, and the navSeq check below runs at DEQUEUE time so a
-// superseded route is dropped before it ever paints.
-let mountQueue = Promise.resolve();
+// Routes own separate view nodes; an old slow request cannot stall navigation.
+let lastRefresh = Date.now();
 
 /** Sync .tab--active + aria-current on the nav bar for the active section.
  * R30c — aria-current="page", not aria-selected: the tabbar is a <nav> of
@@ -168,8 +162,12 @@ function announceRoute(name) {
 
 /** Render the current route into #view and update tab state + focus. */
 async function renderRoute() {
-  const el = document.getElementById('view');
-  if (!el) return;
+  const previous = document.getElementById('view');
+  if (!previous) return;
+  // Each navigation owns a separate node. A stalled old mount may finish only
+  // into its detached node, never block or overwrite the current destination.
+  const el = previous.cloneNode(false);
+  previous.replaceWith(el);
 
   // Strip any query string (#/compare?a=..&b=..) before the route lookup; the
   // view reads the query off the live hash itself.
@@ -194,10 +192,26 @@ async function renderRoute() {
       if (seq === navSeq) announceRoute(route.name);
     });
   };
-  // `then(run, run)` on both settlements so one view's failure cannot wedge the
-  // queue and freeze every later navigation.
-  mountQueue = mountQueue.then(run, run);
-  await mountQueue;
+  // A failed mount is scoped to its own navigation.
+  try { await run(); } catch (err) {
+    if (seq === navSeq) el.innerHTML = '<div class="state">Page unavailable. Switch tabs to retry.</div>';
+    console.warn('[route]', err);
+  }
+}
+
+function refreshOnResume() {
+  if (!booted || document.visibilityState === 'hidden' || Date.now() - lastRefresh < DATA_TTL_MS) return;
+  lastRefresh = Date.now();
+  // Preserve the last rendered view while offline; do not erase it for a spinner.
+  if (!navigator.onLine) {
+    const health = document.getElementById('health');
+    if (health) health.textContent = 'OFFLINE · showing previously loaded data';
+    return;
+  }
+  clearCache();
+  renderHealthChip();
+  renderWeekChip();
+  renderRoute();
 }
 
 /** Fetch pipeline status and paint the #health chip (state color + note). */
@@ -283,6 +297,8 @@ function boot() {
 
 // Router wiring: re-render on every hash change; bootstrap once on load.
 window.addEventListener('hashchange', renderRoute);
+document.addEventListener('visibilitychange', refreshOnResume);
+window.addEventListener('online', () => { lastRefresh = 0; refreshOnResume(); });
 // R47 — the LEAGUE chip follows every route change and every league sync.
 window.addEventListener('hashchange', renderLeagueChip);
 window.addEventListener('nfl2026:league', renderLeagueChip);
