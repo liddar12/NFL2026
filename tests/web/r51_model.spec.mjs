@@ -37,7 +37,18 @@ function collectErrors(page) {
   return errors;
 }
 
+/* R78 — the MODEL tab is passphrase-gated (obscurity, not security: the data
+ * feeds stay public, only the VIEW hides). Any spec that drives #/model seeds
+ * the unlock digest so it exercises the dashboard, not the lock card. The
+ * gate's own behaviour is covered by tests/web/r78_model_lock.spec.mjs. */
+const unlockModel = (page) => page.addInitScript(() => {
+  try {
+    localStorage.setItem('nfl2026.model.unlock.v1', '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b');
+  } catch (_) { /* storage blocked — the spec will show the lock card and fail loudly */ }
+});
+
 async function openModel(page) {
+  await unlockModel(page);
   await page.goto('/#/model');
   await page.waitForSelector('.m-cal', { timeout: 15000 });
   await expect(page.locator('.m-locks')).toHaveCount(1);

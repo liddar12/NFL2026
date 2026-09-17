@@ -70,6 +70,10 @@ test.describe('R49 — Sleeper\'s estimate beside OURS (display-only)', () => {
     await page.addInitScript(() => {
       try {
         localStorage.setItem('nfl2026.unlock.v1', '1');
+        // R78 — the MODEL tab's passphrase gate (obscurity, not security); this
+        // spec asserts on #/model, so it drives the dashboard, not the lock card.
+        localStorage.setItem('nfl2026.model.unlock.v1',
+          '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b');
         localStorage.removeItem('nfl2026.league.v1');
         localStorage.removeItem('nfl2026.league_id.v1');
         localStorage.removeItem('nfl2026.scoring.v1');

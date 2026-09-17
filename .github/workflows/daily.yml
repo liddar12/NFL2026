@@ -10,17 +10,23 @@
 name: daily-pipeline
 
 on:
+  # R78 (owner's standing order, 2026-09-17): a morning and an evening refresh
+  # every day, plus one hour before each kickoff window (Mon/Thu night, the
+  # three Sunday windows). Times are America/New_York expressed in UTC while
+  # EDT (UTC-4) is in effect; after 2026-11-01 (EST) each fires an hour EARLIER
+  # on the clock unless re-set — an hour early is harmless, a silent gap is
+  # not. Minutes are deliberately OFF the hour: GitHub queues :00 schedules
+  # behind everyone else's and those are the ones that fire hours late. The
+  # pipeline is idempotent, so an extra run with unchanged sources commits
+  # nothing. The same cadence is also driven by workflow_dispatch from the
+  # owner's Claude Routines; whichever fires first does the work.
   schedule:
-    - cron: "0 6 * * *"   # 06:00 UTC daily (best-effort; see throttling note above)
-    # Owner-requested morning refresh: 10:00 America/Chicago. Cron is UTC-only,
-    # so this is 15:00 UTC during CDT and fires at 09:00 local once CST returns
-    # in November — accepted rather than papered over (GitHub cannot express
-    # timezones; an hour-early refresh in winter is harmless, a silent gap is
-    # not). ADDED alongside the 06:00 run, not replacing it: during draft week
-    # and the season, injuries/ADP move between 06:00 and mid-morning, and the
-    # pipeline is idempotent — a second run with unchanged sources commits
-    # nothing.
-    - cron: "0 15 * * *"  # 10:00 CDT / 09:00 CST daily (best-effort)
+    - cron: "7 10 * * *"     # 06:07 ET daily — morning
+    - cron: "7 22 * * *"     # 18:07 ET daily — evening
+    - cron: "15 23 * * 1,4"  # 19:15 ET Mon/Thu — 1h before the 8:15pm kickoff
+    - cron: "3 16 * * 0"     # 12:03 ET Sun — 1h before the 1pm window
+    - cron: "15 19 * * 0"    # 15:15 ET Sun — 1h before the 4pm window
+    - cron: "20 23 * * 0"    # 19:20 ET Sun — 1h before Sunday Night Football
   workflow_dispatch: {}    # allow manual runs from the Actions tab
 
 # Only one pipeline commit in flight at a time; cancel a stale run if a new one starts.

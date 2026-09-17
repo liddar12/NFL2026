@@ -1721,6 +1721,39 @@ button { font: inherit; color: inherit; }
 .mp-name, .sg-name { color: var(--ink); }
 .mp-val { color: var(--brand-txt); font-weight: 800; }
 .mp-def, .mp-src { color: var(--muted); font-size: 11px; }
+
+/* R78 — PLAYOFF ODDS "as of" stamp. A small mono meta line, same weight as
+   .pf-sum / .mp-src: it states WHEN the simulation last ran, above the copy
+   that explains what it is. */
+.m-asof {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.m-asof time { color: var(--ink); }
+
+/* R78 — the MODEL tab's passphrase card (app/views/model.js renderLockCard).
+   OBSCURITY, NOT SECURITY — it hides the view, nothing at the HTTP layer.
+   Reuses .card.mcard, .m-explain and .mp-input; only the row layout and the
+   alert line are new, and .mp-btn joins the primary-button rule rather than
+   restating it. Wraps at phone width; both controls clear the 44px target. */
+.m-lock-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.m-lock-form .mp-input { flex: 1 1 150px; width: auto; min-width: 0; }
+.m-lock-msg {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent-txt);
+}
 .sg-w { margin-left: auto; }
 .bt-row {
   display: grid;
@@ -2866,7 +2899,10 @@ body.gate-locked { overflow: hidden; }
 }
 .lp-input:focus { outline: none; }     /* the tile border shows focus */
 .lp-input::placeholder { color: var(--muted); font-weight: 400; }
-.lp-btn {
+/* .mp-btn (R78, the MODEL passphrase card) shares this rule: one primary
+   button look, declared once. */
+.lp-btn,
+.mp-btn {
   flex: 0 0 auto;
   min-height: 44px;
   padding: 10px 18px;

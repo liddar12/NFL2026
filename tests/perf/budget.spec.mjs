@@ -75,6 +75,17 @@ const REPO_ROOT = resolve(TESTS_DIR, '../..');
 const BASE = process.env.PERF_BASE_URL || 'http://127.0.0.1:4321';
 const STORAGE = resolve(TESTS_DIR, '../gate-unlocked.storage.json');
 
+/* R78 — #/model is passphrase-gated (obscurity, not security: the feeds stay
+ * public, only the VIEW hides). A LOCKED model route fetches NOTHING, so the
+ * route waterfall below would silently measure a card instead of the dashboard
+ * and its 8 contracts. Every context that walks the routes seeds the unlock
+ * digest; the locked path is asserted in tests/web/r78_model_lock.spec.mjs. */
+const unlockModel = (page) => page.addInitScript(() => {
+  try {
+    localStorage.setItem('nfl2026.model.unlock.v1', '4fed76b87cf8b056da33b210b23e8f4f93e9c955d56faf7e3ae3bbb57704f50b');
+  } catch (_) { /* storage blocked — the model budget below would read as 0 */ }
+});
+
 /* ---------------------------------------------------------------- budgets --
  * Every constant is a MEASURED value plus stated headroom. Measured on the
  * R25 sandbox, Chromium 1194, iPad viewport 1024x1366, local http.server.
@@ -406,6 +417,7 @@ test.describe('R25 performance budget — runtime request counts', () => {
       storageState: STORAGE,
     });
     const page = await ctx.newPage();
+    await unlockModel(page);
     const dataRequests = [];
     page.on('request', (r) => {
       const u = r.url();
@@ -475,6 +487,7 @@ test.describe('R25 performance budget — per-route cold contract counts', () =>
         storageState: STORAGE,
       });
       const page = await ctx.newPage();
+      await unlockModel(page);
       const got = [];
       page.on('request', (req) => {
         const u = req.url();
