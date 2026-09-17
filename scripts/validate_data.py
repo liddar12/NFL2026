@@ -101,6 +101,12 @@ SCHEMA_TO_DATA = {
     # builder must not go red for a file no test needs to exist.
     "kdst_weekly_history.schema.json": "kdst_weekly_history.json",
     "kdst_backtest.schema.json": "kdst_backtest.json",
+    # R76 — the MY PARLAYS candidate leg pool and the calibration verdict behind
+    # it. Both are runner-built from the same nflverse corpus the parlay gate
+    # reads, so both are OPTIONAL: present on a normal clone, absent on one that
+    # has never run the builder, and strictly validated whenever present.
+    "leg_pool.schema.json": "leg_pool.json",
+    "leg_pool_backtest.schema.json": "leg_pool_backtest.json",
     "game_context.schema.json": "game_context.json",
     "scheme_history.schema.json": "scheme_history.json",
     "dvp_positional_history.schema.json": "dvp_positional_history.json",
@@ -158,6 +164,8 @@ PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
 OPTIONAL_DATA = frozenset([
     # R55 — both are built from nflverse releases on a runner.
     "kdst_weekly_history.json", "kdst_backtest.json",
+    # R76 — the leg pool and its calibration verdict.
+    "leg_pool.json", "leg_pool_backtest.json",
     "epa_history.json", "weather_history.json", "weather_forecast.json",
     "market_baseline.json", "injury_history.json", "player_usage.json",
     "player_usage_history.json", "player_usage_weekly.json",

@@ -15,7 +15,11 @@
 #                                              (the opponent-shaped week beats the flat
 #                                              season average on 2023-25; kickers carry
 #                                              no split because none was measurable)
-#   7. Playwright web + pwa E2E              — OPT-IN: skipped-with-loud-note when
+#   7. python3 scripts/backtest_leg_pool.py --gate — R76 MY PARLAYS pool calibration
+#                                              (the wide-universe refit must be better
+#                                              calibrated AND carry information; a
+#                                              well-calibrated coin flip is refused)
+#   8. Playwright web + pwa E2E              — OPT-IN: skipped-with-loud-note when
 #                                              @playwright/test is not installed.
 #
 # THE FAST GATE (steps 1-3) STAYS DEPENDENCY-FREE: python3 stdlib + node built-ins
@@ -53,8 +57,9 @@ run_step "feature tests (incl. AA contrast)" node --test tests/feature/*.mjs
 run_step "weekly split never-regress (R51)" python3 scripts/backtest_weekly.py --gate
 run_step "parlay never-regress (R51)"       python3 scripts/backtest_parlay.py --gate
 run_step "kdst weekly split never-regress (R55)" python3 scripts/backtest_kdst.py --gate
+run_step "leg pool calibration never-regress (R76)" python3 scripts/backtest_leg_pool.py --gate
 
-# ---- Step 7: browser E2E (web + pwa), opt-in -----------------------------
+# ---- Step 8: browser E2E (web + pwa), opt-in -----------------------------
 # Gated on the presence of @playwright/test so a clean box (no npm install) still
 # runs a fully green fast gate. Point Chromium at the pre-installed full browser
 # when it exists (headless_shell can't emulate everything the PWA spec needs).

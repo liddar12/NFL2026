@@ -90,6 +90,15 @@ jobs:
       - name: R55 gate — the split must still beat the flat season average
         run: python scripts/backtest_kdst.py --gate
 
+      # R76 — the MY PARLAYS pool calibration, fit on the wide player universe.
+      # Corpus-based like the other backtests, so it belongs here rather than in
+      # the daily run; build_leg_pool.py reads the coefficients it writes.
+      - name: R76 leg pool calibration (wide universe refit)
+        run: python scripts/backtest_leg_pool.py
+
+      - name: R76 gate — the pool refit must stay better calibrated and informative
+        run: python scripts/backtest_leg_pool.py --gate
+
       # Rel18 family inputs. These three feed the five new candidate families
       # (divisional, coach_quality, coach_regime, dvp_mismatch, scheme_matchup)
       # and read the same nflverse release CSVs as the builders above, so they

@@ -106,6 +106,15 @@ jobs:
       - name: Parlay archive (per-week history + index)
         run: python3 scripts/build_parlay_archive.py
 
+      # R76 — the MY PARLAYS candidate leg pool. AFTER build_predictions, because
+      # it copies the slate's game legs verbatim and prices its props from the
+      # same weekly projections; running it earlier would pool yesterday's week.
+      # It refuses to write if its calibration has not cleared its own gate, so a
+      # red gate leaves the previous pool standing rather than shipping legs
+      # priced by coefficients that did not pass.
+      - name: MY PARLAYS leg pool (wide player universe, in-support rungs only)
+        run: python3 scripts/build_leg_pool.py
+
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.

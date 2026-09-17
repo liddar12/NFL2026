@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "leg_pool.schema.json",
+  "title": "MY PARLAYS candidate leg pool",
+  "description": "Every leg My Parlays may build a card from this week, written by scripts/build_leg_pool.py. PLAYER-KEYED: a player is the unit the user types, so it is the unit stored, with his 2-8 in-support rungs beneath him. Prop probabilities use the POOL calibration (leg_pool_backtest.json), fit on the wide player universe; data/parlays.json keeps its own calibration and is not affected by this file. A rung is offered ONLY when its z falls inside `support` - outside it the model is extrapolating, and measured, that is where it knows least. Game legs are copied verbatim from parlays.json so the pool and the shipped card can never disagree about the same bet. MARKET POLICY: a book price is display and the terms of the bet; no market number reaches model_prob.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["season", "week", "generated_utc", "model", "calibration_adopted", "ladder", "support", "residual_sd", "counts", "players", "game_legs", "notes"],
+  "properties": {
+    "season": {"type": ["integer", "null"]},
+    "week": {"type": ["integer", "null"]},
+    "generated_utc": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1},
+    "calibration_adopted": {"type": "boolean", "description": "False means the pool calibration did not clear its own never-regress gate. The builder refuses to write in that case, so a committed document always reads true."},
+    "ladder": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}}, "description": "The rungs offered per position before the support rule filters them."},
+    "support": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}, "description": "Per position, the z range the corpus actually covers. The calibration's real domain."},
+    "residual_sd": {"type": "object", "additionalProperties": {"type": "number", "exclusiveMinimum": 0}, "description": "Per position, stated once: z = (mu - line) / residual_sd."},
+    "counts": {
+      "type": "object",
+      "required": ["prop_legs", "game_legs", "players_with_a_leg", "refused_out_of_support", "players_with_no_leg"],
+      "properties": {
+        "prop_legs": {"type": "integer", "minimum": 0},
+        "game_legs": {"type": "integer", "minimum": 0},
+        "players_with_a_leg": {"type": "integer", "minimum": 0},
+        "refused_out_of_support": {"type": "integer", "minimum": 0, "description": "Rungs the support rule declined to price. Counted, never hidden."},
+        "players_with_no_leg": {"type": "integer", "minimum": 0, "description": "Players with no in-support rung at all. The honest 'we cannot price him this week' rather than a guessed number."},
+        "no_game": {"type": "integer", "minimum": 0},
+        "no_weekly_row": {"type": "integer", "minimum": 0},
+        "no_projection": {"type": "integer", "minimum": 0},
+        "no_calibration": {"type": "integer", "minimum": 0}
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gsis_id", "player", "team", "position", "market", "game_id", "side", "mu", "p_team", "pricing", "rungs"],
+        "properties": {
+          "gsis_id": {"type": "string", "minLength": 1},
+          "player": {"type": ["string", "null"]},
+          "team": {"type": ["string", "null"]},
+          "position": {"type": "string", "enum": ["QB", "RB", "WR"]},
+          "market": {"type": "string", "enum": ["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"]},
+          "game_id": {"type": "string", "minLength": 1},
+          "side": {"type": "string", "enum": ["home", "away"]},
+          "mu": {"type": "number", "description": "Projected yards this week, from scripts/models/parlay_builder.project_prop_yards - the same projection the shipped slate uses."},
+          "p_team": {"type": "number", "minimum": 0, "maximum": 1, "description": "This player's team's win probability, the calibration's second term."},
+          "pricing": {"type": "string", "enum": ["pool_calibrated"]},
+          "rungs": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Every in-support line for this player. A player with none is absent from `players` and counted in players_with_no_leg.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["line", "z", "selection", "model_prob"],
+              "properties": {
+                "line": {"type": "number", "exclusiveMinimum": 0},
+                "z": {"type": "number"},
+                "selection": {"type": "string", "minLength": 1},
+                "model_prob": {"type": "number", "minimum": 0.05, "maximum": 0.95, "description": "OUR probability under the pool calibration. Never a de-vigged book number."}
+              }
+            }
+          }
+        }
+      }
+    },
+    "game_legs": {
+      "type": "array",
+      "description": "Moneyline / spread legs copied verbatim from data/parlays.json, carrying the as-made book price its odds feed supplied.",
+      "items": {
+        "type": "object",
+        "required": ["market", "selection", "model_prob", "source"],
+        "properties": {
+          "market": {"type": "string", "enum": ["moneyline", "spread"]},
+          "selection": {"type": "string", "minLength": 1},
+          "game_id": {"type": ["string", "null"]},
+          "model_prob": {"type": "number", "minimum": 0, "maximum": 1},
+          "implied_prob": {"type": "number", "minimum": 0, "maximum": 1, "description": "Display and the terms of the bet. Never an input."},
+          "source": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

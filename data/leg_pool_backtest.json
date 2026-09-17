@@ -1,0 +1,257 @@
+{
+  "generated_utc": "2026-09-16T20:57:40Z",
+  "model": "leg_pool_v1",
+  "ladder": {
+    "QB": [
+      124.5,
+      149.5,
+      174.5,
+      199.5,
+      224.5,
+      249.5,
+      274.5
+    ],
+    "RB": [
+      19.5,
+      29.5,
+      39.5,
+      49.5,
+      59.5,
+      69.5,
+      79.5,
+      99.5
+    ],
+    "WR": [
+      19.5,
+      29.5,
+      39.5,
+      49.5,
+      59.5,
+      69.5,
+      79.5,
+      99.5
+    ]
+  },
+  "support": {
+    "QB": [
+      -2.1247,
+      1.4351
+    ],
+    "RB": [
+      -0.9603,
+      1.6605
+    ],
+    "WR": [
+      -0.9531,
+      1.5609
+    ]
+  },
+  "residual_sd": {
+    "QB": 76.6615,
+    "RB": 38.8694,
+    "WR": 41.5833
+  },
+  "corpus": {
+    "rows": 62433,
+    "refused_out_of_support": 20001,
+    "seasons": [
+      2023,
+      2024,
+      2025
+    ],
+    "players": 438
+  },
+  "verdict": {
+    "refit": {
+      "arm": "refit",
+      "n": 41314,
+      "skill": 0.1758,
+      "ece": 0.0066,
+      "log_loss": 0.5646
+    },
+    "shipped": {
+      "arm": "shipped",
+      "n": 41314,
+      "skill": 0.1427,
+      "ece": 0.0723,
+      "log_loss": 0.5873
+    },
+    "ece_margin": 0.005,
+    "min_skill": 0.02,
+    "adopt": true,
+    "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0723, margin 0.005), keeps skill (0.1758 vs 0.1427) and carries information (skill > 0.02)"
+  },
+  "per_fold_coefficients": {
+    "2024": {
+      "QB": [
+        0.116299,
+        1.342777,
+        0.941249
+      ],
+      "RB": [
+        -0.375679,
+        1.91679,
+        0.5289
+      ],
+      "WR": [
+        -0.461243,
+        1.972334,
+        0.336742
+      ]
+    },
+    "2025": {
+      "QB": [
+        0.14923,
+        1.244569,
+        0.699234
+      ],
+      "RB": [
+        -0.349729,
+        1.977185,
+        0.492507
+      ],
+      "WR": [
+        -0.383701,
+        1.904072,
+        0.087152
+      ]
+    }
+  },
+  "calibration": {
+    "QB": {
+      "a": 0.130054,
+      "b": 1.294982,
+      "c": 0.544311
+    },
+    "RB": {
+      "a": -0.342013,
+      "b": 1.942857,
+      "c": 0.301095
+    },
+    "WR": {
+      "a": -0.407427,
+      "b": 1.92171,
+      "c": 0.114603
+    }
+  },
+  "reliability": [
+    {
+      "bin": [
+        0.0,
+        0.1
+      ],
+      "n": 706,
+      "said": 0.0923,
+      "happened": 0.1402,
+      "gap": 0.0479
+    },
+    {
+      "bin": [
+        0.1,
+        0.2
+      ],
+      "n": 8267,
+      "said": 0.1477,
+      "happened": 0.1557,
+      "gap": 0.008
+    },
+    {
+      "bin": [
+        0.2,
+        0.3
+      ],
+      "n": 6599,
+      "said": 0.2492,
+      "happened": 0.2556,
+      "gap": 0.0065
+    },
+    {
+      "bin": [
+        0.3,
+        0.4
+      ],
+      "n": 5610,
+      "said": 0.3496,
+      "happened": 0.359,
+      "gap": 0.0094
+    },
+    {
+      "bin": [
+        0.4,
+        0.5
+      ],
+      "n": 4725,
+      "said": 0.4491,
+      "happened": 0.4499,
+      "gap": 0.0008
+    },
+    {
+      "bin": [
+        0.5,
+        0.6
+      ],
+      "n": 4106,
+      "said": 0.5484,
+      "happened": 0.5524,
+      "gap": 0.004
+    },
+    {
+      "bin": [
+        0.6,
+        0.7
+      ],
+      "n": 3758,
+      "said": 0.6497,
+      "happened": 0.6525,
+      "gap": 0.0028
+    },
+    {
+      "bin": [
+        0.7,
+        0.8
+      ],
+      "n": 3747,
+      "said": 0.7501,
+      "happened": 0.759,
+      "gap": 0.0089
+    },
+    {
+      "bin": [
+        0.8,
+        0.9
+      ],
+      "n": 3164,
+      "said": 0.8462,
+      "happened": 0.848,
+      "gap": 0.0018
+    },
+    {
+      "bin": [
+        0.9,
+        1.0
+      ],
+      "n": 632,
+      "said": 0.9206,
+      "happened": 0.9098,
+      "gap": -0.0108
+    }
+  ],
+  "narrow_guard": {
+    "pool_fit": {
+      "arm": "pool_fit",
+      "n": 2430,
+      "skill": 0.0219,
+      "ece": 0.0486,
+      "log_loss": 0.6766
+    },
+    "shipped_fit": {
+      "arm": "shipped_fit",
+      "n": 2430,
+      "skill": 0.0389,
+      "ece": 0.0265,
+      "log_loss": 0.6648
+    },
+    "note": "the shipped slate keeps shipped_fit; pool_fit is shown only to record that one coefficient set cannot serve both populations"
+  },
+  "note": "The MY PARLAYS leg pool only. data/parlays.json keeps the shipped calibration in data/parlay_backtest.json and is untouched by this file. A rung is offered only when its z is inside `support`, so no leg is ever priced by extrapolation. No market number is read here."
+}

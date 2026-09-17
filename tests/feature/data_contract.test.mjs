@@ -134,6 +134,12 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // R73 — the parlay history index (see PARLAY_HISTORY_PREFIX above); the
     // per-week archives it names match PARLAY_ARCHIVE_RE and are never literal.
     '/data/parlays/index.json',
+    // R76 — app/views/myparlays.js: the MY PARLAYS candidate leg pool, read
+    // through loadJson (same promise cache) ONLY when the MY chip is tapped.
+    // It is the one pipeline-sized artifact the app may load, and it earns that
+    // because the feature IS searching it; app/parlay-math.js, which only does
+    // arithmetic over legs handed to it, deliberately names no contract at all.
+    '/data/leg_pool.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {
