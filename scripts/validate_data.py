@@ -929,6 +929,12 @@ _ZERO_ROW_OK = frozenset({
     # R45 — 0 rookies at depth-chart rank 1 is a fact about the league's depth
     # charts, not an outage (the writer stamps the explaining note).
     "rookie_starters",
+    # R79 — 0 inactive players is the normal state of every run outside an
+    # inactives window (kickoff-3h until FINAL): the feed was not consulted
+    # because no list could exist yet. The writer stamps the explaining note
+    # ("no game inside the inactives window this run"); inside a window a
+    # posted list with 0 names would be the same honest zero.
+    "inactives",
 })
 # Feeds whose recorded age may exceed _MAX_OK_AGE_HOURS while still honestly
 # `ok`: environment measures the CLOSED 2021-2025 window and is deliberately

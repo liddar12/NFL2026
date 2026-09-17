@@ -275,7 +275,34 @@ emit(res)`);
   assert.equal(out.schema_red, true);
 });
 
-/* 5 — the app ------------------------------------------------------------------- */
+/* 5 — feed health: zero inactives outside a window is a fact, not an outage ----- */
+
+test('R79: pipeline health accepts the inactives feed at rows 0 / ok WITH its note (the first R79 pipeline run failed here)', () => {
+  const out = runPy(`${SETUP}
+from scripts.validate_data import ValidationError, check_pipeline_health
+def status(feed):
+    return {"health": "ok", "generated_utc": "2026-09-17T16:36:57Z",
+            "feeds": {"espn_teams": {"rows": 32, "age_hours": 0.0, "last_success_utc": "x", "status": "ok"},
+                      "inactives": feed}}
+res = {}
+check_pipeline_health(status({"rows": 0, "age_hours": 0.0, "last_success_utc": "x", "status": "ok",
+                              "note": "no game inside the inactives window this run"}))
+res["outside_window_ok"] = True
+check_pipeline_health(status({"rows": 13, "age_hours": 0.0, "last_success_utc": "x", "status": "ok",
+                              "note": "1 game(s) in the 3h window, 0 fetch failure(s)"}))
+res["inside_window_ok"] = True
+try:
+    check_pipeline_health(status({"rows": 0, "age_hours": 0.0, "last_success_utc": "x", "status": "ok"}))
+    res["no_note"] = "accepted"
+except ValidationError as exc:
+    res["no_note"] = str(exc)
+emit(res)`);
+  assert.equal(out.outside_window_ok, true);
+  assert.equal(out.inside_window_ok, true);
+  assert.match(String(out.no_note), /inactives/, 'a zero without its note is still refused');
+});
+
+/* 6 — the app ------------------------------------------------------------------- */
 
 test('R79: the PLAYERS headline reads WK n · INACTIVE with a spelled-out title', () => {
   assert.deepEqual(gateTag({ wk: 2, playable: false, reason: 'inactive', game_id: 'G', points_lost: 9.1 }),
