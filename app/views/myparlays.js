@@ -230,8 +230,14 @@ const qChip = (l) => (l.availability === 'QUESTIONABLE'
 export function renderCard(card, i) {
   const pct = (p) => Math.round(p * 100);
   const evCls = card.ev >= 0 ? 'ev--pos' : 'ev--neg';
+  // R82 — `leg--annot` (flex-wrap:wrap) is REQUIRED here, not decorative. Every
+  // leg on a MY card carries a why-line, and `.leg-prov` is flex-basis:100% by
+  // design: without the wrap it stays on the name's flex line and, being
+  // shrinkable, eats it — measured 62px of a 155px name at 1280px, and 54px at
+  // 402px, where the name then stacked one word per line (5 lines, a 106px leg).
+  // PARLAYS adds the same class in annotateLegs; this list never did.
   const legs = card.legs.map((l) => (
-    '<div class="leg">'
+    '<div class="leg leg--annot">'
       + `<div class="leg-nm">${esc(l.selection)}</div>`
       + '<div class="leg-od">'
         + qChip(l)
@@ -292,6 +298,16 @@ function paint(el) {
       + 'the pool has no line we can price for them without guessing.</div>';
 }
 
+/**
+ * Mount MY PARLAYS into `el`.
+ *
+ * R82 — RESOLVES TO THE POOL'S WEEK (or null when the pool would not load).
+ * app/views/parlays.js owns the header and titles MY mode "MY PARLAYS · POOL
+ * WK n"; n is the week the leg pool was built for, which is this module's
+ * document to read, not the header's. Returning it is cheaper than exporting
+ * the loaded pool — the caller needs one number and must not hold the ~294 KB
+ * document alive after the tab is closed.
+ */
 export default async function mountMyParlays(el) {
   el.innerHTML = '<div class="state state--loading">Loading the leg pool…</div>';
   const [poolR, calibR] = await Promise.allSettled([
@@ -300,7 +316,7 @@ export default async function mountMyParlays(el) {
   if (poolR.status !== 'fulfilled' || !poolR.value) {
     el.innerHTML = '<div class="state">My Parlays unavailable — the leg pool has '
       + 'not been built yet.</div>';
-    return;
+    return null;
   }
   state.pool = poolR.value;
   state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
@@ -341,4 +357,7 @@ export default async function mountMyParlays(el) {
     paint(el);
   });
   paint(el);
+  // R82 — the pool's own week, for the MY-mode subtitle the header paints.
+  const wk = Number(state.pool.week);
+  return Number.isFinite(wk) ? wk : null;
 }

@@ -245,6 +245,23 @@ function subText(week, archived) {
     + (archived ? ' <span class="est pw-archived">ARCHIVED</span>' : '');
 }
 
+/**
+ * R82 — "MY PARLAYS · POOL WK n", the header while MY mode is open.
+ *
+ * The slate subtitle describes the PUBLISHED slate: a week, and MODEL EV as the
+ * thing the cards are ranked by. Neither claim survives the MY tab. Those cards
+ * were built a second ago out of the leg pool and were never on any slate, and
+ * they are ranked by conviction, not EV (myparlays.js's header states why EV
+ * cannot order a card whose prop legs carry no book price). Leaving the slate
+ * line above them asserted two things that were not true of what was on screen.
+ * `week` is the LEG POOL's week — the document those cards actually came from.
+ * Deliberately no ARCHIVED pill: the pool is only ever built for the current
+ * week, so there is no archived MY list for one to mark.
+ */
+export function mySubText(week) {
+  return `MY PARLAYS · POOL WK ${week != null ? week : ''}`;
+}
+
 /** A short glossary so the parlay terms are never unexplained.
  *
  * Every claim here is checked against the builder
@@ -500,7 +517,13 @@ export default async function mountParlays(el) {
     reviewP.then((mod) => {
       if (!mod || !listEl.isConnected || week !== selWeek) return;
       reviewMod = mod;
-      mod.applyParlayReview(listEl, week);
+      // R82 — applyParlayReview REPLACES the review strip node (review.js
+      // placeStrip removes the old one and re-inserts). A MY-mode entry that
+      // beat this lazy import set `hidden` on a node that no longer exists, so
+      // the banner reappeared over the MY cards. Re-hide once it has landed;
+      // the chrome, not the timing, decides what MY mode shows.
+      Promise.resolve(mod.applyParlayReview(listEl, week))
+        .then(() => { if (active === 'my') setMyChromeHidden(true); });
       paintBuckets();
       paintPnl();
       // R75 — the $100 sort is offered only when this week's rows actually
@@ -559,6 +582,19 @@ export default async function mountParlays(el) {
     paintReview(listEl, selWeek);
   }
 
+  /**
+   * R73 — is `week` a closed PAST week (the ARCHIVED pill's condition)? The
+   * current week is never archived however the index marks it.
+   *
+   * R82 lifted this out of selectWeek so exitMyMode can restore the slate
+   * subtitle EXACTLY as it was — pill and all — rather than repeating the
+   * expression and drifting from it.
+   */
+  function archivedFor(week) {
+    const entry = weeks.find((w) => w.week === week) || null;
+    return !!(entry && entry.closed && week !== curWeek);
+  }
+
   /** R73 — sync the chips + header to the selected week. */
   function syncWeekChrome(week, archived) {
     el.querySelectorAll('.pw-wkbar .wk-chip').forEach((b) => {
@@ -581,7 +617,7 @@ export default async function mountParlays(el) {
     activeBucket = null;
     activeTier = 'all';   // R75 — the tier chips are per-week, like the leg chips
     const entry = weeks.find((w) => w.week === week) || null;
-    syncWeekChrome(week, !!(entry && entry.closed && week !== curWeek));
+    syncWeekChrome(week, archivedFor(week));
     const seq = ++paintSeq;
     if (week === curWeek) {
       parlays = curParlays;
@@ -644,15 +680,36 @@ export default async function mountParlays(el) {
    * chips, leg counts, tiers, sort, buckets, the P&L line) is hidden rather than
    * rebuilt, because none of it describes a card you just invented.
    */
+  // R82 — `.rv-strip--parlay` joins the list. It is the R71 review banner
+  // ("WK n PARLAYS: 0/66 hit · legs 0/177 · 66 pending"), a SIBLING of
+  // #parlays-list rather than a child of it, so hiding the list never hid it:
+  // it stayed over the MY cards grading a slate none of them are on.
   const myChrome = ['.pw-wkbar', '#leg-controls', '#tier-controls', '#sort-controls',
-    '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list'];
+    '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list', '.rv-strip--parlay'];
   let myMounted = false;
+  // The leg pool's week, once mountMyParlays has read it (null until then).
+  let myPoolWeek = null;
 
-  function enterMyMode() {
+  function setMyChromeHidden(hidden) {
     myChrome.forEach((sel) => {
       const node = el.querySelector(sel);
-      if (node) node.hidden = true;
+      if (node) node.hidden = hidden;
     });
+  }
+
+  /** Paint the MY-mode subtitle from the best week we currently know. */
+  function syncMySub() {
+    const sub = el.querySelector('.view-sub');
+    // textContent, not innerHTML: this line carries no pill and never any markup.
+    if (sub) sub.textContent = mySubText(myPoolWeek != null ? myPoolWeek : selWeek);
+  }
+
+  function enterMyMode() {
+    setMyChromeHidden(true);
+    // Until the pool lands, the week the view already knows is the honest
+    // stand-in — the pool is built for the current week, so they agree in every
+    // case but a stale feed, and then the pool's own number replaces this one.
+    syncMySub();
     const host = el.querySelector('#myparlays-host');
     if (!host) return;
     host.hidden = false;
@@ -661,6 +718,11 @@ export default async function mountParlays(el) {
     host.innerHTML = '<div class="state state--loading">Loading My Parlays…</div>';
     import('./myparlays.js')
       .then((mod) => mod.default(host))
+      .then((week) => {
+        if (week == null) return;
+        myPoolWeek = week;
+        if (active === 'my') syncMySub();   // the tab may have been left already
+      })
       .catch((err) => {
         console.warn('[nfl2026] my parlays failed to load:', err);
         myMounted = false;
@@ -670,10 +732,12 @@ export default async function mountParlays(el) {
   }
 
   function exitMyMode() {
-    myChrome.forEach((sel) => {
-      const node = el.querySelector(sel);
-      if (node) node.hidden = false;
-    });
+    setMyChromeHidden(false);
+    // R82 — restore the slate line EXACTLY, ARCHIVED pill included. innerHTML,
+    // because that pill is markup; archivedFor is the same test syncWeekChrome
+    // is given, so a closed past week comes back marked as it left.
+    const sub = el.querySelector('.view-sub');
+    if (sub) sub.innerHTML = subText(selWeek, archivedFor(selWeek));
     const host = el.querySelector('#myparlays-host');
     if (host) host.hidden = true;
   }

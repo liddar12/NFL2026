@@ -214,6 +214,31 @@ nothing ships without one.
   `REPLAY LAB · CANDIDATES vs SHIPPED`. Week 1 (69 legs): `spread_margin_model` is `worse`
   (the retired spread rule loses to shipped, CI excludes 0); every other candidate `same`.
   See `docs/REPLAY_LAB.md`. · **LOE** 1 d
+- **R82 · MY PARLAYS card layout — built 2026-09-17 (RCA: the bet you could not read).** Three
+  faults, all layout, none visible to a gate that had no reader of the declarations behind them.
+  **(1)** `renderCard` emitted `<div class="leg">` without `leg--annot`, so the why-line
+  (`.leg-prov`, `flex-basis:100%`) never wrapped to its own line and took the name's instead:
+  `.leg-nm` measured **62px against a 155px name at 1280px** (40/40 names ellipsized) and **54px
+  at 402px**, where "J. Gibbs 20+ rush yds" broke one word per line — 5 lines, a 106px leg.
+  **(2)** `.card-list` is `align-items:start`, so a 2-leg card beside a 3-leg one ended **58px
+  higher** (95px at 1440px) and no footer on a row lined up. **(3)** `minmax(300px,1fr)` fits four
+  318px columns on the 1320px canvas and the `.p-foot` EV cell wrapped — `.legcount` **15.9px →
+  31.9px** at 1440px and 1100px. Plus a header describing the wrong thing: MY mode kept the
+  slate's `WEEK n · MODEL EV` line and the R71 review banner over ten cards that are on no slate
+  and are ranked by conviction, not EV. **Changed:** `leg--annot` on every MY leg; MY leg names
+  wrap rather than ellipsize (the slate keeps its own); `#mp-list` stretches its grid row with
+  `.p-foot` on `margin-top:auto` (the `.corr` note rides down with it) and takes a **360px**
+  minimum column at both desktop breakpoints, with the EV cell pinned `nowrap`; the subtitle reads
+  **`MY PARLAYS · POOL WK n`** from the leg pool's own week, and `.rv-strip--parlay` joins the
+  hidden chrome — `exitMyMode` restores the slate line through the same `archivedFor` test
+  `selectWeek` uses, so the ARCHIVED pill returns exactly as it left. **After:** name 155px ==
+  scrollWidth on one line at both viewports, why-line underneath, row-bottom spread **0px** at
+  820/900/1100/1280/1440/1600, `.legcount` 15.9px everywhere, no horizontal scroll. **Locked by**
+  `tests/feature/r82_myparlays_layout.test.mjs` (the wrap class on every leg, the exact subtitle
+  strings, the CSS declarations read as text, and that the slate rules are untouched) and
+  `tests/web/r82_myparlays_layout.spec.mjs` (the geometry at 402×874 and 1280×900, the width
+  sweep, and the banner staying hidden when MY is opened before the lazy review module lands).
+  · **LOE** 0.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
