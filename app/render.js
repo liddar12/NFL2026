@@ -20,6 +20,7 @@
  */
 
 import { TEAMS } from './teams.js';
+import { simulateMoney, simulationBreakdown } from './parlay-simulation.js';
 
 /* --------------------------------------------------------------------------
  * Small utilities
@@ -123,7 +124,7 @@ function formatLeg(market, selection) {
   const abbrevPlayer = (s) => String(s).replace(/^([A-Z])[a-z]+\s+([A-Z][a-z'.-]+)/, '$1. $2');
   switch (market) {
     case 'moneyline':
-      return `${sel} ML`;
+      return `${sel.replace(/\s+ML$/i, '')} ML`;
     case 'anytime_td': {
       // Data carries e.g. "Patrick Mahomes TD"; strip trailing " TD" so we can
       // append the canonical "anytime TD" phrasing without duplicating it.
@@ -527,7 +528,7 @@ function renderLeg(leg) {
   const edge = edgePct(leg.model_prob, leg.implied_prob);
   const edgeCls = edge >= 0 ? 'lg-edge--pos' : 'lg-edge--neg';
   return (
-    '<div class="leg">' +
+    `<div class="leg" data-market="${esc(leg.market)}" data-selection="${esc(leg.selection)}">` +
       `<div class="leg-nm">${esc(formatLeg(leg.market, leg.selection))}</div>` +
       '<div class="leg-od">' +
         `<span class="mo">MODEL <b>${model}</b></span>` +
@@ -551,20 +552,16 @@ export function renderParlayCard(parlay, matchupById) {
     : 'WEEK PARLAY';
 
   const tier = String(parlay.confidence_tier || '').toLowerCase() || 'low';
-  const tierLabel = tier.toUpperCase();
+  const tierLabel = `SIM ${tier.toUpperCase()}`;
 
   const ev = Number(parlay.model_ev) * 100;
   const evCls = ev >= 0 ? 'ev--pos' : 'ev--neg';
 
   const legs = Array.isArray(parlay.legs) ? parlay.legs : [];
   const legsHtml = legs.map(renderLeg).join('');
-
-  const corr = parlay.correlation_note
-    ? '<div class="corr">' +
-        '<span class="lk" aria-hidden="true">⚭</span>' +
-        `<span>${esc(parlay.correlation_note)}</span>` +
-      '</div>'
-    : '';
+  const money = simulateMoney(legs);
+  const net = money.net_fair;
+  const simulatedPay = `<div class="pay" data-kind="potential">${net == null ? '—' : '+$' + Math.round(net).toLocaleString('en-US')}<span class="k">$100 SIM NET · IF HIT</span><span class="pay-detail">${esc(simulationBreakdown(money))}</span></div>`;
 
   return (
     `<article class="card parlay" data-parlay-id="${esc(parlay.parlay_id)}" data-scope="${esc(scope)}">` +
@@ -574,10 +571,11 @@ export function renderParlayCard(parlay, matchupById) {
       '</div>' +
       `<div class="legs">${legsHtml}</div>` +
       '<div class="p-foot">' +
-        `<div class="ev ${evCls}">${signedPct1(ev)}<span class="k">MODEL EV</span></div>` +
+        `<div class="ev ${evCls}">${signedPct1(ev)}<span class="k">SIM EV</span></div>` +
         `<div class="legcount">${legs.length} legs</div>` +
+        simulatedPay +
       '</div>' +
-      corr +
+      '<div class="corr">SIMULATION · multiply 1/IMPL per leg; no same-game book adjustment. Net excludes the $100 stake. Not a sportsbook quote.</div>' +
     '</article>'
   );
 }

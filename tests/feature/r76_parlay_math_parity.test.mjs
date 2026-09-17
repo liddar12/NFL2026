@@ -96,6 +96,13 @@ for case in payload["cases"]:
     legs = [{"market": l["market"], "selection": l["selection"],
              "model_prob": l["model_prob"], "implied_prob": l["implied_prob"],
              "_corr_tag": l["corr_tag"], "_side": l["side"]} for l in case["legs"]]
+    if case["correlated"] and len(legs) > 2:
+        try:
+            _combined_probs(legs, True, corr)
+        except ValueError:
+            out.append({"unsupported": True})
+            continue
+        raise AssertionError("3+ same-event legs must be refused")
     model, implied = _combined_probs(legs, case["correlated"], corr)
     out.append({
         "model": model, "implied": implied,
@@ -144,6 +151,11 @@ test('the JS combination maths match the Python on every randomised case', () =>
 
   // and the whole fold, per case
   CASES.forEach((c, i) => {
+    if (c.correlated && c.legs.length > 2) {
+      assert.equal(py.cases[i].unsupported, true);
+      assert.throws(() => combinedProbs(c.legs, true, table), RangeError);
+      return;
+    }
     const [model, implied] = combinedProbs(c.legs, c.correlated, table);
     const exp = py.cases[i];
     assert.ok(Math.abs(model - exp.model) < TOL,

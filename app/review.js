@@ -4,7 +4,7 @@
  * players view once wired) so it never joins the boot graph the perf budget
  * (tests/perf/budget.spec.mjs) measures. Reads the contract through data.js's
  * loadJson so the promise cache de-dupes it across routes; a 404 (the runner has
- * not produced the file yet) resolves to null ONCE per session and every renderer
+ * not produced the file yet) resolves to null and remains retryable; every renderer
  * then paints nothing — no shell, no error.
  *
  * WHAT IT PAINTS (all additive, .rv-* classes only, never touching existing rules):
@@ -34,9 +34,9 @@
  * the card foot, read from the row's `money` block — kind "settled" is what the
  * stake returned on a graded parlay, kind "potential" is what it WOULD return if
  * every leg hit. Both are the BUILDER's arithmetic (scripts/build_review.
- * stamp_parlay_money): this file formats, it never prices a parlay, so a card
- * and the P&L line below cannot disagree. A row with no `money` (a document
- * built before R75) simply gets no cell. Display only, like every dollar here.
+ * stamp_parlay_money). R84 replaces legacy money IN MEMORY from the displayed
+ * card's original comparison prices, after checking leg identity. All figures
+ * are simulations; the same normalized rows supply the card, sort and total.
  *
  * R73 (additive, parlay section): the $100 FLAT-STAKE P&L line, read from
  * summary.parlays.stake_100[scope] ({n, graded, hit, push, staked, net_fair,
@@ -46,19 +46,16 @@
  */
 
 import { loadJson } from './data.js';
+import { matchingLegs, simulateMoney, simulationBreakdown, SIMULATION_NOTE } from './parlay-simulation.js';
 
 const PATH = '/data/review.json';
 
-let docPromise = null;
-
-/** Prime (or reuse) the review document. Resolves to null when absent; the null is
- * cached for the session so no route re-issues a request the runner cannot yet
- * answer (the perf budget counts every /data/ request). */
+/** Prime or reuse the TTL-cached review document. Missing data remains retryable. */
 export function primeReview() {
-  if (!docPromise) {
-    docPromise = loadJson(PATH).then((d) => (d && typeof d === 'object' ? d : null), () => null);
-  }
-  return docPromise;
+  return loadJson(PATH).then((d) => {
+    docSync = d && typeof d === 'object' ? d : null;
+    return docSync;
+  }, () => { docSync = null; return null; });
 }
 
 let docSync = null; // the resolved document, for the synchronous player renderer
@@ -335,22 +332,22 @@ export function pnlLineText(week, st) {
   if (!st || !isNum(st.graded) || st.graded <= 0) return '';
   const hit = isNum(st.hit) ? st.hit : 0;
   const push = isNum(st.push) && st.push > 0 ? ` · ${st.push} push` : '';
-  return `WEEK ${week} · ${hit}/${st.graded} hit${push} · ${fmtMoney(st.net_vig2)} at $100 flat `
-    + `(book vig 2%/leg; fair ${fmtMoney(st.net_fair)})`;
+  const net = isNum(st.net_fair) ? fmtMoney(st.net_fair) : 'unavailable';
+  return `WEEK ${week} · ${hit}/${st.graded} hit${push} · SIM NET ${net} at $100 flat (stake excluded; not actual betting returns)`;
 }
 
-/** "3 legs priced at -110 (no book price)" when the builder assumed a price. */
+/** Name unverified/assumed comparison inputs without inventing a -110 quote. */
 export function pnlAssumedText(st) {
   const n = st && isNum(st.assumed_price_legs) ? st.assumed_price_legs : 0;
   if (n <= 0) return '';
-  return `${n} leg${n === 1 ? '' : 's'} priced at -110 (no book price)`;
+  return `${n} leg${n === 1 ? '' : 's'} with assumed or unverified comparison prices`;
 }
 
 /** The .rv-pnl line for `week` at `scope`; '' when nothing is graded yet. */
 export function renderParlayPnl(week, scope, st) {
   const text = pnlLineText(week, st);
   if (!text) return '';
-  const net = isNum(st.net_vig2) ? st.net_vig2 : 0;
+  const net = isNum(st.net_fair) ? st.net_fair : 0;
   const tone = net > 0 ? 'pos' : (net < 0 ? 'neg' : 'flat');
   const assumed = pnlAssumedText(st);
   return (
@@ -365,7 +362,7 @@ export function renderParlayPnl(week, scope, st) {
 
 /** The label under a card's dollar figure — what the money IS, so a quote is
  * never mistaken for a result. */
-const PAY_KIND = { settled: '$100 RETURNED', potential: '$100 PAYS' };
+const PAY_KIND = { settled: '$100 SIM NET · GRADED', potential: '$100 SIM NET · IF HIT' };
 
 /** parlay_id -> the row's own `money` block for `week`. Rows without one are
  * absent from the map (a pre-R75 document paints no money at all). */
@@ -384,8 +381,7 @@ export function parlayMoneyMap(week, doc = docSync) {
 /** The tooltip naming this parlay's assumed prices, '' when every leg is priced. */
 export function payAssumedText(m) {
   const n = m && isNum(m.assumed_price_legs) ? m.assumed_price_legs : 0;
-  if (n <= 0) return '';
-  return `${n} leg${n === 1 ? '' : 's'} priced at -110 (no book price)`;
+  return SIMULATION_NOTE + (n > 0 ? ` ${n} leg${n === 1 ? '' : 's'} with assumed or unverified comparison prices.` : '');
 }
 
 /** The .pay cell for one card's money block; '' when there is none. */
@@ -397,20 +393,30 @@ export function renderPay(m) {
     `<div class="pay pay--${tone}" data-kind="${esc(m.kind)}"` +
       (assumed ? ` title="${esc(assumed)}"` : '') + '>' +
       `${esc(fmtMoney(m.net_fair))}<span class="k">${PAY_KIND[m.kind]}</span>` +
+      `<span class="pay-detail">${esc(simulationBreakdown(m))}</span>` +
     '</div>'
   );
 }
 
 /** Mark the painted parlay cards in `listEl` from the week's review. */
-export async function applyParlayReview(listEl, week) {
+export async function applyParlayReview(listEl, week, sourceCards = []) {
   const doc = await primeReview();
   if (!listEl || !listEl.isConnected) return;
+  if (listEl.dataset.parlayWeek !== String(week)) return;
+  prepareParlaySimulation(week, sourceCards, doc);
   const blk = weekBlock(doc, week);
   if (!blk) { placeStrip(listEl, '.rv-strip--parlay', ''); return; }
   const byId = new Map((blk.parlays || []).map((p) => [String(p.parlay_id), p]));
   listEl.querySelectorAll('.card.parlay[data-parlay-id]').forEach((card) => {
     const p = byId.get(String(card.dataset.parlayId));
     if (!p || card.querySelector('.rv-pchip')) return;
+    const source = sourceCards.find((p) => String(p.parlay_id) === String(card.dataset.parlayId));
+    const matched = matchingLegs(source, p);
+    if (!matched) return; // A reused rank ID is not an immutable card identity.
+    const painted = { legs: [...card.querySelectorAll('.legs > .leg')].map((n) => ({
+      market: n.dataset.market, selection: n.dataset.selection,
+    })) };
+    if (!matchingLegs(painted, p)) return;
     const head = card.querySelector('.p-head');
     if (head) {
       const chip = document.createElement('span');
@@ -433,12 +439,13 @@ export async function applyParlayReview(listEl, week) {
     const foot = card.querySelector('.p-foot');
     const pay = renderPay(p.money);
     if (foot && pay) {
+      foot.querySelector('.pay')?.remove();
       foot.insertAdjacentHTML('beforeend', pay);
       card.dataset.rvPay = String(p.money.net_fair);
       card.dataset.rvPayKind = p.money.kind;
     }
     const legNodes = card.querySelectorAll('.legs > .leg');
-    (p.legs || []).forEach((leg, i) => {
+    matched.forEach((leg, i) => {
       const node = legNodes[i];
       if (!node) return;
       const mark = document.createElement('span');
@@ -453,6 +460,33 @@ export async function applyParlayReview(listEl, week) {
     });
   });
   placeStrip(listEl, '.rv-strip--parlay', renderParlaySummary(week, blk.summary));
+}
+
+/** Reprice legacy review money from the actual displayed card, never old -110 totals.
+ * Composition mismatches are withheld rather than transferring another card's grade.
+ * This only normalizes the in-memory view; historical JSON receipts stay untouched. */
+export function prepareParlaySimulation(week, cards, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  if (!blk) return;
+  const sources = new Map(cards.map((p) => [String(p.parlay_id), p]));
+  for (const row of blk.parlays || []) {
+    const source = sources.get(String(row.parlay_id));
+    const outcomes = matchingLegs(source, row);
+    row.money = source && outcomes ? simulateMoney(source.legs, outcomes) : null;
+  }
+  const summary = blk.summary?.parlays;
+  if (!summary) return;
+  summary.stake_100 = Object.fromEntries(['game', 'week'].map((scope) => {
+    const rows = (blk.parlays || []).filter((r) => r.scope === scope);
+    const graded = rows.filter((r) => r.bucket !== 'pending');
+    const complete = graded.every((r) => isNum(r.money?.net_fair));
+    return [scope, { n: rows.length, graded: graded.length,
+      hit: graded.filter((r) => r.bucket === 'all_hit').length,
+      push: graded.filter((r) => r.bucket === 'push').length,
+      staked: graded.length * 100,
+      net_fair: graded.length && complete ? graded.reduce((s, r) => s + r.money.net_fair, 0) : null,
+      net_vig2: null, assumed_price_legs: graded.reduce((s, r) => s + (r.money?.assumed_price_legs || 0), 0) }];
+  }));
 }
 
 /* --------------------------------------------------------------------------

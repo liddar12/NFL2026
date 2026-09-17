@@ -120,6 +120,7 @@ test('the beam matches exhaustive enumeration on a pool small enough to enumerat
         const owners = legs.map((l) => l.owner);
         if (new Set(owners).size !== owners.length) continue;
         if (violatesOnePerSide(legs)) continue;
+        if (legs.some((leg) => legs.filter((l) => l.game_id === leg.game_id).length > 2)) continue;
         if (!legs.some((l) => matchesSeed(l, seeds))) continue;
         best.push({ legs, model: conviction(legs, TABLE) });
       }
@@ -153,7 +154,7 @@ test('the $100 figure is the payout at the prices shown, and props are flagged',
   assert.ok(card.ev < 0, 'an all-prop card cannot show positive EV');
   // a real book price is the only way a positive edge appears
   const ml = TOY_LEGS.find((l) => l.market === 'moneyline');
-  assert.equal(ml.priced, true);
+  assert.equal(ml.priced, false, 'numeric comparison does not prove a book quote');
 });
 
 test('the why-line states numbers, never adjectives', () => {
@@ -166,7 +167,7 @@ test('the why-line states numbers, never adjectives', () => {
   assert.ok(Math.abs((Number(muS) - Number(lineS)) - Number(gapS)) < 0.05,
     `${muS} - ${lineS} does not equal ${gapS}`);
   const ml = TOY_LEGS.find((l) => l.market === 'moneyline');
-  assert.match(whyLine(ml), /book price 62 vs our 60/);
+  assert.match(whyLine(ml), /legacy comparison \(source unknown\) 62 vs our 60/);
 });
 
 /* the shipped pool --------------------------------------------------------- */

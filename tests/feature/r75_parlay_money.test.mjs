@@ -177,15 +177,15 @@ test('renderPay labels a quote and a result differently', () => {
   const quote = renderPay({ kind: 'potential', net_fair: 700, net_vig2: null, assumed_price_legs: 0 });
   const paid = renderPay({ kind: 'settled', net_fair: 700, net_vig2: 660, assumed_price_legs: 0 });
   const lost = renderPay({ kind: 'settled', net_fair: -100, net_vig2: -100, assumed_price_legs: 2 });
-  assert.match(quote, /\$100 PAYS/);
-  assert.match(paid, /\$100 RETURNED/);
+  assert.match(quote, /\$100 SIM NET · IF HIT/);
+  assert.match(paid, /\$100 SIM NET · GRADED/);
   assert.ok(!quote.includes('RETURNED'), 'a quote never reads as a result');
   assert.match(quote, /pay--pos/);
   assert.match(lost, /pay--neg/);
   assert.match(lost, /−\$100/);
-  assert.match(lost, /title="2 legs priced at -110/, 'the assumed price is named, not hidden');
-  assert.equal(payAssumedText({ assumed_price_legs: 0 }), '', 'nothing to say when every leg is priced');
-  assert.equal(payAssumedText({ assumed_price_legs: 1 }), '1 leg priced at -110 (no book price)');
+  assert.match(lost, /2 legs with assumed or unverified comparison prices/, 'assumptions are named');
+  assert.match(payAssumedText({ assumed_price_legs: 0 }), /not an executable quote/);
+  assert.match(payAssumedText({ assumed_price_legs: 1 }), /1 leg with assumed or unverified comparison prices/);
   assert.equal(fmtMoney(0), '$0');
   // an unreadable money block paints nothing rather than a zero
   assert.equal(renderPay(null), '');

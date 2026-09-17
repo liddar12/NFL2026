@@ -32,6 +32,26 @@ const TIER_ORDER = ['high', 'medium', 'low'];
 const PAST = (INDEX.weeks || []).filter((w) => w.closed && Number(w.week) !== CUR)
   .map((w) => Number(w.week)).sort((a, b) => b - a)[0];
 
+// Independent oracle: use the original card's comparison prices, never the legacy -110 money.
+for (const [week, block] of Object.entries(REVIEW.weeks)) {
+  const cards = Number(week) === CUR ? PARLAYS.parlays
+    : read(`../../data/parlays/${PARLAYS.season}_wk${String(week).padStart(2, '0')}.json`).parlays;
+  for (const row of block.parlays) {
+    const card = cards.find((p) => p.parlay_id === row.parlay_id);
+    const settled = row.bucket !== 'pending';
+    const decimal = card.legs.reduce((d, leg) => {
+      const result = row.legs.find((l) => l.market === leg.market && l.selection === leg.selection)?.result;
+      return d * (result === 'void' ? 1 : 1 / leg.implied_prob);
+    }, 1);
+    row.money = { kind: settled ? 'settled' : 'potential', net_fair:
+      settled && row.legs.some((l) => l.result === 'miss') ? -100 : Math.round(10000 * (decimal - 1)) / 100 };
+  }
+  for (const scope of ['game', 'week']) {
+    const rows = block.parlays.filter((p) => p.scope === scope && p.money.kind === 'settled');
+    block.summary.parlays.stake_100[scope].net_fair = rows.reduce((s, p) => s + p.money.net_fair, 0);
+  }
+}
+
 const moneyRows = (week) => Object.fromEntries(
   ((REVIEW.weeks?.[String(week)]?.parlays) || []).map((p) => [String(p.parlay_id), p]));
 const footer = (week, scope) => REVIEW.weeks?.[String(week)]?.summary?.parlays?.stake_100?.[scope];
@@ -43,7 +63,7 @@ const tiersPresent = (parlays, scope) => TIER_ORDER.filter((t) => parlays
 /** Every painted card as {id, tier, pay, kind}. */
 const cards = (page) => page.locator('.card.parlay').evaluateAll((els) => els.map((e) => ({
   id: e.dataset.parlayId,
-  tier: (e.querySelector('.tier')?.textContent || '').trim().toLowerCase(),
+  tier: (e.querySelector('.tier')?.textContent || '').trim().toLowerCase().replace(/^sim /, ''),
   pay: e.dataset.rvPay === undefined ? null : Number(e.dataset.rvPay),
   kind: e.dataset.rvPayKind || null,
   payText: (e.querySelector('.pay')?.textContent || '').trim(),
@@ -138,10 +158,10 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
       expect(row, `no review row for ${c.id}`).toBeTruthy();
       expect(c.pay).toBeCloseTo(row.money.net_fair, 2);   // the card never re-prices
       expect(c.kind).toBe(row.money.kind);
-      expect(c.payText).toContain(row.money.kind === 'settled' ? '$100 RETURNED' : '$100 PAYS');
+      expect(c.payText).toContain(row.money.kind === 'settled' ? '$100 SIM NET · GRADED' : '$100 SIM NET · IF HIT');
     }
     // the legend says what the figures are, and that they are display only
-    await expect(page.locator('.legend')).toContainText('$100 PAYS');
+    await expect(page.locator('.legend')).toContainText('$100 SIM NET');
     await expect(page.locator('.legend')).toContainText('never a model input');
     expect(errors).toEqual([]);
   });
@@ -168,7 +188,7 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
       // per-card figures are rounded to the cent; never off by a dollar
       expect(Math.abs(sum - f.net_fair)).toBeLessThanOrEqual(0.01 * shown.length);
       // and a settled card reads as a result, never as a quote
-      expect(shown.every((c) => c.payText.includes('$100 RETURNED'))).toBe(true);
+      expect(shown.every((c) => c.payText.includes('$100 SIM NET · GRADED'))).toBe(true);
       // the P&L line below is the same money
       await expect(page.locator('#parlay-pnl .rv-pnl-line')).toContainText(`WEEK ${PAST}`);
     }

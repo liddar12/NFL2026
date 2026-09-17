@@ -862,20 +862,13 @@ def main():
     # prediction into an older lock (the whole point of point-in-time archiving).
     lock_name = f"{SEASON}_wk{wk:02d}_games_open"
     lock_path = os.path.join(DATA, "snapshots", lock_name + ".json")
-    if os.path.exists(lock_path):
-        print(f"lock exists, untouched: {lock_path}")
-    else:
-        rows = [
-            snap.make_row(
-                event_id=g["game_id"], event_type="game", model=g["model"],
-                locked_utc=now, as_of_utc=now,
-                probs=[g["probs"]["home"], g["probs"]["away"]],
-                estimate=False,  # a lock is a measurable prediction we stand behind
-            )
-            for g in week_games
-        ]
+    existing = snap.load_snapshot(lock_name) if os.path.exists(lock_path) else []
+    rows, skipped_locks = snap.append_game_locks(
+        existing, [p for p in predicted if p["week"] == wk], now)
+    if len(rows) != len(existing):
         snap.write_snapshot(lock_name, rows)
-        print(f"locked {len(rows)} game rows -> {lock_path}")
+    print(f"locks: {len(existing)} preserved, {len(rows)-len(existing)} appended; "
+          f"{len(skipped_locks)} non-pregame/missing-cutoff events refused: {skipped_locks}")
 
     # N4 (real-slate wiring) — parlays are built at the END of this run (see the
     # PARLAYS block below): the prop legs need player_weekly + player_projections

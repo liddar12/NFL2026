@@ -163,7 +163,7 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     // annotation (parlays.schema.json) — here the seed-fallback stamps.
     const allowed = new Set(['implied_prob', 'market', 'model_prob', 'selection',
       'edge_note', 'pricing', 'estimate', 'estimate_note', 'mu', 'sd', 'z', 'line',
-      'gsis_id', 'availability']); // R77: the player the leg names + the Q label
+      'gsis_id', 'availability', 'side', 'price_source']); // identity and explicit price provenance
     for (const leg of p.legs) {
       const keys = Object.keys(leg);
       assert.ok(!keys.some((k) => k.startsWith('_')), `internal key shipped: ${keys}`);
@@ -171,6 +171,7 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
         assert.ok(k in leg, `leg missing ${k}`);
       }
       for (const k of keys) assert.ok(allowed.has(k), `undeclared leg field ${k}`);
+      assert.ok(['home', 'away'].includes(leg.side), 'correlation side survives serialization');
       if (leg.market !== 'moneyline' && leg.market !== 'spread') {
         assert.equal(leg.pricing, 'seed');
         assert.match(leg.estimate_note, /^seed pricing/);
