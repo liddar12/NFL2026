@@ -78,6 +78,8 @@
           "market": {"type": "string", "enum": ["moneyline", "spread"]},
           "selection": {"type": "string", "minLength": 1},
           "game_id": {"type": ["string", "null"]},
+          "team": {"type": ["string", "null"]},
+          "side": {"type": ["string", "null"], "enum": ["home", "away", null], "description": "Correlation side. Older pools may omit it; the client resolves only from an unambiguous same-team, same-event player row."},
           "model_prob": {"type": "number", "minimum": 0, "maximum": 1},
           "implied_prob": {"type": "number", "minimum": 0, "maximum": 1, "description": "Display and the terms of the bet. Never an input."},
           "source": {"type": "string", "minLength": 1}

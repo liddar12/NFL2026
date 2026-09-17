@@ -79,6 +79,11 @@
                   "type": "string",
                   "description": "The specific pick within the market."
                 },
+                "side": {
+                  "type": "string",
+                  "enum": ["home", "away"],
+                  "description": "Team side within the leg's event, preserved for correlation. Optional for legacy archives."
+                },
                 "implied_prob": {
                   "type": "number",
                   "description": "DISPLAY ONLY market column: the book's de-vigged probability for this exact selection when a real price was fetched, otherwise model_prob re-vigged by the standard hold (no book price exists for that leg). Never an input to anything we produce.",
