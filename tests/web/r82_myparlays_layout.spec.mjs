@@ -36,10 +36,12 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { SEED_TEAM as SEED } from './_myseed.mjs';
 
 const POOL = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
 const POOL_WEEK = Number(POOL.week);
-const SEED = 'DET';
+// SEED is derived in _myseed.mjs (a team whose game is still upcoming); the
+// measurements in the header comment were taken with "DET" before its game.
 
 const PHONE = { width: 402, height: 874 };
 const DESKTOP = { width: 1280, height: 900 };

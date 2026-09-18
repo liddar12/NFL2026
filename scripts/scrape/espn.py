@@ -18,6 +18,8 @@ TWO inherited invariants encoded here:
 """
 
 import datetime as _dt
+import sys as _sys
+import time as _time
 
 from .. import availability
 from .renames import normalize_team
@@ -52,10 +54,36 @@ def _require_requests():
     return requests
 
 
-def _get_json(url, params=None):
-    """GET + parse JSON with a loud non-200 policy."""
+# Transport-level retries. A single TLS alert from ESPN's edge killed daily-pipeline
+# run 129 (2026-09-18 01:15Z) at its FIRST step, before anything was built. A
+# transport error (TLS handshake, connection reset, read timeout) is retried
+# with a short linear backoff; a non-200 or a non-JSON body is NOT — those are
+# the feed's answer, and the loud non-200 policy stands. The final failure still
+# raises: retries mask a blip, never an outage.
+_TRANSPORT_ATTEMPTS = 3
+_TRANSPORT_BACKOFF_S = 2.0
+
+
+def _get_json(url, params=None, _sleep=None):
+    """GET + parse JSON with a loud non-200 policy and bounded transport retries."""
     requests = _require_requests()
-    resp = requests.get(url, params=params or {}, timeout=_HTTP_TIMEOUT)
+    sleep = _sleep or _time.sleep
+    resp = None
+    for attempt in range(1, _TRANSPORT_ATTEMPTS + 1):
+        try:
+            resp = requests.get(url, params=params or {}, timeout=_HTTP_TIMEOUT)
+            break
+        except requests.exceptions.RequestException as exc:
+            if attempt == _TRANSPORT_ATTEMPTS:
+                raise FeedError(
+                    f"ESPN GET {url} failed {_TRANSPORT_ATTEMPTS} times at the transport "
+                    f"layer ({exc.__class__.__name__}: {exc}). Giving up loudly."
+                ) from exc
+            wait = _TRANSPORT_BACKOFF_S * attempt
+            print(f"  [retry] ESPN GET {url}: {exc.__class__.__name__}; "
+                  f"attempt {attempt + 1}/{_TRANSPORT_ATTEMPTS} in {wait:.0f}s",
+                  file=_sys.stderr)
+            sleep(wait)
     if resp.status_code != 200:
         raise FeedError(
             f"ESPN GET {url} returned HTTP {resp.status_code}. Refusing to treat a "

@@ -34,6 +34,11 @@ const PAST = (INDEX.weeks || []).filter((w) => w.closed && Number(w.week) !== CU
 
 // Independent oracle: use the original card's comparison prices, never the legacy -110 money.
 for (const [week, block] of Object.entries(REVIEW.weeks)) {
+  // The review carries a block for the current PIPELINE week too (games only, no
+  // parlays yet, no archive file) — the oracle only has cards to check where the
+  // archive index has a week (2026-09-18: week 3 appeared, wk03.json did not).
+  const archived = (INDEX.weeks || []).some((w) => Number(w.week) === Number(week));
+  if (Number(week) !== CUR && !archived) continue;
   const cards = Number(week) === CUR ? PARLAYS.parlays
     : read(`../../data/parlays/${PARLAYS.season}_wk${String(week).padStart(2, '0')}.json`).parlays;
   for (const row of block.parlays) {
