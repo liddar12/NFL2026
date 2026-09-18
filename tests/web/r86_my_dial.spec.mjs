@@ -25,8 +25,10 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { SEED_TEAM as SEED } from './_myseed.mjs';
 
-const SEED = 'DET';
+// The seed is derived (a team whose game is still upcoming), never hard-coded:
+// a fixed team goes dark the moment its game kicks off. See _myseed.mjs.
 const PHONE = { width: 402, height: 874 };
 const SIZES = [
   ['iPhone 402x874', PHONE],
@@ -43,7 +45,7 @@ function watch(page) {
   return errors;
 }
 
-/** Open PARLAYS, switch to MY and seed it with DET. */
+/** Open PARLAYS, switch to MY and seed it with the derived upcoming team. */
 async function openMy(page, size) {
   await page.setViewportSize(size);
   await page.goto('/#/parlays');

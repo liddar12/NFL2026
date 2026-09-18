@@ -12,9 +12,12 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { SEED_PLAYER } from './_myseed.mjs';
 
 const POOL = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
-const SEED = POOL.players[0];
+// A pooled player whose game is still upcoming (see _myseed.mjs): the first
+// pool row was a Thursday player and went dark every Friday.
+const SEED = SEED_PLAYER;
 
 const dataRequests = (page) => {
   const got = [];

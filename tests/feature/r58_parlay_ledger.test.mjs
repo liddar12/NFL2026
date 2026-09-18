@@ -93,7 +93,7 @@ function gradedGameLegs() {
       else { spread += 1; weeks.add(l.week); }
     }
   }
-  return { moneyline, spread, spreadPush, spreadPending, lockedProps, weeks: weeks.size, scored };
+  return { moneyline, spread, spreadPush, spreadPending, lockedProps, weeks: weeks.size, weekSet: weeks, scored };
 }
 
 function runPy(code) {
@@ -205,21 +205,28 @@ test('committed parlay ledger: every leg locked before kickoff, every prop leg i
 /* 3. Resolver on the fixture: hit / miss / unresolved; identical legs.       */
 /* ------------------------------------------------------------------------- */
 test('resolver dry run: hit/miss/unresolved with reasons, seed and model on identical legs, LA -> LAR', () => {
-  const printed = py(['scripts/resolve_parlay_legs.py', '--dry-run-with', FIXTURE]);
+  // --offline: finals come from the committed receipts and review.json only, so the
+  // derived expectations below and the resolver read the SAME files. Without it a
+  // machine with `requests` installed also asks ESPN live and grades a week the
+  // committed review has not caught up with yet (2026-09-18, the morning after a
+  // Thursday game).
+  const printed = py(['scripts/resolve_parlay_legs.py', '--dry-run-with', FIXTURE, '--offline']);
   assert.equal(printed.status, 0, printed.stderr);
   const dir = mkdtempSync(join(tmpdir(), 'r58-'));
   const out = join(dir, 'dry.json');
-  const r = py(['scripts/resolve_parlay_legs.py', '--dry-run-with', FIXTURE, '--out', out]);
+  const r = py(['scripts/resolve_parlay_legs.py', '--dry-run-with', FIXTURE, '--offline', '--out', out]);
   assert.equal(r.status, 0, r.stderr);
   const doc = JSON.parse(readFileSync(out, 'utf8'));
   // Two separate dry runs stamp their own generated_utc; compare everything else
   // (CI caught the two runs straddling a second boundary).
   const stripStamp = ({ generated_utc: _ignored, ...rest }) => rest;
   assert.deepEqual(stripStamp(JSON.parse(printed.stdout)), stripStamp(doc), 'stdout in a dry run IS the document');
-  assert.equal(doc.weeks_resolved, 1);
   assert.equal(doc.skipped, null);
   assert.match(doc.source, /dry run/);
   const g = gradedGameLegs();
+  // weeks_resolved is DERIVED: the fixture's week plus every week with a graded
+  // game leg (week 2's first FINAL on 2026-09-18 turned the old pin of 1 into 2).
+  assert.equal(doc.weeks_resolved, new Set([1, ...g.weekSet]).size);
   // FIXTURE_PROPS is a fact about two immutable things: the committed fixture CSV
   // and week 1's locked ledger legs. Everything else is DERIVED, so the ledger
   // growing week by week can never stale this file (week 2's legs turned the old

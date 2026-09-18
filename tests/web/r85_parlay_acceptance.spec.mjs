@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { SEED_TEAM } from './_myseed.mjs';
 
 // Incident contract: text must fit the CARD'S padded content box. A hidden
 // document scrollbar is not evidence of containment (R84's false negative).
@@ -38,7 +39,7 @@ for (const mode of ['game', 'week', 'my']) {
     await page.click(`[data-seg="${mode}"]`);
     if (mode === 'week') await page.click('[data-leg="5"]');
     if (mode === 'my') {
-      await page.fill('#mp-input', 'DET');
+      await page.fill('#mp-input', SEED_TEAM);
       await page.press('#mp-input', 'Enter');
     }
     const selector = mode === 'my' ? '#mp-list .mp-card' : '#parlays-list .card.parlay';

@@ -66,7 +66,7 @@ proj["updated_utc"] = "2026-09-11T06:00:00Z"        # the first append after wee
 d = bl.append(L, proj, weekly, kick, json.load(open("data/meta.json"))["weights"], 2026, "2026-09-11T06:00:01Z")
 bl.write(d, ${JSON.stringify(LOCKED)})
 print(json.dumps({"kick1": kick[1], "players": len(d["players"]),
-  "locked": sum(1 for p in d["players"].values() if p["locked"]),
+  "locked": sum(1 for p in d["players"].values() if "1" in (p["locked"] or {})),
   "eligible": sum(1 for p in d["players"].values() if p["first"]["as_of_utc"] < kick[1]),
   "weeks_locked": d["runs"][-1].get("weeks_locked")}))`);
 
@@ -80,6 +80,9 @@ function dryRun(csvPath, ledgerPath = LOCKED) {
 test('the production append locks week 1 on the ledger copy from the last pre-kickoff as-of', () => {
   assert.equal(lockInfo.kick1, '2026-09-10T00:20Z');
   assert.ok(lockInfo.players >= 200);
+  // `locked` is keyed by week: count the WEEK-1 locks, because the committed
+  // ledger locks later weeks too (week 2 at the 2026-09-18 Thursday kickoff) and
+  // a player first seen between the kickoffs carries a week-2 lock and no week 1.
   // Every player the ledger saw BEFORE the week-1 kickoff carries a locked week 1;
   // a player first appended after kickoff (the committed ledger grows in-season)
   // has no pre-kickoff estimate to lock — derived, never pinned to day zero.
@@ -179,12 +182,16 @@ test('a CSV carrying OTHER weeks only resolves nothing and says why', () => {
   const src = read(FIXTURE).split('\n');
   const head = src[0].split(',');
   const wi = head.indexOf('week');
+  // A week the ledger has NOT locked. Week 2 served until the pipeline locked it
+  // at the Thursday kickoff (2026-09-18) and a week-2 CSV started resolving for
+  // real; week 18 is the last regular-season week and is never locked in-season.
+  const OTHER = '18';
   const other = [src[0], ...src.slice(1).filter(Boolean).map((line) => {
     const cells = line.split(',');
-    cells[wi] = '2';
+    cells[wi] = OTHER;
     return cells.join(',');
   })].join('\n');
-  const path = join(TMP, 'stats_week2_only.csv');
+  const path = join(TMP, `stats_week${OTHER}_only.csv`);
   writeFileSync(path, `${other}\n`);
   const doc = dryRun(path);
   assert.equal(doc.weeks_resolved, 0);
@@ -192,8 +199,10 @@ test('a CSV carrying OTHER weeks only resolves nothing and says why', () => {
   assert.equal(doc.resolved.length, 0);
   assert.equal(doc.totals.mae_shipped, null, 'never a number from nothing');
   assert.equal(typeof doc.skipped, 'string');
-  assert.match(doc.skipped, /carries week\(s\) \[2\] only/);
-  assert.match(doc.skipped, /locked ledger week\(s\) \[1\] have no stats rows yet/);
+  assert.match(doc.skipped, new RegExp(`carries week\\(s\\) \\[${OTHER}\\] only`));
+  // the locked weeks are the ledger's own (week 1 on this copy, plus whatever the
+  // committed ledger has locked since), never pinned here
+  assert.match(doc.skipped, /locked ledger week\(s\) \[1(, \d+)*\] have no stats rows yet/);
   // ...and an empty CSV names the other reason
   const emptyPath = join(TMP, 'stats_empty.csv');
   writeFileSync(emptyPath, `${src[0]}\n`);
