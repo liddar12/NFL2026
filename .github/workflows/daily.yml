@@ -121,6 +121,17 @@ jobs:
       - name: MY PARLAYS leg pool (wide player universe, in-support rungs only)
         run: python3 scripts/build_leg_pool.py
 
+      # R87 — RECORD WHAT MY PARLAYS OFFERED. MY cards are built in the browser and
+      # then gone, so nothing could grade them and the learning loop never saw the
+      # surface that produces the most cards. This rebuilds, from the pool just
+      # written, the ten cards the view would have offered for every team seed at
+      # every dial AT THE POOL'S OWN generated_utc — the moment they were offered —
+      # and appends anything new. Immediately after the pool step because it reads
+      # that pool and stamps its as-of; first sight locks the as-made numbers and
+      # a second run on the same pool changes no bytes.
+      - name: MY PARLAYS offered cards (first-sight lock)
+        run: python3 scripts/build_my_cards.py
+
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.
@@ -171,6 +182,16 @@ jobs:
 
       - name: Resolve parlay legs against nflverse weekly yards
         run: python scripts/resolve_parlay_legs.py
+        continue-on-error: true   # a stats outage degrades the record, never the run
+
+      # R87 — grade the recorded MY cards. Immediately after the leg resolver
+      # because it reads the same nflverse release (fetch_csv, cache shared by
+      # import) and the same layered finals, so the two records are always scored
+      # against identical inputs on the same day. It writes the honest 0-graded
+      # document while a week has no rows; an unresolved leg is pending, never a
+      # miss, so the run degrades rather than inventing a hit rate.
+      - name: Resolve MY cards against nflverse weekly yards
+        run: python scripts/resolve_my_cards.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
       # R81 — PARLAY REPLAY LAB (measure only). Replays candidate pricing and

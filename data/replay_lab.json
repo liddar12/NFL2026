@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-19T13:54:54Z",
+  "generated_utc": "2026-09-19T14:57:25Z",
   "weeks_replayed": [
     1,
     2
@@ -914,6 +914,317 @@
       "note": "75 of 75 resolved leg(s) re-priced, 40 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     }
   },
+  "same_game_pairs": {
+    "rule": "pairs = every unordered pair of RESOLVED locked legs sharing a (week, game_id), minus the pairs parlay_builder.same_side_game_pair refuses; key = the two legs' correlation tags sorted and joined with '|', plus '|opposing' when their sides are {home, away}; observed_joint = mean(yA*yB), independent_joint = mean(pA*pB) and shipped_joint = mean(parlay_builder._combine_two(pA, pB, parlay_builder._pair_rho(legA, legB, corr))) on the LOCKED model probabilities; delta = observed_joint - shipped_joint, ci90 = the 90% paired bootstrap of the per-pair (yA*yB - shipped_joint_pair); verdict is 'insufficient' below min_n, else 'consistent' when the CI contains 0, 'shipped_high' when it is entirely below 0 and 'shipped_low' when it is entirely above.",
+    "min_n": 20,
+    "pairs": [
+      {
+        "key": "moneyline|qb_pass_yds",
+        "n": 6,
+        "observed_joint": 0.3333,
+        "independent_joint": 0.338,
+        "shipped_joint": 0.3606,
+        "rho_shipped": 0.1,
+        "rho_live": -0.0205,
+        "delta": -0.0272,
+        "ci90": [
+          -0.3559,
+          0.3325
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "moneyline|qb_pass_yds|opposing",
+        "n": 5,
+        "observed_joint": 0.0,
+        "independent_joint": 0.2219,
+        "shipped_joint": 0.1982,
+        "rho_shipped": -0.1,
+        "rho_live": -0.9359,
+        "delta": -0.1982,
+        "ci90": [
+          -0.2398,
+          -0.1522
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "moneyline|rb_rush_yds",
+        "n": 9,
+        "observed_joint": 0.3333,
+        "independent_joint": 0.2891,
+        "shipped_joint": 0.3555,
+        "rho_shipped": 0.2789,
+        "rho_live": 0.1857,
+        "delta": -0.0222,
+        "ci90": [
+          -0.2531,
+          0.2311
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "moneyline|rb_rush_yds|opposing",
+        "n": 6,
+        "observed_joint": 0.1667,
+        "independent_joint": 0.287,
+        "shipped_joint": 0.2214,
+        "rho_shipped": -0.2789,
+        "rho_live": -0.5114,
+        "delta": -0.0547,
+        "ci90": [
+          -0.2368,
+          0.2439
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "moneyline|wr_rec_yds",
+        "n": 7,
+        "observed_joint": 0.4286,
+        "independent_joint": 0.3321,
+        "shipped_joint": 0.3556,
+        "rho_shipped": 0.1,
+        "rho_live": 0.4108,
+        "delta": 0.073,
+        "ci90": [
+          -0.2013,
+          0.3557
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "moneyline|wr_rec_yds|opposing",
+        "n": 7,
+        "observed_joint": 0.1429,
+        "independent_joint": 0.2547,
+        "shipped_joint": 0.2304,
+        "rho_shipped": -0.1,
+        "rho_live": -0.4612,
+        "delta": -0.0876,
+        "ci90": [
+          -0.2357,
+          0.1724
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|rb_rush_yds",
+        "n": 5,
+        "observed_joint": 0.0,
+        "independent_joint": 0.2768,
+        "shipped_joint": 0.272,
+        "rho_shipped": -0.0199,
+        "rho_live": -1.15,
+        "delta": -0.272,
+        "ci90": [
+          -0.3248,
+          -0.2256
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|rb_rush_yds|opposing",
+        "n": 5,
+        "observed_joint": 0.2,
+        "independent_joint": 0.1683,
+        "shipped_joint": 0.1638,
+        "rho_shipped": -0.0199,
+        "rho_live": 0.1394,
+        "delta": 0.0362,
+        "ci90": [
+          -0.1682,
+          0.3891
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|spread",
+        "n": 7,
+        "observed_joint": 0.4286,
+        "independent_joint": 0.255,
+        "shipped_joint": 0.2792,
+        "rho_shipped": 0.1,
+        "rho_live": 0.7192,
+        "delta": 0.1494,
+        "ci90": [
+          -0.1522,
+          0.4656
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|spread|opposing",
+        "n": 6,
+        "observed_joint": 0.0,
+        "independent_joint": 0.1921,
+        "shipped_joint": 0.1683,
+        "rho_shipped": -0.1,
+        "rho_live": -0.8073,
+        "delta": -0.1683,
+        "ci90": [
+          -0.2009,
+          -0.1356
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|wr_rec_yds",
+        "n": 10,
+        "observed_joint": 0.1,
+        "independent_joint": 0.2143,
+        "shipped_joint": 0.2882,
+        "rho_shipped": 0.3146,
+        "rho_live": -0.4864,
+        "delta": -0.1882,
+        "ci90": [
+          -0.3259,
+          0.0086
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "qb_pass_yds|wr_rec_yds|opposing",
+        "n": 1,
+        "observed_joint": 1.0,
+        "independent_joint": 0.2444,
+        "shipped_joint": 0.2692,
+        "rho_shipped": 0.0994,
+        "rho_live": 3.0246,
+        "delta": 0.7308,
+        "ci90": [
+          0.7308,
+          0.7308
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "rb_rush_yds|spread",
+        "n": 10,
+        "observed_joint": 0.1,
+        "independent_joint": 0.234,
+        "shipped_joint": 0.2582,
+        "rho_shipped": 0.1,
+        "rho_live": -0.5541,
+        "delta": -0.1582,
+        "ci90": [
+          -0.2817,
+          0.0426
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "rb_rush_yds|spread|opposing",
+        "n": 7,
+        "observed_joint": 0.1429,
+        "independent_joint": 0.2349,
+        "shipped_joint": 0.2105,
+        "rho_shipped": -0.1,
+        "rho_live": -0.3766,
+        "delta": -0.0676,
+        "ci90": [
+          -0.2212,
+          0.1934
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "rb_rush_yds|wr_rec_yds",
+        "n": 7,
+        "observed_joint": 0.2857,
+        "independent_joint": 0.246,
+        "shipped_joint": 0.2706,
+        "rho_shipped": 0.1,
+        "rho_live": 0.1614,
+        "delta": 0.0151,
+        "ci90": [
+          -0.2722,
+          0.3152
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "rb_rush_yds|wr_rec_yds|opposing",
+        "n": 5,
+        "observed_joint": 0.2,
+        "independent_joint": 0.2024,
+        "shipped_joint": 0.1792,
+        "rho_shipped": -0.1,
+        "rho_live": -0.0102,
+        "delta": 0.0208,
+        "ci90": [
+          -0.2009,
+          0.3707
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "spread|wr_rec_yds",
+        "n": 6,
+        "observed_joint": 0.1667,
+        "independent_joint": 0.2495,
+        "shipped_joint": 0.2743,
+        "rho_shipped": 0.1,
+        "rho_live": -0.3337,
+        "delta": -0.1076,
+        "ci90": [
+          -0.2833,
+          0.2077
+        ],
+        "verdict": "insufficient"
+      },
+      {
+        "key": "spread|wr_rec_yds|opposing",
+        "n": 9,
+        "observed_joint": 0.2222,
+        "independent_joint": 0.2202,
+        "shipped_joint": 0.1956,
+        "rho_shipped": -0.1,
+        "rho_live": 0.0082,
+        "delta": 0.0267,
+        "ci90": [
+          -0.1897,
+          0.2496
+        ],
+        "verdict": "insufficient"
+      }
+    ],
+    "pooled": {
+      "key": "all",
+      "n": 118,
+      "observed_joint": 0.2034,
+      "independent_joint": 0.2484,
+      "shipped_joint": 0.257,
+      "rho_shipped": null,
+      "rho_live": -0.1884,
+      "delta": -0.0536,
+      "ci90": [
+        -0.1098,
+        0.0069
+      ],
+      "verdict": "consistent"
+    },
+    "refused_by_reason": {
+      "same_side_game_pair": 20
+    },
+    "cards": {
+      "n": 34,
+      "all_hit_rate": 0.3235,
+      "mean_model_shipped": 0.3022,
+      "mean_model_independent": 0.2676,
+      "delta": 0.0213,
+      "ci90": [
+        -0.1001,
+        0.1534
+      ],
+      "verdict": "consistent",
+      "excluded_by_reason": {
+        "leg_not_resolved": 49,
+        "leg_not_locked": 13
+      }
+    },
+    "note": "MEASURE ONLY, like every other block here. The shipped same-game rho (data/parlay_backtest.json, 2023-25) is scored against 2026 outcomes -- RC-N5's precondition for trusting the chained joint -- and no rho measured here is adopted, written back or allowed to reach a leg. A verdict needs the 90% CI to exclude 0 and at least min_n pairs; below that the numbers are printed and the verdict is 'insufficient'."
+  },
   "selection_rules": [
     "all",
     "ev_gt_0",
@@ -933,6 +1244,7 @@
     "MARKET NUMBERS ARE THE TERMS OF THE BET, NEVER AN INPUT. implied_prob is read only as the EV denominator and the leg decimal; no variant function is handed a book number at all.",
     "ABSENT IS ABSENT. A locked leg with no outcome is counted under its reason and never scored; a parlay with any unresolved leg is excluded and counted. With no resolved week every metric is null, never 0.",
     "A VERDICT NEEDS A CONFIDENCE INTERVAL. 'better' or 'worse' is claimed only when the 90% paired-bootstrap CI of the log-loss difference excludes 0; everything else is 'same', however good the point estimate looks.",
+    "THE SAME-GAME CORRELATION IS SCORED, NOT TRUSTED. `same_game_pairs` measures the shipped rho (measured 2023-25) against 2026 outcomes on every pair of resolved legs inside one game; a pair the one-leg-per-game-side rule refuses is not measured, because it is not offered. No rho measured there is adopted, written back, or allowed to reach a leg.",
     "SELECTION REPLAYS CHOOSE AMONG THE PARLAYS THAT WERE ACTUALLY BUILT. They cannot invent a parlay that was never on the slate, and a rule that looks good on one week of 2 to 7-leg cards has proved almost nothing."
   ],
   "limits": [
@@ -941,7 +1253,8 @@
     "The `shipped` baseline is the price LOCKED ON FIRST SIGHT in data/estimates/parlays_<season>.json \u2014 the price the resolver grades and the price a bet placed pre-kickoff would have carried. The archived card may hold a LATER pre-kickoff refresh of the same leg, so a replayed parlay's model_ev is the parlay at its locked price and will not always equal the model_ev printed on the archived card. Both are ours; they are different snapshots.",
     "Prop legs and game legs with no ledger price settle at an assumed -110 (build_review's rule); assumed_price_legs counts them on every row.",
     "Eligibility is not random: a parlay is replayed only when EVERY leg of it resolved, so while spreads are ungraded every card carrying one drops out. The comparison between variants is still like-for-like (they all see the same eligible set), but an absolute ROI here is over a subset of the slate.",
-    "One or two weeks of a 2026 season is a small sample. A CI that excludes 0 here is a reason to look again next week, not a reason to change a build."
+    "One or two weeks of a 2026 season is a small sample. A CI that excludes 0 here is a reason to look again next week, not a reason to change a build.",
+    "The same-game pair rows are pairs of legs that RESOLVED in one game, not parlays that were offered: most of them were never on a card together. The `cards` sub-block is the offered population (archived 2-leg same-game cards) and is much smaller. Both are reported because they answer different questions: whether the rho is right, and whether the cards it priced landed."
   ],
   "note": "R81 REPLAY LAB. Candidate parlay-improvement rules replayed against the weeks already played, on the legs that were actually locked. Nothing here is adopted, and nothing here changes a shipped number."
 }

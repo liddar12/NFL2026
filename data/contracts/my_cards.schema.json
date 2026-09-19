@@ -1,0 +1,428 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "my_cards.schema.json",
+  "title": "MY PARLAYS offered cards (R87) - data/my_cards/<season>_wk<NN>.json",
+  "description": "Every card app/views/myparlays.js would have offered for a TEAM seed at a dial at the moment the leg pool was generated, appended the FIRST time its key (dial, seed, sorted selections) is seen with its as-made numbers and never rewritten. `locked` is true only when that first sight preceded the earliest kickoff among the card's legs; unlocked cards are kept for the record and excluded from scoring (the R58 ledger's rule). Player-typed seeds are not recorded - the recorded universe is every team seed at every dial. Written by scripts/build_my_cards.py (idempotent per pool_generated_utc, canonical JSON); graded by scripts/resolve_my_cards.py. implied_prob is display and the terms of the bet, never a model input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "week",
+    "generated_utc",
+    "pool_generated_utc",
+    "source",
+    "dials",
+    "seeds",
+    "rule",
+    "note",
+    "runs",
+    "cards"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "pool_generated_utc": {
+      "type": "string",
+      "minLength": 1,
+      "description": "data/leg_pool.json generated_utc: the moment the cards were offered, and the idempotency key."
+    },
+    "source": {
+      "type": "string"
+    },
+    "dials": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": [
+          "safe",
+          "even",
+          "longshot"
+        ]
+      }
+    },
+    "seeds": {
+      "type": "string",
+      "enum": [
+        "team"
+      ],
+      "description": "Which seed kind was swept. Player seeds are not recorded."
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pool_generated_utc",
+          "week",
+          "cards_seen",
+          "cards_added",
+          "locked_added",
+          "unlocked_added"
+        ],
+        "properties": {
+          "pool_generated_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "cards_seen": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cards_added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "locked_added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unlocked_added": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "card_id",
+          "dial",
+          "seed",
+          "rank",
+          "n_legs",
+          "same_game",
+          "mixed_game",
+          "model",
+          "implied",
+          "ev",
+          "tier",
+          "payout",
+          "assumed",
+          "first_seen_utc",
+          "locked",
+          "locked_utc",
+          "earliest_kickoff_utc",
+          "legs"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{12}$",
+            "description": "Short stable hash of the key (dial, seed, sorted selections)."
+          },
+          "dial": {
+            "type": "string",
+            "enum": [
+              "safe",
+              "even",
+              "longshot"
+            ]
+          },
+          "seed": {
+            "type": "string",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Position in the ten cards offered for this seed and dial, at first sight."
+          },
+          "n_legs": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "same_game": {
+            "type": "boolean"
+          },
+          "mixed_game": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Combined model probability (CONVICTION) as offered, at 4dp."
+          },
+          "implied": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "ev": {
+            "type": "number",
+            "description": "model/implied - 1. A simulation at the displayed prices, not a quote."
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "payout": {
+            "type": "number",
+            "description": "What $100 would return if every leg hit, at the prices shown."
+          },
+          "assumed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "Legs with no book price."
+          },
+          "first_seen_utc": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "True only when the first sight preceded the earliest kickoff among the card's legs; only locked cards are graded."
+          },
+          "locked_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "earliest_kickoff_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "From data/schedule_full.json; a card with an unreadable kickoff can never lock."
+          },
+          "legs": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "market",
+                "selection",
+                "game_id",
+                "team",
+                "side",
+                "player",
+                "gsis_id",
+                "position",
+                "line",
+                "mu",
+                "model_prob",
+                "implied_prob",
+                "price_source",
+                "priced"
+              ],
+              "properties": {
+                "market": {
+                  "type": "string",
+                  "enum": [
+                    "moneyline",
+                    "spread",
+                    "qb_pass_yds",
+                    "rb_rush_yds",
+                    "wr_rec_yds"
+                  ]
+                },
+                "selection": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The exact text the card showed."
+                },
+                "game_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1
+                },
+                "team": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "ARI",
+                    "ATL",
+                    "BAL",
+                    "BUF",
+                    "CAR",
+                    "CHI",
+                    "CIN",
+                    "CLE",
+                    "DAL",
+                    "DEN",
+                    "DET",
+                    "GB",
+                    "HOU",
+                    "IND",
+                    "JAX",
+                    "KC",
+                    "LV",
+                    "LAC",
+                    "LAR",
+                    "MIA",
+                    "MIN",
+                    "NE",
+                    "NO",
+                    "NYG",
+                    "NYJ",
+                    "PHI",
+                    "PIT",
+                    "SF",
+                    "SEA",
+                    "TB",
+                    "TEN",
+                    "WAS",
+                    null
+                  ]
+                },
+                "side": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "home",
+                    "away",
+                    null
+                  ]
+                },
+                "player": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Prop legs: the pool player behind the selection. Null on a game leg."
+                },
+                "gsis_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "position": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "QB",
+                    "RB",
+                    "WR",
+                    null
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Prop legs: the yardage line the leg is evaluated at. Null on a game leg - the pool carries no handicap, and the resolver reads a spread's terms off the selection."
+                },
+                "mu": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "The projection the why-line printed."
+                },
+                "model_prob": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Our probability, as offered, at 4dp."
+                },
+                "implied_prob": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "The comparison price shown beside it - a yardstick and the terms of the bet, never an input."
+                },
+                "price_source": {
+                  "type": "string",
+                  "enum": [
+                    "assumed",
+                    "fair_market",
+                    "book_quote",
+                    "unavailable"
+                  ]
+                },
+                "priced": {
+                  "type": "boolean",
+                  "description": "True only for a real book quote; a prop is never priced."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

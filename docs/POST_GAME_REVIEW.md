@@ -230,7 +230,9 @@ narratives without a matching hash are dropped). To back out the whole feature:
 ## Pipeline wiring
 
 `gameday.yml`: `python3 scripts/build_review.py` after *Resolve locks against FINAL
-scores* / *Refresh scores* (so the slate circles land inside the gameday window).
+scores* and the two leg resolvers (R87: the placeholder *Refresh scores* step is
+gone; scores mode is resolve_locks -> archive -> resolvers -> review, see
+`docs/PIPELINE_GRAPH.md`), so the slate circles land inside the gameday window.
 `daily.yml`: `python3 scripts/build_review.py` after `resolve_estimates.py` and the
 parlay resolver, then `python3 scripts/build_review_narrative.py` with the two env
 vars, `continue-on-error: true`. Smoke runs both `--selftest`s; the feature lock is

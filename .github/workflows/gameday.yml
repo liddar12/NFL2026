@@ -1,19 +1,38 @@
-# Gameday windows: probability locks + live score refresh on Thu / Sun / Mon.
+# Gameday windows: probability locks + result grading on Thu / Sun / Mon.
 #
-# Two jobs of the SAME workflow, selected by which cron fired (GitHub tells us via the
-# schedule expression). CRON THROTTLING still applies (see daily.yml) — these windows
-# are deliberately WIDE and frequent so that even a throttled runner catches the events
-# it needs; true second-by-second scores are an edge-function concern, not this cron's.
+# ONE workflow, TWO modes, selected by the workflow_dispatch input `mode`
+# (lock | scores | both). A `schedule:` run leaves that input EMPTY, which matches
+# neither guard below, so a cron always fires the full graph. CRON THROTTLING still
+# applies (see daily.yml) — these windows are deliberately WIDE and frequent so that
+# even a throttled runner catches the events it needs; true second-by-second scores are
+# an edge-function concern, not this cron's.
 #
-# The two responsibilities:
-#   1. PROBABILITY LOCKS. We snapshot each game's pre-kickoff probability vector at two
-#      honest cutoffs: ~36h out (opening lock) and ~1h out (final pre-kickoff lock).
-#      A locked snapshot is the leak-safe, point-in-time prediction the backtest later
-#      grades against the result. Locking is the backbone of backtest honesty — once a
-#      game kicks off its prediction can never be edited.
-#   2. SCORE REFRESH. During/after game windows we pull ESPN scores. STATUS-GATING is
-#      enforced in the scraper: only FINAL games become actuals; live/halftime/0-0 stubs
-#      are display-only and never scored.
+# R87 (F17) — gameday used to publish a DIFFERENT dependency graph from daily.yml: it
+# rebuilt game_predictions.json but never rebuilt the MY PARLAYS leg pool and never
+# appended or resolved a single leg. So a Sunday window shipped GAME cards priced off
+# fresh inactives next to MY cards still priced off Saturday's pool, and a leg first
+# offered inside a gameday window could reach kickoff with no receipt at all. The two
+# graphs below are now the real ones, in real dependency order.
+#
+# LOCK MODE (steps guarded `mode != 'scores'`, plus every unguarded step):
+#   resolve_locks -> refit -> build_predictions (+ snapshot copy) -> build_parlay_archive
+#   -> build_leg_pool -> build_my_cards -> build_parlay_ledger -> resolve_parlay_legs
+#   -> resolve_my_cards -> build_review -> validate_data -> commit
+#   Every arrow is a genuine dependency: refit grades before it fits, the pool copies the
+#   slate build_predictions just wrote and prices props from the same weekly projections,
+#   the ledger records what the pool and cards just offered, and build_review consumes
+#   the resolved rows. A locked snapshot is the leak-safe, point-in-time prediction the
+#   backtest later grades against — once a game kicks off its prediction is never edited.
+#
+# SCORES MODE (unguarded steps only — nothing is re-priced, nothing new is offered):
+#   resolve_locks -> refit -> build_parlay_archive -> resolve_parlay_legs
+#   -> resolve_my_cards -> build_review -> validate_data -> commit
+#   STATUS-GATING is enforced in scripts/scrape/espn.py, not here: only FINAL games
+#   become actuals; live / halftime / 0-0 scheduled stubs are display-only and never
+#   scored. refit is a clean no-op unless this run resolved a new lock.
+#
+# The two resolvers carry NO mode guard on purpose — grading is mode-independent (see
+# their step comment). Full step table: docs/PIPELINE_GRAPH.md.
 name: gameday
 
 on:
@@ -92,22 +111,77 @@ jobs:
           cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json"
           echo "locked snapshot data/snapshots/game_predictions.${ts}.json"
 
-      # LIVE / FINAL SCORE REFRESH. The scraper status-gates: only FINAL rows become
-      # actuals. Loud on 0 events (silent-404 lesson). Placeholder CLI wired at Gate 2.
       # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
       # (created on first sight, refreshed while open, frozen once every game is
       # FINAL) and rebuild data/parlays/index.json. Idempotent per updated_utc.
+      # DELIBERATELY ONE STEP, UNGUARDED: it is the one thing both modes need — in
+      # lock mode it archives the parlays build_predictions just rewrote, in scores
+      # mode it freezes the week whose games have now gone FINAL. It already sits
+      # after the lock step, so keeping it here satisfies both orderings and every
+      # R87 step below follows it.
       - name: Parlay archive (per-week history + index)
         run: python3 scripts/build_parlay_archive.py
 
-      - name: Refresh scores (status-gated)
-        if: ${{ github.event.inputs.mode != 'lock' }}
-        run: |
-          python -m scripts.scrape.espn_scores_cli || true  # Gate-2 wiring placeholder
-          echo "score refresh step (status-gating enforced in scripts/scrape/espn.py)"
+      # R87 (F17) — MY PARLAYS REBUILT UNDER THIS GENERATION. Without this step the
+      # window refreshed game_predictions.json and left data/leg_pool.json at whatever
+      # the last daily run wrote, which is exactly the GAME-moves-while-MY-does-not
+      # split F17 names. It runs immediately after build_predictions because it copies
+      # the slate's game legs verbatim and prices its props from the weekly projections
+      # that build just refreshed. Stdlib, offline, reads only committed data/. It
+      # REFUSES to write while its calibration gate is red, so a red gate leaves the
+      # previous pool standing rather than shipping legs priced by coefficients that
+      # did not pass — that refusal is a healthy outcome, not a failure to retry.
+      - name: MY PARLAYS leg pool (rebuild under this generation)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: python3 scripts/build_leg_pool.py
 
-      # (build_predictions writes data/pipeline_status.json with honest feed health;
-      # no separate status step needed.)
+      # R87 (F17) — the cards actually OFFERED, recorded on first sight. A card that
+      # only ever appeared inside a gameday window previously had no pre-kickoff
+      # receipt; now the window that offers it is the window that locks it. Stdlib and
+      # offline; an absent data/leg_pool.json (the refusal above) is a one-line skip
+      # with exit 0, never a failed run.
+      - name: MY PARLAYS offered cards (first-sight lock)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: python3 scripts/build_my_cards.py
+
+      # R87 (F17) — as-made pricing for every shipped leg, locked pre-kickoff.
+      # Idempotent per parlays.json updated_utc, so the two-hourly Sunday grid appends
+      # once per generation and a post-kickoff leg is recorded unlocked rather than
+      # back-dated. Must follow the pool and the cards: it records what they offered.
+      - name: Parlay-leg ledger append (as-made pricing, locked pre-kickoff)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: python scripts/build_parlay_ledger.py
+
+      # R87 (F17) — GRADING IS MODE-INDEPENDENT, so these two carry NO mode guard.
+      # Thursday's legs go FINAL inside Sunday's lock window and Sunday's inside
+      # Monday's; a `mode != 'lock'` guard would strand precisely those. Both are
+      # idempotent and, while no week has resolved, skip loudly with an honest
+      # 0-resolved record — they never invent a log-loss — so running them in every
+      # mode costs a no-op. Both need the network (nflverse weekly yards), hence
+      # continue-on-error: a stats outage degrades the record, never the run, and
+      # build_review below still reports on whatever did resolve.
+      - name: Resolve parlay legs against nflverse weekly yards
+        run: python scripts/resolve_parlay_legs.py
+        continue-on-error: true
+
+      - name: Resolve MY cards against nflverse weekly yards
+        run: python scripts/resolve_my_cards.py
+        continue-on-error: true
+
+      # SCORES MODE, STATED HONESTLY. There is no longer a "Refresh scores" step,
+      # because there was never anything behind it: the removed line ran a scores
+      # CLI module under scripts/scrape/ that has never existed in this repo, and
+      # ran it under `|| true`, so the step reported success for work it never did.
+      # Scores mode is, in full: resolve_locks (the first step above; it is the real
+      # ESPN FINAL reader and it status-gates), refit, the parlay archive, the two
+      # resolvers, build_review, validate_data, commit. Every one of those is
+      # unguarded above, so scores mode needs no step of its own.
+
+      # (build_predictions writes data/pipeline_status.json with honest feed health, so
+      # that document describes the LOCK half of this graph only — the ledger, resolver
+      # and review steps that follow it are NOT covered by it. F17's per-stage
+      # last-success / skipped-reason watermarks remain out of scope; see
+      # docs/PIPELINE_GRAPH.md.)
 
       # R71 — post-game review: STATUS-gated results from the lock receipts /
       # ESPN finals so the slate circles land inside the gameday window.

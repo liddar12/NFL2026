@@ -144,6 +144,12 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // through the same resolve-to-null-on-404 loader as the two R51 backtest
     // records. Reporting only; nothing it carries is ever adopted.
     '/data/replay_lab.json',
+    // R87 — app/views/myparlays.js: how the MY cards we offered actually did,
+    // read through loadJson (same promise cache) for the one RECORD line under
+    // the legend. Small by construction — it carries the GRADED cards and the
+    // per-week blocks, never the ~900 offered cards a week, which stay in the
+    // pipeline-only data/my_cards/ directory.
+    '/data/my_card_scores.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {

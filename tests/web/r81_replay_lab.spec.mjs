@@ -77,9 +77,11 @@ test.describe('R81 — REPLAY LAB card on #/model', () => {
         await expect(card.locator('.state')).toContainText('0 WEEKS REPLAYED');
         await expect(card.locator('table.pf-tbl')).toHaveCount(0);
       } else {
-        const rows = card.locator('table.pf-tbl tbody tr');
+        // R87 — the card carries a second table (SAME-GAME PAIRS), so the
+        // variants proof addresses its own table by class, not by .pf-tbl.
+        const rows = card.locator('table.m-replay-variants tbody tr');
         await expect(rows).toHaveCount(names.length);
-        const text = await flat(card.locator('table.pf-tbl'));
+        const text = await flat(card.locator('table.m-replay-variants'));
         for (const n of names) expect(text).toContain(n);
         // the baseline row is labelled as one, and carries no CI to compare
         const first = await flat(rows.first());
@@ -88,7 +90,7 @@ test.describe('R81 — REPLAY LAB card on #/model', () => {
         // every candidate carries one of the three measurement verdicts
         for (const [name, v] of Object.entries(LAB.variants)) {
           if (name === LAB.baseline) continue;
-          const row = card.locator('table.pf-tbl tbody tr', { hasText: name }).first();
+          const row = card.locator('table.m-replay-variants tbody tr', { hasText: name }).first();
           const t = await flat(row);
           expect(t, `${name} row: ${t}`).toMatch(/BETTER|WORSE|SAME|—/);
           expect(t).toContain(String(v.legs.pooled.n));
@@ -99,7 +101,15 @@ test.describe('R81 — REPLAY LAB card on #/model', () => {
           .sort((a, b) => b[1].roi_fair - a[1].roi_fair)[0];
         if (best) expect(text).toContain(best[0]);
         // and the leg accounting is shown, unresolved reasons included
-        await expect(card.locator('.gate-bench')).toContainText('resolved');
+        // (.first(): the R87 pairs section below carries its own .gate-bench)
+        await expect(card.locator('.gate-bench').first()).toContainText('resolved');
+        // R87 — the same-game pairs table: one row per measured key + ALL PAIRS
+        const sgp = LAB.same_game_pairs || {};
+        const keys = Array.isArray(sgp.pairs) ? sgp.pairs.length : 0;
+        if (keys > 0) {
+          await expect(card.locator('table.m-replay-pairs tbody tr')).toHaveCount(keys + 1);
+          expect(await flat(card.locator('table.m-replay-pairs'))).toContain('ALL PAIRS');
+        }
       }
 
       // a measurement bench must not borrow the promotion vocabulary

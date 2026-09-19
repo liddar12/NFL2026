@@ -290,6 +290,47 @@ nothing ships without one.
   sweep is **+107.6%** on a 6-leg card. The chained same-game adjustment is bounded here (at most two
   legs per game, so it is only ever pairwise) but it is still unvalidated, and the RCA's proposed
   “no MY card prints EV > +100%” test is not written. · **LOE** 0.5 d
+- **R87 · Parlay correctness — same-game pairs measured, MY cards recorded and graded, gameday
+  rebuilds the pool — built 2026-09-19.** Three faults, one release. **(1) The same-game correlation
+  was unvalidated on live legs (RC-N5).** `scripts/replay_lab.py` gains a `same_game_pairs` block:
+  every unordered pair of RESOLVED locked legs in one game (the R74 refusal applied, so a team's ML +
+  its own spread is counted under `refused_by_reason`, never scored) keyed the way `_pair_rho` keys
+  it, with the observed joint hit rate against the SHIPPED joint (`_combine_two` at the shipped rho)
+  and the independence product, a moment-estimator `rho_live`, and a paired bootstrap CI90 on
+  observed − shipped; verdict `insufficient` below `min_n` 20, else `consistent` / `shipped_high` /
+  `shipped_low`. Archived 2-leg same-game cards get the same comparison. **First reading (weeks 1–2,
+  118 pairs over 18 keys, every key under 20):** pooled observed **0.2034** vs shipped **0.2570** vs
+  independent **0.2484**, `rho_live` **−0.19**, CI90 [−0.110, 0.007] → `consistent`, but directionally
+  the chained joint runs high; the 34 archived cards hit 32.4% against a 30.2% shipped mean. Measure
+  only, as the lab's rule requires: no rho moved, and the clamp decision waits for a key to clear
+  `min_n`. Rendered on the MODEL tab under the REPLAY LAB card. **(2) MY cards were never recorded.**
+  `scripts/models/my_cards.py` is an exact stdlib mirror of the browser's selection (pool legs, the
+  dial, the kickoff filter, the beam search, the scoring) — `parlay_builder.make_leg` is never used
+  because it rounds — and `tests/feature/r87_my_cards_parity.test.mjs` proves JS == Python card for
+  card (ordered selections and every number to 1e-9) over the toy pool and the committed pool: all
+  32 team seeds at EVEN, six each at SAFE / LONGSHOT, six player seeds; 22.8 s. `scripts/
+  build_my_cards.py` records, at the pool's own `generated_utc`, the ten cards every TEAM seed would
+  have been offered at every dial into `data/my_cards/<season>_wk<NN>.json` under the R58 rule set
+  (first sight locks the as-made numbers, `locked` iff first sight precedes the earliest kickoff on
+  the card, idempotent per pool as-of, never rewritten). `scripts/resolve_my_cards.py` grades the
+  locked cards against nflverse yards and FINAL scores through the leg resolver's own machinery
+  (imported), settles $100 with `build_review.parlay_money`, and writes `data/my_card_scores.json`
+  (per week and per dial / leg count: n, graded, all-hit rate, mean conviction, log-loss, Brier,
+  net; graded cards only, pending counted). MY mode paints one RECORD line for the current dial once
+  a week has graded cards. **Recorded today:** 900 cards (300 per dial, 30 of 32 seeds, 180 per
+  leg count), 900 locked, earliest kickoff 2026-09-20T17:00Z; 2.08 MB per week at indent 2 —
+  ~37 MB a season is an open sizing decision. Player-typed seeds are not recorded (limit, stated).
+  **(3) Gameday published a different graph than daily (F17).** `gameday.yml`'s lock path now runs
+  build_predictions → archive → `build_leg_pool` → `build_my_cards` → `build_parlay_ledger` →
+  both resolvers (continue-on-error, every mode) → review → validate → commit, so GAME and MY move
+  together under one generation and every offered leg and card has a pre-kickoff receipt when a
+  window fires before kickoff; the absent `espn_scores_cli` placeholder is deleted and scores mode
+  is stated honestly (resolve_locks → archive → resolvers → review). `docs/PIPELINE_GRAPH.md` is the
+  table. F16 (the publish race) and per-stage watermarks remain open. **Locked by**
+  `tests/feature/r87_same_game_pairs.test.mjs`, `r87_my_cards_parity.test.mjs`,
+  `r87_my_cards_record.test.mjs`, `r87_gameday_graph.test.mjs` (step order read from the YAML,
+  the placeholder's absence, every lock-path script present with stdlib-only module imports), the
+  two new contracts, three new `--selftest`s in smoke. · **LOE** 2 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

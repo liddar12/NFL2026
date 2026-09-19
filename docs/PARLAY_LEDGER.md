@@ -124,6 +124,26 @@ row) with 10 players absent; it exists to exercise the join, never to fill data/
   legs, `refit_decision` both ways, the adversarial-legs rejection, the zero
   block, the contract keys and every `--selftest` / `--gate` / validate exit code.
 
+## MY cards (R87)
+
+The same three-part discipline now covers the cards MY PARLAYS builds in the
+browser, which until R87 were the one surface that shipped a number and never had
+to answer for it: they were built per viewer, from a seed typed a second earlier,
+and then gone. `scripts/models/my_cards.py` is an exact Python mirror of the view's
+selection (proved card-for-card against `app/views/myparlays.js` to 1e-9 by
+`tests/feature/r87_my_cards_parity.test.mjs`), `scripts/build_my_cards.py` records
+what was offered into `data/my_cards/<season>_wk<NN>.json` on the ledger rules
+above — key `(dial, seed, sorted selections)`, first sight locks the as-made
+numbers and never rewrites them, `locked` only when that first sight preceded the
+earliest kickoff among the card's legs, idempotent per the pool's `generated_utc` —
+and `scripts/resolve_my_cards.py` grades the locked ones into
+`data/my_card_scores.json` against the same nflverse release and the same layered
+finals this resolver uses, importing its `index_stats` / `find_player` /
+`split_abbrev` / `load_finals` rather than copying them. The limits are stated, not
+implied: **team seeds only** (a player-typed card is not recorded), and the stored
+`model` is the browser's number rounded to 4dp. Full write-up:
+[docs/MY_CARDS.md](MY_CARDS.md).
+
 ## 5. Daily pipeline order
 
 ```
