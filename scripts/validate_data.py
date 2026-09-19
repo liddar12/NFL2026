@@ -158,6 +158,13 @@ SCHEMA_TO_DATA = {
     # cards themselves live per week under data/my_cards/ and are walked below.
     # 0 graded cards is a valid, honest document; every metric in it is null.
     "my_card_scores.schema.json": "my_card_scores.json",
+    # R88 (F17) - the PER-STAGE pipeline record (scripts/stage_status.py, written
+    # through the scripts/stage.sh wrapper every pipeline step now runs under).
+    # pipeline_status.json is written INSIDE build_predictions, so it describes
+    # the lock half of the graph only; this one carries a row per STEP with its
+    # status, exit code and last success, which is how a continue-on-error
+    # resolver outage becomes visible instead of staying in the Actions log.
+    "pipeline_stages.schema.json": "pipeline_stages.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -225,6 +232,10 @@ OPTIONAL_DATA = frozenset([
     # R87 — the graded MY cards, written right after the parlay-leg resolver;
     # absent until the first run, validated strictly when present.
     "my_card_scores.json",
+    # R88 — the per-stage record is written BY the runner, one row per step as
+    # each step finishes. A fresh clone has never run a stage, so its absence is
+    # the honest state and may not red the gate; when present it is strict.
+    "pipeline_stages.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -2183,6 +2194,43 @@ def _selftest():
     del _bad["weeks"][0]["by_legs"]["6"]
     _schema_red(_bad, _mcs_schema, "a week record missing a leg-count block")
 
+    # R88 (F17) — the per-stage record. Its two load-bearing fields are the exit
+    # code (a NUMBER: a string "0" would read as success to anything comparing it)
+    # and the status enum (ok / failed / skipped — "did not run" and "ran and
+    # failed" are different facts, and an invented fourth word erases that).
+    _st_schema = _load(os.path.join(CONTRACTS, "pipeline_stages.schema.json"))
+    _st_stage = {"name": "Resolve parlay legs against nflverse weekly yards",
+                 "status": "failed", "exit_code": 1,
+                 "started_utc": "2026-09-19T10:07:31Z",
+                 "finished_utc": "2026-09-19T10:07:44Z", "duration_s": 13.0,
+                 "continue_on_error": True,
+                 "last_success_utc": "2026-09-18T10:07:40Z",
+                 "note": "failed under continue-on-error — the workflow stayed green"}
+    _st = {"generated_utc": "2026-09-19T10:07:44Z",
+           "workflows": {"daily": {"run_id": "18231144",
+                                   "run_started_utc": "2026-09-19T10:05:00Z",
+                                   "run_finished_utc": "2026-09-19T10:07:44Z",
+                                   "last_success": {
+                                       "Resolve parlay legs against nflverse weekly yards":
+                                           "2026-09-18T10:07:40Z"},
+                                   "stages": [_st_stage,
+                                              dict(_st_stage, name="Replay lab",
+                                                   status="skipped", exit_code=None,
+                                                   started_utc=None, finished_utc=None,
+                                                   duration_s=None,
+                                                   continue_on_error=False,
+                                                   note="scores mode: not re-priced")]}}}
+    validate_against_schema(_st, _st_schema, "pipeline_stages selftest")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["daily"]["stages"][0]["exit_code"] = "1"
+    _schema_red(_bad, _st_schema, "a stage exit code that is a string rather than an integer")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["daily"]["stages"][0]["status"] = "degraded"
+    _schema_red(_bad, _st_schema, "a stage status outside ok/failed/skipped")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["nightly"] = _bad["workflows"]["daily"]
+    _schema_red(_bad, _st_schema, "a stage record for a workflow that does not exist")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -2196,7 +2244,9 @@ def _selftest():
           "a missing finals_source; the R87 MY-card contracts red on a string "
           "locked flag, an invented dial, a >1 leg probability, an undeclared leg "
           "field, a seed kind that is not swept, a string hit rate, a pending card "
-          "in the graded list and a missing leg-count block")
+          "in the graded list and a missing leg-count block; the R88 per-stage "
+          "record reds on a string exit code, a status outside "
+          "ok/failed/skipped and a workflow key that does not exist")
 
 
 # ---------------------------------------------------------------------------

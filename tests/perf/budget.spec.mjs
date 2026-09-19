@@ -235,6 +235,13 @@ const CONTRACT_ALLOWLIST = new Set([
   // is tapped — never on a cold route load; a 404 resolves to null and no
   // RECORD line renders, so the request is the whole cost.
   'my_card_scores.json',
+  // R88 — the per-stage pipeline record (data/pipeline_stages.json: one row per
+  // workflow step — status, exit code, duration, last success — for three
+  // workflows, a few KB). Fetched by #/model only, inside the same mount
+  // allSettled as the two R51 records and the replay lab; a 404 resolves to null
+  // and the card paints its honest NOT PRESENT line, so the request is the whole
+  // cost either way.
+  'pipeline_stages.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week
@@ -284,7 +291,9 @@ const ROUTES = [
   // (a 404 is still one request, so the count holds with the files absent).
   // R81 — 8 -> 9: data/replay_lab.json joins the same allSettled; same shape,
   // same cost, and the card renders its honest state line on a 404.
-  { hash: '#/model', name: 'model', contracts: 9 },
+  // R88 — 9 -> 10: data/pipeline_stages.json joins it too, for the PIPELINE
+  // STAGES card. Same shape, same cost: one request, null on a 404.
+  { hash: '#/model', name: 'model', contracts: 10 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
   // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
   // LEAGUE tab reads the saved profile, the league id and the sync log from

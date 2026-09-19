@@ -1,0 +1,364 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "pipeline_stages.schema.json",
+  "title": "Per-stage pipeline status (R88, review finding F17)",
+  "description": "data/pipeline_stages.json, written by scripts/stage_status.py through the scripts/stage.sh wrapper every pipeline step runs under. data/pipeline_status.json is written INSIDE build_predictions, so it describes the lock half of the graph only and a later resolver outage is invisible in it; this document carries one row per STEP per workflow, with its status, its exit code and the day it last succeeded. OPTIONAL: runner-built, absent on a fresh clone, validated strictly when present.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "workflows"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workflows": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A closed set: the three pipeline workflows. A typo'd workflow name must be a red gate, not a fourth key nobody reads.",
+      "properties": {
+        "daily": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "run_started_utc",
+            "run_finished_utc",
+            "last_success",
+            "stages"
+          ],
+          "properties": {
+            "run_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "github.run_id of the run that opened this record."
+            },
+            "run_started_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_finished_utc": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The last stage to report. Null until one does - the record is committed by the steps that follow the last wrapped stage."
+            },
+            "last_success": {
+              "type": "object",
+              "description": "stage name -> the UTC it last succeeded. `begin` wipes stages[] for a new run, so the carry lives here; it is what each row's last_success_utc is filled from.",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "stages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "status",
+                  "exit_code",
+                  "started_utc",
+                  "finished_utc",
+                  "duration_s",
+                  "continue_on_error",
+                  "last_success_utc",
+                  "note"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The workflow step's own name, verbatim."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed",
+                      "skipped"
+                    ],
+                    "description": "skipped = a mode guard did not run it; failed = it ran and returned non-zero. Telling those apart is the point."
+                  },
+                  "exit_code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "The command's own exit code; null for a skipped stage, which never ran."
+                  },
+                  "started_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "finished_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "duration_s": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "continue_on_error": {
+                    "type": "boolean",
+                    "description": "True when the workflow step carries continue-on-error, i.e. a failure here leaves the run green - which is exactly the case this document exists to surface."
+                  },
+                  "last_success_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The day this stage last succeeded, carried across runs. Null means it has never succeeded in any recorded run."
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "The skip reason, or the continue-on-error warning. Never a number."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "gameday": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "run_started_utc",
+            "run_finished_utc",
+            "last_success",
+            "stages"
+          ],
+          "properties": {
+            "run_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_started_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_finished_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_success": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "stages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "status",
+                  "exit_code",
+                  "started_utc",
+                  "finished_utc",
+                  "duration_s",
+                  "continue_on_error",
+                  "last_success_utc",
+                  "note"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed",
+                      "skipped"
+                    ]
+                  },
+                  "exit_code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "started_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "finished_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "duration_s": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "continue_on_error": {
+                    "type": "boolean"
+                  },
+                  "last_success_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "backtest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run_id",
+            "run_started_utc",
+            "run_finished_utc",
+            "last_success",
+            "stages"
+          ],
+          "properties": {
+            "run_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_started_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "run_finished_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "last_success": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "stages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "status",
+                  "exit_code",
+                  "started_utc",
+                  "finished_utc",
+                  "duration_s",
+                  "continue_on_error",
+                  "last_success_utc",
+                  "note"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed",
+                      "skipped"
+                    ]
+                  },
+                  "exit_code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "started_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "finished_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "duration_s": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "continue_on_error": {
+                    "type": "boolean"
+                  },
+                  "last_success_utc": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

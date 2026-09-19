@@ -331,6 +331,43 @@ nothing ships without one.
   `r87_my_cards_record.test.mjs`, `r87_gameday_graph.test.mjs` (step order read from the YAML,
   the placeholder's absence, every lock-path script present with stdlib-only module imports), the
   two new contracts, three new `--selftest`s in smoke. · **LOE** 2 d
+- **R88 · Pipeline reliability — race-safe publish and per-stage status — built 2026-09-19 (F16,
+  F17 remainder).** **The publish loop could not recover from divergence (F16).** Every workflow
+  ended in `git pull --ff-only && git push`, retried five times; once another writer (gameday vs
+  daily, or an owner code push) had landed from the common base, a fast-forward could never
+  succeed and a whole valid generation was thrown away with exit 1 — and R87 had just made Sunday
+  the first day two workflows do heavy work in one window. **Changed:** `scripts/publish_data.sh`
+  commits the staged `data/` once, then re-creates that commit on the new head (`git fetch`, `git
+  rebase`), resolving every conflict deterministically: an APPEND-ONLY ledger (`data/estimates/
+  <season>.json`, `parlays_<season>.json`, `my_cards/*.json`, `parlays/*_wk*.json`,
+  `model_tuning.json`) is merged **by identity** with `scripts/merge_ledgers.py` — union by key,
+  the earlier first sight wins a same-key race, a side that changed an entry the other left alone
+  wins that entry, runs/history unioned in their own order (model_tuning is newest-first and keyed
+  by `(generated_utc, kind)`; the player ledger is written compact, and the merger matches each
+  writer so a raced commit carries no churn) — every other `data/` path takes the replaying run's
+  version, a conflict outside `data/` aborts loudly; `validate_data.py` must pass while the rebase
+  can still be abandoned; five attempts, `::error::`, exit 1. Never a forced push, never a
+  fast-forward-only pull. Proven in `tests/feature/r88_publish_race.test.mjs` on a real bare
+  remote with two clones: two generations from one base keep both ledgers' entries and both
+  `runs[]`; an owner code commit mid-run replays cleanly; the same leg key on both sides keeps the
+  earlier `seen_utc`; a refusing validator aborts with main untouched; a rejecting remote fails
+  after exactly five attempts. Merging each committed ledger with itself is byte-identical.
+  **A step could fail and the run stay green with no trace in the product (F17).** `continue-on-
+  error` resolvers, the replay lab and the narrative could fail silently; `pipeline_status.json`
+  is written inside build_predictions and never sees the later steps. **Changed:** every pipeline
+  step in daily, gameday and backtest runs through `bash scripts/stage.sh <workflow> "<step>" --
+  <command>`, which records status / exit code / duration / `last_success_utc` per stage into
+  `data/pipeline_stages.json` (`scripts/stage_status.py begin | record | skip`; gameday's scores
+  mode records its skipped lock-mode stages with a reason) and exits with the command's own code,
+  so every `if:`, `env:` and `continue-on-error:` keeps its meaning. The MODEL tab gains
+  **PIPELINE STAGES · EVERY STEP, AS IT RAN** (MEASURED): per workflow, stage / chip / last
+  success / duration, and one `degraded: <stage> failed at <utc>; last success <utc>` line.
+  `last_success` cannot know about a stage that was green before R88, so the first documents read
+  NEVER honestly. **Locked by** `tests/feature/r88_publish_race.test.mjs` (15),
+  `r88_stage_status.test.mjs` (15: exit-code propagation, the carry, the skip verb, the contract,
+  every workflow's `begin` step and wrapped command text, the exact publish messages, no
+  `--ff-only` anywhere), `pipeline_stages.schema.json` in the validator, `stage_status --selftest`
+  in smoke, `docs/PUBLISH.md` and the R88 section of `docs/PIPELINE_GRAPH.md`. · **LOE** 1.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

@@ -73,18 +73,29 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install --upgrade requests   # scores/odds only; nflverse not needed here
 
+      # R88 (F17) — OPEN THE PER-STAGE RECORD. Every pipeline step below runs
+      # under scripts/stage.sh, which appends that step's outcome (status, exit
+      # code, duration) to data/pipeline_stages.json. `begin` opens a new run for
+      # this workflow: it clears the previous run's rows and CARRIES each stage's
+      # last success forward, so a stage that has not succeeded in days says the
+      # day it last did. Several steps below are continue-on-error, so before
+      # this a failed resolver left the run green with the only evidence in the
+      # Actions log; the MODEL tab's PIPELINE STAGES card reads this document.
+      - name: Begin per-stage record (R88)
+        run: python3 scripts/stage_status.py begin --workflow gameday --run-id "${{ github.run_id }}"
+
       # LEARNING LOOP step 1 — RESOLVE. Grade the point-in-time record first: any
       # locked row whose game is now FINAL gets actual/brier/log_loss filled in
       # place (STATUS-gated; idempotent; clean no-op when nothing is FINAL yet).
       - name: Resolve locks against FINAL scores
-        run: python -m scripts.resolve_locks
+        run: bash scripts/stage.sh gameday "Resolve locks against FINAL scores" -- python -m scripts.resolve_locks
 
       # LEARNING LOOP step 2 — REFIT. Grid-search game params on the resolved
       # locks; adoption is NEVER-REGRESS gated, every outcome (adopted or not) is
       # archived in data/model_tuning.json history. Clean no-op with zero resolved
       # rows, so most runs change nothing.
       - name: Refit game params from resolved locks (NEVER REGRESS)
-        run: python -m scripts.refit
+        run: bash scripts/stage.sh gameday "Refit game params from resolved locks (NEVER REGRESS)" -- python -m scripts.refit
 
       # PRE-KICKOFF PROBABILITY LOCK. Regenerate predictions from current inputs and
       # write an immutable point-in-time snapshot under data/snapshots/. The harness
@@ -102,14 +113,14 @@ jobs:
         # an absent secret degrades honestly, never fails the run.
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        run: |
-          python -m scripts.build_predictions
-          # Archive a timestamped snapshot of the REAL game predictions as the locked,
-          # point-in-time record (leak-safe: locked before kickoff, never edited after).
-          ts="$(date -u +%Y%m%dT%H%M%SZ)"
-          mkdir -p data/snapshots
-          cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json"
-          echo "locked snapshot data/snapshots/game_predictions.${ts}.json"
+        # R88 — ONE stage. The build and the snapshot copy are a single logical
+        # step (a snapshot with no build behind it records nothing), so the whole
+        # block runs under one scripts/stage.sh record via `bash -c` and the
+        # record shows one LOCK stage rather than five shell lines. The copy
+        # archives a timestamped snapshot of the REAL game predictions as the
+        # locked, point-in-time record (leak-safe: locked before kickoff, never
+        # edited after).
+        run: bash scripts/stage.sh gameday "Lock pre-kickoff probabilities" -- bash -c 'python -m scripts.build_predictions && ts="$(date -u +%Y%m%dT%H%M%SZ)" && mkdir -p data/snapshots && cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json" && echo "locked snapshot data/snapshots/game_predictions.${ts}.json"'
 
       # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
       # (created on first sight, refreshed while open, frozen once every game is
@@ -120,7 +131,7 @@ jobs:
       # after the lock step, so keeping it here satisfies both orderings and every
       # R87 step below follows it.
       - name: Parlay archive (per-week history + index)
-        run: python3 scripts/build_parlay_archive.py
+        run: bash scripts/stage.sh gameday "Parlay archive (per-week history + index)" -- python3 scripts/build_parlay_archive.py
 
       # R87 (F17) — MY PARLAYS REBUILT UNDER THIS GENERATION. Without this step the
       # window refreshed game_predictions.json and left data/leg_pool.json at whatever
@@ -133,7 +144,7 @@ jobs:
       # did not pass — that refusal is a healthy outcome, not a failure to retry.
       - name: MY PARLAYS leg pool (rebuild under this generation)
         if: ${{ github.event.inputs.mode != 'scores' }}
-        run: python3 scripts/build_leg_pool.py
+        run: bash scripts/stage.sh gameday "MY PARLAYS leg pool (rebuild under this generation)" -- python3 scripts/build_leg_pool.py
 
       # R87 (F17) — the cards actually OFFERED, recorded on first sight. A card that
       # only ever appeared inside a gameday window previously had no pre-kickoff
@@ -142,7 +153,7 @@ jobs:
       # with exit 0, never a failed run.
       - name: MY PARLAYS offered cards (first-sight lock)
         if: ${{ github.event.inputs.mode != 'scores' }}
-        run: python3 scripts/build_my_cards.py
+        run: bash scripts/stage.sh gameday "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
 
       # R87 (F17) — as-made pricing for every shipped leg, locked pre-kickoff.
       # Idempotent per parlays.json updated_utc, so the two-hourly Sunday grid appends
@@ -150,7 +161,22 @@ jobs:
       # back-dated. Must follow the pool and the cards: it records what they offered.
       - name: Parlay-leg ledger append (as-made pricing, locked pre-kickoff)
         if: ${{ github.event.inputs.mode != 'scores' }}
-        run: python scripts/build_parlay_ledger.py
+        run: bash scripts/stage.sh gameday "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" -- python scripts/build_parlay_ledger.py
+
+      # R88 (F17) — SCORES MODE, WRITTEN DOWN. The four steps above carry a mode
+      # guard, so in scores mode GitHub simply does not run them and the stage
+      # record would say nothing at all about four steps a reader can see in the
+      # graph. Silence is the defect F17 names, so scores mode records them as
+      # `skipped` WITH A REASON: "did not run" and "ran and failed" are different
+      # facts, and the MODEL tab must be able to tell them apart. One step rather
+      # than four inverse guards, because there is one reason to state.
+      - name: Record scores-mode skips (R88)
+        if: ${{ github.event.inputs.mode == 'scores' }}
+        run: |
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Lock pre-kickoff probabilities" --reason "scores mode: nothing is re-priced"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS leg pool (rebuild under this generation)" --reason "scores mode: nothing is re-priced"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 
       # R87 (F17) — GRADING IS MODE-INDEPENDENT, so these two carry NO mode guard.
       # Thursday's legs go FINAL inside Sunday's lock window and Sunday's inside
@@ -161,11 +187,11 @@ jobs:
       # continue-on-error: a stats outage degrades the record, never the run, and
       # build_review below still reports on whatever did resolve.
       - name: Resolve parlay legs against nflverse weekly yards
-        run: python scripts/resolve_parlay_legs.py
+        run: bash scripts/stage.sh --continue-on-error gameday "Resolve parlay legs against nflverse weekly yards" -- python scripts/resolve_parlay_legs.py
         continue-on-error: true
 
       - name: Resolve MY cards against nflverse weekly yards
-        run: python scripts/resolve_my_cards.py
+        run: bash scripts/stage.sh --continue-on-error gameday "Resolve MY cards against nflverse weekly yards" -- python scripts/resolve_my_cards.py
         continue-on-error: true
 
       # SCORES MODE, STATED HONESTLY. There is no longer a "Refresh scores" step,
@@ -186,27 +212,16 @@ jobs:
       # R71 — post-game review: STATUS-gated results from the lock receipts /
       # ESPN finals so the slate circles land inside the gameday window.
       - name: Build post-game review (data/review.json)
-        run: python3 scripts/build_review.py
+        run: bash scripts/stage.sh gameday "Build post-game review (data/review.json)" -- python3 scripts/build_review.py
 
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
-      # Race-safe commit (daily.yml may push concurrently). Prefer freshly generated
-      # files on conflict.
+      # RACE-SAFE PUBLISH (F16). daily.yml may push while this window commits, and
+      # the two are on DIFFERENT concurrency groups so nothing serialises them.
+      # The old fast-forward-only pull-and-push retry loop could not merge two
+      # commits from a common base; scripts/publish_data.sh now owns the publish
+      # and is race-safe by construction — see docs/PUBLISH.md. data/ includes
+      # the snapshots and data/pipeline_stages.json.
       - name: Commit snapshots + data
-        run: |
-          git config user.name  "nfl2026-bot"
-          git config user.email "bot@j5lagenticstrategy.com"
-          git add data/
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git commit -m "data: gameday refresh [skip actions]"
-          for i in 1 2 3 4 5; do
-            git pull --ff-only origin main && git push origin HEAD:main && exit 0
-            echo "push race, retrying ($i)..."
-            sleep 5
-          done
-          echo "::error::could not push gameday data after retries"
-          exit 1
+        run: 'bash scripts/publish_data.sh "data: gameday refresh [skip actions]"'

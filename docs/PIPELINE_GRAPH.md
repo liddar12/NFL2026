@@ -16,6 +16,12 @@ The graph below is locked mechanically by `tests/feature/r87_gameday_graph.test.
 (order, existence on disk, and module-level import weight). If this table and the
 workflows disagree, that test fails.
 
+**R88** adds the two things F17 asked for that R87 left open: per-stage status (below)
+and a race-safe publish. The `git pull --ff-only && git push` retry loop is gone from all
+three workflows; each commit step is now one call to `scripts/publish_data.sh` with that
+workflow's own message. The publish race itself (F16) is documented in
+[docs/PUBLISH.md](PUBLISH.md), not here.
+
 ## gameday.yml
 
 `mode` is the `workflow_dispatch` input (`lock | scores | both`). A `schedule:` run
@@ -35,7 +41,7 @@ graph. "Mode" below is where the step runs; "COE" is `continue-on-error: true`.
 | 9 | `resolve_my_cards.py` | both | yes (nflverse) | **yes** | Same. |
 | 10 | `build_review.py` | both | yes, degrades | no | Consumes the resolved rows, so it must follow 8/9. |
 | 11 | `validate_data.py` | both | no (stdlib) | no | Contracts gate the push. |
-| 12 | Race-safe commit | both | — | no | Last. Nothing is generated after the tree is staged. |
+| 12 | `scripts/publish_data.sh` (race-safe publish) | both | — | no | Last. Nothing is generated after the tree is staged. R88: the step body is now one call to the publish script — see [docs/PUBLISH.md](PUBLISH.md). |
 
 **Why 8 and 9 carry no mode guard.** Thursday's legs go FINAL inside Sunday's *lock*
 window and Sunday's inside Monday's. A `mode != 'lock'` guard would strand exactly
@@ -78,7 +84,7 @@ backtests, estimate ledger). The parlay spine is identical and in the same order
 | `build_review.py` | yes, degrades | no |
 | `build_review_narrative.py` (env-gated, optional) | yes | yes |
 | `validate_data.py` | no | no |
-| Race-safe commit | — | no |
+| `scripts/publish_data.sh` (race-safe publish) | — | no |
 
 The two `build_leg_pool -> build_my_cards` and `resolve_parlay_legs -> resolve_my_cards`
 orderings are asserted in both files by the R87 test, so the workflows cannot drift
@@ -98,17 +104,72 @@ apart again without it failing.
   run — the step is `continue-on-error` and `build_review` reports on whatever resolved.
 - **Both.** `validate_data.py` gates the commit, and the commit is the last step.
 
+## Stage status (R88)
+
+`data/pipeline_status.json` is written *inside* `build_predictions`, so it describes the
+lock half of the graph only: every archive, pool, card, ledger, resolver, replay-lab and
+review step **after** it is invisible in it. Several of those carry
+`continue-on-error`, so a failed resolver left the run GREEN, left the shipped health
+document silent, and left the only evidence in the Actions log. That is F17's last open
+criterion — *"resolver outage is visible in final health"* — and this is how it is met.
+
+**The wrapper.** Every pipeline `run:` step between the dependency install and
+`validate_data.py` now runs as:
+
+```
+bash scripts/stage.sh [--continue-on-error] <workflow> "<step name>" -- <original command>
+```
+
+`scripts/stage.sh` runs the real command with its stdout and stderr untouched, records
+the outcome, and then **exits with the command's own exit code** — so a step's
+`continue-on-error:` keeps exactly the meaning it had, and a step without one still reds
+the run. The bookkeeping never fails a step: an unwritable record is a warning.
+
+**The verbs** (`scripts/stage_status.py`, stdlib only):
+
+| Verb | What it does |
+|---|---|
+| `begin --workflow W --run-id ID` | Opens a run: clears that workflow's `stages` and **carries each stage's last success forward**, so a stage that has not succeeded in days shows the day it last did. First step after the dependency install. |
+| `record --workflow W --stage NAME --exit-code N --started U --finished U [--continue-on-error]` | Appends — or *replaces*, so a re-run of a stage is idempotent — that stage's row. Exit 0 → `ok`, anything else → `failed`. Called by the wrapper, not by hand. |
+| `skip --workflow W --stage NAME --reason TEXT` | Records `skipped` for a step a mode guard did not run (gameday **scores mode**). "Did not run" and "ran and failed" are different facts and a reader must be able to tell them apart. |
+
+**The document** — `data/pipeline_stages.json`, contract
+`data/contracts/pipeline_stages.schema.json`, registered OPTIONAL in
+`scripts/validate_data.py` because it is runner-built (absent on a fresh clone, strict
+when present). It lives under `data/`, so the publish step picks it up like any other
+generated artifact:
+
+```
+{generated_utc, workflows: {daily|gameday|backtest: {
+    run_id, run_started_utc, run_finished_utc|null,
+    last_success: {<stage>: <utc>},
+    stages: [{name, status: ok|failed|skipped, exit_code, started_utc, finished_utc,
+              duration_s, continue_on_error, last_success_utc, note}]}}}
+```
+
+`last_success` is the carry itself: `begin` wipes `stages`, so the map is where each
+row's `last_success_utc` comes from on the next run.
+
+**What "degraded" means.** A stage with `status: failed` **and**
+`continue_on_error: true` — it failed and the run still went green. That is the exact
+case this document exists to surface, and the MODEL tab's **PIPELINE STAGES** card
+(`app/views/model.js`, wearing MEASURED) calls it out in one line per workflow:
+
+```
+degraded: <stage> failed at <utc>; last success <utc>
+```
+
+A `failed` stage **without** `continue_on_error` already redded the run, so it needs no
+call-out. A `skipped` stage is neither: it prints its reason and keeps its last success.
+
+Locked by `tests/feature/r88_stage_status.test.mjs` (exit-code propagation, the carry,
+the skip verb, contract validity, and the workflow wiring) and
+`python3 scripts/stage_status.py --selftest` in `tests/smoke.sh`.
+
 ## Out of scope (still open from F17 and its neighbours)
 
-- **F16 — the publish race.** Both workflows still commit locally then retry
-  `git pull --ff-only && git push`. Once both sides have commits from a common base, a
-  fast-forward pull cannot merge them and repeating it cannot change that. The push loop
-  is untouched here.
-- **Per-stage status watermarks.** `data/pipeline_status.json` is written *inside*
-  `build_predictions`, so it describes the lock half of the graph only. The archive,
-  pool, cards, ledger, resolver and review steps that follow it publish no last-success
-  timestamp, no skipped-reason and no watermark, so a silent resolver outage is not
-  visible in the shipped health document. F17's acceptance criterion "resolver outage is
-  visible in final health" is therefore **not** met by R87 part C.
 - Backfilling receipts for legs offered by past gameday windows. This changes the graph
   going forward only; nothing is back-dated.
+- The per-stage record starts at the first run that writes it: `last_success` cannot know
+  about a stage that succeeded before R88 shipped, so an early document honestly reads
+  `NEVER` for a stage that has in fact been green for weeks.
