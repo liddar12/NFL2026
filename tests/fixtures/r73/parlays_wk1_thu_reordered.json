@@ -1,0 +1,118 @@
+{
+  "season": 2026,
+  "week": 1,
+  "updated_utc": "2026-09-13T09:00:00Z",
+  "parlays": [
+    {
+      "parlay_id": "G1-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "AAA -3",
+          "implied_prob": 0.52,
+          "model_prob": 0.5
+        },
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.55,
+          "model_prob": 0.6
+        }
+      ],
+      "model_ev": 0.05,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment.",
+      "game_id": "G1"
+    },
+    {
+      "parlay_id": "G2-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "wr_rec_yds",
+          "selection": "W. Catch 50+ rec yds",
+          "implied_prob": 0.5,
+          "model_prob": 0.53,
+          "pricing": "calibrated"
+        },
+        {
+          "market": "moneyline",
+          "selection": "CCC ML",
+          "implied_prob": 0.5,
+          "model_prob": 0.54
+        }
+      ],
+      "model_ev": 0.03,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment.",
+      "game_id": "G2"
+    },
+    {
+      "parlay_id": "week-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "CCC ML",
+          "implied_prob": 0.5,
+          "model_prob": 0.54
+        },
+        {
+          "market": "moneyline",
+          "selection": "AAA ML",
+          "implied_prob": 0.55,
+          "model_prob": 0.6
+        }
+      ],
+      "model_ev": 0.02,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-2",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "Q. Arm 200+ pass yds",
+          "implied_prob": 0.52,
+          "model_prob": 0.57,
+          "pricing": "calibrated"
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "R. Back 60+ rush yds",
+          "implied_prob": 0.5,
+          "model_prob": 0.55,
+          "pricing": "calibrated"
+        }
+      ],
+      "model_ev": 0.04,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    },
+    {
+      "parlay_id": "week-3",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DDD ML",
+          "implied_prob": 0.45,
+          "model_prob": 0.46
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "R. Back 60+ rush yds",
+          "implied_prob": 0.5,
+          "model_prob": 0.55,
+          "pricing": "calibrated"
+        }
+      ],
+      "model_ev": 0.01,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0)."
+    }
+  ]
+}

@@ -124,7 +124,18 @@ const BOOT_MODULE_CEILING = 15; // measured 14 (R51: parlays view lazy); one mod
  * at 14 and the lazy-only guard above still passes (the parlay Q chip landed in
  * the lazy app/views/parlays.js and app/views/myparlays.js, which are off it).
  * Ceiling re-set to the measurement plus ~2% headroom. */
-const BOOT_BYTE_CEILING = 368_500; // measured 325,257 (2026-08-15); 359,967 (2026-09-14, R73); 361,266 (2026-09-17, R77).
+/* R90 (2026-09-19): measured 369,024, which trips the 368,500 ceiling R77 set.
+ * Re-measured and decided in writing. The growth is 2,082 bytes in two boot
+ * modules and nothing else: app/views/slate.js +1,806 (the week bar became a
+ * button group with aria-pressed and arrow keys, and reviewSlate now hands the
+ * review layer the current week and each game's status so a PAST week can show
+ * its LOCKED forecast instead of today's recomputation — F13) and app/render.js
+ * +276 (the repeated WEEKS toggle carries a player-specific accessible name —
+ * F20). Both are boot-module content, not lazy leaks: the module count is
+ * unchanged, the lazy-only guard passes, and the parlays/MY work of the same
+ * release landed in modules that are off the boot graph. Ceiling re-set to the
+ * measurement plus ~2% headroom. */
+const BOOT_BYTE_CEILING = 376_500; // measured 325,257 (2026-08-15); 359,967 (2026-09-14, R73); 361,266 (2026-09-17, R77); 369,024 (2026-09-19, R90).
 // Depth is a LOOSE guard, not a lock: each level is one serialized round trip,
 // but the pre-fix graph was depth 3 too, so this ceiling would NOT have caught
 // R25-F3 on its own. It only catches a NEW, deeper chain.

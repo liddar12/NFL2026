@@ -208,6 +208,9 @@ export const RESET_ALL_KEYS = Object.freeze([
   // edge from this view onto a module the perf budget keeps off every graph
   // but the MY tap's own.
   'nfl2026.myparlays.dial.v1',
+  // R90 — whether the PARLAYS filter panel is left open. Spelled out for the
+  // same reason as the dial above: app/views/parlays.js is lazy-only by budget.
+  'nfl2026.parlays.filters.v1',
 ]);
 
 /** The ambient localStorage, or null when unavailable/blocked. Same defensive

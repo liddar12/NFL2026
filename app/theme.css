@@ -1095,7 +1095,8 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .wk-chip--active,
-.wk-chip[aria-selected="true"] {
+.wk-chip[aria-selected="true"],
+.wk-chip[aria-pressed="true"] {   /* R90/F20 — grouped toggle buttons, not tabs */
   color: #0D1117;                      /* dark ink on solid brand (AA 5.46:1) */
   background: var(--brand);
   border-color: var(--brand);
@@ -4195,6 +4196,61 @@ body.gate-locked { overflow: hidden; }
 /* The WAIVER WIRE head names the league too — long enough to wrap at 402px. */
 .ww-card .lu-title { white-space: normal; line-height: 1.5; }
 
+/* ==========================================================================
+   R90 — PARLAYS FIRST SCREEN (F18). Measured at 402x874 the first curated
+   card started at 1,217 px, 465 px of which was the always-open glossary and
+   ~120 px three separate control rows. The glossary is now the same
+   <details class="legend"> PLAYERS uses, and leg count / tier / sort share one
+   collapsed .pfilters panel whose summary carries the live filter state.
+   Tokens only — no new colours, so the audited AA pairs are unchanged.
+   ========================================================================== */
+
+/* The parlays glossary restores block flow, exactly as .legend--players does:
+   the .legend:not(.legend--team) flex rule above was written for the old
+   always-open inline row and would lay a <details> out sideways. */
+.legend.legend--parlays { display: block; }
+
+/* The FILTERS panel. Same surface/border vocabulary as .legend so the two
+   collapsed rows under the scope segment read as one pair, not two designs. */
+.pfilters {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+}
+/* 44 px minimum touch target (HIG), which is also what the summary buys back:
+   one row for three controls. */
+.pf-sum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand-txt);
+}
+.pf-sum-t { min-width: 0; }
+.pf-sum-n { margin-left: auto; flex: none; }
+.pf-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+/* The glossary summary gets the same 44 px row so the two lines are one rhythm. */
+.legend.legend--parlays > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.legend.legend--parlays .legend-body { margin-top: 0; padding-bottom: 8px; }
+
+
 /* =============================================================================
    R71 — POST-GAME REVIEW (.rv-* only; additive, touches no existing rule)
    Painted by app/review.js after a FINAL: a filled --pos circle on the predicted
@@ -4212,7 +4268,12 @@ body.gate-locked { overflow: hidden; }
 }
 .rv-dot--won  { background: var(--pos); border-color: var(--pos); }
 .rv-dot--lost { background: transparent; border-color: var(--neg); }
-.card.game.rv-graded { cursor: pointer; }
+/* R90/F20 — the card itself is no longer the control: a real "why this result"
+   button is, so the whole card must stop claiming to be clickable. */
+.card.game.rv-graded { cursor: default; }
+.rv-final { margin-top: 8px; font-variant-numeric: tabular-nums; }
+.rv-prov { margin-top: 2px; }
+.rv-why-btn { margin-top: 10px; }
 .card.game.rv-graded--won  { border-left: 3px solid var(--pos); }
 .card.game.rv-graded--lost { border-left: 3px solid var(--neg); }
 .rv-strip {

@@ -275,7 +275,9 @@ test('a suggestion row is an option, carries its seed id, and flags a finished g
     'Enter with no match must say so rather than clear the field silently');
   // the tap has to land before the blur iOS fires under it
   assert.match(SRC, /pointerdown/, 'rows are picked on pointerdown, not click');
-  assert.match(SRC, /e\.preventDefault\(\);\n\s*pick\(/,
+  // R90 renamed pick() to commit(): a tapped row now commits the earlier
+  // comma-separated parts alongside it. The preventDefault is what is asserted.
+  assert.match(SRC, /e\.preventDefault\(\);\n\s*commit\(/,
     'the row pointerdown must preventDefault so the input keeps focus');
 });
 

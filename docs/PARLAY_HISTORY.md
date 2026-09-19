@@ -26,13 +26,62 @@ trailing newline).
 | closed | every game of the week carries a FINAL status in `data/schedule_full.json` (`scripts.scrape.espn.FINAL_STATUSES` — the STATUS-gate every builder uses). A week with no schedule rows is never closed. Every open archive is re-checked on every run, whichever week `parlays.json` holds, and flips to `closed: true` (content untouched) when its last game goes FINAL |
 | never rewritten once closed | a later `parlays.json` for a closed week (a post-close reprice) is an idempotent no-op with a printed line: `parlay_archive: wk N is closed — data/parlays/... not rewritten` |
 | no churn | an unchanged week (same `updated_utc`, same `closed`) is not rewritten; the index is rewritten only when an entry changes (`generated_utc` alone is not a change). The crons commit after every run, so a byte-identical archive keeps their diffs to real changes |
-| history | one `{updated_utc, archived_utc}` per DISTINCT `parlays.json` `updated_utc` the archive saw for the week, in the order seen. A repricing leaves a trace even though only the last state is kept |
+| history | one `{updated_utc, archived_utc}` per DISTINCT `parlays.json` `updated_utc` the archive saw for the week, in the order seen, plus `frozen` (a count) when that refresh carried frozen cards. A repricing leaves a trace even though only the last state is kept |
 | index | `{season, generated_utc, current_week, weeks[]}`, `weeks` sorted ascending, each `{week, path, updated_utc, archived_utc, closed, n_parlays, n_week_scope, n_game_scope}`; `path` is repo-relative (`data/parlays/2026_wk01.json` — prefix `/` to fetch from the PWA root, as `app/data.js` does for `/data/parlays.json`) |
 
 `--selftest` runs the whole lifecycle on `tests/fixtures/r73/` in a temp
 directory and never writes `data/`; `--dry-run` prints the plan and writes
-nothing. `--data`, `--parlays`, `--schedule` and `--now` exist so the tests can
-drive it against a temp data dir.
+nothing. `--data`, `--parlays`, `--schedule`, `--ledger` and `--now` exist so the
+tests can drive it against a temp data dir.
+
+## 1a. Card freeze (R90)
+
+"Refreshed while open" was too coarse. A week stayed mutable until its LAST game
+ended, so a Thursday card could be rewritten on Friday — after Thursday's result
+was known — and `history` kept timestamps, not compositions. Same-game ids are
+built from rank (`<game_id>-g1`) and weekly ids from leg-count/rank, so the same
+`parlay_id` can name a different bet after a rebuild. A pre-kickoff LEG ledger
+proves a leg's price; it does not prove that a particular COMBINATION was offered.
+
+R90 freezes **card by card**, each at its own kickoff. Two keys, and they are the
+only things this script adds to a card:
+
+| key | rule |
+|---|---|
+| `card_id` | short sha1 (12 hex) of the card's canonical ordered leg identity: `scope`, `game_id` when it has one, and the card's legs as sorted `market\|selection` lines. Reordering legs yields the SAME id; changing, adding or dropping a leg yields a new one. `parlay_id` is deliberately NOT part of it — it carries the rank, and a rank is not a bet. `parlay_id` stays exactly as it was, for display and for the review join |
+| `frozen_utc` | stamped on the first refresh at or after the card's EARLIEST relevant kickoff. A game card: its own game. A week card: the earliest kickoff among the games its legs name — the team a selection starts with, through `schedule_full.json`; a PROP selection names a player, so its game comes from the R58 leg ledger `(week, market, selection) -> game_id`. A card that cannot be placed is never frozen: absent is unknown, not started |
+
+What a refresh of an open week now does:
+
+* a frozen card is carried forward **verbatim**. The rebuild may neither replace
+  nor remove it;
+* an incoming card whose `card_id` matches a frozen one is dropped — that bet is
+  already on the record;
+* an incoming card for the same game with a DIFFERENT `card_id` is **appended** as
+  a new card, so a rank change adds a card instead of overwriting one (and if its
+  own game is already under way it is stamped frozen as it lands, which makes the
+  result a fixed point: the next run over the same inputs writes zero bytes);
+* cards for games that have not kicked off replace their live predecessors exactly
+  as before;
+* `parlays[]` is the union: the carried-forward frozen cards first, in their
+  archived order, then the incoming cards in build order;
+* `history[-1].frozen` counts the frozen cards in that refresh;
+* the week still closes when every game is FINAL, and a closed week is still never
+  rewritten.
+
+**Upgrade.** An archive written before R90 has no `card_id`, which the contract now
+requires. The first run after R90 stamps it on every card of every archive of the
+season — closed weeks included — and touches nothing else: not `archived_utc`, not
+`history`, not the cards' own fields. The id is derived from the card already on
+disk, so this decides nothing; the printed line is
+`parlay_archive: wk N upgraded data/parlays/... (card_id stamped on M card(s);
+nothing else touched)`. It happens once.
+
+**Consumers.** `scripts/replay_lab.py` (`replay_parlays`) and `app/review.js` join
+archived cards by `parlay_id` and their legs, and ignore unknown keys, so both read
+the new shape unchanged — verified by `replay_lab.py --selftest` and the r71 / r73 /
+r81 feature tests. `card_id` is the identity to join on when a future consumer needs
+one that cannot drift.
 
 **Committed today (backfill).** The script was run once against the committed
 `data/parlays.json`, which at `origin/main 7d19080` is week 1 at its
@@ -120,11 +169,18 @@ unchanged. The schema description says so.
 
 `scripts/build_parlay_archive.py` runs in `daily.yml` and `gameday.yml` right
 after `python -m scripts.build_predictions` (which writes the `parlays.json` it
-archives) and before the parlay ledger append; `smoke.sh` runs its `--selftest`;
+archives) and before the parlay ledger append — so the ledger it reads for the
+R90 freeze is the PREVIOUS run's. A prop leg seen for the first time this run is
+therefore unplaceable and does not freeze its card by itself; the card's game and
+team legs still place it, and the next run sees the ledger row. That is the safe
+direction: a card is frozen only when its kickoff can be proved; `smoke.sh` runs its `--selftest`;
 `pipeline_wiring.test.mjs` lists it in `WIRED_BUILDERS`. `validate_data.py`
 registers `parlays/index.json` (OPTIONAL, strict when present) and walks
 `data/parlays/*_wk*.json` against the archive contract.
 
 Tests: `tests/feature/r73_parlay_archive.test.mjs` (lifecycle, P&L math,
 committed data, gates); `r71_review.test.mjs`'s strict `deepEqual` on
-`summary.parlays` was extended by the one new key.
+`summary.parlays` was extended by the one new key;
+`tests/feature/r90_card_freeze.test.mjs` (R90: the identity, the Thursday freeze,
+the Friday rank change, the ledger placing a prop, the old-shape upgrade,
+idempotence, the committed archives).

@@ -54,6 +54,20 @@
  * whose game has no upcoming leg says GAME FINAL before it is picked, and
  * emptyReason names the game, its state, and the week the next cards arrive.
  *
+ * R90 — THE BOX ACCEPTS ITS OWN EXAMPLE, AND A MISS SAYS WHY. Two remainders
+ * after R89. (1) The placeholder prints a COMMA-SEPARATED example and the field
+ * matched the whole string as one name, so the example it asks for resolved to
+ * nothing: the typed text is now split on commas and every part is added in
+ * order, and the suggestion list ranks the part being typed (the last segment).
+ * (2) A name the pool cannot price got the bare sentence "No player or team
+ * matches", which is the same silence F19 was raised about. notOfferedReason
+ * looks the name up in the season's own players — data/player_weekly.json for
+ * this week's playability joined to data/player_projections.json for the names,
+ * teams and positions weekly carries none of — and names the reason: an
+ * excluded position, a player who is not playable this week, no projection on
+ * file, or no such name at all. Both documents are fetched ONLY at that moment
+ * (a miss inside MY), so a cold #/parlays load still pays for neither.
+ *
  * WHY EACH LEG, MEASURED. Every leg carries a line stating the numbers behind
  * it: the projection against the line, and the team's win probability that the
  * calibration's second term reads. No language model is involved — the product
@@ -62,7 +76,9 @@
  * typed a second ago cannot have been narrated in advance.
  */
 
-import { loadJson, getMyCardScores, getScheduleFull } from '../data.js';
+import {
+  loadJson, getMyCardScores, getPlayerProjections, getPlayerWeekly, getScheduleFull,
+} from '../data.js';
 import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
@@ -363,6 +379,86 @@ function renderSeedOption(option, i, active, live) {
       + (meta ? `<span class="mp-opt-meta">${meta}</span>` : '')
       + done
     + '</li>';
+}
+
+/* ---- R90/F19: why a typed name is not in the pool ------------------------ */
+
+/* The three markets the pool prices (qb_pass_yds / rb_rush_yds / wr_rec_yds).
+ * Everything else — TE, K, DST — has no calibrated market, which is a fact
+ * about the pipeline and not about the player, so the box says so by name. */
+const PRICED_POSITIONS = new Set(['QB', 'RB', 'WR']);
+
+/**
+ * R90 — join the two documents that together identify a player.
+ *
+ * data/player_weekly.json carries `this_week` (playable / reason / status /
+ * depth) keyed by gsis_id and NOTHING else — no name, no team, no position.
+ * data/player_projections.json carries those three plus the projection. A
+ * weekly row the projections do not name is dropped rather than reported as a
+ * bare id: an id is not an answer to "why isn't he here". Pure.
+ */
+export function joinIdentity(weeklyDoc, projDoc) {
+  const tw = new Map(((weeklyDoc && weeklyDoc.players) || [])
+    .map((p) => [String(p && p.gsis_id), (p && p.this_week) || null]));
+  const players = ((projDoc && projDoc.players) || [])
+    .filter((p) => p && p.name)
+    .map((p) => ({
+      gsis_id: p.gsis_id,
+      name: p.name,
+      team: p.team || null,
+      position: p.position || null,
+      projected: p.proj_points,
+      this_week: tw.get(String(p.gsis_id)) || null,
+    }));
+  return { players };
+}
+
+/** The words this_week uses for "not playable", in its own terms. */
+function playabilityWords(tw) {
+  if (tw.reason === 'depth') {
+    const depth = Number.isFinite(Number(tw.depth)) ? `depth ${Number(tw.depth)}` : 'depth';
+    return tw.starter ? `${depth} behind ${tw.starter}` : depth;
+  }
+  if (tw.status) return String(tw.status);
+  if (tw.reason) return String(tw.reason);
+  return 'no reason on file';
+}
+
+/**
+ * R90/F19 — the one sentence a no-match row is allowed to print.
+ *
+ * `poolOptions` is seedOptions(pool): if the name answers one of THOSE, the
+ * pool can price it and this returns '' — telling someone a seed we do offer is
+ * "not offered" would be the worse of the two lies. `weeklyDoc` is the join
+ * above. The reasons are ordered by how permanent they are: an excluded
+ * position is a fact about the whole season, a Sunday's injury is a fact about
+ * one week, and only then the residual — priced players the builder did not
+ * reach. Pure, so the sentences are testable without a browser.
+ */
+export function notOfferedReason(name, weeklyDoc, poolOptions) {
+  const typed = String(name == null ? '' : name).trim();
+  if (!typed) return '';
+  if (matchSeeds(poolOptions || [], typed, 1).length) return '';
+  const rows = (weeklyDoc && weeklyDoc.players) || [];
+  const found = matchSeeds(rows.map((r) => ({ kind: 'player', id: r.gsis_id, name: r.name })), typed, 1)[0];
+  if (!found) return `${typed}: no player or team by that name`;
+  const row = rows.find((r) => String(r.gsis_id) === String(found.id)) || {};
+  const tw = row.this_week;
+  let why;
+  if (row.position && !PRICED_POSITIONS.has(String(row.position).toUpperCase())) {
+    why = `no calibrated market for ${row.position}`;
+  } else if (tw && tw.playable === false) {
+    why = `not playable this week (${playabilityWords(tw)})`;
+  // typeof, not Number(): Number(null) is 0, and "no projection on file" must
+  // never be allowed to read as a projection OF zero — that is the error class
+  // this whole sentence exists to close.
+  } else if (typeof row.projected !== 'number' || !Number.isFinite(row.projected)) {
+    why = 'no projection on file';
+  } else {
+    why = 'not priced in this week’s pool';
+  }
+  const meta = [row.team, row.position].filter(Boolean).join(' · ');
+  return `${row.name}${meta ? ` (${meta})` : ''} is not offered: ${why}`;
 }
 
 /* ---- the search --------------------------------------------------------- */
@@ -711,6 +807,11 @@ export default async function mountMyParlays(el) {
       + `dial, never by payout. `
       + `Search is approximate, not a guaranteed optimum. `
       + `At most two legs per game are supported</span>`
+      // R90/F19 — the code has always meant ANY (buildCards keeps a card that
+      // holds one seed leg). The legend never said so, and "cards built around
+      // the players you name" reads as ALL to anyone who types two names.
+      + `<span class="legend-item"><b>SEEDS</b> Every card contains AT LEAST ONE of `
+      + `your seeds, not all of them</span>`
       + `<span class="legend-item"><b>$100 SIM NET</b> hypothetical profit, excluding the stake, `
       + `using the independent product of displayed IMPL assumptions. Not a sportsbook quote or actual wager</span>`
       + `<span class="est">ESTIMATE</span></div>`
@@ -746,9 +847,48 @@ export default async function mountMyParlays(el) {
     row.scrollIntoView({ block: 'nearest' });
   };
 
+  /* R90/F19 — the part of the text the viewer is typing RIGHT NOW. The box
+   * takes a comma-separated list (its own placeholder prints one), so the
+   * suggestions are for the last segment; the earlier segments are already
+   * decided and are committed as typed. */
+  const typedTerm = () => {
+    const parts = String(input.value || '').split(',');
+    return parts[parts.length - 1].trim();
+  };
+
+  /* R90/F19 — the identity join behind a no-match row, fetched once and only
+   * on a MISS. Neither document is on the boot graph and neither is touched by
+   * a cold #/parlays load: the first time anything here asks for them, someone
+   * has already tapped MY and typed a name the pool cannot price. */
+  let identityP = null;
+  const loadIdentity = () => {
+    if (!identityP) {
+      identityP = Promise.allSettled([getPlayerWeekly(), getPlayerProjections()])
+        .then(([w, pr]) => joinIdentity(
+          w.status === 'fulfilled' ? w.value : null,
+          pr.status === 'fulfilled' ? pr.value : null));
+    }
+    return identityP;
+  };
+
+  /* The no-match row starts as the plain sentence and is REPLACED by the reason
+   * once the lookup lands — a keystroke must never wait on a fetch. `missSeq`
+   * guards it: an answer for text the viewer has already changed is dropped. */
+  let missSeq = 0;
+  const explainMiss = (typed) => {
+    const seq = ++missSeq;
+    loadIdentity().then((doc) => {
+      if (seq !== missSeq || typedTerm() !== typed) return;
+      const why = notOfferedReason(typed, doc, options);
+      const row = listbox.querySelector('.mp-opt--none');
+      if (row && why) row.textContent = why;
+    }).catch(() => { /* the plain sentence stands; nothing is invented */ });
+  };
+
   const paintSuggest = () => {
-    if (!String(input.value || '').trim()) { closeSuggest(); return; }
-    shown = matchSeeds(options, input.value);
+    const term = typedTerm();
+    if (!term) { closeSuggest(); return; }
+    shown = matchSeeds(options, term);
     if (active >= shown.length) active = 0;
     listbox.innerHTML = shown.length
       ? shown.map((o, i) => renderSeedOption(o, i, active, state.live)).join('')
@@ -756,15 +896,35 @@ export default async function mountMyParlays(el) {
       : '<li class="mp-opt mp-opt--none" aria-disabled="true">No player or team matches</li>';
     input.setAttribute('aria-expanded', 'true');
     if (shown.length) input.setAttribute('aria-activedescendant', `mp-opt-${active}`);
-    else input.removeAttribute('aria-activedescendant');
+    else { input.removeAttribute('aria-activedescendant'); explainMiss(term); }
   };
 
-  const pick = (opt) => {
-    input.value = '';
-    closeSuggest();
-    if (!opt || state.seeds.some((s) => s.id === opt.id)) return;
-    state.seeds.push(opt);
-    paint(el);
+  /**
+   * R90/F19 — COMMIT what is in the box.
+   *
+   * The field's own placeholder prints a comma-separated example, and until R90
+   * the whole string was matched as ONE name, so the example the box asks for
+   * added nothing and cleared itself. Now every comma-separated part is added,
+   * in the order typed. `chosen` is the option picked for the LAST part (a
+   * tapped row, or the highlighted one on Enter); the earlier parts take their
+   * best match. Anything that resolves to nothing STAYS IN THE BOX, where the
+   * viewer can fix it and where the no-match row says why it is not offered.
+   */
+  const commit = (chosen) => {
+    const parts = String(input.value || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (!parts.length) { closeSuggest(); return; }
+    const missed = [];
+    let added = 0;
+    parts.forEach((part, i) => {
+      const opt = (i === parts.length - 1 && chosen) ? chosen : matchSeeds(options, part, 1)[0];
+      if (!opt) { missed.push(part); return; }
+      if (state.seeds.some((sd) => sd.id === opt.id)) return;
+      state.seeds.push(opt);
+      added += 1;
+    });
+    input.value = missed.join(', ');
+    if (added) paint(el);
+    if (missed.length) paintSuggest(); else closeSuggest();
   };
 
   input.addEventListener('input', paintSuggest);
@@ -776,7 +936,7 @@ export default async function mountMyParlays(el) {
       const row = e.target.closest('[data-seed]');
       if (!row || !shown.length) return;
       e.preventDefault();
-      pick(shown.find((o) => String(o.id) === row.dataset.seed));
+      commit(shown.find((o) => String(o.id) === row.dataset.seed));
     });
   }
   input.addEventListener('blur', () => {
@@ -792,7 +952,7 @@ export default async function mountMyParlays(el) {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       // Nothing matched: the typed text stays where the viewer can fix it.
-      if (shown.length) pick(shown[active]); else paintSuggest();
+      commit(shown.length ? shown[active] : null);
     } else if (e.key === 'Escape') {
       closeSuggest();
     }

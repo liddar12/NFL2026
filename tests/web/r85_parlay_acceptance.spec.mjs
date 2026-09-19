@@ -37,7 +37,11 @@ for (const mode of ['game', 'week', 'my']) {
     await page.waitForSelector('#parlays-list .card.parlay');
     await page.waitForSelector('.rv-strip--parlay');
     await page.click(`[data-seg="${mode}"]`);
-    if (mode === 'week') await page.click('[data-leg="5"]');
+    // R90 — the leg-count chips are inside the collapsed FILTERS panel.
+    if (mode === 'week') {
+      await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
+      await page.click('[data-leg="5"]');
+    }
     if (mode === 'my') {
       await page.fill('#mp-input', SEED_TEAM);
       await page.press('#mp-input', 'Enter');

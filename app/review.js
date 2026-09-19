@@ -76,7 +76,7 @@ function weekBlock(doc, week) {
 const signed1 = (n) => (n >= 0 ? `+${Number(n).toFixed(1)}` : `−${Math.abs(Number(n)).toFixed(1)}`);
 
 /** The measured why + optional labeled narrative, as a .rv-why panel. */
-export function renderWhy(why, narrative, { hidden = true } = {}) {
+export function renderWhy(why, narrative, { hidden = true, id = '' } = {}) {
   if (!why) return '';
   const reasons = Array.isArray(why.reasons) ? why.reasons : [];
   const items = reasons.map((r) => {
@@ -94,7 +94,7 @@ export function renderWhy(why, narrative, { hidden = true } = {}) {
       '</div>'
     : '';
   return (
-    `<div class="rv-why"${hidden ? ' hidden' : ''}>` +
+    `<div class="rv-why"${id ? ` id="${esc(id)}"` : ''}${hidden ? ' hidden' : ''}>` +
       `<div class="rv-why-head">WHY · ${esc(String(why.source || 'measured').toUpperCase())}</div>` +
       `<div class="rv-summary">${esc(why.summary || '')}</div>` +
       `<ul class="rv-reasons">${items}${unattr}</ul>` +
@@ -198,20 +198,215 @@ export function renderWeekOverview(week, summary, topLearning) {
   );
 }
 
+/* --------------------------------------------------------------------------
+ * R90 — HISTORICAL TRUTH on a past week's slate (review F13)
+ *
+ * scripts/build_predictions.py re-predicts the WHOLE season from today's
+ * chained ratings on every run, and slate.js paints a past week straight from
+ * data/schedule_full.json's per-game probs — so a closed week showed a number
+ * today's model just invented while the won/lost dot graded the ORIGINAL lock.
+ * Committed game 401872657: locked LAR 62.67%, schedule now 48.67% — the
+ * favourite flips on screen while the receipt still says the LAR pick lost.
+ *
+ * The rule here: on any week that is NOT the pipeline's current week, the
+ * headline probabilities are the LOCK (review.json's pick_prob, the immutable
+ * pregame forecast) plus the FINAL score; the recomputation is demoted to one
+ * explicit provenance figure beside it, never the headline. A past game with
+ * no lock on file says so rather than borrowing today's number.
+ * ------------------------------------------------------------------------ */
+
+/** Mirrors scripts/scrape/espn.FINAL_STATUSES plus the full-time spellings. */
+const FINAL_STATUS = /^STATUS_(FINAL|FULL_TIME|END_OF_FULL_TIME)/;
+
+/** What a past card says when no pregame forecast was ever written down. */
+export const NO_LOCK_TEXT = 'no pregame forecast on file';
+
+/** A row we may paint as history: graded, or a FINAL row carrying its lock. */
+export function isGradedRow(row) {
+  if (!row) return false;
+  if (row.result === 'won' || row.result === 'lost') return true;
+  return isNum(row.pick_prob) && FINAL_STATUS.test(String(row.status || ''));
+}
+
+/**
+ * The LOCKED pair from one review row: pick_prob for the picked side, 1 −
+ * pick_prob for the other, each rounded the way renderGameCard rounds
+ * (Math.round per side, independently). `fav` follows the card's own tie rule
+ * — home keeps the emphasis at 50/50. null when the row carries no lock.
+ */
+export function lockedHeads(row) {
+  if (!row || !isNum(row.pick_prob)) return null;
+  const p = Number(row.pick_prob);
+  if (p < 0 || p > 1) return null;
+  const home = String(row.picked) === String(row.home) ? p : 1 - p;
+  const homePct = Math.round(home * 100);
+  const awayPct = Math.round((1 - home) * 100);
+  return { home, away: 1 - home, homePct, awayPct, fav: homePct >= awayPct ? 'home' : 'away' };
+}
+
+/**
+ * The lock's own timestamp, read out of the measured why's `confidence` line
+ * ("picked LAR at 63% (lock 2026-07-16T16:37:02Z, model elo_prior)"). Falls
+ * back to the word 'pregame' — never to today's clock, which would date a
+ * forecast by when it was rendered.
+ */
+export function lockStamp(row) {
+  const reasons = (row && row.why && Array.isArray(row.why.reasons)) ? row.why.reasons : [];
+  for (const r of reasons) {
+    if (!r || r.factor !== 'confidence') continue;
+    const m = /lock\s+([^\s,)]+)/.exec(String(r.text || ''));
+    if (m) return m[1];
+  }
+  return 'pregame';
+}
+
+/**
+ * "LOCKED 2026-07-16T16:37:02Z · recomputed with today's model: 49%" — the
+ * recomputation stays a second, named figure. `recomputedPct` is the number
+ * the card was painted with for the PICKED side; omit it (null) and the line
+ * is the lock stamp alone.
+ */
+export function provenanceText(row, recomputedPct) {
+  const head = `LOCKED ${lockStamp(row)}`;
+  if (!isNum(recomputedPct)) return head;
+  return `${head} · recomputed with today's model: ${Math.round(recomputedPct)}%`;
+}
+
+/** "FINAL · LAR 7–SF 27" (home first, as the contract stores it). '' when the
+ * receipt knows the winner but not the score (final_source lock_receipt). */
+export function finalScoreText(row) {
+  const f = row && row.final;
+  if (!f || !isNum(f.home_score) || !isNum(f.away_score)) return '';
+  return `FINAL · ${row.home} ${f.home_score}–${row.away} ${f.away_score}`;
+}
+
+/** The whole-number percent a painted head carries ("SF 51%" -> 51). */
+function paintedPct(el) {
+  if (!el) return null;
+  if (isNum(Number(el.dataset.rvRecomputed))) return Number(el.dataset.rvRecomputed);
+  const m = /(\d+)\s*%/.exec(el.textContent || '');
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Repaint one card's probability elements from the LOCK. renderGameCard (which
+ * this partition does not own) ships no data attributes on those nodes, so the
+ * stable hooks are stamped here: .prob[data-rv-prob], each head's
+ * data-rv-prob / data-rv-pct / data-rv-recomputed, and the card's data-rv-truth.
+ */
+function paintLocked(card, row, heads) {
+  const prob = card.querySelector('.prob');
+  const sides = { home: card.querySelector('.ph--home'), away: card.querySelector('.ph--away') };
+  if (!prob || !sides.home || !sides.away) return false;
+  // Read today's recomputation BEFORE the lock overwrites it — it is the number
+  // the card was painted with for the picked side, and the only place it stays.
+  const pickedSide = String(row.picked) === String(row.home) ? 'home' : 'away';
+  const recomputed = paintedPct(sides[pickedSide]);
+
+  ['home', 'away'].forEach((side) => {
+    const el = sides[side];
+    const was = paintedPct(el);
+    if (was != null) el.dataset.rvRecomputed = String(was);
+    const pct = side === 'home' ? heads.homePct : heads.awayPct;
+    el.textContent = `${row[side]} ${pct}%`;
+    el.dataset.rvProb = 'locked';
+    el.dataset.rvPct = String(pct);
+    el.classList.toggle('ph--fav', heads.fav === side);
+  });
+
+  const track = card.querySelector('.track');
+  if (track) {
+    const segHome = track.querySelector('.seg--home');
+    const segAway = track.querySelector('.seg--away');
+    if (segHome) segHome.style.width = `${heads.homePct}%`;
+    if (segAway) segAway.style.width = `${heads.awayPct}%`;
+    track.setAttribute('aria-label',
+      `Locked pregame win probability: ${row.home} ${heads.homePct}%, ${row.away} ${heads.awayPct}%`);
+  }
+  prob.dataset.rvProb = 'locked';
+
+  const score = finalScoreText(row);
+  const prov = provenanceText(row, recomputed);
+  const rec = isNum(recomputed) ? ` data-rv-recomputed="${esc(recomputed)}"` : '';
+  prob.insertAdjacentHTML('afterend',
+    (score
+      ? `<div class="rv-final rv-summary" data-rv-final="${esc(row.final.home_score)}-${esc(row.final.away_score)}">${esc(score)}</div>`
+      : '') +
+    `<div class="rv-prov prob-sub"${rec} data-rv-side="${esc(row.picked)}">${esc(prov)}</div>`);
+  return true;
+}
+
+/** No lock on file: say so where the probabilities were, and flatten the track
+ * so no picture of today's recomputation survives the sentence. */
+function paintNoLock(card) {
+  const heads = card.querySelector('.prob-heads');
+  if (!heads) return false;
+  heads.innerHTML = `<span class="ph ph--none" data-rv-prob="none">${NO_LOCK_TEXT}</span>`;
+  const track = card.querySelector('.track');
+  if (track) {
+    track.querySelectorAll('.seg').forEach((seg) => { seg.style.width = '0%'; });
+    track.setAttribute('aria-label', NO_LOCK_TEXT);
+  }
+  const prob = card.querySelector('.prob');
+  if (prob) prob.dataset.rvProb = 'none';
+  return true;
+}
+
+/**
+ * Historical truth for one painted card. `past` is true when the selected week
+ * is behind the pipeline's current week; `status` is that game's schedule
+ * status, so a FINAL game on a not-yet-past week is treated as history too.
+ * Idempotent: data-rv-truth marks a card already told the truth once.
+ */
+function applyHistoricalTruth(card, row, { past = false, status = '' } = {}) {
+  if (card.dataset.rvTruth) return;
+  if (isGradedRow(row)) {
+    const heads = lockedHeads(row);
+    if (heads && paintLocked(card, row, heads)) card.dataset.rvTruth = 'locked';
+    return;
+  }
+  if (!past && !FINAL_STATUS.test(String(status || ''))) return; // a future game: today's forecast is the truth
+  if (paintNoLock(card)) card.dataset.rvTruth = 'none';
+}
+
+/* ------------------------------------------------------------------------ */
+
+/** Show or hide one card's why panel from its own button (R90/F20). */
+function toggleWhy(btn, want) {
+  const panel = document.getElementById(btn.getAttribute('aria-controls') || '');
+  if (!panel) return;
+  const open = want == null ? panel.hidden : want;
+  panel.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 /**
  * Decorate the painted slate cards in `listEl` for `week`. Idempotent per paint
  * (the view repaints innerHTML on every week switch and calls this again). One
- * delegated click listener per listEl, bound once (the view creates a fresh
+ * delegated listener pair per listEl, bound once (the view creates a fresh
  * listEl per mount, so nothing accumulates across mounts).
+ *
+ * `ctx` is the view's week context: { currentWeek, statuses }. Without it every
+ * week counts as current and only the R71/R72 decoration runs — the historical
+ * repaint (F13) never fires on the pipeline's own week.
  */
-export async function applySlateReview(listEl, week) {
+export async function applySlateReview(listEl, week, ctx = {}) {
   const doc = await primeReview();
   if (!listEl || !listEl.isConnected) return;
   const blk = weekBlock(doc, week);
-  if (!blk) { placeStrip(listEl, '.rv-strip', ''); return; }
-  const byId = new Map((blk.games || []).map((g) => [String(g.game_id), g]));
+  const cw = ctx.currentWeek == null ? NaN : Number(ctx.currentWeek);
+  const currentWeek = isNum(cw) ? cw : null;
+  const historical = currentWeek != null && Number(week) !== currentWeek;
+  const past = currentWeek != null && Number(week) < currentWeek;
+  const statuses = ctx.statuses instanceof Map ? ctx.statuses : null;
+  const byId = new Map(((blk && blk.games) || []).map((g) => [String(g.game_id), g]));
   listEl.querySelectorAll('.card.game[data-game-id]').forEach((card) => {
-    const g = byId.get(String(card.dataset.gameId));
+    const id = String(card.dataset.gameId);
+    const g = byId.get(id);
+    // F13 first: a past card's headline is its LOCK, before anything grades it.
+    if (historical) {
+      applyHistoricalTruth(card, g, { past, status: statuses ? statuses.get(id) : '' });
+    }
     if (!g || !g.result || card.querySelector('.rv-dot')) return;
     const side = g.picked === g.home ? '.team--home' : '.team--away';
     const team = card.querySelector(side);
@@ -223,19 +418,33 @@ export async function applySlateReview(listEl, week) {
     team.appendChild(dot);
     card.classList.add('rv-graded', `rv-graded--${g.result}`);
     card.dataset.rvResult = g.result;
-    card.setAttribute('aria-expanded', 'false');
-    card.insertAdjacentHTML('beforeend', renderWhy(g.why, g.narrative));
+    // F20 — a real button owns the expansion: Enter/Space come free, the focus
+    // ring is the existing :focus-visible rule, and the name is this game's own
+    // ("Why this result: NE at SEA") so a screen reader never hears 16 of the
+    // same label. The ARTICLE no longer claims aria-expanded.
+    const whyId = `rv-why-${id}`;
+    const whyHtml = renderWhy(g.why, g.narrative, { id: whyId });
+    if (!whyHtml) return;
+    card.insertAdjacentHTML('beforeend',
+      '<button type="button" class="rv-why-btn leg-chip" aria-expanded="false" ' +
+        `aria-controls="${esc(whyId)}" aria-label="Why this result: ${esc(g.away)} at ${esc(g.home)}">` +
+        'Why this result</button>' + whyHtml);
   });
-  placeStrip(listEl, '.rv-strip', renderWeekOverview(week, blk.summary, doc && doc.learning));
+  placeStrip(listEl, '.rv-strip', renderWeekOverview(week, blk && blk.summary, doc && doc.learning));
   if (!listEl.dataset.rvBound) {
     listEl.dataset.rvBound = '1';
     listEl.addEventListener('click', (e) => {
-      const card = e.target.closest('.card.game.rv-graded');
-      if (!card || !listEl.contains(card)) return;
-      const why = card.querySelector('.rv-why');
-      if (!why) return;
-      why.hidden = !why.hidden;
-      card.setAttribute('aria-expanded', why.hidden ? 'false' : 'true');
+      const btn = e.target.closest('.rv-why-btn');
+      if (!btn || !listEl.contains(btn)) return;
+      toggleWhy(btn);
+    });
+    // Escape closes the panel the keyboard is standing in, focus unmoved.
+    listEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const btn = e.target.closest('.rv-why-btn');
+      if (!btn || btn.getAttribute('aria-expanded') !== 'true') return;
+      toggleWhy(btn, false);
+      btn.focus();
     });
   }
 }

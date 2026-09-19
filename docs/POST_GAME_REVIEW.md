@@ -111,6 +111,47 @@ counts with each row's `bucket`. Fixture for both sides: `tests/fixtures/r72/`
 (inputs, lock files under `snapshots/`, refit archive `model_tuning.json`); lock:
 `tests/feature/r72_review_summary.test.mjs`.
 
+## Historical truth (R90)
+
+`scripts/build_predictions.py` re-predicts the whole season from today's chained
+ratings on every run, and `app/views/slate.js` paints any week but the current one
+straight from `data/schedule_full.json`. So a closed week used to show a number
+today's model had just invented while the won/lost dot graded the ORIGINAL lock —
+committed game `401872657`: locked LAR **62.67%**, schedule now **48.67%**, the
+favourite flipping on screen against its own receipt (review F13).
+
+On any week that is **not** the pipeline's current week, `applySlateReview` now
+repaints the card from the LOCK before anything grades it:
+
+* the heads become `pick_prob` for the picked side and `1 − pick_prob` for the
+  other, rounded per side the way `renderGameCard` rounds, with the emphasis
+  (`.ph--fav`) and the `.track` following the lock — the same prediction the dot
+  grades;
+* the receipt's **final score** renders on the card (`.rv-final`, home first);
+* the recomputation is demoted to one explicit provenance line (`.rv-prov`):
+  `LOCKED <the lock's own stamp, read from the measured why's confidence factor,
+  else "pregame"> · recomputed with today's model: n%`. It is never a headline;
+* a past game with **no review row** shows `no pregame forecast on file` in place
+  of the probabilities (and a flat track) rather than borrowing today's number.
+
+The current week is untouched — for an unplayed game today's forecast *is* the
+truth. The view tells the review layer which week that is:
+`applySlateReview(listEl, week, { currentWeek, statuses })`. `renderGameCard`
+ships no hooks on those nodes, so the stable ones are stamped here:
+`.prob[data-rv-prob="locked"|"none"]`, each head's `data-rv-prob` / `data-rv-pct`
+/ `data-rv-recomputed`, `.rv-final[data-rv-final]`, `.rv-prov[data-rv-recomputed]`
+and the card's `data-rv-truth`.
+
+**Keyboard (R90, review F20).** The expansion is a real
+`<button class="rv-why-btn leg-chip" aria-expanded aria-controls>` inside the card
+named for its own game (`Why this result: NE at SEA`) — Enter/Space open it,
+Escape closes it, focus never leaves the button, and the `<article>` no longer
+claims `aria-expanded`. The slate week bar dropped its tab roles (it had no
+tabpanels and no arrow keys) for `role="group" aria-label="Week"` with
+`aria-pressed` chips; Left/Right move focus and select as a convenience, and every
+chip stays individually tabbable. Locks: `tests/feature/r90_slate_truth.test.mjs`,
+browser proof `tests/web/r90_slate_truth.spec.mjs`.
+
 ## Rules
 
 **Status gate.** A game produces a result only when (a) an ESPN row with a FINAL

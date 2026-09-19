@@ -48,6 +48,9 @@ function archive(dataDir, parlays, schedule, now, extra = []) {
 
 const load = (p) => JSON.parse(readFileSync(resolve(REPO_ROOT, p), 'utf8'));
 
+/** A card without the two keys the archive itself stamps (R90): what parlays.json held. */
+const unstamped = (cards) => cards.map(({ card_id, frozen_utc, ...rest }) => rest);
+
 /** The repo's one on-disk convention, checked by the writer's own language. */
 function canonical(paths) {
   return runPy(`
@@ -75,7 +78,12 @@ test('archive: first sight creates, same as-of is byte-identical, reprice refres
     assert.match(out1, /wk 1 created data\/parlays\/2026_wk01\.json \(open, 3 parlays/);
     const a = JSON.parse(readFileSync(wk1, 'utf8'));
     const src = load(`${FX}/parlays_wk1_a.json`);
-    assert.deepEqual({ season: a.season, week: a.week, updated_utc: a.updated_utc, parlays: a.parlays }, src, 'verbatim');
+    // R90: card_id (and, once a card's game has started, frozen_utc) are the only
+    // keys the archive adds — the card itself is still parlays.json verbatim.
+    assert.deepEqual({ season: a.season, week: a.week, updated_utc: a.updated_utc, parlays: unstamped(a.parlays) },
+      src, 'verbatim');
+    assert.ok(a.parlays.every((c) => typeof c.card_id === 'string' && c.card_id.length >= 8), 'every card identified');
+    assert.equal(new Set(a.parlays.map((c) => c.card_id)).size, a.parlays.length, 'distinct bets, distinct ids');
     assert.equal(a.closed, false);
     assert.deepEqual(a.history, [{ updated_utc: '2026-09-13T10:00:00Z', archived_utc: '2026-09-13T11:00:00Z' }]);
     assert.deepEqual(Object.keys(a), ['season', 'week', 'updated_utc', 'parlays', 'archived_utc', 'closed', 'history']);
@@ -92,12 +100,18 @@ test('archive: first sight creates, same as-of is byte-identical, reprice refres
     assert.match(out2, /wk 1 unchanged/);
     assert.match(out2, /index unchanged/);
     assert.ok(readFileSync(wk1).equals(raw1) && readFileSync(idx).equals(rawIdx));
-    // reprice while open: refreshed to the last state, history grows
+    // reprice while open: refreshed to the last state, history grows. R90 — by this
+    // `now` every week-1 game has kicked off, so all three cards are FROZEN and the
+    // reprice (same legs, same card_id) may not replace them.
     const out3 = archive(tmp, `${FX}/parlays_wk1_b.json`, `${FX}/schedule_open.json`, '2026-09-14T17:00:00Z');
     assert.match(out3, /wk 1 refreshed/);
+    assert.match(out3, /wk 1 3 card\(s\) frozen/);
     const b = JSON.parse(readFileSync(wk1, 'utf8'));
     assert.equal(b.updated_utc, '2026-09-14T16:44:00Z');
-    assert.equal(b.parlays[0].legs[0].implied_prob, 0.57, 'the repriced state replaces the old');
+    assert.equal(b.parlays[0].legs[0].implied_prob, 0.55, 'the card kicked off: the reprice cannot replace it');
+    assert.deepEqual(unstamped(b.parlays), unstamped(a.parlays), 'frozen cards are carried forward verbatim');
+    assert.ok(b.parlays.every((c) => c.frozen_utc === '2026-09-14T17:00:00Z'));
+    assert.equal(b.history.at(-1).frozen, 3, 'the refresh records how many it carried');
     assert.deepEqual(b.history.map((h) => h.updated_utc), ['2026-09-13T10:00:00Z', '2026-09-14T16:44:00Z']);
     assert.equal(b.history[0].archived_utc, '2026-09-13T11:00:00Z');
     assert.equal(b.closed, false);
@@ -202,8 +216,22 @@ test('committed archive: the open week mirrors data/parlays.json, index consiste
   const name = `data/parlays/${parlays.season}_wk${String(parlays.week).padStart(2, '0')}.json`;
   const arch = load(name);
   if (!arch.closed) {
-    assert.deepEqual({ season: arch.season, week: arch.week, updated_utc: arch.updated_utc, parlays: arch.parlays }, parlays,
-      'an open week mirrors parlays.json (refreshed on every run while open)');
+    // R90 — an open week still mirrors parlays.json, card by card, but a card whose
+    // game has kicked off is FROZEN: it is the archived copy, and the rebuild's
+    // version of that same bet is dropped rather than written over it.
+    assert.deepEqual([arch.season, arch.week, arch.updated_utc], [parlays.season, parlays.week, parlays.updated_utc]);
+    const identity = (c) => JSON.stringify([c.scope, c.game_id ?? null,
+      c.legs.map((l) => `${l.market}|${l.selection}`).sort()]);
+    const live = arch.parlays.filter((c) => !c.frozen_utc);
+    const built = new Set(parlays.parlays.map((c) => JSON.stringify(c)));
+    for (const card of unstamped(live)) {
+      assert.ok(built.has(JSON.stringify(card)), `live card ${card.parlay_id} is the built one, verbatim`);
+    }
+    const archived = new Set(arch.parlays.map(identity));
+    for (const card of parlays.parlays) {
+      assert.ok(archived.has(identity(card)), `parlays.json card ${card.parlay_id} is in the archive`);
+    }
+    assert.ok(arch.parlays.every((c) => typeof c.card_id === 'string'), 'every archived card is identified');
   }
   assert.equal(typeof arch.closed, 'boolean');
   assert.ok(arch.history.length >= 1 && arch.history.some((h) => h.updated_utc === arch.updated_utc));

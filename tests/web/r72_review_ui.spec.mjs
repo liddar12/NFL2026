@@ -275,6 +275,8 @@ test.describe('R72 — PARLAYS outcome buckets', () => {
 
     // combined with scope + leg count: WEEK scope, 3 LEG, PARTIAL
     await page.click('.seg-btn[data-seg="week"]');
+    // R90 — the leg-count chips moved into the collapsed FILTERS panel.
+    await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
     await page.waitForSelector('.leg-chip[data-leg="3"]', { timeout: 5000 });
     await page.click('.leg-chip[data-leg="3"]');
     await page.click('.rv-bucket[data-bucket="partial"]');

@@ -40,16 +40,22 @@ EVERY refit outcome (adopted or not) is appended to data/model_tuning.json under
 never_regress.test.mjs + smoke.sh and is never modified. ONLY on adoption are the live
 params written to model_tuning.json:"game_params", where scripts/build_predictions.py
 reads them (absent => the incumbent scripts/models/elo.py defaults, so probs stay
-byte-identical). A run that grades zero rows appends nothing — a no-op is printed, not
-archived, so daily crons never churn the file.
+byte-identical). That write is a SHALLOW MERGE over the current object, not an
+assignment: game_params also carries `k` and the promoted qb_out family, and replacing
+it wholesale silently switched those off (F11). See next_game_params — the adoption
+stamps an explicit adopted_version and archives the FULL effective object as a receipt.
+A run that grades zero rows appends nothing — a no-op is printed, not archived, so
+daily crons never churn the file.
 
 tilt_coef/home_coef (weekly player params) CANNOT be refit yet: tilt shapes PLAYER
 weeklies, not game probs, and no resolved weekly player actuals exist. That path is
 guarded with a loud skip line until the weekly-actuals feed lands (see
 refit_player_params).
 
-Pure core (unit-testable, no I/O, no network): score_game_params() +
-refit_game_params(). Row contract for refit_game_params — each resolved row carries:
+Pure core (unit-testable, no I/O, no network): score_game_params(),
+refit_game_params() and next_game_params(); `python3 scripts/refit.py --selftest`
+exercises the adoption merge alone. Row contract for refit_game_params — each
+resolved row carries:
 
     home_elo_raw / away_elo_raw : UNREVERTED end-of-prior-season Elo ratings
                                   (elo.rate_season over the prior season's finals)
@@ -93,6 +99,15 @@ SCHEDULE_PATH = os.path.join(DATA, "schedule_full.json")
 MARGIN = 0.0015  # the NEVER-REGRESS default, same units as the losses
 
 FOLDS = 5  # held-out folds used to decide adoption (see cross_validated_refit)
+
+# The one source string an adoption stamps on game_params (mirrored in the receipt).
+ADOPTION_SOURCE = ("scripts/refit.py off-grid refined search on resolved locks "
+                   "(held-out folds, never-regress gated)")
+
+# The ONLY game_params keys an adoption may write. Every other key in that object
+# was decided by a different family and is carried over untouched — see
+# next_game_params for why that matters.
+ADOPTED_KEYS = ("hfa_elo", "revert", "adopted_utc", "source", "adopted_version")
 
 # ---------------------------------------------------------------------------
 # Search axes. An Axis is a closed box [lo, hi] swept at `step` and refined down
@@ -469,6 +484,47 @@ def live_game_params(doc):
             "revert": float(gp.get("revert", elo_mod.REVERT))}
 
 
+def next_game_params(doc, result, now, source=ADOPTION_SOURCE):
+    """The FULL game_params object an adoption writes — a SHALLOW MERGE over the
+    current one — or None when the refit did not adopt.
+
+    WHY (F11): this refit fits TWO Elo parameters, and the adoption branch used to
+    ASSIGN a fresh four-key object. game_params is shared: it also carries `k` and
+    the promoted qb_out family, both read by scripts/build_predictions.py from the
+    same place. Assigning silently dropped them — fitting home-field advantage
+    turned off an independently adopted behaviour. Only ADOPTED_KEYS are replaced;
+    every other key, nested families included, is carried over byte-for-byte.
+
+    The incoming doc is never mutated and nothing is aliased into the result: the
+    caller owns the returned object outright.
+    """
+    if not result.get("adopted"):
+        return None
+    merged = json.loads(json.dumps(doc.get("game_params") or {}))
+    prev = merged.get("adopted_version")
+    merged["hfa_elo"] = result["candidate"]["hfa_elo"]
+    merged["revert"] = result["candidate"]["revert"]
+    merged["adopted_utc"] = now
+    merged["source"] = source
+    # An explicit, monotonic version so a receipt names the exact object
+    # build_predictions.py will read (previous + 1, or 1 for the first adoption).
+    merged["adopted_version"] = (prev + 1) if isinstance(prev, int) \
+        and not isinstance(prev, bool) else 1
+    return merged
+
+
+def adoption_receipt(effective):
+    """The two fields an adoption archives in its history entry: the version and a
+    private copy of the FULL effective object.
+
+    WHY the whole object: a receipt that repeated only the two fitted numbers could
+    not show that a family had been dropped. This one is exactly what
+    scripts/build_predictions.py will read.
+    """
+    return {"adopted_version": effective["adopted_version"],
+            "effective": json.loads(json.dumps(effective))}
+
+
 # ---------------------------------------------------------------------------
 # Driver.
 # ---------------------------------------------------------------------------
@@ -555,7 +611,76 @@ def _player_refit_guard():
     print(f"refit: tilt_coef/home_coef skipped: {skip['skipped']}")
 
 
-def main():
+def selftest():
+    """Pure-core checks for the adoption merge (F11). No I/O, no network.
+
+    Seeds a game_params object carrying k, the promoted qb_out family and a nested
+    made-up family, then asserts an adoption changes ONLY the two fitted fields plus
+    the stamp/source/version, and a refusal changes nothing at all.
+    """
+    seeded = {"game_params": {
+        "hfa_elo": 45.0,
+        "revert": 0.45,
+        "k": 25.0,
+        "adopted_utc": "2026-07-17T17:16:18Z",
+        "source": "scripts/backtest.py walk-forward grid (never-regress gated)",
+        "qb_out": {"applied": True, "scale": 75.0, "adopted_under": "fixed_margin_0.0015",
+                   "significance": None, "note": "adopted family, unrelated to hfa/revert"},
+        "made_up_family": {"applied": False, "nested": {"deep": [1, 2, {"x": None}],
+                                                        "unicode_free": "plain"}},
+    }}
+    untouched = ("k", "qb_out", "made_up_family")
+    before = json.dumps(seeded, ensure_ascii=True, sort_keys=True)
+    adopted = {"adopted": True, "candidate": {"hfa_elo": 62.5, "revert": 0.315}}
+
+    eff = next_game_params(seeded, adopted, "2026-09-19T00:00:00Z")
+    assert eff["hfa_elo"] == 62.5 and eff["revert"] == 0.315, eff
+    assert eff["adopted_utc"] == "2026-09-19T00:00:00Z" and eff["source"] == ADOPTION_SOURCE
+    assert eff["adopted_version"] == 1, "first adoption is version 1"
+    for key in untouched:
+        assert json.dumps(eff[key], ensure_ascii=True, sort_keys=True) == \
+            json.dumps(seeded["game_params"][key], ensure_ascii=True, sort_keys=True), key
+    assert set(eff) == set(seeded["game_params"]) | {"adopted_version"}, \
+        "an adoption adds the version and drops nothing"
+    assert json.dumps(seeded, ensure_ascii=True, sort_keys=True) == before, \
+        "next_game_params never mutates the document it reads"
+    eff["qb_out"]["scale"] = 0.0
+    assert seeded["game_params"]["qb_out"]["scale"] == 75.0, "the merge copies, never aliases"
+
+    # A second adoption over an already-versioned object: previous + 1, families intact.
+    doc2 = {"game_params": next_game_params(seeded, adopted, "2026-09-19T00:00:00Z")}
+    eff2 = next_game_params(doc2, {"adopted": True,
+                                   "candidate": {"hfa_elo": 70.0, "revert": 0.2}},
+                            "2026-09-26T00:00:00Z")
+    assert eff2["adopted_version"] == 2 and eff2["hfa_elo"] == 70.0
+    assert eff2["qb_out"] == seeded["game_params"]["qb_out"] and eff2["k"] == 25.0
+    assert live_game_params(doc2) == {"hfa_elo": 62.5, "revert": 0.315}, \
+        "build_predictions reads the merged object, not the seed"
+
+    # The archived receipt is the full effective object, and a private copy of it.
+    receipt = adoption_receipt(eff2)
+    assert receipt["adopted_version"] == 2 and receipt["effective"] == eff2
+    eff2["k"] = 0.0
+    assert receipt["effective"]["k"] == 25.0, "the receipt cannot be edited from outside"
+
+    # REFUSAL: nothing at all changes — the branch writes no game_params.
+    for refused in ({"adopted": False, "candidate": {"hfa_elo": 99.0, "revert": 0.9}},
+                    {"candidate": {"hfa_elo": 99.0, "revert": 0.9}}):
+        assert next_game_params(seeded, refused, "2026-09-19T00:00:00Z") is None
+    assert json.dumps(seeded, ensure_ascii=True, sort_keys=True) == before, \
+        "a refused refit leaves the document byte-for-byte unchanged"
+
+    print("selftest OK: adoption merges (k, qb_out and a nested family survive "
+          "byte-for-byte), only hfa_elo/revert/adopted_utc/source change, "
+          "adopted_version is previous+1 or 1, the effective receipt is the full "
+          "object, refusal changes nothing")
+    return 0
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--selftest" in argv:
+        return selftest()
     now = _utc_now()
     resolved = _collect_resolved_rows("game")
     print(f"refit: {len(resolved)} resolved game lock rows under data/snapshots/")
@@ -599,7 +724,6 @@ def main():
         "adopted": result["adopted"],
         "reason": _reason(result, current),
     }
-    append_history(doc, entry)
 
     if result["on_boundary"]:
         # Loud on stderr as well as in the archive: a clamped fit is a bug in the
@@ -607,21 +731,23 @@ def main():
         print("refit: " + _clamp_note(result["on_boundary"], GAME_AXES),
               file=sys.stderr)
 
-    if result["adopted"]:
+    effective = next_game_params(doc, result, now)
+    if effective is not None:
         # The ONE place live game params are updated — build_predictions reads them
-        # from here. Only an adoption that cleared the margin OUT-OF-FOLD lands.
-        doc["game_params"] = {
-            "hfa_elo": result["candidate"]["hfa_elo"],
-            "revert": result["candidate"]["revert"],
-            "adopted_utc": now,
-            "source": "scripts/refit.py off-grid refined search on resolved locks "
-                      "(held-out folds, never-regress gated)",
-        }
+        # from here. Only an adoption that cleared the margin OUT-OF-FOLD lands, and
+        # it MERGES: unrelated families (k, qb_out, ...) survive (see next_game_params).
+        doc["game_params"] = effective
+        # The receipt is the FULL effective object, not the two fitted fields, so
+        # what is printed and archived is exactly what build_predictions will read.
+        entry.update(adoption_receipt(effective))
         print(f"refit: ADOPTED hfa_elo={result['candidate']['hfa_elo']} "
               f"revert={result['candidate']['revert']} "
               f"(held-out {result['heldout_current_loss']} -> "
               f"{result['heldout_candidate_loss']}, "
               f"n={result['n_resolved']}, folds={result['folds']})")
+        print("refit: effective game_params v%d (the object build_predictions.py "
+              "reads): %s" % (effective["adopted_version"],
+                              json.dumps(effective, ensure_ascii=True, sort_keys=True)))
     else:
         print(f"refit: kept incumbent hfa_elo={current['hfa_elo']} "
               f"revert={current['revert']} — candidate {result['candidate']} "
@@ -631,6 +757,7 @@ def main():
               f"folds={result['folds']}); outcome archived."
               + (" " + result["refusal"] if result.get("refusal") else ""))
 
+    append_history(doc, entry)
     _write_tuning(doc)
     print(f"refit: outcome appended to data/model_tuning.json "
           f"(history now {len(doc['history'])} entries)")

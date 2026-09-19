@@ -58,6 +58,40 @@
  *          card shows (dataset.rvPay), so what you sort is what you read.
  * Both compose with scope + leg count + bucket + week, and both reset with the
  * week for the same reason the leg chips do: the chips are per-week.
+ *
+ * R90 — FIRST SCREEN. Measured at 402x874 the first curated card started at
+ * 1,217 px: seven control surfaces plus a 465 px always-open glossary stood
+ * between the header and the first bet, so the opening viewport showed no
+ * parlay at all. Nothing was removed; the page was re-ranked by how often it is
+ * READ rather than by the order it was built in:
+ *   - the week bar and the scope segment stay at the top — they are the MODE,
+ *     not a filter, and every other control is read through them;
+ *   - leg count, tier and sort collapse into ONE <details class="pfilters">
+ *     whose summary carries the active count and the active values
+ *     ("FILTERS · 3 LEGS · HIGH · SIM EV"), so a filter left on is still legible
+ *     while the panel is shut. Open/closed is a per-VIEWER preference
+ *     (nfl2026.parlays.filters.v1), default CLOSED, every touch guarded;
+ *   - the glossary becomes <details class="legend legend--parlays"> closed by
+ *     default — the same pattern PLAYERS has used since REL4 — so eight
+ *     paragraphs cost one 44 px row instead of 465 px;
+ *   - the outcome buckets and the P&L line are HIDDEN on a week with no graded
+ *     parlay. An entirely upcoming week has nothing to count, and five zero
+ *     chips over a blank P&L is a measurement that was never made.
+ * Nothing on the CARDS moved: price provenance and the availability chips stay
+ * beside the number they qualify (annotateLegs), which is where F18 asked for
+ * them. Measured after on the committed week-2 feed: the first .card.parlay top
+ * is 733 px at 402x874 (the bottom navigation starts at 817), down from 1,217 —
+ * the glossary is 62 px instead of 465 and the three control rows are one 56 px
+ * panel. The 194 px still above the cards is the graded chrome (the bucket card
+ * and the P&L line), which is the record of a week that HAS been played and is
+ * gone entirely on a week that has not.
+ *
+ * R90/F20 — the week bar and the scope segment declared role="tablist"/"tab"
+ * with no tabpanel and no roving focus: the ARIA said one widget and the DOM
+ * was another. They are what they always were — grouped filter buttons — so
+ * they now say role="group" with aria-pressed on each chip, and Left/Right
+ * arrows move focus and selection inside the group as a convenience. Class
+ * names, data attributes and the MY-mode behaviour are untouched.
  */
 
 import { getParlays, getScheduleFull, getParlaysIndex, getParlayArchive } from '../data.js';
@@ -77,18 +111,22 @@ function stateMsg(el, text) {
   el.innerHTML = `<div class="state">${text}</div>`;
 }
 
-/** Segmented control: GAME | WEEK. `active` is the selected scope. */
+/** Segmented control: GAME | WEEK. `active` is the selected scope.
+ *
+ * R90/F20 — role="group" with aria-pressed chips, NOT tablist/tab. There is no
+ * tabpanel for these buttons to control and never was, so the ARIA described a
+ * widget the DOM did not implement; a grouped set of toggle buttons is what
+ * this has always been and is now what it announces. */
 function scopeSeg(active) {
   const seg = (scope, label) => {
     const on = scope === active;
     return (
       `<button type="button" class="seg-btn${on ? ' seg-btn--active' : ''}" ` +
-        `data-seg="${scope}" role="tab" aria-selected="${on ? 'true' : 'false'}" ` +
-        `aria-pressed="${on ? 'true' : 'false'}">${label}</button>`
+        `data-seg="${scope}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`
     );
   };
   return (
-    '<div class="scopeseg" role="tablist" aria-label="Parlay scope">' +
+    '<div class="scopeseg" role="group" aria-label="Parlay scope">' +
       seg('game', 'GAME') +
       seg('week', 'WEEK') +
       // R76 — MY is a MODE, not a route: a new route costs 644 bytes on a boot
@@ -118,6 +156,9 @@ function legSeg(counts, activeLeg) {
 /* R75 — tier + sort -------------------------------------------------------- */
 
 const TIER_ORDER = ['high', 'medium', 'low'];
+// R90 — the four outcome buckets that mean a parlay was actually GRADED.
+// `pending` is deliberately not one of them: it is the absence of a result.
+const GRADED_BUCKETS = ['all_hit', 'push', 'partial', 'all_missed'];
 // value -> [label, comparator]. A null comparator means "leave the document's
 // own order alone" (SLATE) or "the comparator needs data this module does not
 // hold" ($100, built in paintList from the money map).
@@ -223,20 +264,42 @@ export function parlayArchivePathFor(season, week) {
   return `/data/parlays/${s}_wk${String(w).padStart(2, '0')}.json`;
 }
 
-/** The .wkbar chip row for the parlay weeks ('' when there is no index). */
+/** The .wkbar chip row for the parlay weeks ('' when there is no index).
+ * R90/F20 — grouped aria-pressed buttons, for the reason scopeSeg states. */
 function wkBar(weeks, active) {
   if (!weeks.length) return '';
   const chips = weeks.map((w) => {
     const on = w.week === active;
     const cls = `wk-chip${on ? ' wk-chip--active' : ''}${w.closed ? ' pw-wk--closed' : ''}`;
     return (
-      `<button type="button" class="${cls}" data-wk="${w.week}" role="tab" ` +
-        `aria-selected="${on ? 'true' : 'false'}"` +
+      `<button type="button" class="${cls}" data-wk="${w.week}" ` +
+        `aria-pressed="${on ? 'true' : 'false'}"` +
         (w.closed ? ' title="archived week"' : '') +
       `>WK ${w.week}</button>`
     );
   }).join('');
-  return `<div class="wkbar pw-wkbar" role="tablist" aria-label="Parlay week">${chips}</div>`;
+  return `<div class="wkbar pw-wkbar" role="group" aria-label="Parlay week">${chips}</div>`;
+}
+
+/**
+ * R90/F20 — Left/Right arrows inside a grouped chip row: move focus to the
+ * neighbouring chip and select it. A convenience, not the only way in — every
+ * chip is an ordinary button and stays individually tabbable, which is what
+ * made the retired tab roles a lie rather than a barrier. The listener lives on
+ * the GROUP, which outlives every repaint of the chips inside it.
+ */
+function wireArrowKeys(group, chipSel) {
+  if (!group) return;
+  group.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const items = [...group.querySelectorAll(chipSel)];
+    const i = items.indexOf(document.activeElement);
+    if (i < 0 || items.length < 2) return;
+    e.preventDefault();
+    const next = items[(i + (e.key === 'ArrowRight' ? 1 : items.length - 1)) % items.length];
+    next.focus();
+    next.click();
+  });
 }
 
 /** "WEEK n · MODEL EV", with an ARCHIVED pill on a closed past week. */
@@ -289,7 +352,15 @@ export function mySubText(week) {
  */
 function legend() {
   return (
-    '<div class="legend">' +
+    // R90 — COLLAPSED by default, the same <details class="legend"> pattern
+    // PLAYERS has used since REL4. Measured at 402x874 the always-open row was
+    // 465 px of the 1,217 px that stood between the header and the first bet;
+    // shut, the identical eight paragraphs cost one 44 px summary. Nothing is
+    // hidden from a screen reader (the text stays in the DOM) and nothing is
+    // dropped: an unexplained number is still the thing this view must not ship.
+    '<details class="legend legend--parlays">' +
+      '<summary>HOW THESE NUMBERS WORK</summary>' +
+      '<div class="legend-body">' +
       '<span class="legend-item"><b>LEG</b> one pick in the parlay — all must hit</span>' +
       '<span class="legend-item"><b>MODEL</b> our model’s probability — computed with '
         + 'no book input. Spread legs are priced flat at 50 (NO EDGE: the cover model '
@@ -307,7 +378,56 @@ function legend() {
       '<span class="legend-item"><b>SIM NET TOTAL</b> sum of graded simulated net profit, '
         + 'not actual betting returns. No extra vig scenario is mixed into this total. Display only — never a model input</span>' +
       '<span class="est">ESTIMATE</span>' +
-    '</div>'
+      '</div>' +
+    '</details>'
+  );
+}
+
+/* R90 — the FILTERS panel ---------------------------------------------------
+ *
+ * Leg count, tier and sort were three separate rows above the cards, each
+ * always painted whether or not it was being used. They are now one collapsed
+ * <details>, and the summary carries the STATE so collapsing never hides what
+ * is filtering the list: "FILTERS · 3 LEGS · HIGH · SIM EV", with a count of
+ * how many are on. Pure and exported so the copy is testable without a DOM.
+ * The values are the chips' OWN labels — what the summary says is what the
+ * panel shows. */
+const FILTERS_KEY = 'nfl2026.parlays.filters.v1';
+
+export function filtersSummary(activeLeg, activeTier, activeSort) {
+  const parts = [];
+  if (String(activeLeg) !== 'all') parts.push(`${activeLeg} LEGS`);
+  if (String(activeTier) !== 'all') parts.push(String(activeTier).toUpperCase());
+  if (activeSort && activeSort !== 'slate' && SORTS[activeSort]) parts.push(SORTS[activeSort][0]);
+  return { n: parts.length, text: parts.length ? `FILTERS · ${parts.join(' · ')}` : 'FILTERS · ALL' };
+}
+
+/* Open/closed is a per-VIEWER preference, not data — the same reasoning (and
+ * the same guarded touches) as the MY risk dial: localStorage throws outright
+ * in Safari private mode, and an unreadable store simply means CLOSED, which is
+ * the default the first-screen measurement was taken against. */
+function readFiltersOpen() {
+  try { return localStorage.getItem(FILTERS_KEY) === '1'; } catch { return false; }
+}
+function writeFiltersOpen(open) {
+  try { localStorage.setItem(FILTERS_KEY, open ? '1' : '0'); } catch { /* nothing lost */ }
+}
+
+/** The collapsed FILTERS panel; the three control hosts keep their ids. */
+function filtersPanel(open) {
+  const s = filtersSummary('all', 'all', 'slate');
+  return (
+    `<details class="pfilters" id="parlay-filters"${open ? ' open' : ''}>` +
+      '<summary class="pf-sum">' +
+        `<span class="pf-sum-t">${s.text}</span>` +
+        '<span class="pf-sum-n est" hidden>0</span>' +
+      '</summary>' +
+      '<div class="pf-body">' +
+        '<div id="leg-controls"></div>' +
+        '<div id="tier-controls"></div>' +
+        '<div id="sort-controls"></div>' +
+      '</div>' +
+    '</details>'
   );
 }
 
@@ -484,6 +604,47 @@ export default async function mountParlays(el) {
     if (!box) return;
     if (!payReady && activeSort === 'pay') activeSort = 'slate';
     box.innerHTML = sortSeg(activeSort, payReady);
+    syncFiltersSummary();
+  }
+
+  /** R90 — the collapsed panel's summary must always read the live state. */
+  function syncFiltersSummary() {
+    const s = filtersSummary(activeLeg, activeTier, activeSort);
+    const t = el.querySelector('#parlay-filters .pf-sum-t');
+    if (t) t.textContent = s.text;
+    const n = el.querySelector('#parlay-filters .pf-sum-n');
+    if (n) { n.textContent = String(s.n); n.hidden = s.n === 0; }
+  }
+
+  /**
+   * R90 — does `week` have a GRADED parlay? The buckets and the P&L line are
+   * shown only when it does. An entirely upcoming week has nothing to count,
+   * and five zero chips over a blank P&L asserts a measurement nobody made —
+   * the same rule renderParlayPnl already applies to its own text (graded > 0).
+   * The bucket counts are the primary reading because they are the record of
+   * what was graded; stake_100 is the fallback for a document shaped before
+   * the buckets existed.
+   */
+  function weekHasGraded(week) {
+    if (!reviewMod) return false;
+    const b = reviewMod.parlayBucketCounts(week);
+    if (b && GRADED_BUCKETS.some((k) => Number(b[k]) > 0)) return true;
+    return ['game', 'week'].some((s) => {
+      const st = reviewMod.parlayStake100(week, s);
+      return !!(st && Number(st.graded) > 0);
+    });
+  }
+
+  /** R90 — hide (never empty) the two graded surfaces on an ungraded week. */
+  function syncGradedChrome() {
+    // MY mode owns the chrome while it is open — none of this describes a card
+    // you invented a second ago (R76), so it must not be un-hidden from here.
+    if (active === 'my') return;
+    const on = weekHasGraded(selWeek);
+    ['#parlay-buckets', '#parlay-pnl'].forEach((sel) => {
+      const node = el.querySelector(sel);
+      if (node) node.hidden = !on;
+    });
   }
 
   /** R72 — repaint the bucket summary card from the review document. */
@@ -500,6 +661,7 @@ export default async function mountParlays(el) {
     if (!host || !reviewMod) return;
     host.innerHTML = reviewMod.renderParlayPnl(
       selWeek, active, reviewMod.parlayStake100(selWeek, active));
+    syncGradedChrome();
   }
 
   /**
@@ -577,6 +739,7 @@ export default async function mountParlays(el) {
     // Absent data/review.json (or a failed import) paints nothing extra.
     // R72 — the same resolved module paints the bucket card once it lands.
     if (reviewMod) { paintBuckets(); paintPnl(); }
+    syncFiltersSummary();   // R90 — the shut panel still says what is on
     paintReview(listEl, selWeek);
   }
 
@@ -598,7 +761,7 @@ export default async function mountParlays(el) {
     el.querySelectorAll('.pw-wkbar .wk-chip').forEach((b) => {
       const on = Number(b.dataset.wk) === week;
       b.classList.toggle('wk-chip--active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');   // R90/F20
     });
     const sub = el.querySelector('.view-sub');
     if (sub) sub.innerHTML = subText(week, archived);
@@ -654,13 +817,14 @@ export default async function mountParlays(el) {
     paintList();
   }
 
+  // R90 — the order IS the fix. Mode first (week, scope), then one collapsed
+  // FILTERS panel, then the collapsed glossary, then the graded surfaces, then
+  // the cards. Measured first-card top at 402x874: 1,217 px before, 733 px now.
   el.innerHTML =
     head +
     wkBar(weeks, selWeek) +
     scopeSeg(active) +
-    '<div id="leg-controls"></div>' +
-    '<div id="tier-controls"></div>' +
-    '<div id="sort-controls"></div>' +
+    filtersPanel(readFiltersOpen()) +
     legend() +
     '<div id="parlay-buckets"></div>' +
     '<div id="parlay-pnl"></div>' +
@@ -670,6 +834,13 @@ export default async function mountParlays(el) {
   paintTierSeg();
   paintSortSeg();
   paintList();
+
+  // R90 — remember the panel the viewer left open (or shut), per viewer.
+  const filtersBox = el.querySelector('#parlay-filters');
+  if (filtersBox) filtersBox.addEventListener('toggle', () => writeFiltersOpen(filtersBox.open));
+  // R90/F20 — arrow keys inside the two grouped chip rows.
+  wireArrowKeys(el.querySelector('.pw-wkbar'), '.wk-chip');
+  wireArrowKeys(el.querySelector('.scopeseg'), '.seg-btn');
 
   /**
    * R76 — MY mode. The seed-driven builder and the ~294 KB leg pool it searches
@@ -682,8 +853,12 @@ export default async function mountParlays(el) {
   // ("WK n PARLAYS: 0/66 hit · legs 0/177 · 66 pending"), a SIBLING of
   // #parlays-list rather than a child of it, so hiding the list never hid it:
   // it stayed over the MY cards grading a slate none of them are on.
-  const myChrome = ['.pw-wkbar', '#leg-controls', '#tier-controls', '#sort-controls',
-    '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list', '.rv-strip--parlay'];
+  // R90 — '#parlay-filters' is the panel the three control hosts now live in;
+  // the hosts stay on the list so each one is provably hidden whether or not
+  // the panel happens to be open when MY is tapped.
+  const myChrome = ['.pw-wkbar', '#parlay-filters', '#leg-controls', '#tier-controls',
+    '#sort-controls', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list',
+    '.rv-strip--parlay'];
   let myMounted = false;
   // The leg pool's week, once mountMyParlays has read it (null until then).
   let myPoolWeek = null;
@@ -731,6 +906,9 @@ export default async function mountParlays(el) {
 
   function exitMyMode() {
     setMyChromeHidden(false);
+    // R90 — setMyChromeHidden un-hides everything it hid, including the two
+    // graded surfaces; the ungraded-week rule has to be re-applied behind it.
+    syncGradedChrome();
     // R82 — restore the slate line EXACTLY, ARCHIVED pill included. innerHTML,
     // because that pill is markup; archivedFor is the same test syncWeekChrome
     // is given, so a closed past week comes back marked as it left.
@@ -778,8 +956,7 @@ export default async function mountParlays(el) {
       seg.querySelectorAll('.seg-btn').forEach((b) => {
         const on = b === btn;
         b.classList.toggle('seg-btn--active', on);
-        b.setAttribute('aria-selected', on ? 'true' : 'false');
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');   // R90/F20
       });
       if (active === 'my') { enterMyMode(); return; }
       exitMyMode();
