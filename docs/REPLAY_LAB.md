@@ -79,6 +79,73 @@ bytecode references `implied_prob`.
 | `spread_margin_model` | spreads priced by the retired pre-R51 Elo margin rule, `p_cover = Φ((Φ⁻¹(p_team)·13.5 − handicap)/13.5)`. Re-measuring a retired rule on live data is how the decision to retire it stays under review — it is not a path back in. |
 | `shrink_to_half` | props halved toward 0.5. The simplest test of whether the prop model is overconfident rather than wrong. |
 
+## Same-game pairs (R87)
+
+`same_game_pairs` scores the **shipped same-game correlation** against 2026
+outcomes. RC-N5 of `docs/RCA_MYPARLAYS_CARDS.md` asked for exactly this before
+the chained joint is trusted beyond the 2–3-leg cards the slate builds today.
+
+The builder combines two same-game legs as
+`joint = pA·pB + rho·sqrt(pA(1−pA)·pB(1−pB))` (`parlay_builder._combine_two`),
+with `rho` from `parlay_builder._pair_rho` over the five pairs measured on
+2023-25 in `data/parlay_backtest.json` (`default_rho` 0.10 for a pair nobody
+measured). The lab imports both — it never re-implements them.
+
+**What is measured.** From the same joined rows the lab already builds (locked
+ledger legs joined to resolved outcomes), every unordered pair of resolved legs
+sharing a `(week, game_id)`:
+
+* a pair `parlay_builder.same_side_game_pair` refuses — a team's moneyline and
+  that team's **own** spread — is **not scored**: the slate refuses to build it,
+  so there is no such card to measure. It is counted under
+  `refused_by_reason.same_side_game_pair`;
+* the pair is keyed the way the calibration keys it: the two legs' correlation
+  tags sorted and joined with `|`, plus `|opposing` when the two sides are
+  `{home, away}` — so `qb_pass_yds|wr_rec_yds|opposing` is the row you read
+  against the measured pair of the same name.
+
+Per key, and once more pooled over every pair as the row `all`:
+
+| field | what it is |
+| --- | --- |
+| `n` | pairs |
+| `observed_joint` | mean of `yA·yB` — both legs landed |
+| `independent_joint` | mean of `pA·pB` on the **locked** model probabilities |
+| `shipped_joint` | mean of `_combine_two(pA, pB, _pair_rho(...))` — what shipped said |
+| `rho_shipped` | the rho `_pair_rho` returned (constant per key; null on the pooled row, which mixes rules) |
+| `rho_live` | the calibration's own moment estimator on these outcomes: `(observed − independent) / mean(sqrt(pA(1−pA)pB(1−pB)))`. Not bounded to [−1, 1] — on a handful of pairs it is a ratio of two small numbers, and leaving the range is itself the signal that `n` is too small |
+| `delta` | `observed_joint − shipped_joint` |
+| `ci90` | 90% paired bootstrap (the lab's own `paired_bootstrap`, 2000 resamples, fixed seed) of the per-pair `yA·yB − shipped joint` |
+
+**The verdict rule.** `min_n` is **20** pairs.
+
+* `n < min_n` → **`insufficient`** — the numbers are still reported, the claim is
+  not made;
+* otherwise the 90% CI decides, and only when it excludes 0: entirely **below**
+  0 → **`shipped_high`** (the legs co-occurred less often than the shipped rho
+  says, so the shipped joint overstates it); entirely **above** 0 →
+  **`shipped_low`**; containing 0 → **`consistent`** (the shipped rho is not
+  contradicted).
+
+**The `cards` sub-block** is the *offered* population rather than every pair the
+resolved legs could form: the archived same-game cards the lab already
+re-combines (`scope: "game"`, exactly two legs, both resolved). It reports `n`,
+`all_hit_rate`, `mean_model_shipped`, `mean_model_independent`, `delta`, `ci90`
+and a verdict under the same rule, with every card it could not score counted
+under `excluded_by_reason`. It is much smaller than the pair rows, and the two
+answer different questions: whether the rho is right, and whether the cards it
+priced landed.
+
+**With no resolved week**: `pairs` is `[]`, every pooled number is `null` (never
+0, which would read as a measurement), and `cards` is `n` 0 with nulls.
+
+**It adopts nothing.** Like every other block here, this one is a report: no rho
+measured in it is written back to `data/parlay_backtest.json` or anywhere else,
+there is no promotion path from it, and no market number (`implied_prob`) is in
+scope in any of its code — `tests/feature/r87_same_game_pairs.test.mjs` asserts
+that from the function source. Whether a number here ever changes the builder is
+a decision the owner makes in chat.
+
 ## Adding a variant
 
 1. Write a pure function `v_<name>(row, ctx) -> float | None` in
@@ -102,3 +169,7 @@ and the same arithmetic as every other one.
 * `scripts/validate_data.py` — `replay_lab.schema.json` → `replay_lab.json`,
   registered OPTIONAL (runner-built). A 0-resolved-week document is valid and
   carries nulls, never zeros.
+* `tests/feature/r87_same_game_pairs.test.mjs` — the same-game pair block: the
+  contract requires it and is strict, the verdict follows its own CI, the shipped
+  rho is the one measured, the refused pairs are counted, and the MODEL tab
+  renders it.

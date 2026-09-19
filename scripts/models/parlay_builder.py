@@ -383,6 +383,45 @@ def _combined_probs(legs, correlated, corr=None):
     return model, implied
 
 
+def combined_game_probs(legs, corr=None):
+    """MIXED cards: correlate WITHIN each game, then multiply the games.
+
+    A MY PARLAYS card (app/views/myparlays.js) is neither a pure same-game parlay
+    nor a pure cross-game one -- it can carry two legs from one game and a third
+    from another. The rule is the builder's own, applied per event: legs sharing a
+    game_id are folded with the measured pairwise rho, and the resulting per-game
+    probabilities are multiplied as independent events, because that is what the
+    measurement supports. A leg with no game_id is its own group, never a shared
+    "unknown" event -- callers building offered cards resolve event identity first.
+    Three or more legs in one game are refused by _combined_probs, not order-folded.
+
+    Public because two implementations now depend on it: this module's Python and
+    app/parlay-math.js combinedGameProbs, whose group ORDER (insertion) and whose
+    running IMPLIED product (over legs, in card order) are reproduced exactly here
+    -- floating-point multiplication is not associative, so the order is part of
+    the contract, and tests/feature/r87_my_cards_parity.test.mjs fails on a drift.
+
+    Returns (combined_model_prob, combined_implied_prob). The implied side stays
+    the independence product: a yardstick, never an exact quote.
+    """
+    if not legs:
+        return 0.0, 0.0
+    groups, order = {}, []
+    implied = 1.0
+    for leg in legs:
+        gid = leg.get("game_id")
+        key = gid if gid else object()      # falsy id -> a group of its own
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(leg)
+        implied *= leg["implied_prob"]
+    model = 1.0
+    for key in order:
+        model *= _combined_probs(groups[key], True, corr)[0]
+    return model, implied
+
+
 def _confidence_tier(model_prob, implied_prob, n_legs):
     """Ordinal confidence tier (conformal-flavored) from the parlay's combined edge."""
     edge = model_prob - implied_prob

@@ -43,6 +43,7 @@ const PATHS = Object.freeze({
   parlayBacktest: '/data/parlay_backtest.json',
   lineReport: '/data/line_report.json',
   parlaysIndex: '/data/parlays/index.json', // R73
+  myCardScores: '/data/my_card_scores.json', // R87
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -141,6 +142,11 @@ export const getRookieStarters = (opts) => loadJson(PATHS.rookieStarters, opts);
 export const getLineReport = (opts) => loadJson(PATHS.lineReport, opts);
 // R73 — parlay history: index + one archived week (chip tap only; guarded path).
 export const getParlaysIndex = (opts) => loadJson(PATHS.parlaysIndex, opts);
+// R87 — how the MY cards we offered actually did (scripts/resolve_my_cards.py).
+// Read only by MY PARLAYS, and only to print one RECORD line; a 404 or a stats
+// outage simply means that line is not rendered, never a blank or an invented
+// number. Same 404-graceful promise-cache pattern as its neighbours.
+export const getMyCardScores = (opts) => loadJson(PATHS.myCardScores, opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));

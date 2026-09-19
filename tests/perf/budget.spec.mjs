@@ -229,6 +229,12 @@ const CONTRACT_ALLOWLIST = new Set([
   // by #/model only; a 404 resolves to null and the card paints its honest
   // NOT PRESENT line, so the request is the whole cost either way.
   'replay_lab.json',
+  // R87 — the MY cards record scores (data/my_card_scores.json: per-week and
+  // per-dial scalars plus GRADED cards only; ~4 KB with nothing graded). Fetched
+  // by app/views/myparlays.js, itself a LAZY import taken only when the MY chip
+  // is tapped — never on a cold route load; a 404 resolves to null and no
+  // RECORD line renders, so the request is the whole cost.
+  'my_card_scores.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week

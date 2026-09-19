@@ -557,6 +557,261 @@ def settle(rows):
 
 
 # ---------------------------------------------------------------------------
+# R87 SAME-GAME PAIRS. Does the shipped same-game correlation hold up on 2026?
+#
+# WHY THIS EXISTS. The builder combines two same-game legs with a Gaussian-
+# copula-lite adjustment: joint = pA*pB + rho*sqrt(pA(1-pA)pB(1-pB)), where rho
+# comes from the 5 pairs measured on 2023-25 in data/parlay_backtest.json
+# (default 0.10 for a pair nobody measured). RC-N5 of docs/RCA_MYPARLAYS_CARDS.md
+# asked for that chained joint to be SCORED against resolved outcomes before it is
+# trusted any further than the 2-to-3-leg cards the slate builds today. This block
+# is that score: on every unordered pair of resolved legs inside one game, how
+# often did BOTH legs actually land, against what the shipped rho said, and
+# against plain independence.
+#
+# IT ADOPTS NOTHING, like the rest of this file. It reports three numbers side by
+# side and a verdict with a confidence interval; no rho measured here is written
+# anywhere, and data/parlay_backtest.json is never opened for writing by this
+# module. A pair the one-leg-per-game-side rule refuses (a team's moneyline and
+# that team's own spread) is not measured here either -- it is not offered, so
+# measuring its joint would be measuring a card the slate cannot build.
+#
+# NO BOOK NUMBER TOUCHES THIS. Every probability below is the model probability
+# LOCKED on the leg; nothing here reads a price.
+# ---------------------------------------------------------------------------
+SAME_GAME_MIN_N = 20
+
+SAME_GAME_RULE = (
+    "pairs = every unordered pair of RESOLVED locked legs sharing a (week, game_id), "
+    "minus the pairs parlay_builder.same_side_game_pair refuses; key = the two legs' "
+    "correlation tags sorted and joined with '|', plus '|opposing' when their sides "
+    "are {home, away}; observed_joint = mean(yA*yB), independent_joint = mean(pA*pB) "
+    "and shipped_joint = mean(parlay_builder._combine_two(pA, pB, "
+    "parlay_builder._pair_rho(legA, legB, corr))) on the LOCKED model probabilities; "
+    "delta = observed_joint - shipped_joint, ci90 = the 90% paired bootstrap of the "
+    "per-pair (yA*yB - shipped_joint_pair); verdict is 'insufficient' below min_n, "
+    "else 'consistent' when the CI contains 0, 'shipped_high' when it is entirely "
+    "below 0 and 'shipped_low' when it is entirely above."
+)
+
+
+def pair_key(tag_a, tag_b, side_a, side_b):
+    """The calibration's own key for a pair of same-game legs.
+
+    Order-independent on the two correlation tags, exactly as _pair_rho's
+    frozenset lookup is, with the '|opposing' suffix the calibration file uses
+    when the two legs sit on different teams. The string form is the one
+    data/parlay_backtest.json prints, so a row here can be read straight against
+    the measured pair it is testing.
+    """
+    key = "|".join(sorted((str(tag_a), str(tag_b))))
+    sides = {side_a, side_b}
+    if side_a and side_b and sides == {"home", "away"}:
+        key += "|opposing"
+    return key
+
+
+def corr_leg(row):
+    """A joined row as the builder's own pair functions expect to see a leg.
+
+    `market` is what same_side_game_pair reads, `_corr_tag` and `_side` are what
+    _pair_rho reads -- and the slate tags a leg with its market (see
+    replay_parlays' make_leg call), so the tag is the market here too.
+    """
+    return {"market": row["market"], "_corr_tag": row["market"],
+            "_side": row.get("side")}
+
+
+def pair_verdict(n, ci, min_n=SAME_GAME_MIN_N):
+    """The verdict on one key's delta (observed - shipped joint).
+
+    Below min_n pairs there is no verdict to give, however wide or narrow the
+    interval looks: 'insufficient', with the numbers still printed. Above it, a
+    claim is made only when the 90% CI excludes 0 -- the same bar the variant
+    rows are held to. A CI entirely BELOW 0 means the pairs co-occurred less
+    often than the shipped rho says they would, i.e. the shipped joint is too
+    high.
+    """
+    if n < min_n or ci is None:
+        return "insufficient"
+    lo, hi = ci
+    if hi < 0:
+        return "shipped_high"
+    if lo > 0:
+        return "shipped_low"
+    return "consistent"
+
+
+def joint_block(key, items):
+    """One reported row over a list of scored pairs.
+
+    Each item is {"pa", "pb", "y", "joint", "rho"}: the two locked probabilities,
+    the realised joint outcome (1 only when BOTH legs hit), the shipped combined
+    probability for that pair and the rho that produced it.
+
+    rho_live is the moment estimator the calibration itself used
+    ((P(AB) - P(A)P(B)) / sqrt(P(A)(1-P(A))P(B)(1-P(B)))), so it is directly
+    comparable with rho_shipped. rho_shipped is null on a row whose pairs do not
+    share one rho (the pooled row) rather than an average of different rules.
+    """
+    n = len(items)
+    if not n:
+        return {"key": key, "n": 0, "observed_joint": None, "independent_joint": None,
+                "shipped_joint": None, "rho_shipped": None, "rho_live": None,
+                "delta": None, "ci90": None, "verdict": pair_verdict(0, None)}
+    obs = sum(it["y"] for it in items) / n
+    indep = sum(it["pa"] * it["pb"] for it in items) / n
+    ship = sum(it["joint"] for it in items) / n
+    sd = sum(math.sqrt(it["pa"] * (1.0 - it["pa"]) * it["pb"] * (1.0 - it["pb"]))
+             for it in items) / n
+    rhos = {round(it["rho"], 10) for it in items}
+    _, ci = paired_bootstrap([it["y"] - it["joint"] for it in items])
+    return {"key": key, "n": n,
+            "observed_joint": _r(obs),
+            "independent_joint": _r(indep),
+            "shipped_joint": _r(ship),
+            "rho_shipped": _r(items[0]["rho"]) if len(rhos) == 1 else None,
+            "rho_live": _r((obs - indep) / sd) if sd > 0 else None,
+            "delta": _r(obs - ship),
+            "ci90": None if ci is None else [_r(ci[0]), _r(ci[1])],
+            "verdict": pair_verdict(n, ci)}
+
+
+def pair_items(rows, corr):
+    """([scored pair, ...], refused_by_reason) over the joined rows.
+
+    Pairs are formed inside a (week, game_id) group only -- the correlation table
+    is a same-game table, and two legs in different games are combined as
+    independent by the builder, so there is nothing of the table to test there.
+    """
+    groups, out, refused = {}, [], {}
+
+    def drop(reason):
+        refused[reason] = refused.get(reason, 0) + 1
+
+    for row in rows:
+        groups.setdefault((row["week"], row["game_id"]), []).append(row)
+    for _, legs in sorted(groups.items()):
+        for i in range(len(legs)):
+            for j in range(i + 1, len(legs)):
+                a, b = legs[i], legs[j]
+                la, lb = corr_leg(a), corr_leg(b)
+                if pb.same_side_game_pair(la, lb):
+                    # One opinion sold as two: the slate refuses to build it, so
+                    # the lab has no such card to score.
+                    drop("same_side_game_pair")
+                    continue
+                pa, pbv = a.get("shipped_prob"), b.get("shipped_prob")
+                if pa is None or pbv is None:
+                    drop("no_locked_probability")
+                    continue
+                pa, pbv = float(pa), float(pbv)
+                rho = pb._pair_rho(la, lb, corr)
+                out.append({"key": pair_key(la["_corr_tag"], lb["_corr_tag"],
+                                            la["_side"], lb["_side"]),
+                            "pa": pa, "pb": pbv, "rho": rho,
+                            "joint": pb._combine_two(pa, pbv, rho),
+                            "y": 1 if (a["y"] and b["y"]) else 0})
+    return out, refused
+
+
+def card_items(archives, ledger_index, shipped_by_key, outcome_by_key, weeks, corr):
+    """([scored card, ...], excluded_by_reason) over the ARCHIVED same-game cards.
+
+    The 2-leg game cards are the pairs that were actually offered, which is a
+    different (and much smaller) population than every pair the slate's legs could
+    form. A card is scored only when both of its legs resolved: a card graded on
+    one of its two legs is not that card.
+    """
+    out, excluded = [], {}
+
+    def drop(reason):
+        excluded[reason] = excluded.get(reason, 0) + 1
+
+    for week, doc in archives:
+        for parlay in doc.get("parlays") or []:
+            if parlay.get("scope") != "game":
+                continue
+            if week not in weeks:
+                drop("week_not_replayed")
+                continue
+            legs = parlay.get("legs") or []
+            if len(legs) != 2:
+                drop("not_two_legs")
+                continue
+            scored, ok = [], True
+            for leg in legs:
+                led = ledger_index.get((week, leg["market"], leg["selection"]))
+                if led is None or not led.get("locked"):
+                    drop("leg_not_in_ledger" if led is None else "leg_not_locked")
+                    ok = False
+                    break
+                k = leg_key(week, led.get("game_id"), leg["market"], leg["selection"])
+                y, p = outcome_by_key.get(k), shipped_by_key.get(k)
+                if y is None or p is None:
+                    drop("leg_not_resolved")
+                    ok = False
+                    break
+                scored.append((float(p), int(y), led.get("side"), leg["market"]))
+            if not ok:
+                continue
+            (pa, ya, sa, ma), (pbv, yb, sb, mb) = scored
+            rho = pb._pair_rho({"market": ma, "_corr_tag": ma, "_side": sa},
+                               {"market": mb, "_corr_tag": mb, "_side": sb}, corr)
+            out.append({"pa": pa, "pb": pbv, "rho": rho,
+                        "joint": pb._combine_two(pa, pbv, rho),
+                        "y": 1 if (ya and yb) else 0})
+    return out, excluded
+
+
+def same_game_pairs_block(rows, archives, ledger_index, shipped_by_key,
+                          outcome_by_key, weeks, corr):
+    """The `same_game_pairs` document: per-key rows, a pooled row, and the cards.
+
+    Nothing in here is adopted and nothing in here is written anywhere but this
+    document -- it is RC-N5's requested measurement of the shipped chained joint,
+    reported so the owner can decide in chat whether 4+ same-game legs ever
+    become buildable.
+    """
+    items, refused = pair_items(rows, corr)
+    by_key = {}
+    for it in items:
+        by_key.setdefault(it["key"], []).append(it)
+
+    cards, card_excluded = card_items(archives, ledger_index, shipped_by_key,
+                                      outcome_by_key, weeks, corr)
+    n_cards = len(cards)
+    _, card_ci = paired_bootstrap([c["y"] - c["joint"] for c in cards]) \
+        if n_cards else (None, None)
+    cards_block = {
+        "n": n_cards,
+        "all_hit_rate": _r(sum(c["y"] for c in cards) / n_cards) if n_cards else None,
+        "mean_model_shipped": _r(sum(c["joint"] for c in cards) / n_cards) if n_cards else None,
+        "mean_model_independent": _r(sum(c["pa"] * c["pb"] for c in cards) / n_cards)
+                                  if n_cards else None,
+        "delta": _r(sum(c["y"] - c["joint"] for c in cards) / n_cards) if n_cards else None,
+        "ci90": None if card_ci is None else [_r(card_ci[0]), _r(card_ci[1])],
+        "verdict": pair_verdict(n_cards, card_ci),
+        "excluded_by_reason": card_excluded,
+    }
+    return {
+        "rule": SAME_GAME_RULE,
+        "min_n": SAME_GAME_MIN_N,
+        "pairs": [joint_block(k, by_key[k]) for k in sorted(by_key)],
+        "pooled": joint_block("all", items),
+        "refused_by_reason": refused,
+        "cards": cards_block,
+        "note": "MEASURE ONLY, like every other block here. The shipped same-game "
+                "rho (data/parlay_backtest.json, 2023-25) is scored against 2026 "
+                "outcomes -- RC-N5's precondition for trusting the chained joint -- "
+                "and no rho measured here is adopted, written back or allowed to "
+                "reach a leg. A verdict needs the 90% CI to exclude 0 and at least "
+                "min_n pairs; below that the numbers are printed and the verdict is "
+                "'insufficient'.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Build.
 # ---------------------------------------------------------------------------
 POLICY = [
@@ -575,6 +830,11 @@ POLICY = [
     "A VERDICT NEEDS A CONFIDENCE INTERVAL. 'better' or 'worse' is claimed only "
     "when the 90% paired-bootstrap CI of the log-loss difference excludes 0; "
     "everything else is 'same', however good the point estimate looks.",
+    "THE SAME-GAME CORRELATION IS SCORED, NOT TRUSTED. `same_game_pairs` measures "
+    "the shipped rho (measured 2023-25) against 2026 outcomes on every pair of "
+    "resolved legs inside one game; a pair the one-leg-per-game-side rule refuses "
+    "is not measured, because it is not offered. No rho measured there is adopted, "
+    "written back, or allowed to reach a leg.",
     "SELECTION REPLAYS CHOOSE AMONG THE PARLAYS THAT WERE ACTUALLY BUILT. They "
     "cannot invent a parlay that was never on the slate, and a rule that looks "
     "good on one week of 2 to 7-leg cards has proved almost nothing.",
@@ -602,6 +862,11 @@ LIMITS = [
     "same eligible set), but an absolute ROI here is over a subset of the slate.",
     "One or two weeks of a 2026 season is a small sample. A CI that excludes 0 "
     "here is a reason to look again next week, not a reason to change a build.",
+    "The same-game pair rows are pairs of legs that RESOLVED in one game, not "
+    "parlays that were offered: most of them were never on a card together. The "
+    "`cards` sub-block is the offered population (archived 2-leg same-game cards) "
+    "and is much smaller. Both are reported because they answer different "
+    "questions: whether the rho is right, and whether the cards it priced landed.",
 ]
 
 
@@ -680,6 +945,9 @@ def build(ledger=None, scores=None, archives=None, pool=None, calibration_path=N
                  "unresolved_by_reason": reasons},
         "baseline": BASELINE,
         "variants": variants,
+        "same_game_pairs": same_game_pairs_block(rows, archives, ledger_index,
+                                                 shipped_by_key, outcome_by_key,
+                                                 set(weeks), corr),
         "selection_rules": list(SELECTION_RULES),
         "bootstrap": {"resamples": BOOTSTRAP_RESAMPLES, "seed": BOOTSTRAP_SEED,
                       "ci_level": CI_LEVEL,
@@ -802,6 +1070,40 @@ def _fixture():
             {"season": 2026, "weeks_resolved": 1, "resolved": resolved,
              "unresolved": unresolved},
             [(1, arch1)], pool)
+
+
+def _pairs_fixture():
+    """Joined rows (the shape join_legs returns) for the R87 same-game pair block.
+
+    Hand-computable on purpose, and deliberately NOT a change to _fixture(): the
+    pair block needs a key with more than min_n pairs, which is more games than
+    the leg/parlay fixture wants to carry.
+
+      * 21 games, each one moneyline (home, p 0.60) + one QB prop (home, p 0.50).
+        That pair is not in the measured table, so it takes default_rho = 0.10:
+        independent 0.3000, shipped 0.3000 + 0.10*sqrt(0.06) = 0.3245. Both legs
+        land in 7 of the 21, so observed = 7/21 = 0.3333 and the key clears min_n.
+      * 5 games, each one QB prop (home, p 0.50) + one WR prop (home, p 0.40) --
+        the MEASURED pair (rho 0.3146). Both land in 2 of the 5, so the numbers
+        are real but n is under min_n and the verdict must say so.
+    """
+    rows = []
+
+    def row(week, gid, market, sel, p, y, side="home"):
+        rows.append({"week": week, "game_id": gid, "market": market,
+                     "selection": sel, "position": MARKET_POSITION.get(market),
+                     "side": side, "line": None, "mu": None, "sd": None, "z": None,
+                     "p_team": 0.6, "shipped_prob": p, "implied_prob": None, "y": y})
+
+    for i in range(21):
+        both = 1 if i < 7 else 0
+        row(1, "P%02d" % i, "moneyline", "P%02d ML" % i, 0.60, 1)
+        row(1, "P%02d" % i, "qb_pass_yds", "P%02d QB 225+" % i, 0.50, both)
+    for i in range(5):
+        both = 1 if i < 2 else 0
+        row(1, "Q%02d" % i, "qb_pass_yds", "Q%02d QB 225+" % i, 0.50, 1)
+        row(1, "Q%02d" % i, "wr_rec_yds", "Q%02d WR 60+" % i, 0.40, both)
+    return rows
 
 
 def selftest():
@@ -964,6 +1266,87 @@ def selftest():
         code = spec["fn"].__code__
         assert "implied_prob" not in code.co_names + code.co_consts, name
 
+    # 11. R87 SAME-GAME PAIRS: the shipped rho scored against resolved outcomes.
+    #     The key is the calibration's own key, the numbers are hand-computable,
+    #     and a key under min_n prints its numbers but refuses a verdict.
+    import inspect
+    assert pair_key("spread", "moneyline", "home", "home") == "moneyline|spread"
+    assert pair_key("moneyline", "spread", "home", "away") == "moneyline|spread|opposing"
+    assert pair_key("wr_rec_yds", "qb_pass_yds", None, "home") == "qb_pass_yds|wr_rec_yds"
+    assert pair_verdict(SAME_GAME_MIN_N, [-0.2, 0.2]) == "consistent"
+    assert pair_verdict(SAME_GAME_MIN_N, [-0.3, -0.1]) == "shipped_high"
+    assert pair_verdict(SAME_GAME_MIN_N, [0.1, 0.3]) == "shipped_low"
+    assert pair_verdict(SAME_GAME_MIN_N - 1, [0.1, 0.3]) == "insufficient"
+    assert pair_verdict(SAME_GAME_MIN_N, None) == "insufficient"
+
+    corr_ship = pb._correlation_table(pb.load_calibration())
+    # a team's moneyline and that team's own spread is one opinion: the slate
+    # refuses to build it, so the lab refuses to score it -- and counts it.
+    main_items, main_refused = pair_items(rows, corr_ship)
+    assert main_refused == {"same_side_game_pair": 1}, main_refused
+    assert len(main_items) == 5, len(main_items)
+
+    by_key = {}
+    for it in pair_items(_pairs_fixture(), corr_ship)[0]:
+        by_key.setdefault(it["key"], []).append(it)
+    assert set(by_key) == {"moneyline|qb_pass_yds", "qb_pass_yds|wr_rec_yds"}, sorted(by_key)
+    # sqrt(pA(1-pA) pB(1-pB)) is sqrt(0.06) at BOTH fixture pairs (0.60, 0.50)
+    # and (0.50, 0.40) -- the same denominator, by construction.
+    root = math.sqrt(0.06)
+    big = joint_block("moneyline|qb_pass_yds", by_key["moneyline|qb_pass_yds"])
+    assert big["n"] == 21 >= SAME_GAME_MIN_N, big
+    assert big["rho_shipped"] == 0.1, ("unmeasured pair -> default_rho", big)
+    assert big["independent_joint"] == round(0.60 * 0.50, 4), big
+    assert big["shipped_joint"] == round(0.30 + 0.1 * root, 4), big
+    assert big["observed_joint"] == round(7.0 / 21.0, 4), big
+    assert big["delta"] == round(7.0 / 21.0 - (0.30 + 0.1 * root), 4), big
+    assert big["rho_live"] == round((7.0 / 21.0 - 0.30) / root, 4), big
+    assert big["verdict"] == "consistent", ("the CI straddles 0", big)
+    small = joint_block("qb_pass_yds|wr_rec_yds", by_key["qb_pass_yds|wr_rec_yds"])
+    assert small["n"] == 5 and small["verdict"] == "insufficient", small
+    assert small["rho_shipped"] == 0.3146, ("the measured pair", small)
+    assert small["independent_joint"] == round(0.50 * 0.40, 4), small
+    assert small["shipped_joint"] == round(0.20 + 0.3146 * root, 4), small
+    assert small["observed_joint"] == 0.4, small
+    assert small["ci90"] is not None, "numbers are still reported under min_n"
+    assert joint_block("all", [])["n"] == 0
+    assert joint_block("all", [])["observed_joint"] is None
+
+    sgp = doc["same_game_pairs"]
+    assert sgp["min_n"] == SAME_GAME_MIN_N
+    assert [p["key"] for p in sgp["pairs"]] == sorted(p["key"] for p in sgp["pairs"])
+    assert sgp["pooled"]["n"] == len(main_items) == 5, sgp["pooled"]
+    assert sgp["pooled"]["rho_shipped"] is None, "pooled mixes rules: no single rho"
+    assert sgp["refused_by_reason"] == {"same_side_game_pair": 1}, sgp
+    cards = sgp["cards"]
+    # the two archived 2-leg game cards whose legs BOTH resolved; the third is
+    # excluded and counted because one of its legs never graded.
+    assert cards["n"] == 2, cards
+    assert cards["all_hit_rate"] == 0.5, cards
+    assert cards["mean_model_independent"] == round((0.6 * 0.62 + 0.6 * 0.44) / 2, 4), cards
+    j_qb = 0.6 * 0.62 + 0.1 * math.sqrt(0.6 * 0.4 * 0.62 * 0.38)
+    j_wr = 0.6 * 0.44 + 0.1 * math.sqrt(0.6 * 0.4 * 0.44 * 0.56)
+    assert cards["mean_model_shipped"] == round((j_qb + j_wr) / 2, 4), cards
+    assert cards["verdict"] == "insufficient", cards
+    assert cards["excluded_by_reason"] == {"leg_not_resolved": 1}, cards
+
+    # with nothing resolved: no keys, and every pooled/card number null, never 0.
+    esgp = empty["same_game_pairs"]
+    assert esgp["pairs"] == [], esgp
+    assert esgp["pooled"]["n"] == 0 and esgp["pooled"]["verdict"] == "insufficient"
+    for k in ("observed_joint", "independent_joint", "shipped_joint", "rho_shipped",
+              "rho_live", "delta", "ci90"):
+        assert esgp["pooled"][k] is None, (k, esgp["pooled"])
+    assert esgp["cards"]["n"] == 0, esgp["cards"]
+    for k in ("all_hit_rate", "mean_model_shipped", "mean_model_independent",
+              "delta", "ci90"):
+        assert esgp["cards"][k] is None, (k, esgp["cards"])
+
+    # and no market number is in scope anywhere in the pair code.
+    for fn in (pair_key, corr_leg, pair_verdict, joint_block, pair_items,
+               card_items, same_game_pairs_block):
+        assert "implied_prob" not in inspect.getsource(fn), fn.__name__
+
     print("selftest OK: Phi/Phi^-1 match the stdlib and reproduce the retired "
           "spread rule exactly; the join scores only locked+resolved legs and "
           "counts every other one by reason; each variant prices identical legs "
@@ -971,6 +1354,10 @@ def selftest():
           "better/worse/same correctly and reproducibly; a parlay with an "
           "unresolved leg is excluded; the EV comes from the builder; the "
           "selection rules count what they say; a 0-week document is all nulls; "
+          "the same-game pair block keys pairs the way the calibration does, "
+          "refuses the pairs the one-leg-per-game-side rule refuses, reproduces "
+          "the shipped joint by hand, withholds a verdict under min_n and stays "
+          "null with nothing resolved; "
           "and the only file this module can write is its own output")
 
 
@@ -1006,6 +1393,12 @@ def main(argv=None):
         print("  %-20s n %-4s log-loss %-8s delta %-9s ci90 %s -> %s"
               % (name, p["n"], p["log_loss"], p["delta_log_loss"],
                  "[%s, %s]" % (ci[0], ci[1]) if ci else "[—]", v["verdict"]))
+    sgp = doc["same_game_pairs"]
+    print("  same-game pairs   %d key(s) · pooled n %s obs %s vs shipped %s -> %s · "
+          "cards n %s -> %s"
+          % (len(sgp["pairs"]), sgp["pooled"]["n"], sgp["pooled"]["observed_joint"],
+             sgp["pooled"]["shipped_joint"], sgp["pooled"]["verdict"],
+             sgp["cards"]["n"], sgp["cards"]["verdict"]))
     print("  measure only — nothing in this document is adopted")
     return 0
 

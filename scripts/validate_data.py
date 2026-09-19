@@ -154,6 +154,10 @@ SCHEMA_TO_DATA = {
     # after the leg resolver, so OPTIONAL like its neighbours; a 0-resolved-week
     # document is valid and carries nulls, never zeros.
     "replay_lab.schema.json": "replay_lab.json",
+    # R87 - the graded MY PARLAYS cards (scripts/resolve_my_cards.py). The offered
+    # cards themselves live per week under data/my_cards/ and are walked below.
+    # 0 graded cards is a valid, honest document; every metric in it is null.
+    "my_card_scores.schema.json": "my_card_scores.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -169,6 +173,10 @@ PARLAY_LEDGER_SCHEMA = "parlay_ledger.schema.json"
 # index (data/parlays/index.json) is a registered OPTIONAL file below.
 PARLAY_ARCHIVE_DIR = os.path.join(DATA, "parlays")
 PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
+# R87 - the MY PARLAYS offered-card record (data/my_cards/<season>_wk<NN>.json, one
+# file a week, appended on first sight and never rewritten) is walked the same way.
+MY_CARDS_DIR = os.path.join(DATA, "my_cards")
+MY_CARDS_SCHEMA = "my_cards.schema.json"
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -214,6 +222,9 @@ OPTIONAL_DATA = frozenset([
     # R81 — the replay lab, written by the daily runner right after the parlay-leg
     # resolver; absent on a clone that has never run it, strict when present.
     "replay_lab.json",
+    # R87 — the graded MY cards, written right after the parlay-leg resolver;
+    # absent until the first run, validated strictly when present.
+    "my_card_scores.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -2096,6 +2107,82 @@ def _selftest():
     _bad["current_week"] = None
     _schema_red(_bad, _ix_schema, "an index without a current week")
 
+    # R87 — the MY-card contracts. The offered-card record is what everything
+    # downstream grades, so a shape error has to red HERE rather than turn into a
+    # score for a card nobody was offered.
+    _mc_schema = _load(os.path.join(CONTRACTS, "my_cards.schema.json"))
+    _mc_leg = {"market": "wr_rec_yds", "selection": "M. Wilson 20+ rec yds",
+               "game_id": "401872943", "team": "ARI", "side": "home",
+               "player": "Michael Wilson", "gsis_id": "espn-4360761", "position": "WR",
+               "line": 19.5, "mu": 47.02, "model_prob": 0.6995, "implied_prob": 0.731,
+               "price_source": "assumed", "priced": False}
+    _mc_card = {"card_id": "60f562423ee1", "dial": "safe", "seed": "ARI", "rank": 1,
+                "n_legs": 2, "same_game": False, "mixed_game": False, "model": 0.5353,
+                "implied": 0.6308, "ev": -0.1515, "tier": "low", "payout": 58.52,
+                "assumed": 2, "earliest_kickoff_utc": "2026-09-20T20:25Z",
+                "legs": [_mc_leg, dict(_mc_leg, market="moneyline", selection="SF ML",
+                                       team="SF", player=None, gsis_id=None,
+                                       position=None, line=None, mu=None)],
+                "first_seen_utc": "2026-09-18T10:11:22Z", "locked": True,
+                "locked_utc": "2026-09-18T10:11:22Z"}
+    _mc = {"season": 2026, "week": 2, "generated_utc": "t",
+           "pool_generated_utc": "2026-09-18T10:11:22Z", "source": "s",
+           "dials": ["safe", "even", "longshot"], "seeds": "team", "rule": "r",
+           "note": "n",
+           "runs": [{"pool_generated_utc": "2026-09-18T10:11:22Z", "week": 2,
+                     "cards_seen": 1, "cards_added": 1, "locked_added": 1,
+                     "unlocked_added": 0}],
+           "cards": [_mc_card]}
+    validate_against_schema(_mc, _mc_schema, "my_cards selftest")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["locked"] = "yes"
+    _schema_red(_bad, _mc_schema, "an offered card whose locked flag is a string")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["dial"] = "medium"
+    _schema_red(_bad, _mc_schema, "an offered card on a dial the view does not have")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["legs"][0]["model_prob"] = 1.4
+    _schema_red(_bad, _mc_schema, "an offered leg with model_prob above 1")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _mc_schema, "an undeclared field on an offered leg")
+    _bad = copy.deepcopy(_mc)
+    _bad["seeds"] = "player"
+    _schema_red(_bad, _mc_schema, "a record claiming a seed kind that is not swept")
+
+    _mcs_schema = _load(os.path.join(CONTRACTS, "my_card_scores.schema.json"))
+    _mcs_block = {"n": 0, "graded": 0, "all_hit": 0, "hit_rate": None,
+                  "mean_model": None, "log_loss": None, "brier": None, "staked": None,
+                  "net_fair": None, "net_vig2": None, "roi_fair": None}
+    _mcs = {"season": 2026, "generated_utc": "t", "source": "s", "finals_source": "none",
+            "rule": "r", "weeks_resolved": 0,
+            "weeks": [{"week": 2, "n_cards": 900, "locked": 900, "graded": 0,
+                       "pending": 900,
+                       "buckets": {"all_hit": 0, "push": 0, "partial": 0,
+                                   "all_missed": 0, "pending": 900},
+                       "by_dial": {d: dict(_mcs_block)
+                                   for d in ("safe", "even", "longshot")},
+                       "by_legs": {str(k): dict(_mcs_block) for k in (2, 3, 4, 5, 6)}}],
+            "cards": [], "skipped": "offline run: stats not fetched"}
+    validate_against_schema(_mcs, _mcs_schema, "my_card_scores selftest (0 graded)")
+    _bad = copy.deepcopy(_mcs)
+    _bad["weeks"][0]["by_dial"]["even"]["hit_rate"] = "n/a"
+    _schema_red(_bad, _mcs_schema, "a MY hit rate that is a string rather than number/null")
+    _bad = copy.deepcopy(_mcs)
+    _bad["cards"].append({"card_id": "60f562423ee1", "week": 2, "dial": "even",
+                          "seed": "ARI", "n_legs": 2, "model": 0.3,
+                          "result": "pending", "bucket": "pending",
+                          "legs": [{"selection": "x", "market": "moneyline",
+                                    "result": "pending", "actual": None},
+                                   {"selection": "y", "market": "spread",
+                                    "result": "pending", "actual": None}],
+                          "money": None})
+    _schema_red(_bad, _mcs_schema, "a PENDING card in the graded list (weeks[] counts "
+                "it; a card with an unresolved leg has no result to record)")
+    _bad = copy.deepcopy(_mcs)
+    del _bad["weeks"][0]["by_legs"]["6"]
+    _schema_red(_bad, _mcs_schema, "a week record missing a leg-count block")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -2106,7 +2193,10 @@ def _selftest():
           "a hard error; market_prices is validated below the top level; the R58 "
           "parlay ledger / leg-score contracts red on a string flag, a >1 "
           "probability, an off-enum market or reason, an undeclared leg field and "
-          "a missing finals_source")
+          "a missing finals_source; the R87 MY-card contracts red on a string "
+          "locked flag, an invented dial, a >1 leg probability, an undeclared leg "
+          "field, a seed kind that is not swept, a string hit rate, a pending card "
+          "in the graded list and a missing leg-count block")
 
 
 # ---------------------------------------------------------------------------
@@ -2202,6 +2292,24 @@ def main():
                     validate_against_schema(_load(os.path.join(PARLAY_ARCHIVE_DIR, f)),
                                             arch_schema, "parlays/" + f)
                     print("ok    parlays/%-30s vs %s" % (f, PARLAY_ARCHIVE_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 1e) R87 — the MY PARLAYS offered-card record (data/my_cards/<season>_wk<NN>.json),
+    # when present. OPTIONAL directory: absent on a fresh clone until the first
+    # record run; every file present is validated strictly. These are what
+    # data/my_card_scores.json grades, so a malformed card must red here, before
+    # anything is scored against it.
+    if os.path.isdir(MY_CARDS_DIR):
+        my_files = [f for f in sorted(os.listdir(MY_CARDS_DIR))
+                    if f.endswith(".json") and "_wk" in f]
+        if my_files:
+            try:
+                my_schema = _load(os.path.join(CONTRACTS, MY_CARDS_SCHEMA))
+                for f in my_files:
+                    validate_against_schema(_load(os.path.join(MY_CARDS_DIR, f)),
+                                            my_schema, "my_cards/" + f)
+                    print("ok    my_cards/%-30s vs %s" % (f, MY_CARDS_SCHEMA))
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 

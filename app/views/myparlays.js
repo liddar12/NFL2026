@@ -50,7 +50,7 @@
  * typed a second ago cannot have been narrated in advance.
  */
 
-import { loadJson, getScheduleFull } from '../data.js';
+import { loadJson, getMyCardScores, getScheduleFull } from '../data.js';
 import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
@@ -316,6 +316,50 @@ const money = (n) => {
   return `${v < 0 ? '−' : '+'}$${abs}`;
 };
 
+/**
+ * R87 — THE RECORD LINE: how the cards this dial offered actually did.
+ *
+ * Every card above is a claim. Until R87 no MY card was ever written down, so no
+ * MY card was ever graded and the only number on screen was a projection of its
+ * own confidence. scripts/build_my_cards.py now records what was offered and
+ * scripts/resolve_my_cards.py grades it; this prints the result for the dial the
+ * viewer is looking at, from the LATEST week that has graded cards.
+ *
+ * Pure, and deliberately unforgiving: a week whose `graded` is 0 is not "0%", it
+ * is not shown at all, because a hit rate of zero claims a measurement that was
+ * never made. A missing feed, a missing block or a null metric renders NOTHING —
+ * the honest state of a season that has not been played is an absent line, not a
+ * zero. Numbers only, no adjectives.
+ */
+export function renderRecord(scores, dial) {
+  const weeks = scores && Array.isArray(scores.weeks) ? scores.weeks : [];
+  const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  let best = null;
+  for (const w of weeks) {
+    const b = w && w.by_dial ? w.by_dial[dial] : null;
+    if (!b || !num(b.graded)) continue;
+    if (!best || Number(w.week) > Number(best.week)) best = { week: w.week, b };
+  }
+  if (!best) return '';
+  const { b } = best;
+  const pct = (v) => `${(v * 100).toFixed(1)}%`;
+  const label = (DIAL_ORDER.find(([k]) => k === dial) || [dial, String(dial)])[1];
+  const parts = [`WK ${best.week}`, label, `${b.graded} cards graded`];
+  const hitRate = num(b.hit_rate);
+  if (num(b.all_hit) != null && hitRate != null) {
+    parts.push(`${b.all_hit} all hit (${pct(hitRate)})`);
+  }
+  const mean = num(b.mean_model);
+  if (mean != null) parts.push(`mean conviction ${pct(mean)}`);
+  const net = num(b.net_fair);
+  if (net != null) parts.push(`$100 flat net ${money(net)}`);
+  // `.mp-record` carries no style — it is the handle paint() removes the line by.
+  return '<div class="legend mp-record">'
+    + `<span class="legend-item"><b>RECORD</b> · ${parts.map(esc).join(' · ')}</span>`
+    + '<span class="est">MEASURED</span>'
+    + '</div>';
+}
+
 /** R77 — the same Q chip PARLAYS paints in annotateLegs, same copy, same tone. */
 const qChip = (l) => (l.availability === 'QUESTIONABLE'
   ? '<span class="est leg-q" title="Questionable — game-time decision">Q</span>' : '');
@@ -361,7 +405,8 @@ export function renderCard(card, i) {
 
 /* ---- mount -------------------------------------------------------------- */
 
-const state = { seeds: [], pool: null, table: null, legs: null, dial: DEFAULT_DIAL };
+const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
+  dial: DEFAULT_DIAL };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -395,12 +440,24 @@ function renderSeeds() {
   )).join('') + '</div>';
 }
 
+/* R87 — the RECORD line is INSERTED and REMOVED rather than emptied, so a season
+ * with nothing graded costs no row in the host's 12px flex rhythm (the same
+ * reason #mp-seeds:empty is display:none). It follows the legend it annotates. */
+function paintRecord(el) {
+  const prev = el.querySelector('.mp-record');
+  if (prev) prev.remove();
+  const html = renderRecord(state.scores, state.dial);
+  const note = el.querySelector('#mp-note');
+  if (html && note) note.insertAdjacentHTML('afterend', html);
+}
+
 function paint(el) {
   const list = el.querySelector('#mp-list');
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
+  paintRecord(el);            // the dial decides which record is shown
   if (!list) return;
   if (!state.seeds.length) {
     list.innerHTML = '<div class="state">Type a player or a team above — every card '
@@ -444,8 +501,8 @@ function paint(el) {
  */
 export default async function mountMyParlays(el) {
   el.innerHTML = '<div class="state state--loading">Loading the leg pool…</div>';
-  const [poolR, calibR, scheduleR] = await Promise.allSettled([
-    loadJson(POOL_PATH), loadJson(CALIB_PATH), getScheduleFull(),
+  const [poolR, calibR, scheduleR, scoresR] = await Promise.allSettled([
+    loadJson(POOL_PATH), loadJson(CALIB_PATH), getScheduleFull(), getMyCardScores(),
   ]);
   if (!el.isConnected) return null;
   if (poolR.status !== 'fulfilled' || !poolR.value) {
@@ -457,6 +514,9 @@ export default async function mountMyParlays(el) {
   state.dial = readDial();          // R86 — the viewer's own risk band, or EVEN
   state.games = scheduleR.status === 'fulfilled' ? scheduleR.value?.games || [] : [];
   state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
+  // R87 — the graded record. A 404 (a deploy predating the feed) or any other
+  // failure leaves it null and the RECORD line simply is not painted.
+  state.scores = scoresR.status === 'fulfilled' ? scoresR.value : null;
   state.legs = poolLegs(state.pool);
   const unavailable = (state.pool.game_legs || []).length
     - state.legs.filter((l) => l.market === 'moneyline' || l.market === 'spread').length;

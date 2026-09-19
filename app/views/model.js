@@ -1310,6 +1310,76 @@ export function bestSelectionRule(rules) {
   return best;
 }
 
+/* R87 — SAME-GAME PAIRS, inside the same card.
+ *
+ * The builder combines two same-game legs with a measured rho (2023-25). This
+ * section prints, per pair key, what actually happened against what that rho
+ * said would happen and against plain independence. It is the same kind of row
+ * as the variant table above it and carries the same warning: MEASURED, NEVER
+ * ADOPTED — no number here changes a shipped leg, and the verdict words are
+ * deliberately about the MEASUREMENT ('consistent', 'shipped high'), not about
+ * a promotion.
+ *
+ * Under min_n pairs the numbers are still printed and the verdict is
+ * INSUFFICIENT: a small sample is a reason to look again, not a finding.
+ */
+
+/** The chip for a same-game pair verdict. Measurement words only. */
+export function pairChip(verdict) {
+  if (verdict === 'shipped_high') {
+    return '<span class="gate-chip gate-chip--nopath" title="Both legs landed '
+      + 'together LESS often than the shipped correlation says — the shipped joint '
+      + 'overstates co-occurrence. MEASURED, not adopted">SHIPPED HIGH</span>';
+  }
+  if (verdict === 'shipped_low') {
+    return '<span class="gate-chip" title="Both legs landed together MORE often '
+      + 'than the shipped correlation says. MEASURED, not adopted">SHIPPED LOW</span>';
+  }
+  if (verdict === 'consistent') {
+    return '<span class="gate-chip" title="The 90% CI of (observed − shipped) '
+      + 'contains 0: the shipped correlation is not contradicted">CONSISTENT</span>';
+  }
+  return '<span class="gate-chip gate-chip--skipped" title="Too few resolved pairs '
+    + 'for a verdict — the numbers are reported, the claim is not">INSUFFICIENT</span>';
+}
+
+/** "SAME-GAME PAIRS" — one row per correlation key, then the pooled row. */
+export function samePairsSection(sgp) {
+  // A record written before R87 has no block at all: render nothing rather than
+  // an empty frame that reads as "measured, and nothing found".
+  if (!isObj(sgp)) return '';
+  const minN = Number.isFinite(Number(sgp.min_n)) ? Number(sgp.min_n) : null;
+  const head = '<div class="pf-subhead">SAME-GAME PAIRS · the shipped correlation '
+    + 'vs what actually landed'
+    + (minN === null ? '' : ` · a verdict needs ${esc(minN)} pairs`)
+    + '</div>';
+  const pairs = Array.isArray(sgp.pairs) ? sgp.pairs : [];
+  if (!pairs.length) {
+    return head + state('no resolved same-game pair yet');
+  }
+  const row = (p, label) => '<tr>'
+    + `<td>${esc(label || String(p.key || '—').replace(/\|/g, ' · '))}</td>`
+    + `<td>${Number.isFinite(Number(p.n)) ? esc(p.n) : '—'}</td>`
+    + `<td>OBS ${fmtPct(p.observed_joint)} · SHIPPED ${fmtPct(p.shipped_joint)}`
+    + ` · INDEP ${fmtPct(p.independent_joint)}</td>`
+    + `<td>${pairChip(p.verdict)}</td>`
+    + '</tr>';
+  const rows = pairs.map((p) => row(p)).join('')
+    + (isObj(sgp.pooled) ? row(sgp.pooled, 'ALL PAIRS') : '');
+  // Its own class beside .pf-tbl: the card now carries TWO tables, and the R81
+  // browser proof counts the variants table's rows, so each is addressable.
+  const table = '<table class="pf-tbl m-replay-pairs"><thead><tr><th>PAIR</th><th>N</th>'
+    + '<th>BOTH LEGS LANDED</th><th>VERDICT</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table>`;
+  // The offered population: the 2-leg same-game cards that were actually built.
+  const c = isObj(sgp.cards) ? sgp.cards : null;
+  const cards = c === null ? '' : '<div class="gate-bench">ARCHIVED 2-LEG SAME-GAME '
+    + `CARDS · ${Number.isFinite(Number(c.n)) ? esc(c.n) : '—'} scored · ALL HIT `
+    + `${fmtPct(c.all_hit_rate)} · SHIPPED ${fmtPct(c.mean_model_shipped)} · INDEP `
+    + `${fmtPct(c.mean_model_independent)}</div>`;
+  return head + table + cards;
+}
+
 /** "REPLAY LAB · CANDIDATES vs SHIPPED" — one row per variant. */
 export function replayLabCard(doc) {
   if (!isObj(doc)) {
@@ -1360,7 +1430,7 @@ export function replayLabCard(doc) {
       + `<td>${roi}</td>`
       + '</tr>';
   }).join('');
-  const table = '<table class="pf-tbl"><thead><tr><th>VARIANT</th><th>N</th>'
+  const table = '<table class="pf-tbl m-replay-variants"><thead><tr><th>VARIANT</th><th>N</th>'
     + '<th>LOG-LOSS vs SHIPPED</th><th>90% CI OF Δ</th><th>VERDICT</th>'
     + '<th>BEST RULE · ROI ON $100</th></tr></thead>'
     + `<tbody>${rows}</tbody></table>`;
@@ -1375,7 +1445,8 @@ export function replayLabCard(doc) {
   // cannot replay at all, and why the ROI column moves only through selection.
   const limits = Array.isArray(doc.limits) ? doc.limits.filter((x) => typeof x === 'string') : [];
   const notes = limits.slice(0, 2).map((t) => `<div class="gate-note">${esc(t)}</div>`).join('');
-  return REPLAY_EXPLAIN + table + bench + notes + stamp;
+  return REPLAY_EXPLAIN + table + bench + notes
+    + samePairsSection(doc.same_game_pairs) + stamp;
 }
 
 /* ---- mount ------------------------------------------------------------------ */

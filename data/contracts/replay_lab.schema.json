@@ -12,6 +12,7 @@
     "legs",
     "baseline",
     "variants",
+    "same_game_pairs",
     "selection_rules",
     "bootstrap",
     "policy",
@@ -205,6 +206,121 @@
           },
           "note": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "same_game_pairs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "R87. The shipped same-game correlation, scored against 2026 outcomes. Every unordered pair of RESOLVED locked legs inside one (week, game_id), keyed exactly as data/parlay_backtest.json keys its measured pairs, with the pairs the one-leg-per-game-side rule refuses left out and counted. observed_joint is what happened, independent_joint is the product of the two locked model probabilities, shipped_joint is parlay_builder._combine_two under the shipped rho. RC-N5 asked for this measurement before the chained joint is trusted further; nothing here is adopted and no rho measured here is written anywhere.",
+      "required": ["rule", "min_n", "pairs", "pooled", "refused_by_reason", "cards", "note"],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 20,
+          "description": "The measurement in one sentence, checkable against scripts/replay_lab.py."
+        },
+        "min_n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Pairs required before a verdict other than 'insufficient' is given. The numbers are reported below it either way."
+        },
+        "pairs": {
+          "type": "array",
+          "description": "One row per key, sorted by key. Empty is a valid, honest document: no same-game pair has resolved.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "n", "observed_joint", "independent_joint", "shipped_joint", "rho_shipped", "rho_live", "delta", "ci90", "verdict"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "n": { "type": "integer", "minimum": 0 },
+              "observed_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "independent_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "shipped_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "rho_shipped": {
+                "type": ["number", "null"],
+                "minimum": -1,
+                "maximum": 1,
+                "description": "The rho _pair_rho returned for this key. Null on a row whose pairs do not share one rule (the pooled row) - never an average of different rules."
+              },
+              "rho_live": {
+                "type": ["number", "null"],
+                "description": "The same moment estimator the calibration used, on these outcomes. NOT bounded to [-1, 1]: on a handful of pairs it is a ratio of two small numbers and can leave the range, which is itself the signal that n is too small."
+              },
+              "delta": { "type": ["number", "null"] },
+              "ci90": {
+                "type": ["array", "null"],
+                "description": "90% paired-bootstrap interval of the per-pair (yA*yB - shipped joint). A verdict other than 'insufficient' is claimed only when it excludes 0.",
+                "items": { "type": "number" },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "verdict": {
+                "type": "string",
+                "enum": ["insufficient", "consistent", "shipped_high", "shipped_low"]
+              }
+            }
+          }
+        },
+        "pooled": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Every pair, over every key, as one row (key 'all'). All null at n 0, never 0.",
+          "required": ["key", "n", "observed_joint", "independent_joint", "shipped_joint", "rho_shipped", "rho_live", "delta", "ci90", "verdict"],
+          "properties": {
+            "key": { "type": "string", "minLength": 1 },
+            "n": { "type": "integer", "minimum": 0 },
+            "observed_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "independent_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "shipped_joint": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "rho_shipped": { "type": ["number", "null"], "minimum": -1, "maximum": 1 },
+            "rho_live": { "type": ["number", "null"] },
+            "delta": { "type": ["number", "null"] },
+            "ci90": {
+              "type": ["array", "null"],
+              "items": { "type": "number" },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "verdict": {
+              "type": "string",
+              "enum": ["insufficient", "consistent", "shipped_high", "shipped_low"]
+            }
+          }
+        },
+        "refused_by_reason": {
+          "type": "object",
+          "description": "Pairs formed inside a game but not scored, counted under why: 'same_side_game_pair' (a team's moneyline and that team's own spread - the slate refuses to build it, so there is no such card to score) or 'no_locked_probability'.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "cards": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The ARCHIVED same-game cards the lab re-combines: scope 'game', exactly two legs, both resolved. The offered population, which is far smaller than every pair the resolved legs could form.",
+          "required": ["n", "all_hit_rate", "mean_model_shipped", "mean_model_independent", "delta", "ci90", "verdict", "excluded_by_reason"],
+          "properties": {
+            "n": { "type": "integer", "minimum": 0 },
+            "all_hit_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "mean_model_shipped": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "mean_model_independent": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "delta": { "type": ["number", "null"] },
+            "ci90": {
+              "type": ["array", "null"],
+              "items": { "type": "number" },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "verdict": {
+              "type": "string",
+              "enum": ["insufficient", "consistent", "shipped_high", "shipped_low"]
+            },
+            "excluded_by_reason": {
+              "type": "object",
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "note": { "type": "string", "minLength": 1 }
       }
     },
     "selection_rules": {

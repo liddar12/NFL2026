@@ -1,0 +1,1040 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "my_card_scores.schema.json",
+  "title": "Graded MY PARLAYS cards (R87) - data/my_card_scores.json",
+  "description": "The LOCKED cards recorded in data/my_cards/ resolved: prop legs against nflverse stats_player_week yards (hit = yards >= the recorded line), game legs against FINAL results when a finals source is reachable (`finals_source` names which, or that none was). Per week: the counts, the five outcome buckets, and the record per dial and per leg count - hit rate, mean conviction, log-loss and Brier of the recorded model against whether the whole card hit, plus a display-only $100 flat stake. HONESTY: weeks_resolved 0 is a valid document that says so (`skipped`) with null metrics; an unresolved leg is pending, never a miss; with nothing graded every metric is null, never 0. `cards[]` holds the GRADED cards - the complete record of what was offered is data/my_cards/. Written by scripts/resolve_my_cards.py; read by app/views/myparlays.js (the RECORD line). Optional feed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "season",
+    "generated_utc",
+    "source",
+    "finals_source",
+    "rule",
+    "weeks_resolved",
+    "weeks",
+    "cards",
+    "skipped"
+  ],
+  "properties": {
+    "season": {
+      "type": "integer",
+      "minimum": 2026
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The stats release the props were graded against (or the dry-run CSV)."
+    },
+    "finals_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "weeks_resolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "weeks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "week",
+          "n_cards",
+          "locked",
+          "graded",
+          "pending",
+          "buckets",
+          "by_dial",
+          "by_legs"
+        ],
+        "properties": {
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "n_cards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "locked": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "graded": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "buckets": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "all_hit",
+              "push",
+              "partial",
+              "all_missed",
+              "pending"
+            ],
+            "properties": {
+              "all_hit": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "push": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "partial": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "all_missed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "by_dial": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "safe",
+              "even",
+              "longshot"
+            ],
+            "properties": {
+              "safe": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "even": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "longshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              }
+            }
+          },
+          "by_legs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "2",
+              "3",
+              "4",
+              "5",
+              "6"
+            ],
+            "properties": {
+              "2": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "3": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "4": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "5": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              },
+              "6": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "graded",
+                  "all_hit",
+                  "hit_rate",
+                  "mean_model",
+                  "log_loss",
+                  "brier",
+                  "staked",
+                  "net_fair",
+                  "net_vig2",
+                  "roi_fair"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Recorded cards in this slice, graded or not."
+                  },
+                  "graded": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "all_hit": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "hit_rate": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "mean_model": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "log_loss": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "staked": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "net_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "net_vig2": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "roi_fair": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
+              }
+            }
+          }
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "card_id",
+          "week",
+          "dial",
+          "seed",
+          "n_legs",
+          "model",
+          "result",
+          "bucket",
+          "legs",
+          "money"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{12}$"
+          },
+          "week": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18
+          },
+          "dial": {
+            "type": "string",
+            "enum": [
+              "safe",
+              "even",
+              "longshot"
+            ]
+          },
+          "seed": {
+            "type": "string",
+            "enum": [
+              "ARI",
+              "ATL",
+              "BAL",
+              "BUF",
+              "CAR",
+              "CHI",
+              "CIN",
+              "CLE",
+              "DAL",
+              "DEN",
+              "DET",
+              "GB",
+              "HOU",
+              "IND",
+              "JAX",
+              "KC",
+              "LV",
+              "LAC",
+              "LAR",
+              "MIA",
+              "MIN",
+              "NE",
+              "NO",
+              "NYG",
+              "NYJ",
+              "PHI",
+              "PIT",
+              "SF",
+              "SEA",
+              "TB",
+              "TEN",
+              "WAS"
+            ]
+          },
+          "n_legs": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "model": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The card's recorded model probability - the number being scored."
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "hit",
+              "miss",
+              "void"
+            ],
+            "description": "A pending card is not in this list; weeks[] counts it."
+          },
+          "bucket": {
+            "type": "string",
+            "enum": [
+              "all_hit",
+              "push",
+              "partial",
+              "all_missed",
+              "pending"
+            ]
+          },
+          "legs": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "selection",
+                "market",
+                "result",
+                "actual"
+              ],
+              "properties": {
+                "selection": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "market": {
+                  "type": "string",
+                  "enum": [
+                    "moneyline",
+                    "spread",
+                    "qb_pass_yds",
+                    "rb_rush_yds",
+                    "wr_rec_yds"
+                  ]
+                },
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "hit",
+                    "miss",
+                    "void",
+                    "pending"
+                  ]
+                },
+                "actual": {
+                  "type": [
+                    "number",
+                    "object",
+                    "null"
+                  ],
+                  "description": "Prop: the yards. Game: the final scores, or the winning side. Null when the leg did not resolve - never zero-filled."
+                }
+              }
+            }
+          },
+          "money": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "net_fair",
+              "net_vig2",
+              "assumed_price_legs"
+            ],
+            "properties": {
+              "net_fair": {
+                "type": "number"
+              },
+              "net_vig2": {
+                "type": "number"
+              },
+              "assumed_price_legs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              }
+            },
+            "description": "A $100 flat stake settled at the card's own recorded prices. Display-only, never a model input."
+          }
+        }
+      }
+    },
+    "skipped": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Why nothing (or not everything) resolved. Null when the run resolved cleanly."
+    }
+  }
+}
