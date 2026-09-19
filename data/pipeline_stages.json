@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-19T16:55:03Z",
+  "generated_utc": "2026-09-19T19:34:00Z",
   "workflows": {
     "daily": {
       "run_id": "35456242058",
@@ -282,6 +282,135 @@
           "duration_s": 0.0,
           "continue_on_error": true,
           "last_success_utc": "2026-09-19T16:55:03Z",
+          "note": null
+        }
+      ]
+    },
+    "gameday": {
+      "run_id": "35464618658",
+      "run_started_utc": "2026-09-19T19:31:55Z",
+      "run_finished_utc": "2026-09-19T19:33:59Z",
+      "last_success": {
+        "Build post-game review (data/review.json)": "2026-09-19T19:33:59Z",
+        "Lock pre-kickoff probabilities": "2026-09-19T19:33:46Z",
+        "MY PARLAYS leg pool (rebuild under this generation)": "2026-09-19T19:33:46Z",
+        "MY PARLAYS offered cards (first-sight lock)": "2026-09-19T19:33:58Z",
+        "Parlay archive (per-week history + index)": "2026-09-19T19:33:46Z",
+        "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)": "2026-09-19T19:33:58Z",
+        "Refit game params from resolved locks (NEVER REGRESS)": "2026-09-19T19:31:59Z",
+        "Resolve MY cards against nflverse weekly yards": "2026-09-19T19:33:59Z",
+        "Resolve locks against FINAL scores": "2026-09-19T19:31:57Z",
+        "Resolve parlay legs against nflverse weekly yards": "2026-09-19T19:33:58Z"
+      },
+      "stages": [
+        {
+          "name": "Resolve locks against FINAL scores",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:31:55Z",
+          "finished_utc": "2026-09-19T19:31:57Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:31:57Z",
+          "note": null
+        },
+        {
+          "name": "Refit game params from resolved locks (NEVER REGRESS)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:31:57Z",
+          "finished_utc": "2026-09-19T19:31:59Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:31:59Z",
+          "note": null
+        },
+        {
+          "name": "Lock pre-kickoff probabilities",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:31:59Z",
+          "finished_utc": "2026-09-19T19:33:46Z",
+          "duration_s": 107.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:46Z",
+          "note": null
+        },
+        {
+          "name": "Parlay archive (per-week history + index)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:46Z",
+          "finished_utc": "2026-09-19T19:33:46Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:46Z",
+          "note": null
+        },
+        {
+          "name": "MY PARLAYS leg pool (rebuild under this generation)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:46Z",
+          "finished_utc": "2026-09-19T19:33:46Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:46Z",
+          "note": null
+        },
+        {
+          "name": "MY PARLAYS offered cards (first-sight lock)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:47Z",
+          "finished_utc": "2026-09-19T19:33:58Z",
+          "duration_s": 11.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:58Z",
+          "note": null
+        },
+        {
+          "name": "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:58Z",
+          "finished_utc": "2026-09-19T19:33:58Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:58Z",
+          "note": null
+        },
+        {
+          "name": "Resolve parlay legs against nflverse weekly yards",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:58Z",
+          "finished_utc": "2026-09-19T19:33:58Z",
+          "duration_s": 0.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-19T19:33:58Z",
+          "note": null
+        },
+        {
+          "name": "Resolve MY cards against nflverse weekly yards",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:58Z",
+          "finished_utc": "2026-09-19T19:33:59Z",
+          "duration_s": 1.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-19T19:33:59Z",
+          "note": null
+        },
+        {
+          "name": "Build post-game review (data/review.json)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-19T19:33:59Z",
+          "finished_utc": "2026-09-19T19:33:59Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-19T19:33:59Z",
           "note": null
         }
       ]
