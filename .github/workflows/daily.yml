@@ -44,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full history so the race-safe pull --ff-only works
+          fetch-depth: 0   # full history so the race-safe publish can reconcile
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -56,16 +56,27 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install --upgrade requests
 
+      # R88 (F17) — OPEN THE PER-STAGE RECORD. Every pipeline step below runs
+      # under scripts/stage.sh, which appends that step's outcome (status, exit
+      # code, duration) to data/pipeline_stages.json. `begin` opens a new run for
+      # this workflow: it clears the previous run's rows and CARRIES each stage's
+      # last success forward, so a stage that has not succeeded in days says the
+      # day it last did. Several steps below are continue-on-error, so before
+      # this a failed resolver left the run green with the only evidence in the
+      # Actions log; the MODEL tab's PIPELINE STAGES card reads this document.
+      - name: Begin per-stage record (R88)
+        run: python3 scripts/stage_status.py begin --workflow daily --run-id "${{ github.run_id }}"
+
       # Step 0 — LEARNING LOOP resolve. Grade yesterday's locks BEFORE rebuilding,
       # so the day's build sees a fully resolved record (and any adopted params).
       # STATUS-gated + idempotent; clean no-op when no locked game has gone FINAL.
       - name: Resolve locks against FINAL scores
-        run: python -m scripts.resolve_locks
+        run: bash scripts/stage.sh daily "Resolve locks against FINAL scores" -- python -m scripts.resolve_locks
 
       # Step 1 — deterministic offline outputs from committed fixtures: player
       # projections + parlays. Stdlib only, no network; safe on any runner.
       - name: Build fixture-based players + parlays
-        run: python -m scripts.build_all
+        run: bash scripts/stage.sh daily "Build fixture-based players + parlays" -- python -m scripts.build_all
 
       # Step 2 — the REAL feed. ESPN 2026 schedule + 2025 FINAL results -> Elo priors
       # -> game predictions, plus schedule_full, real team identity, injuries, and the
@@ -74,10 +85,10 @@ jobs:
       # feeds (odds/kalshi) stay "degraded" until ODDS_API_KEY is set; nflverse joins
       # when its scraper is wired (proxy-blocked in some sandboxes, fine on GH runners).
       - name: Refresh injury history (qb_out + skill_out application freshness)
-        run: python scripts/build_injury_history.py
+        run: bash scripts/stage.sh daily "Refresh injury history (qb_out + skill_out application freshness)" -- python scripts/build_injury_history.py
 
       - name: Refresh weather forecast (weather_wind application freshness)
-        run: python scripts/build_weather_forecast.py
+        run: bash scripts/stage.sh --continue-on-error daily "Refresh weather forecast (weather_wind application freshness)" -- python scripts/build_weather_forecast.py
         continue-on-error: true   # forecast is best-effort; absence is dormant, not fatal
 
       # R51 — NEVER-REGRESS BACKTESTS run BEFORE the build: scripts.build_predictions
@@ -86,31 +97,31 @@ jobs:
       # The corpus refresher pulls nflverse weekly actuals + games (best-effort:
       # the committed fixtures stay in place when the fetch fails).
       - name: Refresh backtest corpus (nflverse weekly actuals + games)
-        run: python scripts/build_backtest_weekly_corpus.py
+        run: bash scripts/stage.sh --continue-on-error daily "Refresh backtest corpus (nflverse weekly actuals + games)" -- python scripts/build_backtest_weekly_corpus.py
         continue-on-error: true
 
       - name: Weekly split never-regress backtest (writes data/weekly_backtest.json)
-        run: python scripts/backtest_weekly.py
+        run: bash scripts/stage.sh daily "Weekly split never-regress backtest (writes data/weekly_backtest.json)" -- python scripts/backtest_weekly.py
 
       # R70 — line-injury cascade, MEASURE ONLY (writes data/lines_backtest.json;
       # no factor ships until a variant clears never-regress on both MAE and rank).
       - name: Line-injury cascade backtest (measure only)
-        run: python scripts/backtest_lines.py
+        run: bash scripts/stage.sh --continue-on-error daily "Line-injury cascade backtest (measure only)" -- python scripts/backtest_lines.py
         continue-on-error: true
 
       - name: Parlay never-regress backtest (writes data/parlay_backtest.json)
-        run: python scripts/backtest_parlay.py
+        run: bash scripts/stage.sh daily "Parlay never-regress backtest (writes data/parlay_backtest.json)" -- python scripts/backtest_parlay.py
 
       - name: Fetch ESPN + build real predictions + feed health
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
-        run: python -m scripts.build_predictions
+        run: bash scripts/stage.sh daily "Fetch ESPN + build real predictions + feed health" -- python -m scripts.build_predictions
 
       # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
       # (created on first sight, refreshed while open, frozen once every game is
       # FINAL) and rebuild data/parlays/index.json. Idempotent per updated_utc.
       - name: Parlay archive (per-week history + index)
-        run: python3 scripts/build_parlay_archive.py
+        run: bash scripts/stage.sh daily "Parlay archive (per-week history + index)" -- python3 scripts/build_parlay_archive.py
 
       # R76 — the MY PARLAYS candidate leg pool. AFTER build_predictions, because
       # it copies the slate's game legs verbatim and prices its props from the
@@ -119,7 +130,7 @@ jobs:
       # red gate leaves the previous pool standing rather than shipping legs
       # priced by coefficients that did not pass.
       - name: MY PARLAYS leg pool (wide player universe, in-support rungs only)
-        run: python3 scripts/build_leg_pool.py
+        run: bash scripts/stage.sh daily "MY PARLAYS leg pool (wide player universe, in-support rungs only)" -- python3 scripts/build_leg_pool.py
 
       # R87 — RECORD WHAT MY PARLAYS OFFERED. MY cards are built in the browser and
       # then gone, so nothing could grade them and the learning loop never saw the
@@ -130,13 +141,13 @@ jobs:
       # that pool and stamps its as-of; first sight locks the as-made numbers and
       # a second run on the same pool changes no bytes.
       - name: MY PARLAYS offered cards (first-sight lock)
-        run: python3 scripts/build_my_cards.py
+        run: bash scripts/stage.sh daily "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
 
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.
       - name: Build the line report (OL / DL-front starters x injury report)
-        run: python scripts/build_line_report.py
+        run: bash scripts/stage.sh --continue-on-error daily "Build the line report (OL / DL-front starters x injury report)" -- python scripts/build_line_report.py
         continue-on-error: true
 
       # R51 — keep data/player_backtest.json on the SAME substrate as the
@@ -145,7 +156,7 @@ jobs:
       # the history for days at a time (RCA 2026-09-02: the r49_override lock
       # recomputed 0.6766 against an artifact still saying 0.6875).
       - name: Player-level walk-forward backtest (same substrate as today's history)
-        run: python -m scripts.backtest_player
+        run: bash scripts/stage.sh daily "Player-level walk-forward backtest (same substrate as today's history)" -- python -m scripts.backtest_player
 
       # R49 — Sleeper's own projections, DISPLAY-ONLY (never a model input).
       # Runs AFTER the pool is built (it crosswalks against player_projections +
@@ -153,7 +164,7 @@ jobs:
       # the step may fail loudly without failing the run; the builder itself
       # exits non-zero and writes nothing on any fetch/import problem.
       - name: Sleeper projections (display-only reference)
-        run: python scripts/build_sleeper_projections.py
+        run: bash scripts/stage.sh --continue-on-error daily "Sleeper projections (display-only reference)" -- python scripts/build_sleeper_projections.py
         continue-on-error: true
 
       # R49 — LEARNING LEDGER. Append today's shipped + candidate estimates for
@@ -162,10 +173,10 @@ jobs:
       # loudly while a week has no rows (no 2026 week has resolved yet) and
       # writes an honest 0-resolved record — it never invents an MAE.
       - name: Estimate ledger append (shipped + candidate, per remaining week)
-        run: python scripts/build_estimate_ledger.py
+        run: bash scripts/stage.sh daily "Estimate ledger append (shipped + candidate, per remaining week)" -- python scripts/build_estimate_ledger.py
 
       - name: Resolve estimates against nflverse weekly actuals
-        run: python scripts/resolve_estimates.py
+        run: bash scripts/stage.sh --continue-on-error daily "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
       # R58 — PARLAY-LEG LEDGER. Append today's shipped legs (idempotent per
@@ -178,10 +189,10 @@ jobs:
       # resolved legs — a one-day lag by design (the gate reproduces it from
       # committed inputs).
       - name: Parlay-leg ledger append (as-made pricing, locked pre-kickoff)
-        run: python scripts/build_parlay_ledger.py
+        run: bash scripts/stage.sh daily "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" -- python scripts/build_parlay_ledger.py
 
       - name: Resolve parlay legs against nflverse weekly yards
-        run: python scripts/resolve_parlay_legs.py
+        run: bash scripts/stage.sh --continue-on-error daily "Resolve parlay legs against nflverse weekly yards" -- python scripts/resolve_parlay_legs.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
       # R87 — grade the recorded MY cards. Immediately after the leg resolver
@@ -191,7 +202,7 @@ jobs:
       # document while a week has no rows; an unresolved leg is pending, never a
       # miss, so the run degrades rather than inventing a hit rate.
       - name: Resolve MY cards against nflverse weekly yards
-        run: python scripts/resolve_my_cards.py
+        run: bash scripts/stage.sh --continue-on-error daily "Resolve MY cards against nflverse weekly yards" -- python scripts/resolve_my_cards.py
         continue-on-error: true   # a stats outage degrades the record, never the run
 
       # R81 — PARLAY REPLAY LAB (measure only). Replays candidate pricing and
@@ -200,12 +211,12 @@ jobs:
       # gate, no promotion path, and no write to any calibration or slate file.
       # Runs right after the resolver so it always sees the newest outcomes.
       - name: Replay lab (candidate parlay rules vs shipped, measure only)
-        run: python3 scripts/replay_lab.py
+        run: bash scripts/stage.sh --continue-on-error daily "Replay lab (candidate parlay rules vs shipped, measure only)" -- python3 scripts/replay_lab.py
         continue-on-error: true   # a measure-only bench never degrades the run
 
       # R71 — post-game review over resolved estimates + the parlay-leg ledger.
       - name: Build post-game review (data/review.json)
-        run: python3 scripts/build_review.py
+        run: bash scripts/stage.sh daily "Build post-game review (data/review.json)" -- python3 scripts/build_review.py
 
       # R71 — OPTIONAL AI narrative (P10 exception): runs only when both the
       # secret and the variable are set; otherwise one-line skip, exit 0.
@@ -213,31 +224,20 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REVIEW_NARRATIVE_MODEL: ${{ vars.REVIEW_NARRATIVE_MODEL }}
-        run: python3 scripts/build_review_narrative.py
+        run: bash scripts/stage.sh --continue-on-error daily "AI narrative (optional, env-gated)" -- python3 scripts/build_review_narrative.py
         continue-on-error: true
 
       # Validate everything we're about to commit against the JSON contracts.
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
-      # Race-safe commit: other crons (gameday) may push concurrently. Rebase-free:
-      # pull --ff-only, then commit + push; on a data conflict prefer freshly generated
-      # files (this run just produced them).
+      # RACE-SAFE PUBLISH (F16). Other crons — gameday, and the weekly backtest
+      # on this same concurrency group — may push while this run is committing.
+      # The old body committed locally and then retried `git pull && git push`,
+      # which cannot merge once both sides hold commits from a common base;
+      # repeating it could not change that. scripts/publish_data.sh now owns the
+      # publish and is race-safe by construction — see docs/PUBLISH.md. It also
+      # picks up data/pipeline_stages.json, which lives under data/ like every
+      # other generated artifact.
       - name: Commit data/
-        run: |
-          git config user.name  "nfl2026-bot"
-          git config user.email "bot@j5lagenticstrategy.com"
-          git add data/
-          if git diff --cached --quiet; then
-            echo "No data changes to commit."
-            exit 0
-          fi
-          git commit -m "data: daily pipeline refresh [skip actions]"
-          # race-safe push loop: fast-forward onto whatever landed, retry a few times.
-          for i in 1 2 3 4 5; do
-            git pull --ff-only origin main && git push origin HEAD:main && exit 0
-            echo "push race, retrying ($i)..."
-            sleep 5
-          done
-          echo "::error::could not push data after retries"
-          exit 1
+        run: 'bash scripts/publish_data.sh "data: daily pipeline refresh [skip actions]"'

@@ -41,30 +41,41 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install --upgrade requests
 
+      # R88 (F17) — OPEN THE PER-STAGE RECORD. Every pipeline step below runs
+      # under scripts/stage.sh, which appends that step's outcome (status, exit
+      # code, duration) to data/pipeline_stages.json. `begin` opens a new run for
+      # this workflow: it clears the previous run's rows and CARRIES each stage's
+      # last success forward, so a stage that has not succeeded in days says the
+      # day it last did. Several steps below are continue-on-error, so before
+      # this a failed resolver left the run green with the only evidence in the
+      # Actions log; the MODEL tab's PIPELINE STAGES card reads this document.
+      - name: Begin per-stage record (R88)
+        run: python3 scripts/stage_status.py begin --workflow backtest --run-id "${{ github.run_id }}"
+
       # Resolve any locks first so the backtest sees the freshest graded record.
       - name: Resolve locks against FINAL scores
-        run: python -m scripts.resolve_locks
+        run: bash scripts/stage.sh backtest "Resolve locks against FINAL scores" -- python -m scripts.resolve_locks
 
       # EPA aggregates from nflverse pbp. Past seasons are cached in the
       # committed file (never refetched); only the current season streams.
       # The runner has the network access the sandbox proxy blocks.
       - name: Build EPA history (nflverse play-by-play)
-        run: python scripts/build_epa_history.py
+        run: bash scripts/stage.sh backtest "Build EPA history (nflverse play-by-play)" -- python scripts/build_epa_history.py
 
       - name: Build injury history (nflverse injuries)
-        run: python scripts/build_injury_history.py
+        run: bash scripts/stage.sh backtest "Build injury history (nflverse injuries)" -- python scripts/build_injury_history.py
 
       - name: Build weather history (Open-Meteo archive)
-        run: python scripts/build_weather_history.py
+        run: bash scripts/stage.sh backtest "Build weather history (Open-Meteo archive)" -- python scripts/build_weather_history.py
 
       - name: Build market baseline (measurement only - never an input)
-        run: python scripts/build_market_baseline.py
+        run: bash scripts/stage.sh backtest "Build market baseline (measurement only - never an input)" -- python scripts/build_market_baseline.py
 
       - name: Build player usage (opportunity metrics)
-        run: python scripts/build_player_usage.py
+        run: bash scripts/stage.sh backtest "Build player usage (opportunity metrics)" -- python scripts/build_player_usage.py
 
       - name: Build player usage history (skill_out gate raw material)
-        run: python scripts/build_player_usage_history.py
+        run: bash scripts/stage.sh backtest "Build player usage history (skill_out gate raw material)" -- python scripts/build_player_usage_history.py
 
       # Same nflverse release CSVs as the builders above, so the same runner
       # network. Without these two steps their outputs could never be refreshed
@@ -72,32 +83,32 @@ jobs:
       # one, and build_kdst's "keep the existing file, exit 0" degradation path
       # would be a dead end instead of a handoff to this cron.
       - name: Build weekly player usage (in-season cuts, weight 0)
-        run: python scripts/build_player_usage_weekly.py
+        run: bash scripts/stage.sh backtest "Build weekly player usage (in-season cuts, weight 0)" -- python scripts/build_player_usage_weekly.py
 
       # R55 ORDER MATTERS. The corpus is built FIRST so build_kdst's weekly
       # split and the gate that judges it are looking at the same weeks; the
       # gate then runs here, not only in CI, so a cron that quietly stops
       # beating the flat season average is caught by the cron itself.
       - name: Build resolved D/ST week corpus (R55 gate raw material)
-        run: python scripts/build_kdst_history.py
+        run: bash scripts/stage.sh backtest "Build resolved D/ST week corpus (R55 gate raw material)" -- python scripts/build_kdst_history.py
 
       - name: Build K/DST projections (separate contract from player_projections)
-        run: python scripts/build_kdst.py
+        run: bash scripts/stage.sh backtest "Build K/DST projections (separate contract from player_projections)" -- python scripts/build_kdst.py
 
       - name: R55 D/ST weekly split never-regress verdict
-        run: python scripts/backtest_kdst.py
+        run: bash scripts/stage.sh backtest "R55 D/ST weekly split never-regress verdict" -- python scripts/backtest_kdst.py
 
       - name: R55 gate — the split must still beat the flat season average
-        run: python scripts/backtest_kdst.py --gate
+        run: bash scripts/stage.sh backtest "R55 gate — the split must still beat the flat season average" -- python scripts/backtest_kdst.py --gate
 
       # R76 — the MY PARLAYS pool calibration, fit on the wide player universe.
       # Corpus-based like the other backtests, so it belongs here rather than in
       # the daily run; build_leg_pool.py reads the coefficients it writes.
       - name: R76 leg pool calibration (wide universe refit)
-        run: python scripts/backtest_leg_pool.py
+        run: bash scripts/stage.sh backtest "R76 leg pool calibration (wide universe refit)" -- python scripts/backtest_leg_pool.py
 
       - name: R76 gate — the pool refit must stay better calibrated and informative
-        run: python scripts/backtest_leg_pool.py --gate
+        run: bash scripts/stage.sh backtest "R76 gate — the pool refit must stay better calibrated and informative" -- python scripts/backtest_leg_pool.py --gate
 
       # Rel18 family inputs. These three feed the five new candidate families
       # (divisional, coach_quality, coach_regime, dvp_mismatch, scheme_matchup)
@@ -111,16 +122,16 @@ jobs:
       # reads their output, and their artifacts are picked up by `git add data/`
       # in the commit step below.
       - name: Build game context (divisional / coach / referee fields)
-        run: python scripts/build_game_context.py
+        run: bash scripts/stage.sh backtest "Build game context (divisional / coach / referee fields)" -- python scripts/build_game_context.py
 
       - name: Build DvP positional history (defense-vs-position)
-        run: python scripts/build_dvp_positional.py
+        run: bash scripts/stage.sh backtest "Build DvP positional history (defense-vs-position)" -- python scripts/build_dvp_positional.py
 
       - name: Build scheme history (FTN charting; re-probes the live season)
-        run: python scripts/build_scheme_history.py
+        run: bash scripts/stage.sh backtest "Build scheme history (FTN charting; re-probes the live season)" -- python scripts/build_scheme_history.py
 
       - name: Walk-forward backtest (NEVER-REGRESS gated adoption)
-        run: python -m scripts.backtest
+        run: bash scripts/stage.sh backtest "Walk-forward backtest (NEVER-REGRESS gated adoption)" -- python -m scripts.backtest
 
       # The self-learning step: every REGISTERED candidate family gets its
       # walk-forward shot. The archived entry names the families and counts
@@ -139,7 +150,7 @@ jobs:
       #     python -m scripts.promote_signals --auto-adopt
       # Do not "fix" this back to --auto-adopt without the owner saying so.
       - name: Promotion gate (measure + archive + PROPOSE; adoption is manual)
-        run: python -m scripts.promote_signals --propose
+        run: bash scripts/stage.sh backtest "Promotion gate (measure + archive + PROPOSE; adoption is manual)" -- python -m scripts.promote_signals --propose
 
       # Player-level walk-forward. Without this step the harness is an orphan —
       # measured once, committed, then frozen while the seasons move on, which
@@ -147,7 +158,7 @@ jobs:
       # non-zero when the projection path it claims to score stops matching the
       # one the app ships, so a silent divergence reds the cron.
       - name: Player-level walk-forward backtest
-        run: python -m scripts.backtest_player
+        run: bash scripts/stage.sh backtest "Player-level walk-forward backtest" -- python -m scripts.backtest_player
 
       # R49 — the player-signal fit on the RESOLVED estimate ledger. Reads
       # data/estimate_scores.json; refuses (exit 0, nothing written) until at
@@ -155,25 +166,15 @@ jobs:
       # the walk-forward verdict into data/model_tuning.json history — applying a
       # weight is the same deliberate human act as the game-family gate above.
       - name: Player-signal walk-forward fit (PROPOSE only; adoption is manual)
-        run: python scripts/fit_player_signals.py --propose
+        run: bash scripts/stage.sh backtest "Player-signal walk-forward fit (PROPOSE only; adoption is manual)" -- python scripts/fit_player_signals.py --propose
 
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
+      # RACE-SAFE PUBLISH (F16). This job shares the `data-pipeline` concurrency
+      # group with daily.yml but NOT with gameday.yml, so a gameday window can
+      # push underneath it. The old fast-forward-only pull-and-push retry loop
+      # could not merge two commits from a common base; scripts/publish_data.sh
+      # now owns the publish and is race-safe by construction — docs/PUBLISH.md.
       - name: Commit tuning record
-        run: |
-          git config user.name  "nfl2026-bot"
-          git config user.email "bot@j5lagenticstrategy.com"
-          git add data/
-          if git diff --cached --quiet; then
-            echo "No tuning changes to commit."
-            exit 0
-          fi
-          git commit -m "data: weekly backtest refit [skip actions]"
-          for i in 1 2 3 4 5; do
-            git pull --ff-only origin main && git push origin HEAD:main && exit 0
-            echo "push race, retrying ($i)..."
-            sleep 5
-          done
-          echo "::error::could not push backtest data after retries"
-          exit 1
+        run: 'bash scripts/publish_data.sh "data: weekly backtest refit [skip actions]"'

@@ -25,7 +25,8 @@
  */
 
 import {
-  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus, loadJson,
+  getMeta, getModelTuning, getPlayoffOdds, getMarketPrices, getPipelineStatus,
+  getPipelineStages, loadJson,
 } from '../data.js';
 
 // R51: the two never-regress records behind the WEEKLY SPLIT GATE and PARLAY
@@ -39,6 +40,11 @@ export const loadParlayBacktest = (opts) => loadJson('/data/parlay_backtest.json
 // resolve-to-null-on-404 contract as the two above: absent means the card says
 // so, never a placeholder number. Nothing this file reads is ever adopted.
 export const loadReplayLab = (opts) => loadJson('/data/replay_lab.json', opts).catch(() => null);
+// R88 — the per-stage pipeline record (data/pipeline_stages.json). Runner-built,
+// so a deploy that predates the first wrapped run legitimately 404s; same
+// resolve-to-null contract as the three above, and the card says NOT PRESENT
+// rather than inventing a green row for a stage nobody has run.
+export const loadPipelineStages = (opts) => getPipelineStages(opts).catch(() => null);
 import { teamTint } from '../render.js';
 
 /** Signals pinned display-only by validate_data.py MARKET_DISPLAY_ONLY —
@@ -1449,6 +1455,132 @@ export function replayLabCard(doc) {
     + samePairsSection(doc.same_game_pairs) + stamp;
 }
 
+/* ---- R88: PIPELINE STAGES (review finding F17) ------------------------------
+ * data/pipeline_stages.json (scripts/stage_status.py, written through the
+ * scripts/stage.sh wrapper every workflow step runs under).
+ *
+ * WHY THIS CARD EXISTS. The DATA FRESHNESS card above reads
+ * data/pipeline_status.json, which is written INSIDE build_predictions — long
+ * before the ledger, resolver, replay-lab and review steps run. Several of those
+ * steps are continue-on-error, so a failed resolver left the run GREEN, left
+ * freshness saying nothing, and left the only evidence in the Actions log. F17's
+ * acceptance criterion is "resolver outage is visible in final health": this is
+ * that visibility, one row per STEP per workflow.
+ *
+ * MEASURED, never ESTIMATE: every number here is an observed exit code, an
+ * observed duration or an observed timestamp. Nothing is projected.
+ *
+ * Three states are deliberately distinct: ok (ran, exit 0), failed (ran,
+ * non-zero) and skipped (a mode guard did not run it, with the reason). A
+ * stage's last success is carried across runs, so one that has not succeeded in
+ * days shows the day it last did — and NEVER when it never has.
+ *
+ * Only classes theme.css already styles (.pf-tbl, .pf-subhead, .gate-chip,
+ * .gate-bench, .mp-src, .m-explain, .state).
+ */
+
+const STAGES_EXPLAIN = '<div class="m-explain">Every pipeline step, as it '
+  + 'actually ran. FEEDS above is written in the middle of the build, so it '
+  + 'cannot describe the ledger, resolver and review steps that follow it — and '
+  + 'several of those are allowed to fail without failing the run. A step that '
+  + 'failed quietly shows here as DEGRADED with the day it last worked. SKIPPED '
+  + 'means a mode guard did not run it, which is not the same as failing.</div>';
+
+/** The three workflows, in the order a reader thinks about them. */
+export const STAGE_WORKFLOWS = Object.freeze(['daily', 'gameday', 'backtest']);
+
+/** 'YYYY-MM-DD HH:MM' from a UTC stamp; '—' when absent. Pure. */
+export function stageWhen(iso) {
+  const raw = String(iso == null ? '' : iso);
+  if (!raw) return '—';
+  return esc(raw.replace('T', ' ').replace('Z', '').slice(0, 16));
+}
+
+/** The chip for a stage status. Observation words only. */
+export function stageChip(stage) {
+  const status = stage && stage.status;
+  if (status === 'ok') {
+    return '<span class="gate-chip" title="The step ran and exited 0">OK</span>';
+  }
+  if (status === 'failed') {
+    const coe = Boolean(stage && stage.continue_on_error);
+    // Same `Number(null) === 0` trap: only a real exit code is printed.
+    const code = stage && stage.exit_code != null && Number.isFinite(Number(stage.exit_code))
+      ? ` (exit ${esc(stage.exit_code)})` : '';
+    return '<span class="gate-chip gate-chip--nopath" title="'
+      + (coe ? 'The step failed and the run still went green: it carries '
+        + 'continue-on-error, so nothing downstream stopped'
+        : 'The step failed and failed the run')
+      + `">${coe ? 'DEGRADED' : 'FAILED'}${code}</span>`;
+  }
+  if (status === 'skipped') {
+    return '<span class="gate-chip gate-chip--skipped" title="A mode guard did '
+      + 'not run this step — it did not fail, it did not run">SKIPPED</span>';
+  }
+  return '<span class="gate-chip gate-chip--skipped" title="No record for this '
+    + 'stage in the last run">—</span>';
+}
+
+/** Every stage that failed while the run stayed green. Pure — unit-tested. */
+export function degradedStages(block) {
+  const stages = isObj(block) && Array.isArray(block.stages) ? block.stages : [];
+  return stages.filter((s) => isObj(s) && s.status === 'failed' && s.continue_on_error);
+}
+
+/** One workflow's section: heading, stage table, the degraded call-out. */
+export function stageWorkflowSection(name, block) {
+  if (!isObj(block)) return '';
+  const stages = Array.isArray(block.stages) ? block.stages.filter(isObj) : [];
+  const runId = block.run_id ? ` · run ${esc(block.run_id)}` : '';
+  const head = `<div class="pf-subhead">${esc(name.toUpperCase())}${runId}`
+    + ` · started ${stageWhen(block.run_started_utc)}`
+    + ` · last stage ${stageWhen(block.run_finished_utc)}</div>`;
+  if (!stages.length) {
+    // An opened run with no stage recorded yet is a real state (the job died
+    // between `begin` and its first step), and saying so beats an empty table.
+    return head + state('NO STAGE RECORDED IN THIS RUN');
+  }
+  const rows = stages.map((st) => {
+    const note = st.note ? `<div class="gate-note">${esc(st.note)}</div>` : '';
+    return '<tr>'
+      + `<td>${esc(st.name)}${note}</td>`
+      + `<td>${stageChip(st)}</td>`
+      + `<td>${st.last_success_utc ? stageWhen(st.last_success_utc) : 'NEVER'}</td>`
+      // `Number(null)` is 0, which is finite — a skipped stage has no duration
+      // and must print a dash, not '0.0s'.
+      + `<td>${st.duration_s != null && Number.isFinite(Number(st.duration_s))
+        ? `${dash(st.duration_s, 1)}s` : '—'}</td>`
+      + '</tr>';
+  }).join('');
+  const table = '<table class="pf-tbl m-stage-rows"><thead><tr><th>STAGE</th>'
+    + '<th>STATUS</th><th>LAST SUCCESS</th><th>TOOK</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table>`;
+  const degraded = degradedStages(block);
+  const bench = degraded.length
+    ? `<div class="gate-bench">${degraded.map((st) => `degraded: ${esc(st.name)}`
+      + ` failed at ${stageWhen(st.finished_utc)}; last success `
+      + `${st.last_success_utc ? stageWhen(st.last_success_utc) : 'never'}`).join(' · ')}</div>`
+    : '';
+  return head + table + bench;
+}
+
+/** "PIPELINE STAGES" — one section per workflow that has a record. */
+export function pipelineStagesCard(doc) {
+  const workflows = isObj(doc) && isObj(doc.workflows) ? doc.workflows : null;
+  const present = workflows
+    ? STAGE_WORKFLOWS.filter((w) => isObj(workflows[w])) : [];
+  if (!present.length) {
+    return STAGES_EXPLAIN
+      + state('NOT PRESENT — data/pipeline_stages.json has not been written on '
+        + 'this deploy yet, so no stage has reported. The record is opened by '
+        + 'each workflow right after its dependency install and appended to by '
+        + 'every step that follows.');
+  }
+  return STAGES_EXPLAIN
+    + present.map((w) => stageWorkflowSection(w, workflows[w])).join('')
+    + `<div class="mp-src">${runLine(doc.generated_utc)}</div>`;
+}
+
 /* ---- mount ------------------------------------------------------------------ */
 
 export default async function mountModel(el) {
@@ -1489,13 +1621,18 @@ export default async function mountModel(el) {
   }
 
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
-  const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes, replayRes] =
+  const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes, replayRes,
+    stagesRes] =
     await Promise.allSettled([
       getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
       // R51 — both resolve to null when absent (never reject); null paints nothing.
       loadWeeklyBacktest(), loadParlayBacktest(),
       // R81 — the replay lab; null paints the card's honest NOT PRESENT line.
       loadReplayLab(),
+      // R88 — the per-stage pipeline record. Same shape and same cost: one
+      // request, and a 404 resolves to null and paints the NOT PRESENT line.
+      // #/model is its ONLY reader — no other route pays for it.
+      loadPipelineStages(),
     ]);
   const meta = metaRes.status === 'fulfilled' ? metaRes.value : null;
   const tuning = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
@@ -1505,6 +1642,7 @@ export default async function mountModel(el) {
   const weeklyBacktest = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
   const parlayBacktest = parlayRes.status === 'fulfilled' ? parlayRes.value : null;
   const replayLab = replayRes.status === 'fulfilled' ? replayRes.value : null;
+  const stages = stagesRes.status === 'fulfilled' ? stagesRes.value : null;
   // R51 — painted once; '' means the file is absent and the card is omitted.
   const weeklyHtml = weeklyGateCard(weeklyBacktest);
   const parlayHtml = parlayGateCard(parlayBacktest);
@@ -1534,6 +1672,12 @@ export default async function mountModel(el) {
     MODEL_HEAD +
     card('DATA FRESHNESS · FEEDS & UPDATE SCHEDULE',
       freshnessCard(status, Date.now()), 'm-fresh', 'measured') +
+    // R88 — directly under FEEDS, because it answers the question FEEDS cannot:
+    // pipeline_status.json is written in the middle of the build, so the steps
+    // after it (ledgers, resolvers, replay lab, review) are invisible in it.
+    // ALWAYS rendered: an absent file is an honest state line, not an omission.
+    card('PIPELINE STAGES · EVERY STEP, AS IT RAN',
+      pipelineStagesCard(stages), 'm-stages', 'measured') +
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params', 'estimate') +
     card('BACKTEST · WALK-FORWARD', backtestCard(tuning), 'm-backtest', 'measured') +
     card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate', 'measured') +

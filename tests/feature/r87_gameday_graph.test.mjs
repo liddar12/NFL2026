@@ -137,7 +137,11 @@ test('F17 (i) — gameday lock path runs the full chain in dependency order', ()
 
   // ...and the race-safe commit is last: nothing may be generated after the
   // contracts are validated and the tree is staged.
-  const commitAt = lock.findIndex((s) => /git commit /.test(s.code));
+  // R88 — the commit step's body moved into scripts/publish_data.sh (F16), so
+  // `git commit` is no longer inline; match either spelling. This is the only
+  // change R88 makes to this file: the stage wrapper leaves every command's
+  // text on its own `run:` line, so INVOKE_RE still sees straight through it.
+  const commitAt = lock.findIndex((s) => /publish_data\.sh|git commit /.test(s.code));
   assert.ok(commitAt !== -1, 'gameday.yml has no commit step');
   const validateAt = lock.findIndex((s) => invokedScripts(s.code).includes('scripts/validate_data.py'));
   assert.ok(

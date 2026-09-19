@@ -70,6 +70,13 @@ function referencedDataPaths() {
 const PARLAY_HISTORY_PREFIX = '/data/parlays/';
 const PARLAY_ARCHIVE_RE = /^\/data\/parlays\/\d{4}_wk\d{2}\.json$/;
 
+// R88 — data/pipeline_stages.json is written BY the runner, one row per pipeline
+// step as each step finishes (scripts/stage_status.py). It is never committed
+// from a clone, so "the file exists" is not a property of the repo and asserting
+// it here would red every checkout. validate_data.py registers it OPTIONAL for
+// the same reason; its shape is asserted by tests/feature/r88_stage_status.test.mjs.
+const RUNNER_BUILT = new Set(['/data/pipeline_stages.json']);
+
 test('app/data.js PATHS is the app-reachable contract allowlist, and every entry exists', () => {
   const src = readFileSync(join(APP_DIR, 'data.js'), 'utf8');
   // R73 — the character class admits '/' so the parlays/ history paths are counted.
@@ -82,6 +89,7 @@ test('app/data.js PATHS is the app-reachable contract allowlist, and every entry
     // index is legitimately absent (the app treats its 404 as "no history").
     // Its presence is asserted by the ledger's own tests, not here.
     if (p.startsWith(PARLAY_HISTORY_PREFIX)) continue;
+    if (RUNNER_BUILT.has(p)) continue;
     assert.ok(
       statSync(join(REPO_ROOT, p.slice(1)), { throwIfNoEntry: false }),
       `app/data.js promises ${p} but the file does not exist`,
@@ -150,6 +158,12 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // per-week blocks, never the ~900 offered cards a week, which stay in the
     // pipeline-only data/my_cards/ directory.
     '/data/my_card_scores.json',
+    // R88 — app/views/model.js: the PER-STAGE pipeline record (one row per
+    // workflow step: status, exit code, duration, last success). Read through
+    // data.js's getPipelineStages on the #/model mount only, with the same
+    // resolve-to-null-on-404 wrapper as the replay lab — it is runner-built, so
+    // a 404 is a normal state and the card paints its NOT PRESENT line.
+    '/data/pipeline_stages.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {

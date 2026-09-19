@@ -85,6 +85,10 @@ python3 scripts/build_leg_pool.py --selftest || fail "leg pool builder selftest"
 # R81 — the measure-only parlay replay lab (pure core; adopts nothing).
 python3 scripts/replay_lab.py --selftest || fail "replay lab selftest"
 python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest corpus refresher selftest"
+# R88 — the per-stage pipeline record and the scripts/stage.sh wrapper it is
+# written through (the selftest spawns the wrapper with `true` and `false`, so it
+# also proves the command's exit code survives the bookkeeping).
+python3 scripts/stage_status.py --selftest || fail "stage status selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
 python3 scripts/audit_dead_code.py --selftest || fail "dead-code scanner selftest"
 

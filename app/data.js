@@ -16,6 +16,8 @@
  *                                 older deploys — callers MUST catch rejection)
  *   data/ai_insights.json         Fit Engine v2 AI layer (may be ABSENT on
  *                                 older deploys — callers MUST catch rejection)
+ *   data/pipeline_stages.json     per-STAGE pipeline record (R88; runner-built,
+ *                                 so ABSENT is a normal state — #/model only)
  *
  * Dependency-free: uses the platform `fetch` only. No build step, no framework.
  */
@@ -44,6 +46,7 @@ const PATHS = Object.freeze({
   lineReport: '/data/line_report.json',
   parlaysIndex: '/data/parlays/index.json', // R73
   myCardScores: '/data/my_card_scores.json', // R87
+  pipelineStages: '/data/pipeline_stages.json', // R88
 });
 
 // In-memory cache: path -> Promise<json>. Caching the *promise* (not just the
@@ -147,6 +150,17 @@ export const getParlaysIndex = (opts) => loadJson(PATHS.parlaysIndex, opts);
 // outage simply means that line is not rendered, never a blank or an invented
 // number. Same 404-graceful promise-cache pattern as its neighbours.
 export const getMyCardScores = (opts) => loadJson(PATHS.myCardScores, opts);
+// R88 — the PER-STAGE pipeline record (scripts/stage_status.py, written through
+// the scripts/stage.sh wrapper every workflow step runs under): one row per step
+// with its status, exit code, duration and the day it last succeeded.
+// pipeline_status.json is written INSIDE build_predictions, so it describes the
+// lock half of the graph only and a later continue-on-error resolver outage is
+// invisible in it; this is the document that makes that outage visible. RUNNER-
+// BUILT, so a 404 is a normal state (a fresh clone, or a deploy predating the
+// first wrapped run). Read only by #/model, which resolves the rejection to null
+// and prints its honest NOT PRESENT line. Same 404-graceful promise-cache
+// pattern as its neighbours.
+export const getPipelineStages = (opts) => loadJson(PATHS.pipelineStages, opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));
