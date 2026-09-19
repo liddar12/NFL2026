@@ -54,5 +54,10 @@ test('R84: MY drops legs when kickoff arrives while the page remains open', asyn
   await expect(page.locator('.mp-card')).toHaveCount(1);
   await page.clock.fastForward(61000);
   await expect(page.locator('.mp-card')).toHaveCount(0);
-  await expect(page.locator('#mp-list')).toContainText('No upcoming card');
+  // R89 — the fixed "No upcoming card is available" sentence is gone: the empty
+  // state now names the game and what it is doing. g1 is still STATUS_SCHEDULED
+  // in this fixture but kicked off 60s ago, so it reads "in progress".
+  await expect(page.locator('#mp-list')).toContainText('BBB @ AAA is in progress');
+  await expect(page.locator('#mp-list'))
+    .toContainText('cards are built only for games that have not kicked off');
 });

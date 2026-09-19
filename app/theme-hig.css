@@ -1080,6 +1080,37 @@
   letter-spacing: var(--tr-footnote);
   color: var(--ink);
 }
+/* R89 — the MY seed suggestion list, in HIG furniture. Same markup, restated:
+   a grouped-list popover on secondarySystemGroupedBackground, hairline
+   separators between rows, and the SELECTED row in the tint fill this theme
+   already uses for a chosen chip. Rows keep the 44pt target theme.css sets.
+   No new colour is introduced — every value is a token this file already
+   audits. */
+[data-theme="hig"] .mp-suggest {
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+[data-theme="hig"] .mp-opt {
+  font-family: var(--sans);
+  font-size: var(--fs-footnote);
+  letter-spacing: var(--tr-footnote);
+  color: var(--ink);
+  border-bottom-color: var(--border);
+  padding: 10px 14px;
+}
+[data-theme="hig"] .mp-opt[aria-selected="true"] {
+  background: var(--hig-tint-soft);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+[data-theme="hig"] .mp-opt-meta,
+[data-theme="hig"] .mp-opt--none {
+  font-family: var(--sans);
+  font-size: var(--fs-caption2);
+  color: var(--muted);
+}
+
 [data-theme="hig"] .mp-input,
 [data-theme="hig"] .leg-od,
 [data-theme="hig"] .ev,

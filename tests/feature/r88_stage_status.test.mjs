@@ -195,8 +195,13 @@ test('the contract is registered OPTIONAL, and the record is never committed fro
   const optional = vd.slice(vd.indexOf('OPTIONAL_DATA'), vd.indexOf('EXPECTED_SIGNALS'));
   assert.ok(optional.includes('"pipeline_stages.json"'),
     'runner-built -> OPTIONAL_DATA, or a fresh clone reds for a file no test needs');
-  assert.ok(!existsSync(join(ROOT, 'data/pipeline_stages.json')),
-    'data/pipeline_stages.json is runner-built and must not be committed');
+  // The runner writes the record under data/ and publishes it with every other
+  // artifact (run 137 was the first), so a clone MAY carry it; when it does, it
+  // is a parseable document of the declared shape. Absent is equally valid.
+  if (existsSync(join(ROOT, 'data/pipeline_stages.json'))) {
+    const doc = JSON.parse(read('data/pipeline_stages.json'));
+    assert.ok(doc && typeof doc.workflows === 'object', 'a committed record carries workflows{}');
+  }
   assert.match(read('tests/smoke.sh'), /stage_status\.py --selftest/,
     'the selftest is not in the smoke gate');
 });
