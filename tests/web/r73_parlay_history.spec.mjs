@@ -180,8 +180,9 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
     // chips: one per index week, the CURRENT one selected — not index.current_week
     await expect(page.locator('.pw-wkbar .wk-chip')).toHaveCount(2);
-    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${CUR}"]`)).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-selected', 'false');
+    // R90/F20 — grouped toggle buttons: aria-pressed, never aria-selected.
+    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${CUR}"]`)).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveClass(/pw-wk--closed/);
     await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);
     await expect(page.locator('.view-sub .pw-archived')).toHaveCount(0);
@@ -222,7 +223,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 15000 });
 
     await page.click(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`);
-    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`)).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.view-sub')).toContainText(`WEEK ${WEEK} · SIM EV`);
     await expect(page.locator('.view-sub .pw-archived')).toHaveText('ARCHIVED');
     await page.waitForSelector('.card.parlay[data-parlay-id$="-a"]', { timeout: 15000 });
@@ -261,6 +262,8 @@ test.describe('R73 — PARLAYS week chips + history', () => {
 
     // WEEK scope on the past week: the P&L line follows the scope; leg-count chips filter
     await page.click('.seg-btn[data-seg="week"]');
+    // R90 — the leg-count chips moved into the collapsed FILTERS panel.
+    await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
     await expect(page.locator('#parlay-pnl .rv-pnl[data-scope="week"]')).toHaveCount(1);
     await expectSimulationTotal(page);
     await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
@@ -302,11 +305,15 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await routeAll(page, { index: false, review: reviewDoc({ curStake: STAKE_NONE }) });
     await page.goto('/#/parlays');
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
-    await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 15000 });
+    // R90 — nothing in this fixture is graded, so the bucket card and the P&L
+    // line are HIDDEN: the chips are still in the DOM, the surface is not shown.
+    await page.waitForSelector('#parlay-buckets .rv-bucket', { state: 'attached', timeout: 15000 });
+    await expect(page.locator('#parlay-buckets')).toBeHidden();
     await expect(page.locator('.pw-wkbar')).toHaveCount(0);
     await expect(page.locator('.wk-chip')).toHaveCount(0);
     await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);
     await expect(page.locator('#parlay-pnl .rv-pnl')).toHaveCount(0);
+    await expect(page.locator('#parlay-pnl')).toBeHidden();
     expect((await cardIds(page)).length).toBe(PARLAYS.parlays.filter((p) => p.scope !== 'week').length);
     expect(errors).toEqual([]);
   });

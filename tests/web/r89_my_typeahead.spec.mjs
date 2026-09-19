@@ -219,7 +219,10 @@ test('R89 — a name nothing answers says so, and adds nothing', async ({ page }
   await page.locator('#mp-input').click();
   await page.locator('#mp-input').pressSequentially('Nobody Whatsoever', { delay: 5 });
   await expect(page.locator('#mp-suggest li')).toHaveCount(1);
-  await expect(page.locator('#mp-suggest li')).toHaveText('No player or team matches');
+  // R90 — the row opens with R89's sentence and is REPLACED by the reason once
+  // the weekly/projection join lands; for a name on file nowhere, that reason.
+  await expect(page.locator('#mp-suggest li'))
+    .toHaveText('Nobody Whatsoever: no player or team by that name', { timeout: 20000 });
   await expect(page.locator('#mp-suggest li')).not.toHaveAttribute('data-seed', /.*/);
   await page.press('#mp-input', 'Enter');
   // the typed text stays where it can be corrected; nothing is invented

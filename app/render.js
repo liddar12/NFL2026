@@ -341,8 +341,11 @@ export function renderPlayerCard(player, opts) {
   const span = high - low;
   const pctLeft = span > 0 ? clamp(((proj - low) / span) * 100, 0, 100) : 50;
 
+  // R90 (F20) — every card repeats the same WEEKS button, so a screen reader
+  // heard "WEEKS, button" three hundred times with nothing to tell them apart.
+  // The accessible name carries the player; the visible label stays WEEKS.
   const expand = o.weekly === true
-    ? '<button type="button" class="p-expand" aria-expanded="false">WEEKS</button>'
+    ? `<button type="button" class="p-expand" aria-expanded="false" aria-label="Weeks: ${esc(player.name)}">WEEKS</button>`
     : '';
 
   // REL2 adornments (all optional — a card rendered without them is unchanged):

@@ -393,6 +393,46 @@ nothing ships without one.
   `tests/web/r89_my_typeahead.spec.mjs` (phone 402×874 and desktop: the FINAL row and its reason
   derived from the committed schedule, a lower-case surname → cards, arrow keys, tap, Escape, no
   overflow, no console errors). · **LOE** 0.5 d
+- **R90 · Slate truth and Parlays first screen — built 2026-09-19 (F11, F12, F13, F18, F19, F20).**
+  **F11** a successful gameday refit replaced the whole `game_params` object, silently dropping `k`,
+  the applied `qb_out` family and anything else promoted. `refit.next_game_params` now deep-copies
+  the current object and replaces only `hfa_elo`, `revert`, `adopted_utc`, `source` and a new
+  `adopted_version`; the history entry carries the FULL effective object as the receipt build_
+  predictions reads; refusal writes nothing (locked by `r90_refit_merge.test.mjs`, byte-for-byte on
+  the committed params). **F12** an open week's archive replaced every card on any rebuild, so a
+  Thursday card could change after Thursday's result and a rank-based `parlay_id` could name a
+  different bet. Every archived card now carries a `card_id` (sha1 over scope, game and the SORTED
+  legs — leg order and rank excluded) and FREEZES at its earliest relevant kickoff: the archived copy
+  is kept verbatim with `frozen_utc`, a rebuild may neither replace nor remove it, a rank change
+  appends a new card, and the week still closes when every game is FINAL; the committed week-2
+  archive froze **19** cards on DET @ BUF (3 game cards + all 16 week cards carrying `BUF ML`), a
+  second run writes zero bytes (`r90_card_freeze.test.mjs`, contract, `docs/PARLAY_HISTORY.md`).
+  **F13** a past week's Slate showed probabilities recomputed by today's model while its dot graded
+  the ORIGINAL pick (game 401872657: locked 62.67%, displayed 48.67% — the favourite flipped on
+  screen). The review layer now paints the LOCKED forecast on every graded card, the final score,
+  and one provenance line `LOCKED <utc> · recomputed with today's model: 49%`, so the recomputation is
+  an explicit secondary figure; a past game with no lock on file reads `no pregame forecast on
+  file` and no number (`r90_slate_truth.test.mjs`, `r90_slate_truth.spec.mjs`; the flipped-favourite
+  fixture renders the locked favourite). **F20** the why-this-result expansion was a click on an
+  article; it is a real `Why this result: NE at SEA` button with `aria-controls`, Enter/Space,
+  Escape and focus retained across repaint; the Slate and Parlays week/scope controls are grouped
+  buttons with `aria-pressed` and Left/Right arrow keys instead of tabs without tabpanels; the
+  repeated WEEKS toggle carries `Weeks: <player>`. **F18** at 402×874 the first curated parlay
+  started at **1,217px** with a 465px always-open glossary above it. The glossary is a collapsed
+  `HOW THESE NUMBERS WORK` (62px), leg count / tier / sort live in one collapsed `FILTERS · 3 LEGS ·
+  HIGH · SIM EV` panel (56px, state in the summary, persisted per viewer in
+  `nfl2026.parlays.filters.v1`, cleared by RESET ALL), and the outcome buckets and P&L are hidden
+  entirely on a week with no graded parlay. **After:** first card top **733px** against a tabbar at
+  817px — a real bet is on the opening screen; 668px at 1280×900; no horizontal overflow
+  (`r90_parlays_ux.spec.mjs` measures it). **F19** the placeholder example `J. Jefferson, KC` now
+  works verbatim (typed text splits on commas, each part seeded in order); a name the pool does not
+  price gets its reason in the row — position with no calibrated market, not playable this week
+  with the status, no projection on file, or not priced in this week's pool — from a lazy join of
+  player_weekly and player_projections fetched only on the first typed miss (zero fetches on a cold
+  #/parlays load or the MY tap, asserted); the typed text is never cleared; the legend states that
+  a card contains AT LEAST ONE seed, not all. Boot graph re-measured 369,024 (+2,082: slate.js and
+  render.js), ceiling re-set with the written decision in `tests/perf/budget.spec.mjs`. · **LOE**
+  2 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

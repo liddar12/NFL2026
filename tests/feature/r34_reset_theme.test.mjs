@@ -92,6 +92,7 @@ test('RESET_ALL_KEYS enumerates every nfl2026.* data key, and only ours', () => 
     'nfl2026.leaguerosters.v1',                      // R49: every league roster in app ids (waiver wire)
     'nfl2026.nflweek.v1',                            // R49: Sleeper's current NFL week (LINEUP default WK)
     'nfl2026.myparlays.dial.v1',                     // R86: the MY PARLAYS risk dial (SAFE/EVEN/LONGSHOT)
+    'nfl2026.parlays.filters.v1',                    // R90: the PARLAYS filter panel, open or shut
   ];
   assert.deepEqual([...RESET_ALL_KEYS].sort(), expected.sort(),
     'the wipe list must name exactly the app\'s data keys — a new nfl2026.* '

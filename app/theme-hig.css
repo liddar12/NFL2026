@@ -767,6 +767,7 @@
 }
 [data-theme="hig"] .wk-chip--active,
 [data-theme="hig"] .wk-chip[aria-selected="true"],
+[data-theme="hig"] .wk-chip[aria-pressed="true"],   /* R90/F20 */
 [data-theme="hig"] .sort-chip[aria-pressed="true"],
 [data-theme="hig"] .sort-chip--active,
 [data-theme="hig"] .pf-chip[aria-pressed="true"],
@@ -1453,6 +1454,22 @@
   padding: 0 15px;
 }
 [data-theme="hig"] .pw-archived { border-radius: 999px; }
+
+/* =============================================================================
+   R90 — the PARLAYS first screen under HIG: the collapsed FILTERS panel and
+   the collapsed glossary are two grouped rows, so they take the SF text ladder
+   and the grouped-list corner radius the rest of this theme uses. No new
+   colours: the fills are the same tokens the chips already carry.
+   ========================================================================== */
+[data-theme="hig"] .pfilters { border-radius: 12px; }
+[data-theme="hig"] .pf-sum,
+[data-theme="hig"] .legend.legend--parlays > summary {
+  font-family: var(--sans);
+  font-size: var(--fs-subhead);
+  font-weight: 590;
+  letter-spacing: var(--tr-subhead, 0);
+  text-transform: none;
+}
 
 /* =============================================================================
    R71 — POST-GAME REVIEW under HIG: the same .rv-* markup, capsule chips with

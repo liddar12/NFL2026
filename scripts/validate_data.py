@@ -2087,7 +2087,8 @@ def _selftest():
     # R73 — the parlay archive + index contracts (scripts/build_parlay_archive.py).
     _ar_schema = _load(os.path.join(CONTRACTS, PARLAY_ARCHIVE_SCHEMA))
     _ar = {"season": 2026, "week": 1, "updated_utc": "2026-09-14T16:44:55Z",
-           "parlays": [{"parlay_id": "G1-g1", "scope": "game", "game_id": "G1",
+           "parlays": [{"parlay_id": "G1-g1", "card_id": "0123456789ab",
+                        "scope": "game", "game_id": "G1",
                         "legs": [{"market": "moneyline", "selection": "AAA ML",
                                   "implied_prob": 0.55, "model_prob": 0.6}],
                         "model_ev": 0.05, "confidence_tier": "low",

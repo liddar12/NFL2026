@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "parlays_archive.schema.json",
   "title": "Archived week of parlays (R73)",
-  "description": "One file per (season, week) under data/parlays/<season>_wk<NN>.json, written by scripts/build_parlay_archive.py: data/parlays.json VERBATIM (season, week, updated_utc, parlays - the same leg contract as parlays.schema.json, implied_prob display-only) plus archived_utc, closed and history. Created on first sight of the week, refreshed on every run while the week is open (the last priced state before close; as-made prices live in the R58 leg ledger), and NEVER rewritten once closed = every game of the week FINAL in schedule_full.json. Validated by scripts/validate_data.py (optional directory).",
+  "description": "One file per (season, week) under data/parlays/<season>_wk<NN>.json, written by scripts/build_parlay_archive.py: data/parlays.json VERBATIM (season, week, updated_utc, parlays - the same leg contract as parlays.schema.json, implied_prob display-only) plus archived_utc, closed and history, and the two keys the archive itself stamps on a card: card_id and frozen_utc. Created on first sight of the week, refreshed on every run while the week is open (the last priced state before close; as-made prices live in the R58 leg ledger), and NEVER rewritten once closed = every game of the week FINAL in schedule_full.json. R90: a card FREEZES on the first refresh at or after its earliest relevant kickoff, so an open week is immutable from each game's kickoff on. Validated by scripts/validate_data.py (optional directory).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -34,6 +34,7 @@
         "additionalProperties": false,
         "required": [
           "parlay_id",
+          "card_id",
           "scope",
           "legs",
           "model_ev",
@@ -43,7 +44,16 @@
         "properties": {
           "parlay_id": {
             "type": "string",
-            "description": "Stable parlay identifier."
+            "description": "Stable parlay identifier. Display and the review join (app/review.js, scripts/replay_lab.py) key on it; it carries the card's RANK, so it can name a different bet after a rebuild - card_id is the identity."
+          },
+          "card_id": {
+            "type": "string",
+            "minLength": 8,
+            "description": "R90: short sha1 over the card's canonical ordered leg identity (the sorted market|selection pairs plus scope and game_id). Reordering legs leaves it unchanged; changing, adding or dropping a leg yields a new id, which is appended as a new card rather than overwriting a frozen one."
+          },
+          "frozen_utc": {
+            "type": ["string", "null"],
+            "description": "R90: set on the first refresh at or after this card's earliest relevant kickoff (its game, or the earliest game its legs name). A frozen card is kept verbatim for ever after - the rebuild may neither replace nor remove it. Absent or null while the card is still live."
           },
           "scope": {
             "type": "string",
@@ -194,6 +204,11 @@
           "archived_utc": {
             "type": "string",
             "minLength": 1
+          },
+          "frozen": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "R90: how many cards that refresh carried forward frozen (omitted when none were)."
           }
         }
       }

@@ -5,6 +5,10 @@
  * carries (the pipeline's current week) and renders from that contract; any
  * OTHER week renders from schedule_full.json filtered to that week — same
  * renderGameCard markup, probs come from schedule_full's per-game probs.
+ * R90: those probs are a RECOMPUTATION (build_predictions.py re-predicts the
+ * whole season from today's ratings every run), so on any week but the current
+ * one app/review.js repaints the heads from the immutable lock and demotes the
+ * recomputed number to a provenance line — see its R90 block.
  * schedule_full is only fetched on the first non-default selection (cached by
  * data.js after that). Handles the empty + error states with a .state message
  * so the user never sees a blank screen. No rendering markup for cards lives
@@ -23,14 +27,20 @@ function stateMsg(el, text) {
   el.innerHTML = `<div class="state">${text}</div>`;
 }
 
-/** The .wkbar chip row. Active chip = .wk-chip--active + aria-selected. */
+/**
+ * The .wkbar chip row. R90/F20: an ordinary GROUP of toggle buttons, not a
+ * tablist — the tab roles promised tabpanel association and roving arrow keys
+ * that never existed (review F20), and there is no panel here to associate:
+ * the chips filter one list in place. Active chip = .wk-chip--active (what
+ * theme.css styles) + aria-pressed="true" (what a screen reader reads).
+ */
 function wkBar(active) {
-  let out = '<div class="wkbar" role="tablist" aria-label="Week">';
+  let out = '<div class="wkbar" role="group" aria-label="Week">';
   for (let w = 1; w <= WEEKS; w += 1) {
     const on = w === active;
     out +=
       `<button type="button" class="wk-chip${on ? ' wk-chip--active' : ''}" ` +
-        `data-wk="${w}" role="tab" aria-selected="${on ? 'true' : 'false'}">WK ${w}</button>`;
+        `data-wk="${w}" aria-pressed="${on ? 'true' : 'false'}">WK ${w}</button>`;
   }
   return out + '</div>';
 }
@@ -108,7 +118,7 @@ export default async function mountSlate(el) {
       html += card(g);
     }
     listEl.innerHTML = html;
-    reviewSlate(listEl, active);
+    reviewSlate(listEl, active, sorted);
   }
 
   /**
@@ -117,9 +127,14 @@ export default async function mountSlate(el) {
    * and the tap-to-reveal why onto the painted cards. Nothing renders pre-final or
    * when data/review.json is absent; a failed import is silent — never a blank slate.
    */
-  function reviewSlate(target, week) {
+  function reviewSlate(target, week, games) {
+    // R90 — the review layer also owns HISTORICAL TRUTH (F13), so it needs the
+    // week context this view alone has: which week the pipeline is currently
+    // on (its cards keep today's forecast, which is the right one for an
+    // unplayed game) and each painted game's schedule status.
+    const statuses = new Map(games.map((g) => [String(g.game_id), String(g.status || '')]));
     import('../review.js')
-      .then((mod) => mod.applySlateReview(target, week))
+      .then((mod) => mod.applySlateReview(target, week, { currentWeek: defaultWeek, statuses }))
       .catch(() => { /* review layer unavailable — cards stand on their own */ });
   }
 
@@ -129,7 +144,7 @@ export default async function mountSlate(el) {
     el.querySelectorAll('.wkbar .wk-chip').forEach((b) => {
       const on = Number(b.dataset.wk) === week;
       b.classList.toggle('wk-chip--active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     if (titleEl) titleEl.textContent = `WEEK ${week} SLATE`;
     setTopbarWeek(week);
@@ -173,6 +188,21 @@ export default async function mountSlate(el) {
       const week = Number(btn.dataset.wk);
       if (!Number.isFinite(week) || week === active) return;
       selectWeek(week);
+    });
+    // Every chip is a button, so Tab already reaches all 18 — Left/Right are a
+    // convenience on top (move focus AND select), the way the week rail reads
+    // on a hardware keyboard. Nothing here removes a chip from the tab order.
+    bar.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const btn = e.target.closest('.wk-chip');
+      if (!btn) return;
+      const chips = [...bar.querySelectorAll('.wk-chip')];
+      const next = chips[chips.indexOf(btn) + (e.key === 'ArrowRight' ? 1 : -1)];
+      if (!next) return;
+      e.preventDefault();
+      next.focus();
+      const week = Number(next.dataset.wk);
+      if (Number.isFinite(week) && week !== active) selectWeek(week);
     });
   }
 }

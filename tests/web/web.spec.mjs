@@ -551,6 +551,8 @@ test.describe('parlay leg-count selector (#/parlays)', () => {
     // Switch to WEEK scope (where 2..7-leg buckets live).
     await page.locator('.scopeseg .seg-btn[data-seg="week"]').click();
     await page.waitForTimeout(50);
+    // R90 — leg count, tier and sort live in the collapsed FILTERS panel now.
+    await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
     // Leg chips for every bucket present in the data plus ALL.
     for (const k of [2, 3, 4, 5, 6, 7]) {
       await expect(page.locator(`.legseg .leg-chip[data-leg="${k}"]`)).toHaveCount(1);

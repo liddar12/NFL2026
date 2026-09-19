@@ -80,6 +80,10 @@ const errorsOf = (page) => { const e = []; page.on('pageerror', (x) => e.push(St
 async function mount(page) {
   await page.goto('/#/parlays');
   await page.waitForSelector('.card.parlay', { timeout: 20000 });
+  // R90 — the tier and sort chips live inside the collapsed FILTERS panel; this
+  // file drives them, so it opens the panel the way a viewer would.
+  await page.waitForSelector('#parlay-filters', { timeout: 20000 });
+  await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
   await page.waitForSelector('#sort-controls [data-sort="pay"]', { timeout: 20000 });
 }
 

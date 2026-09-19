@@ -105,7 +105,9 @@ test.describe('R76 — MY PARLAYS', () => {
     await page.click('.scopeseg [data-seg="game"]');
     await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
     await expect(page.locator('#myparlays-host')).toBeHidden();
-    await expect(page.locator('#leg-controls')).toBeVisible();
+    // R90 — #leg-controls now sits inside the FILTERS panel, which is shut by
+    // default; the panel itself is the slate chrome that must come back.
+    await expect(page.locator('#parlay-filters')).toBeVisible();
     // and going back does not refetch the pool or lose the seeds
     await page.click('.scopeseg [data-seg="my"]');
     await expect(page.locator('#mp-input')).toBeVisible();

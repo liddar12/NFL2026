@@ -106,20 +106,25 @@ test.describe('R71 — post-game review on #/ and #/parlays', () => {
     expect(bg).not.toBe('rgba(0, 0, 0, 0)');
     expect(bgLost).toBe('rgba(0, 0, 0, 0)');
 
-    // tap-to-reveal: hidden until tapped, AI NARRATIVE labeled only where on file
+    // tap-to-reveal: hidden until tapped, AI NARRATIVE labeled only where on file.
+    // R90/F20: the control is a real BUTTON inside the card (the article no
+    // longer claims aria-expanded), so the tap targets .rv-why-btn.
     await expect(won.locator('.rv-why')).toBeHidden();
-    await won.click();
+    await expect(won.locator('.rv-why-btn')).toHaveAttribute('aria-expanded', 'false');
+    await won.locator('.rv-why-btn').click();
     await expect(won.locator('.rv-why')).toBeVisible();
+    await expect(won.locator('.rv-why-btn')).toHaveAttribute('aria-expanded', 'true');
     await expect(won.locator('.rv-why-head')).toHaveText('WHY · MEASURED');
     await expect(won.locator('.rv-reason')).toHaveCount(2);
     await expect(won.locator('.rv-narr-label')).toHaveText('AI NARRATIVE');
     await expect(won.locator('.rv-narr-text')).toHaveText('Restated: the pick won by 7.');
-    await lost.click();
+    await lost.locator('.rv-why-btn').click();
     await expect(lost.locator('.rv-why')).toBeVisible();
     await expect(lost.locator('.rv-narr')).toHaveCount(0);
-    await won.click();
+    await won.locator('.rv-why-btn').click();
     await expect(won.locator('.rv-why')).toBeHidden();
     await expect(pending.locator('.rv-why')).toHaveCount(0);
+    await expect(pending.locator('.rv-why-btn')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
