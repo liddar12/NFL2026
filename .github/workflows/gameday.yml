@@ -155,6 +155,15 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
 
+      # R89 — the player backtest is measured on player_history.json, which the
+      # lock step above just rebuilt. Daily runs both; gameday ran only the
+      # first, so after gameday 123 the committed player_backtest.json reported
+      # band coverage 0.6766 against a history that now measured 0.6910, and
+      # the r49 gate went red on a data commit. Same generation, same artifact.
+      - name: Player-level walk-forward backtest (same substrate as today's history)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: bash scripts/stage.sh gameday "Player-level walk-forward backtest (same substrate as today's history)" -- python -m scripts.backtest_player
+
       # R87 (F17) — as-made pricing for every shipped leg, locked pre-kickoff.
       # Idempotent per parlays.json updated_utc, so the two-hourly Sunday grid appends
       # once per generation and a post-kickoff leg is recorded unlocked rather than
@@ -176,6 +185,7 @@ jobs:
           python3 scripts/stage_status.py skip --workflow gameday --stage "Lock pre-kickoff probabilities" --reason "scores mode: nothing is re-priced"
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS leg pool (rebuild under this generation)" --reason "scores mode: nothing is re-priced"
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Player-level walk-forward backtest (same substrate as today's history)" --reason "scores mode: the history is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 
       # R87 (F17) — GRADING IS MODE-INDEPENDENT, so these two carry NO mode guard.

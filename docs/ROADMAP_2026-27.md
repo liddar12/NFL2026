@@ -368,6 +368,31 @@ nothing ships without one.
   every workflow's `begin` step and wrapped command text, the exact publish messages, no
   `--ff-only` anywhere), `pipeline_stages.schema.json` in the validator, `stage_status --selftest`
   in smoke, `docs/PUBLISH.md` and the R88 section of `docs/PIPELINE_GRAPH.md`. · **LOE** 1.5 d
+- **R89 · MY PARLAYS type-ahead and an honest empty state — built 2026-09-19 (owner report:
+  "the player search does not function").** Reproduced on the exact prod code and data: the seed
+  input accepted only an EXACT name chosen from the browser's native `<datalist>` — "goff",
+  "aaron jones" or "j allen" + Enter did nothing, 16 pool names carry a suffix a person never types
+  ("James Cook III", "Aaron Jones Sr."), iPhone Safari's native popup is unreliable, and the 17
+  DET/BUF players whose game went FINAL on Thursday were still offered and then answered "No
+  upcoming card is available for those names" without saying why. **Changed:** our own type-ahead
+  — `matchSeeds(options, query)` normalises both sides (NFD, diacritics stripped, punctuation to
+  spaces, suffix tokens dropped) and ranks exact → team abbreviation → prefix of the full name →
+  a whole token (a surname typed in full beats a longer token that merely starts with it, so
+  "cook" is James Cook III before Brandin Cooks) → every query token prefixes a name token with the
+  first token first → any token prefix → substring, ties A→Z, top 8 — rendered as a `role=listbox`
+  under a `role=combobox` input with 44px rows, arrow keys, Enter (first match by default), Escape,
+  tap (pointerdown so iOS blur cannot swallow it), and a `GAME FINAL` tag on any seed with no
+  upcoming leg. `emptyReason(seeds, legs, games, poolWeek)` replaces the fixed sentence: *"Josh
+  Allen: DET @ BUF is final; cards are built only for games that have not kicked off, and BUF's
+  next cards arrive with the week 3 pool."* **Also fixed under the same gate:** gameday now runs the
+  player backtest after it rebuilds player_history.json (gameday 123 had left
+  `player_backtest.json` reporting 0.6766 coverage against a history measuring 0.6910, reddening
+  the r49 pin on a data commit), and the R88 test no longer forbids the runner-committed stage
+  record. **Locked by** `tests/feature/r89_my_typeahead.test.mjs` (26: ranking, suffixes,
+  diacritics, initial+surname, teams, limit, every empty-state sentence) and
+  `tests/web/r89_my_typeahead.spec.mjs` (phone 402×874 and desktop: the FINAL row and its reason
+  derived from the committed schedule, a lower-case surname → cards, arrow keys, tap, Escape, no
+  overflow, no console errors). · **LOE** 0.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

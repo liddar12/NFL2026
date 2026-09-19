@@ -42,6 +42,18 @@
  *   - same-game legs are correlation-adjusted, cross-game combined as
  *     independent — the builder's rule, through the shared maths.
  *
+ * R89 — WE DO OUR OWN TYPE-AHEAD, AND THE EMPTY STATE SAYS WHY. The seed box
+ * was a native <datalist>: it accepted only an EXACT option name, so "goff",
+ * "aaron jones" and "j allen" each added nothing and cleared the field, and on
+ * iPhone Safari the native popup is unreliable enough that the search read as
+ * dead. 16 of the 214 pooled players carry a suffix ("James Cook III") that
+ * nobody types, and on a Friday the list still offered the 17 players on DET and
+ * BUF — whose game was final — and answered with "No upcoming card is available
+ * for those names", which never said why. matchSeeds ranks the options
+ * ourselves, the list is ours (so it behaves the same on every browser), a row
+ * whose game has no upcoming leg says GAME FINAL before it is picked, and
+ * emptyReason names the game, its state, and the week the next cards arrive.
+ *
  * WHY EACH LEG, MEASURED. Every leg carries a line stating the numbers behind
  * it: the projection against the line, and the team's win probability that the
  * calibration's second term reads. No language model is involved — the product
@@ -197,6 +209,160 @@ export function matchesSeed(leg, seeds) {
     if (s.kind === 'team' && (leg.team === s.name || leg.owner === s.id)) return true;
   }
   return false;
+}
+
+/* ---- R89: the seed type-ahead and the honest empty state ----------------- */
+
+/* Suffix tokens. 16 of the 214 pooled players carry one ("James Cook III",
+ * "Aaron Jones Sr."), and nobody types it: dropping it from the NAME is what
+ * lets "aaron jones" reach "Aaron Jones Sr." while the full form still matches
+ * exactly, which is what the four MY browser specs type. */
+const NAME_SUFFIXES = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v']);
+
+/** lower-case, diacritics dropped, non-alphanumerics -> space, spaces collapsed. */
+function normName(v) {
+  return String(v == null ? '' : v)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** The three forms of an option's name a query is measured against. */
+function nameForms(option) {
+  const full = normName(option && option.name);
+  const tokens = full ? full.split(' ') : [];
+  return { full, tokens, core: tokens.filter((t) => !NAME_SUFFIXES.has(t)).join(' ') };
+}
+
+/** A team's abbreviation, which is seedable on its own ("ari" -> ARI). */
+const teamAbbr = (option) => (option && option.kind === 'team'
+  ? normName(option.abbr || option.name) : '');
+
+const NO_MATCH = 99;    // sorts behind every real rank; never returned
+
+/**
+ * How well `option` answers the query — LOWER IS BETTER, NO_MATCH is no match.
+ *
+ * 1 exact (after suffix-dropping) · 2 team abbreviation · 3 the query is a
+ * prefix of the whole name · 4 every query token prefixes a name token AND the
+ * first one prefixes the FIRST name token · 5 every query token prefixes some
+ * name token · 6 the name contains the query. Ties break A->Z in matchSeeds.
+ */
+function seedRank(option, q, qTokens) {
+  const { full, tokens, core } = nameForms(option);
+  if (!full || !q) return NO_MATCH;
+  if (q === full || q === core) return 1;
+  if (teamAbbr(option) === q) return 2;
+  if (full.startsWith(q)) return 3;
+  // A surname typed in full is a whole token: "cook" is James Cook III before
+  // Brandin Cooks, whose token only STARTS with it. Measured on the committed
+  // pool the A-to-Z tie-break alone put Cooks first.
+  if (qTokens.length === 1 && tokens.includes(q)) return 4;
+  const everyToken = qTokens.every((t) => tokens.some((n) => n.startsWith(t)));
+  if (everyToken && tokens[0].startsWith(qTokens[0])) return 5;
+  if (everyToken) return 6;
+  if (full.includes(q) || core.includes(q)) return 7;
+  return NO_MATCH;
+}
+
+/**
+ * R89 — the ranked matches for what the viewer has typed so far.
+ *
+ * Pure, and the whole of the search: the view renders exactly this list. An
+ * empty query returns nothing (a 246-row list is not a suggestion), and a query
+ * nothing answers returns [] so the caller can say so rather than guess.
+ */
+export function matchSeeds(options, query, limit = 8) {
+  const q = normName(query);
+  if (!q) return [];
+  const qTokens = q.split(' ');
+  const ranked = [];
+  for (const option of options || []) {
+    const rank = seedRank(option, q, qTokens);
+    if (rank < NO_MATCH) ranked.push({ option, rank });
+  }
+  ranked.sort((a, b) => a.rank - b.rank
+    || String(a.option.name).localeCompare(String(b.option.name)));
+  return ranked.slice(0, Math.max(0, Number(limit) || 0)).map((r) => r.option);
+}
+
+/** The seed ids — players and `team:` ids — that still have an upcoming leg. */
+function liveSeedIds(upcoming) {
+  const live = new Set();
+  for (const leg of upcoming || []) {
+    if (leg.owner) live.add(String(leg.owner));
+    if (leg.team) live.add(`team:${leg.team}`);
+  }
+  return live;
+}
+
+/** What a game is doing, in the three words the empty state is allowed to use. */
+function gameState(game, now) {
+  const status = String((game && game.status) || '').toUpperCase();
+  if (!status) return 'not verified';
+  if (/FINAL|FULL_TIME|END_OF/.test(status)) return 'final';
+  if (/IN_PROGRESS|HALF|PERIOD|QUARTER|OVERTIME|DELAY/.test(status)) return 'in progress';
+  const kickoff = Date.parse(game.kickoff_utc);
+  // A SCHEDULED record whose kickoff has passed is a game being played that the
+  // feed has not caught up with — R84's cutoff already dropped its legs.
+  if (status.includes('SCHEDULED') && Number.isFinite(kickoff) && kickoff <= now) return 'in progress';
+  return 'not verified';
+}
+
+/**
+ * R89 — WHY there is no card, per seed, in numbers.
+ *
+ * "No upcoming card is available for those names" was true and useless: it
+ * never said that DET and BUF had played on Thursday, so the 17 pooled players
+ * on those two teams read as a broken search for three days a week. Pure, so
+ * the sentences are testable without a browser.
+ */
+export function emptyReason(seeds, legs, games, poolWeek, now = Date.now()) {
+  const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
+  const live = liveSeedIds(upcomingLegs(legs || [], games || [], now));
+  const week = Number(poolWeek);
+  const nextWeek = Number.isFinite(week) ? week + 1 : null;
+  const out = [];
+  for (const seed of seeds || []) {
+    if (live.has(String(seed.id))) {
+      out.push(`No card could be built around ${seed.name} at this dial; `
+        + 'try another risk setting.');
+      continue;
+    }
+    const mine = (legs || []).filter((l) => matchesSeed(l, [seed]));
+    const team = seed.kind === 'team' ? seed.name
+      : (mine.find((l) => l.team) || {}).team || seed.name;
+    const tail = `cards are built only for games that have not kicked off, and ${team}'s `
+      + `next cards arrive with the week ${nextWeek} pool.`;
+    const ids = [...new Set(mine.map((l) => String(l.game_id)).filter(Boolean))];
+    if (!ids.length) { out.push(`${seed.name}: no game is on file; ${tail}`); continue; }
+    for (const id of ids) {
+      const game = byId.get(id);
+      const where = game ? `${game.away} @ ${game.home}` : 'the game';
+      out.push(`${seed.name}: ${where} is ${gameState(game, now)}; ${tail}`);
+    }
+  }
+  return out.join(' ');
+}
+
+/**
+ * One suggestion row. `live` is the set of seed ids with an upcoming leg, so a
+ * row it does not hold is offered with the reason it will build nothing.
+ * A team's second cell is the literal word TEAM — its name IS its abbreviation,
+ * so repeating it there would say nothing.
+ */
+function renderSeedOption(option, i, active, live) {
+  const meta = option.kind === 'team' ? 'TEAM'
+    : [option.team, option.position].filter(Boolean).map(esc).join(' · ');
+  const done = live && !live.has(String(option.id))
+    ? '<span class="est">GAME FINAL</span>' : '';
+  return `<li role="option" id="mp-opt-${i}" class="mp-opt" data-seed="${esc(option.id)}" `
+    + `aria-selected="${i === active ? 'true' : 'false'}">`
+      + `<span class="mp-opt-nm">${esc(option.name)}</span>`
+      + (meta ? `<span class="mp-opt-meta">${meta}</span>` : '')
+      + done
+    + '</li>';
 }
 
 /* ---- the search --------------------------------------------------------- */
@@ -406,7 +572,7 @@ export function renderCard(card, i) {
 /* ---- mount -------------------------------------------------------------- */
 
 const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
-  dial: DEFAULT_DIAL };
+  dial: DEFAULT_DIAL, live: new Set() };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -455,6 +621,10 @@ function paint(el) {
   const list = el.querySelector('#mp-list');
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
+  // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
+  // and so does the suggestion list, which marks every seed that has none.
+  const eligible = upcomingLegs(state.legs || [], state.games || []);
+  state.live = liveSeedIds(eligible);
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
   paintRecord(el);            // the dial decides which record is shown
@@ -464,14 +634,14 @@ function paint(el) {
       + 'we build will contain at least one of them.</div>';
     return;
   }
-  const eligible = upcomingLegs(state.legs, state.games);
   // R86 — the dial narrows each player's ladder to ONE rung BEFORE the search, so
   // conviction ranks legs of comparable difficulty instead of racing to the floor.
   const target = DIALS[state.dial] != null ? DIALS[state.dial] : DIALS[DEFAULT_DIAL];
   const cards = buildCards(dialLegs(eligible, target), state.seeds, state.table);
   if (!cards.length) {
-    list.innerHTML = '<div class="state">No upcoming card is available for those names. Started, '
-      + 'finished, or unverified events are excluded.</div>';
+    // R89 — per seed, the game and its state, instead of one fixed sentence.
+    list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, state.legs,
+      state.games, state.pool && state.pool.week))}</div>`;
     return;
   }
   // The list is built as leg-count PAIRS; the eyebrow says so, once per band,
@@ -521,14 +691,15 @@ export default async function mountMyParlays(el) {
   const unavailable = (state.pool.game_legs || []).length
     - state.legs.filter((l) => l.market === 'moneyline' || l.market === 'spread').length;
   const options = seedOptions(state.pool);
-  const byName = new Map(options.map((o) => [o.name.toLowerCase(), o]));
 
   el.innerHTML =
     '<div class="mp-head">'
       + '<label class="mp-label" for="mp-input">PLAYERS OR TEAMS</label>'
-      + '<input id="mp-input" class="mp-input" list="mp-opts" autocomplete="off" '
-        + 'placeholder="e.g. J. Jefferson, KC" aria-describedby="mp-note">'
-      + `<datalist id="mp-opts">${options.map((o) => `<option value="${esc(o.name)}">`).join('')}</datalist>`
+      + '<input id="mp-input" class="mp-input" autocomplete="off" role="combobox" '
+        + 'aria-autocomplete="list" aria-expanded="false" aria-controls="mp-suggest" '
+        + 'placeholder="e.g. goff, j allen, KC" aria-describedby="mp-note">'
+      + '<ul id="mp-suggest" class="mp-suggest" role="listbox" '
+        + 'aria-label="Matching players and teams"></ul>'
     + '</div>'
     + '<div id="mp-seeds"></div>'
     + '<div class="mp-dial" role="group" aria-label="Risk dial"></div>'
@@ -547,16 +718,85 @@ export default async function mountMyParlays(el) {
       + 'event or team-side identity could not be verified.</div>' : '')
     + '<div id="mp-list" class="card-list"></div>';
 
+  /* R89 — the type-ahead. The whole list is re-rendered on every keystroke:
+   * matchSeeds over 246 options is one pass of string work, far below a frame,
+   * so a debounce would only add latency to a keypress that is already free. */
   const input = el.querySelector('#mp-input');
-  const add = () => {
-    const opt = byName.get(String(input.value || '').trim().toLowerCase());
-    if (!opt || state.seeds.some((s) => s.id === opt.id)) { input.value = ''; return; }
-    state.seeds.push(opt);
+  const listbox = el.querySelector('#mp-suggest');
+  let shown = [];             // the options on screen, in rank order
+  let active = 0;             // the row Enter picks — the best match by default
+  let blurTimer = null;
+
+  const closeSuggest = () => {
+    shown = [];
+    active = 0;
+    listbox.innerHTML = '';
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  };
+
+  const markActive = () => {
+    const rows = [...listbox.children];
+    rows.forEach((li, i) => {
+      if (li.dataset.seed) li.setAttribute('aria-selected', i === active ? 'true' : 'false');
+    });
+    const row = rows[active];
+    if (!row || !row.dataset.seed) return;
+    input.setAttribute('aria-activedescendant', row.id);
+    row.scrollIntoView({ block: 'nearest' });
+  };
+
+  const paintSuggest = () => {
+    if (!String(input.value || '').trim()) { closeSuggest(); return; }
+    shown = matchSeeds(options, input.value);
+    if (active >= shown.length) active = 0;
+    listbox.innerHTML = shown.length
+      ? shown.map((o, i) => renderSeedOption(o, i, active, state.live)).join('')
+      // Not an option, and not silence either: the old box just cleared itself.
+      : '<li class="mp-opt mp-opt--none" aria-disabled="true">No player or team matches</li>';
+    input.setAttribute('aria-expanded', 'true');
+    if (shown.length) input.setAttribute('aria-activedescendant', `mp-opt-${active}`);
+    else input.removeAttribute('aria-activedescendant');
+  };
+
+  const pick = (opt) => {
     input.value = '';
+    closeSuggest();
+    if (!opt || state.seeds.some((s) => s.id === opt.id)) return;
+    state.seeds.push(opt);
     paint(el);
   };
-  input.addEventListener('change', add);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+  input.addEventListener('input', paintSuggest);
+  input.addEventListener('focus', () => { clearTimeout(blurTimer); paintSuggest(); });
+  // The tap must land before the blur that follows it, or iOS swallows the pick:
+  // pointerdown fires first and preventDefault keeps the focus where it is.
+  for (const type of ['pointerdown', 'mousedown']) {
+    listbox.addEventListener(type, (e) => {
+      const row = e.target.closest('[data-seed]');
+      if (!row || !shown.length) return;
+      e.preventDefault();
+      pick(shown.find((o) => String(o.id) === row.dataset.seed));
+    });
+  }
+  input.addEventListener('blur', () => {
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(closeSuggest, 120);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!shown.length) return;
+      e.preventDefault();
+      active = (active + (e.key === 'ArrowDown' ? 1 : shown.length - 1)) % shown.length;
+      markActive();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      // Nothing matched: the typed text stays where the viewer can fix it.
+      if (shown.length) pick(shown[active]); else paintSuggest();
+    } else if (e.key === 'Escape') {
+      closeSuggest();
+    }
+  });
   el.querySelector('.mp-dial').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-dial]');
     if (!btn || btn.dataset.dial === state.dial) return;
