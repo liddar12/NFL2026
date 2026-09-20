@@ -8,6 +8,18 @@
  * DOM: rows appear as you type, the keyboard walks them, a thumb picks one, and
  * a row whose game is already final says so BEFORE you spend a tap on it.
  *
+ * R91, 2026-09-20: the thumb pick came back, from the other side. Our overlay
+ * is absolutely positioned over #mp-seeds, and commit() runs on pointerdown and
+ * repaints SYNCHRONOUSLY — so the finger that picked a row was still down when
+ * the seed chip (a [data-drop] REMOVE button) rendered into the row's own
+ * pixels. The tap's trailing click then deleted the seed it had just made, and
+ * on row 1 it flipped the risk dial EVEN->SAFE and persisted it. The seed box
+ * read as dead again, which is the very symptom this file exists to prevent.
+ * The app eats that one ghost click now (app/views/myparlays.js, R91), and the
+ * tap test below aims at the printed NAME rather than the row's centre: the
+ * centre only lands on the chip for long names, so it could have gone green on
+ * a kinder pool with the bug still in.
+ *
  * NOTHING HERE IS HARD-CODED TO A TEAM. DET at BUF is final today and will not
  * be next week; the final game, the player on it and the pool's week are all
  * derived from the committed data (see _myseed.mjs for the same discipline and
@@ -16,7 +28,14 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { SEED_PLAYER, SEED_ROWS } from './_myseed.mjs';
+import { SEED_PLAYER, SEED_ROWS, SKIP_REASON } from './_myseed.mjs';
+
+/* The MY tests need a game that has not kicked off; between the last game of a
+ * week and the next week's pool there is none, and MY correctly offers nothing.
+ * The reason names that condition, so a skipped run reads as a finished slate
+ * rather than a broken suite. It is '' whenever any game is upcoming. */
+test.skip(() => Boolean(SKIP_REASON), SKIP_REASON || 'the slate is live');
+
 
 const POOL = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
 const SCHEDULE = JSON.parse(readFileSync(new URL('../../data/schedule_full.json', import.meta.url), 'utf8'));
@@ -177,7 +196,7 @@ test('R89 — ArrowDown twice then Enter picks the THIRD row, not the first', as
    (d) A THUMB PICKS A ROW — the tap the native popup kept losing
    ========================================================================== */
 
-test('R89 — tapping a row on the phone adds that seed', async ({ page }) => {
+test('R89 — tapping a row on the phone adds that seed and nothing else', async ({ page }) => {
   const errors = watch(page);
   await openMy(page, PHONE);
   await typeSeed(page, surnameOf(LIVE_PLAYER.player));
@@ -187,17 +206,125 @@ test('R89 — tapping a row on the phone adds that seed', async ({ page }) => {
   const box = await row.boundingBox();
   expect(box.height, `a suggestion row is ${box.height}px tall`).toBeGreaterThanOrEqual(44);
 
-  await row.tap();
+  // R91 — TAP THE PRINTED NAME, NOT THE ROW'S GEOMETRIC CENTRE. commit() runs
+  // on pointerdown and repaints under the still-pressed finger, so the tap's
+  // trailing click landed on whatever the repaint slid there — the [data-drop]
+  // chip that removes the seed just added. Whether the row's CENTRE is poisoned
+  // depends only on the chip's rendered width, i.e. the length of the seed's
+  // name (2026-09-20: Patrick Mahomes' chip reached x218 and died, Rashee
+  // Rice's stopped at x174 and lived), so a centre tap is a coin flip that
+  // could go green on a kinder pool with the bug still in. The name is where a
+  // thumb actually lands (x74-90) and it killed 4 of 4 seeds tried, short names
+  // included. Tap there: it is width-independent and cannot be masked by a
+  // future change to SEED_ROWS.
+  await row.locator('.mp-opt-nm').tap();
   await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(1);
   await expect(page.locator('#mp-seeds .leg-chip')).toContainText(name);
   await expect(page.locator('#mp-suggest li')).toHaveCount(0);
   await expect(page.locator('#mp-input')).toHaveValue('');
+  // ...and the same tap must not have actuated the risk dial, which slides up
+  // under the finger once the list closes. Tapping row 1 flipped EVEN->SAFE and
+  // writeDial PERSISTED it — a sticky preference change nobody asked for.
+  await expect(page.locator('.mp-dial [data-dial="even"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.mp-dial .leg-chip--active')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('R89 — tapping the second row seeds it without touching the risk dial', async ({ page }) => {
+  // R91's second victim, and the reason the guard is on the gesture rather than
+  // on the chip: once the list closes, .mp-dial — not #mp-seeds — is what the
+  // repaint puts under a finger that was aiming at row 1.
+  const errors = watch(page);
+  await openMy(page, PHONE);
+  await typeSeed(page, LIVE_PLAYER.player.slice(0, 1).toLowerCase());
+  const rows = page.locator('#mp-suggest li');
+  test.skip(await rows.count() < 2, 'the derived seed query reaches only one row today');
+  const row = rows.nth(1);
+  const name = (await row.locator('.mp-opt-nm').textContent()).trim();
+
+  await row.locator('.mp-opt-nm').tap();
+  await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(1);
+  await expect(page.locator('#mp-seeds .leg-chip')).toContainText(name);
+  await expect(page.locator('.mp-dial [data-dial="even"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});
+
+/* ==========================================================================
+   (g) THE GHOST-CLICK GUARD ENDS WITH THE GESTURE, NOT WITH A CLOCK
+   ==========================================================================
+   The guard that eats the tap's trailing click was first written with a 700ms
+   timeout. A timer is wrong in both directions and neither direction had a
+   test, so both are locked here:
+     - a press held LONGER than the timeout outlives the guard, and the ghost
+       click lands on the [data-drop] chip after all: the seed the tap just
+       created is destroyed, which is the original bug wearing a stopwatch;
+     - a press that never becomes a click (a drag, a scroll, a cancel) leaves
+       the guard armed, and it eats the viewer's NEXT, legitimate tap.
+   The guard is therefore disarmed by the next gesture. These two tests fail on
+   a timer-based guard and pass on a gesture-based one. */
+
+test('R89 — a SLOW tap still keeps its seed: the guard outlives any press', async ({ page }) => {
+  const errors = watch(page);
+  await openMy(page, PHONE);
+  await typeSeed(page, surnameOf(LIVE_PLAYER.player));
+  const row = page.locator('#mp-suggest li').first();
+  const name = (await row.locator('.mp-opt-nm').textContent()).trim();
+
+  // Press, hold well past any plausible timeout, then let the trailing click
+  // land exactly where the repaint put the remove button: on the new chip.
+  await row.locator('.mp-opt-nm').dispatchEvent('pointerdown');
+  await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(1);
+  await page.waitForTimeout(1200);
+  await page.locator('#mp-seeds .leg-chip').first().dispatchEvent('click');
+
+  await expect(page.locator('#mp-seeds .leg-chip'),
+    'a press held 1.2s still belongs to one gesture; its trailing click is still the ghost')
+    .toHaveCount(1);
+  await expect(page.locator('#mp-seeds .leg-chip')).toContainText(name);
+  expect(errors).toEqual([]);
+});
+
+test('R89 — a press that never becomes a click does not eat the NEXT tap', async ({ page }) => {
+  const errors = watch(page);
+  await openMy(page, PHONE);
+  await typeSeed(page, surnameOf(LIVE_PLAYER.player));
+  const row = page.locator('#mp-suggest li').first();
+
+  // Arm the guard, then abandon the gesture: no click ever follows.
+  await row.locator('.mp-opt-nm').dispatchEvent('pointerdown');
+  await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(1);
+
+  // The viewer's next real tap is a separate gesture and must actuate. The dial
+  // is the control the ghost click was observed to flip, so it is the right
+  // control to prove is reachable again.
+  await page.locator('.mp-dial [data-dial="safe"]').tap();
+  await expect(page.locator('.mp-dial [data-dial="safe"]'),
+    'the abandoned press must not leave a guard armed over a later, real tap')
+    .toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.mp-dial [data-dial="even"]')).toHaveAttribute('aria-pressed', 'false');
   expect(errors).toEqual([]);
 });
 
 /* ==========================================================================
    (e) ESCAPE, THE NO-MATCH ROW, AND THE LAYOUT
    ========================================================================== */
+
+test('R89 — the chip still removes its seed on a later, real tap', async ({ page }) => {
+  // The R91 guard eats the ONE click that trails the pick. It is armed on the
+  // pointerdown that commits and disarmed by the first click it sees, so the
+  // NEXT tap — a deliberate one, on the chip's own remove button — must still
+  // get through. A guard that outlived its gesture would leave the seed
+  // undeletable, which is a worse bug than the one it fixes.
+  const errors = watch(page);
+  await openMy(page, PHONE);
+  await typeSeed(page, surnameOf(LIVE_PLAYER.player));
+  await page.locator('#mp-suggest li').first().locator('.mp-opt-nm').tap();
+  await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(1);
+
+  await page.locator('#mp-seeds [data-drop]').tap();
+  await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
 
 test('R89 — Escape closes the list and keeps what was typed', async ({ page }) => {
   const errors = watch(page);

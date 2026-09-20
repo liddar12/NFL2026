@@ -298,6 +298,88 @@ emit({"ids": sorted(l["gsis_id"] for l in legs), "counts": counts,
   assert.deepEqual(out.labels, { 'espn-1': null, 'espn-5': 'QUESTIONABLE', 'espn-9': null });
 });
 
+/* G19 (daily run 149, 2026-09-20) — the builder gate and the validator
+ * disagreed on a game day. this_week_gate deliberately stops gating a team
+ * whose game has gone FINAL ("a played week is never retro-zeroed"), so after
+ * the early window a player listed out keeps avail:false on his week row while
+ * this_week.playable goes quiet. check_no_unplayable_legs has always demanded
+ * BOTH facts, so the pool priced Jordan Mason and A.J. Brown — both on teams
+ * whose week-2 game had finished — and the pipeline red-lined at its last step,
+ * after every number was rebuilt. The gate now takes the week. */
+test('G19: a sitter whose game already went FINAL is still refused, and the validator agrees', () => {
+  const out = runPy(`${SETUP}
+import json
+from scripts.models.parlay_builder import playable_this_week, build_props_by_game
+from scripts.build_leg_pool import prop_legs
+from scripts.validate_data import ValidationError, check_no_unplayable_legs
+
+# The exact shape run 149 produced: the gate went quiet because the team's game
+# is FINAL, while the week row still records that he does not play.
+final_team_sitter = {"this_week": {}, "weeks": [{"wk": 1, "avail": True},
+                                                {"wk": 2, "avail": False}]}
+emit_rows = {
+  "sitter_wk2": playable_this_week(final_team_sitter, 2),
+  "sitter_wk1": playable_this_week(final_team_sitter, 1),
+  "sitter_no_week": playable_this_week(final_team_sitter),
+  "healthy": playable_this_week({"this_week": {"playable": True},
+                                 "weeks": [{"wk": 2, "avail": True}]}, 2),
+  "status_gated": playable_this_week({"this_week": {"playable": False}},  2),
+  "no_weeks_block": playable_this_week({"this_week": {}}, 2),
+}
+
+# End to end: the same player, through both builders, at the week he sits.
+doc = build()
+for p in doc["players"]:
+    p["league_components"] = {"pass_yd": 1250.0, "rush_yd": 350.0, "rec_yd": 350.0}
+weekly = by_id(doc)
+# espn-1 is the healthy starting QB. Put him in run 149's state: his game is
+# FINAL so the gate says nothing, but week 3 is zeroed.
+weekly["espn-1"]["this_week"] = {}
+for w in weekly["espn-1"]["weeks"]:
+    if w.get("wk") == 3:
+        w["avail"] = False
+gp = [{"game_id": "G1", "home": "SFX", "away": "DAL", "week": 3, "probs": {"home": 0.6, "away": 0.4}}]
+calib = {p: {"a": 0.0, "b": 1.0, "c": 0.0} for p in ("QB", "RB", "WR")}
+support = {p: (-3.0, 3.0) for p in ("QB", "RB", "WR")}
+sd = {"QB": 60.0, "RB": 30.0, "WR": 30.0}
+ladder = {"QB": [199.5, 249.5], "RB": [49.5, 74.5], "WR": [49.5, 74.5]}
+legs_wk3, counts_wk3 = prop_legs(PROJ, weekly, gp, calib, support, sd, ladder, 3)
+legs_nowk, _ = prop_legs(PROJ, weekly, gp, calib, support, sd, ladder)
+slate = build_props_by_game(gp, doc, {"players": PROJ}, calibration_path="/nonexistent.json")
+
+# And the validator's own verdict on a pool that DID price him, so the test
+# proves the two now agree rather than asserting the builder in isolation.
+pool_bad = {"week": 3, "counts": {"not_playable": 0},
+            "players": [{"gsis_id": "espn-1", "player": "QB One"}]}
+weekly_doc = {"model": {"this_week": {"wk": 3}}, "players": list(weekly.values())}
+try:
+    check_no_unplayable_legs(weekly_doc, None, pool_bad)
+    validator_red = ""
+except ValidationError as exc:
+    validator_red = str(exc)
+emit({"gate": emit_rows,
+      "wk3_ids": sorted(l["gsis_id"] for l in legs_wk3),
+      "nowk_ids": sorted(l["gsis_id"] for l in legs_nowk),
+      "slate_qb": next((l.get("gsis_id") for l in slate["G1"]
+                        if l["market"] == "qb_pass_yds"), None),
+      "validator_red": validator_red})`);
+  const g = out.gate;
+  assert.equal(g.sitter_wk2, false, 'the week row alone is enough to refuse him');
+  assert.equal(g.sitter_wk1, true, 'a week he DID play is untouched');
+  assert.equal(g.sitter_no_week, true, 'without a week the R77 behaviour is unchanged');
+  assert.equal(g.healthy, true);
+  assert.equal(g.status_gated, false, 'the original R77 fact still gates on its own');
+  assert.equal(g.no_weeks_block, true, 'absence is not a zero');
+
+  assert.ok(!out.wk3_ids.includes('espn-1'),
+    'the pool refuses the sitter once it is told which week it is pricing');
+  assert.ok(out.nowk_ids.includes('espn-1'),
+    'and without the week it would still have priced him — this is the defect the week closes');
+  assert.notEqual(out.slate_qb, 'espn-1', 'the slate refuses him on the same fact');
+  assert.match(out.validator_red, /zeroed week \(wk3 avail:false\)/,
+    'the validator reds exactly this leg, so builder and validator now agree on the same fact');
+});
+
 /* 5 — the validator: round-trip green, and every red that matters ----------- */
 
 test('R77: a gated document round-trips through check_weekly_availability + the schema, and each drift is caught', () => {

@@ -687,12 +687,42 @@ def _report_skipped_props(skipped):
                   "to price from; nothing invented)" % (n, reason), file=sys.stderr)
 
 
-def playable_this_week(weekly_rec):
+def _week_of(game_pred):
+    """The week a game prediction is for, or None when it does not say. None
+    means the week check in playable_this_week is skipped rather than guessed:
+    gating on a week we inferred would zero the wrong player."""
+    try:
+        return int((game_pred or {}).get("week"))
+    except (TypeError, ValueError):
+        return None
+
+
+def playable_this_week(weekly_rec, wk=None):
     """R77 -- False iff the player's weekly row says he does not play this week
     (`this_week.playable` false, written by build_weekly.this_week_gate). A row
-    without the block, or no row, is playable: absence is not a zero."""
+    without the block, or no row, is playable: absence is not a zero.
+
+    G19 -- when `wk` is given, a row whose week `wk` carries `avail: false` is
+    ALSO refused, because the two facts legitimately disagree late on a game
+    day. this_week_gate deliberately stops gating a team whose game is already
+    FINAL ("a played week is never retro-zeroed"), so once the early window
+    ends, a player who is listed out keeps `avail: false` on his week row while
+    `this_week.playable` goes quiet. validate_data.py has always demanded BOTH
+    facts of a priced leg, so a builder checking only the first priced a bet on
+    a player who is not playing and red-lined the pipeline at its last step
+    (daily run 149: Jordan Mason and A.J. Brown, both on teams whose week-2
+    game had gone FINAL). Pass the week and the builder agrees with the
+    validator; omit it and the R77 behaviour is unchanged.
+    """
     tw = (weekly_rec or {}).get("this_week")
-    return not (isinstance(tw, dict) and tw.get("playable") is False)
+    if isinstance(tw, dict) and tw.get("playable") is False:
+        return False
+    if wk is not None:
+        row = next((w for w in (weekly_rec or {}).get("weeks", []) or []
+                    if w.get("wk") == wk), None)
+        if row is not None and row.get("avail") is False:
+            return False
+    return True
 
 
 def questionable_label(weekly_rec):
@@ -768,7 +798,8 @@ def build_props_by_game(game_preds, player_weekly_doc, player_projections_doc,
             # R77 -- the gate: a player who does not play this week is not a
             # candidate. Counted, so a slate with fewer props says why.
             gated = [p for p in cands
-                     if not playable_this_week(weekly_by_id.get(p.get("gsis_id")))]
+                     if not playable_this_week(weekly_by_id.get(p.get("gsis_id")),
+                                               _week_of(gp))]
             skipped["not_playable"] += len(gated)
             cands = [p for p in cands if not any(p is g for g in gated)]
             # Stable rank: proj_points desc, tie by gsis_id asc (deterministic).

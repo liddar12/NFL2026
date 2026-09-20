@@ -22,13 +22,32 @@
  *          built as, which is what made every row a mixed row.
  * AFTER: void 12px on all ten cards at 402, 1280 and 1395; a 12px gap between
  * every pair of host children; two columns; five "N LEGS" eyebrows.
+ *
+ * TEN CARDS IS THE FULL-SLATE NUMBER, NOT A CONSTANT. R83 caps a card at two
+ * legs from one game, so a 6-leg card needs three unplayed games, and late on
+ * 2026-09-20 — two of week 2's sixteen games left — MY correctly built 6 cards
+ * under 3 eyebrows and these seven assertions went red with no code change.
+ * The counts now come from _myseed.mjs, derived from the same committed
+ * schedule the seed is: on a full slate they are still exactly ten and five.
  */
 
 import { test, expect } from '@playwright/test';
-import { SEED_TEAM as SEED } from './_myseed.mjs';
+import {
+  SEED_TEAM as SEED, EXPECTED_CARDS, EXPECTED_BANDS, EXPECTED_BAND_TEXT, UPCOMING_GAMES,
+  SKIP_REASON,
+} from './_myseed.mjs';
 
-// The seed is derived (a team whose game is still upcoming), never hard-coded:
-// a fixed team goes dark the moment its game kicks off. See _myseed.mjs.
+/* The MY tests need a game that has not kicked off; between the last game of a
+ * week and the next week's pool there is none, and MY correctly offers nothing.
+ * The reason names that condition, so a skipped run reads as a finished slate
+ * rather than a broken suite. It is '' whenever any game is upcoming. */
+test.skip(() => Boolean(SKIP_REASON), SKIP_REASON || 'the slate is live');
+
+
+// The seed and the list's shape are both derived (a team whose game is still
+// upcoming; the card and band counts that slate can build), never hard-coded: a
+// fixed team goes dark the moment its game kicks off, and a fixed ten goes wrong
+// the moment the slate runs below three unplayed games. See _myseed.mjs.
 const PHONE = { width: 402, height: 874 };
 const SIZES = [
   ['iPhone 402x874', PHONE],
@@ -127,12 +146,14 @@ for (const [label, size] of SIZES) {
     await expect(page.locator('.mp-dial .leg-chip--active')).toHaveCount(1);
 
     const even = await geometry(page);
-    expect(even.cards, 'the DET seed must still build ten cards').toBe(10);
+    expect(even.cards,
+      `the ${SEED} seed must build ${EXPECTED_CARDS} cards on a ${UPCOMING_GAMES}-game slate`)
+      .toBe(EXPECTED_CARDS);
 
     await page.click('.mp-dial [data-dial="longshot"]');
     await expect(dial.locator('[data-dial="longshot"]')).toHaveAttribute('aria-pressed', 'true');
     const longshot = await geometry(page);
-    expect(longshot.cards).toBe(10);
+    expect(longshot.cards).toBe(EXPECTED_CARDS);
     expect(longshot.selections,
       'LONGSHOT painted exactly the same legs as EVEN — the dial is not reaching '
       + 'the search, which is the whole of R86')
@@ -142,7 +163,7 @@ for (const [label, size] of SIZES) {
     await expect(dial.locator('[data-dial="safe"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(dial.locator('[data-dial="longshot"]')).toHaveAttribute('aria-pressed', 'false');
     const safe = await geometry(page);
-    expect(safe.cards).toBe(10);
+    expect(safe.cards).toBe(EXPECTED_CARDS);
     expect(safe.selections, 'SAFE and LONGSHOT painted the same legs').not.toBe(longshot.selections);
     expect(safe.selections, 'SAFE and EVEN painted the same legs').not.toBe(even.selections);
 
@@ -173,7 +194,7 @@ test('R86 — the chosen dial survives a reload (it is the viewer\'s, not the se
    ========================================================================== */
 
 for (const [label, size] of SIZES) {
-  test(`R86 — ${label}: 12px rhythm, five band eyebrows, and no void under any card`, async ({ page }) => {
+  test(`R86 — ${label}: 12px rhythm, one eyebrow per leg-count band, and no void under any card`, async ({ page }) => {
     const errors = watch(page);
     await openMy(page, size);
     const g = await geometry(page);
@@ -189,10 +210,12 @@ for (const [label, size] of SIZES) {
         .toBeLessThanOrEqual(1);
     }
 
-    // the band eyebrows: one per leg-count pair, five for ten cards
-    expect(g.cards).toBe(10);
-    expect(g.bands, `expected five leg-count eyebrows, got ${g.bandText.join(' / ')}`).toBe(5);
-    expect(g.bandText).toEqual(['2 LEGS', '3 LEGS', '4 LEGS', '5 LEGS', '6 LEGS']);
+    // the band eyebrows: one per leg-count pair, five for ten cards on a full slate
+    expect(g.cards).toBe(EXPECTED_CARDS);
+    expect(g.bands,
+      `expected ${EXPECTED_BANDS} leg-count eyebrows, got ${g.bandText.join(' / ')}`)
+      .toBe(EXPECTED_BANDS);
+    expect(g.bandText).toEqual(EXPECTED_BAND_TEXT);
 
     // RC-L1 — the void. 83px on 5 of 10 cards at 1395px before R86.
     for (const v of g.voids) {
@@ -251,7 +274,7 @@ test('R86 — the void and the row bottoms hold at every dial, not just the defa
     await page.click(`.mp-dial [data-dial="${which}"]`);
     await page.evaluate(() => document.fonts.ready);
     const g = await geometry(page);
-    expect(g.bands, `${which}: expected five band eyebrows`).toBe(5);
+    expect(g.bands, `${which}: expected ${EXPECTED_BANDS} band eyebrows`).toBe(EXPECTED_BANDS);
     for (const v of g.voids) {
       expect(v.void, `${which}: card ${v.i} has ${v.void.toFixed(1)}px of void`).toBeLessThanOrEqual(18);
     }

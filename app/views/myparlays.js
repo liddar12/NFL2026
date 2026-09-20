@@ -929,6 +929,55 @@ export default async function mountMyParlays(el) {
 
   input.addEventListener('input', paintSuggest);
   input.addEventListener('focus', () => { clearTimeout(blurTimer); paintSuggest(); });
+
+  /**
+   * R91 — THE GHOST CLICK, and why one click is eaten here.
+   *
+   * `commit` runs on POINTERDOWN (see below: it has to, or iOS's blur swallows
+   * the pick) and repaints synchronously, so by the time the finger LIFTS the
+   * page under it is a different page. Measured on a 402px phone, 2026-09-20:
+   * suggestion row 0 spans y299-343; the seed chip that commit renders spans
+   * y306-350 — 37 of the row's 44px — and that chip IS a [data-drop] REMOVE
+   * button. The tap's own trailing `click` therefore deleted the seed it had
+   * just added: a tap on the printed name destroyed 4 of 4 seeds tried, and the
+   * box went blank with no cards, which is the exact "the search reads as dead"
+   * symptom R89 was written to kill, reintroduced by R89's own overlay. Row 1
+   * had a second victim: once the list closes, .mp-dial slides under the finger
+   * and the ghost click flipped the risk dial EVEN->SAFE — which writeDial
+   * PERSISTS. Desktop escaped only by accident of width (a 1222px row's centre
+   * is nowhere near a 197px chip), which is why no desktop test caught it.
+   *
+   * The pick is already made on pointerdown. The click that trails it belongs to
+   * no control, so it is eaten once — and the guard is disarmed by the NEXT
+   * GESTURE, never by a clock. A timer gets this wrong in both directions: a
+   * press held longer than the timeout outlives the guard and the ghost lands
+   * anyway, while a press that never becomes a click (a drag, a scroll, a
+   * cancel) leaves the guard armed over whatever the viewer taps next. Ending
+   * the guard at the start of the next gesture has neither hole: a slow press is
+   * still one gesture, so its trailing click is still eaten however long the
+   * finger rests; and a gesture that produced no click is disarmed by the next
+   * pointerdown, which arrives BEFORE that gesture's own click, so the viewer's
+   * next real tap is never swallowed. The gesture that armed the guard has
+   * already dispatched its own pointerdown, so it cannot disarm itself. keydown
+   * disarms too, so a guard left over a keyboard-driven click is not eaten.
+   */
+  let unswallow = null;
+  const swallowGestureClick = () => {
+    if (unswallow) unswallow();
+    const disarm = () => {
+      el.removeEventListener('click', swallow, true);
+      window.removeEventListener('pointerdown', nextGesture, true);
+      window.removeEventListener('keydown', nextGesture, true);
+      unswallow = null;
+    };
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); disarm(); };
+    const nextGesture = () => disarm();
+    unswallow = disarm;
+    el.addEventListener('click', swallow, true);
+    window.addEventListener('pointerdown', nextGesture, true);
+    window.addEventListener('keydown', nextGesture, true);
+  };
+
   // The tap must land before the blur that follows it, or iOS swallows the pick:
   // pointerdown fires first and preventDefault keeps the focus where it is.
   for (const type of ['pointerdown', 'mousedown']) {
@@ -937,6 +986,7 @@ export default async function mountMyParlays(el) {
       if (!row || !shown.length) return;
       e.preventDefault();
       commit(shown.find((o) => String(o.id) === row.dataset.seed));
+      swallowGestureClick();
     });
   }
   input.addEventListener('blur', () => {
