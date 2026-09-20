@@ -73,6 +73,8 @@ python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"
 # R70 — the line report and the measure-only line-injury cascade backtest.
 python3 scripts/build_line_report.py --selftest || fail "line report selftest"
 python3 scripts/backtest_lines.py --selftest || fail "lines backtest selftest"
+# R92 — the measure-only backup-QB cascade backtest (player side).
+python3 scripts/backtest_backup_qb.py --selftest || fail "backup qb backtest selftest"
 # R71 — the post-game review builder and its optional narrative layer.
 python3 scripts/build_review.py --selftest || fail "post-game review selftest"
 python3 scripts/build_review_narrative.py --selftest || fail "review narrative selftest"
@@ -89,6 +91,14 @@ python3 scripts/build_backtest_weekly_corpus.py --selftest || fail "backtest cor
 # written through (the selftest spawns the wrapper with `true` and `false`, so it
 # also proves the command's exit code survives the bookkeeping).
 python3 scripts/stage_status.py --selftest || fail "stage status selftest"
+# R92 — the QB DEPTH CASCADE (measure only). Its walk-forward substrate is
+# proved here on a synthetic fixture with hand-worked answers (lag, replacement
+# pooling, cap_gap, the cascade arithmetic). The other two R92 selftests are
+# already above in this list and now cover it too: promote_signals' asserts the
+# family's pure penalty/delta — the code build_predictions actually prices with
+# — and validate_data's reds the qb_depth_backtest contract four ways.
+# Neither touches data/ and neither reaches the network.
+python3 scripts/backtest_qb_depth.py --selftest || fail "qb depth backtest selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
 python3 scripts/audit_dead_code.py --selftest || fail "dead-code scanner selftest"
 

@@ -1,0 +1,299 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "qb_depth_backtest.schema.json",
+  "title": "R92 QB depth cascade backtest (measure only)",
+  "description": "scripts/backtest_qb_depth.py's walk-forward measurement of the `qb_depth` candidate family: a drop when QB1 is listed Out/Doubtful, a further drop when QB2 is out too, and a term proportional to the measured EPA-per-dropback gap to whoever is actually expected to start. Every input is restricted to what was knowable before kickoff - depth-chart snapshots strictly before the week, the final injury report for the week, and dropbacks accumulated before the week. This document REPORTS. It adopts nothing, it writes no model parameter, and the family it describes reaches a prediction only if the weekly promotion run adopts it under the existing never-regress rule. A season whose depth release could not be fetched is named in substrate.seasons_unavailable and its team-games are neutral and counted, never invented. No market number appears anywhere in it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "kind",
+    "seasons_scored",
+    "substrate",
+    "conditions",
+    "baseline",
+    "candidates",
+    "adoption_rule",
+    "verdict",
+    "policy",
+    "limits"
+  ],
+  "properties": {
+    "generated_utc": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["qb_depth_backtest"] },
+    "seasons_scored": {
+      "type": "array",
+      "description": "The evaluated (held-out) folds, as season strings. Empty is not a valid document: with nothing scored there is nothing to report.",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 4 }
+    },
+    "substrate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the per-team-game features were built, in enough detail to re-derive them.",
+      "required": [
+        "seasons_requested",
+        "seasons_fetched",
+        "seasons_unavailable",
+        "seasons_scored",
+        "starter_lag_weeks",
+        "min_dropbacks",
+        "out_statuses",
+        "replacement_epa_per_db",
+        "depth_source",
+        "injury_source",
+        "capability_source",
+        "rule"
+      ],
+      "properties": {
+        "seasons_requested": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 4 }
+        },
+        "seasons_fetched": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 4 }
+        },
+        "seasons_unavailable": {
+          "type": "object",
+          "description": "season -> the reason its depth release could not be read. Absence of a season here is the only claim that it WAS read; an empty object means every season was fetched.",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "seasons_scored": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 4 }
+        },
+        "starter_lag_weeks": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Snapshots must be at least this many weeks before the priced week. 1 = strictly before, the backtest_lines STARTER RULE. A lag of 0 would let a week see its own chart, so the contract refuses it."
+        },
+        "min_dropbacks": { "type": "integer", "minimum": 1 },
+        "out_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "replacement_epa_per_db": {
+          "type": "object",
+          "description": "Fold -> replacement level, measured on that fold's training window only. Null where the training window held no sub-threshold passer; never 0.0, which would be a claim.",
+          "additionalProperties": { "type": ["number", "null"] }
+        },
+        "depth_source": { "type": "string", "minLength": 1 },
+        "injury_source": { "type": "string", "minLength": 1 },
+        "capability_source": { "type": "string", "minLength": 1 },
+        "rule": {
+          "type": "string",
+          "minLength": 80,
+          "description": "The whole walk-forward definition in one sentence, checkable against scripts/backtest_qb_depth.py."
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-season SCORED team-game counts (two per game). The owner asked to see n beside every number, and a condition that fired twice in four seasons must read like one that fired twice.",
+      "required": [
+        "team_games",
+        "depth_known",
+        "depth_unknown",
+        "qb1_out",
+        "qb2_also_out",
+        "qb3_or_deeper_started",
+        "cap_gap_measured"
+      ],
+      "properties": {
+        "team_games": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "depth_known": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "depth_unknown": {
+          "type": "object",
+          "description": "Team-games with no usable depth chart: priced at exactly 0.0 by every candidate, and COUNTED so 'no data here' never reads as 'no effect here'.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "qb1_out": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "qb2_also_out": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "qb3_or_deeper_started": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "cap_gap_measured": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The params production actually ships, walked on the same games in the same order. Every candidate is measured against THIS, never against a stripped-down model.",
+      "required": ["name", "params", "unavailable", "heldout_log_loss_by_fold", "pooled_log_loss", "n"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hfa_elo", "revert", "k", "families", "qb_out_scale"],
+          "properties": {
+            "hfa_elo": { "type": "number" },
+            "revert": { "type": "number" },
+            "k": { "type": "number" },
+            "families": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "qb_out_scale": { "type": ["number", "null"] }
+          }
+        },
+        "unavailable": {
+          "type": "array",
+          "description": "Adopted families that could not be rebuilt for this walk. Non-empty means the baseline is WEAKER than production and no candidate result here is evidence for adding anything.",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "heldout_log_loss_by_fold": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "pooled_log_loss": { "type": "number", "minimum": 0 },
+        "n": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per HYPOTHESIS, reporting that hypothesis's BEST grid point. The grid itself is carried alongside so a reader can see the shape rather than one cherry.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "params",
+          "trials",
+          "grid",
+          "heldout_log_loss_by_fold",
+          "pooled_log_loss",
+          "n",
+          "delta_vs_shipped",
+          "improvement",
+          "se",
+          "t_stat",
+          "ci95",
+          "folds_positive",
+          "threshold",
+          "would_adopt",
+          "n_fired"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["qb1_out", "qb1_qb2", "capability", "combined"]
+          },
+          "description": { "type": "string", "minLength": 20 },
+          "params": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["qb1_scale", "qb2_extra", "cap_scale"],
+            "properties": {
+              "qb1_scale": { "type": "number" },
+              "qb2_extra": { "type": "number" },
+              "cap_scale": { "type": "number" }
+            }
+          },
+          "trials": { "type": "integer", "minimum": 1 },
+          "grid": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["params", "pooled_log_loss"],
+              "properties": {
+                "params": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["qb1_scale", "qb2_extra", "cap_scale"],
+                  "properties": {
+                    "qb1_scale": { "type": "number" },
+                    "qb2_extra": { "type": "number" },
+                    "cap_scale": { "type": "number" }
+                  }
+                },
+                "pooled_log_loss": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "heldout_log_loss_by_fold": {
+            "type": "object",
+            "additionalProperties": { "type": "number", "minimum": 0 }
+          },
+          "pooled_log_loss": { "type": "number", "minimum": 0 },
+          "n": { "type": "integer", "minimum": 1 },
+          "delta_vs_shipped": {
+            "type": "number",
+            "description": "shipped pooled log-loss minus this candidate's. POSITIVE means the candidate priced better; negative means it priced worse."
+          },
+          "improvement": {
+            "type": ["number", "null"],
+            "description": "Mean paired per-game log-loss difference. Null when the pairing could not be formed."
+          },
+          "se": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "CR1 cluster-robust standard error over the walk-forward folds. Null with fewer than two folds, which the adoption rule must read as 'do not adopt'."
+          },
+          "t_stat": { "type": ["number", "null"] },
+          "ci95": {
+            "type": ["array", "null"],
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "folds_positive": { "type": "integer", "minimum": 0 },
+          "threshold": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "max(effect floor, t_crit x se) - the improvement this candidate had to EXCEED. Null when it could not be estimated."
+          },
+          "would_adopt": {
+            "type": "boolean",
+            "description": "promote_signals.should_adopt applied verbatim. True is a recommendation to the weekly promotion run, never an adoption: nothing in this document changes a shipped number."
+          },
+          "n_fired": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Scored team-games this parameterisation priced away from 0.0. A big delta on a tiny n_fired is noise wearing a result's clothes."
+          }
+        }
+      }
+    },
+    "adoption_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "alpha", "tests", "effect_floor", "double_count_rule"],
+      "properties": {
+        "method": { "type": "string", "minLength": 20 },
+        "alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "tests": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The Bonferroni divisor: candidate FAMILIES measured here, not grid points."
+        },
+        "effect_floor": { "type": "number", "minimum": 0 },
+        "double_count_rule": {
+          "type": "string",
+          "minLength": 40,
+          "description": "Must state that a qb_depth walk drops the shipped qb_out term, because qb_depth's first term IS the QB1 drop."
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "minLength": 1,
+      "enum": ["none", "qb1_out", "qb1_qb2", "capability", "combined"],
+      "description": "The candidate that cleared the rule, or 'none'. 'none' is a valid and expected verdict."
+    },
+    "policy": {
+      "type": "array",
+      "description": "The honesty rules this document is written under, in its own words. The first one must say the run measures and adopts nothing.",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 20 }
+    },
+    "limits": {
+      "type": "array",
+      "description": "What this measurement CANNOT say, stated so nobody has to infer it.",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 20 }
+    }
+  }
+}

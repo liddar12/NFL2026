@@ -160,6 +160,20 @@ jobs:
       - name: Player-level walk-forward backtest
         run: bash scripts/stage.sh backtest "Player-level walk-forward backtest" -- python -m scripts.backtest_player
 
+      # R92 — the availability DEPTH cascade, measure only: the game-side qb_depth
+      # family (a drop when QB1 is out, another when QB2 is out, the replacement's
+      # own capability) and the player-side backup-QB effect on receivers and
+      # backs. Both re-measure every week as 2026 adds the team-weeks the 2022-25
+      # corpus lacks (two QB1+QB2 absences and one third-string start in four
+      # seasons); adoption stays with promote_signals' never-regress gate above.
+      # Both need the nflverse depth-chart releases, hence continue-on-error.
+      - name: QB depth cascade backtest (measure only)
+        run: bash scripts/stage.sh --continue-on-error backtest "QB depth cascade backtest (measure only)" -- python3 scripts/backtest_qb_depth.py
+        continue-on-error: true
+      - name: Backup-QB cascade backtest (measure only)
+        run: bash scripts/stage.sh --continue-on-error backtest "Backup-QB cascade backtest (measure only)" -- python3 scripts/backtest_backup_qb.py
+        continue-on-error: true
+
       # R49 — the player-signal fit on the RESOLVED estimate ledger. Reads
       # data/estimate_scores.json; refuses (exit 0, nothing written) until at
       # least one 2026 week has resolved, and even then --propose only ARCHIVES

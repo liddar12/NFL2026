@@ -458,6 +458,37 @@ nothing ships without one.
   capability, extended to every key position on offense and defense and carried into the
   player, game, week and MY parlay numbers — measured on the walk-forward before it ships. ·
   **LOE** 0.25 d
+- **R92 · Availability depth cascade, phase 1 (measure only) — built 2026-09-20 (owner order: a drop
+  when QB1 is out, another when QB2 is out, then the replacement's capability, for every key
+  position, carried into the player, game, week and MY numbers).** Two walk-forward measurements,
+  nothing adopted, no shipped number changed. **Game side, `qb_depth`** (`scripts/
+  backtest_qb_depth.py` → `data/qb_depth_backtest.json`, 2022-2025, 2,174 team-games, every depth
+  order known): QB1 listed Out/Doubtful **118** team-games; **QB2 also out: 2; a third-string or
+  deeper start: 1** — the second and third terms of the order cannot be estimated on this corpus,
+  and the grid's best value for the QB2 extra is 0 because it had nothing to learn from. Four
+  candidates against the shipped `qb_out` 75 (held-out log-loss 0.63450 pooled): `qb1_out` 0.63547,
+  `qb1_qb2` 0.63547, `capability` (300 × EPA-per-dropback gap, replacement level pooled by passer:
+  −0.07 / −0.23 / −0.29 / −0.28) 0.63541, `combined` (qb1 50 + cap 200) 0.63491 — every CI spans
+  zero, verdict **none**; the capability term is the one with a pulse (wins 2 of 4 folds). The
+  family is registered PROPOSAL-ONLY in `promote_signals` (14 families; the weekly gate measures it
+  beside `qb_out`, never double-counting QB1: the trial stacks on the incumbent minus `qb_out`,
+  `build_predictions` prices `qb_depth` instead of `qb_out` when it is applied, adoption retires
+  the `qb_out` block) and `game_params` is byte-unchanged. **Player side, `backup_qb`** (`scripts/
+  backtest_backup_qb.py` → `data/backup_qb_backtest.json`, the R51 weekly substrate, 8,279
+  player-weeks, 77 backup-start team-weeks): with a backup starting, actual over the shipped
+  weekly number is **RB 0.928, WR 0.842, TE 0.873** (baselines 0.982 / 0.923 / 0.989), and at a
+  capability gap above 0.15 EPA/dropback **RB 0.64, WR 0.77, TE 0.82**; the QB row reads 1.64
+  because the replacement is playing a full game against his own low baseline. Ten candidate
+  factors: `cap_gap_RB` and `backup_flat_WR` clear the weekly never-regress by one part in a
+  thousand of pooled MAE, both bootstrap CIs cross zero and the fitted parameters flip sign
+  between folds — measured, not adopted; no builder reads the file. Both backtests refresh in the
+  weekly backtest workflow (continue-on-error, they need the nflverse depth-chart releases) so
+  2026 adds the team-weeks history lacks. Contracts, `--selftest`s in smoke, `docs/
+  QB_DEPTH_CASCADE.md`, `docs/BACKUP_QB_CASCADE.md`, `docs/SIGNAL_REGISTRY.md`. **Locked by**
+  `tests/feature/r92_qb_depth.test.mjs` (12) and `r92_backup_qb.test.mjs` (7); `rel18_families`
+  now locks 14. **Phase 2 waits on data**, not code: the capability term is the candidate to
+  watch, and other units (line, edge, secondary) follow the same measure-first path. · **LOE**
+  1.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

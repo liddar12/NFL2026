@@ -49,7 +49,13 @@ const CORE_FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass',
   'elo_epa', 'weather_wind', 'qb_out', 'skill_out'];
 const REL18_FAMILIES = ['divisional', 'coach_quality', 'coach_regime',
   'dvp_mismatch', 'scheme_matchup'];
-const ALL_FAMILIES = [...CORE_FAMILIES, ...REL18_FAMILIES];
+/* R92 added the owner's QB cascade as one family. It is WIRED (build_predictions
+ * prices it through promote_signals.qb_depth_delta) and therefore appliable,
+ * and it GENERALISES qb_out — the two may never be applied together, which the
+ * gate enforces by stacking qb_depth on the incumbent minus qb_out. */
+const R92_FAMILIES = ['qb_depth'];
+const PRE_R92_FAMILIES = [...CORE_FAMILIES, ...REL18_FAMILIES];
+const ALL_FAMILIES = [...PRE_R92_FAMILIES, ...R92_FAMILIES];
 
 /* Families the prediction pipeline can actually apply. The four Rel18 families
  * outside this set are measured-only by design; claiming otherwise would be the
@@ -72,7 +78,7 @@ function latestV2() {
   return { doc, entry };
 }
 
-test('rel18: thirteen families are registered, and referee is not one of them', () => {
+test('rel18: fourteen families are registered, and referee is not one of them', () => {
   const src = readFileSync(PROMOTE, 'utf8');
   // Registration is the `families.append({"family": ...)` call — that is what
   // actually puts a family into the run. Reading the SOURCE rather than an
@@ -87,9 +93,10 @@ test('rel18: thirteen families are registered, and referee is not one of them', 
   assert.equal(looped.length, 2, 'the EPA loop still registers exactly two families');
   const unique = [...new Set([...registered, ...looped])];
   assert.deepEqual(unique.sort(), [...ALL_FAMILIES].sort(),
-    'exactly the thirteen registered families — add a family here and in the '
+    'exactly the fourteen registered families — add a family here and in the '
     + 'MODEL tab, or it is a name nobody is checking');
-  assert.equal(unique.length, 13, 'families_tested is 13 (8 core + 5 Rel18)');
+  assert.equal(unique.length, 14,
+    'families_tested is 14 (8 core + 5 Rel18 + 1 R92)');
 
   // referee: a FIELD in game context and a separate diagnostic, NEVER a family.
   assert.ok(!unique.includes('referee'),
@@ -197,7 +204,7 @@ print(json.dumps(out))
     'and the prediction-time input loader refuses it too, by the same rule');
 });
 
-test('rel18: only divisional joins APPLIABLE; the other four are measured-only', () => {
+test('rel18: divisional and qb_depth are appliable; the other four are measured-only', () => {
   const src = readFileSync(PROMOTE, 'utf8');
   const block = src.match(/APPLIABLE = \{([^}]*)\}/);
   assert.ok(block, 'APPLIABLE set found in promote_signals.py');
@@ -207,6 +214,10 @@ test('rel18: only divisional joins APPLIABLE; the other four are measured-only',
   }
   assert.ok(appliable.includes('divisional'),
     'divisional IS wired into build_predictions, so it may be adopted');
+  assert.ok(appliable.includes('qb_depth'),
+    'qb_depth IS wired into build_predictions (qb_depth_current + '
+    + 'qb_depth_delta), so it may be adopted — being MEASURED every week while '
+    + 'game_params carries no qb_depth block is what proposal-only means');
   for (const fam of REL18_UNWIRED) {
     assert.ok(!appliable.includes(fam),
       `${fam} has no application path — listing it would make the gate claim a `
@@ -214,7 +225,7 @@ test('rel18: only divisional joins APPLIABLE; the other four are measured-only',
   }
 });
 
-test('rel18: a real Rel18 gate entry carries all thirteen families and its budget', () => {
+test('rel18: a real gate entry carries every family of its era and its budget', () => {
   const { entry } = latestV2();
   assert.ok(entry, 'a format-2 promotion entry is archived');
   // GUARD: only a Rel18-era run can satisfy the Rel18 shape. Entries archived
@@ -225,8 +236,13 @@ test('rel18: a real Rel18 gate entry carries all thirteen families and its budge
 
   const names = entry.families.map((f) => f.family);
   assert.equal(new Set(names).size, names.length, 'no family listed twice');
-  assert.deepEqual([...names].sort(), [...ALL_FAMILIES].sort(),
-    'a Rel18 run tests exactly the thirteen registered families');
+  /* The lock is kept in BOTH eras rather than loosened for the newer one: an
+   * entry that lists qb_depth must carry the full R92 set, and one archived
+   * before R92 must carry exactly the thirteen that existed then. Any other set
+   * is a family added or dropped without updating this file. */
+  const expected = names.includes('qb_depth') ? ALL_FAMILIES : PRE_R92_FAMILIES;
+  assert.deepEqual([...names].sort(), [...expected].sort(),
+    `a run tests exactly the ${expected.length} families registered in its era`);
 
   // Every family is trialed or explicitly skipped — never silent.
   for (const fam of entry.families) {

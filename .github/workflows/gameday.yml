@@ -164,6 +164,16 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "Player-level walk-forward backtest (same substrate as today's history)" -- python -m scripts.backtest_player
 
+      # R92 — meta.json mirrors the player backtest (learning_record.backtest_2025,
+      # written by resolve_estimates), and the r49 gate holds the two to the same
+      # number. The step above refreshes the backtest; without this one every
+      # Sunday gameday run left the mirror on the morning's value (61.102 vs
+      # 61.088 on 2026-09-20) and main's own fast gate went red until Monday's
+      # daily. Grading is mode-independent; the network is optional.
+      - name: Resolve estimates against nflverse weekly actuals
+        run: bash scripts/stage.sh --continue-on-error gameday "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
+        continue-on-error: true   # a stats outage degrades the record, never the run
+
       # R87 (F17) — as-made pricing for every shipped leg, locked pre-kickoff.
       # Idempotent per parlays.json updated_utc, so the two-hourly Sunday grid appends
       # once per generation and a post-kickoff leg is recorded unlocked rather than

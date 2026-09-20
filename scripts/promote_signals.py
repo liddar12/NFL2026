@@ -223,6 +223,27 @@ QB_OUT_SCALES = [25.0, 50.0, 75.0]  # Elo penalty when the primary passer is Out
 SKILL_OUT_SCALES = [40.0, 80.0, 120.0, 160.0]
 SKILL_POSITIONS = ("RB", "WR", "TE")
 
+# qb_depth (R92): the owner's QB CASCADE — "there should be a drop if QB1 is
+# out. And another if QB2 is out. And then look at the capability of QB3."
+# One family, three terms on the same condition (QB1 listed Out/Doubtful):
+#   qb1_scale  the drop itself
+#   qb2_extra  a further drop when QB2 is listed out as well
+#   cap_scale  Elo per unit of EPA/dropback lost between QB1 and whoever is
+#              actually expected to start (QB3 when QB1 and QB2 are both out)
+# It is a strict GENERALISATION of qb_out, not a neighbour of it: at
+# (scale, 0, 0) it is qb_out on the depth-chart substrate. That is why the two
+# may never be applied together — see the double-count rule in
+# _incumbent_family_fns and in scripts/build_predictions.py.
+#
+# The grid is the R92 measurement's own, so the weekly gate re-measures what
+# docs/QB_DEPTH_CASCADE.md reports. It is ONE hypothesis at several amplitudes,
+# which is the unit the Bonferroni divisor is charged in.
+QB_DEPTH_MIN_DROPBACKS = 100       # below this a passer takes replacement level
+QB_DEPTH_GRID = [{"qb1_scale": s, "qb2_extra": e, "cap_scale": c}
+                 for s in (25.0, 50.0, 75.0, 100.0)
+                 for e in (0.0, 50.0, 100.0)
+                 for c in (0.0, 100.0, 200.0, 300.0)]
+
 CAL_BINS = 10
 _EPS = 1e-12
 
@@ -553,6 +574,47 @@ def skill_out_inputs():
     return shares_by_season, outs
 
 
+def _qb_depth_module():
+    """scripts.backtest_qb_depth, imported LAZILY.
+
+    The import has to be lazy in both directions: that module imports THIS one
+    at module scope (it runs its measurement through evaluate()), so importing
+    it back at module scope here would be a cycle. Returns None rather than
+    raising, because a family whose substrate cannot even be imported must be
+    SKIPPED loudly, never scored as a walk of exact ties."""
+    try:
+        from scripts import backtest_qb_depth as qd  # noqa: PLC0415 (guarded)
+    except Exception:                                # noqa: BLE001 — skip, never fake
+        return None
+    return qd
+
+
+def qb_depth_inputs(cache_dir=None):
+    """The walk-forward qb_depth substrate, or None until it can be built.
+
+    None is a LOUD SKIP. The substrate needs the nflverse depth-chart release
+    for every season of the walk (week 1 of the first season reads the season
+    before it), and a season that could not be fetched would price every one of
+    its team-games at exactly 0.0 — an exact tie with the incumbent, counted in
+    n and in the CR1 variance, which dilutes the measured improvement toward
+    zero and turns "no data here" into "no help here" in the archive. The same
+    reasoning weather_wind and skill_out already run under (_spans_seasons)."""
+    qd = _qb_depth_module()
+    if qd is None:
+        return None
+    try:
+        built = qd.walk_forward_substrate(
+            cache_dir=cache_dir or qd.DEFAULT_CACHE_DIR, seasons=SEASONS)
+    except Exception:                                # noqa: BLE001 — skip, never fake
+        return None
+    if built is None:
+        return None
+    sub, diagnostics = built
+    if not _spans_seasons(diagnostics.get("seasons_fetched") or ()):
+        return None
+    return sub, diagnostics
+
+
 def load_finals(year):
     """Regular-season finals for one season, in kickoff order.
 
@@ -796,7 +858,7 @@ def features_from_residuals(residual_rows, venue_scale, cold_scale):
     return venue_delta, cold_delta
 
 
-def _incumbent_family_fns(tuning):
+def _incumbent_family_fns(tuning, exclude=()):
     """Delta builders for families ALREADY adopted in game_params — they are part
     of the incumbent every candidate must now beat.
 
@@ -805,8 +867,16 @@ def _incumbent_family_fns(tuning):
     quietly compare candidates against a WEAKER incumbent than production ships
     (it happens for real: the corpus reaches back to 1999, the EPA and injury
     histories do not).
+
+    `exclude` drops named families from the rebuild. It exists for ONE reason:
+    a candidate family that GENERALISES an adopted one must be tried against an
+    incumbent that does not already carry the term it generalises, or the trial
+    prices the same fact twice. qb_depth vs qb_out is the case (see the QB1
+    double-count rule below); it is never a way to quietly weaken the bar,
+    because the improvement is still measured against the FULL shipped walk.
     """
-    gp = tuning.get("game_params") or {}
+    gp = {kk: vv for kk, vv in (tuning.get("game_params") or {}).items()
+          if kk not in set(exclude)}
     fns = []
     unavailable = []
     vh = gp.get("venue_hfa") or {}
@@ -838,13 +908,32 @@ def _incumbent_family_fns(tuning):
             fns.append(lambda: weather_wind_builder(float(wh["scale"]), wind))
         else:
             unavailable.append("wind_hfa")
+    qd = gp.get("qb_depth") or {}
     qo = gp.get("qb_out") or {}
-    if qo.get("applied"):
+    # NEVER DOUBLE-COUNT QB1. qb_depth's first term IS the qb_out drop (the same
+    # condition, the same sign, measured on a depth-chart substrate instead of a
+    # dropback-leader one), so an applied qb_depth FOLDS IN qb_out and the
+    # qb_out builder is skipped. Running both would price one absence twice, and
+    # the incumbent every candidate must beat would be a model production does
+    # not ship. scripts/build_predictions.py applies the identical rule.
+    if qo.get("applied") and not qd.get("applied"):
         inputs = qb_out_inputs()
         if inputs is not None:
             fns.append(lambda: qb_out_builder(float(qo["scale"]), *inputs))
         else:
             unavailable.append("qb_out")
+    if qd.get("applied"):
+        # Without this branch an adopted qb_depth would not be part of next
+        # week's incumbent, so it would re-clear the bar against a bar that
+        # excludes it and never-regress would quietly stop being a rule.
+        dinputs = qb_depth_inputs()
+        if dinputs is not None:
+            fns.append(lambda: qb_depth_builder(float(qd.get("qb1_scale") or 0.0),
+                                                float(qd.get("qb2_extra") or 0.0),
+                                                float(qd.get("cap_scale") or 0.0),
+                                                dinputs[0]))
+        else:
+            unavailable.append("qb_depth")
     so = gp.get("skill_out") or {}
     if so.get("applied"):
         inputs = skill_out_inputs()
@@ -1062,6 +1151,53 @@ def skill_out_builder(scale, shares_by_season, outs):
     return setup, factory
 
 
+def qb_depth_penalty(row, qb1_scale, qb2_extra, cap_scale):
+    """The Elo DROP for ONE team in one game — the whole qb_depth family in one
+    pure function, shared by the walk-forward measurement, the gate and the
+    prediction builder so all three price the same thing.
+
+    `row` is a substrate row: {known, qb1_out, qb2_out, cap_gap}. Zero unless
+    QB1 is listed Out/Doubtful, which is what makes the family a strict
+    generalisation of qb_out rather than a second opinion about it: every extra
+    term fires only inside the same condition. An unknown row (no usable depth
+    chart) is exactly 0.0 and is COUNTED as unknown upstream, never imputed.
+
+    A negative cap_gap — a team whose backup has out-produced his starter — is
+    allowed to carry the penalty negative. Clamping it would be a thumb on the
+    scale of a measurement."""
+    if not row or not row.get("known") or not row.get("qb1_out"):
+        return 0.0
+    pen = float(qb1_scale)
+    if row.get("qb2_out"):
+        pen += float(qb2_extra)
+    if cap_scale:
+        pen += float(cap_scale) * float(row.get("cap_gap") or 0.0)
+    return pen
+
+
+def qb_depth_delta(home_row, away_row, qb1_scale, qb2_extra, cap_scale):
+    """The per-game delta on hfa_eff: home losing its QB shrinks the home edge,
+    away losing its QB widens it. Same convention as qb_out_builder, so the two
+    are directly comparable — and directly double-counting if ever applied
+    together."""
+    return (qb_depth_penalty(away_row, qb1_scale, qb2_extra, cap_scale)
+            - qb_depth_penalty(home_row, qb1_scale, qb2_extra, cap_scale))
+
+
+def qb_depth_builder(qb1_scale, qb2_extra, cap_scale, substrate):
+    def setup(season, games, training_residuals):
+        return season
+
+    def factory(season):
+        def fn(g, i):
+            wk = int(g.get("week") or 0)
+            return qb_depth_delta(substrate.get((season, wk, g["home"])),
+                                  substrate.get((season, wk, g["away"])),
+                                  qb1_scale, qb2_extra, cap_scale)
+        return fn
+    return setup, factory
+
+
 def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
              probs_out=None, losses_out=None):
     """Walk-forward mean log-loss with the given family builders combined
@@ -1112,7 +1248,6 @@ def evaluate(builders, hfa, revert, k, finals_by_year, calibration=None,
 def run(auto_adopt=False, propose=False):
     hfa, revert, k, tuning = game_params()
     finals_by_year = {yr: load_finals(yr) for yr in SEASONS}
-    incumbent_builders = []
     inc_fns, inc_unavailable = _incumbent_family_fns(tuning)
     if inc_unavailable:
         print("NOTICE: adopted famil"
@@ -1120,30 +1255,47 @@ def run(auto_adopt=False, propose=False):
               f"{', '.join(inc_unavailable)} could not be rebuilt for seasons "
               f"{SEASONS[0]}-{SEASONS[-1]} (inputs unavailable) — the incumbent "
               "in this run is WEAKER than the one production ships")
-    for mk in inc_fns:
-        built = mk()
-        if isinstance(built, tuple) and built and built[0] == "__elo_epa__":
-            _, w, margins = built
-            built = elo_epa_builder(w, finals_by_year, margins, hfa, k, revert)
-        elif isinstance(built, tuple) and built and built[0] == "__coach_quality__":
-            ci = coach_quality_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
-            if ci is None:
-                inc_unavailable.append("coach_quality")
-                print("NOTICE: adopted family coach_quality could not be rebuilt "
-                      f"for seasons {SEASONS[0]}-{SEASONS[-1]} — the incumbent in "
-                      "this run is WEAKER than the one production ships")
-                continue
-            built = coach_quality_mod.builder(built[1], ci)
-        elif isinstance(built, tuple) and built and built[0] == "__coach_regime__":
-            gi = coach_regime_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
-            if gi is None:
-                inc_unavailable.append("coach_regime")
-                print("NOTICE: adopted family coach_regime could not be rebuilt "
-                      f"for seasons {SEASONS[0]}-{SEASONS[-1]} — the incumbent in "
-                      "this run is WEAKER than the one production ships")
-                continue
-            built = coach_regime_mod.coach_regime_builder(built[1], built[2], gi)
-        incumbent_builders.append(built)
+
+    def _materialize(fns, unavailable, quiet=False):
+        """Turn the sentinel builders (elo_epa, coach_*) into real ones.
+
+        Their inputs need the rating trajectory, which is a pure function of
+        (finals, hfa, k, revert) and is not in scope inside
+        _incumbent_family_fns — so the materialisation happens here, where it
+        is, and a family whose inputs are missing is named in `unavailable`
+        rather than silently dropped."""
+        out = []
+        for mk in fns:
+            built = mk()
+            if isinstance(built, tuple) and built and built[0] == "__elo_epa__":
+                _, w, margins = built
+                built = elo_epa_builder(w, finals_by_year, margins, hfa, k, revert)
+            elif isinstance(built, tuple) and built and built[0] == "__coach_quality__":
+                ci = coach_quality_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
+                if ci is None:
+                    unavailable.append("coach_quality")
+                    if not quiet:
+                        print("NOTICE: adopted family coach_quality could not be "
+                              f"rebuilt for seasons {SEASONS[0]}-{SEASONS[-1]} — the "
+                              "incumbent in this run is WEAKER than the one "
+                              "production ships")
+                    continue
+                built = coach_quality_mod.builder(built[1], ci)
+            elif isinstance(built, tuple) and built and built[0] == "__coach_regime__":
+                gi = coach_regime_mod.inputs(finals_by_year, SEASONS, hfa, k, revert)
+                if gi is None:
+                    unavailable.append("coach_regime")
+                    if not quiet:
+                        print("NOTICE: adopted family coach_regime could not be "
+                              f"rebuilt for seasons {SEASONS[0]}-{SEASONS[-1]} — the "
+                              "incumbent in this run is WEAKER than the one "
+                              "production ships")
+                    continue
+                built = coach_regime_mod.coach_regime_builder(built[1], built[2], gi)
+            out.append(built)
+        return out
+
+    incumbent_builders = _materialize(inc_fns, inc_unavailable)
 
     # Incumbent walk also produces the calibration record for the MODEL tab.
     cal = [[0, 0.0, 0.0] for _ in range(CAL_BINS)]
@@ -1166,10 +1318,14 @@ def run(auto_adopt=False, propose=False):
 
     families = []
 
-    def try_candidate(family, label, params, builder):
+    def try_candidate(family, label, params, builder, base=None):
+        """Score one grid point. `base` overrides the incumbent the candidate is
+        STACKED ON (never the incumbent it is MEASURED AGAINST, which is always
+        the full shipped walk in inc_losses). Only a family that generalises an
+        adopted one passes a base — see the qb_depth block."""
         cand_losses = []
-        ll, n = evaluate(incumbent_builders + [builder], hfa, revert, k,
-                         finals_by_year, losses_out=cand_losses)
+        ll, n = evaluate((incumbent_builders if base is None else base) + [builder],
+                         hfa, revert, k, finals_by_year, losses_out=cand_losses)
         trial = dict(params)
         trial.update({"log_loss": round(ll, 5), "n": n})
         stats = None
@@ -1291,6 +1447,54 @@ def run(auto_adopt=False, propose=False):
                                     skill_out_builder(sc, *skill_inputs))
                       for sc in SKILL_OUT_SCALES]
         families.append({"family": "skill_out", "trials": fam_trials})
+
+    # qb_depth (R92) — the owner's QB cascade as ONE family: a drop when QB1 is
+    # listed Out/Doubtful, a further drop when QB2 is out too, and a term
+    # proportional to the measured EPA/dropback gap to whoever is actually
+    # expected to start. The substrate (depth-chart order + final injury report
+    # + trailing passer capability, all strictly pregame) is built by
+    # scripts/backtest_qb_depth.py and needs the nflverse depth-chart releases,
+    # so this family SKIPS in a sandbox that cannot reach them and runs on the
+    # weekly runner. PROPOSAL ONLY as of R92: measured beside qb_out and
+    # skill_out every week, adopted only when it clears the same rule as
+    # everything else, and game_params carries nothing for it until it does.
+    qb_depth_built = qb_depth_inputs()
+    if qb_depth_built is None:
+        print("  qb_depth     SKIPPED: needs the nflverse depth-chart releases "
+              f"for {SEASONS[0] - 1}-{SEASONS[-1]} plus injury_history and "
+              "epa_history (runner-built)")
+        families.append({"family": "qb_depth", "skipped": True,
+                         "reason": "the depth-chart substrate could not be built "
+                                   f"for {SEASONS[0]}-{SEASONS[-1]} — an uncovered "
+                                   "fold would score exact ties and dilute the "
+                                   "measured improvement",
+                         "seasons_required": [SEASONS[0] - 1, SEASONS[-1]]})
+    else:
+        qb_depth_sub, qb_depth_diag = qb_depth_built
+        # STACK ON THE INCUMBENT MINUS qb_out. qb_depth's first term IS the
+        # qb_out drop, so trying it on top of an incumbent that still carries
+        # qb_out would price a QB1 absence at both scales at once and measure a
+        # model nobody would ever ship. The bar is unchanged: every trial is
+        # still scored against inc_losses, the FULL shipped walk.
+        qb_depth_unavail = []
+        qb_depth_base = _materialize(
+            _incumbent_family_fns(tuning, exclude=("qb_out",))[0],
+            qb_depth_unavail, quiet=True)
+        fam_trials = [try_candidate("qb_depth",
+                                    f"qb1={pp['qb1_scale']:.0f} "
+                                    f"qb2={pp['qb2_extra']:.0f} "
+                                    f"cap={pp['cap_scale']:.0f}",
+                                    dict(pp),
+                                    qb_depth_builder(pp["qb1_scale"], pp["qb2_extra"],
+                                                     pp["cap_scale"], qb_depth_sub),
+                                    base=qb_depth_base)
+                      for pp in QB_DEPTH_GRID]
+        families.append({"family": "qb_depth", "trials": fam_trials,
+                         "substrate": qb_depth_diag,
+                         "stacked_on": ("the incumbent MINUS qb_out — qb_depth's "
+                                        "QB1 term is the same drop, so stacking "
+                                        "both would price one absence twice"),
+                         "folds_in": ["qb_out"]})
 
     # divisional (2-D grid, the `environment` precedent: a base divisional
     # effect x an extra term on the in-season rematch — one family because a
@@ -1446,7 +1650,14 @@ def run(auto_adopt=False, propose=False):
     # actually apply it.
     APPLIABLE = {"environment", "rest", "epa_total", "epa_pass", "elo_epa",
                  "qb_out", "weather_wind", "skill_out",
-                 "divisional"}
+                 "divisional", "qb_depth"}
+    # qb_depth IS appliable: scripts/build_predictions.py calls
+    # promote_signals.qb_depth_current and prices the family through
+    # qb_depth_delta, and it skips the qb_out term whenever qb_depth is applied
+    # so one absence is never priced twice. The rule for this set is unchanged —
+    # a family belongs here if and only if the prediction builder actually calls
+    # its reader — and qb_depth being MEASURED every week while APPLIED never
+    # is exactly what game_params carrying no qb_depth block means.
     # coach_quality is DELIBERATELY ABSENT from APPLIABLE. Its prediction-time
     # reader exists (coach_quality.delta_from_params) but nothing in
     # scripts/build_predictions.py calls it, so the pipeline cannot apply the
@@ -1987,6 +2198,25 @@ def _write_adoption(tuning, best_overall, hfa, revert, k, finals_by_year, now):
     elif family == "skill_out":
         gp["skill_out"] = {"applied": True, "scale": best["scale"],
                            "adopted_utc": now}
+    elif family == "qb_depth":
+        # Adopting qb_depth RETIRES qb_out rather than stacking on it: the two
+        # share the QB1 term, so leaving qb_out applied would price one absence
+        # twice from the next run onward. The retired block is kept (with
+        # applied false and a note) so the history of what was shipped survives.
+        qo = gp.get("qb_out")
+        if isinstance(qo, dict) and qo.get("applied"):
+            qo["applied"] = False
+            qo["retired_utc"] = now
+            qo["retired_reason"] = ("folded into qb_depth, whose QB1 term is the "
+                                    "same drop measured on the depth-chart "
+                                    "substrate — applying both would double-count")
+        gp["qb_depth"] = {"applied": True,
+                          "qb1_scale": best["qb1_scale"],
+                          "qb2_extra": best["qb2_extra"],
+                          "cap_scale": best["cap_scale"],
+                          "min_dropbacks": QB_DEPTH_MIN_DROPBACKS,
+                          "folds_in": ["qb_out"],
+                          "adopted_utc": now}
     elif family == "divisional":
         gp["divisional"] = divisional_adoption_block(best, now)
     elif family == "coach_quality":
@@ -2096,13 +2326,81 @@ def selftest():
     assert not is_cold_game({"home": "GB", "kickoff_utc": "2025-09-14T18:00:00Z",
                              "gameday": "2025-12-14"})
 
+    _qb_depth_selftest()
     _trim_selftest()
     _fallthrough_selftest()
     _stats_selftest()
     print("selftest OK: rest clamp + EPA leak-free blending + skill_out "
-          "share-weighting exact + cold-game gameday fallback + history cap + "
-          "non-appliable fallthrough + significance statistics vs published "
-          "values")
+          "share-weighting exact + cold-game gameday fallback + qb_depth "
+          "cascade arithmetic + history cap + non-appliable fallthrough + "
+          "significance statistics vs published values")
+
+
+def _qb_depth_selftest():
+    """The qb_depth cascade, priced by hand.
+
+    The family is three terms on ONE condition, and the thing that can silently
+    go wrong is a term firing outside it — so every assertion here is about
+    where the penalty is zero as much as where it is not."""
+    starts = {"known": True, "qb1_out": False, "qb2_out": False, "cap_gap": 0.0}
+    qb1 = {"known": True, "qb1_out": True, "qb2_out": False, "cap_gap": 0.20}
+    qb2 = {"known": True, "qb1_out": True, "qb2_out": True, "cap_gap": 0.45}
+    dark = {"known": False, "qb1_out": True, "qb2_out": True, "cap_gap": 9.0}
+    # Nothing fires while QB1 starts, at any scale.
+    assert qb_depth_penalty(starts, 75.0, 50.0, 300.0) == 0.0
+    # QB1 out: the drop, and the QB2 extra only when QB2 is out too.
+    assert qb_depth_penalty(qb1, 75.0, 50.0, 0.0) == 75.0
+    assert qb_depth_penalty(qb2, 75.0, 50.0, 0.0) == 125.0
+    # Capability alone: the drop IS the measured gap x the scale.
+    assert abs(qb_depth_penalty(qb1, 0.0, 0.0, 300.0) - 60.0) < 1e-9
+    assert abs(qb_depth_penalty(qb2, 0.0, 0.0, 300.0) - 135.0) < 1e-9
+    # All three add.
+    assert abs(qb_depth_penalty(qb2, 75.0, 50.0, 300.0) - 260.0) < 1e-9
+    # An unknown depth chart is neutral however alarming its other fields look.
+    assert qb_depth_penalty(dark, 75.0, 50.0, 300.0) == 0.0
+    assert qb_depth_penalty(None, 75.0, 50.0, 300.0) == 0.0
+    # A backup who has out-produced the starter carries the penalty negative
+    # rather than being clamped to zero — this is a measurement, not a prior.
+    better = {"known": True, "qb1_out": True, "qb2_out": False, "cap_gap": -0.10}
+    assert abs(qb_depth_penalty(better, 0.0, 0.0, 300.0) + 30.0) < 1e-9
+    # (scale, 0, 0) IS qb_out on this substrate: the families are nested, which
+    # is exactly why they may never be applied together.
+    assert qb_depth_penalty(qb2, 75.0, 0.0, 0.0) == 75.0
+
+    # The game delta: home minus, away plus, antisymmetric, zero when neither.
+    assert qb_depth_delta(qb1, starts, 75.0, 50.0, 0.0) == -75.0
+    assert qb_depth_delta(starts, qb1, 75.0, 50.0, 0.0) == +75.0
+    assert qb_depth_delta(qb1, qb1, 75.0, 50.0, 300.0) == 0.0
+    assert qb_depth_delta(starts, starts, 75.0, 50.0, 300.0) == 0.0
+
+    # qb_depth_row: the prediction-time row, built from the same three feeds.
+    orders = {"KC": ["p1", "p2", "p3"], "BUF": ["b1"]}
+    outs = {("KC", 5): {"p1", "p2"}}
+    cap = {"p1": (500.0, 100.0), "p2": (300.0, 0.0), "p3": (10.0, -5.0)}
+    rep = -0.25
+    row = qb_depth_row("KC", 5, orders, outs, cap, rep)
+    assert row["known"] and row["qb1_out"] and row["qb2_out"], row
+    # p3 is under the dropback threshold, so he is priced at REPLACEMENT level
+    # (-0.25), not at his own 10-dropback number (-0.50).
+    assert abs(row["cap_gap"] - (0.20 - (-0.25))) < 1e-9, row
+    # QB1 healthy -> cap_gap is exactly 0, never a fitted near-zero.
+    assert qb_depth_row("KC", 6, orders, outs, cap, rep)["cap_gap"] == 0.0
+    # A team with no depth order is unknown, not zero-out.
+    assert qb_depth_row("SF", 5, orders, outs, cap, rep) == {
+        "known": False, "qb1_out": False, "qb2_out": False, "cap_gap": 0.0}
+    # No replacement level measurable and an unmeasured starter -> no gap
+    # claimed at all (0.0), rather than a fabricated one.
+    assert qb_depth_row("KC", 5, orders, outs, {"p1": (500.0, 100.0)},
+                        None)["cap_gap"] == 0.0
+
+    # The builder wires the delta to the walk's (season, week, team) keys.
+    sub = {(2025, 5, "KC"): qb1, (2025, 5, "BUF"): starts}
+    setup, factory = qb_depth_builder(75.0, 50.0, 0.0, sub)
+    fn = factory(setup(2025, [], []))
+    assert fn({"home": "KC", "away": "BUF", "week": 5}, 0) == -75.0
+    assert fn({"home": "BUF", "away": "KC", "week": 5}, 0) == +75.0
+    # An unkeyed team-week is a miss, and a miss is exactly 0.0.
+    assert fn({"home": "KC", "away": "BUF", "week": 9}, 0) == 0.0
 
 
 def _trim_selftest():
@@ -2347,6 +2645,105 @@ def skill_out_current(season):
             if s:
                 outs[(team, int(wk))] = s
     return share_by_pid, outs
+
+
+def _qb_depth_capability(pid, capability, replacement):
+    """EPA/dropback for a passer, or REPLACEMENT level when he has thrown fewer
+    than QB_DEPTH_MIN_DROPBACKS. None when neither is measurable — which the
+    caller must read as "no gap known", never as a gap of zero quality."""
+    rec = capability.get(pid) if pid else None
+    if rec and rec[0] >= QB_DEPTH_MIN_DROPBACKS:
+        return rec[1] / rec[0]
+    return replacement
+
+
+def qb_depth_row(team, week, orders, outs, capability, replacement):
+    """The qb_depth substrate row for one team-week: {known, qb1_out, qb2_out,
+    cap_gap}. Identical in shape and meaning to the row the walk-forward
+    measurement builds (scripts/backtest_qb_depth.build_substrate), so the
+    family prices a live week exactly as it was measured.
+
+    `known` false means no depth order for the team: the game is priced at
+    exactly 0.0 and nothing is imputed."""
+    order = list(orders.get(team) or ())
+    if not order:
+        return {"known": False, "qb1_out": False, "qb2_out": False, "cap_gap": 0.0}
+    out_ids = outs.get((team, int(week or 0))) or frozenset()
+    qb1 = order[0]
+    qb2 = order[1] if len(order) > 1 else None
+    qb1_out = qb1 in out_ids
+    qb2_out = bool(qb2) and qb2 in out_ids
+    cap_gap = 0.0
+    if qb1_out:
+        expected = next((p for p in order if p not in out_ids), None)
+        c1 = _qb_depth_capability(qb1, capability, replacement)
+        ce = (_qb_depth_capability(expected, capability, replacement)
+              if expected else None)
+        if c1 is not None and ce is not None:
+            cap_gap = c1 - ce
+    return {"known": True, "qb1_out": qb1_out, "qb2_out": qb2_out,
+            "cap_gap": cap_gap}
+
+
+def qb_depth_current(season, epa_path=None, injury_path=None, depth_path=None):
+    """(orders, outs, capability, replacement) for PREDICTION-TIME qb_depth.
+
+    orders[team]      -> the depth chart's QB ids, rank 1 first. The CURRENT
+                         chart is the pregame expectation for the upcoming
+                         week; the walk-forward measurement that earns the
+                         family its scales lives in the backtest path, not here.
+    outs[(team, week)] -> QB ids listed Out/Doubtful, from injury_history's
+                         current season (the daily report since R91). A gsis id
+                         and a name key are both recorded, so a chart entry
+                         joins on whichever of the two it carries.
+    capability[pid]   -> (dropbacks, epa) accumulated over every season on file.
+    replacement       -> pooled EPA/db of every passer under the dropback
+                         threshold: the level a team falls to when it has no
+                         measured backup. None when nothing is measurable.
+
+    None when epa_history or the depth chart is absent — the caller must then
+    NOT apply the family rather than price a neutral 0.0 everywhere."""
+    seasons_doc = _load_json(epa_path or EPA_PATH, "seasons")
+    depth = _load_json(depth_path or DEPTH_PATH, "teams")
+    if not seasons_doc or not depth:
+        return None
+    from scripts.build_line_report import name_key  # noqa: PLC0415 (guarded)
+    orders = {}
+    for team, groups in depth.items():
+        rows = [r for r in ((groups or {}).get("QB") or [])
+                if isinstance(r, dict) and r.get("gsis_id")]
+        if rows:
+            orders[team] = [r["gsis_id"]
+                            for r in sorted(rows, key=lambda r: int(r.get("rank") or 99))]
+    capability = {}
+    for yr in sorted(seasons_doc, key=int):
+        for team_weeks in (seasons_doc[yr] or {}).values():
+            for cell in (team_weeks or {}).values():
+                for pid, rec in ((cell or {}).get("passers") or {}).items():
+                    acc = capability.setdefault(pid, [0.0, 0.0])
+                    acc[0] += float(rec.get("db") or 0.0)
+                    acc[1] += float(rec.get("epa") or 0.0)
+    rep_epa = rep_db = 0.0
+    for db, epa in capability.values():
+        if db < QB_DEPTH_MIN_DROPBACKS:
+            rep_epa += epa
+            rep_db += db
+    replacement = (rep_epa / rep_db) if rep_db else None
+    injuries = _load_json(injury_path or INJURY_PATH, "seasons") or {}
+    outs = {}
+    for team, weeks in (injuries.get(str(season)) or {}).items():
+        for wk, rows in weeks.items():
+            ids = set()
+            for r in rows or []:
+                if r.get("position") != "QB" or r.get("status") not in ("Out", "Doubtful"):
+                    continue
+                if r.get("id"):
+                    ids.add(r["id"])
+                if r.get("name"):
+                    ids.add("name:" + name_key(r["name"]))
+            if ids:
+                outs[(team, int(wk))] = ids
+    return orders, outs, {p: tuple(v) for p, v in capability.items()}, replacement
 
 
 def epa_blend_deltas(weight):
