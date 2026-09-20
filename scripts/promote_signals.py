@@ -2268,16 +2268,36 @@ def wind_current(season):
     return out
 
 
-def qb_out_current(season):
+DEPTH_PATH = os.path.join(DATA, "depth_chart.json")
+
+
+def depth_chart_qb1(depth_doc):
+    """{team: gsis_id of the depth chart's rank-1 QB}. The EXPECTED primary
+    passer this week is the one the depth chart names, not last season's
+    dropback leader: rosters change (Atlanta's 2025 leader was Cousins, its
+    2026 starter Penix, its September signing Tagovailoa), and a signal keyed to
+    a passer who no longer plays for the team can never fire."""
+    out = {}
+    for team, groups in ((depth_doc or {}).get("teams") or {}).items():
+        rows = [r for r in ((groups or {}).get("QB") or []) if isinstance(r, dict) and r.get("gsis_id")]
+        if rows:
+            out[team] = min(rows, key=lambda r: int(r.get("rank") or 99))["gsis_id"]
+    return out
+
+
+def qb_out_current(season, epa_path=None, injury_path=None, depth_path=None):
     """(primary_by_team, out_ids_by_team_week) for PREDICTION-TIME application.
 
-    Primary passer per team for the season: cumulative dropback leader from
-    epa_history's current season if present, else last season's leader (the
-    honest preseason expectation). Outs come from injury_history's current
-    season (refreshed by the daily cron in-season; empty preseason = no
-    deltas, correctly dormant)."""
-    seasons = _load_json(EPA_PATH, "seasons")
-    injuries = _load_json(INJURY_PATH, "seasons") or {}
+    Primary passer per team: the depth chart's rank-1 QB when
+    data/depth_chart.json names one (R91), else the cumulative dropback leader
+    from epa_history's current season if present, else last season's leader
+    (the honest preseason expectation). Outs come from injury_history's current
+    season, which since R91 carries the current week from the daily report; an
+    empty season means no deltas, correctly dormant. The walk-forward
+    measurement that adopted this family is untouched: it lives in the
+    backtest path, not here."""
+    seasons = _load_json(epa_path or EPA_PATH, "seasons")
+    injuries = _load_json(injury_path or INJURY_PATH, "seasons") or {}
     if not seasons:
         return None
     primary = {}
@@ -2292,6 +2312,9 @@ def qb_out_current(season):
                 break                      # current season data wins outright
         if cum:
             primary[team] = max(cum.items(), key=lambda kv: kv[1])[0]
+    depth = _load_json(depth_path or DEPTH_PATH, "teams")
+    if depth:
+        primary.update(depth_chart_qb1({"teams": depth}))
     outs = {}
     for team, weeks in (injuries.get(str(season)) or {}).items():
         for wk, rows in weeks.items():

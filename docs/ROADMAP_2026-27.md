@@ -433,6 +433,31 @@ nothing ships without one.
   a card contains AT LEAST ONE seed, not all. Boot graph re-measured 369,024 (+2,082: slate.js and
   render.js), ceiling re-set with the written decision in `tests/perf/budget.spec.mjs`. · **LOE**
   2 d
+- **R91 · The adopted QB-out signal fires in season — built 2026-09-20 (owner: "explain why the
+  model likes the ATL money line").** CAR @ ATL priced Atlanta at **61.4%** against a fair-market
+  41.7% with Michael Penix Jr. OUT (knee) and Tua Tagovailoa DOUBTFUL (oblique): the number was
+  pure Elo (ATL 1475.8, CAR 1440.1) plus 45 home, 80.7 points, and carried NO quarterback
+  adjustment. Two faults. **(1)** `data/injury_history.json` carried seasons 2021-2025 only: the
+  nflverse release for a season in progress is ~600 rows at week 2 and the 2,000-row partial-pull
+  floor refused it every day, so the game model's adopted `qb_out` family (75 Elo when the
+  primary passer is Out/Doubtful) had fired **zero** times all season ("0 team-weeks with QB
+  listings" on every build) while the player gate, reading the daily report, had already pulled
+  every Atlanta quarterback's props. **(2)** the prediction-time "primary passer" was last season's
+  dropback leader — for Atlanta, Kirk Cousins, who no longer plays there — so the signal could not
+  have matched Penix even with the rows. **Changed:** `CURRENT_MIN_ROWS = 50` for the season in
+  progress; a current-week OVERLAY from the daily ESPN report (`overlay_current_week`, ids by
+  name from `data/depth_chart.json`, release team-weeks never overridden, the overlay fills what
+  the release lacks); and `qb_out_current` takes the depth chart's rank-1 QB as the primary when
+  the chart names one (the dropback leader remains the preseason fallback). The walk-forward
+  measurement that adopted the family is untouched. **Measured locally on the committed inputs:**
+  47 team-weeks with QB listings, fires for ATL (Penix), MIN (Murray) and SEA (Darnold): CAR @ ATL
+  home **61.4% → 50.8%**, MIN @ CHI home 58.1% → 68.1%, SEA @ ARI home 33.4% → 43.5%. Locked by
+  `tests/feature/r91_qb_out_live.test.mjs` (overlay shaping and precedence, the depth-chart
+  primary over the stale leader, Questionable never fires, the fallback). Open, by owner order
+  (R92): a DEPTH cascade — a further drop when QB2 is also out and the replacement's own
+  capability, extended to every key position on offense and defense and carried into the
+  player, game, week and MY parlay numbers — measured on the walk-forward before it ships. ·
+  **LOE** 0.25 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

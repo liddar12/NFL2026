@@ -34,8 +34,19 @@ from scripts.scrape.nflverse import FeedError, fetch_injuries_release  # noqa: E
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "injury_history.json")
+INJURIES_PATH = os.path.join(DATA, "injuries.json")
+DEPTH_PATH = os.path.join(DATA, "depth_chart.json")
+GAME_PREDICTIONS_PATH = os.path.join(DATA, "game_predictions.json")
 HISTORY_SEASONS = [2021, 2022, 2023, 2024, 2025]
 CURRENT_SEASON = 2026
+# R91 — the nflverse release for a season IN PROGRESS is small by construction
+# (two weeks of reports is ~600 rows), and the 2,000-row "partial pull" floor
+# that protects a finished season refused it every day: the 2026 season never
+# reached this file, the adopted qb_out signal fired 0 times (the build log said
+# "0 team-weeks with QB listings" on every run), and CAR @ ATL priced Atlanta at
+# 61% with Penix OUT and Tagovailoa DOUBTFUL. A partial in-season release is
+# the honest state of the season, not a failed pull.
+CURRENT_MIN_ROWS = 50
 RENAMES = {"LA": "LAR", "OAK": "LV", "SD": "LAC"}
 SKILL_POSITIONS = frozenset(["QB", "RB", "WR", "TE"])
 # R70 — the offensive line as nflverse spells it: the injury releases and the
@@ -114,6 +125,95 @@ def shape(rows):
     return teams, kept
 
 
+def _norm_name(name):
+    """Lower-case, diacritics and punctuation stripped, suffix tokens dropped, so
+    ESPN's "Michael Penix Jr." and the depth chart's "Michael Penix Jr." (or a
+    release's "Michael Penix") meet on one key."""
+    import re
+    import unicodedata
+    text = unicodedata.normalize("NFD", str(name or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    toks = [t for t in re.sub(r"[^a-z0-9]+", " ", text).split()
+            if t not in ("jr", "sr", "ii", "iii", "iv", "v")]
+    return " ".join(toks)
+
+
+def depth_ids(depth_doc):
+    """{team: {normalised name: gsis_id}} from data/depth_chart.json. The daily
+    ESPN injury report carries names, not ids; the depth chart carries both, so
+    it is the join that lets a report row name the same player the passer
+    ledger names. A player absent from the chart resolves to no id (honest)."""
+    out = {}
+    for team, groups in ((depth_doc or {}).get("teams") or {}).items():
+        by = out.setdefault(team, {})
+        for pos, rows in (groups or {}).items():
+            if not isinstance(rows, list):
+                continue
+            for r in rows:
+                key = _norm_name(r.get("name"))
+                if key and r.get("gsis_id") and key not in by:
+                    by[key] = r["gsis_id"]
+    return out
+
+
+def overlay_current_week(injuries_doc, depth_doc, week):
+    """R91 — the CURRENT week's report rows from the daily ESPN feed
+    (data/injuries.json), in this file's row shape: seasons[team][week] =
+    [{id, name, position, status}]. Same position and status filters as the
+    release path; the id comes from the depth chart by name, else None.
+    Returns (teams dict, kept, unresolved)."""
+    _assert_canonical_vocab()
+    ids = depth_ids(depth_doc)
+    teams, kept, unresolved = {}, 0, 0
+    for r in (injuries_doc or {}).get("injuries") or []:
+        pos = (r.get("position") or "").strip()
+        status = (r.get("status") or "").strip()
+        team = RENAMES.get((r.get("team") or "").strip(), (r.get("team") or "").strip())
+        if pos not in POSITIONS or status not in STATUSES or not team:
+            continue
+        pid = ids.get(team, {}).get(_norm_name(r.get("player")))
+        if pid is None:
+            unresolved += 1
+        kept += 1
+        teams.setdefault(team, {}).setdefault(str(int(week)), []).append({
+            "id": pid,
+            "name": (r.get("player") or "").strip(),
+            "position": pos,
+            "status": status,
+        })
+    return teams, kept, unresolved
+
+
+def merge_overlay(season_rows, overlay):
+    """The release's rows stand wherever it has a team-week; the overlay fills
+    the team-weeks it does not have. Returns (merged, filled_team_weeks)."""
+    merged = {t: {w: list(rows) for w, rows in weeks.items()}
+              for t, weeks in (season_rows or {}).items()}
+    filled = 0
+    for team, weeks in overlay.items():
+        for wk, rows in weeks.items():
+            if merged.get(team, {}).get(wk):
+                continue
+            merged.setdefault(team, {})[wk] = rows
+            filled += 1
+    return merged, filled
+
+
+def _load_opt(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def current_week(game_predictions):
+    try:
+        return int((game_predictions or {}).get("week"))
+    except (TypeError, ValueError):
+        return None
+
+
 def selftest():
     rows = [
         {"position": "QB", "report_status": "Out", "team": "LA", "week": "10",
@@ -157,9 +257,31 @@ def selftest():
     _assert_canonical_vocab()
     assert {availability.normalize_status(s) for s in STATUSES} == {
         availability.OUT, availability.DOUBTFUL, availability.QUESTIONABLE}
+    # R91 — the current-week overlay from the daily ESPN report, ids by name
+    # from the depth chart; the release's team-weeks win, the overlay fills.
+    depth = {"teams": {"ATL": {"QB": [
+        {"rank": 1, "name": "Michael Penix Jr.", "gsis_id": "00-0039917"},
+        {"rank": 2, "name": "Tua Tagovailoa", "gsis_id": "00-0036212"}]}}}
+    feed = {"injuries": [
+        {"team": "ATL", "player": "Michael Penix Jr.", "position": "QB", "status": "Out"},
+        {"team": "ATL", "player": "Tua Tagovailoa", "position": "QB", "status": "Doubtful"},
+        {"team": "ATL", "player": "Cooper Rush", "position": "QB", "status": "Active"},
+        {"team": "ATL", "player": "Somebody Else", "position": "WR", "status": "Out"},
+        {"team": "LA", "player": "A Kicker", "position": "K", "status": "Out"},
+    ]}
+    ov, kept3, unresolved = overlay_current_week(feed, depth, 2)
+    assert kept3 == 3 and unresolved == 1, (kept3, unresolved)
+    assert [r["id"] for r in ov["ATL"]["2"]] == ["00-0039917", "00-0036212", None]
+    assert ov["ATL"]["2"][0]["status"] == "Out" and "LAR" not in ov
+    assert _norm_name("Michael Penix Jr.") == _norm_name("michael penix")
+    merged, filled = merge_overlay({"ATL": {"1": [{"id": "x"}]}, "KC": {"2": [{"id": "k"}]}}, ov)
+    assert filled == 1 and merged["ATL"]["1"] == [{"id": "x"}] and merged["ATL"]["2"] == ov["ATL"]["2"]
+    merged2, filled2 = merge_overlay({"ATL": {"2": [{"id": "release"}]}}, ov)
+    assert filled2 == 0 and merged2["ATL"]["2"] == [{"id": "release"}]
     print("selftest OK: status filter + rename + shaping exact; OL/DL-front positions "
           "admitted, skill rows unchanged; nflverse statuses map to the canonical "
-          "week-class vocabulary")
+          "week-class vocabulary; current-week overlay resolves ids by name and "
+          "never overrides a release team-week")
 
 
 def main(rebuild=False):
@@ -179,10 +301,15 @@ def main(rebuild=False):
             seasons_out[key] = existing[key]
             continue
         try:
-            teams, kept = shape(fetch_injuries_release(season))
+            if season == CURRENT_SEASON:
+                teams, kept = shape(fetch_injuries_release(season, min_rows=CURRENT_MIN_ROWS))
+            else:
+                teams, kept = shape(fetch_injuries_release(season))
         except FeedError as err:
             if season == CURRENT_SEASON:
-                print(f"NOTICE: {season} injuries not available yet ({err}); skipping")
+                print(f"NOTICE: {season} injuries release not available ({err}); "
+                      "the current week comes from the daily report below")
+                seasons_out[key] = existing.get(key) or {}
                 continue
             if key in existing:
                 seasons_out[key] = existing[key]
@@ -195,6 +322,22 @@ def main(rebuild=False):
             return 0 if existing else 1
         seasons_out[key] = teams
 
+    # R91 — the CURRENT week from the daily ESPN report (data/injuries.json),
+    # ids by name from data/depth_chart.json. The nflverse release publishes
+    # after the fact; the report the game is priced on is today's. The release
+    # keeps every team-week it has; the overlay fills the rest, so the walked-
+    # forward history and the live week are one file the signal reads.
+    feed, depth, preds = _load_opt(INJURIES_PATH), _load_opt(DEPTH_PATH), _load_opt(GAME_PREDICTIONS_PATH)
+    wk = current_week(preds)
+    if feed and wk:
+        overlay, kept_now, unresolved = overlay_current_week(feed, depth, wk)
+        merged, filled = merge_overlay(seasons_out.get(str(CURRENT_SEASON)) or {}, overlay)
+        seasons_out[str(CURRENT_SEASON)] = merged
+        print(f"current week {wk}: {kept_now} report row(s) from data/injuries.json, "
+              f"{unresolved} without a depth-chart id, {filled} team-week(s) filled")
+    else:
+        print("NOTICE: no daily report / current week on file; no current-week overlay")
+
     if not seasons_out:
         print("INJURY HISTORY: nothing available; keeping existing.", file=sys.stderr)
         return 0 if existing else 1
@@ -203,7 +346,8 @@ def main(rebuild=False):
     doc = {
         "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": ("nflverse injuries releases (final report statuses, skill positions "
-                   "+ OL + DL front)"),
+                   "+ OL + DL front); current week overlaid from data/injuries.json "
+                   "(ESPN daily report, ids by name from data/depth_chart.json)"),
         "seasons": seasons_out,
     }
     with open(OUT_PATH, "w", encoding="utf-8") as fh:
