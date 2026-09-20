@@ -1,0 +1,4491 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "backup_qb_backtest.schema.json",
+  "title": "Backup-QB cascade backtest (R92) - data/backup_qb_backtest.json",
+  "description": "MEASURE-ONLY record of the backup-quarterback cascade on the shipped weekly number (weekly_split_v2), written by scripts/backtest_backup_qb.py on the committed corpus data/fixtures/backtest_weekly/. Walk-forward throughout: the quarterback room comes from depth-chart snapshots strictly before the week, the condition from the FINAL injury report for the week, passer capability from dropbacks before the week, and every candidate parameter is fitted only on seasons before the one it is scored on. STRICT: additionalProperties is false at every level, so a producer that grows a key must grow this contract with it and a typo reds the gate instead of passing unnoticed. Nothing in this document is applied to a projection - verdict.adopted is false in phase 1 and no shipped builder reads the file. Optional feed: absent on a clone that has never run the backtest, validated strictly whenever present.",
+  "type": "object",
+  "required": [
+    "generated_utc",
+    "experiment",
+    "model_incumbent",
+    "seasons_scored",
+    "held_out",
+    "substrate",
+    "starter_rule",
+    "capability_rule",
+    "fit_rule",
+    "coverage",
+    "conditions",
+    "qb_subject_rows",
+    "residuals",
+    "residuals_by_cap_gap",
+    "components",
+    "shipped",
+    "candidates",
+    "verdict",
+    "policy",
+    "limits",
+    "meta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "experiment": {
+      "type": "string",
+      "enum": [
+        "backup_qb_cascade_v0"
+      ]
+    },
+    "model_incumbent": {
+      "type": "string",
+      "pattern": "^weekly_split_v[0-9]+$"
+    },
+    "seasons_scored": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer",
+        "minimum": 1999,
+        "maximum": 2100
+      }
+    },
+    "held_out": {
+      "type": "integer",
+      "minimum": 1999,
+      "maximum": 2100
+    },
+    "substrate": {
+      "type": "object",
+      "required": [
+        "weekly_actuals",
+        "games_meta",
+        "injury_history",
+        "epa_history",
+        "depth_charts",
+        "shipped_number",
+        "rows",
+        "pool",
+        "starter_lag_weeks"
+      ],
+      "properties": {
+        "weekly_actuals": {
+          "type": "string",
+          "minLength": 1
+        },
+        "games_meta": {
+          "type": "string",
+          "minLength": 1
+        },
+        "injury_history": {
+          "type": "string",
+          "minLength": 1
+        },
+        "epa_history": {
+          "type": "string",
+          "minLength": 1
+        },
+        "depth_charts": {
+          "type": "string",
+          "minLength": 1
+        },
+        "shipped_number": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pool": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR",
+            "TE"
+          ],
+          "properties": {
+            "QB": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "RB": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "WR": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "TE": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "starter_lag_weeks": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "starter_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fit_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "rows",
+        "chart_known",
+        "cap_gap_known",
+        "replacement_used"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chart_known": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cap_gap_known": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replacement_used": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "conditions": {
+      "type": "object",
+      "required": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ],
+      "properties": {
+        "QB": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "qb1",
+              "backup",
+              "qb3_plus",
+              "unknown"
+            ],
+            "properties": {
+              "qb1": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "backup": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb3_plus": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "RB": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "qb1",
+              "backup",
+              "qb3_plus",
+              "unknown"
+            ],
+            "properties": {
+              "qb1": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "backup": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb3_plus": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "WR": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "qb1",
+              "backup",
+              "qb3_plus",
+              "unknown"
+            ],
+            "properties": {
+              "qb1": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "backup": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb3_plus": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "TE": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "qb1",
+              "backup",
+              "qb3_plus",
+              "unknown"
+            ],
+            "properties": {
+              "qb1": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "backup": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb3_plus": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "qb_subject_rows": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "qb1",
+          "backup",
+          "qb3_plus",
+          "unknown"
+        ],
+        "properties": {
+          "qb1": {
+            "type": "object",
+            "required": [
+              "expected_starter",
+              "other_qb"
+            ],
+            "properties": {
+              "expected_starter": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "other_qb": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "backup": {
+            "type": "object",
+            "required": [
+              "expected_starter",
+              "other_qb"
+            ],
+            "properties": {
+              "expected_starter": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "other_qb": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "qb3_plus": {
+            "type": "object",
+            "required": [
+              "expected_starter",
+              "other_qb"
+            ],
+            "properties": {
+              "expected_starter": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "other_qb": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "unknown": {
+            "type": "object",
+            "required": [
+              "expected_starter",
+              "other_qb"
+            ],
+            "properties": {
+              "expected_starter": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "other_qb": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "residuals": {
+      "type": "object",
+      "required": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ],
+      "properties": {
+        "QB": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "RB": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "WR": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "TE": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "residuals_by_cap_gap": {
+      "type": "object",
+      "required": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ],
+      "properties": {
+        "QB": {
+          "type": "object",
+          "required": [
+            "none",
+            "neg",
+            "0.00-0.05",
+            "0.05-0.15",
+            "0.15+",
+            "unknown"
+          ],
+          "properties": {
+            "none": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "neg": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.00-0.05": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.05-0.15": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.15+": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "RB": {
+          "type": "object",
+          "required": [
+            "none",
+            "neg",
+            "0.00-0.05",
+            "0.05-0.15",
+            "0.15+",
+            "unknown"
+          ],
+          "properties": {
+            "none": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "neg": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.00-0.05": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.05-0.15": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.15+": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "WR": {
+          "type": "object",
+          "required": [
+            "none",
+            "neg",
+            "0.00-0.05",
+            "0.05-0.15",
+            "0.15+",
+            "unknown"
+          ],
+          "properties": {
+            "none": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "neg": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.00-0.05": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.05-0.15": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.15+": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "TE": {
+          "type": "object",
+          "required": [
+            "none",
+            "neg",
+            "0.00-0.05",
+            "0.05-0.15",
+            "0.15+",
+            "unknown"
+          ],
+          "properties": {
+            "none": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "neg": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.00-0.05": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.05-0.15": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "0.15+": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n",
+                "mean_residual",
+                "mae",
+                "mean_actual",
+                "mean_pred",
+                "ratio"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mean_residual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_actual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mean_pred": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "components": {
+      "type": "object",
+      "required": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ],
+      "properties": {
+        "QB": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "RB": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "WR": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "TE": {
+          "type": "object",
+          "required": [
+            "qb1",
+            "backup",
+            "qb3_plus",
+            "unknown"
+          ],
+          "properties": {
+            "qb1": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "backup": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "qb3_plus": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "unknown": {
+              "type": "object",
+              "required": [
+                "n_pass_yds",
+                "n_rec_yds",
+                "n_rush_yds",
+                "pass_yds",
+                "ratio_pass_yds",
+                "ratio_rec_yds",
+                "ratio_rush_yds",
+                "rec_yds",
+                "rush_yds"
+              ],
+              "properties": {
+                "pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_pass_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_pass_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rush_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rush_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n_rec_yds": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ratio_rec_yds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "shipped": {
+      "type": "object",
+      "required": [
+        "pooled",
+        "held_out",
+        "per_position"
+      ],
+      "properties": {
+        "pooled": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "rank_corr": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "topk": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "held_out": {
+          "type": "object",
+          "required": [
+            "mae",
+            "rank_corr",
+            "topk"
+          ],
+          "properties": {
+            "mae": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "rank_corr": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "topk": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "per_position": {
+          "type": "object",
+          "required": [
+            "QB",
+            "RB",
+            "WR",
+            "TE"
+          ],
+          "properties": {
+            "QB": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr",
+                "n"
+              ],
+              "properties": {
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rank_corr": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "RB": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr",
+                "n"
+              ],
+              "properties": {
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rank_corr": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "WR": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr",
+                "n"
+              ],
+              "properties": {
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rank_corr": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "TE": {
+              "type": "object",
+              "required": [
+                "mae",
+                "rank_corr",
+                "n"
+              ],
+              "properties": {
+                "mae": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "rank_corr": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "family",
+          "position",
+          "form",
+          "params",
+          "fold_results",
+          "rows_moved",
+          "pooled",
+          "held_out",
+          "per_position",
+          "delta_vs_shipped",
+          "ci",
+          "ci_held_out",
+          "would_adopt",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "type": "string",
+            "enum": [
+              "cap_gap",
+              "backup_flat"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE",
+              "ALL"
+            ]
+          },
+          "form": {
+            "type": "string",
+            "minLength": 1
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "by_season",
+              "clamp",
+              "min_fit_n"
+            ],
+            "properties": {
+              "by_season": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "QB": {
+                      "type": "number"
+                    },
+                    "RB": {
+                      "type": "number"
+                    },
+                    "WR": {
+                      "type": "number"
+                    },
+                    "TE": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "clamp": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              },
+              "min_fit_n": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "fold_results": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "season",
+                "fit_seasons",
+                "params",
+                "n_fit",
+                "note",
+                "rows",
+                "rows_moved",
+                "shipped",
+                "candidate"
+              ],
+              "properties": {
+                "season": {
+                  "type": "integer",
+                  "minimum": 1999,
+                  "maximum": 2100
+                },
+                "fit_seasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1999,
+                    "maximum": 2100
+                  }
+                },
+                "params": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "QB": {
+                      "type": "number"
+                    },
+                    "RB": {
+                      "type": "number"
+                    },
+                    "WR": {
+                      "type": "number"
+                    },
+                    "TE": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "n_fit": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "QB": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "RB": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "WR": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "TE": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "note": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "QB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "RB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "WR": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "TE": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "rows": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "rows_moved": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "shipped": {
+                  "type": "object",
+                  "required": [
+                    "mae",
+                    "rank_corr",
+                    "topk"
+                  ],
+                  "properties": {
+                    "mae": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "rank_corr": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "topk": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "candidate": {
+                  "type": "object",
+                  "required": [
+                    "mae",
+                    "rank_corr",
+                    "topk"
+                  ],
+                  "properties": {
+                    "mae": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "rank_corr": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "topk": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "rows_moved": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pooled": {
+            "type": "object",
+            "required": [
+              "mae",
+              "rank_corr",
+              "topk"
+            ],
+            "properties": {
+              "mae": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rank_corr": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "topk": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "held_out": {
+            "type": "object",
+            "required": [
+              "mae",
+              "rank_corr",
+              "topk"
+            ],
+            "properties": {
+              "mae": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rank_corr": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "topk": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "per_position": {
+            "type": "object",
+            "required": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ],
+            "properties": {
+              "QB": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "n"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "RB": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "n"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "WR": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "n"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              },
+              "TE": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "n"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "n": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "delta_vs_shipped": {
+            "type": "object",
+            "required": [
+              "pooled",
+              "held_out"
+            ],
+            "properties": {
+              "pooled": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "topk"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "topk": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "held_out": {
+                "type": "object",
+                "required": [
+                  "mae",
+                  "rank_corr",
+                  "topk"
+                ],
+                "properties": {
+                  "mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "topk": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "ci": {
+            "type": "object",
+            "required": [
+              "mean",
+              "lo95",
+              "hi95",
+              "blocks",
+              "B"
+            ],
+            "properties": {
+              "mean": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "lo95": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "hi95": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "blocks": {
+                "type": "string",
+                "enum": [
+                  "season-week"
+                ]
+              },
+              "B": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "ci_held_out": {
+            "type": "object",
+            "required": [
+              "mean",
+              "lo95",
+              "hi95",
+              "blocks",
+              "B"
+            ],
+            "properties": {
+              "mean": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "lo95": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "hi95": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "blocks": {
+                "type": "string",
+                "enum": [
+                  "season-week"
+                ]
+              },
+              "B": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "would_adopt": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": [
+        "adopted",
+        "adoptable_candidates",
+        "best_adoptable",
+        "rule",
+        "reason"
+      ],
+      "properties": {
+        "adopted": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "adoptable_candidates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "best_adoptable": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "string",
+      "pattern": "MEASUREMENT ONLY"
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "rooms",
+        "rows_skipped",
+        "pool_excluded",
+        "pooled_per_season",
+        "runtime_s"
+      ],
+      "properties": {
+        "rooms": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "depth_rows",
+              "qb_snapshots",
+              "team_weeks_with_a_room",
+              "qb_out_listings",
+              "replacement_level_epa_per_db"
+            ],
+            "properties": {
+              "depth_rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb_snapshots": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "team_weeks_with_a_room": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "qb_out_listings": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "replacement_level_epa_per_db": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "rows_skipped": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "pool_excluded": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "pooled_per_season": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ],
+            "properties": {
+              "QB": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "RB": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "WR": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "TE": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "runtime_s": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

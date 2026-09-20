@@ -1,0 +1,789 @@
+{
+  "generated_utc": "2026-09-20T15:31:33Z",
+  "kind": "qb_depth_backtest",
+  "seasons_scored": [
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+  ],
+  "substrate": {
+    "seasons_requested": [
+      "2020",
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "seasons_fetched": [
+      "2020",
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "seasons_unavailable": {},
+    "starter_lag_weeks": 1,
+    "min_dropbacks": 100,
+    "out_statuses": [
+      "Out",
+      "Doubtful"
+    ],
+    "replacement_epa_per_db": {
+      "2021": null,
+      "2022": -0.06974,
+      "2023": -0.23003,
+      "2024": -0.29272,
+      "2025": -0.27476
+    },
+    "depth_source": "nflverse depth_charts_{season} releases",
+    "injury_source": "data/injury_history.json (final weekly report)",
+    "capability_source": "data/epa_history.json seasons[yr][team][wk].passers",
+    "rule": "QB1/QB2 are the rank-1 and rank-2 QBs of the latest depth-chart snapshot whose week is <= wk - 1; week 1 uses the prior season's final chart; the expected starter is the highest-ranked QB not listed Out/Doubtful on that week's final report; cap_gap is capability(QB1) - capability(expected starter) in EPA per dropback, 0.0 when QB1 starts",
+    "seasons_scored": [
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ]
+  },
+  "conditions": {
+    "team_games": {
+      "2022": 542,
+      "2023": 544,
+      "2024": 544,
+      "2025": 544
+    },
+    "depth_known": {
+      "2022": 542,
+      "2023": 544,
+      "2024": 544,
+      "2025": 544
+    },
+    "depth_unknown": {
+      "2022": 0,
+      "2023": 0,
+      "2024": 0,
+      "2025": 0
+    },
+    "qb1_out": {
+      "2022": 40,
+      "2023": 24,
+      "2024": 19,
+      "2025": 35
+    },
+    "qb2_also_out": {
+      "2022": 0,
+      "2023": 1,
+      "2024": 0,
+      "2025": 1
+    },
+    "qb3_or_deeper_started": {
+      "2022": 0,
+      "2023": 1,
+      "2024": 0,
+      "2025": 0
+    },
+    "cap_gap_measured": {
+      "2022": 37,
+      "2023": 24,
+      "2024": 19,
+      "2025": 34
+    }
+  },
+  "baseline": {
+    "name": "shipped",
+    "params": {
+      "hfa_elo": 45.0,
+      "revert": 0.45,
+      "k": 25.0,
+      "families": [
+        "qb_out"
+      ],
+      "qb_out_scale": 75.0
+    },
+    "unavailable": [],
+    "heldout_log_loss_by_fold": {
+      "2022": 0.63533,
+      "2023": 0.66551,
+      "2024": 0.60135,
+      "2025": 0.63582
+    },
+    "pooled_log_loss": 0.6345,
+    "n": 1084
+  },
+  "candidates": [
+    {
+      "name": "qb1_out",
+      "description": "the shipped drop, re-measured on the depth-chart substrate",
+      "params": {
+        "cap_scale": 0.0,
+        "qb1_scale": 75.0,
+        "qb2_extra": 0.0
+      },
+      "trials": 4,
+      "grid": [
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.6355
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63547
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63588
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63672
+        }
+      ],
+      "heldout_log_loss_by_fold": {
+        "2022": 0.63549,
+        "2023": 0.66606,
+        "2024": 0.60183,
+        "2025": 0.63851
+      },
+      "pooled_log_loss": 0.63547,
+      "n": 1084,
+      "delta_vs_shipped": -0.00097,
+      "improvement": -0.000971,
+      "se": 0.000578,
+      "t_stat": -1.679,
+      "ci95": [
+        -0.002811,
+        0.000869
+      ],
+      "folds_positive": 0,
+      "threshold": 0.00241,
+      "would_adopt": false,
+      "n_fired": 118
+    },
+    {
+      "name": "qb1_qb2",
+      "description": "a second drop when QB2 is listed out as well",
+      "params": {
+        "cap_scale": 0.0,
+        "qb1_scale": 75.0,
+        "qb2_extra": 0.0
+      },
+      "trials": 20,
+      "grid": [
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.6355
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 25.0
+          },
+          "pooled_log_loss": 0.63556
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63563
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 75.0
+          },
+          "pooled_log_loss": 0.63571
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63579
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63547
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 25.0
+          },
+          "pooled_log_loss": 0.63554
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63562
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 75.0
+          },
+          "pooled_log_loss": 0.6357
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63579
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63588
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 25.0
+          },
+          "pooled_log_loss": 0.63596
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63604
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 75.0
+          },
+          "pooled_log_loss": 0.63613
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63622
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63672
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 25.0
+          },
+          "pooled_log_loss": 0.6368
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63689
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 75.0
+          },
+          "pooled_log_loss": 0.63698
+        },
+        {
+          "params": {
+            "cap_scale": 0.0,
+            "qb1_scale": 125.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63708
+        }
+      ],
+      "heldout_log_loss_by_fold": {
+        "2022": 0.63549,
+        "2023": 0.66606,
+        "2024": 0.60183,
+        "2025": 0.63851
+      },
+      "pooled_log_loss": 0.63547,
+      "n": 1084,
+      "delta_vs_shipped": -0.00097,
+      "improvement": -0.000971,
+      "se": 0.000578,
+      "t_stat": -1.679,
+      "ci95": [
+        -0.002811,
+        0.000869
+      ],
+      "folds_positive": 0,
+      "threshold": 0.00241,
+      "would_adopt": false,
+      "n_fired": 118
+    },
+    {
+      "name": "capability",
+      "description": "the drop IS the measured EPA/dropback gap to the expected starter",
+      "params": {
+        "cap_scale": 300.0,
+        "qb1_scale": 0.0,
+        "qb2_extra": 0.0
+      },
+      "trials": 5,
+      "grid": [
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 0.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63613
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 0.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63564
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 0.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63541
+        },
+        {
+          "params": {
+            "cap_scale": 400.0,
+            "qb1_scale": 0.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63545
+        },
+        {
+          "params": {
+            "cap_scale": 500.0,
+            "qb1_scale": 0.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63574
+        }
+      ],
+      "heldout_log_loss_by_fold": {
+        "2022": 0.63947,
+        "2023": 0.66525,
+        "2024": 0.60006,
+        "2025": 0.63693
+      },
+      "pooled_log_loss": 0.63541,
+      "n": 1084,
+      "delta_vs_shipped": -0.00091,
+      "improvement": -0.000915,
+      "se": 0.001175,
+      "t_stat": -0.779,
+      "ci95": [
+        -0.004655,
+        0.002825
+      ],
+      "folds_positive": 2,
+      "threshold": 0.00491,
+      "would_adopt": false,
+      "n_fired": 114
+    },
+    {
+      "name": "combined",
+      "description": "QB1 drop + QB2 extra + capability gap, all three together",
+      "params": {
+        "cap_scale": 200.0,
+        "qb1_scale": 50.0,
+        "qb2_extra": 0.0
+      },
+      "trials": 36,
+      "grid": [
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63538
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63505
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63499
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63551
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63519
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63514
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63566
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63536
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 25.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63531
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63507
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63491
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63501
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63522
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63507
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63517
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63538
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63524
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 50.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63536
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63521
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63522
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63547
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63537
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63538
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63564
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63555
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63557
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 75.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63583
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63579
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63595
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 0.0
+          },
+          "pooled_log_loss": 0.63635
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63596
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63613
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 50.0
+          },
+          "pooled_log_loss": 0.63653
+        },
+        {
+          "params": {
+            "cap_scale": 100.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63615
+        },
+        {
+          "params": {
+            "cap_scale": 200.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63632
+        },
+        {
+          "params": {
+            "cap_scale": 300.0,
+            "qb1_scale": 100.0,
+            "qb2_extra": 100.0
+          },
+          "pooled_log_loss": 0.63673
+        }
+      ],
+      "heldout_log_loss_by_fold": {
+        "2022": 0.63737,
+        "2023": 0.66562,
+        "2024": 0.59812,
+        "2025": 0.63857
+      },
+      "pooled_log_loss": 0.63491,
+      "n": 1084,
+      "delta_vs_shipped": -0.00041,
+      "improvement": -0.000413,
+      "se": 0.001338,
+      "t_stat": -0.309,
+      "ci95": [
+        -0.004671,
+        0.003844
+      ],
+      "folds_positive": 1,
+      "threshold": 0.00559,
+      "would_adopt": false,
+      "n_fired": 118
+    }
+  ],
+  "adoption_rule": {
+    "method": "paired per-game log-loss, CR1 cluster-robust over the walk-forward folds, one-sided Student-t, Bonferroni over the candidate families measured here",
+    "alpha": 0.05,
+    "tests": 4,
+    "effect_floor": 0.0015,
+    "double_count_rule": "a qb_depth walk DROPS the shipped qb_out builder: qb_depth's first term is the QB1 drop, so running both would price one absence twice"
+  },
+  "verdict": "none",
+  "policy": [
+    "MEASUREMENT ONLY. This run writes no model parameter: data/model_tuning.json game_params is untouched and the qb_depth family ships with applied=false.",
+    "Every input is restricted to what was knowable before kickoff: depth-chart snapshots strictly before the week, the final injury report for the week, and passer dropbacks accumulated before the week.",
+    "Absent data is COUNTED, never invented: a team-week with no usable depth chart is neutral and appears in the unknown counts, and a season whose depth release could not be fetched is named in substrate.seasons_unavailable.",
+    "Adoption, if it ever happens, happens in the weekly promotion run under the existing never-regress rule; would_adopt here is that rule reported, not applied.",
+    "No market number reaches any probability in this document."
+  ],
+  "limits": [
+    "The depth-chart release is a public listing, not a lineup card: a chart that did not catch up to a mid-week change is wrong here exactly as it was wrong in public, and that error is not correctable after the fact.",
+    "The legacy (pre-2025) release lists two QBs for most team-weeks, so QB3 is frequently unknown in 2022-2024 and the qb3_or_deeper_started counts for those seasons are a floor, not a census.",
+    "Capability is raw EPA per dropback with no opponent, game-script or situation adjustment, so a backup whose sample came in garbage time reads better than he is.",
+    "Four evaluated folds give the cluster-robust test three degrees of freedom, so the significance bar is very high and a real effect of this size can fail it. A 'none' verdict here is 'not proven on 1,084 games', not 'no effect'.",
+    "The order's 'all key positions on offense and defense' is not attempted here: RB/WR/TE absence is the shipped skill_out family and the line cascade is scripts/backtest_lines.py. Widening the substrate is a separate measurement."
+  ]
+}

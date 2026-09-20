@@ -154,6 +154,19 @@ SCHEMA_TO_DATA = {
     # after the leg resolver, so OPTIONAL like its neighbours; a 0-resolved-week
     # document is valid and carries nulls, never zeros.
     "replay_lab.schema.json": "replay_lab.json",
+    # R92 - the QB DEPTH CASCADE backtest (scripts/backtest_qb_depth.py): the
+    # walk-forward measurement behind the `qb_depth` candidate family. MEASURE
+    # ONLY - it adopts nothing and writes no model parameter, and the family it
+    # describes stays applied=false until the weekly promotion run adopts it.
+    # Runner-built (the substrate needs the nflverse depth-chart releases), so
+    # OPTIONAL like its neighbours and strict whenever present.
+    "qb_depth_backtest.schema.json": "qb_depth_backtest.json",
+    # R92 - the BACKUP-QB CASCADE backtest (scripts/backtest_backup_qb.py): what a
+    # team's receivers and backs do when the starting quarterback is out, measured
+    # walk-forward on the shipped weekly number. MEASURE ONLY - it adopts nothing
+    # and no builder reads it. Runner-built (the substrate needs the nflverse
+    # depth-chart releases), so OPTIONAL like its neighbours, strict when present.
+    "backup_qb_backtest.schema.json": "backup_qb_backtest.json",
     # R87 - the graded MY PARLAYS cards (scripts/resolve_my_cards.py). The offered
     # cards themselves live per week under data/my_cards/ and are walked below.
     # 0 graded cards is a valid, honest document; every metric in it is null.
@@ -236,6 +249,11 @@ OPTIONAL_DATA = frozenset([
     # each step finishes. A fresh clone has never run a stage, so its absence is
     # the honest state and may not red the gate; when present it is strict.
     "pipeline_stages.json",
+    # R92 — the QB depth cascade measurement. Its substrate needs the nflverse
+    # depth-chart releases, which the sandbox proxy can refuse, so a clone that
+    # has never run it must not go red for a file no shipped number reads.
+    "qb_depth_backtest.json",
+    "backup_qb_backtest.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -2232,6 +2250,90 @@ def _selftest():
     _bad["workflows"]["nightly"] = _bad["workflows"]["daily"]
     _schema_red(_bad, _st_schema, "a stage record for a workflow that does not exist")
 
+    # R92 — the QB DEPTH CASCADE contract. The measurement is only worth having
+    # if a document cannot quietly claim more than it measured, so the reds are
+    # the three ways that could happen: a verdict naming a family that was never
+    # a candidate, a lag of 0 (a week reading its own depth chart, which is the
+    # whole leak this substrate exists to avoid), and a would_adopt that is a
+    # string rather than a boolean ("false" is truthy to a careless reader).
+    _qd_schema = _load(os.path.join(CONTRACTS, "qb_depth_backtest.schema.json"))
+    _qd_cand = {
+        "name": "qb1_qb2",
+        "description": "a second drop when QB2 is listed out as well",
+        "params": {"qb1_scale": 75.0, "qb2_extra": 50.0, "cap_scale": 0.0},
+        "trials": 20,
+        "grid": [{"params": {"qb1_scale": 75.0, "qb2_extra": 50.0, "cap_scale": 0.0},
+                  "pooled_log_loss": 0.63554}],
+        "heldout_log_loss_by_fold": {"2022": 0.63549, "2023": 0.66606,
+                                     "2024": 0.60183, "2025": 0.63851},
+        "pooled_log_loss": 0.63554, "n": 1084, "delta_vs_shipped": -0.00104,
+        "improvement": -0.00104, "se": 0.000578, "t_stat": -1.8,
+        "ci95": [-0.002811, 0.000869], "folds_positive": 0,
+        "threshold": 0.00241, "would_adopt": False, "n_fired": 118,
+    }
+    _qd = {
+        "generated_utc": "2026-09-20T12:00:00Z",
+        "kind": "qb_depth_backtest",
+        "seasons_scored": ["2022", "2023", "2024", "2025"],
+        "substrate": {
+            "seasons_requested": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_fetched": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_unavailable": {}, "seasons_scored": ["2022", "2023", "2024", "2025"],
+            "starter_lag_weeks": 1, "min_dropbacks": 100,
+            "out_statuses": ["Out", "Doubtful"],
+            "replacement_epa_per_db": {"2022": -0.06974, "2021": None},
+            "depth_source": "nflverse depth_charts_{season} releases",
+            "injury_source": "data/injury_history.json (final weekly report)",
+            "capability_source": "data/epa_history.json seasons[yr][team][wk].passers",
+            "rule": ("QB1/QB2 are the rank-1 and rank-2 QBs of the latest depth-chart "
+                     "snapshot whose week is <= wk - 1; the expected starter is the "
+                     "highest-ranked QB not listed Out/Doubtful"),
+        },
+        "conditions": {k: {"2022": 1, "2023": 1, "2024": 1, "2025": 1}
+                       for k in ("team_games", "depth_known", "depth_unknown",
+                                 "qb1_out", "qb2_also_out",
+                                 "qb3_or_deeper_started", "cap_gap_measured")},
+        "baseline": {
+            "name": "shipped",
+            "params": {"hfa_elo": 45.0, "revert": 0.45, "k": 25.0,
+                       "families": ["qb_out"], "qb_out_scale": 75.0},
+            "unavailable": [],
+            "heldout_log_loss_by_fold": {"2022": 0.63533, "2023": 0.66551,
+                                         "2024": 0.60135, "2025": 0.63582},
+            "pooled_log_loss": 0.6345, "n": 1084,
+        },
+        "candidates": [_qd_cand],
+        "adoption_rule": {
+            "method": "paired per-game log-loss, CR1 cluster-robust over the "
+                      "walk-forward folds, one-sided Student-t",
+            "alpha": 0.05, "tests": 4, "effect_floor": 0.0015,
+            "double_count_rule": ("a qb_depth walk DROPS the shipped qb_out builder: "
+                                  "qb_depth's first term is the QB1 drop, so running "
+                                  "both would price one absence twice"),
+        },
+        "verdict": "none",
+        "policy": ["MEASUREMENT ONLY. This run writes no model parameter.",
+                   "Every input is restricted to what was knowable before kickoff.",
+                   "Absent data is COUNTED, never invented.",
+                   "No market number reaches any probability in this document."],
+        "limits": ["The depth-chart release is a listing, not a lineup card.",
+                   "The legacy release lists two QBs for most team-weeks.",
+                   "Capability is raw EPA per dropback, unadjusted."],
+    }
+    validate_against_schema(_qd, _qd_schema, "qb_depth_backtest selftest")
+    _bad = copy.deepcopy(_qd)
+    _bad["verdict"] = "qb_depth"
+    _schema_red(_bad, _qd_schema, "a verdict naming a family that was never a candidate")
+    _bad = copy.deepcopy(_qd)
+    _bad["substrate"]["starter_lag_weeks"] = 0
+    _schema_red(_bad, _qd_schema, "a starter lag of 0 — a week reading its own depth chart")
+    _bad = copy.deepcopy(_qd)
+    _bad["candidates"][0]["would_adopt"] = "false"
+    _schema_red(_bad, _qd_schema, "would_adopt as the string 'false' rather than a boolean")
+    _bad = copy.deepcopy(_qd)
+    del _bad["conditions"]["qb2_also_out"]
+    _schema_red(_bad, _qd_schema, "a conditions block with no qb2_also_out count")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -2247,7 +2349,10 @@ def _selftest():
           "field, a seed kind that is not swept, a string hit rate, a pending card "
           "in the graded list and a missing leg-count block; the R88 per-stage "
           "record reds on a string exit code, a status outside "
-          "ok/failed/skipped and a workflow key that does not exist")
+          "ok/failed/skipped and a workflow key that does not exist; the R92 "
+          "qb-depth backtest contract reds on a verdict naming a family that "
+          "never ran, a starter lag of 0, a string would_adopt and a missing "
+          "qb2_also_out count")
 
 
 # ---------------------------------------------------------------------------

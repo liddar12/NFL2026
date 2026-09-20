@@ -677,11 +677,44 @@ def main():
                   f"({len(_blend_deltas)} team deltas)")
         else:
             print("WARNING: epa_blend adopted but epa_history unavailable — not applied")
+    # qb_depth (R92 family, PROPOSAL-ONLY until the weekly gate adopts it): the
+    # owner's QB cascade — a drop when QB1 is listed Out/Doubtful, a further
+    # drop when QB2 is out too, and a term proportional to the measured
+    # EPA/dropback gap to whoever is actually expected to start.
+    #
+    # NEVER DOUBLE-COUNT QB1: qb_depth's first term IS the qb_out drop (same
+    # condition, same sign, a depth-chart substrate instead of a dropback-leader
+    # one), so when qb_depth is applied the qb_out term below is SKIPPED and the
+    # QB1 absence is priced once. promote_signals._incumbent_family_fns applies
+    # the identical rule, so the gate's incumbent and this builder agree.
+    _qb_depth = _adopted.get("qb_depth") or {}
+    _qd_orders, _qd_outs, _qd_cap, _qd_rep = {}, {}, {}, None
+    _qd_params = None
+    if _qb_depth.get("applied"):
+        from scripts.promote_signals import qb_depth_current  # noqa: PLC0415 (guarded)
+        _qd = qb_depth_current(SEASON)
+        if _qd is None:
+            print("WARNING: qb_depth adopted but the depth chart or passer history "
+                  "is unavailable — not applied")
+        else:
+            _qd_orders, _qd_outs, _qd_cap, _qd_rep = _qd
+            _qd_params = (float(_qb_depth.get("qb1_scale") or 0.0),
+                          float(_qb_depth.get("qb2_extra") or 0.0),
+                          float(_qb_depth.get("cap_scale") or 0.0))
+            print(f"promoted qb_depth in effect: qb1={_qd_params[0]:g} "
+                  f"qb2_extra={_qd_params[1]:g} cap={_qd_params[2]:g} "
+                  f"({len(_qd_orders)} depth orders, {len(_qd_outs)} team-weeks "
+                  f"with QB listings, replacement "
+                  f"{'n/a' if _qd_rep is None else format(_qd_rep, '+.4f')} EPA/db) "
+                  "— qb_out is folded in and not applied separately")
     # qb_out (adopted family): expected primary passer listed Out/Doubtful on
     # the current week's report — pregame availability, refreshed daily.
     _qb_out = _adopted.get("qb_out") or {}
     _qb_primary, _qb_outs, _qb_scale = {}, {}, 0.0
-    if _qb_out.get("applied"):
+    if _qb_out.get("applied") and _qd_params is not None:
+        print("qb_out adopted but folded into the applied qb_depth family "
+              "(its QB1 term is the same drop) — not applied separately")
+    elif _qb_out.get("applied"):
         from scripts.promote_signals import qb_out_current  # noqa: PLC0415 (guarded)
         _cur = qb_out_current(SEASON)
         if _cur is None:
@@ -788,6 +821,14 @@ def main():
             hfa_eff += float(_epa_hfa["scale"]) * _epa_feats.diff(g, SEASON)
         if _blend_deltas:
             hfa_eff += _blend_deltas.get(g["home"], 0.0) - _blend_deltas.get(g["away"], 0.0)
+        if _qd_params is not None:
+            from scripts.promote_signals import (  # noqa: PLC0415 (guarded)
+                qb_depth_delta, qb_depth_row)
+            _wkd = int(g.get("week") or 0)
+            hfa_eff += qb_depth_delta(
+                qb_depth_row(g["home"], _wkd, _qd_orders, _qd_outs, _qd_cap, _qd_rep),
+                qb_depth_row(g["away"], _wkd, _qd_orders, _qd_outs, _qd_cap, _qd_rep),
+                *_qd_params)
         if _qb_scale:
             _wk = int(g.get("week") or 0)
             _hp = _qb_primary.get(g["home"])

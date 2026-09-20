@@ -68,3 +68,15 @@ Weights below are the *current fitted* weights. All are `0.0` at scaffold time.
 Markets are treated as **models** in their own right (the hybrid blend typically awards the
 market the largest weight), *and* as the baseline every complex model must beat on held-out
 log-loss. If nothing beats the market, the market is the model.
+
+## Candidate game FAMILIES (the promotion gate)
+
+Signals above are weighted by the optimizer. A **family** is a different thing: an additive
+per-game Elo delta tested by `scripts/promote_signals.py` on the walk-forward gate, adopted
+only when it beats the incumbent by more than its own cluster-robust significance threshold.
+A family is listed in `APPLIABLE` if and only if `scripts/build_predictions.py` actually calls
+its prediction-time reader.
+
+| Family | Appliable | Applied today | What it prices |
+|---|---|---|---|
+| `qb_depth` | yes | **no (proposal only, R92)** | The owner's QB cascade as one family: a drop when the depth chart's QB1 is Out/Doubtful, a further drop when QB2 is out too, and a term scaled by the measured EPA-per-dropback gap to whoever is actually expected to start (QB3 when both are out). Measured walk-forward in `scripts/backtest_qb_depth.py` -> `data/qb_depth_backtest.json`; see `docs/QB_DEPTH_CASCADE.md`. It **generalises** `qb_out` — at `(scale, 0, 0)` it *is* `qb_out` — so the two are never applied together, and adopting it retires `qb_out`. Verdict on 2022-2025: **none** (QB2-also-out fired twice in four seasons, QB3-or-deeper once).
