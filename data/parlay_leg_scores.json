@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-20T22:04:40Z",
+  "generated_utc": "2026-09-20T22:19:06Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (24 games); scores from data/review.json FINAL rows (24 games); scores from ESPN live, STATUS-gated FINAL (24 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (24 games); scores from data/review.json FINAL rows (24 games); scores from ESPN live, STATUS-gated FINAL (25 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 2,
   "legs": {
-    "on_file": 202,
+    "on_file": 206,
     "locked": 169,
-    "unlocked": 33,
-    "resolved": 114,
+    "unlocked": 37,
+    "resolved": 117,
     "unresolved": 32
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 24,
-      "hit_rate": 0.5417,
-      "log_loss": 0.7058,
-      "brier": 0.2559
+      "n": 25,
+      "hit_rate": 0.52,
+      "log_loss": 0.7135,
+      "brier": 0.2597
     },
     "spread": {
-      "n": 31,
-      "hit_rate": 0.3226,
+      "n": 33,
+      "hit_rate": 0.303,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -139,14 +139,14 @@
         }
       },
       "moneyline": {
-        "n": 8,
-        "hit_rate": 0.5,
-        "log_loss": 0.7529,
-        "brier": 0.2787
+        "n": 9,
+        "hit_rate": 0.4444,
+        "log_loss": 0.7691,
+        "brier": 0.2867
       },
       "spread": {
-        "n": 15,
-        "hit_rate": 0.2667,
+        "n": 17,
+        "hit_rate": 0.2353,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -1867,6 +1867,51 @@
       "seed_prob": 0.4356,
       "actual": 75.0,
       "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872935",
+      "market": "moneyline",
+      "selection": "TB ML",
+      "team": "TB",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5926,
+      "actual": {
+        "home_score": 19,
+        "away_score": 23
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872935",
+      "market": "spread",
+      "selection": "TB -7.5",
+      "team": "TB",
+      "side": "home",
+      "line": -7.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 23
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872935",
+      "market": "spread",
+      "selection": "TB -8.5",
+      "team": "TB",
+      "side": "home",
+      "line": -8.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 23
+      },
+      "hit": false
     },
     {
       "week": 2,
