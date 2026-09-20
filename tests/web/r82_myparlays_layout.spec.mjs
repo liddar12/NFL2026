@@ -36,7 +36,14 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { SEED_TEAM as SEED } from './_myseed.mjs';
+import { SEED_TEAM as SEED, SKIP_REASON } from './_myseed.mjs';
+
+/* The MY tests need a game that has not kicked off; between the last game of a
+ * week and the next week's pool there is none, and MY correctly offers nothing.
+ * The reason names that condition, so a skipped run reads as a finished slate
+ * rather than a broken suite. It is '' whenever any game is upcoming. */
+test.skip(() => Boolean(SKIP_REASON), SKIP_REASON || 'the slate is live');
+
 
 const POOL = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url), 'utf8'));
 const POOL_WEEK = Number(POOL.week);

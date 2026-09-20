@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { SEED_TEAM } from './_myseed.mjs';
+import { SEED_TEAM, SKIP_REASON } from './_myseed.mjs';
+
+/* The MY tests need a game that has not kicked off; between the last game of a
+ * week and the next week's pool there is none, and MY correctly offers nothing.
+ * The reason names that condition, so a skipped run reads as a finished slate
+ * rather than a broken suite. It is '' whenever any game is upcoming. */
+test.skip(() => Boolean(SKIP_REASON), SKIP_REASON || 'the slate is live');
+
 
 // Incident contract: text must fit the CARD'S padded content box. A hidden
 // document scrollbar is not evidence of containment (R84's false negative).
