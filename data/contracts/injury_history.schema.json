@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "injury_history.schema.json",
   "title": "Weekly pregame injury-report statuses (skill positions + OL + DL front)",
-  "description": "nflverse injuries releases; pregame information by construction - the qb_out promotion family's availability signal. R70 admits the offensive line and the defensive-line front (hand-in-the-dirt positions; OLB is not front) so backtest_lines.py can measure the line-injury cascades. Runner-built.",
+  "description": "nflverse injuries releases; pregame information by construction - the qb_out promotion family's availability signal. R70 admits the offensive line and the defensive-line front (hand-in-the-dirt positions; OLB is not front) so backtest_lines.py can measure the line-injury cascades. R91/G01: the CURRENT week is rebuilt from data/injuries.json on every run (the report replaces the release for every team it covers, and its rows carry as_of_utc); every earlier week is release-only. Runner-built.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -80,7 +80,21 @@
                     "Out",
                     "Doubtful",
                     "Questionable"
-                  ]
+                  ],
+                  "description": "The report label. R91/G07: the daily ESPN report's season-class designations (Injured Reserve / Physically Unable to Perform / Non-Football Injury) are admitted as Out - a player on IR is more certainly unavailable than one listed Doubtful, which fires - and the report's own word is kept in `designation`. nflverse release rows carry their verbatim spelling, which is one of these three."
+                },
+                "designation": {
+                  "type": "string",
+                  "enum": [
+                    "Injured Reserve",
+                    "Physically Unable to Perform",
+                    "Non-Football Injury"
+                  ],
+                  "description": "R91/G07: the daily report's own word when it is not the emitted status, so the file never claims IR and Out are the same fact. Absent on a release row and on a report row whose word already IS the status."
+                },
+                "as_of_utc": {
+                  "type": "string",
+                  "description": "R91/G01: data/injuries.json's updated_utc, stamped on every row the daily report wrote. Present on CURRENT-week rows only. It is how a reader sees which report a designation came from, and how the next run knows which rows to rebuild from scratch - freshness, not presence, decides the current week."
                 }
               }
             }

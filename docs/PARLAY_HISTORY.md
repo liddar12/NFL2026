@@ -69,6 +69,25 @@ What a refresh of an open week now does:
 * the week still closes when every game is FINAL, and a closed week is still never
   rewritten.
 
+**`parlay_id` uniqueness (G03).** Appending a rank-named card next to a frozen one
+carrying the SAME name was F12 surviving R90 — R90 added a second id instead of
+retiring the first. On the committed week-2 archive, one post-kickoff rebuild whose
+pool no longer offers the DET/BUF legs produced **17** `parlay_id`s carried by two
+cards each (`week-2leg-1` = `SF ML + BUF ML` frozen, and `SF ML` live), and every
+consumer builds a Map on that id — `scripts/build_review.py`, `app/review.js` — so
+one bet's bucket, money and review row were applied to the other, decided by array
+order. An incoming card whose `parlay_id` is already taken is now **renamed**
+`<parlay_id>~<first 6 of card_id>`: derived from the card's own identity, so the
+name is the same on every run and a second pass writes the same bytes. **Frozen
+cards are never renamed** — verbatim is the older promise, so the 13 pairs already
+frozen on disk before this rule existed keep their shared rank id and are the only
+duplicates left. The identity is also the join key now: `build_review` stamps
+`card_id` on every reviewed parlay row (imported from this writer, never re-hashed)
+and `app/review.js` keys every map by `card_id` when a card has one and by
+`parlay_id` only for a pre-R90 archive. Locks:
+`tests/feature/r90_card_freeze.test.mjs` (the reproduction above, 17 → 0 introduced,
+ten rebuilds stable) and the two builders' `--selftest`s.
+
 **Upgrade.** An archive written before R90 has no `card_id`, which the contract now
 requires. The first run after R90 stamps it on every card of every archive of the
 season — closed weeks included — and touches nothing else: not `archived_utc`, not
@@ -77,11 +96,11 @@ disk, so this decides nothing; the printed line is
 `parlay_archive: wk N upgraded data/parlays/... (card_id stamped on M card(s);
 nothing else touched)`. It happens once.
 
-**Consumers.** `scripts/replay_lab.py` (`replay_parlays`) and `app/review.js` join
-archived cards by `parlay_id` and their legs, and ignore unknown keys, so both read
-the new shape unchanged — verified by `replay_lab.py --selftest` and the r71 / r73 /
-r81 feature tests. `card_id` is the identity to join on when a future consumer needs
-one that cannot drift.
+**Consumers.** `scripts/replay_lab.py` (`replay_parlays`) still joins archived cards
+by `parlay_id` and their legs and ignores unknown keys — verified by
+`replay_lab.py --selftest`. `scripts/build_review.py` and `app/review.js` join on
+`card_id` (see G03 above), falling back to `parlay_id` only where a card has no
+identity to join on.
 
 **Committed today (backfill).** The script was run once against the committed
 `data/parlays.json`, which at `origin/main 7d19080` is week 1 at its

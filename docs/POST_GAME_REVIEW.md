@@ -134,8 +134,19 @@ repaints the card from the LOCK before anything grades it:
 * a past game with **no review row** shows `no pregame forecast on file` in place
   of the probabilities (and a flat track) rather than borrowing today's number.
 
-The current week is untouched — for an unplayed game today's forecast *is* the
-truth. The view tells the review layer which week that is:
+**Current week (G04).** The repaint is decided **per card**, never per week. R90
+gated it on `currentWeek != null && Number(week) !== currentWeek`, which excluded
+the pipeline's own week wholesale — and that is where 15 of 16 games live for most
+of a week, so the defect F13 closed stayed open every week from Thursday night
+until the week rolled over. A FINAL game on the current week got the graded dot
+and the why button and kept today's recomputation as its headline: committed
+`401872932` DET @ BUF graded a **65.27%** lock while the card printed **69%**. The
+outer guard is gone; `applyHistoricalTruth` decides from `isGradedRow(row)` plus
+the game's schedule status, and an unplayed game on ANY week returns early
+(`!past && !FINAL`) and keeps today's forecast — the "current week is untouched"
+intent, preserved per game instead of per week. For an unplayed game today's
+forecast *is* the truth. The view tells the review layer which week is behind the
+pipeline and what each game's status is:
 `applySlateReview(listEl, week, { currentWeek, statuses })`. `renderGameCard`
 ships no hooks on those nodes, so the stable ones are stamped here:
 `.prob[data-rv-prob="locked"|"none"]`, each head's `data-rv-prob` / `data-rv-pct`

@@ -489,6 +489,44 @@ nothing ships without one.
   now locks 14. **Phase 2 waits on data**, not code: the capability term is the candidate to
   watch, and other units (line, edge, secondary) follow the same measure-first path. · **LOE**
   1.5 d
+- **R93 · Independent review of R87…R91, P0/P1 fixes — built 2026-09-20 (owner order: A, an
+  independent review of the five releases, run alongside B).** The review (`docs/qa/
+  INDEPENDENT_REVIEW_R87_R91.md`, 17 findings G01–G17) found two P0s and five P1s; seven are
+  fixed here, the rest are logged with their evidence. **G01 (P0) — the injury overlay is rebuilt,
+  not filled.** `build_injury_history` made presence, not freshness, the precedence rule for the
+  current week: the release, or yesterday's own overlay, owned a team-week and the daily report
+  only filled gaps, so the week froze at its first run — typically Wednesday, when a quarterback
+  is Questionable and the adopted signal is defined not to fire; Friday's Out never landed. The
+  current week is now rebuilt from today's report on every run: report rows (stamped `as_of_utc`)
+  replace every team the report covers, release rows stand for the teams it does not, rows from an
+  earlier report are cleared first, and every week before the current one stays release-only —
+  the walk-forward history the adoption was measured on is byte-identical. **G07 (P1) — one status
+  vocabulary.** `STATUSES` knew three words, so 39–41 rows of every daily report — including a
+  quarterback on injured reserve — were dropped silently. IR / PUP / NFI are admitted as the
+  file's `Out` (the word `promote_signals` reads) with the report's own word kept in
+  `designation`; an unknown spelling fails the builder loudly. The overlay keeps 109 rows, not 68,
+  and a rank-1 QB on IR fires `qb_out`. **G02 / G05 / G06 (P0, P1, P1) — a raced publish keeps
+  both writers' work.** `merge_ledgers.py` learned the three shapes it was silently clobbering:
+  `data/parlays/*` (cards merged by `card_id`, frozen cards never dropped, the week never closed
+  by the loser), `data/pipeline_stages.json` (per-workflow blocks, `last_success` carried as the
+  max) and `data/snapshots/*_games_open.json` lock receipts (merged by `event_id`, `resolved`
+  monotone, the earlier `locked_utc` kept); `publish_data.sh` routes receipts to the merger and
+  dies on any other snapshot conflict instead of guessing. **G03 (P1) — `parlay_id` is unique
+  again.** A post-kickoff rebuild appended a live card next to a frozen one wearing the same
+  rank-derived name (17 pairs in one committed week) and every consumer joined on it. An incoming
+  card whose id is taken is renamed `<parlay_id>~<first 6 of card_id>` (stable across re-runs),
+  frozen cards are never touched, and `build_review` / `app/review.js` join on `card_id`. Ten
+  rebuilds: the file settles, no new duplicates; the 13 legacy frozen/frozen pairs are left as
+  the freeze contract requires. **G04 (P1) — locked truth on the current week.** F13's fix was
+  gated per week, which excluded the pipeline's own week; DET @ BUF graded a 65% lock and printed
+  69%. The whole-week guard is gone; historical truth is decided per card from the review row and
+  the game's FINAL status. **Open (P1/P2):** G08 (`depth_chart.json` is QB-only, so overlay rows
+  carry `id: null`), G09–G12, G13 (MY cards 3.49 MB / 1,456 cards on disk), G14 (boot budget has
+  zero module headroom), G15 (pooled `same_game_pairs` verdict), G16 (text-pinned assertions),
+  G17 (roadmap claims without a test). **Locked by** `r88_publish_race` (19), `r91_qb_out_live`,
+  `r90_card_freeze`, `r90_slate_truth`, `tests/web/r90_slate_truth.spec.mjs`; the builders'
+  `--selftest`s prove the Q→Out downgrade flips `qb_out_current`, that an earlier week is never
+  rewritten, and that seasons 2021–2025 are byte-identical across a merge pass. · **LOE** 1.5 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

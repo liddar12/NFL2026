@@ -19,6 +19,9 @@
 #      path is resolved DETERMINISTICALLY, never interactively:
 #        * an append-only ledger is merged BY IDENTITY (scripts/merge_ledgers.py)
 #          from the three stages, so neither writer's locks are lost;
+#        * a snapshot under data/snapshots/ that is NOT a *_games_open.json lock
+#          receipt aborts loudly: every other snapshot is a per-run immutable
+#          file, so a conflict on one is an anomaly, not something to resolve;
 #        * any other path under data/ takes OURS — this run just regenerated it
 #          from the newest inputs, so its version is the newest valid one;
 #        * a conflict outside data/ aborts loudly: a pipeline commit touches no
@@ -94,7 +97,32 @@ is_ledger() {
     data/my_cards/*.json)           return 0 ;;
     data/parlays/*_wk*.json)        return 0 ;;
     data/model_tuning.json)         return 0 ;;
+    # One block per WORKFLOW, and both workflows commit it: taking either whole
+    # side erased the other workflow's entire per-stage record (G05).
+    data/pipeline_stages.json)      return 0 ;;
+    # The lock receipts are the ONE snapshot two writers legitimately both edit
+    # -- one grades a row from a FINAL score while the other appends a new lock
+    # -- so they are merged by event_id, never resolved to a side (G06). Every
+    # other snapshot is refused below.
+    data/snapshots/*_games_open.json) return 0 ;;
     *)                              return 1 ;;
+  esac
+}
+
+# What the merge of this path actually did, for the log. One line per shape,
+# because "both writers' entries kept" is not true of every shape: the week
+# archive keeps both sides' FROZEN cards but takes the live week from the newer
+# generation, and pipeline_stages is keyed per workflow, not per entry.
+ledger_rule() {
+  case "$1" in
+    data/parlays/*_wk*.json)
+      echo "merged by identity (both sides' frozen cards kept; the live week from the newer generation)" ;;
+    data/pipeline_stages.json)
+      echo "merged per workflow (each workflow's own block and last_success kept)" ;;
+    data/snapshots/*_games_open.json)
+      echo "merged by event_id (both writers' lock rows kept; a graded row stays graded)" ;;
+    *)
+      echo "merged by identity (both writers' entries kept)" ;;
   esac
 }
 
@@ -135,13 +163,15 @@ resolve_conflicts() {
              --path "$path" --out "$path"; then
         die "could not merge the append-only ledger '$path' by identity. Nothing was published; the generation is intact in the run's checkout."
       fi
-      log "  $path: merged by identity (both writers' entries kept)"
+      log "  $path: $(ledger_rule "$path")"
     elif [ "${path#data/snapshots/}" != "$path" ]; then
-      # Snapshots are immutable point-in-time files, graded in place from FINAL
-      # scores. Two runs grading one snapshot should produce identical bytes, so
-      # a conflict here is worth naming in the log; ours is the newer grading.
-      take_ours "$path"
-      log "  $path: SNAPSHOT conflict (unexpected) -- taking this run's grading"
+      # The lock receipts were merged above. Everything else under data/snapshots/
+      # is a per-run immutable file whose name is unique to its run
+      # (game_predictions.<ts>.json), so two writers cannot legitimately both
+      # write one and there is no rule that could resolve it. Taking a side here
+      # used to log "taking this run's grading" for a run that had graded nothing
+      # (G06); this is the same rule merge_ledgers.py states, stated once.
+      die "conflict on the snapshot '$path'. Only the lock receipts (data/snapshots/*_games_open.json) are merged, by event_id; every other snapshot is a per-run immutable file, so a conflict on one means something else is wrong. Nothing was published; this run's generation is intact in its checkout."
     else
       take_ours "$path"
       log "  $path: regenerable, taking this run's version"

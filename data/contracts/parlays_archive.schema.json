@@ -44,7 +44,7 @@
         "properties": {
           "parlay_id": {
             "type": "string",
-            "description": "Stable parlay identifier. Display and the review join (app/review.js, scripts/replay_lab.py) key on it; it carries the card's RANK, so it can name a different bet after a rebuild - card_id is the identity."
+            "description": "Stable parlay identifier, UNIQUE within a week's cards. It carries the card's RANK, so a rebuild can hand the same rank to a different bet - G03: an incoming card whose parlay_id already belongs to a frozen card is renamed <parlay_id>~<first 6 of card_id> (stable, so a re-run is byte-identical), and frozen cards are never touched. card_id is the identity and is what the consumers now join on (scripts/build_review.py, app/review.js), with parlay_id the fallback for a pre-R90 archive."
           },
           "card_id": {
             "type": "string",

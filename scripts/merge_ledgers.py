@@ -24,6 +24,12 @@ So the ledgers are merged the way they are keyed: by identity.
   * both changed the same field to different values -> the earlier-first-sight
     side's value, so the lock still decides;
   * runs[] / history[] union by their own as-of key, chronologically;
+  * a FROZEN parlay card survives from whichever side froze it, and only the
+    still-live cards follow the newer generation (G02);
+  * pipeline_stages is keyed per workflow: a workflow block only one side has is
+    never dropped, and last_success is the per-stage max of both sides (G05);
+  * a lock receipt row keeps its grading from whichever side graded it, and its
+    earlier locked_utc (G06);
   * header scalars (generated_utc / as_of_utc / updated_utc / counts) take the
     LATER as-of: the header describes the newest generation in the merged file.
 
@@ -54,8 +60,10 @@ MISSING = object()
 # --- shape registry -------------------------------------------------------
 #
 # One entry per append-only ledger. `entries` is the identity-keyed body (None
-# when the file's only append-only part is its history list); `runs` are the
-# as-of keyed run records; everything else at the top level is header.
+# when the file's only append-only part is its history list, and {"field": None}
+# when the document IS that body -- a bare list with no header); its `policy`
+# names the rule one entry is merged by; `runs` are the as-of keyed run records;
+# everything else at the top level is header.
 
 SHAPES = [
     {
@@ -93,10 +101,14 @@ SHAPES = [
     {
         "name": "parlay_archive",
         # data/parlays/<season>_wk<NN>.json -- the per-week archive. `parlays` is
-        # the week as of `updated_utc`, so it travels with the newer header (the
-        # generic header rule); `history` is the append-only part.
+        # keyed by card_id and is NOT simply the newer generation's list (G02):
+        # a card whose game has kicked off is FROZEN by build_parlay_archive's
+        # merge_frozen and is the record of what was offered, so it survives
+        # whichever writer stamped it; only the still-live cards follow the newer
+        # header. `history` is the append-only part.
         "pattern": r"^data/parlays/[0-9]{4}_wk[0-9]{2}\.json$",
-        "entries": None,
+        "entries": {"field": "parlays", "kind": "list", "key": ("card_id",),
+                    "first_sight": ("frozen_utc",), "policy": "archive_card"},
         "runs": [{"field": "history", "key": ("updated_utc",), "order": "asc"}],
         "asof": ["archived_utc", "updated_utc"],
         # A week never re-opens, so `closed` only ever goes false -> true.
@@ -117,6 +129,37 @@ SHAPES = [
         "asof": ["generated_utc"],
         "compact": False,
     },
+    {
+        "name": "pipeline_stages",
+        # data/pipeline_stages.json -- one block per WORKFLOW (scripts/stage_status.py
+        # `begin` resets only its own block and re-seeds `last_success` from the file
+        # it reads). Both workflows commit this file, so taking either whole side
+        # erased the other workflow's entire per-stage record and regressed every one
+        # of its `last_success_utc` carries to NEVER on the MODEL card (G05).
+        "pattern": r"^data/pipeline_stages\.json$",
+        "entries": {"field": "workflows", "kind": "dict",
+                    "first_sight": ("run_started_utc",), "policy": "workflow"},
+        "runs": [],
+        "asof": ["generated_utc"],
+        "compact": False,
+    },
+    {
+        "name": "lock_receipts",
+        # data/snapshots/<season>_wk<NN>_games_open.json -- the lock receipts, a
+        # bare LIST of rows keyed by event_id (no header at all, hence
+        # "field": None: the document IS the entry container). resolve_locks
+        # grades rows in place from FINAL scores while build_predictions appends
+        # new locks, so two writers really can both edit this one snapshot -- and
+        # resolving it to one side un-graded a row nobody re-grades that cycle
+        # (G06). Written by scripts/harness/snapshot.py with sort_keys=True.
+        "pattern": r"^data/snapshots/[0-9]{4}_wk[0-9]{2}_games_open\.json$",
+        "entries": {"field": None, "kind": "list", "key": ("event_id",),
+                    "first_sight": ("locked_utc",), "policy": "receipt"},
+        "runs": [],
+        "asof": ["as_of_utc", "locked_utc"],
+        "compact": False,
+        "sort_keys": True,
+    },
 ]
 
 SNAPSHOT_PATTERN = r"^data/snapshots/"
@@ -128,14 +171,22 @@ class Refuse(Exception):
 
 def shape_for(path):
     norm = path.replace("\\", "/").lstrip("./")
-    if re.match(SNAPSHOT_PATTERN, norm):
-        raise Refuse(
-            "data/snapshots/ needs no merge: every snapshot is its own immutable "
-            "point-in-time file, so two writers cannot both edit one. A conflict "
-            "there means something else is wrong -- resolve it by hand: %s" % path)
     for shape in SHAPES:
         if re.match(shape["pattern"], norm):
             return shape
+    if re.match(SNAPSHOT_PATTERN, norm):
+        # ONE rule for data/snapshots/, stated here and mirrored in
+        # publish_data.sh: the *_games_open.json lock receipts are merged by
+        # event_id (they are the one snapshot two writers legitimately both
+        # edit -- see the lock_receipts shape); every other snapshot is a
+        # per-run immutable file whose name is unique to its run, so a conflict
+        # on one is a real anomaly and is never resolved by guesswork (G06).
+        raise Refuse(
+            "only the lock receipts (data/snapshots/*_games_open.json) are "
+            "merged. Every other snapshot is its own immutable point-in-time "
+            "file with a name unique to its run, so two writers cannot both "
+            "edit one. A conflict there means something else is wrong -- "
+            "resolve it by hand: %s" % path)
     raise Refuse(
         "no ledger shape is registered for %s. This script merges only the "
         "append-only ledgers listed in docs/PUBLISH.md; merging an unknown shape "
@@ -163,7 +214,23 @@ def dig(obj, keys):
 
 
 def doc_asof(doc, shape):
-    """The document's own as-of: the first of the shape's fields that is present."""
+    """The document's own as-of: the first of the shape's fields that is present.
+
+    A bare-list document (the lock receipts) has no header to read, so its as-of
+    is the NEWEST stamp among its rows: the side holding the newest lock is the
+    later generation.
+    """
+    if isinstance(doc, list):
+        stamps = []
+        for row in doc:
+            if not isinstance(row, dict):
+                continue
+            for field in shape["asof"]:
+                val = row.get(field)
+                if isinstance(val, str) and val:
+                    stamps.append(val)
+                    break
+        return max(stamps) if stamps else ""
     if not isinstance(doc, dict):
         return ""
     for field in shape["asof"]:
@@ -194,9 +261,12 @@ def entry_key(entry, spec):
 
 def index_entries(doc, spec):
     """(ordered keys, {key: entry}) for a shape's entry container."""
-    if not isinstance(doc, dict):
+    if spec["field"] is None:
+        body = doc                       # the document itself (the lock receipts)
+    elif isinstance(doc, dict):
+        body = doc.get(spec["field"])
+    else:
         return [], {}
-    body = doc.get(spec["field"])
     order, by_key = [], {}
     if spec["kind"] == "list":
         if not isinstance(body, list):
@@ -339,7 +409,167 @@ def merge_player(base, theirs, ours, spec):
     return out
 
 
-def merge_entry(base, theirs, ours, spec):
+# G02 -- the week archive. A frozen card is the record of what was offered when
+# its game kicked off; the live cards are a rebuild and belong to the newer
+# generation. The base tells us nothing here (a card is frozen or live NOW), so
+# this rule reads the two sides only.
+def merge_archive_cards(theirs, ours, spec, later_side):
+    """The week's cards: every FROZEN card from either side, live cards from the
+    later document.
+
+    Order mirrors build_parlay_archive.merge_frozen -- the frozen cards first, in
+    the earlier document's order, then the later document's live cards -- so the
+    merged week is in the same shape the builder would have written and a merge
+    of a file with itself reorders nothing.
+    """
+    t_order, t_map = index_entries(theirs, spec)
+    o_order, o_map = index_entries(ours, spec)
+    if later_side == "theirs":
+        early_order, early_map, late_order, late_map = o_order, o_map, t_order, t_map
+    else:
+        early_order, early_map, late_order, late_map = t_order, t_map, o_order, o_map
+
+    def frozen_at(card):
+        val = card.get("frozen_utc") if isinstance(card, dict) else None
+        return val if isinstance(val, str) and val else ""
+
+    out, placed = [], set()
+    for key in early_order + late_order:
+        if key in placed:
+            continue
+        early, late = early_map.get(key), late_map.get(key)
+        e_at, l_at = frozen_at(early), frozen_at(late)
+        if not e_at and not l_at:
+            continue                      # live on both sides: it comes from the
+                                          # later set below, in that set's order
+        if e_at and l_at:
+            # Two frozen copies of one card: the EARLIER freeze is the one that
+            # locked it, and its side's fields are what was offered then.
+            card = early if e_at <= l_at else late
+        else:
+            card = early if e_at else late
+        out.append(card)
+        placed.add(key)
+    for key in late_order:                # the live week, as the later run built it
+        if key not in placed:
+            out.append(late_map[key])
+            placed.add(key)
+    return out
+
+
+# G05 -- data/pipeline_stages.json. One block per workflow, and the two
+# workflows write it in the same window on Sunday.
+def _carry_map(block):
+    """Every stage's last known success in `block`: the stored carry plus what the
+    block's own stage rows prove. Mirrors scripts/stage_status.py carry_map -- the
+    two must agree, or a merge would hand the next `begin` a carry its own stage
+    rows contradict."""
+    out = {}
+    if not isinstance(block, dict):
+        return out
+    stored = block.get("last_success")
+    if isinstance(stored, dict):
+        for name, when in stored.items():
+            if isinstance(name, str) and isinstance(when, str):
+                out[name] = when
+    for stage in block.get("stages") or []:
+        if not isinstance(stage, dict):
+            continue
+        name, when = stage.get("name"), stage.get("last_success_utc")
+        if isinstance(name, str) and isinstance(when, str):
+            if when > out.get(name, ""):
+                out[name] = when
+    return out
+
+
+def merge_workflow_blocks(base, theirs, ours, spec):
+    """The per-workflow record: a block only one side has is never dropped, a
+    block both sides wrote takes the side whose run STARTED later, and
+    `last_success` is the per-stage max of both sides so the losing run's carry
+    survives the block it lost."""
+    _, b_map = index_entries(base, spec)
+    t_order, t_map = index_entries(theirs, spec)
+    o_order, o_map = index_entries(ours, spec)
+
+    order = []
+    for key in list(b_map) + t_order + o_order:
+        if key not in order:
+            order.append(key)
+
+    def started(block):
+        val = block.get("run_started_utc") if isinstance(block, dict) else None
+        return val if isinstance(val, str) else ""
+
+    out = {}
+    for workflow in order:
+        t, o = t_map.get(workflow), o_map.get(workflow)
+        if t is None and o is None:
+            continue                      # both writers dropped it; so do we
+        if t is None or o is None or t == o:
+            out[workflow] = t if t is not None else o
+            continue
+        block = dict(t if started(t) > started(o) else o)
+        carry = _carry_map(o)
+        for name, when in _carry_map(t).items():
+            if when > carry.get(name, ""):
+                carry[name] = when
+        # stage_status.py writes this map sorted; keep it that way so the next
+        # run's own write is not a reordering diff.
+        block["last_success"] = dict(sorted(carry.items()))
+        out[workflow] = block
+    return out
+
+
+# G06 -- one lock receipt, seen by a grader on one side and an appender on the
+# other. `resolved` only ever goes false -> true, and the graded side carries the
+# measurement with it.
+GRADED_FIELDS = ("resolved", "actual", "brier", "log_loss")
+
+
+def merge_receipt(base, theirs, ours, later_side):
+    """One row of a *_games_open.json lock receipt.
+
+    A row graded on exactly one side keeps that side's grading verbatim -- the
+    other side simply has not resolved it yet, and its unresolved copy is not
+    news. `locked_utc` is a lock: the earlier stamp is when the row was actually
+    locked. Everything else follows the ordinary three-way rules, with the later
+    document deciding a genuine both-changed disagreement.
+    """
+    base = base if isinstance(base, dict) else {}
+    graded = None
+    if theirs.get("resolved") is True and ours.get("resolved") is not True:
+        graded = theirs
+    elif ours.get("resolved") is True and theirs.get("resolved") is not True:
+        graded = ours
+
+    out = {}
+    for k in ordered_keys(base, theirs, ours):
+        b = base.get(k, MISSING)
+        t = theirs.get(k, MISSING)
+        o = ours.get(k, MISSING)
+        if graded is not None and k in GRADED_FIELDS:
+            val = graded.get(k, MISSING)
+        elif k == "locked_utc":
+            stamps = [x for x in (t, o) if isinstance(x, str) and x]
+            val = min(stamps) if stamps else (t if t is not MISSING else o)
+        elif t is MISSING:
+            val = o
+        elif o is MISSING:
+            val = t
+        elif t == o:
+            val = t
+        elif b is not MISSING and o == b:
+            val = t                        # only theirs changed it
+        elif b is not MISSING and t == b:
+            val = o                        # only ours changed it
+        else:
+            val = t if later_side == "theirs" else o
+        if val is not MISSING:
+            out[k] = val
+    return out
+
+
+def merge_entry(base, theirs, ours, spec, later_side):
     if theirs is None and ours is None:
         return base
     if theirs is None:
@@ -348,6 +578,9 @@ def merge_entry(base, theirs, ours, spec):
         return theirs
     if theirs == ours:
         return theirs
+    if spec["policy"] == "receipt":
+        # One rule for a receipt row, base or no base: a grading is monotone.
+        return merge_receipt(base, theirs, ours, later_side)
     if base is None:
         # Both sides added this key independently: first sight locks.
         return theirs if earlier_side(theirs, ours, spec) == "theirs" else ours
@@ -360,8 +593,17 @@ def merge_entry(base, theirs, ours, spec):
     return merge_flat(base, theirs, ours, spec)
 
 
-def merge_entries(base, theirs, ours, spec):
-    """Union by identity key: base order first, then whatever each side added."""
+def merge_entries(base, theirs, ours, spec, later_side):
+    """Union by identity key: base order first, then whatever each side added.
+
+    Two shapes are not a plain union and say so here: the week archive keeps the
+    frozen cards from both sides and the live week from the later document (G02),
+    and pipeline_stages is keyed per workflow (G05).
+    """
+    if spec["policy"] == "archive_card":
+        return merge_archive_cards(theirs, ours, spec, later_side)
+    if spec["policy"] == "workflow":
+        return merge_workflow_blocks(base, theirs, ours, spec)
     b_order, b_map = index_entries(base, spec)
     t_order, t_map = index_entries(theirs, spec)
     o_order, o_map = index_entries(ours, spec)
@@ -373,7 +615,8 @@ def merge_entries(base, theirs, ours, spec):
 
     merged = []
     for k in order:
-        entry = merge_entry(b_map.get(k), t_map.get(k), o_map.get(k), spec)
+        entry = merge_entry(b_map.get(k), t_map.get(k), o_map.get(k), spec,
+                            later_side)
         if entry is not None:
             merged.append((k, entry))
     if spec["kind"] == "list":
@@ -447,15 +690,20 @@ def merge_docs(base, theirs, ours, shape):
         return theirs
 
     t_asof, o_asof = doc_asof(theirs, shape), doc_asof(ours, shape)
-    later = theirs if t_asof > o_asof else ours
+    later_side = "theirs" if t_asof > o_asof else "ours"
+    later = theirs if later_side == "theirs" else ours
     spec = shape["entries"]
+    if spec and spec["field"] is None:
+        # The document IS the entry container (the lock receipts are a bare
+        # list): there is no header to merge, only rows.
+        return merge_entries(base, theirs, ours, spec, later_side)
     run_specs = {spec["field"]: spec for spec in shape["runs"]}
     monotone = set(shape.get("monotone_true", []))
 
     out = {}
     for k in ordered_keys(base, theirs, ours):
         if spec and k == spec["field"]:
-            out[k] = merge_entries(base, theirs, ours, spec)
+            out[k] = merge_entries(base, theirs, ours, spec, later_side)
         elif k in run_specs:
             out[k] = merge_runs(base, theirs, ours, run_specs[k], t_asof, o_asof)
         else:
@@ -490,10 +738,12 @@ def write(doc, path, shape):
     if parent:
         os.makedirs(parent, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
+        sort_keys = bool(shape.get("sort_keys"))    # the snapshot writer sorts
         if shape["compact"]:
-            json.dump(doc, fh, ensure_ascii=True, separators=(",", ":"), sort_keys=False)
+            json.dump(doc, fh, ensure_ascii=True, separators=(",", ":"),
+                      sort_keys=sort_keys)
         else:
-            json.dump(doc, fh, ensure_ascii=True, indent=2, sort_keys=False)
+            json.dump(doc, fh, ensure_ascii=True, indent=2, sort_keys=sort_keys)
         fh.write("\n")
 
 
@@ -602,18 +852,39 @@ def _selftest():
     assert len(m["runs"]) == 3
 
     # 4. data/parlays/<season>_wk<NN>.json -- the week archive ---------------
+    #    G02's race: theirs froze two cards and closed the week at t1, ours
+    #    refreshed the same week at t2 with a card theirs never saw.
     path = "data/parlays/2026_wk01.json"
-    base = {"season": 2026, "week": 1, "updated_utc": a, "parlays": [{"id": "old"}],
+    cardof = lambda cid, **kw: dict({"parlay_id": "week-2leg-1", "card_id": cid,
+                                     "legs": [{"selection": cid + " ML"}]}, **kw)
+    base = {"season": 2026, "week": 1, "updated_utc": a,
+            "parlays": [cardof("c-base")],
             "archived_utc": a, "closed": False, "history": [{"updated_utc": a,
                                                              "archived_utc": a}]}
-    theirs = dict(base, updated_utc=t1, archived_utc=t1, parlays=[{"id": "t"}],
+    theirs = dict(base, updated_utc=t1, archived_utc=t1, closed=True,
+                  parlays=[cardof("c-base", frozen_utc=t1),
+                           cardof("c-frozen-A", frozen_utc=t1)],
                   history=base["history"] + [{"updated_utc": t1, "archived_utc": t1}])
-    ours = dict(base, updated_utc=t2, archived_utc=t2, parlays=[{"id": "o"}], closed=True,
+    ours = dict(base, updated_utc=t2, archived_utc=t2,
+                parlays=[cardof("c-base"), cardof("c-refresh-B")],
                 history=base["history"] + [{"updated_utc": t2, "archived_utc": t2}])
     m = merged(base, theirs, ours, path)
     assert [h["updated_utc"] for h in m["history"]] == [a, t1, t2]
-    assert m["parlays"] == [{"id": "o"}], "the week body follows the later as-of"
+    assert [c["card_id"] for c in m["parlays"]] == [
+        "c-base", "c-frozen-A", "c-refresh-B"], m["parlays"]
+    assert m["parlays"][0]["frozen_utc"] == t1, "a frozen card survives verbatim"
     assert m["closed"] is True, "a closed week never re-opens"
+    assert m["updated_utc"] == t2, "the header takes the later as-of"
+    # Two frozen copies of one card: the EARLIER freeze is the one that locked it.
+    t_early = dict(theirs, parlays=[cardof("c-base", frozen_utc=t1, model_ev=-0.1)])
+    o_late = dict(ours, parlays=[cardof("c-base", frozen_utc=t2, model_ev=-0.9)])
+    m = merged(base, t_early, o_late, path)
+    assert [(c["card_id"], c["frozen_utc"], c["model_ev"]) for c in m["parlays"]] == [
+        ("c-base", t1, -0.1)], m["parlays"]
+    # A card live on BOTH sides comes from the later document only -- one copy.
+    m = merged(base, dict(theirs, parlays=[cardof("c-base", model_ev=-0.1)]),
+               dict(ours, parlays=[cardof("c-base", model_ev=-0.9)]), path)
+    assert [(c["card_id"], c["model_ev"]) for c in m["parlays"]] == [("c-base", -0.9)]
 
     # 5. data/model_tuning.json ---------------------------------------------
     path = "data/model_tuning.json"
@@ -635,14 +906,75 @@ def _selftest():
         (a, "signal_promotion")], m["history"]
     assert m["weights"] == {"elo": 1.5}, "the only side that changed the weights wins"
 
-    # 6. a side that does not exist at all (add/add, or a deleted stage) -----
+    # 6. data/pipeline_stages.json -- one block per workflow (G05) -----------
+    path = "data/pipeline_stages.json"
+    stage = lambda name, when: {"name": name, "status": "ok", "exit_code": 0,
+                                "started_utc": when, "finished_utc": when,
+                                "duration_s": 1.0, "continue_on_error": False,
+                                "last_success_utc": when, "note": None}
+    block = lambda run, when, rows, carry: {
+        "run_id": run, "run_started_utc": when, "run_finished_utc": when,
+        "last_success": dict(sorted(carry.items())), "stages": rows}
+    base = {"generated_utc": a,
+            "workflows": {"daily": block("1", a, [stage("S1", a)], {"S1": a})}}
+    # daily re-ran at t1; gameday raced from the same base and never touched daily.
+    theirs = {"generated_utc": t1,
+              "workflows": {"daily": block("2", t1, [stage("S1", t1)], {"S1": a})}}
+    ours = {"generated_utc": t2,
+            "workflows": {"daily": base["workflows"]["daily"],
+                          "gameday": block("3", t2, [stage("G1", t2)],
+                                           {"G1": t2})}}
+    m = merged(base, theirs, ours, path)
+    assert sorted(m["workflows"]) == ["daily", "gameday"], \
+        "a workflow block only one side has is never dropped"
+    assert m["workflows"]["daily"]["run_id"] == "2", "the later run's block wins"
+    assert m["workflows"]["daily"]["last_success"] == {"S1": t1}
+    assert m["workflows"]["gameday"]["last_success"] == {"G1": t2}, \
+        "a block only one side wrote is carried over verbatim"
+    assert m["generated_utc"] == t2, "the header takes the later as-of"
+    # The LOSING side's carry survives the block it lost: daily failed S1 at t2
+    # but succeeded at S2, and t1's block knows nothing of S2.
+    late_daily = block("4", t2, [stage("S2", t2)], {"S1": a})
+    m = merged(base, theirs, {"generated_utc": t2, "workflows": {"daily": late_daily}},
+               path)
+    assert m["workflows"]["daily"]["run_id"] == "4"
+    assert m["workflows"]["daily"]["last_success"] == {"S1": t1, "S2": t2}, \
+        "last_success is the per-stage max of both sides"
+
+    # 7. data/snapshots/<season>_wk<NN>_games_open.json -- lock receipts (G06)
+    path = "data/snapshots/2026_wk02_games_open.json"
+    receipt = lambda eid, when, **kw: dict(
+        {"event_id": eid, "event_type": "game", "model": "elo_prior",
+         "estimate": False, "as_of_utc": when, "locked_utc": when,
+         "probs": [0.65, 0.35], "resolved": False}, **kw)
+    base = [receipt("g1", a)]
+    # theirs graded g1 from a FINAL score; ours only appended a new lock.
+    theirs = [receipt("g1", a, resolved=True, actual=0, brier=0.12, log_loss=0.43)]
+    ours = [receipt("g1", a), receipt("g2", t2)]
+    m = merged(base, theirs, ours, path)
+    assert [r["event_id"] for r in m] == ["g1", "g2"], m
+    assert m[0]["resolved"] is True and m[0]["actual"] == 0 and m[0]["brier"] == 0.12, \
+        "a grading is never un-done by the side that did not grade"
+    # Both sides touched g1 and only one graded it: the grading still survives,
+    # and locked_utc is the EARLIER stamp.
+    ours2 = [receipt("g1", t2, locked_utc=t2, probs=[0.7, 0.3])]
+    m = merged(base, theirs, ours2, path)
+    assert m[0]["resolved"] is True and m[0]["brier"] == 0.12
+    assert m[0]["locked_utc"] == a, "the earlier lock is when the row was locked"
+    assert m[0]["probs"] == [0.7, 0.3], "the later document decides the rest"
+
+    # 8. a side that does not exist at all (add/add, or a deleted stage) -----
     m = merge_docs(None, None, ours, shape(path))
     assert m == ours
     m = merge_docs(None, theirs, None, shape(path))
     assert m == theirs
 
-    # 7. refusals ------------------------------------------------------------
-    for bad in ("data/snapshots/2026_wk01_games_open.json",
+    # 9. refusals ------------------------------------------------------------
+    #    The lock receipts are merged (case 7); every OTHER snapshot is refused,
+    #    and publish_data.sh turns that refusal into a hard failure (G06).
+    assert shape_for("data/snapshots/2026_wk01_games_open.json")["name"] == "lock_receipts"
+    for bad in ("data/snapshots/game_predictions.20260719T031822Z.json",
+                "data/snapshots/2026_wk01_props_open.json",
                 "data/game_predictions.json", "app/main.js"):
         try:
             shape_for(bad)
@@ -651,7 +983,7 @@ def _selftest():
         else:
             raise AssertionError("expected a refusal for %s" % bad)
 
-    # 8. on-disk form: compact for the player ledger, indent=2 elsewhere, and a
+    # 10. on-disk form: compact for the player ledger, indent=2 elsewhere, and a
     #    trailing newline either way -- the ledgers' own writers do exactly this.
     with tempfile.TemporaryDirectory() as tmp:
         p = os.path.join(tmp, "compact.json")
@@ -660,8 +992,12 @@ def _selftest():
         p = os.path.join(tmp, "indent.json")
         write({"a": 1}, p, shape("data/model_tuning.json"))
         assert open(p, "rb").read() == b'{\n  "a": 1\n}\n'
+        # The receipts are a bare list and their writer sorts every row's keys.
+        p = os.path.join(tmp, "receipt.json")
+        write([{"b": 1, "a": 2}], p, shape("data/snapshots/2026_wk02_games_open.json"))
+        assert open(p, "rb").read() == b'[\n  {\n    "a": 2,\n    "b": 1\n  }\n]\n'
 
-    print("merge_ledgers selftest: ok -- 5 shapes, both refusal paths, on-disk form")
+    print("merge_ledgers selftest: ok -- 7 shapes, both refusal paths, on-disk form")
 
 
 def main(argv=None):

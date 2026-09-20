@@ -175,6 +175,55 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
     expect(errors).toEqual([]);
   });
 
+  /* G03 (R87-R91 review) — the review row reaches its card by IDENTITY (card_id)
+   * first and by the rank-derived parlay_id only as the fallback for a review
+   * document written before its rows carried card_id. Three documents for the
+   * same closed week must paint the same money: the committed one, one with
+   * every card_id stripped (the fallback), and one whose rows carry only the
+   * archive's card_id under a parlay_id no card has (identity alone). */
+  test('G03: the $100 figure joins by card_id, and still by parlay_id for a pre-R93 review document', async ({ browser }) => {
+    test.skip(!PAST, 'no closed week in the archive yet');
+    const archive = read(`../../${INDEX.weeks.find((w) => Number(w.week) === PAST).path}`);
+    const idOf = new Map(archive.parlays.map((p) => [String(p.parlay_id), p.card_id]));
+    const base = JSON.parse(JSON.stringify(REVIEW));
+    const rows = base.weeks[String(PAST)].parlays;
+    const stripped = JSON.parse(JSON.stringify(base));
+    stripped.weeks[String(PAST)].parlays.forEach((r) => { delete r.card_id; });
+    const identity = JSON.parse(JSON.stringify(base));
+    identity.weeks[String(PAST)].parlays.forEach((r, i) => {
+      r.card_id = idOf.get(String(r.parlay_id));
+      r.parlay_id = `no-such-rank-${i}`;
+    });
+    expect(identity.weeks[String(PAST)].parlays.every((r) => r.card_id)).toBe(true);
+    // One fresh context per document: a second goto to the same hash URL does
+    // not remount the view, so each document gets its own page and storage.
+    const errors = [];
+    const paid = async (doc) => {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      page.on('pageerror', (x) => errors.push(String(x)));
+      try {
+        await page.route('**/data/review.json', (r) => r.fulfill({
+          status: 200, contentType: 'application/json', body: JSON.stringify(doc) }));
+        await mount(page);
+        await page.click(`.pw-wkbar .wk-chip[data-wk="${PAST}"]`);
+        await page.waitForSelector('.view-sub .pw-archived', { timeout: 20000 });
+        await page.waitForFunction(() => !!document.querySelector('.card.parlay[data-rv-pay]'), null,
+          { timeout: 20000 });
+        return await page.locator('.card.parlay[data-rv-pay]').evaluateAll(
+          (els) => els.map((e) => [e.dataset.parlayId, e.dataset.rvPay]).sort());
+      } finally {
+        await ctx.close();
+      }
+    };
+    const committed = await paid(base);
+    expect(committed.length).toBeGreaterThan(0);
+    expect(committed.length).toBe(rows.filter((r) => r.money && r.scope === 'game').length);
+    expect(await paid(stripped)).toEqual(committed);
+    expect(await paid(identity)).toEqual(committed);
+    expect(errors).toEqual([]);
+  });
+
   test('on a graded week the visible settled cards sum to the P&L line below them', async ({ page }) => {
     test.skip(!PAST, 'no closed week in the archive yet');
     const errors = errorsOf(page);

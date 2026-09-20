@@ -353,9 +353,10 @@ function paintNoLock(card) {
 }
 
 /**
- * Historical truth for one painted card. `past` is true when the selected week
- * is behind the pipeline's current week; `status` is that game's schedule
- * status, so a FINAL game on a not-yet-past week is treated as history too.
+ * Historical truth for one painted card, decided PER CARD. `past` is true when
+ * the selected week is behind the pipeline's current week; `status` is that
+ * game's schedule status, so a FINAL game on a not-yet-past week is history
+ * too. An unplayed game on any week returns early and keeps today's forecast.
  * Idempotent: data-rv-truth marks a card already told the truth once.
  */
 function applyHistoricalTruth(card, row, { past = false, status = '' } = {}) {
@@ -386,9 +387,19 @@ function toggleWhy(btn, want) {
  * delegated listener pair per listEl, bound once (the view creates a fresh
  * listEl per mount, so nothing accumulates across mounts).
  *
- * `ctx` is the view's week context: { currentWeek, statuses }. Without it every
- * week counts as current and only the R71/R72 decoration runs — the historical
- * repaint (F13) never fires on the pipeline's own week.
+ * `ctx` is the view's week context: { currentWeek, statuses }. It says which
+ * week is behind the pipeline and what each game's schedule status is; without
+ * it nothing counts as past and only a row that grades itself is repainted.
+ *
+ * G04 — historical truth is decided PER CARD, not per week. The outer guard used
+ * to be `currentWeek != null && Number(week) !== currentWeek`, which excluded
+ * the current week wholesale — and that is where 15 of 16 games live for most
+ * of a week. A FINAL game on the current week got the graded dot and the why
+ * button but kept today's recomputation as its headline: committed DET @ BUF
+ * graded a 65.27% lock while the card printed 69%. applyHistoricalTruth already
+ * returns early for a game that is neither past nor FINAL, so an unplayed game
+ * on any week still keeps today's forecast — the intent is preserved per game
+ * instead of per week.
  */
 export async function applySlateReview(listEl, week, ctx = {}) {
   const doc = await primeReview();
@@ -396,17 +407,14 @@ export async function applySlateReview(listEl, week, ctx = {}) {
   const blk = weekBlock(doc, week);
   const cw = ctx.currentWeek == null ? NaN : Number(ctx.currentWeek);
   const currentWeek = isNum(cw) ? cw : null;
-  const historical = currentWeek != null && Number(week) !== currentWeek;
   const past = currentWeek != null && Number(week) < currentWeek;
   const statuses = ctx.statuses instanceof Map ? ctx.statuses : null;
   const byId = new Map(((blk && blk.games) || []).map((g) => [String(g.game_id), g]));
   listEl.querySelectorAll('.card.game[data-game-id]').forEach((card) => {
     const id = String(card.dataset.gameId);
     const g = byId.get(id);
-    // F13 first: a past card's headline is its LOCK, before anything grades it.
-    if (historical) {
-      applyHistoricalTruth(card, g, { past, status: statuses ? statuses.get(id) : '' });
-    }
+    // F13 first: a graded card's headline is its LOCK, before anything grades it.
+    applyHistoricalTruth(card, g, { past, status: statuses ? statuses.get(id) : '' });
     if (!g || !g.result || card.querySelector('.rv-dot')) return;
     const side = g.picked === g.home ? '.team--home' : '.team--away';
     const team = card.querySelector(side);
@@ -468,14 +476,45 @@ export function parlayBucketCounts(week, doc = docSync) {
   return b && typeof b === 'object' ? b : null;
 }
 
-/** parlay_id -> bucket for `week`, from each row's own `bucket` field only. */
-export function parlayBucketMap(week, doc = docSync) {
-  const blk = weekBlock(doc, week);
+/**
+ * G03 — the join key for a card or a review row: `card_id`, the immutable leg
+ * identity, when it is there; the rank-derived `parlay_id` otherwise (a pre-R90
+ * archive carries no card_id). parlay_id names a RANK, so after a post-kickoff
+ * rebuild two archived cards can carry the same one — the review counted 17
+ * such pairs in a single week — and a Map built on it hands one bet's bucket,
+ * money and review row to the other, decided by array order.
+ */
+export function cardKey(x) {
+  if (!x) return '';
+  return String(x.card_id || x.parlay_id || '');
+}
+
+/**
+ * Index `rows` by cardKey, and ALSO by parlay_id where that name is still free,
+ * so a caller holding only a rank id (app/views/parlays.js filters and sorts on
+ * `p.parlay_id`) still resolves. The identity entry is written last, so it is
+ * the one a collision cannot take away.
+ */
+function indexRows(rows, valueOf) {
   const out = new Map();
-  ((blk && blk.parlays) || []).forEach((p) => {
-    if (p && BUCKET_LABEL[p.bucket]) out.set(String(p.parlay_id), p.bucket);
+  rows.forEach((p) => {
+    const v = valueOf(p);
+    if (v === undefined) return;
+    if (p.parlay_id != null) out.set(String(p.parlay_id), v);
+  });
+  rows.forEach((p) => {
+    const v = valueOf(p);
+    if (v !== undefined) out.set(cardKey(p), v);
   });
   return out;
+}
+
+/** card_id (else parlay_id) -> bucket for `week`, from each row's own `bucket`
+ * field only. */
+export function parlayBucketMap(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  return indexRows(((blk && blk.parlays) || []).filter(Boolean),
+    (p) => (BUCKET_LABEL[p.bucket] ? p.bucket : undefined));
 }
 
 /**
@@ -573,18 +612,15 @@ export function renderParlayPnl(week, scope, st) {
  * never mistaken for a result. */
 const PAY_KIND = { settled: '$100 SIM NET · GRADED', potential: '$100 SIM NET · IF HIT' };
 
-/** parlay_id -> the row's own `money` block for `week`. Rows without one are
- * absent from the map (a pre-R75 document paints no money at all). */
+/** card_id (else parlay_id) -> the row's own `money` block for `week`. Rows
+ * without one are absent from the map (a pre-R75 document paints no money at
+ * all). */
 export function parlayMoneyMap(week, doc = docSync) {
   const blk = weekBlock(doc, week);
-  const out = new Map();
-  ((blk && blk.parlays) || []).forEach((p) => {
-    const m = p && p.money;
-    if (m && typeof m === 'object' && isNum(m.net_fair) && PAY_KIND[m.kind]) {
-      out.set(String(p.parlay_id), m);
-    }
+  return indexRows(((blk && blk.parlays) || []).filter(Boolean), (p) => {
+    const m = p.money;
+    return (m && typeof m === 'object' && isNum(m.net_fair) && PAY_KIND[m.kind]) ? m : undefined;
   });
-  return out;
 }
 
 /** The tooltip naming this parlay's assumed prices, '' when every leg is priced. */
@@ -615,11 +651,16 @@ export async function applyParlayReview(listEl, week, sourceCards = []) {
   prepareParlaySimulation(week, sourceCards, doc);
   const blk = weekBlock(doc, week);
   if (!blk) { placeStrip(listEl, '.rv-strip--parlay', ''); return; }
-  const byId = new Map((blk.parlays || []).map((p) => [String(p.parlay_id), p]));
+  const byId = indexRows((blk.parlays || []).filter(Boolean), (p) => p);
   listEl.querySelectorAll('.card.parlay[data-parlay-id]').forEach((card) => {
-    const p = byId.get(String(card.dataset.parlayId));
+    // The DOM can only carry the rank id, so the painted card resolves to its
+    // SOURCE first and the review row is then fetched by that card's identity.
+    const source = sourceCards.find((c) => String(c.parlay_id) === String(card.dataset.parlayId));
+    // Identity first; the rank id second, for a review document written before
+    // its rows carried card_id (matchingLegs below still refuses a reused rank
+    // id that names a different bet).
+    const p = (source && byId.get(cardKey(source))) || byId.get(String(card.dataset.parlayId));
     if (!p || card.querySelector('.rv-pchip')) return;
-    const source = sourceCards.find((p) => String(p.parlay_id) === String(card.dataset.parlayId));
     const matched = matchingLegs(source, p);
     if (!matched) return; // A reused rank ID is not an immutable card identity.
     const painted = { legs: [...card.querySelectorAll('.legs > .leg')].map((n) => ({
@@ -677,9 +718,9 @@ export async function applyParlayReview(listEl, week, sourceCards = []) {
 export function prepareParlaySimulation(week, cards, doc = docSync) {
   const blk = weekBlock(doc, week);
   if (!blk) return;
-  const sources = new Map(cards.map((p) => [String(p.parlay_id), p]));
+  const sources = indexRows(cards.filter(Boolean), (p) => p);
   for (const row of blk.parlays || []) {
-    const source = sources.get(String(row.parlay_id));
+    const source = sources.get(cardKey(row)) || sources.get(String(row.parlay_id));
     const outcomes = matchingLegs(source, row);
     row.money = source && outcomes ? simulateMoney(source.legs, outcomes) : null;
   }
