@@ -274,6 +274,71 @@ print(json.dumps({"primary": p, "fires": fires, "fallback": p2,
   }
 });
 
+/* G18 — the week the overlay is filed under comes from the SCHEDULE, not from
+ * data/game_predictions.json. In the daily workflow scripts.build_all rewrites
+ * that document to a week-1 FIXTURE placeholder before this builder runs and
+ * build_predictions restores the real week afterwards, so the builder filed
+ * every report row under week 1: it replaced the week-1 release rows of 30 of
+ * 31 teams (a week already played, i.e. the walked-forward record) while week
+ * 2 — the week being priced — kept only the release rows the report was there
+ * to refresh. The committed document said week 2 locally, so nothing reproduced
+ * outside the runner. */
+test('G18: the overlay week comes from the schedule, not the fixture placeholder', () => {
+  const out = py(`
+import json, sys
+sys.path.insert(0, '.')
+from scripts.build_injury_history import current_week, clear_current_week
+# The runner's state at the moment this builder runs: build_all has just
+# written a week-1 fixture placeholder; the schedule says week 1 is FINAL and
+# week 2 is the week being played.
+placeholder = {"week": 1}
+schedule = {"games": (
+    [{"week": 1, "status": "STATUS_FINAL"}] * 16
+    + [{"week": 2, "status": "STATUS_FINAL"}]
+    + [{"week": 2, "status": "STATUS_SCHEDULED"}] * 15
+    + [{"week": 3, "status": "STATUS_SCHEDULED"}] * 16)}
+release = [{"id": "rel", "name": "Release Row", "position": "QB", "status": "Out"}]
+report = [{"id": "rep", "name": "Report Row", "position": "QB", "status": "Out",
+           "as_of_utc": "2026-09-20T15:56:55Z"}]
+misfiled = {"ATL": {"1": list(report), "2": list(release)},
+            "CAR": {"1": list(release)}}
+cleared_season, cleared = clear_current_week(misfiled, 2)
+print(json.dumps({
+    "from_schedule": current_week(placeholder, schedule),
+    "placeholder_only": current_week(placeholder, None),
+    "no_week_at_all": current_week(None, None),
+    "all_final": current_week(placeholder, {"games": [{"week": 4, "status": "STATUS_FINAL"}]}),
+    "cleared": cleared,
+    "season": cleared_season}))
+`);
+  // the schedule wins over the placeholder the fixture step just wrote
+  assert.equal(out.from_schedule, 2, 'the week being played, not the placeholder');
+  assert.equal(out.placeholder_only, 1, 'no schedule on file: the predictions week is the fallback');
+  assert.equal(out.no_week_at_all, null);
+  assert.equal(out.all_final, 4, 'a schedule entirely FINAL settles on its last week');
+  // a report row misfiled on another week is cleared; release rows stand on
+  // every week, because on an earlier week they ARE the walked-forward record
+  assert.equal(out.cleared, 1);
+  assert.deepEqual(out.season, {
+    ATL: { 2: [{ id: 'rel', name: 'Release Row', position: 'QB', status: 'Out' }] },
+    CAR: { 1: [{ id: 'rel', name: 'Release Row', position: 'QB', status: 'Out' }] },
+  });
+});
+
+test('G18: main() reads the schedule for the week, and the report never lands on a past week', () => {
+  const src = readFileSync(join(ROOT, 'scripts/build_injury_history.py'), 'utf8');
+  assert.match(src, /wk = current_week\(preds, _load_opt\(SCHEDULE_PATH\)\)/,
+    'the schedule is passed at the one call site that files the overlay');
+  assert.match(src, /SCHEDULE_PATH = os\.path\.join\(DATA, "schedule_full\.json"\)/);
+  // schedule_full.json is the committed source of truth for kickoffs and status,
+  // and no pipeline step rewrites it to a fixture the way build_all does with
+  // game_predictions.json.
+  const sched = JSON.parse(readFileSync(join(ROOT, 'data/schedule_full.json'), 'utf8'));
+  assert.ok(Array.isArray(sched.games) && sched.games.length > 0);
+  assert.ok(sched.games.every((g) => Number.isInteger(g.week) && typeof g.status === 'string'),
+    'every schedule row carries the week and status current_week reads');
+});
+
 test('R91: the current-season release floor is a partial-season floor, and the builder selftests', () => {
   const src = readFileSync(join(ROOT, 'scripts/build_injury_history.py'), 'utf8');
   assert.match(src, /CURRENT_MIN_ROWS = 50/);

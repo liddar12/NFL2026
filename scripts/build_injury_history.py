@@ -44,12 +44,14 @@ if _ROOT not in sys.path:
 
 from scripts import availability  # noqa: E402
 from scripts.scrape.nflverse import FeedError, fetch_injuries_release  # noqa: E402
+from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "injury_history.json")
 INJURIES_PATH = os.path.join(DATA, "injuries.json")
 DEPTH_PATH = os.path.join(DATA, "depth_chart.json")
 GAME_PREDICTIONS_PATH = os.path.join(DATA, "game_predictions.json")
+SCHEDULE_PATH = os.path.join(DATA, "schedule_full.json")
 HISTORY_SEASONS = [2021, 2022, 2023, 2024, 2025]
 CURRENT_SEASON = 2026
 # R91 — the nflverse release for a season IN PROGRESS is small by construction
@@ -281,16 +283,24 @@ def clear_current_week(season_rows, week):
     written from an earlier report is dropped BEFORE today's report is merged.
     Without this, a team the report no longer lists (the player recovered, or
     today's feed simply does not name him) would keep yesterday's designation
-    for the rest of the week. Release rows for the same week are NOT touched -
-    they are the fallback for the teams today's report does not cover - and no
-    week other than `week` is looked at.
+    for the rest of the week. Release rows are NOT touched, on this week or any
+    other - they are the fallback for the teams today's report does not cover,
+    and on an earlier week they ARE the walked-forward record.
+
+    G18 - a report row set on ANY other week is cleared too. The daily report
+    describes the week being played and nothing else, so a report row filed on
+    another week is a misfiling, never history. On the runner scripts.build_all
+    rewrites data/game_predictions.json to a week-1 fixture placeholder before
+    this builder runs, so every report row was filed under week 1: it replaced
+    the week-1 RELEASE rows of 30 of 31 teams (the walked-forward record of a
+    week already played) while week 2, the week being priced, kept only the
+    release rows the report was meant to refresh.
     Returns (season, n_row_sets_cleared)."""
-    wk = str(int(week))
     out, cleared = {}, 0
     for team, weeks in (season_rows or {}).items():
         kept = {}
         for w, rows in (weeks or {}).items():
-            if w == wk and from_report(rows):
+            if from_report(rows):
                 cleared += 1
                 continue
             kept[w] = rows
@@ -331,7 +341,31 @@ def _load_opt(path):
         return None
 
 
-def current_week(game_predictions):
+def current_week(game_predictions, schedule=None):
+    """The week today's report describes.
+
+    G18 - the SCHEDULE decides: the earliest week not entirely FINAL, the rule
+    build_predictions.current_week uses to pick the slate. data/
+    game_predictions.json is only the fallback for when no schedule is on file,
+    because in the daily workflow scripts.build_all rewrites it to a week-1
+    FIXTURE placeholder before this builder runs and build_predictions restores
+    the real week afterwards. Trusting it filed every current-week report row
+    under week 1 on the runner while week 2 was being priced. Locally the
+    committed document already said week 2, so the misfiling never reproduced
+    outside the runner."""
+    games = schedule.get("games") if isinstance(schedule, dict) else schedule
+    by_week = {}
+    for g in games or []:
+        try:
+            wk = int((g or {}).get("week"))
+        except (TypeError, ValueError):
+            continue
+        by_week.setdefault(wk, []).append(g)
+    for wk in sorted(by_week):
+        if not all(g.get("status") in FINAL_STATUSES for g in by_week[wk]):
+            return wk
+    if by_week:
+        return max(by_week)
     try:
         return int((game_predictions or {}).get("week"))
     except (TypeError, ValueError):
@@ -484,6 +518,29 @@ def selftest():
     stale, cleared = clear_current_week({"ATL": {"2": list(ov["ATL"]["2"])}}, 2)
     assert cleared == 1 and stale == {}, (cleared, stale)
 
+    # G18 - the week comes from the SCHEDULE (the earliest week not entirely
+    # FINAL), never from a fixture placeholder in game_predictions.json.
+    sched = {"games": [{"week": 1, "status": "STATUS_FINAL"},
+                       {"week": 2, "status": "STATUS_FINAL"},
+                       {"week": 2, "status": "STATUS_SCHEDULED"},
+                       {"week": 3, "status": "STATUS_SCHEDULED"}]}
+    assert current_week({"week": 1}, sched) == 2, "the placeholder's week is ignored"
+    assert current_week({"week": 1}, {"games": [
+        {"week": 1, "status": "STATUS_FINAL_OVERTIME"}]}) == 1, \
+        "a schedule entirely FINAL settles on its last week"
+    assert current_week({"week": 2}, None) == 2, "no schedule: the predictions week"
+    assert current_week(None, None) is None and current_week({}, {"games": []}) is None
+
+    # and a report row set misfiled on ANOTHER week is cleared, while the release
+    # rows of every week - the walked-forward record - stand
+    release = [{"id": "rel", "name": "Release Row", "position": "QB", "status": "Out"}]
+    misfiled = {"ATL": {"1": [{"id": "x", "name": "Filed Wrong", "position": "QB",
+                               "status": "Out", "as_of_utc": "2026-09-18T15:00:00Z"}],
+                        "2": list(release)},
+                "CAR": {"1": list(release)}}
+    cur, cleared = clear_current_week(misfiled, 2)
+    assert cleared == 1 and cur == {"ATL": {"2": release}, "CAR": {"1": release}}, cur
+
     # 2021-2025 are release-only and no current-week machinery can reach them:
     # the committed corpus is byte-identical across a full merge pass.
     corpus = _load_opt(OUT_PATH)
@@ -502,7 +559,9 @@ def selftest():
           "week-class vocabulary; the daily report's FULL vocabulary is read (IR/PUP/"
           "NFI admitted as Out, an unknown word raises); the current-week overlay "
           "resolves ids by name and is rebuilt from the freshest report every run, "
-          "flipping qb_out on a Q -> Out downgrade and never touching an earlier week")
+          "flipping qb_out on a Q -> Out downgrade and never touching an earlier week; "
+          "the week comes from the schedule, not a fixture placeholder, and a report "
+          "row misfiled on another week is cleared")
 
 
 def main(rebuild=False):
@@ -551,7 +610,7 @@ def main(rebuild=False):
     # for the teams it does not. Weeks before the current one are untouched, so
     # the walked-forward history and the live week are one file the signal reads.
     feed, depth, preds = _load_opt(INJURIES_PATH), _load_opt(DEPTH_PATH), _load_opt(GAME_PREDICTIONS_PATH)
-    wk = current_week(preds)
+    wk = current_week(preds, _load_opt(SCHEDULE_PATH))
     if feed and wk:
         overlay, kept_now, unresolved = overlay_current_week(feed, depth, wk)
         season, cleared = clear_current_week(seasons_out.get(str(CURRENT_SEASON)) or {}, wk)
@@ -560,7 +619,8 @@ def main(rebuild=False):
         print(f"current week {wk}: {kept_now} report row(s) from data/injuries.json "
               f"as of {feed.get('updated_utc')}, {unresolved} without a depth-chart id, "
               f"{replaced} team-week(s) from the report, {cleared} stale report "
-              f"team-week(s) cleared first")
+              f"team-week(s) cleared first (an earlier report's, or one misfiled "
+              f"on another week)")
     else:
         print("NOTICE: no daily report / current week on file; no current-week overlay")
 
