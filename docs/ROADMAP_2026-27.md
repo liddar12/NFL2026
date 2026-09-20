@@ -527,6 +527,28 @@ nothing ships without one.
   `r90_card_freeze`, `r90_slate_truth`, `tests/web/r90_slate_truth.spec.mjs`; the builders'
   `--selftest`s prove the Q→Out downgrade flips `qb_out_current`, that an earlier week is never
   rewritten, and that seasons 2021–2025 are byte-identical across a merge pass. · **LOE** 1.5 d
+- **R93a · the overlay is filed under the week being played (G18, P1) — built 2026-09-20 (found
+  verifying R93 on the runner, not in the review).** R93 shipped green and the first pipeline run
+  after it filed all 131 report rows under week 1. `build_injury_history` took the current week
+  from `data/game_predictions.json`, and in the daily workflow `scripts.build_all` rewrites that
+  document to a week-1 FIXTURE placeholder two steps before this builder runs (`build_predictions`
+  restores the real week four steps later). So the freshest report replaced the week-1 RELEASE
+  rows of 30 of 31 teams — the walked-forward record of a week already played — while week 2, the
+  week being priced, kept only the release rows the report was there to refresh. The live number
+  was right anyway: the nflverse release already covered ATL week 2 with Penix listed Out, so
+  `qb_out` fired and CAR @ ATL held 50.8%. What was lost is FRESHNESS — a Friday downgrade the
+  release has not published yet could not reach the model, which is the whole of R91 — and the
+  2026 week-1 record. The week now comes from `data/schedule_full.json` (the earliest week not
+  entirely FINAL, the rule `build_predictions.current_week` already uses), which no step rewrites
+  to a fixture; `game_predictions.json` is the fallback for when no schedule is on file. And
+  `clear_current_week` now drops a report row set found on ANY week, not just the current one,
+  since the daily report describes the week being played and nothing else. Replaying the runner’s
+  own step order locally — `build_all`, then this builder — files 131 report rows under week 2 and
+  leaves week 1 release-only. **Locked by** two tests in `r91_qb_out_live` (the placeholder is
+  ignored, the fallback still works, a misfiled report row set is cleared while release rows stand
+  on every week) plus the builder `--selftest`; all three go red on the old rule. **Lesson:** this
+  file was verified locally, where the committed `game_predictions.json` already said week 2 and
+  the defect could not reproduce. The runner’s step order is part of the contract. · **LOE** 0.25 d
 
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

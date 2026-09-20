@@ -160,17 +160,72 @@ test('the settled cards of a scope sum to that scope’s $100 footer', () => {
 
 /* 3 — the reader and the renderer -------------------------------------------- */
 
+/* R93/G03 — parlayMoneyMap indexes every row TWICE: once under its immutable
+ * identity (card_id, else parlay_id) and once under the rank-derived parlay_id
+ * that app/views/parlays.js still filters and sorts on. A week of N priced rows
+ * therefore carries up to 2N keys, so map.size is an implementation detail R93
+ * deliberately changed — assert what the map can REACH, and what it refuses to
+ * reach, which is what this test is named for. */
 test('parlayMoneyMap reads the rows and prices nothing', () => {
   const wk = Object.keys(REVIEW.weeks)[0];
   const map = parlayMoneyMap(Number(wk), REVIEW);
   const rows = REVIEW.weeks[wk].parlays;
-  assert.equal(map.size, rows.length);
-  for (const p of rows) assert.deepEqual(map.get(String(p.parlay_id)), p.money);
-  // a row without money is simply absent — never defaulted to 0
+  const readable = (p) => !!(p && p.money && typeof p.money === 'object'
+    && typeof p.money.net_fair === 'number' && KINDS.includes(p.money.kind));
+  const identity = (p) => String(p.card_id || p.parlay_id);
+  const priced = rows.filter(readable);
+  assert.ok(priced.length > 0, 'the week has priced rows to read');
+
+  // Reachable under BOTH names, and BY REFERENCE: the map hands back the row's
+  // own block, it never prices a copy. A rank id can be reused by a
+  // post-kickoff rebuild, so it need only resolve where the document keeps it
+  // unique; the identity entry is written last and always resolves.
+  const ranks = new Map();
+  for (const p of priced) {
+    const r = String(p.parlay_id);
+    ranks.set(r, (ranks.get(r) || 0) + 1);
+  }
+  for (const p of priced) {
+    assert.equal(map.get(identity(p)), p.money, `${identity(p)} is unreachable by identity`);
+    if (ranks.get(String(p.parlay_id)) === 1) {
+      assert.equal(map.get(String(p.parlay_id)), p.money, `${p.parlay_id} is unreachable by rank id`);
+    }
+  }
+  // ...and nothing is lost on the way or handed to a second row: the distinct
+  // money blocks the map can reach are exactly the priced rows.
+  assert.equal(new Set(map.values()).size, priced.length, 'one money block per priced row');
+  for (const m of map.values()) {
+    assert.ok(priced.some((p) => p.money === m), 'the map reaches only money the document wrote');
+  }
+
+  // a row without money is simply absent — never defaulted to 0 — under BOTH
+  // of its names
   const stripped = JSON.parse(JSON.stringify(REVIEW));
-  delete stripped.weeks[wk].parlays[0].money;
-  assert.equal(parlayMoneyMap(Number(wk), stripped).size, rows.length - 1);
+  const gone = stripped.weeks[wk].parlays[0];
+  assert.ok(readable(gone), 'the stripped row carried money to begin with');
+  delete gone.money;
+  const strippedMap = parlayMoneyMap(Number(wk), stripped);
+  assert.equal(strippedMap.get(identity(gone)), undefined, 'no money, no identity entry');
+  assert.equal(strippedMap.get(String(gone.parlay_id)), undefined, 'no money, no rank entry');
+  assert.equal(new Set(strippedMap.values()).size, priced.length - 1, 'exactly one row stopped pricing');
   assert.equal(parlayMoneyMap(999, REVIEW).size, 0, 'an unknown week prices nothing');
+
+  // The dual key is the contract, not an accident of today's document; and an
+  // undeclared kind, a non-numeric net_fair or no block at all prices nothing
+  // under EITHER name.
+  const money = { kind: 'settled', net_fair: 700, net_vig2: 660, assumed_price_legs: 0 };
+  const synth = parlayMoneyMap(1, { weeks: { 1: { parlays: [
+    { parlay_id: 'wk1-1', card_id: 'aa11', money },
+    { parlay_id: 'wk1-2', card_id: 'bb22', money: { kind: 'guess', net_fair: 500 } },
+    { parlay_id: 'wk1-3', card_id: 'cc33', money: { kind: 'settled', net_fair: '700' } },
+    { parlay_id: 'wk1-4', card_id: 'dd44', money: null },
+  ] } } });
+  assert.equal(synth.get('aa11'), money, 'a priced row resolves by its identity');
+  assert.equal(synth.get('wk1-1'), money, 'and by the rank id the views still hold');
+  for (const k of ['wk1-2', 'bb22', 'wk1-3', 'cc33', 'wk1-4', 'dd44']) {
+    assert.equal(synth.get(k), undefined, `${k}: an unreadable money block prices nothing`);
+  }
+  assert.equal(new Set(synth.values()).size, 1, 'one readable row, one money block');
 });
 
 test('renderPay labels a quote and a result differently', () => {
