@@ -88,6 +88,8 @@ VERBATIM_KEYS = ("season", "week", "updated_utc", "parlays")
 LEDGER_NAME = "parlays_%d.json"          # data/estimates/ — the R58 leg ledger
 LEDGER_SUBDIR = "estimates"
 CARD_ID_LEN = 12                          # sha1 prefix; 48 bits over ~70 cards a week
+# G03 — how much of card_id disambiguates a reused rank id (see renamed_parlay_id).
+PARLAY_ID_SUFFIX = 6
 
 
 def _now_utc():
@@ -264,6 +266,28 @@ def earliest_kickoff(card, kickoffs, by_team, ledger_games):
     return min(moments)
 
 
+def renamed_parlay_id(card):
+    """`<parlay_id>~<first 6 of card_id>` — the name an incoming card takes when
+    the rank-derived parlay_id it was built with already belongs to a frozen card.
+
+    Derived from the card's own identity, so it is the SAME name on every run: a
+    second pass over the same inputs writes the same bytes.
+    """
+    return "%s~%s" % (card.get("parlay_id"), str(card.get("card_id") or "")[:PARLAY_ID_SUFFIX])
+
+
+def duplicate_parlay_ids(cards):
+    """{parlay_id: n} for every id carried by more than one card. The archive's
+    consumers build a Map on parlay_id (scripts/build_review.py, app/review.js),
+    so a repeated id applies one bet's bucket, money and review row to another."""
+    counts = {}
+    for card in cards or []:
+        if isinstance(card, dict) and card.get("parlay_id") is not None:
+            pid = str(card["parlay_id"])
+            counts[pid] = counts.get(pid, 0) + 1
+    return {pid: n for pid, n in counts.items() if n > 1}
+
+
 def merge_frozen(existing_cards, incoming_cards, now, earliest_fn):
     """The union of an open week's archived cards and its rebuild.
 
@@ -275,6 +299,15 @@ def merge_frozen(existing_cards, incoming_cards, now, earliest_fn):
     the union is a fixed point and the next run over the same inputs writes nothing.
     Order: the carried-forward frozen cards first, in the order they were archived,
     then the incoming cards in build order.
+
+    G03 — an appended card whose parlay_id is already taken is RENAMED to
+    `<parlay_id>~<first 6 of card_id>`. parlay_id carries the card's RANK, so a
+    rebuild whose pool no longer offers a leg hands rank 1 to a different bet and
+    the archive ends up with two `week-2leg-1` cards; the review's reproduction
+    counted 17 such pairs after a single post-kickoff rebuild, and every consumer
+    joins on that id, so which bet's grade and money a card gets came down to
+    array order. Frozen cards are never renamed — they are verbatim by contract,
+    and that promise is older than this one.
 
     Returns (cards, n_frozen) — n_frozen counts every frozen card in the result.
     """
@@ -292,14 +325,28 @@ def merge_frozen(existing_cards, incoming_cards, now, earliest_fn):
         kept.setdefault("frozen_utc", now)
         frozen.append(kept)
     kept_ids = set(c.get("card_id") for c in frozen)
+    taken = set(str(c.get("parlay_id")) for c in frozen if c.get("parlay_id") is not None)
     cards = list(frozen)
     for card in incoming_cards or []:
         if card.get("card_id") in kept_ids:
             continue
+        if str(card.get("parlay_id")) in taken:
+            card = dict(card)
+            card["parlay_id"] = renamed_parlay_id(card)
         if started(card):
             card = dict(card)
             card["frozen_utc"] = now
+        taken.add(str(card.get("parlay_id")))
         cards.append(card)
+    # Nothing this run appended may repeat an id. Cards carried forward from the
+    # archive are NOT checked: the committed week-2 file already holds 13 pairs
+    # frozen before this rule existed, and un-freezing them to rename them would
+    # break the older promise.
+    appended = {str(c.get("parlay_id")) for c in cards[len(frozen):]}
+    introduced = set(duplicate_parlay_ids(cards)) & appended
+    assert not introduced, (
+        "parlay_id collision survived the rename: %s. Every consumer joins on this "
+        "id (scripts/build_review.py, app/review.js)." % sorted(introduced))
     return cards, sum(1 for c in cards if c.get("frozen_utc"))
 
 
@@ -657,7 +704,8 @@ def selftest():
           "refreshes + history, close on every-game-FINAL keeps the cards, closed never "
           "rewritten, dry-run writes nothing, index shape/order/current_week, schemas, "
           "canonical JSON; R90 card freeze: id is leg-order-free, a kicked-off card is kept "
-          "verbatim, a rank change appends, pre-kickoff cards still replace, an old-shape "
+          "verbatim, a rank change appends under a renamed parlay_id, pre-kickoff cards "
+          "still replace, an old-shape "
           "archive is upgraded, a re-run writes zero bytes")
 
 
@@ -717,7 +765,16 @@ def _selftest_freeze(fx):
         f = _load(wk1)
         frozen = [c for c in f["parlays"] if c.get("frozen_utc")]
         live = [c for c in f["parlays"] if not c.get("frozen_utc")]
-        assert [c["parlay_id"] for c in frozen] == ["G1-g1", "week-1", "week-2", "G1-g1"], \
+        # G03 — the rank change lands as a NEW card under a NEW name: rank 1 now
+        # names a different bet, and the frozen G1-g1 keeps the id every consumer
+        # joins on. Before the rename the archive held two G1-g1 cards and which
+        # one got the grade came down to array order.
+        newg1 = [c for c in f["parlays"] if c["card_id"] != ids["G1-g1"]
+                 and c["legs"][0]["selection"] == "BBB ML"][0]
+        renamed = "G1-g1~" + newg1["card_id"][:PARLAY_ID_SUFFIX]
+        assert newg1["parlay_id"] == renamed, newg1["parlay_id"]
+        assert renamed_parlay_id({"parlay_id": "G1-g1", "card_id": newg1["card_id"]}) == renamed
+        assert [c["parlay_id"] for c in frozen] == ["G1-g1", "week-1", "week-2", renamed], \
             "the three carried forward, plus the new G1 card that landed after kickoff"
         assert f["parlays"][:3] == frozen[:3], "carried-forward cards come first, in order"
         assert all(c["frozen_utc"] == "2026-09-13T20:00:00Z" for c in frozen)
@@ -725,12 +782,10 @@ def _selftest_freeze(fx):
                                                      if c["parlay_id"] in ("G1-g1", "week-1", "week-2")]), \
             "a frozen card is the archived copy, verbatim"
         assert f["history"][-1]["frozen"] == 4
-        # the rank change: same parlay_id, different legs -> a NEW card, appended
-        newg1 = [c for c in f["parlays"] if c["parlay_id"] == "G1-g1"][1]
         assert newg1["card_id"] != ids["G1-g1"], "a new bet, a new id"
-        assert newg1["legs"][0]["selection"] == "BBB ML"
         assert [c["parlay_id"] for c in f["parlays"]] == \
-            ["G1-g1", "week-1", "week-2", "G1-g1", "G2-g1", "week-3"]
+            ["G1-g1", "week-1", "week-2", renamed, "G2-g1", "week-3"]
+        assert not duplicate_parlay_ids(f["parlays"]), "one card, one parlay_id"
         assert [c["parlay_id"] for c in live] == ["G2-g1", "week-3"]
         # a game that has NOT kicked off still reprices in place
         g2 = [c for c in live if c["parlay_id"] == "G2-g1"][0]

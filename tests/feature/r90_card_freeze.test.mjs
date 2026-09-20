@@ -13,7 +13,8 @@
  *   2. a Thursday card freezes while the week stays open, and is then carried
  *      forward verbatim; the rebuild may neither replace nor remove it.
  *   3. a Friday rebuild that changes that game's card rank appends a NEW card_id;
- *      the frozen one is intact and still first.
+ *      the frozen one is intact and still first, and the newcomer is RENAMED
+ *      (G03) because the rank id it was built with already names the frozen bet.
  *   4. a card for a game that has not kicked off still replaces its predecessor.
  *   5. a prop selection names a player, so its game comes from the R58 leg ledger;
  *      without the ledger the card cannot be placed and is never frozen.
@@ -116,18 +117,25 @@ test('a Thursday card freezes while the week stays open; Friday appends instead 
     assert.equal(f.closed, false, 'the week is still open');
     const frozen = f.parlays.filter((c) => c.frozen_utc);
     const live = f.parlays.filter((c) => !c.frozen_utc);
-    assert.deepEqual(ids(f.parlays), ['G1-g1', 'week-1', 'week-2', 'G1-g1', 'G2-g1', 'week-3'],
+    // G03 — the newcomer took rank 1 from a frozen card, so it lands under
+    // `G1-g1~<first 6 of card_id>`. Two cards named G1-g1 is the defect: every
+    // consumer builds a Map on parlay_id and one bet gets the other's grade.
+    const newcomer = f.parlays.find((c) => c.card_id !== byId['G1-g1']
+      && c.legs[0].selection === 'BBB ML');
+    const renamed = `G1-g1~${newcomer.card_id.slice(0, 6)}`;
+    assert.equal(newcomer.parlay_id, renamed);
+    assert.deepEqual(ids(f.parlays), ['G1-g1', 'week-1', 'week-2', renamed, 'G2-g1', 'week-3'],
       'carried-forward frozen cards first, in their archived order, then the rebuild');
-    assert.deepEqual(ids(frozen), ['G1-g1', 'week-1', 'week-2', 'G1-g1']);
+    assert.deepEqual(ids(frozen), ['G1-g1', 'week-1', 'week-2', renamed]);
+    assert.equal(new Set(ids(f.parlays)).size, f.parlays.length, 'one card, one parlay_id');
     assert.deepEqual(unstamped(f.parlays.slice(0, 3)),
       unstamped(rr.parlays.filter((c) => ['G1-g1', 'week-1', 'week-2'].includes(c.parlay_id))),
       'a frozen card is the archived copy, verbatim');
     assert.ok(frozen.every((c) => c.frozen_utc === '2026-09-13T20:00:00Z'));
 
-    // the rank change: the same parlay_id over different legs is a NEW card
-    const newG1 = f.parlays.filter((c) => c.parlay_id === 'G1-g1')[1];
-    assert.notEqual(newG1.card_id, byId['G1-g1'], 'a new bet, a new id');
-    assert.equal(newG1.legs[0].selection, 'BBB ML');
+    // the rank change: the same rank over different legs is a NEW card
+    assert.notEqual(newcomer.card_id, byId['G1-g1'], 'a new bet, a new id');
+    assert.equal(f.parlays[0].parlay_id, 'G1-g1', 'the FROZEN card keeps its name');
     assert.deepEqual(f.parlays[0].legs.map((l) => l.selection).sort(), ['AAA -3', 'AAA ML'],
       'the frozen card still holds the bet it was archived with');
 
@@ -231,6 +239,16 @@ test('committed archives: every card identified, frozen cards explain themselves
     }
     assert.equal(new Set(doc.parlays.map((c) => c.card_id)).size, doc.parlays.length,
       `${week.path}: one id per card`);
+    // G03 — a renamed card is `<rank id>~<first 6 of card_id>` and says which
+    // card it is. (Pairs frozen BEFORE the rename existed keep their shared rank
+    // id: a frozen card is verbatim by contract, and that promise is older.)
+    for (const card of doc.parlays) {
+      const cut = String(card.parlay_id).indexOf('~');
+      if (cut >= 0) {
+        assert.equal(String(card.parlay_id).slice(cut + 1), card.card_id.slice(0, 6),
+          `${card.parlay_id} names its own card`);
+      }
+    }
     // the open week: every card parlays.json built is either live or already frozen
     if (Number(week.week) === Number(parlays.week) && !doc.closed) {
       const identity = (c) => JSON.stringify([c.scope, c.game_id ?? null,
@@ -242,6 +260,93 @@ test('committed archives: every card identified, frozen cards explain themselves
   const r = spawnSync('python3', ['scripts/validate_data.py'], { cwd: REPO_ROOT, env: PY_ENV, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /ok\s+parlays\/\d{4}_wk\d{2}\.json\s+vs parlays_archive\.schema\.json/);
+});
+
+test('G03: a post-kickoff rebuild of the committed week 2 introduces no duplicate parlay_id, and ten rebuilds are stable', () => {
+  /* The review's reproduction, on the committed data: a rebuild whose pool no
+   * longer offers the DET/BUF legs re-prices every card WITHOUT them, so rank 1
+   * ("week-2leg-1", "401872932-g1") names a bet that is one leg shorter than the
+   * frozen card already wearing that name. Under the old rule the archive ended
+   * up with 17 ids carried by two cards each and the consumers' Maps decided by
+   * array order. The renamed newcomer keeps them apart. */
+  const r = runPy(`
+import json
+from scripts import build_parlay_archive as pa
+arch = json.load(open("data/parlays/2026_wk02.json"))
+live = json.load(open("data/parlays.json"))
+sched = json.load(open("data/schedule_full.json"))
+kicks, by_team = pa.week_kickoffs(sched["games"], 2)
+legs = pa.ledger_game_index({}, 2)
+earliest = lambda c: pa.earliest_kickoff(c, kicks, by_team, legs)
+NOW = "2026-09-21T00:00:00Z"          # after the DET @ BUF kickoff
+
+def rebuild(cards):
+    """the pool no longer offers DET/BUF legs: the same ranks, shorter bets"""
+    out = []
+    for c in cards:
+        kept = [l for l in c["legs"]
+                if not str(l.get("selection", "")).startswith(("DET", "BUF"))]
+        if not kept:
+            continue
+        shorter = {k: v for k, v in c.items() if k != "card_id"}
+        shorter["legs"] = kept
+        out.append(pa.with_card_id(shorter))
+    return out
+
+def old_rule(existing, incoming, now, fn):
+    """merge_frozen as it stood before G03: append, never rename."""
+    started = lambda c: fn(c) is not None and fn(c) <= pa._parse_utc(now)
+    frozen = []
+    for c in existing:
+        if not c.get("frozen_utc") and not started(c):
+            continue
+        k = dict(c); k.setdefault("frozen_utc", now); frozen.append(k)
+    kept_ids = {c.get("card_id") for c in frozen}
+    cards = list(frozen)
+    for c in incoming:
+        if c.get("card_id") in kept_ids:
+            continue
+        if started(c):
+            c = dict(c); c["frozen_utc"] = now
+        cards.append(c)
+    return cards
+
+rows = lambda cards: sum(n - 1 for n in pa.duplicate_parlay_ids(cards).values())
+incoming = rebuild(live["parlays"])
+on_disk = pa.duplicate_parlay_ids(arch["parlays"])
+before = old_rule(arch["parlays"], incoming, NOW, earliest)
+after, _ = pa.merge_frozen(arch["parlays"], incoming, NOW, earliest)
+
+snaps, cur = [], arch["parlays"]
+for _ in range(10):
+    cur, _n = pa.merge_frozen(cur, incoming, NOW, earliest)
+    snaps.append(json.dumps(cur))
+print(json.dumps({
+  "on_disk_ids": len(on_disk), "on_disk_rows": rows(arch["parlays"]),
+  "before_cards": len(before), "before_ids": len(pa.duplicate_parlay_ids(before)),
+  "before_rows": rows(before),
+  "after_cards": len(after), "after_ids": len(pa.duplicate_parlay_ids(after)),
+  "after_rows": rows(after), "renamed": sum(1 for c in after if "~" in str(c["parlay_id"])),
+  "same_as_on_disk": sorted(pa.duplicate_parlay_ids(after)) == sorted(on_disk),
+  "sizes": [len(json.loads(s)) for s in snaps],
+  "dups": [rows(json.loads(s)) for s in snaps],
+  "stable": len(set(snaps[1:])) == 1}))`);
+
+  // The defect, reproduced: one post-kickoff rebuild, 17 ids carried by two cards.
+  assert.equal(r.before_ids, 17, "the review's count on the committed week-2 archive");
+  assert.ok(r.before_rows > r.on_disk_rows, 'the rebuild ADDS duplicates under the old rule');
+  // The fix: the rebuild introduces none. The 13 pairs already frozen on disk
+  // before this rule existed stay — a frozen card is verbatim by contract.
+  assert.equal(r.after_cards, r.before_cards, 'the same cards, only renamed');
+  assert.equal(r.after_rows, r.on_disk_rows,
+    'zero duplicates introduced by the rebuild');
+  assert.equal(r.same_as_on_disk, true,
+    'every remaining duplicate was already frozen on disk, none is new');
+  assert.ok(r.renamed > 0, 'the collisions really did happen and were renamed');
+  // Ten rebuilds: no growth, no new duplicates, and the file settles.
+  assert.deepEqual(new Set(r.sizes), new Set([r.after_cards]), 'the card count is bounded');
+  assert.deepEqual(new Set(r.dups), new Set([r.on_disk_rows]));
+  assert.equal(r.stable, true, 'a rebuild after the first writes the same bytes');
 });
 
 test('the consumers that join by parlay_id ignore the new keys: selftests exit 0', () => {

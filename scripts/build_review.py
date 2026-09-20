@@ -117,6 +117,7 @@ _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+from scripts.build_parlay_archive import card_id as parlay_card_id  # noqa: E402
 from scripts.harness import metrics  # noqa: E402
 from scripts.resolve_estimates import norm_name  # noqa: E402
 from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
@@ -701,7 +702,16 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
         pres = "hit"
     bucket = parlay_bucket(results)
     assert bucket in BUCKET_OF_RESULT[pres], (pres, bucket)
-    return {"parlay_id": parlay.get("parlay_id"), "scope": parlay.get("scope"),
+    # G03 — the row carries the card's IDENTITY, not just its rank. parlay_id is
+    # rank-derived, so after a post-kickoff rebuild two archived cards can share
+    # one (the review counted 17 such pairs in a single week) and every Map built
+    # on it applies one bet's grade and money to the other. card_id is the ONE
+    # definition, imported from the archive writer rather than re-hashed here, so
+    # the row and the archived card meet on the same key; an archive card already
+    # stamped keeps its own id.
+    return {"parlay_id": parlay.get("parlay_id"),
+            "card_id": parlay.get("card_id") or parlay_card_id(parlay),
+            "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
 
@@ -1490,7 +1500,12 @@ def selftest():
     assert oc[(1, "G1", "rb_rush_yds", "R. Back 60+ rush yds")]["hit"] is False
     assert oc[(1, "G2", "spread", "CCC -1")]["hit"] is None \
         and oc[(1, "G2", "spread", "CCC -1")]["reason"] == "no_final_score"
+    # G03 — the consumers join on card_id (the identity), parlay_id only for a
+    # pre-R90 archive that has none.
     pr = {x["parlay_id"]: x for x in wk["parlays"]}
+    assert len({x["card_id"] for x in wk["parlays"]}) == len(wk["parlays"]), \
+        "one review row per card identity"
+    assert all(len(x["card_id"]) == 12 for x in wk["parlays"]), "the archive's own id"
     assert pr["G1-g1"]["result"] == "miss" and [l["result"] for l in pr["G1-g1"]["legs"]] == ["hit", "miss"]
     assert pr["G1-g2"]["result"] == "hit", "moneyline from finals + spread from ledger"
     assert pr["week-1"]["result"] == "pending" and [l["result"] for l in pr["week-1"]["legs"]] == ["hit", "pending"], \

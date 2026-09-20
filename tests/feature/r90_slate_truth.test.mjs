@@ -179,7 +179,75 @@ test('the view hands review.js the week context historical truth needs', () => {
   const slate = src('app/views/slate.js');
   assert.match(slate, /applySlateReview\(target, week, \{ currentWeek: defaultWeek, statuses \}\)/);
   assert.match(slate, /import\('\.\.\/review\.js'\)/, 'still a LAZY import — never a boot-graph edge');
+});
+
+/* ------------------------------------------- G04: truth on the CURRENT week */
+
+/* The assertion that stood here pinned the source line
+ *   const historical = currentWeek != null && Number(week) !== currentWeek;
+ * — the expression that CAUSED F13 to stay open on the only week anyone is
+ * looking at. A FINAL game on the current week got the graded dot and the why
+ * button, and kept today's recomputation as its headline. These are behavioural
+ * instead: the decision is per CARD, from the row and the schedule status. */
+
+const CURRENT_WEEK = Number(json('data/game_predictions.json').week);
+const finalRows = (REVIEW.weeks[String(CURRENT_WEEK)] || { games: [] }).games
+  .filter((g) => /^STATUS_FINAL/.test(String(g.status || '')));
+const scheduledRows = (REVIEW.weeks[String(CURRENT_WEEK)] || { games: [] }).games
+  .filter((g) => {
+    const sch = SCHEDULE.games.find((x) => String(x.game_id) === String(g.game_id));
+    return sch && String(sch.status) === 'STATUS_SCHEDULED';
+  });
+
+test('G04: a FINAL game on the CURRENT week is graded truth — its head is the LOCK, not today\'s number', async () => {
+  const mod = await loadReview();
+  assert.ok(finalRows.length > 0,
+    'the committed current week carries a FINAL game (DET @ BUF today)');
+  for (const row of finalRows) {
+    // THE decision applyHistoricalTruth makes, on the pipeline's own week.
+    assert.equal(mod.isGradedRow(row), true, `${row.away} at ${row.home} is graded`);
+    const heads = mod.lockedHeads(row);
+    assert.ok(heads, 'a graded row paints the locked pair');
+    const sch = SCHEDULE.games.find((g) => String(g.game_id) === String(row.game_id));
+    const pickedLocked = row.picked === row.home ? heads.homePct : heads.awayPct;
+    const pickedToday = Math.round(
+      (row.picked === row.home ? sch.probs.home : sch.probs.away) * 100);
+    assert.equal(pickedLocked, Math.round(row.pick_prob * 100),
+      'the head is the lock the won/lost dot grades');
+    // the recomputation exists, and it is a second NAMED figure, never the head
+    assert.match(mod.provenanceText(row, pickedToday),
+      /^LOCKED .+ · recomputed with today's model: \d+%$/);
+    assert.equal(mod.finalScoreText(row),
+      `FINAL · ${row.home} ${row.final.home_score}\u2013${row.away} ${row.final.away_score}`);
+  }
+  // the committed case the review named: DET @ BUF shows 65%, not 69%
+  const buf = finalRows.find((g) => String(g.game_id) === '401872932');
+  if (buf) {
+    const sch = SCHEDULE.games.find((g) => String(g.game_id) === '401872932');
+    assert.equal(Math.round(buf.pick_prob * 100), 65);
+    assert.equal(Math.round(sch.probs.home * 100), 69);
+    assert.equal(mod.lockedHeads(buf).homePct, 65, 'the card prints the 65% the dot grades');
+  }
+});
+
+test('G04: an unplayed game on the CURRENT week keeps today\'s forecast', async () => {
+  const mod = await loadReview();
+  assert.ok(scheduledRows.length > 0, 'the current week is mostly unplayed');
+  for (const row of scheduledRows) {
+    assert.equal(mod.isGradedRow(row), false,
+      `${row.away} at ${row.home} has not been played — nothing to lock`);
+  }
+  // and the helper's own early return is what keeps it that way: not past, not FINAL
+  assert.equal(mod.isGradedRow({ result: null, pick_prob: 0.6, status: 'STATUS_SCHEDULED' }), false);
+});
+
+test('G04: the repaint is decided per card, not per week — no whole-week guard survives', () => {
   const review = src('app/review.js');
-  assert.match(review, /const historical = currentWeek != null && Number\(week\) !== currentWeek;/,
-    'the pipeline\'s current week keeps today\'s forecast — it is the right one for an unplayed game');
+  assert.ok(!/const historical = /.test(review),
+    'the per-week guard is gone: it excluded the week 15 of 16 games live on');
+  assert.ok(!/if \(historical\)/.test(review));
+  assert.match(review, /applyHistoricalTruth\(card, g, \{ past, status: statuses \? statuses\.get\(id\) : '' \}\);/,
+    'every card is offered to the helper, which returns early for an unplayed game');
+  assert.match(review, /if \(!past && !FINAL_STATUS\.test\(String\(status \|\| ''\)\)\) return;/,
+    "the per-card early return IS the 'current week keeps today's forecast' rule");
 });

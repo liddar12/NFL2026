@@ -11,6 +11,10 @@
  * which is what the won/lost dot grades. A game with no review row (fixture via
  * page.route) says "no pregame forecast on file" instead of borrowing a number.
  *
+ * G04 — the same truth on the CURRENT week, per card: the week's FINAL game
+ * renders data-rv-prob="locked", .rv-final and .rv-prov, and a STATUS_SCHEDULED
+ * card on that same week renders none of them.
+ *
  * F20 — KEYBOARD AND SEMANTICS. The week bar is a group of aria-pressed
  * buttons (Enter activates, Left/Right move focus and select) and the review
  * expansion is a real button with aria-expanded / aria-controls that Enter
@@ -179,13 +183,60 @@ test.describe('R90 — F13 historical truth on a closed week', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the pipeline\'s current week is untouched — no lock repaint, no provenance line', async ({ page }) => {
+  /* G04 (R87-R91 review) — the same truth on the CURRENT week, decided PER CARD.
+   * The assertion that stood here was "the current week is untouched — no lock
+   * repaint, no provenance line", which is exactly the defect: a FINAL game on
+   * the pipeline's own week got the graded dot and the why button while its head
+   * kept today's recomputation. Committed DET @ BUF graded a 65% lock and printed
+   * 69%, and 15 more week-2 games go FINAL under the same rule. */
+
+  test('G04: a FINAL game on the CURRENT week shows its LOCK; an unplayed game on the same week does not', async ({ page }) => {
+    const errors = collectErrors(page);
+    const blk = REVIEW.weeks[String(CURRENT)] || { games: [] };
+    // SCHED above is the closed week's index; this test needs the current one.
+    const schedOf = (id) => (SCHEDULE.games || []).find((x) => String(x.game_id) === String(id));
+    const statusOf = (id) => String((schedOf(id) || {}).status || '');
+    const todayPct = (row) => {
+      const s = schedOf(row.game_id);
+      return Math.round((row.picked === row.home ? s.probs.home : s.probs.away) * 100);
+    };
+    const finalRow = blk.games.find((g) => /^STATUS_FINAL/.test(statusOf(g.game_id))
+      && g.pick_prob != null);
+    const openRow = blk.games.find((g) => statusOf(g.game_id) === 'STATUS_SCHEDULED');
+    expect(finalRow, 'the committed current week carries a FINAL game').toBeTruthy();
+    expect(openRow, 'the committed current week carries an unplayed game').toBeTruthy();
+
     await page.goto('/#/');
     await page.waitForSelector('.card.game', { timeout: 15000 });
-    await page.waitForTimeout(800); // let the lazy review layer land
-    await expect(page.locator('.card.game .prob[data-rv-prob]')).toHaveCount(0);
-    await expect(page.locator('.rv-prov')).toHaveCount(0);
-    await expect(page.locator('.ph--none')).toHaveCount(0);
+    const done = page.locator(`.card.game[data-game-id="${finalRow.game_id}"]`);
+    await done.locator('.prob[data-rv-prob="locked"]').waitFor({ timeout: 15000 });
+
+    // 1. the head is the LOCK the won/lost dot grades — not today's recomputation
+    const pct = lockedPct(finalRow);
+    await expect(done.locator('.ph--home')).toHaveText(`${finalRow.home} ${pct.home}%`);
+    await expect(done.locator('.ph--away')).toHaveText(`${finalRow.away} ${pct.away}%`);
+    await expect(done.locator('.rv-final')).toHaveText(
+      `FINAL \u00b7 ${finalRow.home} ${finalRow.final.home_score}\u2013${finalRow.away} ${finalRow.final.away_score}`);
+    // 2. the recomputation is a second, NAMED figure
+    const rec = todayPct(finalRow);
+    await expect(done.locator('.rv-prov')).toContainText('LOCKED ');
+    await expect(done.locator('.rv-prov')).toContainText(`recomputed with today's model: ${rec}%`);
+    // 3. the review's own case: 65%, not 69%
+    const pickedPct = finalRow.picked === finalRow.home ? pct.home : pct.away;
+    expect(pickedPct).toBe(Math.round(finalRow.pick_prob * 100));
+    if (String(finalRow.game_id) === '401872932') {
+      expect(pickedPct).toBe(65);
+      expect(rec).toBe(69);
+      await expect(done.locator('.ph--fav')).toHaveText(`${finalRow.picked} 65%`);
+    }
+
+    // 4. an unplayed game on the SAME week keeps today's forecast: none of it
+    const open = page.locator(`.card.game[data-game-id="${openRow.game_id}"]`);
+    await expect(open.locator('.prob[data-rv-prob]')).toHaveCount(0);
+    await expect(open.locator('.rv-final')).toHaveCount(0);
+    await expect(open.locator('.rv-prov')).toHaveCount(0);
+    await expect(open.locator('.ph--none')).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 });
 

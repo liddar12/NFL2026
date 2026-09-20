@@ -93,7 +93,37 @@ const card = (cardId, seen, extra = {}) => ({
   first_seen_utc: seen, locked: true, ...extra,
 });
 
-/** The three files the rules differ on: one regenerable, two ledgers. */
+/* The week archive (G02): a card is identified by its legs' card_id, and a card
+ * whose game has kicked off carries frozen_utc — the record of what was offered. */
+const archiveCard = (cardId, extra = {}) => ({
+  parlay_id: 'week-2leg-1', card_id: cardId,
+  legs: [{ market: 'moneyline', selection: `${cardId} ML` }],
+  model_ev: -0.1, ...extra,
+});
+
+/* One stage row / one workflow block of data/pipeline_stages.json (G05), written
+ * exactly as scripts/stage_status.py writes them. */
+const stageRow = (name, when) => ({
+  name, status: 'ok', exit_code: 0, started_utc: when, finished_utc: when,
+  duration_s: 1, continue_on_error: false, last_success_utc: when, note: null,
+});
+const wfBlock = (runId, when, stages, lastSuccess) => ({
+  run_id: runId, run_started_utc: when, run_finished_utc: when,
+  last_success: lastSuccess, stages,
+});
+
+/* One lock receipt row (G06): data/snapshots/*_games_open.json is a bare LIST
+ * keyed by event_id, graded in place by resolve_locks. */
+const receipt = (eventId, when, extra = {}) => ({
+  event_id: eventId, event_type: 'game', model: 'elo_prior', estimate: false,
+  as_of_utc: when, locked_utc: when, probs: [0.65, 0.35], resolved: false, ...extra,
+});
+
+const ARCHIVE = 'data/parlays/2026_wk02.json';
+const STAGES = 'data/pipeline_stages.json';
+const RECEIPTS = 'data/snapshots/2026_wk02_games_open.json';
+
+/** The files the rules differ on: one regenerable, and one of every ledger shape. */
 const seedTree = (repo, asOf) => {
   writeJson(repo, 'data/game_predictions.json', {           // regenerable
     generated_utc: asOf,
@@ -109,6 +139,17 @@ const seedTree = (repo, asOf) => {
     runs: [{ pool_generated_utc: asOf, cards_added: 1 }],
     cards: [card('base', asOf)],
   });
+  writeJson(repo, ARCHIVE, {                                // week archive (G02)
+    season: 2026, week: 2, updated_utc: asOf,
+    parlays: [archiveCard('c-base')],
+    archived_utc: asOf, closed: false,
+    history: [{ updated_utc: asOf, archived_utc: asOf }],
+  });
+  writeJson(repo, STAGES, {                                 // cross-workflow (G05)
+    generated_utc: asOf,
+    workflows: { daily: wfBlock('1', asOf, [stageRow('S1', asOf)], { S1: asOf }) },
+  });
+  writeJson(repo, RECEIPTS, [receipt('g1', asOf)]);         // lock receipts (G06)
 };
 
 /* A stand-in for scripts/validate_data.py: it really does parse every data
@@ -218,7 +259,10 @@ test('merging a ledger with itself is byte-for-byte the identity (no churn)', ()
   // cosmetic churn into every raced data commit.
   const out = join(mkdtempSync(join(tmpdir(), 'r88-identity-')), 'out.json');
   for (const p of ['data/estimates/parlays_2026.json', 'data/my_cards/2026_wk02.json',
-                   'data/model_tuning.json']) {
+                   'data/model_tuning.json', 'data/parlays/2026_wk01.json',
+                   'data/parlays/2026_wk02.json', 'data/pipeline_stages.json',
+                   'data/snapshots/2026_wk01_games_open.json',
+                   'data/snapshots/2026_wk02_games_open.json']) {
     const src = join(ROOT, p);
     if (!existsSync(src)) continue;
     const r = spawnSync('python3', [MERGE, src, src, src, '--path', p, '--out', out],
@@ -232,11 +276,13 @@ test('an unknown ledger shape is refused with exit 2, never merged by guesswork'
   const r = spawnSync('python3', [MERGE, '-', '-', '-', '--path', 'data/mystery.json',
                                   '--out', '/dev/null'], { encoding: 'utf8' });
   assert.equal(r.status, 2, `${r.stdout}${r.stderr}`);
+  // The *_games_open.json lock receipts ARE merged (G06); every other snapshot
+  // is still refused, and the refusal says which is which.
   const snap = spawnSync('python3', [MERGE, '-', '-', '-', '--path',
-                                     'data/snapshots/2026_wk01_games_open.json',
+                                     'data/snapshots/game_predictions.20260919T170334Z.json',
                                      '--out', '/dev/null'], { encoding: 'utf8' });
   assert.equal(snap.status, 2);
-  assert.match(snap.stderr, /snapshot/i);
+  assert.match(snap.stderr, /lock receipts/i);
 });
 
 /* ---------- (a) the ordinary case --------------------------------------- */
@@ -402,6 +448,144 @@ test('(d2) same leg key, the earlier sight is OURS: the rebasing run\'s row wins
     assert.equal(rows.length, 1);
     assert.equal(rows[0].seen_utc, '2026-09-19T08:00:00Z');
     assert.equal(rows[0].model_prob, 0.77);
+  } finally { cleanup(world); }
+});
+
+/* ---------- (g) the week archive: frozen cards (G02) --------------------- */
+
+test("(g) a raced refresh keeps BOTH sides' frozen cards and the newer live week", () => {
+  // INDEPENDENT_REVIEW_R87_R91 G02's reproduction. A freezes two cards and closes
+  // the week; B refreshes the same week a few minutes later with a card A never
+  // saw. Until the archive had an identity spec the whole `parlays` list took the
+  // later header and both of A's frozen cards vanished — while the log said
+  // "both writers' entries kept".
+  const world = makeWorld();
+  try {
+    const a = readJson(world.a, ARCHIVE);                    // A: freeze + close
+    a.updated_utc = TA;
+    a.archived_utc = TA;
+    a.closed = true;
+    a.parlays = [archiveCard('c-base', { frozen_utc: TA }),
+                 archiveCard('c-frozen-A', { frozen_utc: TA })];
+    a.history.push({ updated_utc: TA, archived_utc: TA, frozen: 2 });
+    writeJson(world.a, ARCHIVE, a);
+    assert.equal(publish(world.a, 'data: gameday refresh [skip actions]').status, 0);
+
+    const b = readJson(world.b, ARCHIVE);                    // B: ordinary refresh
+    b.updated_utc = TB;
+    b.archived_utc = TB;
+    b.parlays = [archiveCard('c-base'), archiveCard('c-refresh-B')];
+    b.history.push({ updated_utc: TB, archived_utc: TB });
+    writeJson(world.b, ARCHIVE, b);
+    const r = publish(world.b, 'data: daily pipeline refresh [skip actions]');
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /frozen cards kept/);
+
+    const week = readMain(world, ARCHIVE);
+    assert.deepEqual(week.parlays.map((c) => c.card_id),
+                     ['c-base', 'c-frozen-A', 'c-refresh-B'],
+                     "no frozen card may be dropped, and the newer run's card lands");
+    const byId = Object.fromEntries(week.parlays.map((c) => [c.card_id, c]));
+    assert.equal(byId['c-base'].frozen_utc, TA, 'the freeze stamp is untouched');
+    assert.equal(byId['c-frozen-A'].frozen_utc, TA);
+    assert.ok(!byId['c-refresh-B'].frozen_utc, 'a live card is still live');
+    assert.equal(week.closed, true, 'a closed week never re-opens');
+    assert.equal(week.updated_utc, TB, 'the header takes the later as-of');
+    assert.deepEqual(week.history.map((h) => h.updated_utc), [T0, TA, TB]);
+  } finally { cleanup(world); }
+});
+
+/* ---------- (h) pipeline_stages: one block per workflow (G05) ------------ */
+
+test('(h) daily and gameday both write pipeline_stages: both blocks survive', () => {
+  // G05's reproduction. The file is a CROSS-WORKFLOW ledger — stage_status.begin
+  // resets only its own block — so "regenerable, taking this run's version"
+  // deleted the other workflow's whole record, and the next begin re-seeded its
+  // carries from the wiped file (every last_success_utc back to NEVER).
+  const world = makeWorld();
+  try {
+    const a = readJson(world.a, STAGES);                     // the daily run
+    a.generated_utc = TA;
+    a.workflows.daily = wfBlock('2', TA, [stageRow('S1', TA)], { S1: T0 });
+    writeJson(world.a, STAGES, a);
+    assert.equal(publish(world.a, 'data: daily pipeline refresh [skip actions]').status, 0);
+
+    const b = readJson(world.b, STAGES);                     // the gameday run
+    b.generated_utc = TB;
+    b.workflows.gameday = wfBlock('3', TB, [stageRow('G1', TB)], { G1: TB });
+    writeJson(world.b, STAGES, b);
+    const r = publish(world.b, 'data: gameday refresh [skip actions]');
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /merged per workflow/);
+
+    const doc = readMain(world, STAGES);
+    assert.deepEqual(Object.keys(doc.workflows).sort(), ['daily', 'gameday'],
+                     "neither workflow's block may be dropped");
+    assert.equal(doc.workflows.daily.run_id, '2', "the later run's block wins");
+    assert.deepEqual(doc.workflows.daily.stages.map((x) => x.name), ['S1']);
+    assert.equal(doc.workflows.daily.last_success.S1, TA,
+                 "the daily carry advances, it does not regress to the base's");
+    assert.deepEqual(doc.workflows.gameday.stages.map((x) => x.name), ['G1']);
+    assert.equal(doc.workflows.gameday.last_success.G1, TB);
+    assert.equal(doc.generated_utc, TB, 'the header takes the later as-of');
+  } finally { cleanup(world); }
+});
+
+/* ---------- (i) lock receipts: a grading is monotone (G06) --------------- */
+
+test('(i) one run grades a lock receipt while the other appends: the grading survives', () => {
+  // G06's reproduction. A resolves g1 against a FINAL score; B, from the same
+  // base, only adds a new lock row. Taking B's file un-graded g1 and logged
+  // "taking this run's grading" for a run that had graded nothing.
+  const world = makeWorld();
+  try {
+    writeJson(world.a, RECEIPTS, [                           // A: grade g1
+      receipt('g1', T0, { resolved: true, actual: 0, brier: 0.12, log_loss: 0.43 }),
+    ]);
+    assert.equal(publish(world.a, 'data: daily pipeline refresh [skip actions]').status, 0);
+
+    writeJson(world.b, RECEIPTS, [receipt('g1', T0), receipt('g2', TB)]);  // B: append
+    const r = publish(world.b, 'data: gameday refresh [skip actions]');
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /merged by event_id/);
+    assert.ok(!/taking this run's grading/.test(r.out),
+              'the log must say what the run actually did');
+
+    const rows = readMain(world, RECEIPTS);
+    assert.deepEqual(rows.map((x) => x.event_id), ['g1', 'g2'],
+                     "both writers' lock rows are kept");
+    assert.equal(rows[0].resolved, true, 'a graded row is never un-graded');
+    assert.equal(rows[0].actual, 0);
+    assert.equal(rows[0].brier, 0.12);
+    assert.equal(rows[0].log_loss, 0.43);
+    assert.equal(rows[0].locked_utc, T0, 'the earlier lock stamp holds');
+    assert.equal(rows[1].resolved, false, "the new lock is not graded by the merge");
+  } finally { cleanup(world); }
+});
+
+test('(i2) a snapshot that is NOT a lock receipt aborts loudly instead of taking a side', () => {
+  // The other half of the one rule: game_predictions.<ts>.json is a per-run
+  // immutable file whose name is unique to its run, so two writers cannot
+  // legitimately both write one. merge_ledgers.py refuses it by name; the shell
+  // must agree rather than resolve it with take_ours (G06).
+  const world = makeWorld();
+  const SNAP = 'data/snapshots/game_predictions.20260919T170334Z.json';
+  try {
+    writeJson(world.a, SNAP, { generated_utc: TA, games: [{ game_id: 'g1', p_home: 0.61 }] });
+    assert.equal(publish(world.a, 'data: gameday refresh [skip actions]').status, 0);
+    const mainBefore = git(world.a, 'rev-parse', 'origin/main');
+
+    writeJson(world.b, SNAP, { generated_utc: TB, games: [{ game_id: 'g1', p_home: 0.77 }] });
+    const r = publish(world.b, 'data: daily pipeline refresh [skip actions]');
+    assert.notEqual(r.status, 0, r.out);
+    assert.match(r.out, /::error::conflict on the snapshot/);
+    assert.match(r.out, /lock receipts/);
+    assert.ok(!/taking this run's grading/.test(r.out));
+
+    git(world.b, 'fetch', '--quiet', 'origin', 'main');
+    assert.equal(git(world.b, 'rev-parse', 'FETCH_HEAD'), mainBefore, 'main is untouched');
+    assert.ok(!existsSync(join(world.b, '.git/rebase-merge')), 'the rebase is abandoned');
+    assert.equal(git(world.b, 'status', '--porcelain'), '', 'no debris left behind');
   } finally { cleanup(world); }
 });
 
