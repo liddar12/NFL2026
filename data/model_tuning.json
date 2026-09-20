@@ -20817,6 +20817,80 @@
       },
       "adopted": false,
       "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.64375} scores 0.73879 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.699997 across 5 folds over n=24 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them."
+    },
+    {
+      "generated_utc": "2026-09-20T23:24:46Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 5,
+      "fold_candidates": [
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.47875,
+          "n_train": 23,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.59125,
+          "n_train": 23,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 11.75,
+          "revert": 0.9,
+          "n_train": 23,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.6875,
+          "n_train": 23,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 19.125,
+          "revert": 0.5175,
+          "n_train": 24,
+          "n_held": 5
+        }
+      ],
+      "evals": 3085,
+      "margin": 0.0015,
+      "n_resolved": 29,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 0.0,
+        "revert": 0.62875
+      },
+      "current_loss": 0.70129,
+      "candidate_loss": 0.682566,
+      "heldout_current_loss": 0.70129,
+      "heldout_candidate_loss": 0.706955,
+      "improvement": -0.005665,
+      "on_boundary": {
+        "hfa_elo": "lo"
+      },
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.62875} scores 0.706955 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.70129 across 5 folds over n=29 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them."
     }
   ],
   "game_params": {

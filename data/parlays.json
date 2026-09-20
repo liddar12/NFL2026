@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "week": 2,
-  "updated_utc": "2026-09-20T23:21:54Z",
+  "updated_utc": "2026-09-20T23:24:48Z",
   "parlays": [
     {
       "parlay_id": "401872944-g1",
@@ -81,15 +81,6 @@
       "scope": "game",
       "legs": [
         {
-          "market": "spread",
-          "selection": "DAL -13.5",
-          "implied_prob": 0.375,
-          "model_prob": 0.5,
-          "side": "home",
-          "edge_note": "NO EDGE \u2014 cover model measured below coin-flip (log-loss 0.7231 vs 0.6931, 797 games 2023-25); priced flat until a margin model clears never-regress",
-          "price_source": "fair_market"
-        },
-        {
           "market": "rb_rush_yds",
           "selection": "J. Williams 60+ rush yds",
           "implied_prob": 0.5049,
@@ -103,10 +94,25 @@
           "z": 0.0904,
           "line": 59.5,
           "gsis_id": "espn-4361579"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "G. Pickens 60+ rec yds",
+          "implied_prob": 0.587,
+          "model_prob": 0.5617,
+          "side": "home",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 78.32,
+          "sd": 41.58,
+          "z": 0.4527,
+          "line": 59.5,
+          "gsis_id": "espn-4426354"
         }
       ],
-      "model_ev": 0.408,
-      "confidence_tier": "medium",
+      "model_ev": -0.0006,
+      "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401872944"
     },
