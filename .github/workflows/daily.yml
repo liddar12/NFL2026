@@ -91,6 +91,23 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error daily "Refresh weather forecast (weather_wind application freshness)" -- python scripts/build_weather_forecast.py
         continue-on-error: true   # forecast is best-effort; absence is dormant, not fatal
 
+      # R94 — keep the PRE-KICKOFF forecast we actually saw. The step above
+      # overwrites data/weather_forecast.json in place, so today's view of
+      # Sunday's weather is gone by tomorrow; the reanalysis corpus we measure on
+      # is what the weather TURNED OUT to be, which no one knows before kickoff.
+      # This appends (game, fetched_utc, precip, temp, wind) and never rewrites a
+      # row it already holds, so a later phase can fit on what was knowable at
+      # lock time instead of on hindsight. Climatology rows are refused at the
+      # door — they are a long-run average, not an observation. It reads nothing
+      # but the file above, is read by nothing, and changes no shipped number.
+      # Directly after its source step and continue-on-error like it: when the
+      # forecast refresh degrades there is simply nothing new to append, and a
+      # run that appends nothing does not write the file at all, so most days
+      # this is a zero-byte diff for publish_data.sh.
+      - name: Archive pre-kickoff weather forecast (append-only; R94)
+        run: bash scripts/stage.sh --continue-on-error daily "Archive pre-kickoff weather forecast (append-only; R94)" -- python3 scripts/archive_weather_forecast.py
+        continue-on-error: true   # nothing to append is not a failure
+
       # R51 — NEVER-REGRESS BACKTESTS run BEFORE the build: scripts.build_predictions
       # reads data/parlay_backtest.json (prop calibration + measured correlations)
       # and build_weekly ships weekly_split_v2 only while the weekly gate holds.

@@ -99,6 +99,22 @@ python3 scripts/stage_status.py --selftest || fail "stage status selftest"
 # — and validate_data's reds the qb_depth_backtest contract four ways.
 # Neither touches data/ and neither reaches the network.
 python3 scripts/backtest_qb_depth.py --selftest || fail "qb depth backtest selftest"
+# R94 — DOES RAIN MATTER (measure only). Three selftests, each proving the one
+# thing that would make the measurement dishonest if it stopped holding.
+# build_wet_rates' proves the play-level rate corpus: a renamed upstream column
+# raises instead of reading as zeros, a mid-build fetch failure writes NOTHING
+# and names the remedy, and the hand-worked aggregate pools numerators rather
+# than averaging per-game rates. backtest_weather's proves the power stage is
+# BLIND — permuting the held-out season's outcomes leaves the power table
+# byte-identical while perturbing a training outcome moves it — and that the
+# artifact it writes still carries adopted:false with no family registered.
+# archive_weather_forecast's proves the append-only archive: a re-run adds zero
+# rows, a climatology row is refused at the door, and an already-archived
+# observation is never rewritten when upstream changes its mind.
+# None of the three reaches the network and none writes under data/.
+python3 scripts/build_wet_rates.py --selftest || fail "wet rates corpus selftest"
+python3 scripts/backtest_weather.py --selftest || fail "weather backtest selftest"
+python3 scripts/archive_weather_forecast.py --selftest || fail "weather forecast archive selftest"
 # R52 — the dead-code inventory scanner (report-only; the gate never deletes code).
 python3 scripts/audit_dead_code.py --selftest || fail "dead-code scanner selftest"
 

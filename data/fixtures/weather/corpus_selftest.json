@@ -1,0 +1,339 @@
+{
+  "kind": "weather_corpus_selftest_fixture",
+  "note": "Hand-worked synthetic corpus for scripts/weather_corpus.py --selftest. Ten weather rows: nine join to games_meta, one (2025|9|ZZZ|AAA) does not and must be reported unjoined rather than silently dropped; one joined row (2024|5|CCC|AAA) carries the neutral flag and is the planted relocation. Eight rows survive the venue filter and their band membership is worked by hand in the selftest. The games_meta column order is deliberately unlike the real file and carries one column outside the reader's allow-list, so the reader is proved to zip by header and to keep only what it asked for. Team codes are AAA-GGG and ZZZ so no real venue, team or season is implied.",
+  "weather_history": {
+    "generated_utc": "2026-01-01T00:00:00Z",
+    "source": "synthetic (selftest fixture; no network, no real observation)",
+    "games": {
+      "2024|1|AAA|BBB": {
+        "precip_mm": 0.0,
+        "temp_c": 20.0,
+        "wind_kph": 5.0
+      },
+      "2024|2|AAA|CCC": {
+        "precip_mm": 0.1,
+        "temp_c": 12.0,
+        "wind_kph": 10.0
+      },
+      "2024|3|BBB|AAA": {
+        "precip_mm": 0.5,
+        "temp_c": 8.0,
+        "wind_kph": 18.0
+      },
+      "2024|4|BBB|CCC": {
+        "precip_mm": 1.5,
+        "temp_c": 6.0,
+        "wind_kph": 22.0
+      },
+      "2024|5|CCC|AAA": {
+        "precip_mm": 9.0,
+        "temp_c": 1.0,
+        "wind_kph": 40.0
+      },
+      "2024|6|CCC|BBB": {
+        "precip_mm": 3.0,
+        "temp_c": 2.0,
+        "wind_kph": 26.0
+      },
+      "2024|7|AAA|DDD": {
+        "precip_mm": 2.0,
+        "temp_c": 15.0,
+        "wind_kph": 9.0
+      },
+      "2025|1|AAA|BBB": {
+        "precip_mm": 6.0,
+        "temp_c": 10.0,
+        "wind_kph": 31.0
+      },
+      "2025|2|AAA|CCC": {
+        "precip_mm": 0.0,
+        "temp_c": 25.0,
+        "wind_kph": 7.9
+      },
+      "2025|9|ZZZ|AAA": {
+        "precip_mm": 1.0,
+        "temp_c": 10.0,
+        "wind_kph": 10.0
+      }
+    }
+  },
+  "games_meta": {
+    "source": "synthetic (selftest fixture)",
+    "fields": [
+      "week",
+      "season",
+      "home",
+      "away",
+      "roof",
+      "neutral",
+      "stadium",
+      "kickoff_local_et",
+      "unlisted_column_that_must_not_be_read"
+    ],
+    "policy": "SELFTEST FIXTURE ONLY. Carries season, week, home, away, roof, neutral and stadium plus one unlisted column that the reader must never surface.",
+    "games": [
+      [
+        1,
+        2024,
+        "AAA",
+        "BBB",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        2,
+        2024,
+        "AAA",
+        "CCC",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        3,
+        2024,
+        "BBB",
+        "AAA",
+        "outdoors",
+        false,
+        "Bravo Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        4,
+        2024,
+        "BBB",
+        "CCC",
+        "outdoors",
+        false,
+        "Bravo Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        5,
+        2024,
+        "CCC",
+        "AAA",
+        "outdoors",
+        true,
+        "Neutral Ground",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        6,
+        2024,
+        "CCC",
+        "BBB",
+        "outdoors",
+        false,
+        "Charlie Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        7,
+        2024,
+        "AAA",
+        "DDD",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2024-09-08T13:00",
+        "do not read"
+      ],
+      [
+        1,
+        2025,
+        "AAA",
+        "BBB",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        2,
+        2025,
+        "AAA",
+        "CCC",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        3,
+        2025,
+        "DDD",
+        "AAA",
+        "dome",
+        false,
+        "Delta Dome",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        4,
+        2025,
+        "EEE",
+        "AAA",
+        "closed",
+        false,
+        "Echo Retractable",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        5,
+        2025,
+        "FFF",
+        "AAA",
+        "open",
+        false,
+        "Foxtrot Retractable",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        6,
+        2025,
+        "GGG",
+        "AAA",
+        "dome",
+        false,
+        "Golf Dome",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        19,
+        2025,
+        "AAA",
+        "BBB",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2025-09-08T13:00",
+        "do not read"
+      ],
+      [
+        1,
+        2020,
+        "AAA",
+        "BBB",
+        "outdoors",
+        false,
+        "Alpha Field",
+        "2020-09-08T13:00",
+        "do not read"
+      ]
+    ]
+  },
+  "game_context": {
+    "generated_utc": "2026-01-01T00:00:00Z",
+    "source": "synthetic (selftest fixture)",
+    "join_key": "{season}|{week}|{home}|{away}",
+    "games": {
+      "2024|1|AAA|BBB": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2024|2|AAA|CCC": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2024|3|BBB|AAA": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2024|4|BBB|CCC": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2024|5|CCC|AAA": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": true,
+        "surface": "grass"
+      },
+      "2024|6|CCC|BBB": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2024|7|AAA|DDD": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|1|AAA|BBB": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|2|AAA|CCC": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|3|DDD|AAA": {
+        "roof": "dome",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|4|EEE|AAA": {
+        "roof": "closed",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|5|FFF|AAA": {
+        "roof": "open",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|6|GGG|AAA": {
+        "roof": "dome",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2025|19|AAA|BBB": {
+        "roof": "outdoors",
+        "game_type": "WC",
+        "neutral_site": false,
+        "surface": "grass"
+      },
+      "2020|1|AAA|BBB": {
+        "roof": "outdoors",
+        "game_type": "REG",
+        "neutral_site": false,
+        "surface": "grass"
+      }
+    }
+  }
+}

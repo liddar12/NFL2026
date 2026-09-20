@@ -38,7 +38,7 @@ Weights below are the *current fitted* weights. All are `0.0` at scaffold time.
 | `schedule_strength` | player | 0.0 | Strength of position-relevant opposing units across the slate/season. |
 | `home_away` | player | 0.0 | Home vs road split adjustment. |
 | `indoor_outdoor` | player | 0.0 | Dome/retractable-closed vs open-air baseline effect on production (esp. passing/kicking). |
-| `weather` | player | 0.0 | Wind/temp/precip adjustment from `scripts/signals/weather.py`; applied only to outdoor / roof-open games. |
+| `weather` | player | 0.0 | Wind/temp/precip adjustment from `scripts/signals/weather.py`; applied only to outdoor / roof-open games. **`weather_adjustment` has zero call sites — nothing in the pipeline reads it, so its 8% heavy-rain passing haircut has never priced anything.** The mechanism it asserts was measured walk-forward in R94 (`scripts/backtest_weather.py` -> `data/weather_backtest.json`; see `docs/WEATHER_EFFECT.md`): verdict **not_powered** — zero of ten pre-registered terms are powered on the four scored folds, so the corpus cannot test the claim — nothing adopted. The precipitation term the shipped player factor actually carries is *no* term at all — `build_weekly.WEATHER_RULES` is cold and wind only. |
 | `rest_days` | player | 0.0 | Days since last game (short week / bye / mini-bye) affecting freshness. |
 | `off_field` | player | 0.0 | Suspensions, holdouts, personal-conduct availability risk not captured by injury status. |
 

@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wet_rates.schema.json",
+  "title": "R94 play-level rate substrate (measure only)",
+  "description": "scripts/build_wet_rates.py's mechanism corpus: the completions, attempts, targets, receptions, yards, sacks and fumble counts that data/fixtures/backtest_weekly/weekly_actuals.json throws away. One document per unit - player_week and team_week - in the same shape, because the weather measurement pools the same sixteen counters over both. Numerators and denominators are stored SEPARATELY and never pre-divided: a rate pooled over a cell is sum(numerators)/sum(denominators), which only the stored counts can produce. This document REPORTS. Nothing that ships reads it, it fits nothing, it adopts nothing, and no market number appears anywhere in it. A season that could not be fetched is named in seasons_unavailable and is ABSENT from rows: a season key may never map to an empty object, because an empty season and a hole are the same file to a consumer and only one of them is honest. provenance says whether the corpus was pulled from the nflverse release or is the hand-made synthetic placeholder committed for the offline selftest; build_wet_rates.available() refuses the placeholder, so a consumer is told no rather than measuring on invented numbers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "unit",
+    "provenance",
+    "source",
+    "policy",
+    "generated_utc",
+    "seasons_requested",
+    "seasons_fetched",
+    "seasons_unavailable",
+    "required_columns",
+    "rows"
+  ],
+  "properties": {
+    "kind": { "type": "string", "enum": ["wet_rates"] },
+    "unit": {
+      "type": "string",
+      "description": "The unit of analysis. player_week keys are {week}|{team}|{player_id}; team_week keys are {week}|{team}.",
+      "enum": ["player_week", "team_week"]
+    },
+    "provenance": {
+      "type": "string",
+      "description": "nflverse_release is a real pull and may be measured on. synthetic_fixture is the committed hand-made placeholder and may not: available() refuses it by this field, never by guessing from the row count.",
+      "enum": ["nflverse_release", "synthetic_fixture"]
+    },
+    "source": { "type": "string", "minLength": 20 },
+    "policy": { "type": "string", "minLength": 20 },
+    "generated_utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "seasons_requested": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1999, "maximum": 2100 }
+    },
+    "seasons_fetched": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1999, "maximum": 2100 }
+    },
+    "seasons_unavailable": {
+      "type": "object",
+      "description": "{season: why}. An empty object is the only claim that every requested season was read.",
+      "additionalProperties": { "type": "string", "minLength": 5 }
+    },
+    "required_columns": {
+      "type": "array",
+      "description": "The logical column contract asserted against every fetched header. All twenty-four must resolve: there is no optional mechanism column, because a column that went missing would otherwise read as a zero and price the weather as catastrophic.",
+      "minItems": 24,
+      "items": { "type": "string", "minLength": 3 }
+    },
+    "rows": {
+      "type": "object",
+      "description": "{season: {key: row}}. A season present here was fetched in full; a season that was not is absent and named in seasons_unavailable.",
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "team",
+            "opp",
+            "week",
+            "completions",
+            "attempts",
+            "passing_yards",
+            "passing_interceptions",
+            "sacks",
+            "carries",
+            "targets",
+            "receptions",
+            "receiving_yards",
+            "receiving_air_yards",
+            "sack_fumbles",
+            "sack_fumbles_lost",
+            "rushing_fumbles",
+            "rushing_fumbles_lost",
+            "receiving_fumbles",
+            "receiving_fumbles_lost"
+          ],
+          "properties": {
+            "name": { "type": "string" },
+            "pos": { "type": "string", "minLength": 1 },
+            "team": { "type": "string", "minLength": 2 },
+            "opp": {
+              "type": ["string", "null"],
+              "description": "null only when the feed itself carried no opponent; it is never filled in from elsewhere."
+            },
+            "week": { "type": "integer", "minimum": 1, "maximum": 23 },
+            "completions": { "type": "integer", "minimum": 0 },
+            "attempts": { "type": "integer", "minimum": 0 },
+            "passing_yards": { "type": "number" },
+            "passing_interceptions": { "type": "integer", "minimum": 0 },
+            "sacks": { "type": "integer", "minimum": 0 },
+            "carries": { "type": "integer", "minimum": 0 },
+            "targets": { "type": "integer", "minimum": 0 },
+            "receptions": { "type": "integer", "minimum": 0 },
+            "receiving_yards": { "type": "number" },
+            "receiving_air_yards": { "type": "number" },
+            "sack_fumbles": { "type": "integer", "minimum": 0 },
+            "sack_fumbles_lost": { "type": "integer", "minimum": 0 },
+            "rushing_fumbles": { "type": "integer", "minimum": 0 },
+            "rushing_fumbles_lost": { "type": "integer", "minimum": 0 },
+            "receiving_fumbles": { "type": "integer", "minimum": 0 },
+            "receiving_fumbles_lost": { "type": "integer", "minimum": 0 },
+            "players": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "team_week only: how many kept player rows were summed into this team-week. A completeness witness - three rows is a truncated pull, not a roster."
+            }
+          }
+        }
+      }
+    }
+  }
+}

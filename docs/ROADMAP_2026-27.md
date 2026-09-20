@@ -590,6 +590,65 @@ nothing ships without one.
   exactly ten and five. And when a week is over, `_myseed` now reports that condition instead of
   throwing at import, so a finished slate skips the MY specs with a stated reason rather than failing
   fourteen tests with a module-load error. · **LOE** 0.5 d
+- **R94 · Does rain matter? phase 1 (measure only) — built 2026-09-20 (owner order: "Rain has to
+  matter. The ball is wet, the QB's numbers should be down and it's harder to catch. Call it 8% off
+  in heavy rain. Is that in the model?").** It is not in the model: `scripts/signals/weather.py`
+  carries the 8% haircut as a constant with **zero call sites**, the shipped player factor prices
+  roof and cold and no precipitation, and `game_params` carries no weather key. One power-gated
+  walk-forward measurement, nothing adopted, no shipped number changed, **no signal family
+  registered** — the promotion gate's family set and its Bonferroni divisor are untouched, so
+  `rel18_families` and `rel7_contracts` need no edit. `scripts/backtest_weather.py` → `data/weather_backtest.json` (runner-built, OPTIONAL),
+  2021-2025 REG: `corpus_filter` reads **893 rows read, 893 joined, 19 dropped as relocations, 874
+  kept**, and every survivor is independently confirmed `outdoors` by nflverse's own roof column
+  (`roof_check_ok`) — **1,748 treated team-games**, 854 roofed placebo, 32 open retractables never
+  pooled; the CONTROL arm re-prices **8,279** R51 rows. **The unit is the decision.** Every n below
+  is the four SCORED folds, because the neutral first fold fits nothing: at the game level the
+  stratified wet cell is **24 team-games** against an MDE of **4.87** QB points, when the owner's
+  8% restates as 1.32 — a sample that can only see an effect nearly four times the claim cannot
+  test it. The same wet games carry **786 wet attempts** against 3,235 dry, MDE **0.0581** modelled
+  and **0.0964** realized against 0.052 — so the denominator move was necessary and still not
+  sufficient, and the play level ends up much closer to answerable than the points level ever was.
+  Ten pre-registered terms, the power table written before any coefficient is fitted and on the
+  rows that coefficient is fitted on: **0 powered, 10 not**. `powered` requires BOTH minimum
+  detectable effects — the modelled pooled-binomial one and the realized one built from the
+  estimator's own binding clustered error (mde_z × max(se_fold, se_stadium)), which on this corpus
+  runs 1.06x to 2.12x larger. The closest miss in the grid is `wind_epa_per_dropback` at 0.039903
+  modelled / 0.040479 realized against 0.033, and it has the most convincing ladder in the file.
+  Verdict **not_powered**, `adopted` false, `families_registered` empty — a harder answer than
+  `none`: the corpus cannot test the claim that was made, rather than having tested it and come up
+  short. **Rain costs about 3.5 percentage points of completion rate** held-out (marginal 3.4,
+  stratified 4.7) — a BOUND, not a null, and a wide one: the point estimate is smaller than the 8%
+  claimed, but this corpus could not have separated the 8% from zero either with **four folds**.
+  The THRESHOLD would have refused all ten terms independently: three degrees of freedom put the
+  primary's bar at **0.201** — twenty percentage points of completion rate. `not_powered` and
+  `below_threshold` are the same shortage counted twice, and the shortage is folds. Two findings worth reading: the PLACEBO arm on roofed games that had no weather
+  returns **−0.0502 with a CI excluding zero**, larger than the treated estimate and on 13 passer-
+  weeks, so it is reported as a diagnostic and never a gate; and the CONTROL arm says the shipped
+  weather factor DOES beat deleting it (6.003032 vs 6.008667 pooled MAE) while a FLAT split beats
+  both at 5.999077 — something R51's gate, which only asks whether v2 beats v1, structurally cannot
+  see. REACH on 2026 week 2: **0 of 1,229 rungs** move beyond the pool's own ECE and **0 games on
+  the slate reach the threshold at all**. The shipped `rb_wind` 0.95 penalty was re-measured and its
+  sign holds (−0.581 on 110 scored team-games, unpowered) — **the constant does not move on this
+  evidence**. `data/weather_history.json` is never rewritten: the relocation filter lives in the
+  reader and the file's sha256 is published in the artifact and asserted unchanged across a full
+  run, so R56's exact-equality pins stay green untouched. Also ships
+  `scripts/archive_weather_forecast.py`, an append-only pre-kickoff forecast archive — the only
+  route to a leakage-free phase 2, since the repo holds zero archived forecasts for 2021-2025.
+  Contracts, `--selftest`s in smoke, `docs/WEATHER_EFFECT.md`, corrections to
+  `docs/WEATHER_HORIZON.md` and `docs/SIGNAL_REGISTRY.md`. **Locked by**
+  `tests/feature/r94_weather.test.mjs`, which after the R94 adversarial audit also recounts the
+  power n season by season, locks the two-MDE conjunction and forbids a `monotone: true` decided by
+  a dose-response band under `adoption_rule.min_band_n` or by fewer than three voting bands. The
+  ladder is tabulated on the SCORED rows too, so **no published quantity in the artifact is
+  computed on data the estimator never used** — the lock holds that as an identity, each term's
+  five band n's summing exactly to its own `n_treated_rows + n_control_rows`. All ten terms read
+  `monotone: false`: five on genuine reversals across hundreds of rows, the primary and
+  `rain_heavy_completion_rate` for having too little ladder to read at all (2 and 0 voting bands). The Tuesday cron builds the rate corpus
+  into `$RUNNER_TEMP` and points the measurement at it with `--cache-dir`, so the 11.7 MB real pull
+  never lands in `data/` and the committed `data/fixtures/wet_rates/` placeholder stays synthetic.
+  **Phase 2 waits on folds, not code:** extending the corpus
+  backwards is the single change that would most alter this document, and the forecast archive is
+  what makes a leakage-free version possible at all. · **LOE** 1 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.
