@@ -1,92 +1,92 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-20T18:45:15Z",
+  "generated_utc": "2026-09-20T21:42:46Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (17 games); scores from data/review.json FINAL rows (17 games); scores from ESPN live, STATUS-gated FINAL (17 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (24 games); scores from data/review.json FINAL rows (17 games); scores from ESPN live, STATUS-gated FINAL (24 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 2,
   "legs": {
-    "on_file": 193,
+    "on_file": 199,
     "locked": 169,
-    "unlocked": 24,
-    "resolved": 75,
-    "unresolved": 51
+    "unlocked": 30,
+    "resolved": 114,
+    "unresolved": 32
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 40,
-      "hit_rate": 0.425,
+      "n": 59,
+      "hit_rate": 0.4407,
       "model": {
-        "log_loss": 0.6611,
-        "brier": 0.2348
+        "log_loss": 0.6666,
+        "brier": 0.2371
       },
       "seed": {
-        "log_loss": 0.689,
-        "brier": 0.2479
+        "log_loss": 0.6908,
+        "brier": 0.2488
       },
       "by_pricing": {
-        "calibrated": 40
+        "calibrated": 59
       }
     },
     "moneyline": {
-      "n": 17,
-      "hit_rate": 0.5882,
-      "log_loss": 0.6671,
-      "brier": 0.2373
+      "n": 24,
+      "hit_rate": 0.5417,
+      "log_loss": 0.7058,
+      "brier": 0.2559
     },
     "spread": {
-      "n": 18,
-      "hit_rate": 0.4444,
+      "n": 31,
+      "hit_rate": 0.3226,
       "log_loss": 0.6931,
       "brier": 0.25
     }
   },
   "by_position": {
     "QB": {
-      "n": 11,
-      "hit_rate": 0.2727,
+      "n": 18,
+      "hit_rate": 0.3333,
       "model": {
-        "log_loss": 0.7085,
-        "brier": 0.2583
+        "log_loss": 0.6797,
+        "brier": 0.2436
       },
       "seed": {
-        "log_loss": 0.6959,
-        "brier": 0.2513
+        "log_loss": 0.6904,
+        "brier": 0.2486
       },
       "by_pricing": {
-        "calibrated": 11
+        "calibrated": 18
       }
     },
     "RB": {
-      "n": 15,
-      "hit_rate": 0.4,
+      "n": 22,
+      "hit_rate": 0.4091,
       "model": {
-        "log_loss": 0.6393,
-        "brier": 0.2242
+        "log_loss": 0.6636,
+        "brier": 0.2354
       },
       "seed": {
-        "log_loss": 0.6877,
-        "brier": 0.2473
+        "log_loss": 0.686,
+        "brier": 0.2465
       },
       "by_pricing": {
-        "calibrated": 15
+        "calibrated": 22
       }
     },
     "WR": {
-      "n": 14,
-      "hit_rate": 0.5714,
+      "n": 19,
+      "hit_rate": 0.5789,
       "model": {
-        "log_loss": 0.6472,
-        "brier": 0.2278
+        "log_loss": 0.6577,
+        "brier": 0.2328
       },
       "seed": {
-        "log_loss": 0.6851,
-        "brier": 0.2459
+        "log_loss": 0.6966,
+        "brier": 0.2516
       },
       "by_pricing": {
-        "calibrated": 14
+        "calibrated": 19
       }
     }
   },
@@ -124,29 +124,29 @@
     {
       "week": 2,
       "props": {
-        "n": 3,
-        "hit_rate": 0.6667,
+        "n": 22,
+        "hit_rate": 0.5,
         "model": {
-          "log_loss": 0.6724,
-          "brier": 0.2396
+          "log_loss": 0.6774,
+          "brier": 0.2414
         },
         "seed": {
-          "log_loss": 0.6597,
-          "brier": 0.2334
+          "log_loss": 0.6897,
+          "brier": 0.2483
         },
         "by_pricing": {
-          "calibrated": 3
+          "calibrated": 22
         }
       },
       "moneyline": {
-        "n": 1,
-        "hit_rate": 1.0,
-        "log_loss": 0.4266,
-        "brier": 0.1206
+        "n": 8,
+        "hit_rate": 0.5,
+        "log_loss": 0.7529,
+        "brier": 0.2787
       },
       "spread": {
-        "n": 2,
-        "hit_rate": 1.0,
+        "n": 15,
+        "hit_rate": 0.2667,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -183,48 +183,6 @@
     },
     {
       "week": 2,
-      "game_id": "401872933",
-      "market": "qb_pass_yds",
-      "selection": "B. Young 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872933",
-      "market": "rb_rush_yds",
-      "selection": "B. Robinson 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872933",
-      "market": "wr_rec_yds",
-      "selection": "D. London 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872934",
-      "market": "qb_pass_yds",
-      "selection": "J. Burrow 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872934",
-      "market": "rb_rush_yds",
-      "selection": "C. Brown 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872934",
-      "market": "wr_rec_yds",
-      "selection": "J. Chase 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
       "game_id": "401872935",
       "market": "qb_pass_yds",
       "selection": "B. Mayfield 225+ pass yds",
@@ -247,50 +205,8 @@
     {
       "week": 2,
       "game_id": "401872936",
-      "market": "qb_pass_yds",
-      "selection": "J. Love 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872936",
       "market": "rb_rush_yds",
       "selection": "J. Jacobs 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872937",
-      "market": "qb_pass_yds",
-      "selection": "C. Williams 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872937",
-      "market": "rb_rush_yds",
-      "selection": "D. Swift 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872938",
-      "market": "qb_pass_yds",
-      "selection": "L. Jackson 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872938",
-      "market": "rb_rush_yds",
-      "selection": "T. Etienne Jr. 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872938",
-      "market": "wr_rec_yds",
-      "selection": "C. Olave 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -298,27 +214,6 @@
       "game_id": "401872938",
       "market": "wr_rec_yds",
       "selection": "Z. Flowers 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872939",
-      "market": "qb_pass_yds",
-      "selection": "J. Hurts 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872939",
-      "market": "rb_rush_yds",
-      "selection": "S. Barkley 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872939",
-      "market": "wr_rec_yds",
-      "selection": "D. Smith 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -459,34 +354,6 @@
       "game_id": "401872945",
       "market": "wr_rec_yds",
       "selection": "R. Rice 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872946",
-      "market": "qb_pass_yds",
-      "selection": "D. Maye 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872946",
-      "market": "rb_rush_yds",
-      "selection": "R. Dowdle 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872946",
-      "market": "rb_rush_yds",
-      "selection": "T. Henderson 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872946",
-      "market": "wr_rec_yds",
-      "selection": "D. Metcalf 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -1796,6 +1663,667 @@
       "seed_prob": 0.4389,
       "actual": 142.0,
       "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "moneyline",
+      "selection": "ATL ML",
+      "team": "ATL",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6141,
+      "actual": {
+        "home_score": 3,
+        "away_score": 34
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "B. Young 225+ pass yds",
+      "player": "Bryce Young",
+      "team": "CAR",
+      "line": 224.5,
+      "mu": 181.04,
+      "sd": 76.66,
+      "z": -0.5669,
+      "p_team": 0.3859,
+      "pricing": "calibrated",
+      "model_prob": 0.2922,
+      "seed_prob": 0.4544,
+      "actual": 287.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "B. Robinson 60+ rush yds",
+      "player": "Bijan Robinson",
+      "team": "ATL",
+      "line": 59.5,
+      "mu": 86.58,
+      "sd": 38.87,
+      "z": 0.6966,
+      "p_team": 0.6141,
+      "pricing": "calibrated",
+      "model_prob": 0.6596,
+      "seed_prob": 0.5456,
+      "actual": 72.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "spread",
+      "selection": "ATL +1.5",
+      "team": "ATL",
+      "side": "home",
+      "line": 1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 34
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "spread",
+      "selection": "ATL +2.5",
+      "team": "ATL",
+      "side": "home",
+      "line": 2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 34
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872933",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. London 60+ rec yds",
+      "player": "Drake London",
+      "team": "ATL",
+      "line": 59.5,
+      "mu": 71.14,
+      "sd": 41.58,
+      "z": 0.2798,
+      "p_team": 0.6141,
+      "pricing": "calibrated",
+      "model_prob": 0.5277,
+      "seed_prob": 0.5456,
+      "actual": 51.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "moneyline",
+      "selection": "HOU ML",
+      "team": "HOU",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.661,
+      "actual": {
+        "home_score": 6,
+        "away_score": 20
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Burrow 225+ pass yds",
+      "player": "Joe Burrow",
+      "team": "CIN",
+      "line": 224.5,
+      "mu": 196.98,
+      "sd": 76.66,
+      "z": -0.359,
+      "p_team": 0.339,
+      "pricing": "calibrated",
+      "model_prob": 0.334,
+      "seed_prob": 0.4356,
+      "actual": 207.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "C. Brown 60+ rush yds",
+      "player": "Chase Brown",
+      "team": "CIN",
+      "line": 59.5,
+      "mu": 54.56,
+      "sd": 38.87,
+      "z": -0.1272,
+      "p_team": 0.339,
+      "pricing": "calibrated",
+      "model_prob": 0.3681,
+      "seed_prob": 0.4356,
+      "actual": 80.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "spread",
+      "selection": "HOU -2.5",
+      "team": "HOU",
+      "side": "home",
+      "line": -2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 6,
+        "away_score": 20
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "spread",
+      "selection": "HOU -3",
+      "team": "HOU",
+      "side": "home",
+      "line": -3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 6,
+        "away_score": 20
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872934",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "J. Chase 60+ rec yds",
+      "player": "Ja'Marr Chase",
+      "team": "CIN",
+      "line": 59.5,
+      "mu": 88.84,
+      "sd": 41.58,
+      "z": 0.7055,
+      "p_team": 0.339,
+      "pricing": "calibrated",
+      "model_prob": 0.5891,
+      "seed_prob": 0.4356,
+      "actual": 75.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872936",
+      "market": "moneyline",
+      "selection": "GB ML",
+      "team": "GB",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.51,
+      "actual": {
+        "home_score": 17,
+        "away_score": 20
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872936",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Love 225+ pass yds",
+      "player": "Jordan Love",
+      "team": "GB",
+      "line": 224.5,
+      "mu": 215.52,
+      "sd": 76.66,
+      "z": -0.1171,
+      "p_team": 0.51,
+      "pricing": "calibrated",
+      "model_prob": 0.4372,
+      "seed_prob": 0.504,
+      "actual": 145.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872936",
+      "market": "spread",
+      "selection": "GB -3.5",
+      "team": "GB",
+      "side": "away",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 20
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872936",
+      "market": "spread",
+      "selection": "GB -4.5",
+      "team": "GB",
+      "side": "away",
+      "line": -4.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 20
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872937",
+      "market": "moneyline",
+      "selection": "CHI ML",
+      "team": "CHI",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5806,
+      "actual": {
+        "home_score": 3,
+        "away_score": 9
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872937",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "C. Williams 225+ pass yds",
+      "player": "Caleb Williams",
+      "team": "CHI",
+      "line": 224.5,
+      "mu": 170.35,
+      "sd": 76.66,
+      "z": -0.7063,
+      "p_team": 0.5806,
+      "pricing": "calibrated",
+      "model_prob": 0.2969,
+      "seed_prob": 0.5322,
+      "actual": 138.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872937",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "D. Swift 60+ rush yds",
+      "player": "D'Andre Swift",
+      "team": "CHI",
+      "line": 59.5,
+      "mu": 61.67,
+      "sd": 38.87,
+      "z": 0.0559,
+      "p_team": 0.5806,
+      "pricing": "calibrated",
+      "model_prob": 0.477,
+      "seed_prob": 0.5322,
+      "actual": 45.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872937",
+      "market": "spread",
+      "selection": "CHI -4.5",
+      "team": "CHI",
+      "side": "home",
+      "line": -4.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 9
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872937",
+      "market": "spread",
+      "selection": "CHI -5.5",
+      "team": "CHI",
+      "side": "home",
+      "line": -5.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 9
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "moneyline",
+      "selection": "BAL ML",
+      "team": "BAL",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.666,
+      "actual": {
+        "home_score": 17,
+        "away_score": 24
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "L. Jackson 225+ pass yds",
+      "player": "Lamar Jackson",
+      "team": "BAL",
+      "line": 224.5,
+      "mu": 215.22,
+      "sd": 76.66,
+      "z": -0.121,
+      "p_team": 0.666,
+      "pricing": "calibrated",
+      "model_prob": 0.4723,
+      "seed_prob": 0.5664,
+      "actual": 235.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "T. Etienne Jr. 60+ rush yds",
+      "player": "Travis Etienne",
+      "team": "NO",
+      "line": 59.5,
+      "mu": 53.32,
+      "sd": 38.87,
+      "z": -0.159,
+      "p_team": 0.334,
+      "pricing": "calibrated",
+      "model_prob": 0.3586,
+      "seed_prob": 0.4336,
+      "actual": 25.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "spread",
+      "selection": "BAL -7.5",
+      "team": "BAL",
+      "side": "home",
+      "line": -7.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 24
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "spread",
+      "selection": "BAL -8.5",
+      "team": "BAL",
+      "side": "home",
+      "line": -8.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 24
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872938",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "C. Olave 60+ rec yds",
+      "player": "Chris Olave",
+      "team": "NO",
+      "line": 59.5,
+      "mu": 54.21,
+      "sd": 41.58,
+      "z": -0.1273,
+      "p_team": 0.334,
+      "pricing": "calibrated",
+      "model_prob": 0.3935,
+      "seed_prob": 0.4336,
+      "actual": 86.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872939",
+      "market": "moneyline",
+      "selection": "PHI ML",
+      "team": "PHI",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6392,
+      "actual": {
+        "home_score": 20,
+        "away_score": 24
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872939",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Hurts 225+ pass yds",
+      "player": "Jalen Hurts",
+      "team": "PHI",
+      "line": 224.5,
+      "mu": 231.35,
+      "sd": 76.66,
+      "z": 0.0893,
+      "p_team": 0.6392,
+      "pricing": "calibrated",
+      "model_prob": 0.5262,
+      "seed_prob": 0.5557,
+      "actual": 264.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872939",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "S. Barkley 60+ rush yds",
+      "player": "Saquon Barkley",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 67.97,
+      "sd": 38.87,
+      "z": 0.2179,
+      "p_team": 0.6392,
+      "pricing": "calibrated",
+      "model_prob": 0.5371,
+      "seed_prob": 0.5557,
+      "actual": 9.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872939",
+      "market": "spread",
+      "selection": "PHI -7",
+      "team": "PHI",
+      "side": "away",
+      "line": -7.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 20,
+        "away_score": 24
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872939",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. Smith 60+ rec yds",
+      "player": "DeVonta Smith",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 63.83,
+      "sd": 41.58,
+      "z": 0.1042,
+      "p_team": 0.6392,
+      "pricing": "calibrated",
+      "model_prob": 0.4896,
+      "seed_prob": 0.5557,
+      "actual": 117.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "moneyline",
+      "selection": "NE ML",
+      "team": "NE",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6209,
+      "actual": {
+        "home_score": 20,
+        "away_score": 3
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "D. Maye 225+ pass yds",
+      "player": "Drake Maye",
+      "team": "NE",
+      "line": 224.5,
+      "mu": 193.99,
+      "sd": 76.66,
+      "z": -0.398,
+      "p_team": 0.6209,
+      "pricing": "calibrated",
+      "model_prob": 0.3844,
+      "seed_prob": 0.5484,
+      "actual": 208.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "R. Dowdle 60+ rush yds",
+      "player": "Rico Dowdle",
+      "team": "PIT",
+      "line": 59.5,
+      "mu": 55.07,
+      "sd": 38.87,
+      "z": -0.114,
+      "p_team": 0.3791,
+      "pricing": "calibrated",
+      "model_prob": 0.381,
+      "seed_prob": 0.4516,
+      "actual": 22.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "T. Henderson 60+ rush yds",
+      "player": "TreVeyon Henderson",
+      "team": "NE",
+      "line": 59.5,
+      "mu": 31.81,
+      "sd": 38.87,
+      "z": -0.7124,
+      "p_team": 0.6209,
+      "pricing": "calibrated",
+      "model_prob": 0.2859,
+      "seed_prob": 0.5484,
+      "actual": 76.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "spread",
+      "selection": "NE -4.5",
+      "team": "NE",
+      "side": "home",
+      "line": -4.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 20,
+        "away_score": 3
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "spread",
+      "selection": "NE -5.5",
+      "team": "NE",
+      "side": "home",
+      "line": -5.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 20,
+        "away_score": 3
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872946",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. Metcalf 60+ rec yds",
+      "player": "DK Metcalf",
+      "team": "PIT",
+      "line": 59.5,
+      "mu": 54.13,
+      "sd": 41.58,
+      "z": -0.1292,
+      "p_team": 0.3791,
+      "pricing": "calibrated",
+      "model_prob": 0.3992,
+      "seed_prob": 0.4516,
+      "actual": 27.0,
+      "hit": false
     }
   ]
 }
