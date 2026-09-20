@@ -86,7 +86,7 @@ def _abbrev(name):
     return ("%s. %s" % (parts[0][0], " ".join(parts[1:]))) if len(parts) > 1 else str(name)
 
 
-def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
+def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=None):
     """One leg per (player, in-support rung). Returns (legs, counters).
 
     Every input is the one the slate uses: the same project_prop_yards, the same
@@ -116,7 +116,10 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder):
         # says so: OUT / DOUBTFUL / IR / suspended / a QB2 behind a healthy
         # starter) gets no leg at any rung. His zeroed week would price to a
         # near-certain UNDER, which is not a bet, it is a bug wearing odds.
-        if not playable_this_week(rec):
+        # G19 -- `wk` too: once a team's game is FINAL the this_week gate stops
+        # zeroing its players, but their week row keeps avail:false, and the
+        # validator refuses a leg on either fact.
+        if not playable_this_week(rec, wk):
             counts["not_playable"] += 1
             continue
         slot = by_team.get(p.get("team"))
@@ -239,7 +242,13 @@ def build(inputs):
     players = (inputs["player_projections"] or {}).get("players", []) or []
     game_preds = (inputs["game_predictions"] or {}).get("games", []) or []
 
-    props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder)
+    parlays_doc_for_week = inputs.get("parlays") or {}
+    try:
+        pool_week = int(parlays_doc_for_week.get("week"))
+    except (TypeError, ValueError):
+        pool_week = None
+    props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd,
+                              ladder, pool_week)
     game_by_team, side_by_team = {}, {}
     for gp in game_preds:
         for side in ("home", "away"):

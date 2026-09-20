@@ -550,6 +550,21 @@ nothing ships without one.
   file was verified locally, where the committed `game_predictions.json` already said week 2 and
   the defect could not reproduce. The runner’s step order is part of the contract. · **LOE** 0.25 d
 
+- **R93b · the pricing gate and the validator agree on a game day (G19, P0) — built 2026-09-20
+  (daily run 149 went red at its last step).** `this_week_gate` deliberately stops gating a team whose
+  game has gone FINAL, because a played week is never retro-zeroed. So once the early window ended, a
+  player listed out kept `avail: false` on his week row while `this_week.playable` went quiet — and
+  `playable_this_week`, which the leg pool and the slate props both gate on, read only the second fact.
+  `check_no_unplayable_legs` has always demanded BOTH, so the pool priced Jordan Mason and A.J. Brown,
+  each on a team whose week-2 game had finished, and the pipeline red-lined AFTER every number had been
+  rebuilt. The gameday workflow failed on the same fact minutes later, so both workflows were blocked.
+  R93a is what surfaced it: filing the daily report under the week being played is what finally zeroed
+  those week rows. `playable_this_week` now takes an optional week and refuses a row whose week carries
+  `avail: false`; `build_leg_pool.prop_legs` passes the pool’s own week and `build_props_by_game` passes
+  each game’s. Omit the week and the R77 behaviour is byte-identical, so no other caller moves. **Locked
+  by** a new case in `r77_playable` that reproduces run 149’s exact row shape and asserts both halves:
+  the pool refuses the sitter when told the week, would still have priced him without it, and the
+  validator reds the same leg on the same words — red when the week check is removed. · **LOE** 0.25 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.
