@@ -688,6 +688,36 @@ nothing ships without one.
   graph test checks the relative ORDER of a named chain, so a whole missing step slips through. A gate
   asserting daily and gameday invoke the same set of document-writing scripts would have caught (a). ·
   **LOE** 1 d
+- **R96 · the fantasy endpoints get the retry the scoreboard already had (P1) — built 2026-09-21
+  (daily run 160 died on one connection reset, two hours before kickoff).** `fetch_current_pro_teams`
+  raised `[Errno 104] Connection reset by peer` on its first page and the whole evening pipeline went
+  with it; nothing was built until it was re-dispatched by hand. R86b had already learned this exact
+  lesson on the other side of the same feed — run 129, one TLS alert, nothing built that day — and gave
+  `espn._get_json` three bounded attempts with linear backoff. But the two fantasy pages reached the
+  network directly: `_kona_market_page` called `urllib.request.urlopen` with no retry at all, and
+  `_kona_page` had a requests/urllib fork that retried nothing either. One blip on either was fatal.
+  Both now route through `_kona_fetch`, which IMPORTS `_TRANSPORT_ATTEMPTS` and `_TRANSPORT_BACKOFF_S`
+  from `espn.py` rather than restating them, so the policy cannot drift between the two paths, and
+  `_kona_once` is the single place in the module allowed to open a socket. A transport failure is a
+  blip and is retried; a non-200 is the feed’s ANSWER and is not, on both the requests and the urllib
+  path, because the silent-404 lesson stands; the final failure raises loudly rather than returning a
+  thin page that would read as a shrinking player pool. `requests` stays optional and is still never a
+  gate dependency. **Locked by** `tests/feature/r96_fantasy_retry.test.mjs` (5), which replays run 160’s
+  own `ConnectionResetError(104)`: two resets then a 200 returns the page after three calls with
+  [2, 4] second waits, three resets raise naming the url and the error class, a 500 is one call with no
+  sleep, both page functions are proven to route through the helper, and the module is asserted to
+  contain exactly one `urlopen` and to define neither constant itself. The first two go red on a
+  single-attempt loop. **Lesson:** R86b fixed a class of bug in one function rather than at the
+  boundary, and the same feed bit us from the other side three days later. **Also here:** the first weekly promotion after R92 ran that
+  same night and took the Bonferroni divisor 13 → 14 with `qb_depth`, exactly as R92 designed, which
+  reddened an R94 assertion that had pinned the divisor at 13. R94 adds no family — the 13 was a
+  snapshot of the afternoon before `qb_depth` first ran. The assertion is now the property it stood
+  for: the divisor equals the count of families that actually ran, and not one of the ten terms R94
+  measures has become a family, derived from the artifact's own term names so a future term is covered
+  without editing the test. `weather_wind` is a pre-R94 candidate and still runs every week, measured
+  and never adopted. Worth knowing: `t_crit` rose 6.4102 → 6.5797, so every other family's adoption
+  bar is now harder, which is correct Bonferroni behaviour and the price R92 knowingly paid. · **LOE**
+  0.25 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.

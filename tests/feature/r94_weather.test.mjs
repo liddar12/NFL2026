@@ -831,9 +831,29 @@ test('r94: the live model is untouched — no game parameter, no new family, no 
   const runs = (tuning.history || []).filter(
     (h) => h && h.kind === 'signal_promotion' && h.format === 2);
   assert.ok(runs.length > 0, 'no archived promotion run to read');
-  assert.equal(runs[0].families_runnable, 13,
-    'the promotion gate\'s Bonferroni divisor moved — R94 registers no family, so it '
-    + 'must not');
+  // R94's claim is that IT adds no family — not that the divisor never moves.
+  // The literal 13 pinned here was a snapshot of one afternoon: R92 had already
+  // registered `qb_depth` proposal-only, and the first weekly promotion after it
+  // ran (2026-09-21 02:00Z) correctly took the divisor 13 -> 14 and t_crit
+  // 6.4102 -> 6.5797, reddening this assertion with nothing about R94 changed.
+  // The property that actually belongs to this release: the divisor is exactly
+  // the number of families that ran, and NONE of them is a weather family.
+  assert.equal(runs[0].families_runnable, (runs[0].families || []).length,
+    'the divisor must be the count of families that actually ran');
+  // `weather_wind` is a PRE-R94 candidate and is expected to run every week —
+  // the loop below asserts it is measured and never adopted. What must be true
+  // of R94 is narrower and exact: not one of the ten terms IT measures has
+  // become a promotion family. Derived from the artifact's own term names, so a
+  // future term is covered without editing this test.
+  if (existsSync(ARTIFACT)) {
+    const mine = new Set((readJson(ARTIFACT).terms || []).map((t) => t.name));
+    assert.ok(mine.size > 0, 'the artifact lists no terms — this check would be vacuous');
+    for (const f of runs[0].families || []) {
+      assert.ok(!mine.has(f.family),
+        `the promotion gate registered ${f.family}, which is an R94 term: this `
+        + 'release measures and adopts nothing');
+    }
+  }
   let seen = 0;
   for (const r of runs) {
     for (const f of r.families || []) {
