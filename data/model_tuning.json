@@ -23923,6 +23923,78 @@
       "adopted": false,
       "verdict": "propose",
       "reason": "candidate clears the 0.10-point margin \u2014 adoption is a manual act (apply the weights in data/meta.json after review)"
+    },
+    {
+      "generated_utc": "2026-09-21T04:29:37Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 5,
+      "fold_candidates": [
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.45625,
+          "n_train": 24,
+          "n_held": 7
+        },
+        {
+          "hfa_elo": 9.125,
+          "revert": 0.61,
+          "n_train": 25,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 9.25,
+          "revert": 0.735,
+          "n_train": 25,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 39.875,
+          "revert": 0.8475,
+          "n_train": 25,
+          "n_held": 6
+        },
+        {
+          "hfa_elo": 37.5,
+          "revert": 0.64375,
+          "n_train": 25,
+          "n_held": 6
+        }
+      ],
+      "evals": 3185,
+      "margin": 0.0015,
+      "n_resolved": 31,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 4.875,
+        "revert": 0.6425
+      },
+      "current_loss": 0.693505,
+      "candidate_loss": 0.683552,
+      "heldout_current_loss": 0.693505,
+      "heldout_candidate_loss": 0.711651,
+      "improvement": -0.018146,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 4.875, 'revert': 0.6425} scores 0.711651 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.693505 across 5 folds over n=31 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false."
     }
   ],
   "game_params": {

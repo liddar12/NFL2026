@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-21T01:57:49Z",
+  "generated_utc": "2026-09-21T04:31:53Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (30 games); scores from data/review.json FINAL rows (30 games); scores from ESPN live, STATUS-gated FINAL (30 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (31 games); scores from data/review.json FINAL rows (30 games); scores from ESPN live, STATUS-gated FINAL (31 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 2,
@@ -10,7 +10,7 @@
     "on_file": 209,
     "locked": 169,
     "unlocked": 40,
-    "resolved": 147,
+    "resolved": 150,
     "unresolved": 16
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 30,
-      "hit_rate": 0.5333,
-      "log_loss": 0.6953,
-      "brier": 0.2513
+      "n": 31,
+      "hit_rate": 0.5484,
+      "log_loss": 0.6876,
+      "brier": 0.2475
     },
     "spread": {
-      "n": 42,
-      "hit_rate": 0.381,
+      "n": 44,
+      "hit_rate": 0.3636,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -139,14 +139,14 @@
         }
       },
       "moneyline": {
-        "n": 14,
-        "hit_rate": 0.5,
-        "log_loss": 0.7103,
-        "brier": 0.259
+        "n": 15,
+        "hit_rate": 0.5333,
+        "log_loss": 0.6934,
+        "brier": 0.2507
       },
       "spread": {
-        "n": 26,
-        "hit_rate": 0.3846,
+        "n": 28,
+        "hit_rate": 0.3571,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -2649,6 +2649,51 @@
       "model_prob": 0.5617,
       "seed_prob": 0.5268,
       "actual": 40.0,
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872945",
+      "market": "moneyline",
+      "selection": "KC ML",
+      "team": "KC",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.633,
+      "actual": {
+        "home_score": 33,
+        "away_score": 30
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872945",
+      "market": "spread",
+      "selection": "KC -6",
+      "team": "KC",
+      "side": "home",
+      "line": -6.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 33,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872945",
+      "market": "spread",
+      "selection": "KC -6.5",
+      "team": "KC",
+      "side": "home",
+      "line": -6.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 33,
+        "away_score": 30
+      },
       "hit": false
     },
     {
