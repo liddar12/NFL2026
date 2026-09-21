@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 2,
-  "generated_utc": "2026-09-21T16:27:11Z",
-  "pool_generated_utc": "2026-09-21T16:27:11Z",
+  "generated_utc": "2026-09-21T22:07:16Z",
+  "pool_generated_utc": "2026-09-21T22:07:16Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -279,6 +279,14 @@
     },
     {
       "pool_generated_utc": "2026-09-21T16:27:11Z",
+      "week": 2,
+      "cards_seen": 12,
+      "cards_added": 2,
+      "locked_added": 2,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-09-21T22:07:16Z",
       "week": 2,
       "cards_seen": 12,
       "cards_added": 2,
@@ -210055,6 +210063,112 @@
       "first_seen_utc": "2026-09-21T16:27:11Z",
       "locked": true,
       "locked_utc": "2026-09-21T16:27:11Z"
+    },
+    {
+      "card_id": "6b85479883b7",
+      "dial": "safe",
+      "seed": "LAR",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.4793,
+      "implied": 0.4997,
+      "ev": -0.0408,
+      "tier": "low",
+      "payout": 100.13,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-09-22T00:15Z",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "M. Stafford 200+ pass yds",
+          "game_id": "401872947",
+          "team": "LAR",
+          "side": "home",
+          "player": "Matthew Stafford",
+          "gsis_id": "espn-12483",
+          "position": "QB",
+          "line": 199.5,
+          "mu": 226.36,
+          "model_prob": 0.6616,
+          "implied_prob": 0.6914,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "M. Nabers 30+ rec yds",
+          "game_id": "401872947",
+          "team": "NYG",
+          "side": "away",
+          "player": "Malik Nabers",
+          "gsis_id": "espn-4595348",
+          "position": "WR",
+          "line": 29.5,
+          "mu": 56.19,
+          "model_prob": 0.6916,
+          "implied_prob": 0.7227,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-21T22:07:16Z",
+      "locked": true,
+      "locked_utc": "2026-09-21T22:07:16Z"
+    },
+    {
+      "card_id": "5adcb8aa7dfe",
+      "dial": "safe",
+      "seed": "NYG",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.4587,
+      "implied": 0.4766,
+      "ev": -0.0375,
+      "tier": "low",
+      "payout": 109.84,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-09-22T00:15Z",
+      "legs": [
+        {
+          "market": "wr_rec_yds",
+          "selection": "M. Nabers 30+ rec yds",
+          "game_id": "401872947",
+          "team": "NYG",
+          "side": "away",
+          "player": "Malik Nabers",
+          "gsis_id": "espn-4595348",
+          "position": "WR",
+          "line": 29.5,
+          "mu": 56.19,
+          "model_prob": 0.6916,
+          "implied_prob": 0.7227,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "D. Mooney 20+ rec yds",
+          "game_id": "401872947",
+          "team": "NYG",
+          "side": "away",
+          "player": "Darnell Mooney",
+          "gsis_id": "espn-4040655",
+          "position": "WR",
+          "line": 19.5,
+          "mu": 40.32,
+          "model_prob": 0.631,
+          "implied_prob": 0.6594,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-21T22:07:16Z",
+      "locked": true,
+      "locked_utc": "2026-09-21T22:07:16Z"
     }
   ]
 }
