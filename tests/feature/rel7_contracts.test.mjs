@@ -35,7 +35,16 @@ const CORE_FAMILIES = ['environment', 'rest', 'epa_total', 'epa_pass', 'elo_epa'
  * reds it against every entry archived after. Both were live failures. */
 const REL18_FAMILIES = ['divisional', 'coach_quality', 'coach_regime',
   'dvp_mismatch', 'scheme_matchup'];
-const FAMILIES = [...CORE_FAMILIES, ...REL18_FAMILIES];
+/* R92's availability-depth candidate, PROPOSAL-ONLY: promote_signals measures it
+ * beside qb_out every week and never double-counts QB1, and nothing prices it.
+ * Permitted-not-required for the same reason the Rel18 names are — it appears
+ * from the first gate CRON after its release, not from this checkout. It first
+ * ran 2026-09-21 02:00Z and took the Bonferroni divisor 13 -> 14 and t_crit
+ * 6.4102 -> 6.5797, which is the tax R92 knowingly accepted. The MODEL tab needs
+ * no edit: it maps over entry.families rather than a list of its own, so a new
+ * family surfaces there the moment the gate runs it. */
+const R92_FAMILIES = ['qb_depth'];
+const FAMILIES = [...CORE_FAMILIES, ...REL18_FAMILIES, ...R92_FAMILIES];
 
 function latestV2() {
   const doc = read('model_tuning.json');

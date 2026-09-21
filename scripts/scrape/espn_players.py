@@ -34,10 +34,13 @@ data/adp.json (display + value flags). See validate_data.MARKET_PRICE_FIELDS.
 
 import json
 import sys
+import time as _time
+import urllib.error
 import urllib.request
 
 from ..availability import normalize_status
-from .espn import FeedError, _get_json
+from .espn import (FeedError, _TRANSPORT_ATTEMPTS, _TRANSPORT_BACKOFF_S,
+                   _get_json)
 from .renames import normalize_team
 
 _KONA_URL = (
@@ -54,6 +57,67 @@ _PAGE = 50
 _MAX_PLAYERS = 400
 
 
+def _kona_once(url, headers, timeout):
+    """One attempt at the fantasy API. `requests` stays OPTIONAL — it must never
+    become a gate dependency — so the urllib path is the fallback, not the
+    exception. A non-200 raises FeedError on BOTH paths: that is the feed's
+    answer, and the silent-404 lesson says never read it as empty data."""
+    try:
+        import requests  # noqa: PLC0415 (optional; mirrors espn.py's guarded style)
+    except ImportError:
+        try:
+            with urllib.request.urlopen(
+                    urllib.request.Request(url, headers=headers), timeout=timeout) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as exc:      # an answer, not a blip
+            raise FeedError(f"fantasy API HTTP {exc.code} at {url}") from exc
+    else:
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code != 200:
+            raise FeedError(f"fantasy API HTTP {resp.status_code} at {url}")
+        return resp.json()
+
+
+def _kona_fetch(season, filt, timeout=30, _sleep=None):
+    """A fantasy-API page under the SAME transport-retry policy espn._get_json
+    has carried since R86b.
+
+    R96 — daily run 160 (2026-09-21 22:03Z) died on ONE `[Errno 104] Connection
+    reset by peer` inside fetch_current_pro_teams, and took the whole evening
+    pipeline with it two hours before kickoff. R86b had already learned this
+    lesson on the scoreboard path (run 129, one TLS alert, nothing built that
+    day) and gave espn._get_json bounded retries — but the two fantasy
+    endpoints reached the network directly, so the fix never covered them. The
+    policy now lives in ONE place: espn.py owns the constants, both callers
+    import them, and a change to the attempt count cannot apply to one path and
+    not the other.
+
+    A TRANSPORT failure is a blip and is retried. A non-200 is the feed's
+    answer and is NOT retried. The final failure raises loudly rather than
+    returning a thin page that would look like a shrinking player pool."""
+    url = _KONA_URL.format(season=int(season))
+    headers = {"User-Agent": _UA, "X-Fantasy-Filter": json.dumps(filt)}
+    sleep = _sleep or _time.sleep
+    for attempt in range(1, _TRANSPORT_ATTEMPTS + 1):
+        try:
+            return _kona_once(url, headers, timeout)
+        except FeedError:
+            raise                                   # the feed answered; do not retry
+        except Exception as exc:                    # noqa: BLE001 - transport only
+            if type(exc).__name__ in ("HTTPError",):
+                raise
+            if attempt == _TRANSPORT_ATTEMPTS:
+                raise FeedError(
+                    f"ESPN fantasy GET {url} failed {_TRANSPORT_ATTEMPTS} times at the "
+                    f"transport layer ({exc.__class__.__name__}: {exc}). Giving up loudly."
+                ) from exc
+            wait = _TRANSPORT_BACKOFF_S * attempt
+            print(f"  [retry] ESPN fantasy GET {url}: {exc.__class__.__name__}; "
+                  f"attempt {attempt + 1}/{_TRANSPORT_ATTEMPTS} in {wait:.0f}s",
+                  file=sys.stderr)
+            sleep(wait)
+
+
 def _kona_page(season, offset, limit=_PAGE, timeout=30):
     """One page of the fantasy player pool, sorted by REAL season total desc.
     The filter rides in the X-Fantasy-Filter header (ESPN's own convention)."""
@@ -67,23 +131,7 @@ def _kona_page(season, offset, limit=_PAGE, timeout=30):
             },
         }
     }
-    req = urllib.request.Request(
-        _KONA_URL.format(season=int(season)),
-        headers={"User-Agent": _UA, "X-Fantasy-Filter": json.dumps(filt)},
-    )
-    try:
-        import requests  # optional; keep parity with espn.py's guarded style
-        resp = requests.get(
-            _KONA_URL.format(season=int(season)),
-            headers={"User-Agent": _UA, "X-Fantasy-Filter": json.dumps(filt)},
-            timeout=timeout,
-        )
-        if resp.status_code != 200:
-            raise FeedError(f"fantasy API HTTP {resp.status_code} at offset {offset}")
-        return resp.json()
-    except ImportError:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.load(resp)
+    return _kona_fetch(season, filt, timeout)
 
 
 # R49 — games played rides the SAME actuals entry under statId "210" (the id
@@ -351,12 +399,7 @@ def _kona_market_page(season, offset, limit=_PAGE, timeout=30):
             "sortPercOwned": {"sortAsc": False, "sortPriority": 1},
         }
     }
-    req = urllib.request.Request(
-        _KONA_URL.format(season=int(season)),
-        headers={"User-Agent": _UA, "X-Fantasy-Filter": json.dumps(filt)},
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.load(resp)
+    return _kona_fetch(season, filt, timeout)
 
 
 def fetch_auction_values(season, min_rows=100):
