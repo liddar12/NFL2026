@@ -12,6 +12,14 @@
  * production serves them, and derives every expectation from those same files.
  * The one routed test is the ungraded week, which the committed feed has no
  * example of at the current week and which cannot be faked by a fixture number.
+ *
+ * R95 — the measurement went red on the first week that was BOTH current and
+ * mostly graded: the outcome buckets and the P&L line only exist once a week
+ * HAS grades, so the R90 number was measured on a layout those two blocks were
+ * not in. They now share one collapsed <details id="parlay-retro">. The 24 px
+ * floor below stays exactly as it was — it is a real regression tripwire — but
+ * the promise it stands for is now also locked directly, against the committed
+ * review document rather than against a remembered pixel count.
  */
 
 import { test, expect } from '@playwright/test';
@@ -19,6 +27,8 @@ import { readFileSync } from 'node:fs';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const POOL = read('../../data/leg_pool.json');
+const REVIEW = read('../../data/review.json');
+const PARLAYS = read('../../data/parlays.json');
 const WEEKLY = read('../../data/player_weekly.json');
 const PROJ = read('../../data/player_projections.json');
 
@@ -166,12 +176,13 @@ test('F18: the FILTERS panel remembers itself per viewer, and defaults shut', as
   expect(await page.locator('#parlay-filters').evaluate((d) => d.open)).toBe(false);
 });
 
-test('F18: the two new summaries are 44 px targets and nothing overflows sideways', async ({ page }) => {
+test('F18: every collapsed summary is a 44 px target and nothing overflows sideways', async ({ page }) => {
   for (const size of [PHONE, DESKTOP]) {
     await page.setViewportSize(size);
     await mount(page);
     // HIG: the rows R90 introduced are full-width 44 px targets.
-    for (const sel of ['#parlay-filters > summary', '.legend--parlays > summary']) {
+    for (const sel of ['#parlay-filters > summary', '.legend--parlays > summary',
+      '#parlay-retro > summary']) {
       const box = await page.locator(sel).boundingBox();
       expect(box, `${sel} at ${size.width}`).not.toBeNull();
       // Math.round: at deviceScaleFactor 3 a 44 px box lays out as 43.9607 CSS px
@@ -218,6 +229,11 @@ test('F18: an ungraded week hides the outcome buckets and the P&L line entirely'
   await page.waitForSelector('.rv-strip--parlay', { timeout: 20000 });
   await expect(page.locator('#parlay-buckets')).toBeHidden();
   await expect(page.locator('#parlay-pnl')).toBeHidden();
+  // R95 — those two now live inside a collapsed <details>, which would hide
+  // them on ANY week, so the rule is asserted where it is actually decided: the
+  // panel itself carries `hidden` on an ungraded week and paints no surface.
+  await expect(page.locator('#parlay-retro')).toBeHidden();
+  expect(await page.locator('#parlay-retro').evaluate((d) => d.hidden)).toBe(true);
   // the cards themselves are untouched — hiding a tally is not hiding the bets
   expect(await page.locator('#parlays-list .card.parlay').count()).toBeGreaterThan(0);
   expect(errors).toEqual([]);
@@ -226,9 +242,133 @@ test('F18: an ungraded week hides the outcome buckets and the P&L line entirely'
 test('F18: a graded week still shows both, so the rule is the data and not the layout', async ({ page }) => {
   await page.setViewportSize(PHONE);
   await mount(page);
+  // R95 — the rule is still the data: on a graded week the RETROSPECTIVE panel
+  // is painted (an ungraded week hides it outright), and both blocks are one
+  // tap inside it. Nothing about what they say changed.
+  const retro = page.locator('#parlay-retro');
+  await expect(retro).toBeVisible();
+  expect(await retro.evaluate((d) => d.open)).toBe(false);
+  await retro.locator('summary').click();
   await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 20000 });
   await expect(page.locator('#parlay-buckets')).toBeVisible();
   await expect(page.locator('#parlay-pnl .rv-pnl')).toBeVisible();
+});
+
+/* --------------------------------------------------------------------------
+   R95 · the promise itself, not a remembered number.
+   The 24 px floor above was measured on one machine's fonts and says so. These
+   two lock what the owner actually asked for, read off the COMMITTED review
+   document: on a week that has been graded — the state that broke F18, because
+   the outcome buckets and the P&L line only exist once a week has grades — a
+   real bet is legible on the opening screen, and nothing the collapse hid has
+   become unreachable.
+   -------------------------------------------------------------------------- */
+
+const GRADED_BUCKETS = ['all_hit', 'push', 'partial', 'all_missed'];
+const CUR_WEEK = String(PARLAYS.week);
+const CUR_BUCKETS = (((REVIEW.weeks || {})[CUR_WEEK] || {}).summary || {}).parlays
+  ? REVIEW.weeks[CUR_WEEK].summary.parlays.buckets || {} : {};
+const CUR_GRADED = GRADED_BUCKETS.reduce((n, b) => n + (Number(CUR_BUCKETS[b]) || 0), 0);
+
+test('F18: on the committed graded week the first card is legible on the opening screen', async ({ page }) => {
+  const errors = errorsOf(page);
+  // Asserted, never skipped: if the current week carried no grades the graded
+  // chrome would not render and this would be measuring a different layout than
+  // the one F18 broke on. The committed feed IS in that state, and this line is
+  // what says so out loud when a future week is not.
+  expect(CUR_GRADED, `data/review.json week ${CUR_WEEK} must have graded parlays`)
+    .toBeGreaterThan(0);
+
+  await page.setViewportSize(PHONE);
+  await mount(page);
+  // the graded chrome really is on the page — this is the stack that broke F18
+  await expect(page.locator('#parlay-retro')).toBeVisible();
+  await expect(page.locator('.rv-strip--parlay')).toBeVisible();
+
+  const m = await page.evaluate(() => {
+    const card = document.querySelector('#parlays-list .card.parlay');
+    const head = card && card.querySelector('.p-head');
+    const bar = document.querySelector('.tabbar');
+    return {
+      headBottom: head ? Math.round(head.getBoundingClientRect().bottom) : null,
+      barTop: bar ? Math.round(bar.getBoundingClientRect().top) : null,
+      innerHeight: window.innerHeight,
+    };
+  });
+  expect(m.headBottom, 'the first card must paint a header').not.toBeNull();
+  expect(m.barTop, 'the bottom navigation must be painted').not.toBeNull();
+  // The whole of the first bet's HEADER — which game, which tier, which result
+  // — clears the bottom navigation. That is a box the page itself renders, so
+  // it holds whatever the machine's fonts do to the line height; "a real bet is
+  // on the first screen" is not satisfied by a visible top border.
+  expect(m.headBottom).toBeLessThanOrEqual(m.barTop);
+  await expect(page.locator('#parlays-list .card.parlay').first()).toBeInViewport();
+  expect(errors).toEqual([]);
+});
+
+test('F18: the collapsed retrospective still carries every bucket count, and opens', async ({ page }) => {
+  const errors = errorsOf(page);
+  expect(CUR_GRADED).toBeGreaterThan(0);
+  await page.setViewportSize(PHONE);
+  await mount(page);
+  const retro = page.locator('#parlay-retro');
+  await expect(retro).toBeVisible();
+  expect(await retro.evaluate((d) => d.open)).toBe(false);
+  await expect(retro.locator('.pf-sum-t')).toHaveText('OUTCOMES & SIM NET · ALL');
+  await expect(retro.locator('.pf-sum-n')).toBeHidden();
+
+  // Closed is not deleted. Every count the committed review carries is still in
+  // the document — for a reader and for a screen reader — and so is the P&L
+  // line's own wording, which this change was not allowed to touch.
+  await page.waitForSelector('#parlay-buckets .rv-bucket', { state: 'attached', timeout: 20000 });
+  const counts = Object.entries(CUR_BUCKETS);
+  expect(counts.length).toBeGreaterThan(0);
+  for (const [b, n] of counts) {
+    await expect(retro.locator(`.rv-bucket[data-bucket="${b}"] .rv-bucket-n`)).toHaveText(String(n));
+  }
+  await expect(retro).toContainText(`WEEK ${CUR_WEEK}`);
+  await expect(retro).toContainText('SIM NET');
+  await expect(retro).toContainText('not actual betting returns');
+  // ...and none of it is reachable until it is opened — that is the space it buys
+  await expect(page.locator('#parlay-buckets')).toBeHidden();
+  await expect(page.locator('#parlay-pnl')).toBeHidden();
+
+  // A FILTER may be collapsed, but it may not become undiscoverable: opening it
+  // filters the list, and the shut summary then names the bucket that is on.
+  await retro.locator('summary').click();
+  await expect(page.locator('.rv-bucket[data-bucket="all_hit"]')).toBeVisible();
+  const cards = page.locator('#parlays-list .card.parlay');
+  const before = await cards.count();
+  expect(before).toBeGreaterThan(0);
+  await page.click('.rv-bucket[data-bucket="all_hit"]');
+  await expect(page.locator('.rv-bucket[data-bucket="all_hit"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#parlays-list .card.parlay .rv-bchip:not(.rv-bchip--all_hit)')).toHaveCount(0);
+  expect(await cards.count()).toBeLessThan(before);
+  await retro.locator('summary').click();
+  expect(await retro.evaluate((d) => d.open)).toBe(false);
+  await expect(retro.locator('.pf-sum-t')).toHaveText('OUTCOMES & SIM NET · ALL HIT');
+  await expect(retro.locator('.pf-sum-n')).toHaveText('1');
+  expect(errors).toEqual([]);
+});
+
+test('F18: the RETROSPECTIVE panel remembers itself per viewer, and defaults shut', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await mount(page);
+  await expect(page.locator('#parlay-retro')).toBeVisible();
+  await page.locator('#parlay-retro summary').click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('nfl2026.parlays.retro.v1')))
+    .toBe('1');
+  await page.reload();
+  await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+  await expect(page.locator('#parlay-retro')).toBeVisible();
+  expect(await page.locator('#parlay-retro').evaluate((d) => d.open)).toBe(true);
+  await page.locator('#parlay-retro summary').click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('nfl2026.parlays.retro.v1')))
+    .toBe('0');
+  await page.reload();
+  await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+  await expect(page.locator('#parlay-retro')).toBeVisible();
+  expect(await page.locator('#parlay-retro').evaluate((d) => d.open)).toBe(false);
 });
 
 /* ==========================================================================

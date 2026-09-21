@@ -86,6 +86,19 @@
  * and the P&L line), which is the record of a week that HAS been played and is
  * gone entirely on a week that has not.
  *
+ * R95 — that last sentence is why F18 went red again. The graded chrome only
+ * appears once a week HAS grades, so the R90 measurement was taken on a week
+ * that had none: the first time the current week was also a mostly-graded one,
+ * the outcome buckets (170 px — five chips that wrap into four rows at 402 px)
+ * and the P&L line (76 px) landed on the default view and pushed the first card
+ * to 785 px against a bottom navigation at 817. The two of them now share one
+ * collapsed <details class="pfilters pretro"> (retroPanel), closed by default
+ * and remembered per viewer at nfl2026.parlays.retro.v1, whose summary carries
+ * the live bucket filter — "OUTCOMES & SIM NET · ALL HIT" — so shutting it
+ * never hides what is filtering the list. `.rv-strip--parlay` stays OPEN: it is
+ * one 39 px line and it is the headline the panel expands. Nothing was removed
+ * and no copy changed. Measured after, same feed and viewport: 567 px.
+ *
  * R90/F20 — the week bar and the scope segment declared role="tablist"/"tab"
  * with no tabpanel and no roving focus: the ARIA said one widget and the DOM
  * was another. They are what they always were — grouped filter buttons — so
@@ -431,6 +444,65 @@ function filtersPanel(open) {
   );
 }
 
+/* R95 — the RETROSPECTIVE panel ---------------------------------------------
+ *
+ * F18 ("a real bet is on the first screen") went red again the first week that
+ * was BOTH the current week and mostly graded: the outcome buckets (170 px, the
+ * five chips wrap into four rows at 402 px) and the $100 P&L line (76 px) only
+ * paint once a week has grades, so R90 measured the view before they existed.
+ * Measured at 402x874 on the committed week-2 feed they pushed the first
+ * .card.parlay to 785 px against a bottom navigation starting at 817 — 32 px of
+ * a 411 px card, and on a slower paint the card started BELOW the bar outright.
+ *
+ * The fix is R90's own: the two graded blocks collapse into ONE <details>,
+ * closed by default, whose summary carries the live bucket filter so shutting
+ * it never hides what is filtering the list. `.rv-strip--parlay` — one 39 px
+ * line, "WK 2 PARLAYS: 16/66 hit · legs 107/177 · 25 pending" — stays OPEN: it
+ * is the headline this control expands, and a collapsed block with nothing
+ * above it would be a week that looks ungraded. Nothing is removed and no copy
+ * changes: every bucket count and the whole P&L line are one tap away and stay
+ * in the DOM for a screen reader, exactly as the glossary's terms do. */
+const RETRO_KEY = 'nfl2026.parlays.retro.v1';
+
+/** The shut panel's label. The bucket chips FILTER the list, so a filter left
+ * on has to survive the panel closing over it — the same contract (and the
+ * same shape) as filtersSummary above. */
+export function retroSummary(activeBucketLabel) {
+  const label = activeBucketLabel ? String(activeBucketLabel).toUpperCase() : '';
+  return label
+    ? { n: 1, text: `OUTCOMES & SIM NET · ${label}` }
+    : { n: 0, text: 'OUTCOMES & SIM NET · ALL' };
+}
+
+/* Per-VIEWER preference, never data, and every touch guarded: localStorage
+ * throws outright in Safari private mode and an unreadable store simply means
+ * CLOSED — the default the first-screen measurement is taken against. */
+function readRetroOpen() {
+  try { return localStorage.getItem(RETRO_KEY) === '1'; } catch { return false; }
+}
+function writeRetroOpen(open) {
+  try { localStorage.setItem(RETRO_KEY, open ? '1' : '0'); } catch { /* nothing lost */ }
+}
+
+/** The collapsed graded-chrome panel; the two hosts keep their ids.
+ * Starts `hidden`: syncGradedChrome reveals it once the week is known to have a
+ * graded parlay, so an ungraded week never flashes an empty 44 px row. */
+function retroPanel(open) {
+  const s = retroSummary('');
+  return (
+    `<details class="pfilters pretro" id="parlay-retro" hidden${open ? ' open' : ''}>` +
+      '<summary class="pf-sum">' +
+        `<span class="pf-sum-t">${s.text}</span>` +
+        '<span class="pf-sum-n est" hidden>0</span>' +
+      '</summary>' +
+      '<div class="pf-body">' +
+        '<div id="parlay-buckets"></div>' +
+        '<div id="parlay-pnl"></div>' +
+      '</div>' +
+    '</details>'
+  );
+}
+
 /** Provenance line text for a prop leg from its feed fields. */
 function propProvenance(leg) {
   if (leg.pricing === 'calibrated') return PROV_CALIBRATED;
@@ -641,10 +713,25 @@ export default async function mountParlays(el) {
     // you invented a second ago (R76), so it must not be un-hidden from here.
     if (active === 'my') return;
     const on = weekHasGraded(selWeek);
-    ['#parlay-buckets', '#parlay-pnl'].forEach((sel) => {
+    // R95 — '#parlay-retro' is the collapsed panel the two hosts now live in;
+    // the hosts stay on the list so each one is provably hidden whether or not
+    // the panel happens to be open when the week changes.
+    ['#parlay-retro', '#parlay-buckets', '#parlay-pnl'].forEach((sel) => {
       const node = el.querySelector(sel);
       if (node) node.hidden = !on;
     });
+  }
+
+  /** R95 — the shut RETROSPECTIVE panel must always read the live bucket
+   * filter, for the same reason the FILTERS panel reads the live chip state:
+   * a filter you cannot see is a list you cannot explain. */
+  function syncRetroSummary() {
+    const label = (activeBucket && reviewMod && reviewMod.BUCKET_LABEL[activeBucket]) || '';
+    const s = retroSummary(label);
+    const t = el.querySelector('#parlay-retro .pf-sum-t');
+    if (t) t.textContent = s.text;
+    const n = el.querySelector('#parlay-retro .pf-sum-n');
+    if (n) { n.textContent = String(s.n); n.hidden = s.n === 0; }
   }
 
   /** R72 — repaint the bucket summary card from the review document. */
@@ -653,6 +740,7 @@ export default async function mountParlays(el) {
     if (!host || !reviewMod) return;
     host.innerHTML = reviewMod.renderParlayBuckets(
       selWeek, reviewMod.parlayBucketCounts(selWeek), activeBucket);
+    syncRetroSummary();
   }
 
   /** R73 — repaint the $100 flat-stake P&L line for the selected week + scope. */
@@ -826,8 +914,7 @@ export default async function mountParlays(el) {
     scopeSeg(active) +
     filtersPanel(readFiltersOpen()) +
     legend() +
-    '<div id="parlay-buckets"></div>' +
-    '<div id="parlay-pnl"></div>' +
+    retroPanel(readRetroOpen()) +
     '<div id="parlays-list" class="card-list"></div>' +
     '<div id="myparlays-host" hidden></div>';
   paintLegSeg();
@@ -838,6 +925,9 @@ export default async function mountParlays(el) {
   // R90 — remember the panel the viewer left open (or shut), per viewer.
   const filtersBox = el.querySelector('#parlay-filters');
   if (filtersBox) filtersBox.addEventListener('toggle', () => writeFiltersOpen(filtersBox.open));
+  // R95 — and the graded-chrome panel, the same way.
+  const retroBox = el.querySelector('#parlay-retro');
+  if (retroBox) retroBox.addEventListener('toggle', () => writeRetroOpen(retroBox.open));
   // R90/F20 — arrow keys inside the two grouped chip rows.
   wireArrowKeys(el.querySelector('.pw-wkbar'), '.wk-chip');
   wireArrowKeys(el.querySelector('.scopeseg'), '.seg-btn');
@@ -857,7 +947,7 @@ export default async function mountParlays(el) {
   // the hosts stay on the list so each one is provably hidden whether or not
   // the panel happens to be open when MY is tapped.
   const myChrome = ['.pw-wkbar', '#parlay-filters', '#leg-controls', '#tier-controls',
-    '#sort-controls', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list',
+    '#sort-controls', '#parlay-retro', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list',
     '.rv-strip--parlay'];
   let myMounted = false;
   // The leg pool's week, once mountMyParlays has read it (null until then).

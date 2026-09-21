@@ -649,6 +649,45 @@ nothing ships without one.
   **Phase 2 waits on folds, not code:** extending the corpus
   backwards is the single change that would most alter this document, and the forecast archive is
   what makes a leakage-free version possible at all. · **LOE** 1 d
+- **R95 · main went red three times in one night, all from the calendar (P0/P1) — built 2026-09-21.**
+  None of the three was a code regression. Week 2 became simultaneously the CURRENT week and a GRADED
+  one, and three separate things that had only ever been exercised on a fresh slate broke at once.
+  **(a) The replay lab went stale because gameday rebuilds its inputs and never rebuilds it.** `daily.yml`
+  declares the lab; `gameday.yml` did not, while running the archive, the leg pool and both resolvers.
+  Gameday froze one more card and `data/replay_lab.json` then described inputs that no longer existed —
+  six count differences, nothing else. Proved by running the suite at `359a59c` (the last commit from a
+  workflow that DOES run the lab), where it is green, against `845972d`, where it is not: one commit, one
+  missing step. This is the THIRD instance of the class (R92’s `resolve_estimates`, this, and every count
+  a test pins to one afternoon). The lab step is now in gameday between the MY-card resolver and the
+  review build. **(b) Five tests pinned a number measured on one afternoon’s data**, and each was
+  replaced by the property it stood in for, never by a looser bound: the replay oracle now replays one
+  archived card at a time with that card’s own leg prices (R90 lets one rank id carry several archived
+  probabilities — 22 of week 2’s 167 legs do — and a flat price map silently replayed a frozen card at a
+  later card’s price); the leg-pool floor ceiling became "the search is not biased toward the floor
+  RELATIVE to what the dial makes eligible" (14.96% against 47.46% eligible, with a live undialled sweep
+  reproducing the pre-R86 fault at 99.84% as the non-vacuity proof); the MY parity bar became
+  `liveTeamSeeds × 2 × min(2G−1,5)`, which demands 320 cards on a full slate where the old bar asked for
+  200; the flipped-favourite fixture is derived from the feeds by the property that makes it the fixture
+  (six games qualify today) rather than pinned to one game and its two numbers, one of which the daily
+  refit owns; and R93’s duplicate-id count became the inequality it stood for (the old rule ADDS
+  duplicate ids, the new one adds none), after the evening’s gameday run froze another card and moved 17
+  to 16. **(c) F18 stopped being true.** "A real bet is on the first screen" is an owner requirement, and
+  on a graded current week three retrospective blocks — the bucket chips (169px), the P&L line (76px) and
+  the summary strip (39px) — stacked above the card list for the first time. The first card started at
+  y=804 against a nav bar at 817: thirteen pixels of a bet, landing either side of the line between runs.
+  The buckets and the P&L now collapse into one closed-by-default `<details>` built from R90’s own
+  `.pfilters` vocabulary, remembered per viewer under its own key with the same guarded try/catch, while
+  the one-line strip stays expanded as the headline — a collapsed block with nothing above it makes a
+  graded week look ungraded. 262px of blocks became one 56px summary; the first card moved 785 → 579,
+  clearing the bar by 238px. **Locked by** a test that asserts the promise against a rendered box rather
+  than a remembered pixel count (the whole of the first card’s header clears the nav bar, plus
+  `toBeInViewport`), one that proves the collapsed panel still carries every bucket count and still
+  filters when opened, and one for the persistence. No assertion was weakened or deleted anywhere in this
+  release. **Standing risk, not fixed here:** `[skip actions]` on every data commit means CI never runs
+  against the data the pipeline actually ships, which is why main kept going red unobserved; and the R87
+  graph test checks the relative ORDER of a named chain, so a whole missing step slips through. A gate
+  asserting daily and gameday invoke the same set of document-writing scripts would have caught (a). ·
+  **LOE** 1 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.

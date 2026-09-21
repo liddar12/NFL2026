@@ -169,9 +169,24 @@ test('dialLegs is pure — it mutates neither the array nor any leg', () => {
    2. THE SWEEP OVER THE COMMITTED POOL — the fault, measured
    ========================================================================== */
 
-/** Every card for every team seed at one dial, summarised. */
-function sweep(legs, target, lowest, teams) {
-  const dialled = dialLegs(legs, target);
+/** Every card for every team seed at one dial, summarised.
+ *
+ * `pick` is the eligibility rule under test: the dial by default, and the
+ * IDENTITY (every rung of every player competing) for the pre-R86 baseline the
+ * fault was measured on. */
+function sweep(legs, target, lowest, teams, pick = (ls) => dialLegs(ls, target)) {
+  const dialled = pick(legs);
+  // The floor share of the ELIGIBLE set — the population the search draws from.
+  // The search may never park on the floor MORE often than its own eligible set
+  // does; that bias is precisely the pre-R86 fault, and it is a property of the
+  // rule rather than a number this pool happens to produce.
+  let eligibleProps = 0;
+  let eligibleAtLowest = 0;
+  for (const l of dialled) {
+    if (!isProp(l)) continue;
+    eligibleProps += 1;
+    if (Number(l.line) === lowest.get(l.owner)) eligibleAtLowest += 1;
+  }
   let props = 0;
   let games = 0;
   let atLowest = 0;
@@ -202,7 +217,9 @@ function sweep(legs, target, lowest, teams) {
     }
   }
   return { cards, props, games, atLowest, pctAtLowest: (100 * atLowest) / props,
-    mean: sum / props, maxPerGame, offenders };
+    mean: sum / props, maxPerGame, offenders,
+    eligibleProps, eligibleAtLowest,
+    eligiblePctAtLowest: (100 * eligibleAtLowest) / eligibleProps };
 }
 
 test('the committed pool no longer parks every prop leg on the ladder floor', () => {
@@ -231,14 +248,45 @@ test('the committed pool no longer parks every prop leg on the ladder floor', ()
   assert.deepEqual(even.offenders, [],
     'a prop leg sits on the player\'s lowest rung although a nearer rung to the '
     + 'dial exists — the selection rule has regressed');
-  // Measured 6.87% on the committed pool (46 of 670). R86's design target was
-  // "under 5%"; the ceiling is set at the measurement plus headroom rather than
-  // at the target, because every one of those 31 legs passes the invariant above
-  // and lowering it would mean choosing a rung FURTHER from the dial. Re-measure
-  // and decide in writing before moving it; never move it to make a bar green.
-  assert.ok(even.pctAtLowest < 10,
-    `${even.pctAtLowest.toFixed(2)}% of prop legs sit at the player's lowest rung `
-    + `(${even.atLowest} of ${even.props}); before R86 this was 100%`);
+  // THE CEILING IS DERIVED, NOT PINNED (2026-09-20).
+  //
+  // This was `pctAtLowest < 10`, a measurement taken on one afternoon's pool
+  // (6.87%, 46 of 670). Nothing in the product decides that number: WHICH
+  // players are pooled decides it, and the pool is rebuilt every pipeline run.
+  // Through the Sunday of week 2 it drifted 7.47% -> 13.08% -> 14.96% without a
+  // line of code changing — one newly pooled RB (Z. Charbonnet, floor rung 19.5
+  // at 0.5324, genuinely the rung nearest EVEN) contributed 42 of the 104 legs
+  // on his own. Raising the bar to make it green would have been exactly the
+  // "never move it to make a bar green" this comment used to warn against, so
+  // the bar is replaced by the property it was standing in for.
+  //
+  // THE PROPERTY: the search must not be BIASED toward the floor relative to the
+  // set it draws from. dialLegs leaves one rung per player, and on this pool
+  // that rung is the player's floor for a large minority of them — those are
+  // correct selections (the invariant above proves each one). What would be a
+  // regression is the CARDS preferring floors more often than the dialled pool
+  // offers them, which is what the pre-R86 search did: it drew from every rung
+  // of every ladder and still put a floor on 99.8% of card legs. That comparison
+  // is measured live below rather than remembered as a number.
+  assert.ok(even.pctAtLowest <= even.eligiblePctAtLowest + 1e-9,
+    `${even.pctAtLowest.toFixed(2)}% of prop legs on cards sit at the player's lowest `
+    + `rung (${even.atLowest} of ${even.props}), but only `
+    + `${even.eligiblePctAtLowest.toFixed(2)}% of the legs the dial made eligible are `
+    + 'floors — the search is biased toward the ladder floor, which is the R86 fault');
+
+  // ...and the fault is still reachable on THIS pool, so the line above is not
+  // vacuous: with every rung eligible (the pre-R86 rule) the cards park on the
+  // floor almost every time and the mean prop probability runs away to a lock.
+  const undialled = sweep(legs, DIALS.even, lowest, teams, (ls) => ls);
+  assert.ok(undialled.pctAtLowest > 95,
+    `with every rung eligible only ${undialled.pctAtLowest.toFixed(2)}% of card legs `
+    + 'are floors — the pre-R86 fault is no longer reproducible on this pool, so the '
+    + 'comparison above measures nothing and this file needs rewriting');
+  assert.ok(undialled.mean > 0.85,
+    `the undialled mean prop probability is ${undialled.mean.toFixed(4)} — R86 was `
+    + 'measured against 0.906 near-locks');
+  assert.ok(even.pctAtLowest < undialled.pctAtLowest,
+    'the dial must reduce the floor share it was introduced to remove');
 
   // The dial is the difficulty of the legs it admits, so the mean has to land
   // near the target rather than near the ceiling (0.906 before R86).

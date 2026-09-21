@@ -161,6 +161,15 @@ function collectData(page) {
 }
 const cardIds = (page) => page.locator('.card.parlay').evaluateAll((els) => els.map((e) => e.dataset.parlayId));
 
+/* R95 — the outcome buckets and the P&L line share one collapsed
+ * <details id="parlay-retro"> (see app/views/parlays.js). It is painted hidden
+ * until the week is known to have a graded parlay, so a driver waits for it and
+ * then opens it, exactly as the R90 FILTERS panel is opened below. */
+async function openRetro(page) {
+  await page.waitForSelector('#parlay-retro:not([hidden])', { timeout: 15000 });
+  await page.evaluate(() => { const d = document.querySelector('#parlay-retro'); if (d) d.open = true; });
+}
+
 // Assert the rendered total against the actual simulated cards, not stale fixture totals.
 async function expectSimulationTotal(page) {
   const net = await page.locator('.card.parlay[data-rv-pay-kind="settled"]').evaluateAll(
@@ -191,16 +200,19 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     expect(ids.length).toBe(PARLAYS.parlays.filter((p) => p.scope !== 'week').length);
     expect(ids.every((id) => !id.endsWith('-a'))).toBe(true);
     // the P&L line renders for the current week too once it has graded parlays
+    await openRetro(page);
     await page.waitForSelector('#parlay-pnl .rv-pnl', { timeout: 15000 });
     await expectSimulationTotal(page);
     await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
-    // under the bucket card, above the list
+    // under the bucket card, above the list (R95 — both inside the panel)
     expect(await page.evaluate(() => {
       const b = document.querySelector('#parlay-buckets');
       const p = document.querySelector('#parlay-pnl');
       const l = document.querySelector('#parlays-list');
+      const r = document.querySelector('#parlay-retro');
       const after = (x, y) => !!(x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
-      return after(b, p) && after(p, l) && b.parentElement === p.parentElement;
+      return after(b, p) && after(p, l) && b.parentElement === p.parentElement
+        && r.contains(b) && r.contains(p) && after(r, l);
     })).toBe(true);
     // the legend labels the money display-only
     await expect(page.locator('.legend')).toContainText('Display only — never a model input');
@@ -220,6 +232,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await routeAll(page, { review });
     await page.goto('/#/parlays');
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
+    await openRetro(page);
     await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 15000 });
 
     await page.click(`.pw-wkbar .wk-chip[data-wk="${WEEK}"]`);
@@ -309,6 +322,10 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     // line are HIDDEN: the chips are still in the DOM, the surface is not shown.
     await page.waitForSelector('#parlay-buckets .rv-bucket', { state: 'attached', timeout: 15000 });
     await expect(page.locator('#parlay-buckets')).toBeHidden();
+    // R95 — asserted where it is decided: the collapsed panel would hide the
+    // chips on any week, so the ungraded rule lives on the panel's own `hidden`.
+    await expect(page.locator('#parlay-retro')).toBeHidden();
+    expect(await page.locator('#parlay-retro').evaluate((d) => d.hidden)).toBe(true);
     await expect(page.locator('.pw-wkbar')).toHaveCount(0);
     await expect(page.locator('.wk-chip')).toHaveCount(0);
     await expect(page.locator('.view-sub')).toContainText(`WEEK ${CUR} · SIM EV`);

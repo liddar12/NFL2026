@@ -39,9 +39,10 @@ graph. "Mode" below is where the step runs; "COE" is `continue-on-error: true`.
 | 7 | `build_parlay_ledger.py` | lock | no (stdlib) | no | As-made pricing for what 5/6 offered. Idempotent per `parlays.json` `updated_utc`. |
 | 8 | `resolve_parlay_legs.py` | both | yes (nflverse) | **yes** | Grading is mode-independent — see below. |
 | 9 | `resolve_my_cards.py` | both | yes (nflverse) | **yes** | Same. |
-| 10 | `build_review.py` | both | yes, degrades | no | Consumes the resolved rows, so it must follow 8/9. |
-| 11 | `validate_data.py` | both | no (stdlib) | no | Contracts gate the push. |
-| 12 | `scripts/publish_data.sh` (race-safe publish) | both | — | no | Last. Nothing is generated after the tree is staged. R88: the step body is now one call to the publish script — see [docs/PUBLISH.md](PUBLISH.md). |
+| 10 | `replay_lab.py` (measure only, adopts nothing) | both | no (stdlib) | **yes** | A MIRROR of the archive, the ledger and the leg resolver — all rebuilt above, so it has to be rebuilt in the same generation or the committed document describes inputs that no longer exist (R81 gate, 2026-09-20). |
+| 11 | `build_review.py` | both | yes, degrades | no | Consumes the resolved rows, so it must follow 8/9. |
+| 12 | `validate_data.py` | both | no (stdlib) | no | Contracts gate the push. |
+| 13 | `scripts/publish_data.sh` (race-safe publish) | both | — | no | Last. Nothing is generated after the tree is staged. R88: the step body is now one call to the publish script — see [docs/PUBLISH.md](PUBLISH.md). |
 
 **Why 8 and 9 carry no mode guard.** Thursday's legs go FINAL inside Sunday's *lock*
 window and Sunday's inside Monday's. A `mode != 'lock'` guard would strand exactly
@@ -50,7 +51,7 @@ an honest 0-resolved record — they never invent a log-loss — so running them
 mode costs a no-op.
 
 **Why there is no "refresh scores" step.** There is nothing left for one. Scores mode is
-steps 1, 2, 4, 8, 9, 10, 11, 12 — all unguarded above. The removed placeholder ran a
+steps 1, 2, 4, 8, 9, 10, 11, 12, 13 — all unguarded above. The removed placeholder ran a
 scores CLI module that has never existed in this repo, under `|| true`.
 
 ## daily.yml

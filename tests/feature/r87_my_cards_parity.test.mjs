@@ -197,6 +197,28 @@ test('the Python mirror offers the same cards as the browser, number for number'
 
   // ---- the committed pool, at the moment it was offered ---------------------
   let committed = null;
+  /* THE EXPECTED SIZE OF THE COMMITTED SWEEP IS DERIVED FROM THE SLATE.
+   *
+   * This guard used to be `cards > 200`, a count measured on a full Sunday
+   * slate. MY offers only legs whose game has not kicked off (R84
+   * `upcomingLegs`), and R83 caps a card at TWO legs from any one game, so a
+   * seed can be offered at most min(2*G - 1, 5) leg-count bands and twice that
+   * many cards, where G is the number of games still to be played at `now`. On
+   * the evening of 2026-09-20 fourteen of week 2's sixteen games had kicked off
+   * before the pool was generated: G was 2, every live seed built 6 cards
+   * instead of 10, and 28 of the 32 team seeds had no upcoming leg at all and
+   * correctly built none. 76 cards, the pinned bar 200, red on main with no code
+   * change -- the same fault tests/web/_myseed.mjs records for the MY browser
+   * specs: never pin a number the calendar decides.
+   *
+   * So the bar is computed the same way _myseed computes EXPECTED_CARDS, and it
+   * is a stronger claim than the old one: the EVEN sweep must find EXACTLY the
+   * cards this slate can build for every seed that still has a leg to build
+   * from (on a full slate that is 32 x 10 = 320, not "more than 200"), and at
+   * least one seed must still be playable. */
+  let expectedEvenTeamCards = null;
+  let liveTeamSeeds = 0;
+  let cardsPerLiveSeed = 0;
   if (!hasPool || !hasSchedule) {
     console.log('[r87 parity] SKIPPING the committed-pool half: data/leg_pool.json '
       + 'and/or data/schedule_full.json is absent on this checkout. The toy-pool '
@@ -217,7 +239,16 @@ test('the Python mirror offers the same cards as the browser, number for number'
       expected.push(shape(jsCards(pool, games, now, dial, [seed])));
     };
     // THE SWEEP THAT MATTERS: every team seed at the default dial.
+    const evenFrom = cases.length;
     for (const seed of teams) add('even', seed);
+    // What this slate can build, from the same committed data the sweep reads.
+    const eligible = upcomingLegs(poolLegs(pool), games, Date.parse(now));
+    const upcomingGames = new Set(eligible.map((l) => l.game_id)).size;
+    const playable = new Set(eligible.map((l) => l.team));
+    cardsPerLiveSeed = 2 * Math.min((2 * upcomingGames) - 1, 5);
+    liveTeamSeeds = teams.filter((s) => playable.has(s.name)).length;
+    expectedEvenTeamCards = { from: evenFrom, to: cases.length,
+      total: liveTeamSeeds * cardsPerLiveSeed, upcomingGames };
     // Sampled, spread across the list rather than clustered at its head.
     const sample = (rows, n) => Array.from({ length: n },
       (_, i) => rows[Math.floor((i * rows.length) / n)]).filter(Boolean);
@@ -240,7 +271,18 @@ test('the Python mirror offers the same cards as the browser, number for number'
     cards += expected[i].length;
   });
   // The sweep has to have found cards, or "they agree" means "both found none".
-  assert.ok(cards > (hasPool ? 200 : 10),
-    `${cards} cards compared across ${cases.length} cases — the sweep found too few `
-    + 'to prove anything');
+  assert.ok(cards > 10, `${cards} cards compared across ${cases.length} cases — the `
+    + 'sweep found too few to prove anything');
+  if (expectedEvenTeamCards) {
+    const { from, to, total, upcomingGames } = expectedEvenTeamCards;
+    assert.ok(upcomingGames > 0 && liveTeamSeeds > 0,
+      `no week-${readJson('data/leg_pool.json').week} game was still upcoming when the `
+      + 'committed pool was generated, so MY could offer nothing and the committed half '
+      + 'of this sweep proves nothing');
+    const swept = expected.slice(from, to).reduce((n, c) => n + c.length, 0);
+    assert.equal(swept, total,
+      `the EVEN team sweep compared ${swept} cards; this slate (${upcomingGames} game(s) `
+      + `still upcoming, ${liveTeamSeeds} seed(s) with a leg left) can build exactly `
+      + `${total} — ${cardsPerLiveSeed} per playable seed`);
+  }
 });
