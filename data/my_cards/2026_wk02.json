@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 2,
-  "generated_utc": "2026-09-21T10:04:27Z",
-  "pool_generated_utc": "2026-09-21T10:04:27Z",
+  "generated_utc": "2026-09-21T16:27:11Z",
+  "pool_generated_utc": "2026-09-21T16:27:11Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -275,6 +275,14 @@
       "cards_seen": 12,
       "cards_added": 0,
       "locked_added": 0,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-09-21T16:27:11Z",
+      "week": 2,
+      "cards_seen": 12,
+      "cards_added": 2,
+      "locked_added": 2,
       "unlocked_added": 0
     }
   ],
@@ -209941,6 +209949,112 @@
       "first_seen_utc": "2026-09-21T01:10:41Z",
       "locked": true,
       "locked_utc": "2026-09-21T01:10:41Z"
+    },
+    {
+      "card_id": "88a754f6ee1f",
+      "dial": "longshot",
+      "seed": "LAR",
+      "rank": 1,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.2121,
+      "implied": 0.2006,
+      "ev": 0.0574,
+      "tier": "low",
+      "payout": 398.51,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-09-22T00:15Z",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "LAR -6.5",
+          "game_id": "401872947",
+          "team": "LAR",
+          "side": "home",
+          "player": null,
+          "gsis_id": null,
+          "position": null,
+          "line": null,
+          "mu": null,
+          "model_prob": 0.5,
+          "implied_prob": 0.5108,
+          "price_source": "fair_market",
+          "priced": false
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "B. Corum 40+ rush yds",
+          "game_id": "401872947",
+          "team": "LAR",
+          "side": "home",
+          "player": "Blake Corum",
+          "gsis_id": "espn-4429096",
+          "position": "RB",
+          "line": 39.5,
+          "mu": 35.23,
+          "model_prob": 0.3758,
+          "implied_prob": 0.3927,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-21T16:27:11Z",
+      "locked": true,
+      "locked_utc": "2026-09-21T16:27:11Z"
+    },
+    {
+      "card_id": "b5aa1484a9bb",
+      "dial": "longshot",
+      "seed": "LAR",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.2015,
+      "implied": 0.1896,
+      "ev": 0.0629,
+      "tier": "low",
+      "payout": 427.42,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-09-22T00:15Z",
+      "legs": [
+        {
+          "market": "spread",
+          "selection": "LAR -6.5",
+          "game_id": "401872947",
+          "team": "LAR",
+          "side": "home",
+          "player": null,
+          "gsis_id": null,
+          "position": null,
+          "line": null,
+          "mu": null,
+          "model_prob": 0.5,
+          "implied_prob": 0.5108,
+          "price_source": "fair_market",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "M. Stafford 275+ pass yds",
+          "game_id": "401872947",
+          "team": "LAR",
+          "side": "home",
+          "player": "Matthew Stafford",
+          "gsis_id": "espn-12483",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 226.36,
+          "model_prob": 0.3552,
+          "implied_prob": 0.3712,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-21T16:27:11Z",
+      "locked": true,
+      "locked_utc": "2026-09-21T16:27:11Z"
     }
   ]
 }
