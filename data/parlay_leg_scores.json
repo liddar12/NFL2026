@@ -1,17 +1,17 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-21T22:07:31Z",
+  "generated_utc": "2026-09-21T23:19:35Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (31 games); scores from data/review.json FINAL rows (31 games); scores from ESPN live, STATUS-gated FINAL (31 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 2,
   "legs": {
-    "on_file": 209,
-    "locked": 169,
-    "unlocked": 40,
+    "on_file": 211,
+    "locked": 170,
+    "unlocked": 41,
     "resolved": 153,
-    "unresolved": 13
+    "unresolved": 14
   },
   "skipped": null,
   "pooled": {
@@ -235,6 +235,13 @@
       "game_id": "401872947",
       "market": "rb_rush_yds",
       "selection": "K. Williams 60+ rush yds",
+      "reason": "no_stat_line"
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "wr_rec_yds",
+      "selection": "D. Adams 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
