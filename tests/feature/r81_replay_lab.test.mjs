@@ -212,20 +212,33 @@ outcomes = {rl.leg_key(r["week"], r["game_id"], r["market"], r["selection"]): r[
 led_idx = {(int(l["week"]), l["market"], l["selection"]): l for l in ledger["legs"]}
 corr = pb._correlation_table(pb.load_calibration())
 
-# ARM 1 — feed the replay the ARCHIVE's OWN leg probabilities. It must then
-# reproduce the archived model_ev and confidence_tier exactly: proof that the
+# ARM 1 — feed the replay each archived card's OWN leg probabilities. It must
+# then reproduce that card's model_ev and confidence_tier exactly: proof that the
 # lab recombines with the builder's arithmetic and not a local copy of it.
-as_archived = {}
+#
+# ONE CARD AT A TIME, because since R90/F12 the archive keeps a FROZEN card
+# verbatim and appends the next generation's card beside it, so one (week,
+# market, selection) legitimately carries several archived probabilities — 22 of
+# week 2's 167 legs did on 2026-09-20. Flattening the archive into one price per
+# leg (what this arm used to do) handed a frozen card the price of whichever
+# later card was written last, and 41 of 101 cards then "failed" to reproduce an
+# EV nobody had computed that way. The archive is not the thing that drifted.
+arm1, archived_cards = [], []
 for wk, doc in archives:
-    for p in doc["parlays"]:
-        for lg in p["legs"]:
+    for card in doc["parlays"]:
+        own = {}
+        for lg in card["legs"]:
             led = led_idx.get((wk, lg["market"], lg["selection"]))
             if led is None:
                 continue
-            as_archived[rl.leg_key(wk, led.get("game_id"), lg["market"],
-                                   lg["selection"])] = lg["model_prob"]
-arm1, _ = rl.replay_parlays(archives, led_idx, as_archived, outcomes, {},
-                            br.ledger_price_index(ledger), corr, weeks)
+            own[rl.leg_key(wk, led.get("game_id"), lg["market"],
+                           lg["selection"])] = lg["model_prob"]
+        replayed, _ = rl.replay_parlays([(wk, {"parlays": [card]})], led_idx, own,
+                                        outcomes, {}, br.ledger_price_index(ledger),
+                                        corr, weeks)
+        for row in replayed:
+            arm1.append(row)
+            archived_cards.append(card)
 
 # ARM 2 — the real \`shipped\` baseline: the price LOCKED on first sight, which
 # is what the resolver grades. Same arithmetic, an earlier snapshot of the leg.
@@ -234,23 +247,23 @@ locked = {rl.leg_key(r["week"], r["game_id"], r["market"], r["selection"]): r["s
 arm2, excluded = rl.replay_parlays(archives, led_idx, locked, outcomes, {},
                                    br.ledger_price_index(ledger), corr, weeks)
 
-archived = {}
-for wk, doc in archives:
-    for p in doc["parlays"]:
-        archived[(wk, p["parlay_id"])] = p
-worst = max((abs(r["model_ev"] - archived[(r["week"], r["parlay_id"])]["model_ev"])
-             for r in arm1), default=None)
-tiers = sum(1 for r in arm1
-            if r["tier"] != archived[(r["week"], r["parlay_id"])]["confidence_tier"])
-moved = sum(1 for a, b in zip(sorted(arm1, key=lambda r: r["parlay_id"]),
-                              sorted(arm2, key=lambda r: r["parlay_id"]))
+# parlay_id is NOT the archive's identity (R90: card_id is, and a rank change
+# adds a card), so the two arms are paired POSITIONALLY: both walk the same
+# archive in the same order and apply the same eligibility rules, which the
+# alignment check below asserts rather than assumes.
+worst = max((abs(r["model_ev"] - c["model_ev"])
+             for r, c in zip(arm1, archived_cards)), default=None)
+tiers = sum(1 for r, c in zip(arm1, archived_cards)
+            if r["tier"] != c["confidence_tier"])
+aligned = (len(arm1) == len(arm2)
+           and all(a["week"] == b["week"] and a["parlay_id"] == b["parlay_id"]
+                   for a, b in zip(arm1, arm2)))
+moved = sum(1 for a, b in zip(arm1, arm2)
             if abs(a["model_ev"] - b["model_ev"]) > 1e-9)
-money_same = all(a["net_fair"] == b["net_fair"]
-                 for a, b in zip(sorted(arm1, key=lambda r: r["parlay_id"]),
-                                 sorted(arm2, key=lambda r: r["parlay_id"])))
+money_same = all(a["net_fair"] == b["net_fair"] for a, b in zip(arm1, arm2))
 print(json.dumps({"n": len(arm1), "worst_ev_gap": worst, "tier_mismatches": tiers,
-                  "n_locked": len(arm2), "moved": moved, "money_same": money_same,
-                  "excluded": excluded}))
+                  "n_locked": len(arm2), "aligned": aligned, "moved": moved,
+                  "money_same": money_same, "excluded": excluded}))
 `);
   assert.ok(out.n > 10, `only ${out.n} parlays replayed`);
   assert.ok(out.worst_ev_gap < 1e-9,
@@ -261,6 +274,9 @@ print(json.dumps({"n": len(arm1), "worst_ev_gap": worst, "tier_mismatches": tier
   // the two arms differ — and the record has to say so rather than let a reader
   // assume the replayed EV is the number printed on the card.
   assert.equal(out.n_locked, out.n, 'both arms must replay the same parlays');
+  assert.equal(out.aligned, true,
+    'the per-card arm and the whole-archive arm walked the archive differently — '
+    + 'the positional pairing below would compare two different cards');
   assert.ok(out.moved > 0, 'the locked and archived snapshots are identical here — '
     + 'if that is genuinely true the limits note about them should be retired');
   assert.ok(out.money_same,

@@ -226,6 +226,15 @@ test.describe('R72 — PLAYERS review sort', () => {
   });
 });
 
+/* R95 — the outcome buckets and the P&L line share one collapsed
+ * <details id="parlay-retro"> (see app/views/parlays.js). It is painted hidden
+ * until the week is known to have a graded parlay, so a driver waits for it and
+ * then opens it, exactly as the R90 FILTERS panel is opened below. */
+async function openRetro(page) {
+  await page.waitForSelector('#parlay-retro:not([hidden])', { timeout: 15000 });
+  await page.evaluate(() => { const d = document.querySelector('#parlay-retro'); if (d) d.open = true; });
+}
+
 test.describe('R72 — PARLAYS outcome buckets', () => {
   test('counts from the summary, filter tap / untap with scope + leg count, a bucket chip per card', async ({ page }) => {
     const errors = collectErrors(page);
@@ -235,12 +244,17 @@ test.describe('R72 — PARLAYS outcome buckets', () => {
     await routeReview(page, doc);
     await page.goto('/#/parlays');
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
+    // R95 — the bucket card and the P&L line moved into the collapsed
+    // RETROSPECTIVE panel, so the chips are painted but off screen until it is
+    // opened. Everything below drives them, so open it first.
+    await openRetro(page);
     await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 15000 });
     await page.waitForSelector('.rv-strip--parlay', { timeout: 15000 });
-    // the card is a sibling above the list, never its first child
+    // the card is above the list and outside it, never its first child
     await expect(page.locator('#parlays-list > .rv-buckets')).toHaveCount(0);
+    await expect(page.locator('#parlay-retro #parlay-buckets .rv-buckets')).toHaveCount(1);
     expect(await page.evaluate(() => {
-      const a = document.querySelector('#parlay-buckets');
+      const a = document.querySelector('#parlay-retro');
       const b = document.querySelector('#parlays-list');
       return a && b && a.parentElement === b.parentElement && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     })).toBe(true);

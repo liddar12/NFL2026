@@ -4,9 +4,11 @@
  * What is locked, and why each is a lock rather than a description:
  *   1. THE LOCK IS THE HEADLINE. A graded row's displayed pair is pick_prob and
  *      1 − pick_prob, rounded the way renderGameCard rounds. The committed
- *      flipped-favourite case (game 401872657: locked LAR 0.6267, schedule_full
- *      now 0.4867) must render LAR 63% and keep LAR emphasized — the number and
- *      the won/lost receipt describe the SAME prediction or the card lies.
+ *      flipped-favourite case — DERIVED below, not pinned: a graded row whose
+ *      locked favourite is the side today's schedule_full does NOT favour —
+ *      must render the LOCKED pair and keep the LOCKED pick emphasized; the
+ *      number and the won/lost receipt describe the SAME prediction or the card
+ *      lies.
  *   2. THE RECOMPUTATION IS A SECOND, NAMED FIGURE. It appears only inside
  *      "LOCKED <stamp> · recomputed with today's model: n%", never as a head.
  *   3. THE LOCK STAMP IS THE LOCK'S OWN. It is read out of the measured why's
@@ -50,31 +52,93 @@ async function loadReview() {
 
 const REVIEW = json('data/review.json');
 const SCHEDULE = json('data/schedule_full.json');
-/** The committed flipped-favourite case named in the review's F13 evidence. */
-const FLIPPED_ID = '401872657';
-const flippedRow = Object.values(REVIEW.weeks)
-  .flatMap((w) => w.games).find((g) => String(g.game_id) === FLIPPED_ID);
-const flippedSchedule = SCHEDULE.games.find((g) => String(g.game_id) === FLIPPED_ID);
+
+/* THE FIXTURE IS DERIVED, NOT PINNED (2026-09-20).
+ *
+ * This file used to name game 401872657 and hard-code BOTH of its numbers: the
+ * lock (review.json pick_prob 0.6267, which is durable — a lock is never
+ * rewritten) and TODAY'S RECOMPUTATION (schedule_full.json probs.home 0.4867,
+ * which the daily refit owns). The refit moved that game to 0.4674 in the
+ * 2026-09-20 daily commit and two assertions went red on main with no code
+ * change — the same shape tests/web/_myseed.mjs was written for: never pin a
+ * number the pipeline decides.
+ *
+ * So the case is DERIVED from the committed feeds by the PROPERTY that makes it
+ * the fixture — a graded row whose locked favourite is the opposite side from
+ * the one today's model favours — and the expected recomputation is read off
+ * the schedule row at test time. This is not a relaxation: six games qualify on
+ * today's data, the flip is asserted rather than assumed, and if the two feeds
+ * ever agree everywhere the derivation fails loudly instead of skipping.
+ * Deterministic: earliest kickoff, then lowest game_id.
+ */
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+/** The pair lockedHeads must paint, computed here independently of app/review.js. */
+const lockedPair = (row) => {
+  const home = String(row.picked) === String(row.home)
+    ? Number(row.pick_prob) : 1 - Number(row.pick_prob);
+  const homePct = Math.round(home * 100);
+  const awayPct = Math.round((1 - home) * 100);
+  return { homePct, awayPct, fav: homePct >= awayPct ? 'home' : 'away' };
+};
+const todayFav = (g) => (Math.round(g.probs.home * 100) >= Math.round(g.probs.away * 100)
+  ? 'home' : 'away');
+
+const SCHED_BY_ID = new Map(SCHEDULE.games.map((g) => [String(g.game_id), g]));
+const flippedCases = Object.values(REVIEW.weeks).flatMap((w) => w.games)
+  .map((row) => ({ row, game: SCHED_BY_ID.get(String(row.game_id)) }))
+  .filter(({ row, game }) => game && game.probs
+    && isNum(game.probs.home) && isNum(game.probs.away)
+    && (row.result === 'won' || row.result === 'lost')
+    && isNum(row.pick_prob) && row.pick_prob > 0 && row.pick_prob < 1
+    && row.final && isNum(row.final.home_score) && isNum(row.final.away_score)
+    && lockedPair(row).fav !== todayFav(game))
+  .sort((a, b) => String(a.game.kickoff_utc).localeCompare(String(b.game.kickoff_utc))
+    || String(a.row.game_id).localeCompare(String(b.row.game_id)));
+
+const flippedRow = flippedCases.length ? flippedCases[0].row : null;
+const flippedSchedule = flippedCases.length ? flippedCases[0].game : null;
+/** The side the lock picked — the side the card paints its recomputation for. */
+const PICKED_SIDE = flippedRow && String(flippedRow.picked) === String(flippedRow.home)
+  ? 'home' : 'away';
+/** Today's recomputation for the PICKED side, as renderGameCard painted it. */
+const RECOMPUTED_PCT = flippedSchedule
+  ? Math.round(flippedSchedule.probs[PICKED_SIDE] * 100) : null;
+/** The lock stamp, read out of the receipt by this file's own regex. */
+const LOCK_STAMP = (() => {
+  const reasons = (flippedRow && flippedRow.why && flippedRow.why.reasons) || [];
+  for (const r of reasons) {
+    if (!r || r.factor !== 'confidence') continue;
+    const m = /lock\s+([^\s,)]+)/.exec(String(r.text || ''));
+    if (m) return m[1];
+  }
+  return 'pregame';
+})();
 
 /* --------------------------------------------------- 1. the locked pair */
 
 test('the committed flipped-favourite fixture renders the LOCKED favourite, not today\'s', async () => {
   const mod = await loadReview();
-  assert.ok(flippedRow && flippedSchedule, 'game 401872657 is committed in both feeds');
+  assert.ok(flippedRow && flippedSchedule,
+    'no graded review row disagrees with schedule_full about who the favourite is — '
+    + 'the F13 fault cannot be demonstrated on the committed feeds');
   // The fault this locks: the two feeds disagree, and the receipt grades the lock.
-  assert.equal(flippedRow.pick_prob, 0.6267);
-  assert.equal(flippedSchedule.probs.home, 0.4867);
-  assert.equal(flippedRow.picked, 'LAR');
-  assert.equal(flippedRow.result, 'lost');
+  const expected = lockedPair(flippedRow);
+  assert.ok(flippedRow.result === 'won' || flippedRow.result === 'lost');
+  assert.notEqual(expected.fav, todayFav(flippedSchedule),
+    `${flippedRow.away} @ ${flippedRow.home}: the derivation promised a flipped favourite`);
 
   const heads = mod.lockedHeads(flippedRow);
   assert.deepEqual(
     { homePct: heads.homePct, awayPct: heads.awayPct, fav: heads.fav },
-    { homePct: 63, awayPct: 37, fav: 'home' },
-    'LAR 63% / SF 37% with LAR emphasized — the pick the dot grades',
+    expected,
+    `${flippedRow.home} ${expected.homePct}% / ${flippedRow.away} ${expected.awayPct}% with `
+    + `${expected.fav === 'home' ? flippedRow.home : flippedRow.away} emphasized — `
+    + 'the pick the dot grades',
   );
-  // Today's recomputation would have flipped the emphasis to SF.
-  assert.ok(Math.round(flippedSchedule.probs.away * 100) > Math.round(flippedSchedule.probs.home * 100));
+  // ...and the emphasis is the PICKED side's, which is the whole claim.
+  assert.equal(heads.fav, PICKED_SIDE, 'the lock\'s own pick carries the emphasis');
+  // Today's recomputation would have flipped the emphasis to the other side.
+  assert.equal(todayFav(flippedSchedule), PICKED_SIDE === 'home' ? 'away' : 'home');
 });
 
 test('lockedHeads: pick_prob for the picked side, 1 - pick_prob for the other, rounded per side', async () => {
@@ -106,18 +170,24 @@ test('isGradedRow: a graded result, or a FINAL row carrying its lock; nothing li
 
 test('provenance names the lock and demotes the recomputation to a second figure', async () => {
   const mod = await loadReview();
-  const line = mod.provenanceText(flippedRow, Math.round(flippedSchedule.probs.home * 100));
-  assert.equal(line, 'LOCKED 2026-07-16T16:37:02Z · recomputed with today\'s model: 49%');
+  const line = mod.provenanceText(flippedRow, RECOMPUTED_PCT);
+  assert.equal(line,
+    `LOCKED ${LOCK_STAMP} · recomputed with today's model: ${RECOMPUTED_PCT}%`);
   // The recomputed number never appears without the word that says what it is.
   assert.ok(/recomputed with today's model/.test(line));
   assert.ok(line.startsWith('LOCKED '), 'the lock leads; the recomputation follows');
-  assert.equal(mod.provenanceText(flippedRow, null), 'LOCKED 2026-07-16T16:37:02Z',
+  // ...and it is a SECOND figure: it is not the locked head the card paints.
+  assert.notEqual(RECOMPUTED_PCT, lockedPair(flippedRow)[`${PICKED_SIDE}Pct`],
+    'the recomputation and the lock agree here, so this case proves nothing');
+  assert.equal(mod.provenanceText(flippedRow, null), `LOCKED ${LOCK_STAMP}`,
     'no recomputed number on the card -> the stamp alone, never an invented %');
 });
 
 test('the lock stamp is the receipt\'s own; absent it is the word pregame, not a clock', async () => {
   const mod = await loadReview();
-  assert.equal(mod.lockStamp(flippedRow), '2026-07-16T16:37:02Z');
+  assert.equal(mod.lockStamp(flippedRow), LOCK_STAMP);
+  assert.match(LOCK_STAMP, /^\d{4}-\d{2}-\d{2}T[\d:]+Z$/,
+    'the committed receipt carries a real lock stamp, not the fallback word');
   assert.equal(mod.lockStamp({ why: { reasons: [{ factor: 'margin', text: 'SF won 7-27' }] } }), 'pregame');
   assert.equal(mod.lockStamp({ why: { reasons: [{ factor: 'confidence', text: 'picked LAR at 63%' }] } }), 'pregame');
   assert.equal(mod.lockStamp(null), 'pregame');
@@ -126,7 +196,9 @@ test('the lock stamp is the receipt\'s own; absent it is the word pregame, not a
 
 test('the final score is the receipt\'s, home first; a score-less receipt shows none', async () => {
   const mod = await loadReview();
-  assert.equal(mod.finalScoreText(flippedRow), 'FINAL · LAR 7–SF 27');
+  assert.equal(mod.finalScoreText(flippedRow),
+    `FINAL · ${flippedRow.home} ${flippedRow.final.home_score}`
+    + `–${flippedRow.away} ${flippedRow.final.away_score}`);
   assert.equal(mod.finalScoreText({ home: 'A', away: 'B', final: { home_score: null, away_score: null } }), '',
     'a lock-receipt row knows the winner, not the score — it shows no score at all');
   assert.equal(mod.finalScoreText({ home: 'A', away: 'B', final: null }), '');

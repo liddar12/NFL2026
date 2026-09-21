@@ -1,0 +1,1191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "weather_backtest.schema.json",
+  "title": "R94 weather effect, power-gated (MEASURE ONLY)",
+  "description": "scripts/backtest_weather.py's artifact. It MEASURES and it adopts nothing: verdict.adopted is pinned to the literal false and verdict.families_registered is pinned empty, so this document cannot record an adoption even if a future edit to the script tried to claim one. Two type decisions do most of the work here. First, powered / confounded / monotone / would_adopt / available are plain booleans, so the string 'false' - which is truthy everywhere a reader would use it - fails the contract instead of reading as a passed gate. Second, every estimate, standard error, MDE, threshold and interval is ['number','null']: a term that could not be estimated is null and NEVER 0.0, because a zero would be read as a measured null and a measured null is a finding. The power block is written BEFORE any coefficient is fitted and carries, per term, the analysis sample it was computed on - a stratified primary must be powered on its stratified n, and n_treated here is the same quantity terms[].n_wet counts, so the two are a checkable identity rather than two independent claims. No $ref anywhere: validate_data has treated a $ref as a hard error since R30, because a node holding only a $ref validated nothing at all.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "kind",
+    "seasons_scored",
+    "substrate",
+    "corpus_filter",
+    "roof_census",
+    "conditions",
+    "conditions_unit",
+    "band_edges",
+    "weather_history_sha256",
+    "power",
+    "terms",
+    "arms",
+    "placebo",
+    "verdict",
+    "adoption_rule",
+    "policy",
+    "limits"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "weather_backtest"
+      ]
+    },
+    "seasons_scored": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{4}$"
+      }
+    },
+    "substrate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seasons_requested",
+        "seasons_fetched",
+        "seasons_unavailable",
+        "column_contract",
+        "feeds",
+        "weather_role",
+        "perfect_foresight",
+        "rule",
+        "folds",
+        "training_seasons",
+        "holdout_season",
+        "power_seasons",
+        "power_training_seasons"
+      ],
+      "properties": {
+        "seasons_requested": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          }
+        },
+        "seasons_fetched": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          }
+        },
+        "seasons_unavailable": {
+          "description": "season -> the reason it is missing. An EMPTY OBJECT is the only claim that everything was read; a season absent from both this map and seasons_fetched is a hole nobody declared.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "column_contract": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "feeds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "weather",
+            "games_meta",
+            "game_context",
+            "epa",
+            "dvp",
+            "rates"
+          ],
+          "properties": {
+            "weather": {
+              "type": "string",
+              "minLength": 5
+            },
+            "games_meta": {
+              "type": "string",
+              "minLength": 5
+            },
+            "game_context": {
+              "type": "string",
+              "minLength": 5
+            },
+            "epa": {
+              "type": "string",
+              "minLength": 5
+            },
+            "dvp": {
+              "type": "string",
+              "minLength": 5
+            },
+            "rates": {
+              "type": "string",
+              "minLength": 5
+            }
+          }
+        },
+        "weather_role": {
+          "description": "Weather is a LABEL on a played game, never a prediction fed to a model. Pinned so the document cannot quietly become a forecast study.",
+          "type": "string",
+          "enum": [
+            "label"
+          ]
+        },
+        "perfect_foresight": {
+          "description": "Pinned true: the effect arm is fitted on reanalysis weather nobody could have had on Sunday morning, which is why any winner also carries verdict.oracle_only.",
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 40
+        },
+        "folds": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "season",
+              "fit_seasons",
+              "scored",
+              "neutral"
+            ],
+            "properties": {
+              "season": {
+                "type": "integer",
+                "minimum": 1900
+              },
+              "fit_seasons": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1900
+                }
+              },
+              "scored": {
+                "type": "boolean"
+              },
+              "neutral": {
+                "description": "true for the first fold, which has nothing before it: it fits nothing, is reported, and is COUNTED rather than quietly dropped.",
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "training_seasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          }
+        },
+        "holdout_season": {
+          "type": "string",
+          "pattern": "^[0-9]{4}$"
+        },
+        "power_seasons": {
+          "description": "The seasons the power table was computed on: the SCORED folds, which is the sample every coefficient is fitted on. The neutral first fold is NOT here, so power.n_treated cannot describe rows no estimate was taken from.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          }
+        },
+        "power_training_seasons": {
+          "description": "The subset of power_seasons whose OUTCOMES the power stage was allowed to read. Never contains holdout_season.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+          }
+        }
+      }
+    },
+    "corpus_filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "rows_read",
+        "rows_joined",
+        "rows_unjoined",
+        "dropped_relocations",
+        "rows_kept",
+        "roof_check",
+        "roof_check_ok",
+        "rule"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rows_read": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows_joined": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows_unjoined": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dropped_relocations": {
+          "description": "Minimum 1. A venue filter that drops nothing is a venue filter that did not run, and the corpus is known to contain relocations - a game played indoors in another city carries the weather of a stadium nobody was in.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows_kept": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "roof_check": {
+          "type": "string",
+          "minLength": 5
+        },
+        "roof_check_ok": {
+          "type": "boolean"
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 40
+        }
+      }
+    },
+    "roof_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seasons",
+        "game_type",
+        "vocabulary",
+        "games",
+        "team_games",
+        "dropped_neutral",
+        "pooling_rule"
+      ],
+      "properties": {
+        "seasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1900
+          }
+        },
+        "game_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vocabulary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "treated",
+            "placebo",
+            "reported_only"
+          ],
+          "properties": {
+            "treated": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "placebo": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reported_only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "games": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "treated",
+            "placebo",
+            "open",
+            "unknown"
+          ],
+          "properties": {
+            "treated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "placebo": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "team_games": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "treated",
+            "placebo",
+            "open",
+            "unknown"
+          ],
+          "properties": {
+            "treated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "placebo": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "dropped_neutral": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pooling_rule": {
+          "type": "string",
+          "minLength": 40
+        }
+      }
+    },
+    "conditions": {
+      "description": "{condition: {season: n}} over SCORED units. Every pre-registered band is present for every season, so a band that never fired reads 0 rather than going missing - an absent key and a zero are different facts and only one of them is honest.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "conditions_unit": {
+      "type": "string",
+      "enum": [
+        "game",
+        "team_game"
+      ]
+    },
+    "band_edges": {
+      "description": "The band CUTS themselves, from weather_corpus's own tables, so every band number quoted in prose is reproducible from this file rather than from the source.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "precip",
+        "wind"
+      ],
+      "properties": {
+        "precip": {
+          "type": "object",
+          "minProperties": 5,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 3
+          }
+        },
+        "wind": {
+          "type": "object",
+          "minProperties": 5,
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "weather_history_sha256": {
+      "description": "The digest of the weather corpus this run READ. The relocation filter lives in the reader and never on disk, and this is how that claim is checked rather than believed.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "power": {
+      "description": "Written BEFORE any coefficient is fitted. n_treated / n_control are the same quantities terms[].n_wet / n_dry count, on the SAME analysis sample, so the two blocks are a checkable identity.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "analysis_sample",
+          "n_treated",
+          "n_control",
+          "baseline_rate",
+          "measured_icc",
+          "deff",
+          "se",
+          "mde",
+          "effect_of_interest",
+          "powered"
+        ],
+        "properties": {
+          "analysis_sample": {
+            "type": "string",
+            "enum": [
+              "marginal",
+              "stratified"
+            ]
+          },
+          "n_treated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_control": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "baseline_rate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "measured_icc": {
+            "description": "MEASURED from the substrate, never assumed. Legitimately negative when clusters are more alike across than within; the design effect is floored at 1.0 so a negative ICC can never buy back power.",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "deff": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 1.0
+          },
+          "se": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "mde": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "effect_of_interest": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          },
+          "powered": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "terms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "arm",
+          "position",
+          "unit",
+          "outcome",
+          "form",
+          "hypothesis",
+          "pre_registered_sign",
+          "effect_of_interest",
+          "analysis_sample",
+          "stratum_rule",
+          "available",
+          "unavailable_reason",
+          "mde_realized",
+          "powered",
+          "n_wet",
+          "n_dry",
+          "n_treated_rows",
+          "n_control_rows",
+          "marginal_estimate",
+          "stratified_estimate",
+          "heldout_estimate",
+          "confounded",
+          "dose_response",
+          "monotone",
+          "ci95",
+          "se_fold",
+          "se_stadium",
+          "binding_threshold",
+          "binding_df",
+          "folds_sign",
+          "fold_estimates",
+          "rows_moved",
+          "would_adopt",
+          "refused_reasons"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3
+          },
+          "arm": {
+            "type": "string",
+            "enum": [
+              "MECHANISM",
+              "CONTROL",
+              "PLACEBO",
+              "REACH"
+            ]
+          },
+          "position": {
+            "type": "string",
+            "minLength": 2
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "player_week",
+              "team_game"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 3
+          },
+          "form": {
+            "type": "string",
+            "minLength": 20
+          },
+          "hypothesis": {
+            "type": "string",
+            "minLength": 20
+          },
+          "pre_registered_sign": {
+            "description": "Written down before any fit. -1 or +1 only: a term with no pre-registered direction cannot fail clause 3.",
+            "type": "integer",
+            "enum": [
+              -1,
+              1
+            ]
+          },
+          "effect_of_interest": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          },
+          "analysis_sample": {
+            "type": "string",
+            "enum": [
+              "marginal",
+              "stratified"
+            ]
+          },
+          "stratum_rule": {
+            "type": "string",
+            "minLength": 10
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "unavailable_reason": {
+            "type": "string"
+          },
+          "mde_realized": {
+            "description": "mde_z * max(se_fold, se_stadium): the smallest effect the ESTIMATOR's own clustered error could detect, as opposed to the pooled-binomial model of it in power[].mde. null when neither clustering produced a standard error - an unestimable term has no realized MDE and is therefore never powered.",
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "powered": {
+            "description": "The conjunction: power[].mde AND mde_realized are both no larger than effect_of_interest. A term whose model MDE clears the bar but whose realized error bar does not is NOT powered.",
+            "type": "boolean"
+          },
+          "n_wet": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_dry": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_treated_rows": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_control_rows": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "marginal_estimate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "stratified_estimate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "heldout_estimate": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "confounded": {
+            "type": "boolean"
+          },
+          "dose_response": {
+            "description": "Five bands, always all five. A band that never fired is PRESENT with n 0 and value null, because a missing band and an empty band are different facts.",
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "band",
+                "n",
+                "value"
+              ],
+              "properties": {
+                "band": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "monotone": {
+            "type": "boolean"
+          },
+          "ci95": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          },
+          "se_fold": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "se_stadium": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "binding_threshold": {
+            "description": "max(threshold_fold, threshold_stadium), NEVER max(se). null when neither clustering produced a standard error - an unestimable term has NO bar, and must never clear one by having no error bar.",
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0.0
+          },
+          "binding_df": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "folds_sign": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fold_estimates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "rows_moved": {
+            "description": "THE R92 NO-OP CLAUSE. A candidate that fits nothing IS the shipped number and would pass a never-regress gate by doing nothing.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "would_adopt": {
+            "type": "boolean"
+          },
+          "refused_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "underpowered",
+                "too_few_fired",
+                "wrong_sign",
+                "non_monotone",
+                "confounded",
+                "no_rows_moved",
+                "fold_sign_disagrees",
+                "below_threshold",
+                "substrate_unavailable",
+                "unestimable"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control",
+        "reach"
+      ],
+      "properties": {
+        "control": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason",
+            "seasons_scored",
+            "rows",
+            "series",
+            "weather_earns_its_place",
+            "note"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "seasons_scored": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]{4}$"
+              }
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "series": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pooled_mae",
+                  "rank_corr"
+                ],
+                "properties": {
+                  "pooled_mae": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "rank_corr": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "weather_earns_its_place": {
+              "type": "boolean"
+            },
+            "note": {
+              "type": "string",
+              "minLength": 40
+            }
+          }
+        },
+        "reach": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason",
+            "slate",
+            "rungs",
+            "rungs_moved_beyond_ece",
+            "rungs_crossing_support",
+            "mean_abs_delta_p",
+            "p90_abs_delta_p",
+            "max_abs_delta_p",
+            "games_triggering",
+            "ece",
+            "effect_ratio",
+            "note"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "slate": {
+              "description": "The ONE live slate these counts were computed on, named so they can never be read as a season-long frequency.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "rungs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rungs_moved_beyond_ece": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rungs_crossing_support": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "mean_abs_delta_p": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0
+            },
+            "p90_abs_delta_p": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0
+            },
+            "max_abs_delta_p": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0.0
+            },
+            "games_triggering": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ece": {
+              "type": "number",
+              "exclusiveMinimum": 0.0
+            },
+            "effect_ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "note": {
+              "type": "string",
+              "minLength": 40
+            }
+          }
+        }
+      }
+    },
+    "placebo": {
+      "description": "A DIAGNOSTIC WITH AN INTERVAL, never a pass/fail threshold. Note what these rows do NOT carry: no powered flag and no would_adopt. A placebo-over-treated ratio is two noisy point estimates divided and reads as a coin flip in both directions, so the contract refuses to give it the vocabulary of a gate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "note",
+        "terms"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 40
+        },
+        "note": {
+          "type": "string",
+          "minLength": 40
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "term",
+              "n_rows",
+              "n_treated",
+              "estimate",
+              "se",
+              "df",
+              "clusters",
+              "ci95"
+            ],
+            "properties": {
+              "term": {
+                "type": "string",
+                "minLength": 3
+              },
+              "n_rows": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_treated": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "estimate": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "se": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0.0
+              },
+              "df": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "clusters": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ci95": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "adopted",
+        "families_registered",
+        "oracle_only",
+        "adoptable_candidates"
+      ],
+      "properties": {
+        "name": {
+          "description": "A term name, or one of the three outcomes that are not a term: not_powered (the primary term cannot be seen on this corpus), none (some clause failed), real_but_immaterial (every clause but the threshold passed and the REACH arm moved no rung further than the pool's own calibration error - a first-class outcome, not a polite no).",
+          "type": "string",
+          "enum": [
+            "rain_completion_rate",
+            "rain_catch_rate_wr",
+            "rain_catch_rate_te",
+            "rain_catch_rate_rb",
+            "rain_heavy_completion_rate",
+            "wind_epa_per_dropback",
+            "wind_dropback_volume",
+            "wind_qb_points",
+            "rain_qb_points",
+            "rb_wind_reprice",
+            "none",
+            "not_powered",
+            "real_but_immaterial"
+          ]
+        },
+        "adopted": {
+          "description": "PINNED FALSE. Phase 1 measures; it does not adopt. A future edit that tried to claim an adoption here would red this contract and the data gate with it.",
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        },
+        "families_registered": {
+          "description": "PINNED EMPTY. No signal family is registered, so promote_signals' Bonferroni divisor does not move and no other family's adoption bar rises.",
+          "type": "array",
+          "maxItems": 0
+        },
+        "oracle_only": {
+          "description": "Pinned true: fitted on reanalysis weather, so a NULL here is conclusive and a WIN here is not adoptable evidence.",
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "adoptable_candidates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "adoption_rule": {
+      "description": "The eight conjunctive clauses, the multiplicity divisor and the per-outcome effect floors, written into the document so would_adopt can be recomputed from the artifact alone by a reader who never opens the script.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clauses",
+        "tests",
+        "alpha",
+        "min_fired",
+        "fold_sign_min",
+        "effect_floor",
+        "binding_rule",
+        "primary_term",
+        "min_band_n",
+        "mde_z",
+        "power_rule"
+      ],
+      "properties": {
+        "clauses": {
+          "type": "array",
+          "minItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 20
+          }
+        },
+        "tests": {
+          "description": "The multiplicity divisor. The unit charged is the HYPOTHESIS and never a threshold, a band or an outcome, so adding resolution to a ladder cannot move any term's bar - adding a ROW can, which is the correct incentive.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "alpha": {
+          "type": "number",
+          "exclusiveMinimum": 0.0,
+          "maximum": 0.5
+        },
+        "min_fired": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fold_sign_min": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "effect_floor": {
+          "description": "PER OUTCOME, IN THAT OUTCOME'S OWN UNITS. Not promote_signals.MIN_EFFECT, which is a log-loss floor: applying it to a coefficient measured in percentage points or fantasy points is a units category error.",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0.0
+          }
+        },
+        "binding_rule": {
+          "type": "string",
+          "minLength": 40
+        },
+        "primary_term": {
+          "type": "string",
+          "minLength": 3
+        },
+        "min_band_n": {
+          "description": "The minimum rows a dose-response band must hold before it is allowed to decide clause 4. Under-floor bands are dropped from the ladder's SHAPE exactly the way empty bands are, and are still published with their n.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "mde_z": {
+          "description": "The multiplier both MDEs are built from, so terms[].mde_realized is reproducible as mde_z * max(se_fold, se_stadium).",
+          "type": "number",
+          "exclusiveMinimum": 0.0
+        },
+        "power_rule": {
+          "type": "string",
+          "minLength": 40
+        }
+      }
+    },
+    "policy": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 20
+      }
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "minLength": 20
+      }
+    }
+  }
+}

@@ -182,6 +182,57 @@ jobs:
       - name: Player-signal walk-forward fit (PROPOSE only; adoption is manual)
         run: bash scripts/stage.sh backtest "Player-signal walk-forward fit (PROPOSE only; adoption is manual)" -- python scripts/fit_player_signals.py --propose
 
+      # R94 — DOES RAIN MATTER (measure only). Two steps, in this order: the
+      # play-level rate corpus first, then the measurement that reads it. They
+      # sit AFTER the promotion gate and BEFORE "Validate data contracts" on
+      # purpose — the artifact they write is contract-checked in the same run
+      # that produced it, and then picked up by `git add data/` in the publish
+      # step below, rather than landing uninspected.
+      #
+      # This release ADOPTS NOTHING. backtest_weather.py asserts its own
+      # verdict.adopted is false with no signal family registered before it
+      # writes, and the promotion gate above neither reads its artifact nor
+      # gains a family from it. Nothing downstream prices a number from here.
+      #
+      # continue-on-error on BOTH, for the same reason the R92 pair above
+      # carries it: the rate corpus is pulled from the nflverse player_stats
+      # release asset, a third party nobody here controls. It is proxy-blocked
+      # in some sandboxes; it DID answer from the build sandbox on 2026-09-20
+      # (a 2024 pull returned 18,981 rows in seconds), so this flag guards
+      # against an outage rather
+      # than a standing refusal — the committed fixture is a synthetic
+      # placeholder, and a clone that has never run this step measures nothing
+      # rather than measuring made-up numbers. A measurement bench that cannot
+      # reach its substrate must degrade rather than red a cron whose real job
+      # is the promotion gate. stage.sh always exits with the command's
+      # own code and only annotates the stage record, so the YAML flag is what
+      # actually decides the run's colour — hence both. backtest_weather.py
+      # still exits 0 and still writes a valid artifact when the corpus is
+      # missing: every rate term reports substrate_unavailable and the verdict
+      # is not_powered, which is the honest answer rather than a silent zero.
+      #
+      # THE CORPUS GOES TO $RUNNER_TEMP AND NEVER INTO data/. build_wet_rates.py
+      # defaults --out-dir to data/fixtures/wet_rates, which is the COMMITTED
+      # SYNTHETIC placeholder: its own selftest asserts the committed document
+      # equals what --fixture-from-csv rebuilds AND that available() says no, and
+      # tests/smoke.sh runs that selftest. A cron that wrote the real pull there
+      # would commit ~11.7 MB of derived data (twice the largest file in data/)
+      # through publish_data.sh's blanket `git add data/`, permanently redding
+      # the gate - and, because the publish carries [skip actions], redding it on
+      # the NEXT human push rather than on the cron that caused it. So the two
+      # lines below move together: --out-dir writes the pull outside the tree and
+      # --cache-dir is the only thing that tells the measurement where it went.
+      # Changing one without the other leaves backtest_weather.py reading its own
+      # DEFAULT_CACHE_DIR and reporting substrate_unavailable forever.
+      # The trade-off, stated: a temp out-dir carries nothing forward between
+      # runs, so each Tuesday refetches all five seasons (~6 s).
+      - name: Wet-rates corpus (nflverse player_stats; R94 substrate)
+        run: bash scripts/stage.sh --continue-on-error backtest "Wet-rates corpus (nflverse player_stats; R94 substrate)" -- python3 scripts/build_wet_rates.py --out-dir "$RUNNER_TEMP/wet_rates"
+        continue-on-error: true
+      - name: Weather effect backtest (measure only)
+        run: bash scripts/stage.sh --continue-on-error backtest "Weather effect backtest (measure only)" -- python3 scripts/backtest_weather.py --cache-dir "$RUNNER_TEMP/wet_rates"
+        continue-on-error: true
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

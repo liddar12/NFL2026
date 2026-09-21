@@ -17,7 +17,7 @@
 # LOCK MODE (steps guarded `mode != 'scores'`, plus every unguarded step):
 #   resolve_locks -> refit -> build_predictions (+ snapshot copy) -> build_parlay_archive
 #   -> build_leg_pool -> build_my_cards -> build_parlay_ledger -> resolve_parlay_legs
-#   -> resolve_my_cards -> build_review -> validate_data -> commit
+#   -> resolve_my_cards -> replay_lab -> build_review -> validate_data -> commit
 #   Every arrow is a genuine dependency: refit grades before it fits, the pool copies the
 #   slate build_predictions just wrote and prices props from the same weekly projections,
 #   the ledger records what the pool and cards just offered, and build_review consumes
@@ -26,7 +26,7 @@
 #
 # SCORES MODE (unguarded steps only — nothing is re-priced, nothing new is offered):
 #   resolve_locks -> refit -> build_parlay_archive -> resolve_parlay_legs
-#   -> resolve_my_cards -> build_review -> validate_data -> commit
+#   -> resolve_my_cards -> replay_lab -> build_review -> validate_data -> commit
 #   STATUS-GATING is enforced in scripts/scrape/espn.py, not here: only FINAL games
 #   become actuals; live / halftime / 0-0 scheduled stubs are display-only and never
 #   scored. refit is a clean no-op unless this run resolved a new lock.
@@ -214,14 +214,32 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error gameday "Resolve MY cards against nflverse weekly yards" -- python scripts/resolve_my_cards.py
         continue-on-error: true
 
+      # R81 — PARLAY REPLAY LAB (measure only). data/replay_lab.json is a MIRROR of
+      # the parlay archive, the leg ledger and the leg resolver: it reports what a
+      # candidate rule would have done on exactly those rows. gameday rebuilt all
+      # three of those inputs (the archive and the resolver unguarded, the ledger in
+      # lock mode) and never rebuilt the lab, so a gameday window shipped a document
+      # describing inputs that no longer exist — on 2026-09-20 the committed record
+      # counted 41 unresolved legs against a resolver that had moved to 42, and the
+      # r81 round-trip gate went red on main with no code change. Same defect class
+      # as R89/R92 above (backtest_player, resolve_estimates): every document a
+      # window rebuilds must have its mirrors rebuilt in the SAME generation.
+      # UNGUARDED, for the reason the two resolvers are: its inputs move in scores
+      # mode too (the archive freezes the week, the resolver grades it). It adopts
+      # NOTHING — no gate, no promotion, no write to any calibration or slate file —
+      # so it sits after the resolvers (newest outcomes) and before build_review.
+      - name: Replay lab (candidate parlay rules vs shipped, measure only)
+        run: bash scripts/stage.sh --continue-on-error gameday "Replay lab (candidate parlay rules vs shipped, measure only)" -- python3 scripts/replay_lab.py
+        continue-on-error: true   # a measure-only bench never degrades the run
+
       # SCORES MODE, STATED HONESTLY. There is no longer a "Refresh scores" step,
       # because there was never anything behind it: the removed line ran a scores
       # CLI module under scripts/scrape/ that has never existed in this repo, and
       # ran it under `|| true`, so the step reported success for work it never did.
       # Scores mode is, in full: resolve_locks (the first step above; it is the real
       # ESPN FINAL reader and it status-gates), refit, the parlay archive, the two
-      # resolvers, build_review, validate_data, commit. Every one of those is
-      # unguarded above, so scores mode needs no step of its own.
+      # resolvers, the replay lab, build_review, validate_data, commit. Every one of
+      # those is unguarded above, so scores mode needs no step of its own.
 
       # (build_predictions writes data/pipeline_status.json with honest feed health, so
       # that document describes the LOCK half of this graph only — the ledger, resolver

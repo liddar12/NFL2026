@@ -332,8 +332,16 @@ print(json.dumps({
   "dups": [rows(json.loads(s)) for s in snaps],
   "stable": len(set(snaps[1:])) == 1}))`);
 
-  // The defect, reproduced: one post-kickoff rebuild, 17 ids carried by two cards.
-  assert.equal(r.before_ids, 17, "the review's count on the committed week-2 archive");
+  // The defect, reproduced: one post-kickoff rebuild leaves MORE ids carried by
+  // two cards than the archive already had frozen on disk. The review measured
+  // 17 against 13 on the 2026-09-20 afternoon archive; the count is a property
+  // of that day's slate, not of the rule, and pinning it red-lined the suite
+  // the moment the evening's gameday run froze another card (17 -> 16 on a
+  // 171-card archive). What must never change is the INEQUALITY: the old rule
+  // adds duplicate ids, the new one adds none.
+  assert.ok(r.before_ids > r.on_disk_ids,
+    `the old rule must ADD duplicate ids: ${r.before_ids} after one rebuild `
+    + `against ${r.on_disk_ids} already frozen on disk`);
   assert.ok(r.before_rows > r.on_disk_rows, 'the rebuild ADDS duplicates under the old rule');
   // The fix: the rebuild introduces none. The 13 pairs already frozen on disk
   // before this rule existed stay — a frozen card is verbatim by contract.

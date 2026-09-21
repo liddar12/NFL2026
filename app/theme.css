@@ -4460,3 +4460,26 @@ body.gate-locked { overflow: hidden; }
 .rv-pnl--pos { border-left-color: var(--pos); }
 .rv-pnl--neg { border-left-color: var(--neg); }
 .rv-pnl-note { color: var(--muted); }
+
+/* R95 — the RETROSPECTIVE panel (F18 again). The outcome buckets and the P&L
+   line only exist once a week has grades, so R90 measured the view before they
+   did: at 402x874 they added 262 px and pushed the first card to 785 px against
+   a bottom navigation starting at 817. They now share one collapsed .pfilters
+   panel. The panel already IS the card, so the two blocks drop their own box
+   and keep only what carries meaning — the .rv-pnl left rule, which is the sign
+   of the net. Tokens only; no new colours. */
+.pretro .rv-buckets {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.pretro .rv-pnl {
+  background: none;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  padding: 2px 0 2px 10px;
+}
+

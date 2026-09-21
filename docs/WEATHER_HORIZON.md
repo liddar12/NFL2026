@@ -2,7 +2,9 @@
 
 `data/weather_forecast.json` is the prediction-time weather feed for
 `weekly_split_v2` (scripts/build_weekly.py) and, through `games` only, for the
-game model's adopted `weather_wind` family (scripts/promote_signals.wind_current).
+game model's `weather_wind` family (scripts/promote_signals.wind_current) — a
+CANDIDATE, measured every run and never adopted (`game_params` carries no
+`weather_wind` block and no archived promotion run has ever adopted it).
 Before R56 it held kickoff-hour forecasts for OPEN-roof home games inside
 Open-Meteo's free 16-day horizon and nothing else, so every game more than ~2
 weeks out fell to the roof-only factor: 2,962 player-weeks were counted as

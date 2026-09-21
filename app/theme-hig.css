@@ -1559,3 +1559,9 @@
   gap: 4px;
 }
 [data-theme="hig"] .rv-pnl-note { font-weight: 400; }
+
+/* R95 — inside the collapsed RETROSPECTIVE panel the two blocks are rows of
+   that panel, not cards of their own: same de-boxing as the base theme, and the
+   grouped-list padding restated so the HIG rules above do not put it back. */
+[data-theme="hig"] .pretro .rv-buckets { padding: 0; border-radius: 0; }
+[data-theme="hig"] .pretro .rv-pnl { padding: 2px 0 2px 10px; border-radius: 0; }

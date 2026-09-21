@@ -178,6 +178,29 @@ SCHEMA_TO_DATA = {
     # status, exit code and last success, which is how a continue-on-error
     # resolver outage becomes visible instead of staying in the Actions log.
     "pipeline_stages.schema.json": "pipeline_stages.json",
+    # R94 - the WEATHER EFFECT measurement (scripts/backtest_weather.py). MEASURE
+    # ONLY: verdict.adopted is pinned to the literal false and families_registered
+    # is pinned empty by the contract, so the document cannot record an adoption
+    # even if a future edit to the script tried to claim one. No builder reads it
+    # and no shipped number depends on it. Runner-built (backtest.yml, after the
+    # promotion gate), so OPTIONAL like its R92 neighbours and strict when present.
+    "weather_backtest.schema.json": "weather_backtest.json",
+    # R94 - the play-level rate substrate the measurement's mechanism arm needs
+    # (scripts/build_wet_rates.py). MEASURE ONLY - it is a denominator corpus, not
+    # a model input. It lives under data/fixtures/ because that is where the
+    # builder writes it, and the SAME contract also validates its team_week sibling
+    # in that directory (one schema, two units); build_wet_rates' own --selftest
+    # validates both on every run, and this map checks the player document the
+    # within-player pairing reads. OPTIONAL: the pull is an nflverse release the
+    # sandbox proxy can refuse, and a clone that has never run the builder must not
+    # go red for a file no shipped number reads.
+    "wet_rates.schema.json": "fixtures/wet_rates/player_week_rates.json",
+    # R94 - the append-only pre-kickoff forecast archive (scripts/archive_weather_
+    # forecast.py). MEASURE ONLY, and read by NOTHING: it exists so a later,
+    # leakage-free measurement has a pre-kickoff series to fit on. The daily cron
+    # creates it on its first run and appends to it thereafter, so it is absent on
+    # a fresh clone by design - OPTIONAL - and strictly validated whenever present.
+    "weather_forecast_archive.schema.json": "weather_forecast_archive.json",
 }
 
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
@@ -254,6 +277,16 @@ OPTIONAL_DATA = frozenset([
     # has never run it must not go red for a file no shipped number reads.
     "qb_depth_backtest.json",
     "backup_qb_backtest.json",
+    # R94 - all three weather artifacts are runner-built and none is read by any
+    # builder, so absence is the honest state of a fresh clone rather than a
+    # fault. The backtest is written by backtest.yml after the promotion gate;
+    # the rate substrate needs an nflverse release pull (the committed file is a
+    # synthetic placeholder the measurement itself refuses to measure on); the
+    # forecast archive does not exist until the daily cron appends to it for the
+    # first time. Each one is validated STRICTLY the moment it is present.
+    "weather_backtest.json",
+    "fixtures/wet_rates/player_week_rates.json",
+    "weather_forecast_archive.json",
 ])
 
 # The signal registry, imported from its single source of truth (QA-D5,
@@ -2334,6 +2367,303 @@ def _selftest():
     del _bad["conditions"]["qb2_also_out"]
     _schema_red(_bad, _qd_schema, "a conditions block with no qb2_also_out count")
 
+    # R94 - the three WEATHER contracts. All three documents are MEASURE ONLY and
+    # none is read by a builder, which is exactly why their contracts have to bite:
+    # a document nobody consumes is a document nobody would notice going wrong, and
+    # the one thing it must never do is claim more than it measured. The reds below
+    # are the five ways the backtest could quietly claim an adoption or hide a
+    # missing number, plus one red each for the rate substrate and the forecast
+    # archive on the field that makes each of those honest.
+    _wb_schema = _load(os.path.join(CONTRACTS, "weather_backtest.schema.json"))
+    _wb_term = {
+        "name": "rain_completion_rate",
+        "arm": "MECHANISM",
+        "position": "QB",
+        "unit": "player_week",
+        "outcome": "completion_rate",
+        "form": "rate ~ 1[precip >= 1 mm], within passer-season, attempt-weighted",
+        "hypothesis": ("A wet ball costs completion percentage. The owner's 8% on a "
+                       "~64.5% base is 5.2 percentage points."),
+        "pre_registered_sign": -1,
+        "effect_of_interest": 0.052,
+        "analysis_sample": "stratified",
+        "stratum_rule": "wind < 20 kph and temp > 5 C",
+        "available": True,
+        "unavailable_reason": "",
+        # powered is the CONJUNCTION of the modelled MDE and the realized one
+        # (mde_z * max(se_fold, se_stadium)). Both n's below are the SCORED-fold
+        # counts, because that is the sample the coefficient is fitted on.
+        "mde_realized": 0.096437,
+        "powered": False,
+        "n_wet": 786, "n_dry": 3235,
+        "n_treated_rows": 23, "n_control_rows": 109,
+        "marginal_estimate": -0.03441,
+        "stratified_estimate": -0.047264,
+        "heldout_estimate": -0.03503,
+        "confounded": False,
+        # Tabulated on the SCORED rows, so the five n's sum to
+        # n_treated_rows + n_control_rows (23 + 109 = 132).
+        "dose_response": [{"band": "precip_dry", "n": 95, "value": 0.663124},
+                          {"band": "precip_trace", "n": 9, "value": 0.602996},
+                          {"band": "precip_light", "n": 5, "value": 0.703448},
+                          {"band": "precip_moderate", "n": 20, "value": 0.634361},
+                          {"band": "precip_heavy", "n": 3, "value": 0.580952}],
+        "monotone": False,
+        "ci95": [-0.236087, 0.166027],
+        "se_fold": 0.034422, "se_stadium": 0.026723,
+        "binding_threshold": 0.201057, "binding_df": 3,
+        "folds_sign": 3,
+        "fold_estimates": {"2022": -0.041, "2023": -0.028,
+                           "2024": 0.006, "2025": -0.035},
+        "rows_moved": 132,
+        "would_adopt": False,
+        "refused_reasons": ["underpowered", "too_few_fired", "below_threshold",
+                            "non_monotone"],
+    }
+    _wb = {
+        "generated_utc": "2026-09-20T12:00:00Z",
+        "kind": "weather_backtest",
+        "seasons_scored": ["2022", "2023", "2024", "2025"],
+        "substrate": {
+            "seasons_requested": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_fetched": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_unavailable": {},
+            "column_contract": ["attempts", "completions", "targets", "receptions"],
+            "feeds": {"weather": "data/weather_history.json",
+                      "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+                      "game_context": "data/game_context.json",
+                      "epa": "data/epa_history.json",
+                      "dvp": "data/dvp_positional_history.json",
+                      "rates": "data/fixtures/wet_rates"},
+            "weather_role": "label",
+            "perfect_foresight": True,
+            "rule": ("Fold Y is scored on season Y and fits only seasons strictly "
+                     "before it; the first fold fits nothing, is neutral and is "
+                     "counted."),
+            "folds": [{"season": 2021, "fit_seasons": [], "scored": False,
+                       "neutral": True},
+                      {"season": 2022, "fit_seasons": [2021], "scored": True,
+                       "neutral": False}],
+            "training_seasons": ["2021", "2022", "2023", "2024"],
+            "holdout_season": "2025",
+            "power_seasons": ["2022", "2023", "2024", "2025"],
+            "power_training_seasons": ["2022", "2023", "2024"],
+        },
+        "corpus_filter": {
+            "source": "open-meteo historical archive (kickoff hour, open-roof homes)",
+            "rows_read": 893, "rows_joined": 893, "rows_unjoined": 0,
+            "dropped_relocations": 19, "rows_kept": 874,
+            "roof_check": "all survivors outdoors", "roof_check_ok": True,
+            "rule": ("the neutral flag in games_meta drops relocations; "
+                     "data/weather_history.json is never rewritten or refetched"),
+        },
+        "roof_census": {
+            "seasons": [2021, 2022, 2023, 2024, 2025], "game_type": "REG",
+            "vocabulary": {"treated": ["outdoors"],
+                           "placebo": ["dome", "closed"],
+                           "reported_only": ["open"]},
+            "games": {"treated": 874, "placebo": 427, "open": 32, "unknown": 0},
+            "team_games": {"treated": 1748, "placebo": 854, "open": 64,
+                           "unknown": 0},
+            "dropped_neutral": 26,
+            "pooling_rule": ("'open' is a retractable roof that was open at "
+                             "kickoff: reported in its own bucket, never pooled"),
+        },
+        "conditions": {"total": {"2022": 344, "2025": 350},
+                       "precip_ge_1p0": {"2022": 16, "2025": 8}},
+        "conditions_unit": "team_game",
+        "band_edges": {"precip": {"precip_dry": "exactly 0.0 mm",
+                                  "precip_trace": "0.0 < mm < 0.25",
+                                  "precip_light": "0.25 <= mm < 1.0",
+                                  "precip_moderate": "1.0 <= mm < 2.5",
+                                  "precip_heavy": "mm >= 2.5"},
+                       "wind": {"wind_calm": "kph < 8",
+                                "wind_light": "8 <= kph < 16",
+                                "wind_moderate": "16 <= kph < 24",
+                                "wind_strong": "24 <= kph < 30",
+                                "wind_extreme": "kph >= 30"}},
+        "weather_history_sha256": ("1244c436273ee0810b0d671c0f981fe57fd09b92e8f8"
+                                   "f6c52bc3e3864b59c5ad"),
+        "power": {"rain_completion_rate": {
+            "analysis_sample": "stratified", "n_treated": 786, "n_control": 3235,
+            "baseline_rate": 0.650659, "measured_icc": 0.007055, "deff": 1.244986,
+            "se": 0.020744, "mde": 0.058115, "effect_of_interest": 0.052,
+            "powered": False}},
+        "terms": [_wb_term],
+        "arms": {
+            "control": {"available": True, "reason": "",
+                        "seasons_scored": ["2022", "2023", "2024", "2025"],
+                        "rows": 8279,
+                        "series": {"shipped_v2": {"pooled_mae": 6.003032,
+                                                  "rank_corr": 0.381358},
+                                   "v2_no_weather": {"pooled_mae": 6.008667,
+                                                     "rank_corr": 0.380102}},
+                        "weather_earns_its_place": True,
+                        "note": ("the deployed split re-priced with its weather "
+                                 "inputs removed; build_weekly.py is unchanged")},
+            "reach": {"available": True, "reason": "", "slate": "2026 week 2",
+                      "rungs": 1229, "rungs_moved_beyond_ece": 0,
+                      "rungs_crossing_support": 0, "mean_abs_delta_p": 0.0,
+                      "p90_abs_delta_p": 0.0, "max_abs_delta_p": 0.0,
+                      "games_triggering": 0, "ece": 0.0066,
+                      "effect_ratio": 0.946163,
+                      "note": ("computed on ONE live slate, named above; never a "
+                               "season-long frequency")},
+        },
+        "placebo": {
+            "rule": ("the identical estimator on roofed team-games handed the "
+                     "weather of a matched outdoor game in the same season-week"),
+            "note": ("A DIAGNOSTIC WITH AN INTERVAL, never a pass/fail threshold: "
+                     "a placebo-over-treated ratio is two noisy estimates divided."),
+            "terms": [{"term": "rain_completion_rate", "n_rows": 56,
+                       "n_treated": 13, "estimate": -0.050199, "se": 0.014257,
+                       "df": 10, "clusters": 11,
+                       "ci95": [-0.081966, -0.018432]}],
+        },
+        "verdict": {"name": "not_powered", "adopted": False,
+                    "families_registered": [], "oracle_only": True,
+                    "adoptable_candidates": []},
+        "adoption_rule": {
+            "clauses": ["1 powered: the modelled MDE on the term's OWN scored "
+                        "analysis sample AND the realized MDE from its own "
+                        "clustered error, both no larger than the bar",
+                        "2 n_fired >= 30 treated observations and treated rows",
+                        "3 the fitted sign equals the pre-registered sign",
+                        "4 the dose-response is monotone across the bands that "
+                        "clear min_band_n",
+                        "5 confounded is false (marginal vs stratified)",
+                        "6 rows_moved > 0 - the R92 no-op clause",
+                        "7 the sign agrees in at least 3 of the 4 held-out folds",
+                        "8 the held-out estimate exceeds the binding threshold"],
+            "tests": 10, "alpha": 0.05, "min_fired": 30, "fold_sign_min": 3,
+            "min_band_n": 10, "mde_z": 2.8016,
+            "power_rule": ("powered = the modelled MDE and the realized MDE "
+                           "mde_z * max(se_fold, se_stadium) are BOTH no larger "
+                           "than the effect of interest"),
+            "effect_floor": {"completion_rate": 0.005, "catch_rate": 0.005},
+            "binding_rule": ("max(threshold_fold, threshold_stadium), NEVER "
+                             "max(se): at 3 df against 20 the larger SE can "
+                             "carry the lower bar"),
+            "primary_term": "rain_completion_rate",
+        },
+        "policy": ["MEASUREMENT ONLY. This run adopts nothing and registers no family.",
+                   "The power stage runs BEFORE any coefficient is fitted.",
+                   "A wind term is never stratified on its own predictor.",
+                   "The binding threshold is the larger THRESHOLD, not the larger SE.",
+                   "No market number is read anywhere in this document."],
+        "limits": ["precip_mm is one hourly value at the kickoff hour.",
+                   "Snow enters only as liquid-water equivalent, so it is invisible.",
+                   "The neutral flag marks a venue, never a roof state.",
+                   "Open retractable roofs are reported and never pooled.",
+                   "Eight stadiums supply about three quarters of the windy games."],
+    }
+    validate_against_schema(_wb, _wb_schema, "weather_backtest selftest")
+    # (1) the adoption the document exists to make impossible.
+    _bad = copy.deepcopy(_wb)
+    _bad["verdict"]["adopted"] = True
+    _schema_red(_bad, _wb_schema,
+                "a MEASURE-ONLY weather document claiming verdict.adopted true")
+    # (2) the same claim by the back door - a family recorded as registered.
+    _bad = copy.deepcopy(_wb)
+    _bad["verdict"]["families_registered"] = ["weather_wind"]
+    _schema_red(_bad, _wb_schema,
+                "a weather document registering a signal family (maxItems 0)")
+    # (3) the string 'false' is truthy everywhere a reader would use it, so a
+    # powered flag that is a string is a gate that reads as passed.
+    _bad = copy.deepcopy(_wb)
+    _bad["terms"][0]["powered"] = "false"
+    _schema_red(_bad, _wb_schema,
+                "powered as the string 'false' rather than a boolean")
+    # (4) a term with no wet count cannot be checked against its own power row.
+    _bad = copy.deepcopy(_wb)
+    del _bad["terms"][0]["n_wet"]
+    _schema_red(_bad, _wb_schema, "a terms row with no n_wet")
+    # (5) an invented refusal reason would let a term refuse for a clause that
+    # is not one of the eight, which is a refusal nobody can audit.
+    _bad = copy.deepcopy(_wb)
+    _bad["terms"][0]["refused_reasons"] = ["because"]
+    _schema_red(_bad, _wb_schema,
+                "a refused_reasons entry outside the eight-clause enum")
+
+    # R94 - the rate substrate. provenance is the field that stops a consumer
+    # measuring on hand-made numbers, so an invented third value must red.
+    _wr_schema = _load(os.path.join(CONTRACTS, "wet_rates.schema.json"))
+    _wr_row = {"team": "AAA", "opp": "BBB", "week": 1, "completions": 20,
+               "attempts": 32, "passing_yards": 241.0,
+               "passing_interceptions": 1, "sacks": 2, "carries": 3,
+               "targets": 0, "receptions": 0, "receiving_yards": 0.0,
+               "receiving_air_yards": 0.0, "sack_fumbles": 0,
+               "sack_fumbles_lost": 0, "rushing_fumbles": 0,
+               "rushing_fumbles_lost": 0, "receiving_fumbles": 0,
+               "receiving_fumbles_lost": 0, "name": "A Passer", "pos": "QB"}
+    _wr = {"kind": "wet_rates", "unit": "player_week",
+           "provenance": "synthetic_fixture",
+           "source": "hand-made fixture, not an nflverse release",
+           "policy": ("MEASURE ONLY: numerators and denominators are stored "
+                      "separately and never pre-divided."),
+           "generated_utc": "2026-09-20T12:00:00Z",
+           "seasons_requested": [2021], "seasons_fetched": [2021],
+           "seasons_unavailable": {},
+           "required_columns": sorted(["attempts", "carries", "completions",
+                                       "name", "opp", "passing_interceptions",
+                                       "passing_yards", "pid", "pos",
+                                       "receiving_air_yards", "receiving_fumbles",
+                                       "receiving_fumbles_lost", "receiving_yards",
+                                       "receptions", "rushing_fumbles",
+                                       "rushing_fumbles_lost", "sack_fumbles",
+                                       "sack_fumbles_lost", "sacks", "season",
+                                       "season_type", "targets", "team", "week"]),
+           "rows": {"2021": {"1|AAA|00-0000001": _wr_row}}}
+    validate_against_schema(_wr, _wr_schema, "wet_rates selftest")
+    _bad = copy.deepcopy(_wr)
+    _bad["provenance"] = "looks_real"
+    _schema_red(_bad, _wr_schema,
+                "a rate corpus claiming a provenance outside "
+                "nflverse_release/synthetic_fixture")
+    _bad = copy.deepcopy(_wr)
+    _bad["rows"]["2021"] = {}
+    _schema_red(_bad, _wr_schema,
+                "a season mapping to an empty object - a hole belongs in "
+                "seasons_unavailable, never in rows")
+
+    # R94 - the forecast archive. Its one job is to hold PRE-KICKOFF forecast
+    # rows, so the source enum and the fetch stamp are what the contract pins:
+    # a climatology row carries no precip_mm at all, and a row with no stamp has
+    # no honest observation time.
+    _wfa_schema = _load(os.path.join(CONTRACTS,
+                                     "weather_forecast_archive.schema.json"))
+    _wfa = {"generated_utc": "2026-09-20T12:00:00Z",
+            "kind": "weather_forecast_archive",
+            "source": "data/weather_forecast.json games rows (source=forecast)",
+            "rule": ("append (key, fetched_utc) once; an entry already archived "
+                     "is never rewritten, reordered or dropped"),
+            "counts": {"observations": 1, "games": 1, "appended": 1,
+                       "refused": {"not_forecast": 0, "no_fetched_utc": 0,
+                                   "malformed_row": 0, "duplicate": 0,
+                                   "conflict": 0}},
+            "observations": [{"key": "2026|2|BUF|NYJ",
+                              "fetched_utc": "2026-09-20T11:00:00Z",
+                              "precip_mm": 1.4, "temp_c": 12.0,
+                              "wind_kph": 18.5, "source": "forecast"}]}
+    validate_against_schema(_wfa, _wfa_schema, "weather_forecast_archive selftest")
+    _bad = copy.deepcopy(_wfa)
+    _bad["observations"][0]["source"] = "climatology"
+    _schema_red(_bad, _wfa_schema,
+                "a climatology row in the pre-kickoff forecast archive")
+    _bad = copy.deepcopy(_wfa)
+    del _bad["observations"][0]["fetched_utc"]
+    _schema_red(_bad, _wfa_schema,
+                "an archived observation with no fetch stamp")
+    _bad = copy.deepcopy(_wfa)
+    _bad["observations"][0]["fetched_utc"] = "tuesday"
+    _schema_red(_bad, _wfa_schema,
+                "a fetch stamp that is not an ISO-8601 UTC instant")
+    _bad = copy.deepcopy(_wfa)
+    del _bad["counts"]["refused"]["conflict"]
+    _schema_red(_bad, _wfa_schema,
+                "a refusal tally missing the conflict reason - a reason that "
+                "never fired must read 0, never go missing")
+
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
@@ -2352,7 +2682,15 @@ def _selftest():
           "ok/failed/skipped and a workflow key that does not exist; the R92 "
           "qb-depth backtest contract reds on a verdict naming a family that "
           "never ran, a starter lag of 0, a string would_adopt and a missing "
-          "qb2_also_out count")
+          "qb2_also_out count; the R94 weather-backtest contract reds on all "
+          "five ways a MEASURE-ONLY document could claim more than it measured "
+          "(verdict.adopted true, a registered signal family, powered as the "
+          "string 'false', a terms row with no n_wet, and a refused_reasons "
+          "entry outside the eight-clause enum), the R94 rate corpus reds on an "
+          "invented provenance and a season mapping to an empty object, and the "
+          "R94 forecast archive reds on a climatology row, a missing fetch "
+          "stamp, a fetch stamp that is not an ISO-8601 UTC instant and a "
+          "refusal tally missing the conflict reason")
 
 
 # ---------------------------------------------------------------------------

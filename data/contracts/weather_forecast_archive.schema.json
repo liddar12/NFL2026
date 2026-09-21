@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "weather_forecast_archive.schema.json",
+  "title": "Append-only archive of PRE-KICKOFF kickoff-hour weather forecasts (R94, measure only)",
+  "description": "scripts/archive_weather_forecast.py appends the `games` rows of data/weather_forecast.json - the Open-Meteo FORECAST rows, as they stood before kickoff - to an ordered list that is never rewritten. It exists because R94 measures weather on data/weather_history.json, which is ERA5 REANALYSIS: an after-the-fact observation, so nothing fitted on it can prove what was knowable before kickoff. There are zero archived pre-kickoff forecasts for 2021-2025 anywhere in the repo and the live forecast file is overwritten every daily run, so the honest series can only start accumulating now. This document RECORDS. It is read by nothing, it adopts nothing, it moves no live number, and it carries no market number. A (key, fetched_utc) pair already present is never rewritten: the same values are refused as `duplicate`, different values as `conflict` with the archived row standing. Climatology rows can never enter - the top-level `climatology` block of the forecast file is never read, and every archived row's `source` is pinned to the enum ['forecast'] here, so a stadium-month mean (which carries no precip_mm at all) is refused by the contract as well as by the code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "kind",
+    "source",
+    "rule",
+    "counts",
+    "observations"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string",
+      "minLength": 20,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "The run that last APPENDED to this file, not the last run. A run that appends nothing does not write, so the archive stays byte-identical and this stamp stops moving until a genuinely new observation arrives."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "weather_forecast_archive"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 20,
+      "description": "The producer and the feed it read, in one line."
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 40,
+      "description": "The append-only rule restated in the artifact, so a reader who opens the file alone knows why a row it disagrees with was not corrected."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "`observations` and `games` describe the FILE; `appended` and `refused` describe the run that last wrote it.",
+      "required": [
+        "observations",
+        "games",
+        "appended",
+        "refused"
+      ],
+      "properties": {
+        "observations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows in `observations`. 0 is valid: a day-one archive is an empty archive, not a missing one."
+        },
+        "games": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Distinct game keys behind those rows. Several observations of one game share one key, so this is <= observations."
+        },
+        "appended": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows the last write added. 0 only appears on the day-one file, because a run that appends nothing does not write."
+        },
+        "refused": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Why the last run's candidate rows did not enter, every reason pre-seeded so a reason that never fired reads 0 rather than going missing.",
+          "required": [
+            "not_forecast",
+            "no_fetched_utc",
+            "malformed_row",
+            "duplicate",
+            "conflict"
+          ],
+          "properties": {
+            "not_forecast": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The row did not declare source=forecast: a climatology row, or a pre-R56 row that carries no label at all."
+            },
+            "no_fetched_utc": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "No usable fetch stamp. There is no honest observation time to record, and the run's own clock is not a substitute."
+            },
+            "malformed_row": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Bad game key, a missing or non-numeric temp/wind/precip, or a negative precipitation or wind."
+            },
+            "duplicate": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The pair is already archived with identical values - the ordinary case for a re-run."
+            },
+            "conflict": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The pair is already archived with DIFFERENT values. The archived row stands and the run says so on stderr; upstream re-stamped a fetched_utc without refetching."
+            }
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 0,
+      "description": "One row per (game, fetch), in the order they were appended. The order is the record: entries are never reordered, rewritten or dropped, so index n means the same observation in every future version of this file.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "fetched_utc",
+          "precip_mm",
+          "temp_c",
+          "wind_kph",
+          "source"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[0-9]{4}\\|[0-9]{1,2}\\|[A-Z]{2,3}\\|[A-Z]{2,3}$",
+            "description": "\"season|week|HOME|AWAY\", the repo's game key, identical to the forecast file's."
+          },
+          "fetched_utc": {
+            "type": "string",
+            "minLength": 20,
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "description": "When this forecast was fetched, stamped by the forecast builder. With `key` it is the identity of the observation, so it is required and pattern-checked: an unstamped row has no place in a pre-kickoff series."
+          },
+          "precip_mm": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Kickoff-hour precipitation as forecast. Open-Meteo's hourly value is the sum over the PRECEDING hour and folds snow in as liquid-water equivalent - the same caveat the reanalysis corpus carries."
+          },
+          "temp_c": {
+            "type": "number"
+          },
+          "wind_kph": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "forecast"
+            ],
+            "description": "Pinned to one value on purpose: it is the door a climatology row cannot walk through. A stadium-month mean is not a forecast and carries no precip_mm, so mixing the two would quietly measure the average December in a city on the days no real forecast existed."
+          }
+        }
+      }
+    }
+  }
+}
