@@ -1,0 +1,1465 @@
+{
+  "generated_utc": "2026-09-21T02:01:25Z",
+  "kind": "weather_backtest",
+  "seasons_scored": [
+    "2022",
+    "2023",
+    "2024",
+    "2025"
+  ],
+  "substrate": {
+    "seasons_requested": [
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "seasons_fetched": [
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "seasons_unavailable": {},
+    "column_contract": [
+      "attempts",
+      "carries",
+      "completions",
+      "name",
+      "opp",
+      "passing_interceptions",
+      "passing_yards",
+      "pid",
+      "pos",
+      "receiving_air_yards",
+      "receiving_fumbles",
+      "receiving_fumbles_lost",
+      "receiving_yards",
+      "receptions",
+      "rushing_fumbles",
+      "rushing_fumbles_lost",
+      "sack_fumbles",
+      "sack_fumbles_lost",
+      "sacks",
+      "season",
+      "season_type",
+      "targets",
+      "team",
+      "week"
+    ],
+    "feeds": {
+      "weather": "data/weather_history.json",
+      "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+      "game_context": "data/game_context.json",
+      "epa": "data/epa_history.json",
+      "dvp": "data/dvp_positional_history.json",
+      "rates": "data/fixtures/wet_rates"
+    },
+    "weather_role": "label",
+    "perfect_foresight": true,
+    "rule": "Fold Y is scored on season Y and fits only seasons strictly before it; the first fold fits nothing, is neutral and is counted. Power reads outcome-bearing quantities from the training seasons only and never from the held-out season.",
+    "folds": [
+      {
+        "season": 2021,
+        "fit_seasons": [],
+        "scored": false,
+        "neutral": true
+      },
+      {
+        "season": 2022,
+        "fit_seasons": [
+          2021
+        ],
+        "scored": true,
+        "neutral": false
+      },
+      {
+        "season": 2023,
+        "fit_seasons": [
+          2021,
+          2022
+        ],
+        "scored": true,
+        "neutral": false
+      },
+      {
+        "season": 2024,
+        "fit_seasons": [
+          2021,
+          2022,
+          2023
+        ],
+        "scored": true,
+        "neutral": false
+      },
+      {
+        "season": 2025,
+        "fit_seasons": [
+          2021,
+          2022,
+          2023,
+          2024
+        ],
+        "scored": true,
+        "neutral": false
+      }
+    ],
+    "training_seasons": [
+      "2021",
+      "2022",
+      "2023",
+      "2024"
+    ],
+    "holdout_season": "2025",
+    "power_seasons": [
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "power_training_seasons": [
+      "2022",
+      "2023",
+      "2024"
+    ]
+  },
+  "corpus_filter": {
+    "source": "open-meteo historical archive (kickoff hour, open-roof homes only)",
+    "rows_read": 893,
+    "rows_joined": 893,
+    "rows_unjoined": 0,
+    "dropped_relocations": 19,
+    "rows_kept": 874,
+    "roof_check": "all survivors outdoors",
+    "roof_check_ok": true,
+    "rule": "the neutral flag in data/fixtures/backtest_weekly/games_meta.json drops relocations; data/weather_history.json is never rewritten, refiltered or refetched"
+  },
+  "roof_census": {
+    "seasons": [
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "game_type": "REG",
+    "vocabulary": {
+      "treated": [
+        "outdoors"
+      ],
+      "placebo": [
+        "dome",
+        "closed"
+      ],
+      "reported_only": [
+        "open"
+      ]
+    },
+    "games": {
+      "treated": 874,
+      "placebo": 427,
+      "open": 32,
+      "unknown": 0
+    },
+    "team_games": {
+      "treated": 1748,
+      "placebo": 854,
+      "open": 64,
+      "unknown": 0
+    },
+    "dropped_neutral": 26,
+    "pooling_rule": "'open' is a retractable roof that was open at kickoff: reported in its own bucket and never pooled with outdoors, because opening a roof is itself a weather decision"
+  },
+  "conditions": {
+    "total": {
+      "2021": 358,
+      "2022": 344,
+      "2023": 350,
+      "2024": 346,
+      "2025": 350
+    },
+    "precip_dry": {
+      "2021": 288,
+      "2022": 270,
+      "2023": 280,
+      "2024": 286,
+      "2025": 296
+    },
+    "precip_trace": {
+      "2021": 38,
+      "2022": 34,
+      "2023": 34,
+      "2024": 30,
+      "2025": 26
+    },
+    "precip_light": {
+      "2021": 14,
+      "2022": 24,
+      "2023": 18,
+      "2024": 22,
+      "2025": 20
+    },
+    "precip_moderate": {
+      "2021": 10,
+      "2022": 12,
+      "2023": 12,
+      "2024": 6,
+      "2025": 4
+    },
+    "precip_heavy": {
+      "2021": 8,
+      "2022": 4,
+      "2023": 6,
+      "2024": 2,
+      "2025": 4
+    },
+    "precip_ge_0p25": {
+      "2021": 32,
+      "2022": 40,
+      "2023": 36,
+      "2024": 30,
+      "2025": 28
+    },
+    "precip_ge_1p0": {
+      "2021": 18,
+      "2022": 16,
+      "2023": 18,
+      "2024": 8,
+      "2025": 8
+    },
+    "precip_ge_2p5": {
+      "2021": 8,
+      "2022": 4,
+      "2023": 6,
+      "2024": 2,
+      "2025": 4
+    },
+    "precip_ge_5p0": {
+      "2021": 0,
+      "2022": 0,
+      "2023": 2,
+      "2024": 2,
+      "2025": 0
+    },
+    "wind_calm": {
+      "2021": 80,
+      "2022": 66,
+      "2023": 86,
+      "2024": 106,
+      "2025": 126
+    },
+    "wind_light": {
+      "2021": 150,
+      "2022": 148,
+      "2023": 156,
+      "2024": 144,
+      "2025": 152
+    },
+    "wind_moderate": {
+      "2021": 90,
+      "2022": 90,
+      "2023": 88,
+      "2024": 74,
+      "2025": 44
+    },
+    "wind_strong": {
+      "2021": 28,
+      "2022": 22,
+      "2023": 18,
+      "2024": 18,
+      "2025": 18
+    },
+    "wind_extreme": {
+      "2021": 10,
+      "2022": 18,
+      "2023": 2,
+      "2024": 4,
+      "2025": 10
+    },
+    "wind_ge_20": {
+      "2021": 76,
+      "2022": 78,
+      "2023": 46,
+      "2024": 52,
+      "2025": 42
+    },
+    "wind_ge_24": {
+      "2021": 38,
+      "2022": 40,
+      "2023": 20,
+      "2024": 22,
+      "2025": 28
+    },
+    "wind_ge_30": {
+      "2021": 10,
+      "2022": 18,
+      "2023": 2,
+      "2024": 4,
+      "2025": 10
+    },
+    "stratum": {
+      "2021": 238,
+      "2022": 208,
+      "2023": 266,
+      "2024": 240,
+      "2025": 248
+    },
+    "stratum_precip_ge_1p0": {
+      "2021": 12,
+      "2022": 6,
+      "2023": 10,
+      "2024": 6,
+      "2025": 2
+    },
+    "stratum_precip_ge_2p5": {
+      "2021": 6,
+      "2022": 0,
+      "2023": 2,
+      "2024": 2,
+      "2025": 0
+    }
+  },
+  "conditions_unit": "team_game",
+  "band_edges": {
+    "precip": {
+      "precip_dry": "exactly 0.0 mm",
+      "precip_trace": "0.0 < mm < 0.25",
+      "precip_light": "0.25 <= mm < 1.0",
+      "precip_moderate": "1.0 <= mm < 2.5",
+      "precip_heavy": "mm >= 2.5"
+    },
+    "wind": {
+      "wind_calm": "kph < 8",
+      "wind_light": "8 <= kph < 16",
+      "wind_moderate": "16 <= kph < 24",
+      "wind_strong": "24 <= kph < 30",
+      "wind_extreme": "kph >= 30"
+    }
+  },
+  "weather_history_sha256": "698eb39e9ddc0c2567de23af0f5a65f0e1255dba95a7f4454b8a03d78f4a4577",
+  "power": {
+    "rain_catch_rate_rb": {
+      "analysis_sample": "marginal",
+      "n_treated": 263,
+      "n_control": 1476,
+      "baseline_rate": 0.774945,
+      "measured_icc": -0.011319,
+      "deff": 1.0,
+      "se": 0.027952,
+      "mde": 0.078309,
+      "effect_of_interest": 0.052,
+      "powered": false
+    },
+    "rain_catch_rate_te": {
+      "analysis_sample": "marginal",
+      "n_treated": 290,
+      "n_control": 1971,
+      "baseline_rate": 0.701912,
+      "measured_icc": 0.019604,
+      "deff": 1.113432,
+      "se": 0.030158,
+      "mde": 0.08449,
+      "effect_of_interest": 0.052,
+      "powered": false
+    },
+    "rain_catch_rate_wr": {
+      "analysis_sample": "marginal",
+      "n_treated": 843,
+      "n_control": 5673,
+      "baseline_rate": 0.624819,
+      "measured_icc": 0.013531,
+      "deff": 1.22502,
+      "se": 0.019544,
+      "mde": 0.054755,
+      "effect_of_interest": 0.052,
+      "powered": false
+    },
+    "rain_completion_rate": {
+      "analysis_sample": "stratified",
+      "n_treated": 786,
+      "n_control": 3235,
+      "baseline_rate": 0.650659,
+      "measured_icc": 0.007055,
+      "deff": 1.244986,
+      "se": 0.020744,
+      "mde": 0.058115,
+      "effect_of_interest": 0.052,
+      "powered": false
+    },
+    "rain_heavy_completion_rate": {
+      "analysis_sample": "stratified",
+      "n_treated": 105,
+      "n_control": 303,
+      "baseline_rate": 0.671569,
+      "measured_icc": 0.013363,
+      "deff": 1.440968,
+      "se": 0.061277,
+      "mde": 0.171673,
+      "effect_of_interest": 0.052,
+      "powered": false
+    },
+    "rain_qb_points": {
+      "analysis_sample": "stratified",
+      "n_treated": 24,
+      "n_control": 150,
+      "baseline_rate": null,
+      "measured_icc": 0.473843,
+      "deff": 1.083009,
+      "se": 1.739066,
+      "mde": 4.872166,
+      "effect_of_interest": 1.32,
+      "powered": false
+    },
+    "rb_wind_reprice": {
+      "analysis_sample": "marginal",
+      "n_treated": 110,
+      "n_control": 707,
+      "baseline_rate": null,
+      "measured_icc": 0.072176,
+      "deff": 1.030702,
+      "se": 1.055398,
+      "mde": 2.956804,
+      "effect_of_interest": 1.0,
+      "powered": false
+    },
+    "wind_dropback_volume": {
+      "analysis_sample": "stratified",
+      "n_treated": 146,
+      "n_control": 936,
+      "baseline_rate": null,
+      "measured_icc": -0.160754,
+      "deff": 1.0,
+      "se": 0.366749,
+      "mde": 1.027484,
+      "effect_of_interest": 1.0,
+      "powered": false
+    },
+    "wind_epa_per_dropback": {
+      "analysis_sample": "stratified",
+      "n_treated": 146,
+      "n_control": 936,
+      "baseline_rate": null,
+      "measured_icc": -0.073243,
+      "deff": 1.0,
+      "se": 0.014243,
+      "mde": 0.039903,
+      "effect_of_interest": 0.033,
+      "powered": false
+    },
+    "wind_qb_points": {
+      "analysis_sample": "stratified",
+      "n_treated": 146,
+      "n_control": 936,
+      "baseline_rate": null,
+      "measured_icc": 0.124506,
+      "deff": 1.123895,
+      "se": 0.35241,
+      "mde": 0.987311,
+      "effect_of_interest": 1.32,
+      "powered": true
+    }
+  },
+  "terms": [
+    {
+      "name": "rain_completion_rate",
+      "arm": "MECHANISM",
+      "position": "QB",
+      "unit": "player_week",
+      "outcome": "completion_rate",
+      "form": "rate ~ 1[precip >= 1 mm], within passer-season, attempt-weighted",
+      "hypothesis": "A wet ball costs completion percentage. The owner's 8% on a ~64.5% base is 5.2 percentage points.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.052,
+      "analysis_sample": "stratified",
+      "stratum_rule": "wind < 20 kph and temp > 5 C",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.096437,
+      "n_wet": 786,
+      "n_dry": 3235,
+      "n_treated_rows": 23,
+      "n_control_rows": 109,
+      "marginal_estimate": -0.03441,
+      "stratified_estimate": -0.047264,
+      "heldout_estimate": -0.03503,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 95,
+          "value": 0.663124
+        },
+        {
+          "band": "precip_trace",
+          "n": 9,
+          "value": 0.602996
+        },
+        {
+          "band": "precip_light",
+          "n": 5,
+          "value": 0.703448
+        },
+        {
+          "band": "precip_moderate",
+          "n": 20,
+          "value": 0.634361
+        },
+        {
+          "band": "precip_heavy",
+          "n": 3,
+          "value": 0.580952
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.144577,
+        0.074517
+      ],
+      "se_fold": 0.034422,
+      "se_stadium": 0.026723,
+      "binding_threshold": 0.201057,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": -0.014728,
+        "2023": -0.089627,
+        "2024": 0.033944,
+        "2025": -0.002238
+      },
+      "rows_moved": 132,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "too_few_fired",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "rain_catch_rate_wr",
+      "arm": "MECHANISM",
+      "position": "WR",
+      "unit": "player_week",
+      "outcome": "catch_rate",
+      "form": "rate ~ 1[precip >= 1 mm], within receiver-season, target-weighted",
+      "hypothesis": "\"It's harder to catch\" - the owner's words. Same 8%, restated on the catch-rate base.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.052,
+      "analysis_sample": "marginal",
+      "stratum_rule": "marginal: no stratum",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.061313,
+      "n_wet": 843,
+      "n_dry": 5673,
+      "n_treated_rows": 146,
+      "n_control_rows": 1064,
+      "marginal_estimate": -0.029174,
+      "stratified_estimate": -0.039915,
+      "heldout_estimate": -0.025394,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 878,
+          "value": 0.639246
+        },
+        {
+          "band": "precip_trace",
+          "n": 96,
+          "value": 0.616637
+        },
+        {
+          "band": "precip_light",
+          "n": 90,
+          "value": 0.623894
+        },
+        {
+          "band": "precip_moderate",
+          "n": 102,
+          "value": 0.594551
+        },
+        {
+          "band": "precip_heavy",
+          "n": 44,
+          "value": 0.616438
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.095041,
+        0.044253
+      ],
+      "se_fold": 0.021885,
+      "se_stadium": 0.018966,
+      "binding_threshold": 0.127827,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": -0.011717,
+        "2023": -0.065707,
+        "2024": 0.034767,
+        "2025": -0.033284
+      },
+      "rows_moved": 1210,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "rain_catch_rate_te",
+      "arm": "MECHANISM",
+      "position": "TE",
+      "unit": "player_week",
+      "outcome": "catch_rate",
+      "form": "rate ~ 1[precip >= 1 mm], within receiver-season, target-weighted",
+      "hypothesis": "The same catch-rate claim on tight ends, pre-registered as the thinner arm.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.052,
+      "analysis_sample": "marginal",
+      "stratum_rule": "marginal: no stratum",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.06985,
+      "n_wet": 290,
+      "n_dry": 1971,
+      "n_treated_rows": 72,
+      "n_control_rows": 471,
+      "marginal_estimate": -0.044959,
+      "stratified_estimate": -0.059384,
+      "heldout_estimate": -0.02806,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 390,
+          "value": 0.71367
+        },
+        {
+          "band": "precip_trace",
+          "n": 45,
+          "value": 0.617143
+        },
+        {
+          "band": "precip_light",
+          "n": 36,
+          "value": 0.715116
+        },
+        {
+          "band": "precip_moderate",
+          "n": 45,
+          "value": 0.655
+        },
+        {
+          "band": "precip_heavy",
+          "n": 27,
+          "value": 0.7
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.083031,
+        0.02691
+      ],
+      "se_fold": 0.017273,
+      "se_stadium": 0.024932,
+      "binding_threshold": 0.100891,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": -0.059377,
+        "2023": -0.016756,
+        "2024": -0.058304,
+        "2025": 0.022318
+      },
+      "rows_moved": 543,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "rain_catch_rate_rb",
+      "arm": "MECHANISM",
+      "position": "RB",
+      "unit": "player_week",
+      "outcome": "catch_rate",
+      "form": "rate ~ 1[precip >= 1 mm], within receiver-season, target-weighted",
+      "hypothesis": "THE CONTROL POSITION. A wet ball should hurt a contested 20-yard target more than a checkdown at the line. A large RB effect alongside a small WR effect is evidence of a confound, not of the mechanism.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.052,
+      "analysis_sample": "marginal",
+      "stratum_rule": "marginal: no stratum",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.068922,
+      "n_wet": 263,
+      "n_dry": 1476,
+      "n_treated_rows": 70,
+      "n_control_rows": 463,
+      "marginal_estimate": -0.014404,
+      "stratified_estimate": -0.014098,
+      "heldout_estimate": -0.00938,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 382,
+          "value": 0.787654
+        },
+        {
+          "band": "precip_trace",
+          "n": 45,
+          "value": 0.746377
+        },
+        {
+          "band": "precip_light",
+          "n": 36,
+          "value": 0.837398
+        },
+        {
+          "band": "precip_moderate",
+          "n": 46,
+          "value": 0.790698
+        },
+        {
+          "band": "precip_heavy",
+          "n": 24,
+          "value": 0.725275
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.087672,
+        0.068912
+      ],
+      "se_fold": 0.024601,
+      "se_stadium": 0.021022,
+      "binding_threshold": 0.143693,
+      "binding_df": 3,
+      "folds_sign": 2,
+      "fold_estimates": {
+        "2022": 0.045479,
+        "2023": -0.029287,
+        "2024": 0.022921,
+        "2025": -0.085041
+      },
+      "rows_moved": 533,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone",
+        "fold_sign_disagrees"
+      ]
+    },
+    {
+      "name": "rain_heavy_completion_rate",
+      "arm": "MECHANISM",
+      "position": "QB",
+      "unit": "player_week",
+      "outcome": "completion_rate",
+      "form": "rate ~ 1[precip >= 2.5 mm], within passer-season, attempt-weighted",
+      "hypothesis": "The owner said HEAVY rain. Pre-registered NO_GO: 12 games marginal and 5 inside the stratum. Measured anyway so the bound is on the page rather than in a sentence.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.052,
+      "analysis_sample": "stratified",
+      "stratum_rule": "wind < 20 kph and temp > 5 C",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.169233,
+      "n_wet": 105,
+      "n_dry": 303,
+      "n_treated_rows": 3,
+      "n_control_rows": 10,
+      "marginal_estimate": -0.033214,
+      "stratified_estimate": -0.078532,
+      "heldout_estimate": -0.142402,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 8,
+          "value": 0.699187
+        },
+        {
+          "band": "precip_trace",
+          "n": 1,
+          "value": 0.666667
+        },
+        {
+          "band": "precip_light",
+          "n": 1,
+          "value": 0.75
+        },
+        {
+          "band": "precip_moderate",
+          "n": 0,
+          "value": null
+        },
+        {
+          "band": "precip_heavy",
+          "n": 3,
+          "value": 0.580952
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.90993,
+        0.625126
+      ],
+      "se_fold": 0.060406,
+      "se_stadium": 0.053657,
+      "binding_threshold": 3.845234,
+      "binding_df": 1,
+      "folds_sign": 2,
+      "fold_estimates": {
+        "2022": null,
+        "2023": -0.21595,
+        "2024": -0.091154,
+        "2025": null
+      },
+      "rows_moved": 13,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "too_few_fired",
+        "below_threshold",
+        "non_monotone",
+        "fold_sign_disagrees"
+      ]
+    },
+    {
+      "name": "wind_epa_per_dropback",
+      "arm": "MECHANISM",
+      "position": "TEAM",
+      "unit": "team_game",
+      "outcome": "epa_per_dropback",
+      "form": "EPA/dropback ~ wind (per 10 kph), within team-season, dropback-weighted",
+      "hypothesis": "The term the model genuinely lacks: weather_factor applies roof and cold and no wind at all.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 0.033,
+      "analysis_sample": "stratified",
+      "stratum_rule": "temp > 5 C and precip < 1 mm (NOT stratified on wind: a slope stratified on its own predictor has no predictor left)",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.040479,
+      "n_wet": 146,
+      "n_dry": 936,
+      "n_treated_rows": 146,
+      "n_control_rows": 936,
+      "marginal_estimate": -0.03892,
+      "stratified_estimate": -0.022066,
+      "heldout_estimate": -0.017985,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "wind_calm",
+          "n": 329,
+          "value": 0.013607
+        },
+        {
+          "band": "wind_light",
+          "n": 474,
+          "value": 0.026485
+        },
+        {
+          "band": "wind_moderate",
+          "n": 205,
+          "value": -0.030325
+        },
+        {
+          "band": "wind_strong",
+          "n": 52,
+          "value": -0.028387
+        },
+        {
+          "band": "wind_extreme",
+          "n": 22,
+          "value": -0.064338
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -0.063966,
+        0.027997
+      ],
+      "se_fold": 0.014448,
+      "se_stadium": 0.009514,
+      "binding_threshold": 0.084392,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": 0.009211,
+        "2023": -0.053742,
+        "2024": -0.001509,
+        "2025": -0.028799
+      },
+      "rows_moved": 1082,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "wind_dropback_volume",
+      "arm": "MECHANISM",
+      "position": "TEAM",
+      "unit": "team_game",
+      "outcome": "dropbacks_per_team_game",
+      "form": "dropbacks ~ wind (per 10 kph), within team-season, unweighted",
+      "hypothesis": "MANDATORY COMPANION. If wind cuts passing yards partly by cutting the number of passes, then a yardage finding is partly a coaching decision and must not be sold as physics.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 1.0,
+      "analysis_sample": "stratified",
+      "stratum_rule": "temp > 5 C and precip < 1 mm (NOT stratified on wind: a slope stratified on its own predictor has no predictor left)",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 0.982503,
+      "n_wet": 146,
+      "n_dry": 936,
+      "n_treated_rows": 146,
+      "n_control_rows": 936,
+      "marginal_estimate": -0.989173,
+      "stratified_estimate": -0.528285,
+      "heldout_estimate": -0.665195,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "wind_calm",
+          "n": 329,
+          "value": 35.787234
+        },
+        {
+          "band": "wind_light",
+          "n": 474,
+          "value": 35.164557
+        },
+        {
+          "band": "wind_moderate",
+          "n": 205,
+          "value": 35.492683
+        },
+        {
+          "band": "wind_strong",
+          "n": 52,
+          "value": 33.192308
+        },
+        {
+          "band": "wind_extreme",
+          "n": 22,
+          "value": 34.363636
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -1.650992,
+        0.320602
+      ],
+      "se_fold": 0.309761,
+      "se_stadium": 0.350693,
+      "binding_threshold": 1.809285,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": -1.194063,
+        "2023": -0.42359,
+        "2024": 0.085813,
+        "2025": -1.128978
+      },
+      "rows_moved": 1081,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "wind_qb_points",
+      "arm": "MECHANISM",
+      "position": "QB",
+      "unit": "team_game",
+      "outcome": "qb_fantasy_points",
+      "form": "QB group points ~ wind (per 10 kph), within team-season, unweighted",
+      "hypothesis": "The points-level version of the wind term, which is what a projection would actually carry.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 1.32,
+      "analysis_sample": "stratified",
+      "stratum_rule": "temp > 5 C and precip < 1 mm (NOT stratified on wind: a slope stratified on its own predictor has no predictor left)",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 1.338678,
+      "n_wet": 146,
+      "n_dry": 936,
+      "n_treated_rows": 146,
+      "n_control_rows": 936,
+      "marginal_estimate": -0.839362,
+      "stratified_estimate": -0.508748,
+      "heldout_estimate": -0.500369,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "wind_calm",
+          "n": 329,
+          "value": 16.985593
+        },
+        {
+          "band": "wind_light",
+          "n": 474,
+          "value": 16.602194
+        },
+        {
+          "band": "wind_moderate",
+          "n": 205,
+          "value": 15.355415
+        },
+        {
+          "band": "wind_strong",
+          "n": 52,
+          "value": 15.357692
+        },
+        {
+          "band": "wind_extreme",
+          "n": 22,
+          "value": 16.751818
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -2.021026,
+        1.020287
+      ],
+      "se_fold": 0.477826,
+      "se_stadium": 0.274095,
+      "binding_threshold": 2.79094,
+      "binding_df": 3,
+      "folds_sign": 3,
+      "fold_estimates": {
+        "2022": 0.617154,
+        "2023": -1.362985,
+        "2024": -0.157029,
+        "2025": -1.247736
+      },
+      "rows_moved": 1081,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone"
+      ]
+    },
+    {
+      "name": "rain_qb_points",
+      "arm": "MECHANISM",
+      "position": "QB",
+      "unit": "team_game",
+      "outcome": "qb_fantasy_points",
+      "form": "QB group points ~ 1[precip >= 1 mm], within team-season, unweighted",
+      "hypothesis": "PRE-REGISTERED NO_GO, and the reason this whole build moved to the play level: 68 wet team-games against a 7.7 point sd can only see an effect twice the size of the one claimed.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 1.32,
+      "analysis_sample": "stratified",
+      "stratum_rule": "wind < 20 kph and temp > 5 C",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 5.657535,
+      "n_wet": 24,
+      "n_dry": 150,
+      "n_treated_rows": 24,
+      "n_control_rows": 150,
+      "marginal_estimate": -0.723505,
+      "stratified_estimate": 1.456224,
+      "heldout_estimate": 1.92425,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "precip_dry",
+          "n": 127,
+          "value": 16.613701
+        },
+        {
+          "band": "precip_trace",
+          "n": 12,
+          "value": 15.63
+        },
+        {
+          "band": "precip_light",
+          "n": 11,
+          "value": 17.049091
+        },
+        {
+          "band": "precip_moderate",
+          "n": 20,
+          "value": 18.463
+        },
+        {
+          "band": "precip_heavy",
+          "n": 4,
+          "value": 15.49
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -4.195174,
+        8.043675
+      ],
+      "se_fold": 1.922868,
+      "se_stadium": 2.019394,
+      "binding_threshold": 11.231298,
+      "binding_df": 3,
+      "folds_sign": 1,
+      "fold_estimates": {
+        "2022": -1.790555,
+        "2023": 5.075124,
+        "2024": 0.607614,
+        "2025": 0.801017
+      },
+      "rows_moved": 174,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "too_few_fired",
+        "wrong_sign",
+        "below_threshold",
+        "non_monotone",
+        "fold_sign_disagrees"
+      ]
+    },
+    {
+      "name": "rb_wind_reprice",
+      "arm": "MECHANISM",
+      "position": "RB",
+      "unit": "team_game",
+      "outcome": "rb_fantasy_points",
+      "form": "RB group points ~ 1[wind >= 24 kph], within team-season, unweighted",
+      "hypothesis": "A LIVE NUMBER, re-measured. build_weekly ships rb_wind 0.95 above 24 kph and descriptively RBs score MORE in wind than in calm. This run measures the sign; it does not change the constant.",
+      "pre_registered_sign": -1,
+      "effect_of_interest": 1.0,
+      "analysis_sample": "marginal",
+      "stratum_rule": "marginal: no stratum",
+      "available": true,
+      "unavailable_reason": "",
+      "powered": false,
+      "mde_realized": 3.705403,
+      "n_wet": 110,
+      "n_dry": 707,
+      "n_treated_rows": 110,
+      "n_control_rows": 707,
+      "marginal_estimate": -0.308054,
+      "stratified_estimate": -0.848924,
+      "heldout_estimate": -0.581098,
+      "confounded": false,
+      "dose_response": [
+        {
+          "band": "wind_calm",
+          "n": 213,
+          "value": 23.292676
+        },
+        {
+          "band": "wind_light",
+          "n": 335,
+          "value": 22.771463
+        },
+        {
+          "band": "wind_moderate",
+          "n": 159,
+          "value": 21.865409
+        },
+        {
+          "band": "wind_strong",
+          "n": 76,
+          "value": 21.269737
+        },
+        {
+          "band": "wind_extreme",
+          "n": 34,
+          "value": 22.938235
+        }
+      ],
+      "monotone": false,
+      "ci95": [
+        -4.79021,
+        3.628013
+      ],
+      "se_fold": 1.322603,
+      "se_stadium": 1.139894,
+      "binding_threshold": 7.725202,
+      "binding_df": 3,
+      "folds_sign": 2,
+      "fold_estimates": {
+        "2022": -0.335577,
+        "2023": -5.457319,
+        "2024": 0.11001,
+        "2025": 2.046054
+      },
+      "rows_moved": 817,
+      "would_adopt": false,
+      "refused_reasons": [
+        "underpowered",
+        "below_threshold",
+        "non_monotone",
+        "fold_sign_disagrees"
+      ]
+    }
+  ],
+  "arms": {
+    "control": {
+      "available": true,
+      "reason": "",
+      "seasons_scored": [
+        "2023",
+        "2024",
+        "2025"
+      ],
+      "rows": 8279,
+      "series": {
+        "shipped_v2": {
+          "pooled_mae": 6.003032,
+          "rank_corr": 0.381358
+        },
+        "v2_no_weather": {
+          "pooled_mae": 6.008667,
+          "rank_corr": 0.380102
+        },
+        "flat": {
+          "pooled_mae": 5.999077,
+          "rank_corr": 0.37706
+        }
+      },
+      "weather_earns_its_place": true,
+      "note": "v2_no_weather is the deployed split handed no roof and no forecast, so build_weekly.weather_factor returns 1.0 everywhere. scripts/build_weekly.py is byte-unchanged and nothing is monkey-patched. Because the split renormalises to the player's season total, this arm measures ALLOCATION between a player's weeks, never his level."
+    },
+    "reach": {
+      "available": true,
+      "reason": "",
+      "slate": "2026 week 2",
+      "rungs": 1385,
+      "rungs_moved_beyond_ece": 84,
+      "rungs_crossing_support": 0,
+      "mean_abs_delta_p": 0.001417,
+      "p90_abs_delta_p": 0.0,
+      "max_abs_delta_p": 0.052086,
+      "games_triggering": 1,
+      "ece": 0.0066,
+      "effect_ratio": 0.946163,
+      "note": "Computed on ONE live slate, named above. Rung counts differ week to week and are never a season-long frequency. A rung that crosses a support bound is not re-priced - it stops being OFFERED - and backtest_parlay never calls build_weekly, so no gate in this repo watches that happen."
+    }
+  },
+  "placebo": {
+    "rule": "the identical estimator on roofed team-games handed the weather of a matched outdoor game in the same season-week",
+    "note": "A DIAGNOSTIC WITH AN INTERVAL, never a pass/fail threshold. A placebo-over-treated ratio is two noisy point estimates divided and reads as a coin flip in both directions; a small placebo coefficient is weak reassurance and nothing more.",
+    "terms": [
+      {
+        "term": "rain_completion_rate",
+        "n_rows": 56,
+        "n_treated": 13,
+        "estimate": -0.050199,
+        "se": 0.014257,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.081966,
+          -0.018432
+        ]
+      },
+      {
+        "term": "rain_catch_rate_wr",
+        "n_rows": 753,
+        "n_treated": 131,
+        "estimate": -0.012163,
+        "se": 0.016777,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.049545,
+          0.025219
+        ]
+      },
+      {
+        "term": "rain_catch_rate_te",
+        "n_rows": 310,
+        "n_treated": 60,
+        "estimate": -0.002713,
+        "se": 0.03066,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.071029,
+          0.065602
+        ]
+      },
+      {
+        "term": "rain_catch_rate_rb",
+        "n_rows": 297,
+        "n_treated": 54,
+        "estimate": 0.035833,
+        "se": 0.023029,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.015479,
+          0.087145
+        ]
+      },
+      {
+        "term": "rain_heavy_completion_rate",
+        "n_rows": 8,
+        "n_treated": 1,
+        "estimate": -0.041718,
+        "se": 0.01297,
+        "df": 1,
+        "clusters": 2,
+        "ci95": [
+          -0.206517,
+          0.123081
+        ]
+      },
+      {
+        "term": "wind_epa_per_dropback",
+        "n_rows": 601,
+        "n_treated": 102,
+        "estimate": 0.023336,
+        "se": 0.014949,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.009972,
+          0.056643
+        ]
+      },
+      {
+        "term": "wind_dropback_volume",
+        "n_rows": 601,
+        "n_treated": 102,
+        "estimate": -0.516675,
+        "se": 0.705615,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -2.088884,
+          1.055534
+        ]
+      },
+      {
+        "term": "wind_qb_points",
+        "n_rows": 601,
+        "n_treated": 102,
+        "estimate": 0.263667,
+        "se": 0.372768,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -0.566913,
+          1.094246
+        ]
+      },
+      {
+        "term": "rain_qb_points",
+        "n_rows": 70,
+        "n_treated": 15,
+        "estimate": 0.097369,
+        "se": 2.253684,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -4.924151,
+          5.118889
+        ]
+      },
+      {
+        "term": "rb_wind_reprice",
+        "n_rows": 472,
+        "n_treated": 98,
+        "estimate": 0.448806,
+        "se": 0.729685,
+        "df": 10,
+        "clusters": 11,
+        "ci95": [
+          -1.177032,
+          2.074645
+        ]
+      }
+    ]
+  },
+  "verdict": {
+    "name": "not_powered",
+    "adopted": false,
+    "families_registered": [],
+    "oracle_only": true,
+    "adoptable_candidates": []
+  },
+  "adoption_rule": {
+    "clauses": [
+      "1 powered: the model-based MDE, read from the power table computed on the term's OWN analysis sample - the SCORED rows it is fitted on - before any coefficient was fitted, AND the realized MDE mde_z * max(se_fold, se_stadium) from the estimator's own clustered error, both no larger than the effect of interest (refusal: underpowered)",
+      "2 n_fired >= 30 treated observations AND treated rows (refusal: too_few_fired)",
+      "3 the fitted sign equals the pre-registered sign (refusal: wrong_sign)",
+      "4 the dose-response is monotone in the claimed direction across the five bands, counting only bands of at least min_band_n rows - a one-row cell votes like a thousand-row cell otherwise (refusal: non_monotone)",
+      "5 confounded is false: the marginal and stratified estimates differ by no more than the CI half-width (refusal: confounded)",
+      "6 rows_moved > 0 - the R92 no-op clause, because a candidate that fits nothing IS the shipped number (refusal: no_rows_moved)",
+      "7 the sign agrees in at least 3 of the 4 held-out folds (refusal: fold_sign_disagrees)",
+      "8 the held-out estimate exceeds the binding threshold, which is max(threshold_fold, threshold_stadium) and never max(se) (refusal: below_threshold)"
+    ],
+    "tests": 10,
+    "alpha": 0.05,
+    "min_fired": 30,
+    "fold_sign_min": 3,
+    "min_band_n": 10,
+    "mde_z": 2.8016,
+    "power_rule": "powered = the model-based MDE AND the realized MDE are both no larger than the effect of interest. mde_realized = mde_z * max(se_fold, se_stadium): the estimator's own binding clustered error, which on this corpus runs 1.3x to 2.1x LARGER than the pooled-binomial model of it, always in the flattering direction.",
+    "effect_floor": {
+      "completion_rate": 0.005,
+      "catch_rate": 0.005,
+      "qb_fantasy_points": 0.25,
+      "rb_fantasy_points": 0.25,
+      "epa_per_dropback": 0.01,
+      "dropbacks_per_team_game": 0.5
+    },
+    "binding_rule": "max(threshold_fold, threshold_stadium), NEVER max(se): at 3 df against 20 the larger SE can carry the lower bar",
+    "primary_term": "rain_completion_rate"
+  },
+  "policy": [
+    "MEASUREMENT ONLY. This run adopts nothing, registers no signal family and writes no model parameter: data/model_tuning.json game_params is untouched, verdict.adopted is pinned false by the contract and families_registered is pinned empty.",
+    "The power stage runs BEFORE any coefficient is fitted and every term is powered on the analysis sample it is estimated on. A stratified primary is powered on its stratified n; powering on the marginal n and estimating on the stratum is the defect this ordering exists to prevent.",
+    "The analysis sample the power stage reads is the SCORED rows and only those. The neutral first fold fits no coefficient, so its trials may not count toward an n that claims to describe the estimation sample; substrate.power_seasons names the seasons counted and power.n_treated equals terms.n_wet on exactly those rows.",
+    "Powered requires BOTH minimum detectable effects. The model-based MDE is a pooled two-arm binomial with the measured design effect; the realized MDE is mde_z times the estimator's own binding clustered error. On this corpus the model SE runs well below the realized one, so publishing powered on the model number alone asserts a detection capability the estimator does not have.",
+    "The dose-response ladder is tabulated on the SCORED rows, like every other published quantity, and a band under adoption_rule.min_band_n rows is then dropped from the ladder's SHAPE the way an empty band already was, while still being published with its n. Clause 4 is conjunctive in both directions, so a one-row cell would otherwise be able to certify or refuse a dose-response by itself, and a band the estimator never saw would be able to decide a clause about the estimate.",
+    "A wind term is never stratified on wind. Stratifying a slope on its own predictor removes the predictor spread the slope is estimated from, and the term would then read unpowered for an arithmetical reason rather than a physical one.",
+    "The binding threshold is the LARGER THRESHOLD of the fold-clustered and stadium-clustered tests, not the larger standard error. At 3 degrees of freedom against 20 the larger SE can carry the lower bar, so choosing on SE is choosing the clustering that adopts.",
+    "Every estimate is within-player-season or within-team-season. The group mean absorbs player quality, scheme and home stadium, which is the only defence here that reaches the geographic concentration of bad weather.",
+    "The relocation filter lives in the reader: data/weather_history.json is never rewritten, refiltered or refetched, and its sha256 is reported in this document so the claim can be checked rather than believed.",
+    "Any winner carries oracle_only true. The effect arm is fitted on reanalysis weather - perfect foresight - so a NULL under a perfect forecast is conclusive and a WIN under one is not adoptable evidence.",
+    "No market number is read anywhere in this document. The games_meta join runs through weather_corpus's seven-column allow-list and no other feed here carries a price."
+  ],
+  "limits": [
+    "precip_mm is ONE Open-Meteo hourly value at the kickoff hour and, by that API's convention, the sum over the PRECEDING hour - so it is roughly the rain before kickoff, not the rain during the game. A steady three-hour downpour and a wet hour that then cleared are indistinguishable here, and both attenuate a true effect toward zero.",
+    "Snow is invisible. The builder never requests snowfall, so snow enters precip_mm only as liquid-water equivalent at roughly a tenth of its depth: the coldest and windiest game in the corpus, 2022|16|CLE|NO at -14.5 C and 43.5 kph, records precip_mm 0.0. Any wet-game classifier built on this field silently excludes the games a fan would call the worst weather of the decade.",
+    "The venue filter is the neutral flag, which marks a game played away from the nominal home stadium. It does not mark a game played at the right stadium under a roof that behaved unusually, and it cannot: the archive carries no roof STATE, only the venue's roof TYPE.",
+    "Retractable roofs that were open at kickoff are reported in their own bucket and never pooled with outdoors, because the decision to open a roof is itself a weather decision and pooling would import that selection.",
+    "The corpus is five seasons of open-roof home games. Nothing measured on it generalises to a venue it does not contain, and eight stadiums supply about three quarters of the windy games.",
+    "The rate substrate needs an nflverse release pull the repo does not perform on every run. When it is absent, or when it is the committed synthetic placeholder, every rate term reports substrate_unavailable rather than measuring on hand-made numbers - which is why an artifact from a fresh clone carries no completion-rate finding.",
+    "Four scored folds give the fold-clustered test three degrees of freedom, and at alpha 0.05 / 10 hypotheses one-sided that is a t multiplier of about 5.8 against about 2.9 on the stadium clustering's ~20 df. The binding threshold is therefore roughly six standard errors wide on most terms, which on the primary is about 20 percentage points of completion rate. NOTHING on this corpus clears that, so a 'none' verdict here means 'not proven with four folds', never 'no effect'. Extending the corpus backwards buys folds as well as games, and that is the single change that would most alter this document.",
+    "The placebo arm assigns a roofed game the weather of a matched outdoor game in the same season-week. That is the cleanest construction available and it is still a judgement call, not a randomised assignment: read a small placebo coefficient as weak reassurance and never as a clean bill of health.",
+    "A dropback here is attempts + sacks. Scrambles are not separable in this substrate - they sit in the rushing counters - so a scramble in the rain leaves the passing denominator entirely.",
+    "The REACH arm is computed on ONE live slate and names it. Rung counts differ week to week and must never be read as a season-long frequency.",
+    "The CONTROL arm removes the weather inputs from the deployed split and lets the split renormalise. Because it renormalises to the player's season total, a weather factor can never lower that total - it only moves points between a player's own weeks - so the CONTROL arm measures allocation, not level."
+  ]
+}

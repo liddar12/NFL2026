@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-21T01:57:53Z",
+  "generated_utc": "2026-09-21T02:01:25Z",
   "workflows": {
     "daily": {
       "run_id": "35552384946",
@@ -447,6 +447,315 @@
           "duration_s": 1.0,
           "continue_on_error": false,
           "last_success_utc": "2026-09-20T23:26:38Z",
+          "note": null
+        }
+      ]
+    },
+    "backtest": {
+      "run_id": "35552672708",
+      "run_started_utc": "2026-09-21T01:59:54Z",
+      "run_finished_utc": "2026-09-21T02:01:25Z",
+      "last_success": {
+        "Backup-QB cascade backtest (measure only)": "2026-09-21T02:01:18Z",
+        "Build DvP positional history (defense-vs-position)": "2026-09-21T02:00:29Z",
+        "Build EPA history (nflverse play-by-play)": "2026-09-21T01:59:57Z",
+        "Build K/DST projections (separate contract from player_projections)": "2026-09-21T02:00:05Z",
+        "Build game context (divisional / coach / referee fields)": "2026-09-21T02:00:13Z",
+        "Build injury history (nflverse injuries)": "2026-09-21T01:59:58Z",
+        "Build market baseline (measurement only - never an input)": "2026-09-21T01:59:58Z",
+        "Build player usage (opportunity metrics)": "2026-09-21T02:00:01Z",
+        "Build player usage history (skill_out gate raw material)": "2026-09-21T02:00:01Z",
+        "Build resolved D/ST week corpus (R55 gate raw material)": "2026-09-21T02:00:03Z",
+        "Build scheme history (FTN charting; re-probes the live season)": "2026-09-21T02:00:44Z",
+        "Build weather history (Open-Meteo archive)": "2026-09-21T01:59:58Z",
+        "Build weekly player usage (in-season cuts, weight 0)": "2026-09-21T02:00:01Z",
+        "Player-level walk-forward backtest": "2026-09-21T02:00:56Z",
+        "Player-signal walk-forward fit (PROPOSE only; adoption is manual)": "2026-09-21T02:01:18Z",
+        "Promotion gate (measure + archive + PROPOSE; adoption is manual)": "2026-09-21T02:00:54Z",
+        "QB depth cascade backtest (measure only)": "2026-09-21T02:01:01Z",
+        "R55 D/ST weekly split never-regress verdict": "2026-09-21T02:00:05Z",
+        "R55 gate \u2014 the split must still beat the flat season average": "2026-09-21T02:00:05Z",
+        "R76 gate \u2014 the pool refit must stay better calibrated and informative": "2026-09-21T02:00:12Z",
+        "R76 leg pool calibration (wide universe refit)": "2026-09-21T02:00:09Z",
+        "Resolve locks against FINAL scores": "2026-09-21T01:59:56Z",
+        "Walk-forward backtest (NEVER-REGRESS gated adoption)": "2026-09-21T02:00:44Z",
+        "Weather effect backtest (measure only)": "2026-09-21T02:01:25Z",
+        "Wet-rates corpus (nflverse player_stats; R94 substrate)": "2026-09-21T02:01:24Z"
+      },
+      "stages": [
+        {
+          "name": "Resolve locks against FINAL scores",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:54Z",
+          "finished_utc": "2026-09-21T01:59:56Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T01:59:56Z",
+          "note": null
+        },
+        {
+          "name": "Build EPA history (nflverse play-by-play)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:56Z",
+          "finished_utc": "2026-09-21T01:59:57Z",
+          "duration_s": 1.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T01:59:57Z",
+          "note": null
+        },
+        {
+          "name": "Build injury history (nflverse injuries)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:57Z",
+          "finished_utc": "2026-09-21T01:59:58Z",
+          "duration_s": 1.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T01:59:58Z",
+          "note": null
+        },
+        {
+          "name": "Build weather history (Open-Meteo archive)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:58Z",
+          "finished_utc": "2026-09-21T01:59:58Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T01:59:58Z",
+          "note": null
+        },
+        {
+          "name": "Build market baseline (measurement only - never an input)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:58Z",
+          "finished_utc": "2026-09-21T01:59:58Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T01:59:58Z",
+          "note": null
+        },
+        {
+          "name": "Build player usage (opportunity metrics)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T01:59:58Z",
+          "finished_utc": "2026-09-21T02:00:01Z",
+          "duration_s": 3.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:01Z",
+          "note": null
+        },
+        {
+          "name": "Build player usage history (skill_out gate raw material)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:01Z",
+          "finished_utc": "2026-09-21T02:00:01Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:01Z",
+          "note": null
+        },
+        {
+          "name": "Build weekly player usage (in-season cuts, weight 0)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:01Z",
+          "finished_utc": "2026-09-21T02:00:01Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:01Z",
+          "note": null
+        },
+        {
+          "name": "Build resolved D/ST week corpus (R55 gate raw material)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:01Z",
+          "finished_utc": "2026-09-21T02:00:03Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:03Z",
+          "note": null
+        },
+        {
+          "name": "Build K/DST projections (separate contract from player_projections)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:03Z",
+          "finished_utc": "2026-09-21T02:00:05Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:05Z",
+          "note": null
+        },
+        {
+          "name": "R55 D/ST weekly split never-regress verdict",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:05Z",
+          "finished_utc": "2026-09-21T02:00:05Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:05Z",
+          "note": null
+        },
+        {
+          "name": "R55 gate \u2014 the split must still beat the flat season average",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:05Z",
+          "finished_utc": "2026-09-21T02:00:05Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:05Z",
+          "note": null
+        },
+        {
+          "name": "R76 leg pool calibration (wide universe refit)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:05Z",
+          "finished_utc": "2026-09-21T02:00:09Z",
+          "duration_s": 4.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:09Z",
+          "note": null
+        },
+        {
+          "name": "R76 gate \u2014 the pool refit must stay better calibrated and informative",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:09Z",
+          "finished_utc": "2026-09-21T02:00:12Z",
+          "duration_s": 3.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:12Z",
+          "note": null
+        },
+        {
+          "name": "Build game context (divisional / coach / referee fields)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:12Z",
+          "finished_utc": "2026-09-21T02:00:13Z",
+          "duration_s": 1.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:13Z",
+          "note": null
+        },
+        {
+          "name": "Build DvP positional history (defense-vs-position)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:13Z",
+          "finished_utc": "2026-09-21T02:00:29Z",
+          "duration_s": 16.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:29Z",
+          "note": null
+        },
+        {
+          "name": "Build scheme history (FTN charting; re-probes the live season)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:29Z",
+          "finished_utc": "2026-09-21T02:00:44Z",
+          "duration_s": 15.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:44Z",
+          "note": null
+        },
+        {
+          "name": "Walk-forward backtest (NEVER-REGRESS gated adoption)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:44Z",
+          "finished_utc": "2026-09-21T02:00:44Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:44Z",
+          "note": null
+        },
+        {
+          "name": "Promotion gate (measure + archive + PROPOSE; adoption is manual)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:44Z",
+          "finished_utc": "2026-09-21T02:00:54Z",
+          "duration_s": 10.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:54Z",
+          "note": null
+        },
+        {
+          "name": "Player-level walk-forward backtest",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:54Z",
+          "finished_utc": "2026-09-21T02:00:56Z",
+          "duration_s": 2.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:00:56Z",
+          "note": null
+        },
+        {
+          "name": "QB depth cascade backtest (measure only)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:00:56Z",
+          "finished_utc": "2026-09-21T02:01:01Z",
+          "duration_s": 5.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-21T02:01:01Z",
+          "note": null
+        },
+        {
+          "name": "Backup-QB cascade backtest (measure only)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:01:01Z",
+          "finished_utc": "2026-09-21T02:01:18Z",
+          "duration_s": 17.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-21T02:01:18Z",
+          "note": null
+        },
+        {
+          "name": "Player-signal walk-forward fit (PROPOSE only; adoption is manual)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:01:18Z",
+          "finished_utc": "2026-09-21T02:01:18Z",
+          "duration_s": 0.0,
+          "continue_on_error": false,
+          "last_success_utc": "2026-09-21T02:01:18Z",
+          "note": null
+        },
+        {
+          "name": "Wet-rates corpus (nflverse player_stats; R94 substrate)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:01:18Z",
+          "finished_utc": "2026-09-21T02:01:24Z",
+          "duration_s": 6.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-21T02:01:24Z",
+          "note": null
+        },
+        {
+          "name": "Weather effect backtest (measure only)",
+          "status": "ok",
+          "exit_code": 0,
+          "started_utc": "2026-09-21T02:01:24Z",
+          "finished_utc": "2026-09-21T02:01:25Z",
+          "duration_s": 1.0,
+          "continue_on_error": true,
+          "last_success_utc": "2026-09-21T02:01:25Z",
           "note": null
         }
       ]
