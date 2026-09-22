@@ -1,92 +1,92 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-22T01:38:58Z",
+  "generated_utc": "2026-09-22T10:05:16Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (31 games); scores from data/review.json FINAL rows (31 games); scores from ESPN live, STATUS-gated FINAL (31 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (32 games); scores from data/review.json FINAL rows (31 games); scores from ESPN live, STATUS-gated FINAL (32 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 2,
   "legs": {
-    "on_file": 214,
-    "locked": 170,
+    "on_file": 283,
+    "locked": 239,
     "unlocked": 44,
-    "resolved": 153,
-    "unresolved": 14
+    "resolved": 159,
+    "unresolved": 11
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 78,
-      "hit_rate": 0.4487,
+      "n": 81,
+      "hit_rate": 0.4691,
       "model": {
-        "log_loss": 0.6645,
-        "brier": 0.2361
+        "log_loss": 0.6659,
+        "brier": 0.2368
       },
       "seed": {
-        "log_loss": 0.6957,
-        "brier": 0.2512
+        "log_loss": 0.6912,
+        "brier": 0.249
       },
       "by_pricing": {
-        "calibrated": 78
+        "calibrated": 81
       }
     },
     "moneyline": {
-      "n": 31,
-      "hit_rate": 0.5484,
-      "log_loss": 0.6876,
-      "brier": 0.2475
+      "n": 32,
+      "hit_rate": 0.5625,
+      "log_loss": 0.6791,
+      "brier": 0.2434
     },
     "spread": {
-      "n": 44,
-      "hit_rate": 0.3636,
+      "n": 46,
+      "hit_rate": 0.3913,
       "log_loss": 0.6931,
       "brier": 0.25
     }
   },
   "by_position": {
     "QB": {
-      "n": 24,
-      "hit_rate": 0.4167,
+      "n": 25,
+      "hit_rate": 0.44,
       "model": {
-        "log_loss": 0.6924,
-        "brier": 0.2497
+        "log_loss": 0.6918,
+        "brier": 0.2494
       },
       "seed": {
-        "log_loss": 0.6858,
-        "brier": 0.2464
+        "log_loss": 0.6813,
+        "brier": 0.2442
       },
       "by_pricing": {
-        "calibrated": 24
+        "calibrated": 25
       }
     },
     "RB": {
-      "n": 28,
-      "hit_rate": 0.4286,
+      "n": 29,
+      "hit_rate": 0.4483,
       "model": {
-        "log_loss": 0.6639,
-        "brier": 0.2356
+        "log_loss": 0.66,
+        "brier": 0.2336
       },
       "seed": {
-        "log_loss": 0.6949,
-        "brier": 0.2509
+        "log_loss": 0.6907,
+        "brier": 0.2488
       },
       "by_pricing": {
-        "calibrated": 28
+        "calibrated": 29
       }
     },
     "WR": {
-      "n": 26,
-      "hit_rate": 0.5,
+      "n": 27,
+      "hit_rate": 0.5185,
       "model": {
-        "log_loss": 0.6395,
-        "brier": 0.224
+        "log_loss": 0.6484,
+        "brier": 0.2284
       },
       "seed": {
-        "log_loss": 0.7056,
-        "brier": 0.2561
+        "log_loss": 0.7007,
+        "brier": 0.2537
       },
       "by_pricing": {
-        "calibrated": 26
+        "calibrated": 27
       }
     }
   },
@@ -124,29 +124,29 @@
     {
       "week": 2,
       "props": {
-        "n": 41,
-        "hit_rate": 0.4878,
+        "n": 44,
+        "hit_rate": 0.5227,
         "model": {
-          "log_loss": 0.6685,
-          "brier": 0.2375
+          "log_loss": 0.6708,
+          "brier": 0.2387
         },
         "seed": {
-          "log_loss": 0.6996,
-          "brier": 0.2532
+          "log_loss": 0.691,
+          "brier": 0.2489
         },
         "by_pricing": {
-          "calibrated": 41
+          "calibrated": 44
         }
       },
       "moneyline": {
-        "n": 15,
-        "hit_rate": 0.5333,
-        "log_loss": 0.6934,
-        "brier": 0.2507
+        "n": 16,
+        "hit_rate": 0.5625,
+        "log_loss": 0.6761,
+        "brier": 0.2423
       },
       "spread": {
-        "n": 28,
-        "hit_rate": 0.3571,
+        "n": 30,
+        "hit_rate": 0.4,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -221,27 +221,6 @@
       "game_id": "401872943",
       "market": "rb_rush_yds",
       "selection": "Z. Charbonnet 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872947",
-      "market": "qb_pass_yds",
-      "selection": "M. Stafford 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872947",
-      "market": "rb_rush_yds",
-      "selection": "K. Williams 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 2,
-      "game_id": "401872947",
-      "market": "wr_rec_yds",
-      "selection": "D. Adams 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -2859,6 +2838,108 @@
       "seed_prob": 0.4516,
       "actual": 27.0,
       "hit": false
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "moneyline",
+      "selection": "LAR ML",
+      "team": "LAR",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6593,
+      "actual": {
+        "home_score": 28,
+        "away_score": 6
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "M. Stafford 225+ pass yds",
+      "player": "Matthew Stafford",
+      "team": "LAR",
+      "line": 224.5,
+      "mu": 225.15,
+      "sd": 76.66,
+      "z": 0.0085,
+      "p_team": 0.6593,
+      "pricing": "calibrated",
+      "model_prob": 0.5078,
+      "seed_prob": 0.5637,
+      "actual": 327.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "K. Williams 60+ rush yds",
+      "player": "Kyren Williams",
+      "team": "LAR",
+      "line": 59.5,
+      "mu": 72.89,
+      "sd": 38.87,
+      "z": 0.3445,
+      "p_team": 0.6593,
+      "pricing": "calibrated",
+      "model_prob": 0.5772,
+      "seed_prob": 0.5637,
+      "actual": 85.0,
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "spread",
+      "selection": "LAR -6.5",
+      "team": "LAR",
+      "side": "home",
+      "line": -6.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 28,
+        "away_score": 6
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "spread",
+      "selection": "LAR -7",
+      "team": "LAR",
+      "side": "home",
+      "line": -7.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 28,
+        "away_score": 6
+      },
+      "hit": true
+    },
+    {
+      "week": 2,
+      "game_id": "401872947",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. Adams 60+ rec yds",
+      "player": "Davante Adams",
+      "team": "LAR",
+      "line": 59.5,
+      "mu": 50.02,
+      "sd": 41.58,
+      "z": -0.2279,
+      "p_team": 0.6593,
+      "pricing": "calibrated",
+      "model_prob": 0.4145,
+      "seed_prob": 0.5637,
+      "actual": 195.0,
+      "hit": true
     }
   ]
 }
