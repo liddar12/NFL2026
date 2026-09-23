@@ -90,6 +90,20 @@ async function tabTo(page, selector, max = 80) {
 const focusedAttr = (page, attr) => page.evaluate(
   (a) => (document.activeElement ? document.activeElement.getAttribute(a) : null), attr);
 
+/** The slate on one week: the current one is what /#/ opens on, any other is a
+ *  week chip away. Waits on a card only that week paints — both weeks carry 16,
+ *  so a count would pass before the repaint ever happened. */
+async function openWeekOn(page, wk, anchorGameId) {
+  await page.goto('/#/');
+  await page.waitForSelector('.card.game', { timeout: 15000 });
+  // Always click: a second call within one test re-enters on the week the first
+  // one left the slate standing on, and /#/ is already the current hash, so
+  // there is nothing for the router to repaint.
+  const chip = page.locator(`.wk-chip[data-wk="${wk}"]`);
+  if (await chip.count()) await chip.click();
+  await page.waitForSelector(`.card.game[data-game-id="${anchorGameId}"]`, { timeout: 15000 });
+}
+
 async function openClosedWeek(page) {
   await page.goto('/#/');
   await page.waitForSelector('.card.game', { timeout: 15000 });
@@ -192,7 +206,6 @@ test.describe('R90 — F13 historical truth on a closed week', () => {
 
   test('G04: a FINAL game on the CURRENT week shows its LOCK; an unplayed game on the same week does not', async ({ page }) => {
     const errors = collectErrors(page);
-    const blk = REVIEW.weeks[String(CURRENT)] || { games: [] };
     // SCHED above is the closed week's index; this test needs the current one.
     const schedOf = (id) => (SCHEDULE.games || []).find((x) => String(x.game_id) === String(id));
     const statusOf = (id) => String((schedOf(id) || {}).status || '');
@@ -200,14 +213,35 @@ test.describe('R90 — F13 historical truth on a closed week', () => {
       const s = schedOf(row.game_id);
       return Math.round((row.picked === row.home ? s.probs.home : s.probs.away) * 100);
     };
-    const finalRow = blk.games.find((g) => /^STATUS_FINAL/.test(statusOf(g.game_id))
-      && g.pick_prob != null);
-    const openRow = blk.games.find((g) => statusOf(g.game_id) === 'STATUS_SCHEDULED');
-    expect(finalRow, 'the committed current week carries a FINAL game').toBeTruthy();
-    expect(openRow, 'the committed current week carries an unplayed game').toBeTruthy();
+    /* THE WEEK IS DERIVED (2026-09-23).
+     *
+     * This read both halves off the CURRENT week, which held them together only
+     * while that week was part-played. Between the Monday night game and
+     * Thursday's kickoff the pipeline has already rolled to a week with no FINAL
+     * game at all, and the assertion reddened the gate on entirely correct data
+     * every Tuesday and Wednesday of the season.
+     *
+     * Each half now stands on the newest week that HAS its case — on a game day
+     * that is the same week for both, which is the original test exactly, and in
+     * the midweek gap it is the closed week for the lock and the current one for
+     * the unplayed card. Neither window is ever empty, so neither half skips. */
+    const weeksSeen = Object.keys(REVIEW.weeks || {}).map(Number)
+      .filter((w) => w <= Number(CURRENT)).sort((a, b) => b - a);
+    const newestWith = (pred) => {
+      for (const w of weeksSeen) {
+        const hit = ((REVIEW.weeks[String(w)] || {}).games || []).find(pred);
+        if (hit) return { week: w, row: hit };
+      }
+      return { week: null, row: null };
+    };
+    const fin = newestWith((g) => /^STATUS_FINAL/.test(statusOf(g.game_id)) && g.pick_prob != null);
+    const open = newestWith((g) => statusOf(g.game_id) === 'STATUS_SCHEDULED');
+    const finalRow = fin.row;
+    const openRow = open.row;
+    expect(finalRow, 'some week at or before the current one carries a FINAL game').toBeTruthy();
+    expect(openRow, 'some week at or before the current one carries an unplayed game').toBeTruthy();
 
-    await page.goto('/#/');
-    await page.waitForSelector('.card.game', { timeout: 15000 });
+    await openWeekOn(page, fin.week, finalRow.game_id);
     const done = page.locator(`.card.game[data-game-id="${finalRow.game_id}"]`);
     await done.locator('.prob[data-rv-prob="locked"]').waitFor({ timeout: 15000 });
 
@@ -230,12 +264,13 @@ test.describe('R90 — F13 historical truth on a closed week', () => {
       await expect(done.locator('.ph--fav')).toHaveText(`${finalRow.picked} 65%`);
     }
 
-    // 4. an unplayed game on the SAME week keeps today's forecast: none of it
-    const open = page.locator(`.card.game[data-game-id="${openRow.game_id}"]`);
-    await expect(open.locator('.prob[data-rv-prob]')).toHaveCount(0);
-    await expect(open.locator('.rv-final')).toHaveCount(0);
-    await expect(open.locator('.rv-prov')).toHaveCount(0);
-    await expect(open.locator('.ph--none')).toHaveCount(0);
+    // 4. an unplayed game keeps today's forecast: none of it
+    if (open.week !== fin.week) await openWeekOn(page, open.week, openRow.game_id);
+    const card = page.locator(`.card.game[data-game-id="${openRow.game_id}"]`);
+    await expect(card.locator('.prob[data-rv-prob]')).toHaveCount(0);
+    await expect(card.locator('.rv-final')).toHaveCount(0);
+    await expect(card.locator('.rv-prov')).toHaveCount(0);
+    await expect(card.locator('.ph--none')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });

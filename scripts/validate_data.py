@@ -1381,6 +1381,15 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
         pid = pl.get("gsis_id")
         weeks = pl.get("weeks", [])
         non_bye = [w for w in weeks if not w.get("bye")]
+        # An absence blocks weeks FORWARD from the current week: build_weekly is
+        # called with first_week = model.this_week.wk, because a game already
+        # played is history and must not be rewritten (build_predictions' Rel17
+        # note). So the weeks an out-for-the-season ruling can speak for are the
+        # non-bye weeks from that week on — never the ones already in the books.
+        # gate_wk absent (a document with no this-week meta) means week 1, where
+        # the two sets are the same thing.
+        blockable_non_bye = non_bye if gate_wk is None else [
+            w for w in non_bye if (w.get("wk") or 0) >= gate_wk]
         blocked_all = [w for w in non_bye if w.get("avail") is False]
         avail = pl.get("availability")
         record = proj.get(pid)
@@ -1571,12 +1580,13 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
         points_lost += float(avail.get("season_points_lost") or 0.0)
         if avail.get("out_for_season"):
             season_ending += 1
-            if any(w.get("pts") != 0.0 for w in non_bye):
-                problems.append("%s: out_for_season but some non-bye week still "
-                                "scores" % pid)
-            if len(blocked) != len(non_bye):
-                problems.append("%s: out_for_season but only %d of %d non-bye weeks "
-                                "are avail:false" % (pid, len(blocked), len(non_bye)))
+            if any(w.get("pts") != 0.0 for w in blockable_non_bye):
+                problems.append("%s: out_for_season but some non-bye week from week "
+                                "%s on still scores" % (pid, gate_wk or 1))
+            if len(blocked) != len(blockable_non_bye):
+                problems.append("%s: out_for_season but only %d of %d remaining "
+                                "non-bye weeks are avail:false"
+                                % (pid, len(blocked), len(blockable_non_bye)))
             if avail.get("weeks_out") is not None:
                 problems.append("%s: out_for_season must not also state weeks_out "
                                 "(%r)" % (pid, avail.get("weeks_out")))
@@ -1680,21 +1690,28 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
 # Selftest — a check nobody has watched fail is a check that might do nothing.
 # ---------------------------------------------------------------------------
 
-def _fixture(blocked=0, weeks_out=None, out_for_season=False, klass="season"):
+def _fixture(blocked=0, weeks_out=None, out_for_season=False, klass="season",
+             first_week=None):
     """A one-player weekly/projections/injuries triple, valid by construction.
 
     Season 100.0 over 17 non-bye weeks (wk18 is the bye), `blocked` of them zeroed,
     the rest carrying an equal share of the availability-adjusted target.
+
+    first_week reproduces an IN-SEASON build: build_weekly blocks forward from the
+    current week, so weeks before it keep the points they were already projected —
+    and the document carries model.this_week.wk, which is that same week.
     """
     non_bye, share = 17, 0.0
     playable = non_bye - blocked
     if playable:
         share = round(100.0 * playable / non_bye / playable, 2)
+    blocked_weeks = set(range(1, blocked + 1)) if first_week is None else \
+        set(range(first_week, first_week + blocked))
     weeks = []
     for wk in range(1, 19):
         if wk == 18:
             weeks.append({"wk": wk, "opp": None, "home": False, "bye": True, "pts": 0.0})
-        elif wk <= blocked:
+        elif wk in blocked_weeks:
             weeks.append({"wk": wk, "opp": "SEA", "home": True, "bye": False,
                           "pts": 0.0, "avail": False})
         else:
@@ -1711,8 +1728,20 @@ def _fixture(blocked=0, weeks_out=None, out_for_season=False, klass="season"):
             "applied": True, "vocab_version": 1, "unavailable": 1,
             "season_ending": 1 if out_for_season else 0, "min_weeks_rule": 4,
             "season_points_removed": avail["season_points_lost"]}
-    weekly = {"model": model,
-              "players": [{"gsis_id": "espn-1", "availability": avail, "weeks": weeks}]}
+    row = {"gsis_id": "espn-1", "availability": avail, "weeks": weeks}
+    if first_week is not None:
+        # In season the same ruling shows up twice, and rule 8 (NO SILENT SITTER)
+        # insists on it: the season block on the card, and the this-week gate on
+        # the week being played.
+        gate_on = klass == "season" and first_week in blocked_weeks
+        model["this_week"] = {
+            "wk": first_week, "gated": 1 if gate_on else 0,
+            "by_reason": {"inactive": 0, "status": 1 if gate_on else 0, "depth": 0},
+            "promoted": 0}
+        if gate_on:
+            row["this_week"] = {"wk": first_week, "playable": False,
+                                "reason": "status", "status": avail["status"]}
+    weekly = {"model": model, "players": [row]}
     projections = {"players": [{"gsis_id": "espn-1", "name": "A.J. Hurt",
                                 "team": "SF", "proj_points": 100.0}]}
     injuries = {"injuries": [{"team": "SF", "player": "AJ Hurt",
@@ -1752,6 +1781,21 @@ def _selftest():
     w, p, i = _fixture(blocked=17, out_for_season=True)
     w["players"][0]["weeks"][0]["pts"] = 5.0
     red(w, p, i, "out_for_season with a scoring week")
+
+    # R97 — THE IN-SEASON SHAPE, which the week-1 fixtures above never reach.
+    # build_weekly blocks forward from model.this_week.wk, so a player ruled out
+    # for the year in week 5 keeps weeks 1-4 exactly as they were projected: those
+    # games have been played and rewriting them would be a lie about the past.
+    # Read against every non-bye week, rule 2 reds a correct document and the
+    # pipeline cannot publish at all (run 166) — so it is read against the weeks
+    # the ruling can actually speak for.
+    ok(*_fixture(blocked=13, out_for_season=True, first_week=5),
+       why="out for the year from week 5 — weeks 1-4 are history, not a defect")
+    w, p, i = _fixture(blocked=13, out_for_season=True, first_week=5)
+    w["players"][0]["weeks"][8]["pts"] = 5.0          # week 9, after the ruling
+    red(w, p, i, "out_for_season but a REMAINING week still scores")
+    w, p, i = _fixture(blocked=12, out_for_season=True, first_week=5)
+    red(w, p, i, "out_for_season but week 5 itself was left playable")
 
     # Rule 3 — the duration statement and its applied consequence disagree.
     w, p, i = _fixture(blocked=4, weeks_out=6)

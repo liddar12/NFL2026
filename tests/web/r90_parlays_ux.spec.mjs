@@ -29,6 +29,7 @@ const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8')
 const POOL = read('../../data/leg_pool.json');
 const REVIEW = read('../../data/review.json');
 const PARLAYS = read('../../data/parlays.json');
+const PARLAY_INDEX = read('../../data/parlays/index.json');
 const WEEKLY = read('../../data/player_weekly.json');
 const PROJ = read('../../data/player_projections.json');
 
@@ -57,6 +58,30 @@ async function mount(page) {
   await page.goto('/#/parlays');
   await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
   await page.evaluate(() => document.fonts.ready);
+}
+
+/* Mount, then stand on a week that HAS grades.
+ *
+ * Between the Monday night game and Thursday's kickoff the current week is the
+ * one the pipeline has rolled to and not one of its games has been played, so
+ * the RETROSPECTIVE panel is correctly absent — the sibling test above locks
+ * exactly that. Reading the graded chrome off the CURRENT week therefore reds
+ * every Tuesday and Wednesday of the season on data that is entirely right.
+ * The week chip is the product's own way to stand on a closed week, so these
+ * tests use it, and the week is DERIVED: the newest one the committed index
+ * carries with grades on it, which from week 1 on is never empty. */
+async function selectWeek(page, week) {
+  if (String(week) === String(PARLAYS.week)) return;
+  await page.click(`.pw-wkbar .wk-chip[data-wk="${week}"]`);
+  await page.waitForSelector(`.pw-wkbar .wk-chip[data-wk="${week}"][aria-pressed="true"]`,
+    { timeout: 20000 });
+  await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+  await page.evaluate(() => document.fonts.ready);
+}
+
+async function mountGraded(page) {
+  await mount(page);
+  await selectWeek(page, GRADED_WEEK);
 }
 
 /** The measurement F18 is about: first card's top vs the bottom nav's top. */
@@ -179,7 +204,9 @@ test('F18: the FILTERS panel remembers itself per viewer, and defaults shut', as
 test('F18: every collapsed summary is a 44 px target and nothing overflows sideways', async ({ page }) => {
   for (const size of [PHONE, DESKTOP]) {
     await page.setViewportSize(size);
-    await mount(page);
+    // #parlay-retro is one of the three rows under test and only exists on a
+    // graded week — see selectWeek.
+    await mountGraded(page);
     // HIG: the rows R90 introduced are full-width 44 px targets.
     for (const sel of ['#parlay-filters > summary', '.legend--parlays > summary',
       '#parlay-retro > summary']) {
@@ -241,7 +268,7 @@ test('F18: an ungraded week hides the outcome buckets and the P&L line entirely'
 
 test('F18: a graded week still shows both, so the rule is the data and not the layout', async ({ page }) => {
   await page.setViewportSize(PHONE);
-  await mount(page);
+  await mountGraded(page);
   // R95 — the rule is still the data: on a graded week the RETROSPECTIVE panel
   // is painted (an ungraded week hides it outright), and both blocks are one
   // tap inside it. Nothing about what they say changed.
@@ -266,9 +293,16 @@ test('F18: a graded week still shows both, so the rule is the data and not the l
 
 const GRADED_BUCKETS = ['all_hit', 'push', 'partial', 'all_missed'];
 const CUR_WEEK = String(PARLAYS.week);
-const CUR_BUCKETS = (((REVIEW.weeks || {})[CUR_WEEK] || {}).summary || {}).parlays
-  ? REVIEW.weeks[CUR_WEEK].summary.parlays.buckets || {} : {};
-const CUR_GRADED = GRADED_BUCKETS.reduce((n, b) => n + (Number(CUR_BUCKETS[b]) || 0), 0);
+const bucketsOf = (wk) => ((((REVIEW.weeks || {})[String(wk)] || {}).summary || {}).parlays || {})
+  .buckets || {};
+const gradedIn = (wk) => GRADED_BUCKETS.reduce((n, b) => n + (Number(bucketsOf(wk)[b]) || 0), 0);
+/* The newest week at or before the current one that the committed index carries
+ * AND the committed review has graded. Derived, never pinned: see selectWeek. */
+const GRADED_WEEK = String((PARLAY_INDEX.weeks || []).map((w) => Number(w.week))
+  .filter((w) => w <= Number(CUR_WEEK) && gradedIn(w) > 0)
+  .sort((a, b) => b - a)[0] ?? CUR_WEEK);
+const CUR_BUCKETS = bucketsOf(GRADED_WEEK);
+const CUR_GRADED = gradedIn(GRADED_WEEK);
 
 test('F18: on the committed graded week the first card is legible on the opening screen', async ({ page }) => {
   const errors = errorsOf(page);
@@ -276,11 +310,11 @@ test('F18: on the committed graded week the first card is legible on the opening
   // chrome would not render and this would be measuring a different layout than
   // the one F18 broke on. The committed feed IS in that state, and this line is
   // what says so out loud when a future week is not.
-  expect(CUR_GRADED, `data/review.json week ${CUR_WEEK} must have graded parlays`)
+  expect(CUR_GRADED, `data/review.json week ${GRADED_WEEK} must have graded parlays`)
     .toBeGreaterThan(0);
 
   await page.setViewportSize(PHONE);
-  await mount(page);
+  await mountGraded(page);
   // the graded chrome really is on the page — this is the stack that broke F18
   await expect(page.locator('#parlay-retro')).toBeVisible();
   await expect(page.locator('.rv-strip--parlay')).toBeVisible();
@@ -310,7 +344,7 @@ test('F18: the collapsed retrospective still carries every bucket count, and ope
   const errors = errorsOf(page);
   expect(CUR_GRADED).toBeGreaterThan(0);
   await page.setViewportSize(PHONE);
-  await mount(page);
+  await mountGraded(page);
   const retro = page.locator('#parlay-retro');
   await expect(retro).toBeVisible();
   expect(await retro.evaluate((d) => d.open)).toBe(false);
@@ -326,7 +360,7 @@ test('F18: the collapsed retrospective still carries every bucket count, and ope
   for (const [b, n] of counts) {
     await expect(retro.locator(`.rv-bucket[data-bucket="${b}"] .rv-bucket-n`)).toHaveText(String(n));
   }
-  await expect(retro).toContainText(`WEEK ${CUR_WEEK}`);
+  await expect(retro).toContainText(`WEEK ${GRADED_WEEK}`);
   await expect(retro).toContainText('SIM NET');
   await expect(retro).toContainText('not actual betting returns');
   // ...and none of it is reachable until it is opened — that is the space it buys
@@ -352,21 +386,27 @@ test('F18: the collapsed retrospective still carries every bucket count, and ope
 });
 
 test('F18: the RETROSPECTIVE panel remembers itself per viewer, and defaults shut', async ({ page }) => {
+  // A reload lands on the current week again, so the graded week is re-selected
+  // after each one: the thing under test is the REMEMBERED open state, which
+  // must survive a reload wherever the panel is painted.
+  const reloadGraded = async () => {
+    await page.reload();
+    await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+    await selectWeek(page, GRADED_WEEK);
+  };
   await page.setViewportSize(PHONE);
-  await mount(page);
+  await mountGraded(page);
   await expect(page.locator('#parlay-retro')).toBeVisible();
   await page.locator('#parlay-retro summary').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('nfl2026.parlays.retro.v1')))
     .toBe('1');
-  await page.reload();
-  await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+  await reloadGraded();
   await expect(page.locator('#parlay-retro')).toBeVisible();
   expect(await page.locator('#parlay-retro').evaluate((d) => d.open)).toBe(true);
   await page.locator('#parlay-retro summary').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('nfl2026.parlays.retro.v1')))
     .toBe('0');
-  await page.reload();
-  await page.waitForSelector('#parlays-list .card.parlay', { timeout: 20000 });
+  await reloadGraded();
   await expect(page.locator('#parlay-retro')).toBeVisible();
   expect(await page.locator('#parlay-retro').evaluate((d) => d.open)).toBe(false);
 });

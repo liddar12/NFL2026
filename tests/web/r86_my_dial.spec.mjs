@@ -108,6 +108,12 @@ const geometry = (page) => page.evaluate(() => {
       i,
       void: c.querySelector('.p-foot').getBoundingClientRect().top
         - c.querySelector('.legs').getBoundingClientRect().bottom,
+      // Does any card sharing this one's grid row carry an R77 status chip? A
+      // chip makes its leg 5.4px taller and, because a row's cards end level,
+      // its partner inherits that as void. Measured, documented and bounded at
+      // the bottom of this file.
+      rowHasChip: cards.some((o) => Math.round(o.getBoundingClientRect().top)
+        === Math.round(c.getBoundingClientRect().top) && !!o.querySelector('.leg-q')),
     })),
     rowSpreads: [...rows.values()].map((b) => ({ n: b.length, spread: Math.max(...b) - Math.min(...b) })),
     names: [...document.querySelectorAll('.mp-card .leg-nm')].map((n) => ({
@@ -218,9 +224,17 @@ for (const [label, size] of SIZES) {
     expect(g.bandText).toEqual(EXPECTED_BAND_TEXT);
 
     // RC-L1 — the void. 83px on 5 of 10 cards at 1395px before R86.
+    //
+    // 12.5px where nothing pads a leg. A row that holds an R77 "Q" chip gets the
+    // documented 18px instead, for exactly the reason the SAFE-dial test at the
+    // bottom of this file measured and wrote down: the chip is 5.4px taller than
+    // a bare leg, a row's cards end level (RC-L3), so the partner inherits those
+    // 5.4px as void. The tight bound still governs every chipless row, which is
+    // what keeps this a tripwire rather than a rubber band.
     for (const v of g.voids) {
-      expect(v.void, `card ${v.i} has ${v.void.toFixed(1)}px between its last leg and its footer`)
-        .toBeLessThanOrEqual(12.5);
+      expect(v.void, `card ${v.i} has ${v.void.toFixed(1)}px between its last leg and its `
+        + `footer (row ${v.rowHasChip ? 'carries' : 'has no'} status chip)`)
+        .toBeLessThanOrEqual(v.rowHasChip ? 18 : 12.5);
     }
 
     // RC-L3 — exactly two columns on desktop, one leg-count band per row, and

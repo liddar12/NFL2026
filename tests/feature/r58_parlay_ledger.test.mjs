@@ -34,6 +34,20 @@ const BACKTEST = resolve(REPO_ROOT, 'data/parlay_backtest.json');
 const FIXTURE = 'tests/fixtures/r58/stats_player_week_2026_wk1.csv';
 const PY_ENV = { ...process.env, PYTHONPATH: REPO_ROOT };
 
+/* In a dry run the fixture CSV IS the stats source, so the weeks it carries are
+ * exactly the weeks resolve_props can speak about: `if wk not in by_week:
+ * continue  # the week has no stats rows yet: pending`. A locked prop for a week
+ * with no stat rows is PENDING — neither resolved nor unresolved — and counting
+ * it as unresolved reddens this file the moment the pipeline locks next week's
+ * legs (week 3's 42 props, 2026-09-23). Derived from the committed fixture, which
+ * is immutable, so it stays exact as weeks accumulate. */
+const FIXTURE_WEEKS = (() => {
+  const lines = readFileSync(resolve(REPO_ROOT, FIXTURE), 'utf8').trim().split(/\r?\n/);
+  const col = lines[0].split(',').indexOf('week');
+  return new Set(lines.slice(1).map((l) => Number(l.split(',')[col]))
+    .filter((n) => Number.isFinite(n)));
+})();
+
 /**
  * Game legs the committed lock receipts already grade with no network: every
  * LOCKED moneyline leg of a resolved receipt resolves (winner known), and its
@@ -74,9 +88,14 @@ function gradedGameLegs() {
   let lockedProps = 0; let scored = false; const weeks = new Set();
   for (const l of ledger.legs) {
     if (!l.locked) continue;
-    // Prop legs of EVERY week count: the fixture covers one week, so the rest
-    // are the no_stat_line population the conservation law below is built on.
-    if (l.market !== 'moneyline' && l.market !== 'spread') { lockedProps += 1; continue; }
+    // Prop legs of every week the STATS SOURCE covers count: the fixture covers
+    // some of them, so the rest are the no_stat_line population the conservation
+    // law below is built on. A week the source does not reach is pending, and the
+    // resolver counts it neither way.
+    if (l.market !== 'moneyline' && l.market !== 'spread') {
+      if (FIXTURE_WEEKS.has(Number(l.week))) lockedProps += 1;
+      continue;
+    }
     const fin = finals.get(String(l.game_id));
     if (!fin) continue;
     const hasScore = fin.home_score != null;
