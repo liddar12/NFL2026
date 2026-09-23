@@ -1,12 +1,12 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-23T00:18:56Z",
+  "generated_utc": "2026-09-23T10:10:46Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "scoring": "actual = nflverse fantasy_points_ppr when the column is present; else pass_yd*0.04 + pass_td*4 - int*2 + rush_yd*0.1 + rush_td*6 + rec*1 + rec_yd*0.1 + rec_td*6 - fumbles_lost*2 + 2pt*2 over the release's component columns (regular season only)",
   "ledger": "data/estimates/2026.json",
   "weeks_resolved": 2,
-  "players_scored": 231,
-  "rows_resolved": 462,
+  "players_scored": 230,
+  "rows_resolved": 460,
   "unmatched_players": 61,
   "unmatched": [
     {
@@ -132,7 +132,7 @@
     {
       "gsis_id": "espn-3916945",
       "name": "Darius Slayton",
-      "team": "NYG",
+      "team": "IND",
       "position": "WR"
     },
     {
@@ -378,15 +378,15 @@
   ],
   "skipped": null,
   "totals": {
-    "n": 462,
-    "mae_shipped": 5.803,
-    "mae_candidate": 5.803,
-    "mae_gated": 5.926,
-    "mae_baseline": 6.013,
-    "bias_shipped": -0.471,
-    "bias_candidate": -0.471,
-    "bias_gated": -0.793,
-    "band_coverage": 0.4589
+    "n": 460,
+    "mae_shipped": 5.82,
+    "mae_candidate": 5.82,
+    "mae_gated": 5.943,
+    "mae_baseline": 6.029,
+    "bias_shipped": -0.481,
+    "bias_candidate": -0.481,
+    "bias_gated": -0.805,
+    "band_coverage": 0.4587
   },
   "by_position": {
     "QB": {
@@ -423,41 +423,41 @@
       "band_coverage": 0.5341
     },
     "WR": {
-      "n": 186,
-      "mae_shipped": 5.998,
-      "mae_candidate": 5.998,
-      "mae_gated": 5.969,
-      "mae_baseline": 6.311,
-      "bias_shipped": 0.109,
-      "bias_candidate": 0.109,
-      "bias_gated": -0.465,
-      "band_coverage": 0.4194
+      "n": 184,
+      "mae_shipped": 6.044,
+      "mae_candidate": 6.044,
+      "mae_gated": 6.011,
+      "mae_baseline": 6.354,
+      "bias_shipped": 0.09,
+      "bias_candidate": 0.09,
+      "bias_gated": -0.493,
+      "band_coverage": 0.4185
     }
   },
   "weeks": [
     {
       "week": 1,
       "rows_available": 360,
-      "players_scored": 231,
-      "mae_shipped": 6.105,
-      "mae_candidate": 6.105,
-      "mae_gated": 6.251,
-      "bias_shipped": -0.894,
-      "bias_candidate": -0.894,
-      "bias_gated": -1.233,
-      "band_coverage": 0.4286
+      "players_scored": 230,
+      "mae_shipped": 6.119,
+      "mae_candidate": 6.119,
+      "mae_gated": 6.265,
+      "bias_shipped": -0.91,
+      "bias_candidate": -0.91,
+      "bias_gated": -1.252,
+      "band_coverage": 0.4304
     },
     {
       "week": 2,
       "rows_available": 364,
-      "players_scored": 231,
-      "mae_shipped": 5.501,
-      "mae_candidate": 5.501,
-      "mae_gated": 5.602,
-      "bias_shipped": -0.048,
-      "bias_candidate": -0.048,
-      "bias_gated": -0.353,
-      "band_coverage": 0.4892
+      "players_scored": 230,
+      "mae_shipped": 5.521,
+      "mae_candidate": 5.521,
+      "mae_gated": 5.621,
+      "bias_shipped": -0.052,
+      "bias_candidate": -0.052,
+      "bias_gated": -0.359,
+      "band_coverage": 0.487
     }
   ],
   "resolved": [
@@ -8005,41 +8005,6 @@
         "injury_status": 1.0
       },
       "dnp": true
-    },
-    {
-      "gsis_id": "espn-4808839",
-      "week": 1,
-      "position": "WR",
-      "baseline": 3.34,
-      "shipped": 2.85,
-      "candidate": 2.85,
-      "low": 1.18,
-      "high": 4.52,
-      "gated": 3.14,
-      "actual": 0.0,
-      "signals": {
-        "age_curve": 0.88,
-        "injury_history": 0.9706,
-        "injury_status": 1.0
-      },
-      "dnp": true
-    },
-    {
-      "gsis_id": "espn-4808839",
-      "week": 2,
-      "position": "WR",
-      "baseline": 3.27,
-      "shipped": 2.79,
-      "candidate": 2.79,
-      "low": 1.16,
-      "high": 4.42,
-      "gated": 3.08,
-      "actual": 2.0,
-      "signals": {
-        "age_curve": 0.88,
-        "injury_history": 0.9706,
-        "injury_status": 1.0
-      }
     },
     {
       "gsis_id": "espn-4882093",
