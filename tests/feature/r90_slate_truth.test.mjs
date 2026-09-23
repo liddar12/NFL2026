@@ -263,19 +263,42 @@ test('the view hands review.js the week context historical truth needs', () => {
  * instead: the decision is per CARD, from the row and the schedule status. */
 
 const CURRENT_WEEK = Number(json('data/game_predictions.json').week);
-const finalRows = (REVIEW.weeks[String(CURRENT_WEEK)] || { games: [] }).games
-  .filter((g) => /^STATUS_FINAL/.test(String(g.status || '')));
-const scheduledRows = (REVIEW.weeks[String(CURRENT_WEEK)] || { games: [] }).games
-  .filter((g) => {
-    const sch = SCHEDULE.games.find((x) => String(x.game_id) === String(g.game_id));
-    return sch && String(sch.status) === 'STATUS_SCHEDULED';
-  });
+const weekGames = (wk) => (REVIEW.weeks[String(wk)] || { games: [] }).games;
+const isFinal = (g) => /^STATUS_FINAL/.test(String(g.status || ''));
+const finalRows = weekGames(CURRENT_WEEK).filter(isFinal);
+const scheduledRows = weekGames(CURRENT_WEEK).filter((g) => {
+  const sch = SCHEDULE.games.find((x) => String(x.game_id) === String(g.game_id));
+  return sch && String(sch.status) === 'STATUS_SCHEDULED';
+});
+
+/* THE WEEK IS DERIVED TOO (2026-09-23).
+ *
+ * Between the Monday night game and Thursday's kickoff the current week has no
+ * FINAL row at all — the pipeline has already rolled to it, and not one of its
+ * games has been played. The assertion that stood here read `finalRows.length >
+ * 0` and reddened the whole gate every Tuesday and Wednesday of the season, on
+ * data that is entirely correct.
+ *
+ * The claim is per CARD, so it is made on the newest week that HAS a graded row
+ * — which is the CURRENT week from the first kickoff through the Monday night
+ * game, exactly the week the F13 bug excluded, and the one before it in the
+ * midweek gap. That window is never empty from week 1 on, so this never goes
+ * quiet. The stricter statement is kept as its own assertion below: once the
+ * current week has started, its FINAL rows are the ones under test. */
+const gradedWeek = Object.keys(REVIEW.weeks)
+  .map(Number).filter((wk) => wk <= CURRENT_WEEK && weekGames(wk).some(isFinal))
+  .sort((a, b) => b - a)[0];
+const gradedRows = weekGames(gradedWeek).filter(isFinal);
 
 test('G04: a FINAL game on the CURRENT week is graded truth — its head is the LOCK, not today\'s number', async () => {
   const mod = await loadReview();
-  assert.ok(finalRows.length > 0,
-    'the committed current week carries a FINAL game (DET @ BUF today)');
-  for (const row of finalRows) {
+  assert.ok(gradedRows.length > 0,
+    'some week at or before the current one carries a FINAL game to grade');
+  const currentStarted = SCHEDULE.games
+    .some((g) => Number(g.week) === CURRENT_WEEK && String(g.status) !== 'STATUS_SCHEDULED');
+  assert.equal(currentStarted ? gradedWeek : CURRENT_WEEK, CURRENT_WEEK,
+    'once the current week has kicked off, ITS finals are the ones under test');
+  for (const row of gradedRows) {
     // THE decision applyHistoricalTruth makes, on the pipeline's own week.
     assert.equal(mod.isGradedRow(row), true, `${row.away} at ${row.home} is graded`);
     const heads = mod.lockedHeads(row);
@@ -293,7 +316,7 @@ test('G04: a FINAL game on the CURRENT week is graded truth — its head is the 
       `FINAL · ${row.home} ${row.final.home_score}\u2013${row.away} ${row.final.away_score}`);
   }
   // the committed case the review named: DET @ BUF shows 65%, not 69%
-  const buf = finalRows.find((g) => String(g.game_id) === '401872932');
+  const buf = gradedRows.find((g) => String(g.game_id) === '401872932');
   if (buf) {
     const sch = SCHEDULE.games.find((g) => String(g.game_id) === '401872932');
     assert.equal(Math.round(buf.pick_prob * 100), 65);

@@ -41,8 +41,15 @@ for (const [week, block] of Object.entries(REVIEW.weeks)) {
   if (Number(week) !== CUR && !archived) continue;
   const cards = Number(week) === CUR ? PARLAYS.parlays
     : read(`../../data/parlays/${PARLAYS.season}_wk${String(week).padStart(2, '0')}.json`).parlays;
+  // R93 — join the oracle the way app/review.js joins: card_id first, parlay_id
+  // only as the pre-R93 fallback. A re-run re-ids a card ("401872933-g1" ->
+  // "401872933-g1~e9d2a3") and BOTH forms sit in the archive, so a parlay_id
+  // lookup silently returns the superseded card and prices the wrong legs — the
+  // week-2 archive made that a $414.64 disagreement with the page.
+  const byCard = new Map(cards.filter((c) => c.card_id).map((c) => [String(c.card_id), c]));
   for (const row of block.parlays) {
-    const card = cards.find((p) => p.parlay_id === row.parlay_id);
+    const card = (row.card_id && byCard.get(String(row.card_id)))
+      || cards.find((p) => p.parlay_id === row.parlay_id);
     const settled = row.bucket !== 'pending';
     const decimal = card.legs.reduce((d, leg) => {
       const result = row.legs.find((l) => l.market === leg.market && l.selection === leg.selection)?.result;
@@ -183,22 +190,22 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
    * archive's card_id under a parlay_id no card has (identity alone). */
   test('G03: the $100 figure joins by card_id, and still by parlay_id for a pre-R93 review document', async ({ browser }) => {
     test.skip(!PAST, 'no closed week in the archive yet');
-    const archive = read(`../../${INDEX.weeks.find((w) => Number(w.week) === PAST).path}`);
-    const idOf = new Map(archive.parlays.map((p) => [String(p.parlay_id), p.card_id]));
     const base = JSON.parse(JSON.stringify(REVIEW));
     const rows = base.weeks[String(PAST)].parlays;
-    const stripped = JSON.parse(JSON.stringify(base));
-    stripped.weeks[String(PAST)].parlays.forEach((r) => { delete r.card_id; });
+    // The row's OWN card_id is the identity under test. It used to be re-derived
+    // from the archive by parlay_id, which stopped being a function the week a
+    // re-run put both "401872933-g1" and "401872933-g1~e9d2a3" in the same file:
+    // that lookup then handed back the SUPERSEDED card's id and the join landed
+    // nowhere. Keep the committed card_id, destroy only the rank id.
     const identity = JSON.parse(JSON.stringify(base));
     identity.weeks[String(PAST)].parlays.forEach((r, i) => {
-      r.card_id = idOf.get(String(r.parlay_id));
       r.parlay_id = `no-such-rank-${i}`;
     });
     expect(identity.weeks[String(PAST)].parlays.every((r) => r.card_id)).toBe(true);
     // One fresh context per document: a second goto to the same hash URL does
     // not remount the view, so each document gets its own page and storage.
     const errors = [];
-    const paid = async (doc) => {
+    const paid = async (doc, wk) => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       page.on('pageerror', (x) => errors.push(String(x)));
@@ -206,7 +213,7 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
         await page.route('**/data/review.json', (r) => r.fulfill({
           status: 200, contentType: 'application/json', body: JSON.stringify(doc) }));
         await mount(page);
-        await page.click(`.pw-wkbar .wk-chip[data-wk="${PAST}"]`);
+        await page.click(`.pw-wkbar .wk-chip[data-wk="${wk}"]`);
         await page.waitForSelector('.view-sub .pw-archived', { timeout: 20000 });
         await page.waitForFunction(() => !!document.querySelector('.card.parlay[data-rv-pay]'), null,
           { timeout: 20000 });
@@ -216,11 +223,36 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
         await ctx.close();
       }
     };
-    const committed = await paid(base);
+    const committed = await paid(base, PAST);
     expect(committed.length).toBeGreaterThan(0);
     expect(committed.length).toBe(rows.filter((r) => r.money && r.scope === 'game').length);
-    expect(await paid(stripped)).toEqual(committed);
-    expect(await paid(identity)).toEqual(committed);
+    // card_id is the join even when parlay_id is nonsense — on the newest closed
+    // week, whose archive carries the R93 re-issued ids.
+    expect(await paid(identity, PAST)).toEqual(committed);
+
+    /* THE FALLBACK HALF STANDS ON A PRE-R93 WEEK (2026-09-23).
+     *
+     * A re-run re-issues a card's id ("401872933-g1" -> "401872933-g1~e9d2a3")
+     * and BOTH forms live in the archive; 103 of week 2's 182 cards are in the
+     * new form. A review document with no card_id on it is by definition one
+     * written before that existed, and it can only name the OLD ids — so asking
+     * the parlay_id fallback to find a re-issued card is asking it to do the one
+     * thing card_id was added to do, and it reddened this file the week the
+     * first re-issue landed. The fallback is therefore exercised on the newest
+     * closed week whose archive is entirely pre-R93 ids, which is what such a
+     * document would have been written against. DERIVED, so it follows the
+     * archive rather than naming week 1. */
+    const preR93 = (INDEX.weeks || []).filter((w) => w.closed && Number(w.week) !== CUR)
+      .map((w) => Number(w.week)).sort((a, b) => b - a)
+      .find((wk) => read(`../../data/parlays/${PARLAYS.season}_wk${String(wk).padStart(2, '0')}.json`)
+        .parlays.every((c) => !String(c.parlay_id).includes('~')));
+    expect(preR93, 'the archive carries a closed week in the pre-R93 id form').toBeTruthy();
+    const preBase = JSON.parse(JSON.stringify(REVIEW));
+    const preStripped = JSON.parse(JSON.stringify(preBase));
+    preStripped.weeks[String(preR93)].parlays.forEach((r) => { delete r.card_id; });
+    const preCommitted = await paid(preBase, preR93);
+    expect(preCommitted.length).toBeGreaterThan(0);
+    expect(await paid(preStripped, preR93)).toEqual(preCommitted);
     expect(errors).toEqual([]);
   });
 

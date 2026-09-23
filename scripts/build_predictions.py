@@ -1073,7 +1073,12 @@ def main():
                   f"first-pass; the injuries feed itself is fine): {exc}",
                   file=sys.stderr)
     except Exception as exc:  # noqa: BLE001
-        feeds["injuries"] = {"rows": 0, "age_hours": None, "last_success_utc": None, "status": "down"}
+        # age_hours 999.0, never None: the contract types it as a number, and a
+        # null here makes an injuries OUTAGE fail schema validation for the whole
+        # run — turning a feed this builder deliberately degrades around into a
+        # total publish failure (run 166). Same convention as market_feed_record.
+        feeds["injuries"] = {"rows": 0, "age_hours": 999.0,
+                             "last_success_utc": None, "status": "down"}
         print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
 
     # R49 — record the baseline rule, where it applies, and the walk-forward gate

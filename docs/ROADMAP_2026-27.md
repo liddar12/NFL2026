@@ -718,6 +718,58 @@ nothing ships without one.
   and never adopted. Worth knowing: `t_crit` rose 6.4102 → 6.5797, so every other family's adoption
   bar is now harder, which is correct Bonferroni behaviour and the price R92 knowingly paid. · **LOE**
   0.25 d
+- **R97 · a season-ending injury, and an injuries outage, each stopped the pipeline publishing
+  anything (P1) — built 2026-09-23 (daily run 166 failed on both at once).** Two separate defects with
+  one shape: a condition the builder degrades around correctly turned into a total publish failure, so
+  a run that should have shipped slightly-worse data shipped none. **(a) The out-for-the-season
+  invariant read weeks that had already been played.** `build_weekly` is called with `first_week = wk`
+  — *mandatory, not cosmetic*, per its own Rel17 note: an absence blocks weeks FORWARD from the current
+  week, because a game already played is history and rewriting it would be a lie about the past. The
+  validator's rule 2 nonetheless required EVERY non-bye week to score zero, and rule 2's twin required
+  every one of them to carry `avail:false`. From week 2 onward the two are in flat contradiction: the
+  moment a real player is ruled out for the year mid-season the producer writes the only document it
+  can, and the gate reds it. That is what `espn-4259147` did on 2026-09-22; run 167 passed only because
+  the report row churned away, so the landmine re-armed itself rather than being cleared. Both rules now
+  read the non-bye weeks from `model.this_week.wk` on — the weeks the ruling can actually speak for —
+  and are unchanged everywhere else, including the week-1 case where the two sets are the same thing.
+  This is the *only* narrowing in the release, it is the producer's documented contract rather than a
+  convenience, and the strict form is proven to red a correct document. **(b) An injuries outage wrote
+  a null age.** The `except` path stamped `{"rows": 0, "age_hours": None, ...}` while
+  `pipeline_status.schema.json` types `age_hours` as a required number — so the one document whose job
+  is to SAY a feed is down could not be written, and a feed `build_predictions` is otherwise careful to
+  degrade around took the run with it. `market_feed_record`, twelve hundred lines above, already had the
+  convention right: `999.0`, older than any real feed. **Locked by** three new selftest cases in
+  `validate_data.py` (an in-season out-for-the-year card passes; a REMAINING week that still scores
+  reds; the gate week left playable reds — the first goes red under the pre-R97 predicate, which is how
+  we know it was the bug and not the fix) and `tests/feature/r97_outage_publish.test.mjs` (2): the
+  contract really does reject a null age, and an AST scan over `build_predictions.py` proves no feed
+  record it writes carries one — 38 records seen, so it cannot pass vacuously, and it names line 1076 on
+  the pre-fix source. The structural form covers a feed added tomorrow, not just this one. **Lesson:**
+  an invariant written in preseason encoded "week 1" as "always", and nobody watched it meet week 3. A
+  check that has only ever run against the first week of a season has not been tested against a season.
+  **Standing risk, not fixed here:** both failures were found by reading a red run after the fact, because
+  `[skip actions]` on every data commit means CI never runs against the data the pipeline ships (R95's
+  standing risk, still open and still the top of the list). **Also here: main was already red, and for
+  the same reason in a different costume.** Seven assertions across five files had encoded a moment as a
+  law, and the midweek gap broke all of them at once — the pipeline has rolled to a week whose first
+  game has not kicked off, so the current week carries no FINAL game, no graded parlays and no
+  RETROSPECTIVE panel, all of which is correct. Fixed by deriving the week instead of assuming it:
+  `r90_slate_truth` (feature + browser) makes its claim on the newest week that HAS a graded row and
+  keeps the stricter "once the current week has kicked off, ITS finals are the ones under test" as its
+  own assertion; `r90_parlays_ux` stands on the newest graded week through the product's own week chip;
+  `r58_parlay_ledger` counts locked props only for the weeks its stats source actually covers, because
+  a leg for an unplayed week is PENDING and the resolver counts it neither way (`if wk not in by_week:
+  continue`) — week 3's 42 locked props were being demanded as unresolved. Two more were R93 catching
+  up with its own migration: a re-run re-issues a card id (`401872933-g1` → `401872933-g1~e9d2a3`) and
+  BOTH forms now sit in week 2's archive, so r75's independent oracle was joining by `parlay_id`,
+  silently pricing the superseded card, and disagreeing with the page by $414.64 — it now joins
+  card_id-first exactly as `app/review.js` does, the identity case keeps the row's own card_id instead
+  of re-deriving it from an ambiguous lookup, and the parlay_id FALLBACK is exercised on the newest
+  closed week still entirely in pre-R93 ids, which is what a document with no card_id would have been
+  written against. Last, r86's 12.5px void bound now reads 18px only for a grid row carrying an R77
+  status chip — the 5.4px the chip adds, inherited by its partner because a row's cards end level,
+  measured and written down by this file's own SAFE-dial test months ago; every chipless row keeps the
+  tight bound. Nothing was skipped, quarantined or deleted. · **LOE** 0.25 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.
