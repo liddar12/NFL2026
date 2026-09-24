@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "atd_cards_record.schema.json",
   "title": "atd_cards_record",
-  "description": "R101c - every ATD card as first offered (data/atd_cards/<season>_wk<NN>.json), appended on first sight and never rewritten; scripts/resolve_atd_cards.py grades it.",
+  "description": "R101c - every ATD card as first offered (data/atd_cards/<season>_wk<NN>.json), appended on first sight and never rewritten; scripts/resolve_atd_cards.py grades it. R101d: also data/atd_game_cards/ (GAME) and data/atd_my_cards/ (MY TD modes; a MY leg may be a spread).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -90,7 +90,8 @@
                     "qb_pass_yds",
                     "rb_rush_yds",
                     "wr_rec_yds",
-                    "moneyline"
+                    "moneyline",
+                    "spread"
                   ]
                 },
                 "selection": {

@@ -888,21 +888,27 @@ nothing ships without one.
   legs; the validator re-prices every card and recomputes the verdict; GAME cards are recorded and
   graded apart from WEEK (`game_<mode>`). GAME gets the same TD pills + stepper. **Locked by**
   `r101b_game_atd` (6) and `r101b_game_td` (3, browser, iPhone). · **LOE** 1 d
+- **R101d · MY same-game past two legs, and MY TD cards graded (P1) — built 2026-09-24.** Owner chose
+  the hybrid: two legs from one game keep the measured pair adjustment; in a TD mode one game may
+  supply up to the size GAME validated for that mode (ALL TD 7, MAJORITY 10, 50%+ 3 today), and a
+  3+-leg group is priced as the product — the GAME verdict — and says so on the card. A joint (or
+  absent) verdict keeps the R83 cap of two: the browser carries no joint pricer. ANY is unchanged.
+  `build_my_td_cards.py` records the top MY TD card for every team seed × mode × 2–10 legs (EVEN)
+  on first sight in `data/atd_my_cards/`, graded by `resolve_atd_cards.py` as `my_<mode>`; the
+  Python twin is parity-locked to the browser on the committed pool. **Locked by**
+  `r101d_my_td_parity` (5). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **R101d — MY same-game cards past 2 legs on the same verdict.** MY still prices same-game
-     pairs with the pairwise clamp; route MY's same-game legs through the GAME verdict (product,
-     validated sizes) and record MY TD-mode cards for grading.
-  2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
+  1. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
      gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
      single cheapest reliability win left.
-  3. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
+  2. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
-  4. **R99 E3 — game simulation + labelled 2–10-leg cards** (design gate first). Replaces pairwise
-     correlation with a simulation, so a 10-leg same-game card is priced consistently.
-  5. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
+  3. **R99 E3 — delivered as R101b/R101d.** The game simulator is re-measured weekly; it becomes the
+     GAME pricer (and needs a browser twin for MY) the week it beats the product on held-out games.
+  4. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
      should show each loop's live state (held / adopted / reverted, and why) so the owner can see the
      system learning rather than take it on trust.
-  6. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
+  5. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.

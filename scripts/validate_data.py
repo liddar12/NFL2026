@@ -239,6 +239,7 @@ MY_CARDS_SCHEMA = "my_cards.schema.json"
 ATD_CARDS_DIR = os.path.join(DATA, "atd_cards")
 ATD_CARDS_RECORD_SCHEMA = "atd_cards_record.schema.json"
 ATD_GAME_CARDS_DIR = os.path.join(DATA, "atd_game_cards")
+ATD_MY_CARDS_DIR = os.path.join(DATA, "atd_my_cards")          # R101d — MY TD cards
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -3226,7 +3227,7 @@ def main():
 
     # 1f) R101c — the ATD card record, walked exactly like the MY card record;
     # R101b — and the GAME-scope record beside it, against the same contract.
-    for rec_dir in (ATD_CARDS_DIR, ATD_GAME_CARDS_DIR):
+    for rec_dir in (ATD_CARDS_DIR, ATD_GAME_CARDS_DIR, ATD_MY_CARDS_DIR):
         if not os.path.isdir(rec_dir):
             continue
         atd_files = [f for f in sorted(os.listdir(rec_dir))

@@ -80,7 +80,7 @@ const PARLAY_ARCHIVE_RE = /^\/data\/parlays\/\d{4}_wk\d{2}\.json$/;
 // treats that 404 as "no anytime-TD cards this week". R101b — data/atd_game_cards.json
 // likewise (scripts/build_atd_game_cards.py), for the GAME view.
 const RUNNER_BUILT = new Set(['/data/pipeline_stages.json', '/data/atd_cards.json',
-  '/data/atd_game_cards.json']);
+  '/data/atd_game_cards.json', '/data/joint_backtest.json']);
 
 test('app/data.js PATHS is the app-reachable contract allowlist, and every entry exists', () => {
   const src = readFileSync(join(APP_DIR, 'data.js'), 'utf8');
@@ -181,6 +181,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // R101b — the same, for GAME (via data.js getAtdGameCards): this week's
     // same-game anytime-TD cards, read only when a TD mode is chosen on GAME.
     '/data/atd_game_cards.json',
+    // R101d — app/views/myparlays.js (via data.js getJointBacktest): the same-game
+    // verdict (~20 KB) that sets MY's per-game cap in a TD mode. Read on the MY tap.
+    '/data/joint_backtest.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {

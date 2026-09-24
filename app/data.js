@@ -171,6 +171,9 @@ export const getAtdCards = (opts) => loadJson('/data/atd_cards.json', opts);
 // R101b — this week's GAME-scope (same-game) anytime-TD cards
 // (scripts/build_atd_game_cards.py), read only when a TD mode is chosen on GAME.
 export const getAtdGameCards = (opts) => loadJson('/data/atd_game_cards.json', opts);
+// R101d — the same-game verdict (scripts/backtest_joint.py): MY's per-game cap
+// in a TD mode follows the sizes GAME validated. Read by MY only.
+export const getJointBacktest = (opts) => loadJson('/data/joint_backtest.json', opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));

@@ -383,7 +383,7 @@ def _combined_probs(legs, correlated, corr=None):
     return model, implied
 
 
-def combined_game_probs(legs, corr=None):
+def combined_game_probs(legs, corr=None, big_groups=None):
     """MIXED cards: correlate WITHIN each game, then multiply the games.
 
     A MY PARLAYS card (app/views/myparlays.js) is neither a pure same-game parlay
@@ -393,7 +393,11 @@ def combined_game_probs(legs, corr=None):
     probabilities are multiplied as independent events, because that is what the
     measurement supports. A leg with no game_id is its own group, never a shared
     "unknown" event -- callers building offered cards resolve event identity first.
-    Three or more legs in one game are refused by _combined_probs, not order-folded.
+    Three or more legs in one game are refused by _combined_probs, not order-folded,
+    UNLESS big_groups == "product" (R101d): a TD mode whose GAME held-out verdict
+    chose the product prices such a group as the product of its legs, in card
+    order (app/parlay-math.js combinedGameProbs opts.bigGroups, operation for
+    operation).
 
     Public because two implementations now depend on it: this module's Python and
     app/parlay-math.js combinedGameProbs, whose group ORDER (insertion) and whose
@@ -418,7 +422,11 @@ def combined_game_probs(legs, corr=None):
         implied *= leg["implied_prob"]
     model = 1.0
     for key in order:
-        model *= _combined_probs(groups[key], True, corr)[0]
+        if len(groups[key]) > 2 and big_groups == "product":
+            for leg in groups[key]:
+                model *= leg["model_prob"]
+        else:
+            model *= _combined_probs(groups[key], True, corr)[0]
     return model, implied
 
 
