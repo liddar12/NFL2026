@@ -164,6 +164,11 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // resolve-to-null-on-404 wrapper as the replay lab — it is runner-built, so
     // a 404 is a normal state and the card paints its NOT PRESENT line.
     '/data/pipeline_stages.json',
+    // R98 — app/league-sync.js: the compact Sleeper player index (~148 KB,
+    // ~25 KB over the wire) that translates Sleeper roster ids during LINEUP's
+    // automatic re-read. Read through data.js getSleeperIndex, and only when the
+    // league's rosters are over six hours old — never on a fresh mount.
+    '/data/sleeper_index.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {

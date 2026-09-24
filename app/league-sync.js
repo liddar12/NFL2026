@@ -16,7 +16,7 @@
  *
  * WHAT IT COSTS. Two small GETs to Sleeper (rosters, users) plus this app's own
  * data/sleeper_index.json (~148 KB, ~25 KB over the wire), which the daily
- * runner cuts from Sleeper's 14.7 MB player dump. TEAM's manual sync still reads
+ * runner cuts from Sleeper's 14.7 MB player dump, read through app/data.js. TEAM's manual sync still reads
  * the full dump; the compact index resolves exactly the same rostered players
  * (127 of 127 on the P.T.I. league, measured 2026-09-24) because a player on no
  * NFL team is not in this app's pool either.
@@ -30,11 +30,10 @@
  */
 
 import { importSleeperTeams, buildSleeperPlayerIndex, crosswalkRoster } from './sleeper.js';
+import { getSleeperIndex } from './data.js';
 import {
   loadLeagueRosters, saveLeagueRosters, autoSyncDue, readSyncAttempt, writeSyncAttempt,
 } from './league-rosters.js';
-
-export const SLEEPER_INDEX_URL = 'data/sleeper_index.json';
 
 /** The resolved app ids of one crosswalk part, de-duplicated against `seen`. */
 function idsOf(crosswalk, part, seen) {
@@ -68,7 +67,8 @@ export function rosterAppIds(crosswalk) {
  * Never throws.
  */
 export async function autoSyncLeague({
-  leagueId, seatable, fetch: fetchImpl, now = Date.now(), storage, force = false,
+  leagueId, seatable, fetch: fetchImpl, loadIndex = getSleeperIndex, now = Date.now(), storage,
+  force = false,
 } = {}) {
   const store = storage;
   const id = leagueId == null ? '' : String(leagueId).trim();
@@ -79,17 +79,20 @@ export async function autoSyncLeague({
   }
   writeSyncAttempt({ league_id: id, at: new Date(now).toISOString() }, store);
   try {
-    const f = typeof fetchImpl === 'function'
-      ? fetchImpl : (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
-    if (!f) return { ran: true, ok: false, error: 'This browser has no fetch.' };
-    const idxRes = await f(SLEEPER_INDEX_URL, { cache: 'no-cache' });
-    if (!idxRes || !idxRes.ok) {
-      return { ran: true, ok: false, error: `The compact Sleeper player index is not available (HTTP ${idxRes ? idxRes.status : '?'}).` };
+    // The compact index is a data/ contract, so it is read through app/data.js
+    // like every other one (the data-contract test binds this); only Sleeper's
+    // own API goes through app/sleeper.js.
+    let doc;
+    try {
+      doc = await loadIndex({ force: true });
+    } catch (err) {
+      return { ran: true, ok: false, error: `The compact Sleeper player index is not available (${(err && err.message) || err}).` };
     }
-    const doc = await idxRes.json();
     const built = buildSleeperPlayerIndex(doc && doc.players);
     if (!built.ok) return { ran: true, ok: false, error: 'The compact Sleeper player index could not be read.' };
-    const teamsRes = await importSleeperTeams(id, { fetch: f, timeoutMs: 8000 });
+    const teamsRes = await importSleeperTeams(id, {
+      ...(typeof fetchImpl === 'function' ? { fetch: fetchImpl } : {}), timeoutMs: 8000,
+    });
     if (!teamsRes.ok) {
       return { ran: true, ok: false, error: (teamsRes.error && teamsRes.error.message) || 'Sleeper did not return the rosters.' };
     }
