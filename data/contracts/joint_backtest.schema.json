@@ -1,0 +1,374 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "joint_backtest.schema.json",
+  "title": "joint_backtest",
+  "description": "R101b - the same-game joint pricer measured (scripts/backtest_joint.py): two-factor loadings fitted on FIT seasons, then held-out cards priced as the plain product and by the joint model. `pricer` is joint only if its pooled held-out log loss over `sampled` is lower; each GAME (mode, size) in `sizes` (the builder's own cards) is offered only if its all-hit and all-but-one counts pass a two-sided Poisson test at `alpha`. validate_data.py recomputes both. No book price is an input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "generated_utc",
+    "model",
+    "fit_seasons",
+    "held_out_seasons",
+    "fit",
+    "loadings",
+    "alpha",
+    "min_expected_tail",
+    "pricer",
+    "pooled",
+    "offered_sizes",
+    "sizes",
+    "sampled",
+    "policy"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "joint_backtest"
+      ]
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "fit_seasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "held_out_seasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "fit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cards",
+        "neg_log_likelihood"
+      ],
+      "properties": {
+        "cards": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "neg_log_likelihood": {
+          "type": "number"
+        }
+      }
+    },
+    "loadings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ML",
+        "ATD_QB",
+        "ATD_RB",
+        "ATD_WR",
+        "ATD_TE",
+        "QBY",
+        "RBY",
+        "WRY"
+      ],
+      "properties": {
+        "ML": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "ATD_QB": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "ATD_RB": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "ATD_WR": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "ATD_TE": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "QBY": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "RBY": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "WRY": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "alpha": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1
+    },
+    "min_expected_tail": {
+      "type": "number",
+      "minimum": 0
+    },
+    "pricer": {
+      "type": "string",
+      "enum": [
+        "joint",
+        "independent"
+      ]
+    },
+    "pooled": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cards",
+        "log_loss_independent",
+        "log_loss_joint"
+      ],
+      "properties": {
+        "cards": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "log_loss_independent": {
+          "type": "number",
+          "minimum": 0
+        },
+        "log_loss_joint": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "offered_sizes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "all_td": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 10
+          }
+        },
+        "majority_td": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 10
+          }
+        },
+        "scorers_50": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 10
+          }
+        }
+      }
+    },
+    "sizes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tail_hits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expected_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "expected_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tail_expected_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tail_expected_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "log_loss_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "log_loss_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p_all": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "p_tail": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "offered": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "sampled": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tail_hits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expected_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "expected_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tail_expected_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tail_expected_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "log_loss_independent": {
+              "type": "number",
+              "minimum": 0
+            },
+            "log_loss_joint": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p_all": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "p_tail": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "offered": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "string"
+    }
+  }
+}

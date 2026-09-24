@@ -246,6 +246,15 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error backtest "Anytime-TD backtest (R99 E1 measure only)" -- python3 scripts/backtest_atd.py --cache "$RUNNER_TEMP/atd"
         continue-on-error: true
 
+      # R101b — the SAME-GAME joint pricer, fitted on 2022-23 and measured on
+      # held-out 2024-25 same-game cards (reuses the ATD CSVs just cached). Writes
+      # data/joint_backtest.json only: which pricer GAME cards use and which
+      # sizes each ATD mode may offer (validate_data.py recomputes both below).
+      # continue-on-error for the same third-party-outage reason as above.
+      - name: Same-game joint pricer backtest (R101b)
+        run: bash scripts/stage.sh --continue-on-error backtest "Same-game joint pricer backtest (R101b)" -- python3 scripts/backtest_joint.py --cache "$RUNNER_TEMP/atd"
+        continue-on-error: true
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

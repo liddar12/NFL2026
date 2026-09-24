@@ -1,4 +1,5 @@
-/* app/atd-cards.js — R101c: the anytime-TD selector and the WEEK ATD cards.
+/* app/atd-cards.js — R101c: the anytime-TD selector and the WEEK ATD cards;
+ * R101b: and the GAME (same-game) ATD cards, rendered by the same card.
  *
  * Owner (2026-09-24): each parlay section goes up to 10 legs, with a choice of
  * ONLY anytime-TD scorers or MORE THAN HALF anytime-TD scorers — plus, as chosen,
@@ -108,8 +109,14 @@ export function pctText(p) {
  * removes its cards on Thursday night). Returns {cards, reason}.
  */
 export function atdCardsFor(doc, mode, legs, games, now = Date.now()) {
-  if (!doc || !doc.adopted || !doc.modes) {
+  if (!doc) return { cards: [], reason: 'No anytime-TD cards are published for this view yet.' };
+  if (!doc.adopted || !doc.modes) {
     return { cards: [], reason: 'No anytime-TD cards this week — the anytime-TD model is not adopted.' };
+  }
+  if (!Object.keys(doc.modes).length) {
+    // R101b — GAME without a held-out verdict: the builder's own last note says why.
+    const why = (doc.notes || []).slice(-1)[0];
+    return { cards: [], reason: why || 'No anytime-TD cards this week.' };
   }
   const blk = doc.modes[mode];
   if (!blk) return { cards: [], reason: 'No cards for this mode this week.' };
@@ -126,8 +133,31 @@ export function atdCardsFor(doc, mode, legs, games, now = Date.now()) {
     : { cards: [], reason: `Every ${legs}-leg card has a game that has already kicked off.` };
 }
 
-/** One WEEK ATD card, in the MY card's markup so it inherits its layout. */
-export function renderAtdCard(card) {
+const NOTE = {
+  week: 'One leg per game, so the chance is the product of the legs.',
+  joint: 'Every leg is from one game, so the legs move together: the chance comes from '
+    + 'the same-game model, which beat the plain product on held-out seasons.',
+  independent: 'Every leg is from one game. The same-game model did not beat the plain '
+    + 'product on held-out seasons, so the chance is the product — and this size passed '
+    + 'its held-out hit-count test.',
+};
+
+/** "NE @ SEA" for a card's game, from the schedule the view already holds. */
+function gameLabel(card, games) {
+  const id = String((card.legs[0] || {}).game_id);
+  const g = (games || []).find((x) => String(x.game_id) === id);
+  return g ? `${g.away} @ ${g.home}` : '';
+}
+
+/**
+ * One ATD card, in the MY card's markup so it inherits its layout. opts.scope
+ * 'week' (default) or 'game'; opts.pricer is the GAME document's pricer and
+ * opts.games the schedule, for the game label.
+ */
+export function renderAtdCard(card, opts = {}) {
+  const scope = opts.scope === 'game' ? 'game' : 'week';
+  const note = scope === 'game' ? (NOTE[opts.pricer] || NOTE.independent) : NOTE.week;
+  const where = scope === 'game' ? gameLabel(card, opts.games) : '';
   const legs = card.legs.map((l) => (
     '<div class="leg leg--annot">'
       + `<div class="leg-nm">${esc(l.selection)}</div>`
@@ -135,16 +165,16 @@ export function renderAtdCard(card) {
       + `<div class="leg-prov">${esc([l.team, l.market === 'anytime_td' ? 'anytime TD' : 'floor'].filter(Boolean).join(' · '))}</div>`
     + '</div>')).join('');
   return (
-    `<article class="card parlay mp-card atd-card" data-scope="week" data-atd="${esc(card.mode)}">`
+    `<article class="card parlay mp-card atd-card" data-scope="${scope}" data-atd="${esc(card.mode)}">`
       + '<div class="p-head">'
-        + `<span class="lbl">${esc(LABEL[card.mode] || card.label)} · ${card.n_legs} LEGS · ${card.n_atd} TD</span>`
+        + `<span class="lbl">${where ? `${esc(where)} · ` : ''}${esc(LABEL[card.mode] || card.label)} · ${card.n_legs} LEGS · ${card.n_atd} TD</span>`
       + '</div>'
       + `<div class="legs">${legs}</div>`
       + '<div class="p-foot">'
         + `<div class="ev" title="Model chance every leg hits">${pctText(card.model_prob)}<span class="k">MODEL HIT</span></div>`
         + `<div class="pay">${breakEven(card.model_prob)}<span class="k">BREAK-EVEN ODDS</span></div>`
       + '</div>'
-      + '<div class="corr"><span>One leg per game, so the chance is the product of the legs. '
+      + `<div class="corr"><span>${note} `
         + 'Break-even is the price this chance is worth — take less and the bet loses money '
         + 'on average. No book price is read.</span></div>'
     + '</article>'

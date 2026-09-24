@@ -131,6 +131,10 @@ SCHEMA_TO_DATA = {
     # R101c — this week's WEEK-scope ATD cards and their graded record.
     "atd_cards.schema.json": "atd_cards.json",
     "atd_card_scores.schema.json": "atd_card_scores.json",
+    # R101b — the same-game joint pricer's held-out verdict (weekly backtest) and
+    # this week's GAME-scope ATD cards priced by it.
+    "joint_backtest.schema.json": "joint_backtest.json",
+    "atd_game_cards.schema.json": "atd_game_cards.json",
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
@@ -234,6 +238,7 @@ MY_CARDS_SCHEMA = "my_cards.schema.json"
 # R101c - the ATD card record (data/atd_cards/<season>_wk<NN>.json), same shape of walk.
 ATD_CARDS_DIR = os.path.join(DATA, "atd_cards")
 ATD_CARDS_RECORD_SCHEMA = "atd_cards_record.schema.json"
+ATD_GAME_CARDS_DIR = os.path.join(DATA, "atd_game_cards")
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -267,6 +272,8 @@ OPTIONAL_DATA = frozenset([
     "atd_week.json",
     # R101c — built / graded by the daily runner; absent until the first run.
     "atd_cards.json", "atd_card_scores.json",
+    # R101b — weekly / daily runner; absent until the first run.
+    "joint_backtest.json", "atd_game_cards.json",
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",
@@ -1208,6 +1215,126 @@ def check_atd_cards(cards_doc, leg_pool):
                                     % (tag, n_atd, len(legs)))
     if problems:
         raise ValidationError("ATD cards honest about their legs:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
+
+
+def _pool_prices(leg_pool):
+    price = {}
+    for r in (leg_pool or {}).get("atd_legs") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for r in (leg_pool or {}).get("players") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for g in (leg_pool or {}).get("game_legs") or []:
+        price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
+    return price
+
+
+def check_joint_backtest(doc):
+    """R101b — the same-game pricer's verdict must follow from its receipts.
+
+    Recomputed here: pricer is "joint" iff the pooled held-out log loss of the
+    joint model is lower than the product's; a (mode, size) is offered iff its
+    held-out cards were measured, their all-but-one expectation reaches
+    min_expected_tail, and both Poisson p-values (all hit, all but one) are at or
+    above alpha; offered_sizes lists exactly those sizes. None passes."""
+    if doc is None:
+        return
+    problems = []
+    pooled = doc["pooled"]
+    want = "joint" if pooled["log_loss_joint"] < pooled["log_loss_independent"] else "independent"
+    if doc["pricer"] != want:
+        problems.append("pricer %s but the pooled log loss says %s" % (doc["pricer"], want))
+    suffix = doc["pricer"]
+    for mode in ("all_td", "majority_td", "scorers_50"):
+        listed = sorted(doc["offered_sizes"].get(mode) or [])
+        earned = []
+        for size, r in sorted(((doc.get("sizes") or {}).get(mode) or {}).items(),
+                              key=lambda kv: int(kv[0])):
+            ok = (r.get("n", 0) > 0 and r.get("tail_expected_" + suffix, 0) >=
+                  doc["min_expected_tail"] and r.get("p_all", 0) >= doc["alpha"]
+                  and r.get("p_tail", 0) >= doc["alpha"])
+            if bool(r.get("offered")) != ok:
+                problems.append("%s %s-leg says offered=%s, its receipts say %s"
+                                % (mode, size, r.get("offered"), ok))
+            if ok:
+                earned.append(int(size))
+        if listed != earned:
+            problems.append("%s offered_sizes %s, the receipts earn %s" % (mode, listed, earned))
+    if problems:
+        raise ValidationError("joint_backtest.json verdict follows from its receipts:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
+
+
+def check_atd_game_cards(cards_doc, leg_pool, joint_backtest):
+    """R101b — every GAME ATD card is honest about its legs and its price.
+
+    Every leg is a data/leg_pool.json leg at the pool's own model_prob; all legs
+    share ONE game; no player carries two legs and there is at most one
+    moneyline; the mode's rule holds; the size is one joint_backtest.json
+    offers for the mode; the card's pricer is the backtest's; and model_prob
+    re-prices to the same number under that pricer (scripts/models/joint.py).
+    None / no modes passes."""
+    if not cards_doc or not cards_doc.get("modes"):
+        return
+    from scripts.models import joint as J                  # noqa: PLC0415
+    problems = []
+    jb = joint_backtest or {}
+    if not cards_doc.get("adopted"):
+        problems.append("atd_game_cards.json carries cards but says adopted: false")
+    if cards_doc.get("pricer") != jb.get("pricer"):
+        problems.append("atd_game_cards.json priced %s, joint_backtest.json chose %s"
+                        % (cards_doc.get("pricer"), jb.get("pricer")))
+    if (cards_doc.get("season"), cards_doc.get("week")) != \
+            ((leg_pool or {}).get("season"), (leg_pool or {}).get("week")):
+        problems.append("atd_game_cards.json is for %s wk %s, the pool for %s wk %s"
+                        % (cards_doc.get("season"), cards_doc.get("week"),
+                           (leg_pool or {}).get("season"), (leg_pool or {}).get("week")))
+    price = _pool_prices(leg_pool)
+    loadings = {t: tuple(v) for t, v in (jb.get("loadings") or {}).items()}
+    offered = jb.get("offered_sizes") or {}
+    for mode, blk in cards_doc["modes"].items():
+        for size, cards in blk.get("cards", {}).items():
+            if int(size) not in (offered.get(mode) or []):
+                problems.append("%s %s-leg cards on a size joint_backtest.json does not offer"
+                                % (mode, size))
+            for c in cards:
+                legs, tag = c["legs"], "%s %s-leg %s" % (mode, size, c["card_id"])
+                for leg in legs:
+                    want = price.get((leg["selection"], leg["game_id"]))
+                    if want is None or abs(want - leg["model_prob"]) > 1e-9:
+                        problems.append("%s: leg %r priced %s, the pool says %s"
+                                        % (tag, leg["selection"], leg["model_prob"], want))
+                if len({l["game_id"] for l in legs}) != 1:
+                    problems.append("%s: legs from more than one game" % tag)
+                ids = [l["gsis_id"] for l in legs if l["gsis_id"]]
+                if len(ids) != len(set(ids)):
+                    problems.append("%s: a player carries two legs" % tag)
+                if sum(1 for l in legs if l["market"] == "moneyline") > 1:
+                    problems.append("%s: two moneylines" % tag)
+                if cards_doc.get("pricer") == "joint":
+                    p = J.joint_prob([{"p": l["model_prob"], "side": l["side"],
+                                       "type": J.leg_type(l)} for l in legs], loadings)
+                else:
+                    p = 1.0
+                    for l in legs:
+                        p *= l["model_prob"]
+                if abs(p - c["model_prob"]) > 1e-6:
+                    problems.append("%s: model_prob %s, the %s pricer says %s"
+                                    % (tag, c["model_prob"], cards_doc.get("pricer"), round(p, 8)))
+                n_atd = sum(1 for l in legs if l["market"] == "anytime_td")
+                if c["n_legs"] != len(legs) or str(len(legs)) != str(size) or c["n_atd"] != n_atd:
+                    problems.append("%s: counts disagree with the legs" % tag)
+                if mode in ("all_td", "scorers_50") and n_atd != len(legs):
+                    problems.append("%s: a non-TD leg on an all-TD card" % tag)
+                if mode == "scorers_50" and any(l["model_prob"] < 0.5 for l in legs):
+                    problems.append("%s: a leg under 50%% on a 50%%+ card" % tag)
+                if mode == "majority_td" and not n_atd * 2 > len(legs):
+                    problems.append("%s: %d of %d legs are TD — not a majority"
+                                    % (tag, n_atd, len(legs)))
+    if problems:
+        raise ValidationError("GAME ATD cards honest about their legs and price:\n  - %s"
                               % "\n  - ".join(problems[:20]))
 
 
@@ -3097,17 +3224,20 @@ def main():
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 
-    # 1f) R101c — the ATD card record, walked exactly like the MY card record.
-    if os.path.isdir(ATD_CARDS_DIR):
-        atd_files = [f for f in sorted(os.listdir(ATD_CARDS_DIR))
+    # 1f) R101c — the ATD card record, walked exactly like the MY card record;
+    # R101b — and the GAME-scope record beside it, against the same contract.
+    for rec_dir in (ATD_CARDS_DIR, ATD_GAME_CARDS_DIR):
+        if not os.path.isdir(rec_dir):
+            continue
+        atd_files = [f for f in sorted(os.listdir(rec_dir))
                      if f.endswith(".json") and "_wk" in f]
         if atd_files:
             try:
                 atd_schema = _load(os.path.join(CONTRACTS, ATD_CARDS_RECORD_SCHEMA))
                 for f in atd_files:
-                    validate_against_schema(_load(os.path.join(ATD_CARDS_DIR, f)),
-                                            atd_schema, "atd_cards/" + f)
-                    print("ok    atd_cards/%-29s vs %s" % (f, ATD_CARDS_RECORD_SCHEMA))
+                    tag = os.path.basename(rec_dir) + "/" + f
+                    validate_against_schema(_load(os.path.join(rec_dir, f)), atd_schema, tag)
+                    print("ok    %-39s vs %s" % (tag, ATD_CARDS_RECORD_SCHEMA))
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 
@@ -3136,6 +3266,11 @@ def main():
         print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
         check_atd_cards(_opt("atd_cards.json"), _opt("leg_pool.json"))
         print("ok    ATD cards: pool legs at pool prices, one per game, product, mode rules (R101c)")
+        check_joint_backtest(_opt("joint_backtest.json"))
+        print("ok    joint_backtest.json pricer and offered sizes follow from its receipts (R101b)")
+        check_atd_game_cards(_opt("atd_game_cards.json"), _opt("leg_pool.json"),
+                             _opt("joint_backtest.json"))
+        print("ok    GAME ATD cards: one game, pool prices, re-priced, validated sizes (R101b)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

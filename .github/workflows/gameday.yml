@@ -163,6 +163,14 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "Anytime-TD week cards (first-sight record)" -- python3 scripts/build_atd_cards.py
 
+      # R101b — the GAME-scope (same-game) ANYTIME-TD cards: every leg from one
+      # game, priced by the pricer data/joint_backtest.json chose on held-out
+      # seasons and built only at the sizes it validated (none without a verdict).
+      # Same pool, same first-sight record rule (data/atd_game_cards/). Offline.
+      - name: Anytime-TD game cards (first-sight record)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: bash scripts/stage.sh gameday "Anytime-TD game cards (first-sight record)" -- python3 scripts/build_atd_game_cards.py
+
       # R89 — the player backtest is measured on player_history.json, which the
       # lock step above just rebuilt. Daily runs both; gameday ran only the
       # first, so after gameday 123 the committed player_backtest.json reported
@@ -204,6 +212,7 @@ jobs:
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS leg pool (rebuild under this generation)" --reason "scores mode: nothing is re-priced"
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD week cards (first-sight record)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD game cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Player-level walk-forward backtest (same substrate as today's history)" --reason "scores mode: the history is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 

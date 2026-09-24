@@ -56,7 +56,11 @@ test('WEEK: TD pills on WEEK only; ALL TD cards at the chosen size; stepper boun
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await open(page);
-  await expect(page.locator('#td-controls')).toBeHidden();          // GAME: no TD controls
+  // R101b — GAME carries the TD pills too (its cards are the same-game ones,
+  // tests/web/r101b_game_td.spec.mjs); ANY shows the slate list and no stepper.
+  await expect(page.locator('#td-controls [data-td="all_td"]')).toBeVisible();
+  await expect(page.locator('#td-controls .td-step')).toHaveCount(0);
+  await expect(page.locator('#parlays-list')).toBeVisible();
   await page.click('.scopeseg [data-seg="week"]');
   await expect(page.locator('#td-controls [data-td="all_td"]')).toBeVisible();
   await expect(page.locator('#td-controls .td-step')).toHaveCount(0); // ANY: no stepper
@@ -78,8 +82,11 @@ test('WEEK: TD pills on WEEK only; ALL TD cards at the chosen size; stepper boun
   await expect(page.locator('#td-controls [data-step="1"]')).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width);
   await page.click('.scopeseg [data-seg="game"]');
-  await expect(page.locator('#td-controls')).toBeHidden();
+  // R101b — the TD mode follows the viewer to GAME; ANY brings the slate back.
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('10');
+  await page.click('#td-controls [data-td="any"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
+  await expect(page.locator('#atd-list')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
