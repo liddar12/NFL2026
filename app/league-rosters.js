@@ -62,18 +62,28 @@ export function normalizeLeagueRosters(raw) {
     const appIds = (Array.isArray(t.app_ids) ? t.app_ids : [])
       .map(idText).filter((id) => id && !seen.has(id) && seen.add(id));
     appIds.forEach((id) => union.add(id));
+    // R98 — a player in a Sleeper IR (reserve) slot is rostered, not a pickup.
+    // Kept apart from app_ids, which is the seatable roster TEAM seats, so the
+    // "your roster differs from Sleeper" check never flags an IR stash.
+    const reserve = (Array.isArray(t.reserve_app_ids) ? t.reserve_app_ids : [])
+      .map(idText).filter((id) => id && !seen.has(id) && seen.add(id));
+    reserve.forEach((id) => union.add(id));
     const rid = Number(t.roster_id);
     return {
       roster_id: Number.isFinite(rid) ? rid : null,
       label: typeof t.label === 'string' ? t.label : null,
       app_ids: appIds,
+      ...(reserve.length ? { reserve_app_ids: reserve } : {}),
     };
   });
   const my = Number(raw.my_roster_id);
   return {
     version: LEAGUE_ROSTERS_VERSION,
     league_id: leagueId,
-    at: typeof raw.at === 'string' && raw.at ? raw.at : new Date().toISOString(),
+    // R98 — a READ keeps what was written: a record with no timestamp is of
+    // unknown age, and stamping it with the clock here made every such record
+    // read as brand new. Only a WRITE stamps the time (saveLeagueRosters).
+    at: typeof raw.at === 'string' && raw.at ? raw.at : null,
     teams,
     rostered_app_ids: [...union],
     my_roster_id: raw.my_roster_id == null || !Number.isFinite(my) ? null : my,
@@ -85,6 +95,7 @@ export function saveLeagueRosters(record, storage) {
   const store = storeOf(storage);
   const rec = normalizeLeagueRosters(record);
   if (!store || !rec) return false;
+  if (!rec.at) rec.at = new Date().toISOString();
   try {
     store.setItem(LEAGUE_ROSTERS_KEY, JSON.stringify(rec));
     return true;
@@ -108,6 +119,77 @@ export function loadLeagueRosters(leagueId, storage) {
 }
 
 /**
+ * R98 — how old the saved rosters are, in hours, or null when the record carries
+ * no readable timestamp. The waiver wire is "this app's pool minus every roster
+ * AS READ AT THAT MOMENT", and the read only happens on TEAM's SYNC NOW (it needs
+ * Sleeper's multi-megabyte player list to translate ids, which is too heavy to
+ * pull on every LINEUP mount). Every add and drop since then is invisible, so a
+ * player another manager picked up keeps showing as available. This number is
+ * what lets LINEUP say so out loud instead of in a footnote.
+ */
+export const ROSTERS_STALE_HOURS = 24;
+export function rosterAgeHours(rec, now = Date.now()) {
+  const t = rec && typeof rec.at === 'string' && rec.at ? Date.parse(rec.at) : NaN;
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, (Number(now) - t) / 3600000);
+}
+
+/**
+ * R98 — AUTOMATIC RE-READ POLICY (owner, 2026-09-24: "re-synced automatically 4
+ * times per day"). Lives here, not in app/league-sync.js, so LINEUP can decide
+ * whether a re-read is due WITHOUT loading app/sleeper.js; the sync module is
+ * imported only when this says yes.
+ */
+export const AUTO_SYNC_EVERY_HOURS = 6;      // four times a day
+export const AUTO_SYNC_RETRY_MINUTES = 30;   // after a failed attempt
+export const LAST_ATTEMPT_KEY = 'nfl2026.leaguesync.attempt.v1';
+
+export function readSyncAttempt(storage) {
+  const rec = readJson(storeOf(storage), LAST_ATTEMPT_KEY);
+  return isObj(rec) ? rec : null;
+}
+
+export function writeSyncAttempt(rec, storage) {
+  try {
+    const store = storeOf(storage);
+    if (store) store.setItem(LAST_ATTEMPT_KEY, JSON.stringify(rec));
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Is a re-read due? True when the saved rosters for this league are missing, of
+ * unknown age, or older than AUTO_SYNC_EVERY_HOURS — unless an attempt for this
+ * league started less than AUTO_SYNC_RETRY_MINUTES ago (a Sleeper outage is not
+ * hammered on every mount).
+ */
+export function autoSyncDue(rec, attempt, leagueId, now = Date.now()) {
+  const id = idText(leagueId);
+  if (!id) return false;
+  const age = rosterAgeHours(rec, now);
+  if (age != null && age < AUTO_SYNC_EVERY_HOURS) return false;
+  const t = attempt && attempt.league_id === id && typeof attempt.at === 'string'
+    ? Date.parse(attempt.at) : NaN;
+  if (Number.isFinite(t) && Number(now) - t < AUTO_SYNC_RETRY_MINUTES * 60000) return false;
+  return true;
+}
+
+/**
+ * R98 — how the roster seated on this device differs from Sleeper's: `added` =
+ * on Sleeper, not here; `dropped` = here, no longer on Sleeper.
+ */
+export function rosterChange(hereIds, sleeperIds) {
+  const here = new Set((hereIds || []).map(String));
+  const there = new Set((sleeperIds || []).map(String));
+  return {
+    added: [...there].filter((id) => !here.has(id)),
+    dropped: [...here].filter((id) => !there.has(id)),
+  };
+}
+
+/**
  * Mark which of the saved rosters is mine. A no-op (false) when nothing is
  * saved or the saved record is for another league — a seat in league A must
  * never relabel league B's record.
@@ -118,7 +200,14 @@ export function setMyRosterId(leagueId, rosterId, storage) {
   if (!rec) return false;
   const rid = Number(rosterId);
   rec.my_roster_id = rosterId == null || !Number.isFinite(rid) ? null : rid;
-  return saveLeagueRosters(rec, store);
+  // Written directly, not through saveLeagueRosters: marking a seat does not
+  // re-read the league, so it must not refresh the rosters' age (R98).
+  try {
+    store.setItem(LEAGUE_ROSTERS_KEY, JSON.stringify(rec));
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 /**

@@ -120,6 +120,9 @@ SCHEMA_TO_DATA = {
     # R49 — Sleeper's own weekly projections, DISPLAY-ONLY (never a model input;
     # check_market_price_fields scans it like every other doc). Runner-built.
     "sleeper_projections.schema.json": "sleeper_projections.json",
+    # R98 — the compact Sleeper player index LINEUP's automatic roster sync
+    # reads. Runner-built from the same dump; never a model input.
+    "sleeper_index.schema.json": "sleeper_index.json",
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
@@ -245,6 +248,8 @@ OPTIONAL_DATA = frozenset([
     # R49 — produced by the daily runner (network: api.sleeper.app). Deliberately
     # NOT committed from the fixture: that would be fabricated provenance.
     "sleeper_projections.json",
+    # R98 — same runner, same network, same reason: absent until the first run.
+    "sleeper_index.json",
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",

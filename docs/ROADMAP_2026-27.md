@@ -770,6 +770,46 @@ nothing ships without one.
   status chip — the 5.4px the chip adds, inherited by its partner because a row's cards end level,
   measured and written down by this file's own SAFE-dial test months ago; every chipless row keeps the
   tight bound. Nothing was skipped, quarantined or deleted. · **LOE** 0.25 d
+- **R98 · LINEUP showed players on the wrong team, and players who were not available (P1) — built
+  2026-09-24.** Two defects behind one complaint, each measured before it was fixed. **(a) Wrong team,
+  or no team at all.** Checked against all 32 official ESPN rosters on 2026-09-24, **24 of the 300 shipped
+  players were on the wrong team**: 15 on no NFL roster at all (Russell Wilson "NYG", Nick Chubb "HOU",
+  DeAndre Hopkins "BAL") and 9 who had moved (Ertz WAS→PHI, Cooks BUF→SF, Ford CLE→MIN). Every one came
+  from R33's fallback — when the fantasy pool's current proTeamId reads 0 (cut) or is missing, the
+  *prior-season* team was kept so a draftable player was not dropped mid-signing. Right in August; in
+  week 3 it projects a released player into a lineup and offers him on waivers. The pipeline already read
+  every official roster each run (`fetch_roster_ages`) and kept only the age. It now keeps the team too
+  (`fetch_rosters`), and `assemble_records` lets it win: official roster → fantasy map → last season. A
+  player no *answering* roster lists is dropped through the same `team is None` path a free agent already
+  took; if the page of the team he would have been stamped on did not answer, nothing proves he left, so
+  he keeps the old stamp and is named as unverified. IR players stay — they are on their team's page
+  (Njoku/LAC verified live). Live on the full 395-player pool: 24 moved, 29 dropped, 0 unverified; Justin
+  Jefferson stays MIN (the injury feed's name-joined "CLE" was the wrong row — why the fix is id-keyed).
+  Standalone and backtest callers are byte-for-byte unchanged. **(b) "Available" players who were not.**
+  The waiver wire is this app's pool minus every league roster *as read at the last SYNC NOW*, and that
+  read only happened by hand. Owner's rule the same day: *"teams and waivers are updated multiple times a
+  day, they should be re-synced automatically 4 times per day."* LINEUP now re-reads the league's rosters
+  itself whenever they are over **6 hours** old (a failed attempt waits 30 minutes). An iPhone web app
+  cannot run in the background, so this happens on opening LINEUP — the sync module is imported only when
+  a refresh is due, so a fresh mount costs nothing. Translating Sleeper ids needs Sleeper's player dump,
+  which is **14.7 MB**; the daily runner, which already fetches it once a day, now also writes
+  `data/sleeper_index.json` — seatable positions on an NFL team, Sleeper's raw fields — at **148 KB (25 KB
+  over the wire)**, and it resolves exactly the players the full dump does (127/127 on the P.T.I. league).
+  The automatic path writes the league record only. It never seats, moves or drops a player on the
+  viewer's own roster — TEAM's rule that a roster is never replaced without naming the losses stands, and
+  `ROSTER_SYNC_MODE` is still `manual` because seating still is. When the viewer's Sleeper roster differs
+  from the one seated here, LINEUP *names* who (on Sleeper, not here / here, no longer on Sleeper) with a
+  link to seat it. IR-slot players count as rostered but are kept out of the seatable list, so an IR stash
+  is never offered as a pickup and never shows as a false difference. When the refresh cannot run, the
+  failure is said and the waiver card carries a warning *above* the list with its age — the as-of date
+  was already in a footnote, and nobody read it. Found on the way: `normalizeLeagueRosters` stamped the
+  clock on every READ, so a record with no timestamp always looked brand new, and marking a seat
+  refreshed the age of rosters it had not re-read; both fixed. **Locked by**
+  `r98_official_rosters.test.mjs` (7), `r98_league_sync.test.mjs` (8), `r98_roster_age.test.mjs` (6),
+  `r98_waiver_freshness.spec.mjs` (6, through the real TEAM sync) and the Sleeper builder's selftest.
+  **Not done, and next:** automatically *seating* the viewer's own Sleeper changes needs TEAM's seating
+  logic (`planRosterSync`, in a 275 KB view) moved to a shared module so LINEUP can run it; until then the
+  difference is named, one tap from being applied. · **LOE** 1 d
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.
