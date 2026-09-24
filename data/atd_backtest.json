@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-24T17:20:45Z",
+  "generated_utc": "2026-09-24T18:06:03Z",
   "kind": "atd_backtest",
   "policy": "MEASURE ONLY (R99 E1). P(anytime TD) = 1 - exp(-lambda_team * share), walk-forward. No ATD leg is offered while adopted is false. No book price is an input.",
   "model": "lambda_team = league TDs/game x shrunk offence rate x shrunk opponent TDs-allowed rate x home factor; share = TD share shrunk toward carries/targets opportunity share, R92 depth cascade, team sum <= 1",
@@ -117,10 +117,27 @@
       "team_games": 544,
       "snaps": {
         "rows": 26613,
-        "kept": 6583,
-        "unmapped": 21
+        "kept": 6587,
+        "unmapped": 17
       },
-      "universe": 6880
+      "universe": 6883
+    },
+    "2026": {
+      "stats": {
+        "rows": 2225,
+        "kept_rows": 724,
+        "not_reg": 0,
+        "other_season": 2,
+        "no_offense": 1499,
+        "duplicate_player_week": 0
+      },
+      "team_games": 64,
+      "snaps": {
+        "rows": 2994,
+        "kept": 784,
+        "unmapped": 6
+      },
+      "universe": 820
     }
   },
   "seasons": {
@@ -498,48 +515,48 @@
     },
     "2025": {
       "model": {
-        "n": 6880,
-        "log_loss": 0.38313,
-        "brier": 0.11879,
-        "calibration_intercept": -0.0221,
-        "calibration_slope": 0.9965,
-        "mean_p": 0.163,
-        "hit_rate": 0.1609
+        "n": 6883,
+        "log_loss": 0.38297,
+        "brier": 0.11873,
+        "calibration_intercept": -0.0218,
+        "calibration_slope": 0.9967,
+        "mean_p": 0.1629,
+        "hit_rate": 0.1608
       },
       "position_base_rate": {
-        "n": 6880,
-        "log_loss": 0.43767,
-        "brier": 0.13401,
-        "calibration_intercept": -0.3237,
-        "calibration_slope": 0.8139,
+        "n": 6883,
+        "log_loss": 0.43753,
+        "brier": 0.13396,
+        "calibration_intercept": -0.3215,
+        "calibration_slope": 0.8154,
         "mean_p": 0.1643,
-        "hit_rate": 0.1609
+        "hit_rate": 0.1608
       },
       "opportunity_only": {
-        "n": 6880,
-        "log_loss": 0.38812,
-        "brier": 0.12022,
-        "calibration_intercept": -0.0616,
-        "calibration_slope": 0.9616,
-        "mean_p": 0.162,
-        "hit_rate": 0.1609
+        "n": 6883,
+        "log_loss": 0.38796,
+        "brier": 0.12016,
+        "calibration_intercept": -0.0613,
+        "calibration_slope": 0.9618,
+        "mean_p": 0.1619,
+        "hit_rate": 0.1608
       },
       "by_position": {
         "QB": {
           "n": 674,
           "log_loss": 0.3657,
           "brier": 0.1088,
-          "calibration_intercept": -0.1673,
+          "calibration_intercept": -0.1671,
           "calibration_slope": 0.9472,
           "mean_p": 0.1409,
           "hit_rate": 0.132
         },
         "RB": {
           "n": 1750,
-          "log_loss": 0.4352,
-          "brier": 0.14163,
-          "calibration_intercept": -0.0035,
-          "calibration_slope": 1.1372,
+          "log_loss": 0.43519,
+          "brier": 0.14162,
+          "calibration_intercept": -0.0033,
+          "calibration_slope": 1.1373,
           "mean_p": 0.2347,
           "hit_rate": 0.2166
         },
@@ -548,25 +565,25 @@
           "log_loss": 0.37927,
           "brier": 0.1174,
           "calibration_intercept": 0.079,
-          "calibration_slope": 1.0885,
+          "calibration_slope": 1.0884,
           "mean_p": 0.1593,
           "hit_rate": 0.1539
         },
         "TE": {
-          "n": 1675,
-          "log_loss": 0.34214,
-          "brier": 0.10123,
-          "calibration_intercept": 0.0881,
-          "calibration_slope": 0.9154,
-          "mean_p": 0.103,
-          "hit_rate": 0.126
+          "n": 1678,
+          "log_loss": 0.34157,
+          "brier": 0.10105,
+          "calibration_intercept": 0.0898,
+          "calibration_slope": 0.9166,
+          "mean_p": 0.1029,
+          "hit_rate": 0.1257
         }
       },
       "reliability": [
         {
           "p_from": 0.0,
           "p_to": 0.05,
-          "n": 1422,
+          "n": 1425,
           "mean_p": 0.0279,
           "hit_rate": 0.0323
         },
@@ -594,16 +611,16 @@
         {
           "p_from": 0.3,
           "p_to": 0.4,
-          "n": 610,
-          "mean_p": 0.3432,
-          "hit_rate": 0.3459
+          "n": 611,
+          "mean_p": 0.3433,
+          "hit_rate": 0.3453
         },
         {
           "p_from": 0.4,
           "p_to": 0.5,
-          "n": 271,
-          "mean_p": 0.4448,
-          "hit_rate": 0.417
+          "n": 270,
+          "mean_p": 0.4449,
+          "hit_rate": 0.4185
         },
         {
           "p_from": 0.5,
@@ -620,5 +637,156 @@
         "ratio": 1.0026
       }
     }
+  },
+  "in_season": {
+    "season": 2026,
+    "weeks": [
+      1,
+      2
+    ],
+    "model": {
+      "n": 820,
+      "log_loss": 0.37252,
+      "brier": 0.1125,
+      "calibration_intercept": -0.0473,
+      "calibration_slope": 1.0294,
+      "mean_p": 0.1603,
+      "hit_rate": 0.15
+    },
+    "position_base_rate": {
+      "n": 820,
+      "log_loss": 0.42301,
+      "brier": 0.12764,
+      "calibration_intercept": -0.8606,
+      "calibration_slope": 0.5275,
+      "mean_p": 0.1615,
+      "hit_rate": 0.15
+    },
+    "opportunity_only": {
+      "n": 820,
+      "log_loss": 0.37723,
+      "brier": 0.11486,
+      "calibration_intercept": -0.1071,
+      "calibration_slope": 1.016,
+      "mean_p": 0.1654,
+      "hit_rate": 0.15
+    },
+    "per_week": [
+      {
+        "week": 1,
+        "model": {
+          "n": 406,
+          "log_loss": 0.39168,
+          "brier": 0.12273,
+          "calibration_intercept": 0.4376,
+          "calibration_slope": 1.2355,
+          "mean_p": 0.1596,
+          "hit_rate": 0.1724
+        }
+      },
+      {
+        "week": 2,
+        "model": {
+          "n": 414,
+          "log_loss": 0.35374,
+          "brier": 0.10248,
+          "calibration_intercept": -0.5038,
+          "calibration_slope": 0.8509,
+          "mean_p": 0.161,
+          "hit_rate": 0.128
+        }
+      }
+    ],
+    "live_2026": {
+      "weeks": [
+        1,
+        2
+      ],
+      "legs": 820,
+      "offered_mean": 0.1603,
+      "hit_rate": 0.15,
+      "per_week": [
+        {
+          "week": 2,
+          "n": 414,
+          "fit_weeks": [
+            1
+          ],
+          "raw_log_loss": 0.3537,
+          "adjusted_log_loss": 0.3632,
+          "raw_ece": 0.04,
+          "adjusted_ece": 0.064
+        }
+      ],
+      "adjustment": null,
+      "applied": false,
+      "reason": "hold: 1 held-out week(s) so far (weeks [1, 2] graded); the layer ships only on >= 2"
+    }
+  },
+  "in_season_min_weeks": 4,
+  "correlations": {
+    "method": "copula-lite rho = (P(AB) - P(A)P(B)) / sqrt(P(A)(1-P(A))P(B)(1-P(B))) on held-out [2023, 2024, 2025] player-games; ATD side = every leg priced >= 0.15, yardage side = the team's pre-game opportunity leader at the slate's line",
+    "pairs": [
+      {
+        "key": "anytime_td|anytime_td",
+        "label": "two ATD legs, same team",
+        "rho": -0.0285,
+        "n": 20303
+      },
+      {
+        "key": "anytime_td|anytime_td|opposing",
+        "label": "two ATD legs, opposing teams",
+        "rho": 0.0114,
+        "n": 23071
+      },
+      {
+        "key": "anytime_td|moneyline",
+        "label": "ATD & his team ML",
+        "rho": 0.1315,
+        "n": 8685
+      },
+      {
+        "key": "anytime_td|moneyline|opposing",
+        "label": "ATD & the opponent's ML",
+        "rho": -0.1315,
+        "n": 8685
+      },
+      {
+        "key": "anytime_td|qb_pass_yds",
+        "label": "ATD & same-team QB 225+",
+        "rho": 0.1137,
+        "n": 8054
+      },
+      {
+        "key": "anytime_td|qb_pass_yds|opposing",
+        "label": "ATD & opposing QB 225+",
+        "rho": 0.047,
+        "n": 8697
+      },
+      {
+        "key": "anytime_td|rb_rush_yds",
+        "label": "ATD & same-team RB 60+",
+        "rho": 0.0237,
+        "n": 7065
+      },
+      {
+        "key": "anytime_td|rb_rush_yds|opposing",
+        "label": "ATD & opposing RB 60+",
+        "rho": -0.0246,
+        "n": 8697
+      },
+      {
+        "key": "anytime_td|wr_rec_yds",
+        "label": "ATD & same-team WR 60+",
+        "rho": 0.0275,
+        "n": 7096
+      },
+      {
+        "key": "anytime_td|wr_rec_yds|opposing",
+        "label": "ATD & opposing WR 60+",
+        "rho": 0.0173,
+        "n": 8697
+      }
+    ]
   }
 }
