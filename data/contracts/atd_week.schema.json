@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atd_week.schema.json",
+  "title": "atd_week",
+  "description": "R101 - this week's anytime-TD probabilities from the ATD model (scripts/backtest_atd.py, imported by scripts/build_atd_week.py). players is empty unless data/atd_backtest.json is adopted. Only players whose weekly row says they play are priced. No book price is an input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "season",
+    "week",
+    "generated_utc",
+    "adopted",
+    "verdict",
+    "backtest_generated_utc",
+    "live_adjustment",
+    "params",
+    "counts",
+    "players",
+    "notes"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "atd_week"
+      ]
+    },
+    "season": {
+      "type": "integer"
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adopted": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "type": "string",
+      "minLength": 1
+    },
+    "backtest_generated_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "live_adjustment": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "a",
+        "b"
+      ],
+      "properties": {
+        "a": {
+          "type": "number"
+        },
+        "b": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "params": {
+      "type": "object"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gsis_id",
+          "nflverse_id",
+          "player",
+          "team",
+          "position",
+          "market",
+          "game_id",
+          "side",
+          "selection",
+          "model_prob",
+          "raw_prob",
+          "lambda_team",
+          "share",
+          "has_history"
+        ],
+        "properties": {
+          "gsis_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nflverse_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "player": {
+            "type": "string",
+            "minLength": 1
+          },
+          "team": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "QB",
+              "RB",
+              "WR",
+              "TE"
+            ]
+          },
+          "market": {
+            "enum": [
+              "anytime_td"
+            ]
+          },
+          "game_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "home",
+              "away"
+            ]
+          },
+          "selection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_prob": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "raw_prob": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "lambda_team": {
+            "type": "number",
+            "minimum": 0
+          },
+          "share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "has_history": {
+            "type": "boolean"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "QUESTIONABLE"
+            ]
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

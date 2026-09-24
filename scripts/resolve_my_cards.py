@@ -64,8 +64,8 @@ from scripts.build_review import STAKE, parlay_bucket, parlay_money  # noqa: E40
 from scripts.models.my_cards import LEG_COUNTS  # noqa: E402
 from scripts.resolve_estimates import RELEASE_URL, fetch_csv  # noqa: E402
 from scripts.resolve_parlay_legs import (  # noqa: E402
-    GAME_MARKETS, PROP_POSITION, brier, find_player, index_stats, load_finals,
-    log_loss, read_csv, split_abbrev,
+    ATD_MARKET, GAME_MARKETS, PROP_POSITION, SNAPS_URL, brier, find_player, grade_atd,
+    index_snaps, index_stats, index_td, load_finals, log_loss, read_csv, split_abbrev,
 )
 
 DATA = os.path.join(_ROOT, "data")
@@ -193,12 +193,17 @@ def grade_game(leg, finals):
     return ("hit" if winner == side else "miss"), {"winner": winner}, None
 
 
-def grade_card(card, week, by_week, finals):
-    """A graded card row: per-leg results, the card's result + bucket, and money."""
+def grade_card(card, week, by_week, finals, atd=None):
+    """A graded card row: per-leg results, the card's result + bucket, and money.
+    `atd` = {"td": index_td(...), "snaps": index_snaps(...)} grades anytime-TD legs
+    (R101); without it an ATD leg stays pending, never a miss."""
     legs_out = []
     for leg in card.get("legs") or []:
         market = leg.get("market")
-        if market in GAME_MARKETS:
+        if market == ATD_MARKET:
+            result, actual, reason = (grade_atd(leg, week, atd.get("td"), atd.get("snaps"))
+                                      if atd else ("pending", None, "no_td_index"))
+        elif market in GAME_MARKETS:
             result, actual, reason = grade_game(leg, finals)
         elif market in PROP_POSITION:
             result, actual, reason = grade_prop(leg, week, by_week)
@@ -317,7 +322,7 @@ def document(season, weeks, cards_rows, finals_source, skipped, generated_utc,
     }
 
 
-def score(rows, by_week, finals):
+def score(rows, by_week, finals, atd=None):
     """(week blocks, graded card rows) over [(week, card)] recorded cards."""
     weeks, graded_all = [], []
     for week in sorted({w for w, _ in rows}):
@@ -326,7 +331,7 @@ def score(rows, by_week, finals):
         for card in cards:
             if not card.get("locked"):
                 continue                       # counted, never scored
-            row = grade_card(card, week, by_week, finals)
+            row = grade_card(card, week, by_week, finals, atd)
             if row["result"] != "pending":
                 graded.append(row)
         weeks.append(week_block(week, cards, graded))
@@ -344,6 +349,28 @@ def write(doc, path=OUT_PATH):
         fh.write("\n")
 
 
+def _snaps(season, cache_dir, dry_run_csv, offline):
+    """R101 — the season's snap counts (the did-not-play evidence for an ATD void),
+    or None: without them an ATD leg with no stat line stays pending."""
+    if dry_run_csv or offline:
+        return None
+    cached = os.path.join(cache_dir, "snap_counts_%d.csv" % season) if cache_dir else None
+    if cached and os.path.exists(cached):
+        return index_snaps(read_csv(cached))
+    try:
+        import requests  # noqa: PLC0415 — runner dependency, guarded
+        resp = requests.get(SNAPS_URL.format(season=int(season)), timeout=120)
+    except Exception as exc:  # noqa: BLE001 — a fault is a skip, not a crash
+        print("[resolve_my_cards] snap counts unavailable: %s" % exc.__class__.__name__,
+              file=sys.stderr)
+        return None
+    if resp.status_code != 200 or not resp.content:
+        return None
+    import csv as _csv  # noqa: PLC0415
+    import io as _io  # noqa: PLC0415
+    return index_snaps(list(_csv.DictReader(_io.StringIO(resp.content.decode("utf-8", "replace")))))
+
+
 def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_csv=None,
         finals_path=None, cards_dir=CARDS_DIR, now=None):
     if season is None:
@@ -354,6 +381,7 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     skipped = None
     source = None
     by_week = {}
+    atd = None
 
     # The weeks whose finals matter: every week holding a locked game leg.
     game_weeks = sorted({w for w, c in rows if c.get("locked")
@@ -378,8 +406,11 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
                 skipped = why
         if csv_rows is not None:
             by_week = index_stats(csv_rows)
+            atd = {"td": index_td(csv_rows), "snaps": None}
+            if any(l.get("market") == ATD_MARKET for _, c in rows for l in c.get("legs") or []):
+                atd["snaps"] = _snaps(season, cache_dir, dry_run_csv, offline)
 
-    weeks, graded = score(rows, by_week, finals)
+    weeks, graded = score(rows, by_week, finals, atd)
     if rows and not graded and not skipped:
         skipped = "stats and finals reachable, but no recorded card has every leg resolved"
     doc = document(season, weeks, graded, finals_source, skipped, now, source=source)

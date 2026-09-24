@@ -29,7 +29,8 @@
         "no_weekly_row": {"type": "integer", "minimum": 0},
         "no_projection": {"type": "integer", "minimum": 0},
         "no_calibration": {"type": "integer", "minimum": 0},
-        "not_playable": {"type": "integer", "minimum": 0, "description": "R77: players whose weekly row says they do not play this week (this_week.playable false) and therefore carry no leg at any rung."}
+        "not_playable": {"type": "integer", "minimum": 0, "description": "R77: players whose weekly row says they do not play this week (this_week.playable false) and therefore carry no leg at any rung."},
+        "atd_legs": {"type": "integer", "minimum": 0, "description": "R101: anytime-TD legs offered (0 while atd_backtest.json is not adopted)."}
       }
     },
     "players": {
@@ -87,6 +88,29 @@
         }
       }
     },
+    "atd_legs": {
+      "type": "array",
+      "description": "R101 - anytime-TD legs, player-keyed, one rung each, priced by the ATD model (data/atd_week.json) and offered only while data/atd_backtest.json is adopted. model_prob is the atd_week number verbatim.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gsis_id", "player", "team", "position", "market", "game_id", "side", "pricing", "rungs"],
+        "properties": {
+          "gsis_id": {"type": "string", "minLength": 1},
+          "player": {"type": "string", "minLength": 1},
+          "team": {"type": "string", "minLength": 1},
+          "position": {"type": "string", "enum": ["QB", "RB", "WR", "TE"]},
+          "market": {"type": "string", "enum": ["anytime_td"]},
+          "game_id": {"type": "string", "minLength": 1},
+          "side": {"type": "string", "enum": ["home", "away"]},
+          "pricing": {"type": "string", "enum": ["atd_model"]},
+          "availability": {"type": "string", "enum": ["QUESTIONABLE"]},
+          "rungs": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["line", "selection", "model_prob"], "properties": {"line": {"type": "number", "enum": [0.5]}, "selection": {"type": "string", "minLength": 1}, "model_prob": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}}}}
+        }
+      }
+    },
+    "atd_status": {"type": "string", "description": "R101 - why the pool offers ATD legs this week, or why it does not."},
+    "atd_correlations": {"type": ["object", "null"], "description": "R101 - atd_backtest.json correlations, copied so a same-game pair with an ATD leg is priced with the measured rho. null when no ATD leg is offered."},
     "notes": {"type": "array", "items": {"type": "string"}}
   }
 }

@@ -14,6 +14,9 @@ prices at most two legs per game, and learns nothing from the bets he actually p
 | 10-leg card shape | **Both, labelled, at every size from 2 to 10 legs:** a *TD + FLOOR LADDER* card and an *ALL ANYTIME TD* card for every game. |
 | How real bets reach the app | **Screenshots to Claude**, transcribed into a committed ledger the pipeline grades. |
 | Build order | **TD model first**, then ledger, then the game simulation and the 2–10-leg cards, then the parlay-type catalogue. |
+| Where (2026-09-24, R101) | **GAME, WEEK and MY each go up to 10 legs**, and every section has an ATD selector with **three modes: ALL TD** (every leg ATD), **MAJORITY TD** (more than half the legs ATD, the rest the model's strongest other legs) and **50%+ SCORERS** (every leg ATD at a model probability of 50 % or more). |
+| GAME at 10 legs | **Build the game simulator** (E3-S1/S2): each leg count 3–10 is validated on 2023–25 and offered only when it passes; a missing size says why. WEEK and MY ship first. |
+| Alignment | "Make sure this aligns to self learning AI and continuous improvement and predictability across code bases": every ATD number comes from one model module, is graded weekly, re-measured on the season in progress, and can be switched off by it. |
 
 Gate 2 (design direction) is **deferred to the start of E3**, the first phase with UI. It is a real
 gate there: 2 shapes × 9 sizes is 18 cards per game and 288 per week, and how that is shown on an
@@ -95,6 +98,37 @@ flag.
 | **S5 ATD legs in the pool** — only after S4 adopts. Market `atd`, one rung, `this_week` gate applies. | AC1 no ATD leg on a player who does not play this week (the existing invariant, extended). AC2 no ATD leg exists while `adopted` is false. | `tests/feature/r99_atd_pool.test.mjs` + validator |
 | **S6 Resolution.** ATD graded from nflverse `rushing_tds + receiving_tds ≥ 1`; a void (did not play) is void, never a loss. | AC1 the three outcomes on fixture rows. AC2 the owner's 62 ATD player-games resolve to the transcribed results. | `tests/feature/r99_atd_resolve.test.mjs` |
 | S7 *(later)* red-zone share from play-by-play. | Adopted only if it beats S4 on the same gate. | — |
+
+### R101a — S5 + S6 built 2026-09-24 (pipeline; no screen changes yet)
+
+- **S5 ATD legs.** `scripts/build_atd_week.py` prices this week's playable QB/RB/WR/TE with the
+  E1 model — imported from `backtest_atd.py`, never copied — from nflverse history (last season
+  at half weight + this season's weeks). Players this app does not list keep their share of their
+  team's TDs; an app player who sits hands his to his position room (R92). Writes
+  `data/atd_week.json`; `build_leg_pool.py` offers them as `atd_legs` only when `atd_backtest.json`
+  is adopted, only from a file for its own week, and only for players its own weekly rows say
+  play. Week 3 on real data: 273 priced, 27 sitting; Gibbs .64, Henry .64, Taylor .58, McCaffrey .53.
+- **S6 grading.** `resolve_parlay_legs.grade_atd` (shared): hit = a stat line with ≥ 1 rush/rec
+  TD; miss = none, or no stat line but an offensive snap; void = his team's snap sheet is
+  published and he is not on it; pending otherwise. The owner's 63 ATD player-games regrade to the
+  screenshots except one, named: Caleb Williams wk 2 was voided by the book although he played.
+- **Learning.** The weekly run now re-measures the season in progress (whole weeks only): after
+  4 weeks a model not beating the position base rate on it is **demoted** (no ATD leg anywhere);
+  its correction layer is the R100 rule itself (`live_recalibration`), applied only on ≥ 2
+  held-out weeks. 2026 wks 1–2: model 0.3725 vs base 0.4230 vs opportunity 0.3772.
+- **Correlations.** Measured in `atd_backtest.json`, copied into `leg_pool.json`: teammate ATD
+  pair −0.03, ATD & his team ML +0.13, ATD & same-team QB 225+ +0.11 (2023–25).
+- **Contract walker.** `const` / `oneOf` were never implemented and R99's contract used both, so
+  those clauses checked nothing; the validator now refuses unimplemented keywords loudly.
+- **Coverage (REAL):** `r101_atd_legs` (5), `r101_atd_grade` (3), `r101_atd_learning` (4),
+  selftests in `smoke.sh`; mutation-checked (playable re-check, in-season demotion).
+
+### R101b / R101c — next
+
+- **b · Simulator (E3-S1/S2).** Prices any set of same-game legs jointly; each size 2–10 validated
+  on 2023–25 cards per mode; a size that fails is not offered.
+- **c · Cards + controls.** Gate 2 design first (iPhone). Then GAME / WEEK / MY to 10 legs with
+  the three ATD modes, cards recorded and graded like every other card.
 
 ## E2 — MY BETS ledger (Phase 2) · LOE ≈ 1–2 d
 
