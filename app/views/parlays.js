@@ -107,7 +107,7 @@
  * names, data attributes and the MY-mode behaviour are untouched.
  */
 
-import { getParlays, getScheduleFull, getParlaysIndex, getParlayArchive } from '../data.js';
+import { getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards } from '../data.js';
 import { renderParlayCard } from '../render.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
@@ -770,7 +770,10 @@ export default async function mountParlays(el) {
       // the banner reappeared over the MY cards. Re-hide once it has landed;
       // the chrome, not the timing, decides what MY mode shows.
       Promise.resolve(mod.applyParlayReview(listEl, week, parlays))
-        .then(() => { if (active === 'my') setMyChromeHidden(true); });
+        .then(() => {
+          if (active === 'my') setMyChromeHidden(true);
+          if (atdActive()) setAtdMode(true);      // R101c — same reason, TD cards
+        });
       paintBuckets();
       paintPnl();
       // R75 — the $100 sort is offered only when this week's rows actually
@@ -905,6 +908,61 @@ export default async function mountParlays(el) {
     paintList();
   }
 
+  /*
+   * R101c — ANYTIME-TD cards on WEEK (owner: up to 10 legs, ALL TD / MAJORITY /
+   * 50%+; Gate 2 layout B). The module and the cards document are loaded on the
+   * first WEEK paint, never on a cold GAME mount. The cards are the runner's
+   * (scripts/build_atd_cards.py: one leg per game, pool prices, recorded and
+   * graded); this view only picks the mode and size and hides started games.
+   */
+  let td = null;
+  let atdMod = null;
+  let atdDoc;               // undefined = not loaded yet; null = unavailable
+  const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list',
+    '.rv-strip--parlay'];
+  const tdEligible = () => active === 'week' && selWeek === curWeek;
+  const atdActive = () => tdEligible() && td && td.mode !== 'any';
+
+  function setAtdMode(on) {
+    const list = el.querySelector('#atd-list');
+    if (list) list.hidden = !on;
+    if (active === 'my') return;          // MY owns the chrome while it is open
+    ATD_HIDES.forEach((sel) => {
+      const node = el.querySelector(sel);
+      if (node) node.hidden = on;
+    });
+    if (!on) syncGradedChrome();
+  }
+
+  async function paintAtd() {
+    const on = atdActive();
+    setAtdMode(!!on);
+    if (!on) return;
+    const listEl = el.querySelector('#atd-list');
+    if (atdDoc === undefined) {
+      listEl.innerHTML = '<div class="state state--loading">Loading anytime-TD cards…</div>';
+      try { atdDoc = await getAtdCards(); } catch { atdDoc = null; }
+      if (!atdActive()) return;
+    }
+    const { cards, reason } = atdMod.atdCardsFor(atdDoc, td.mode, td.legs, sched && sched.games);
+    listEl.innerHTML = cards.length ? cards.map(atdMod.renderAtdCard).join('')
+      : `<div class="state">${reason}</div>`;
+  }
+
+  async function paintTd() {
+    const host = el.querySelector('#td-controls');
+    if (!host) return;
+    if (!tdEligible()) { host.hidden = true; setAtdMode(false); return; }
+    if (!atdMod) {
+      try { atdMod = await import('../atd-cards.js'); } catch { return; }
+      if (!td) td = atdMod.readTd();
+      if (!tdEligible()) return;
+    }
+    host.hidden = false;
+    host.innerHTML = atdMod.tdControls(td);
+    await paintAtd();
+  }
+
   // R90 — the order IS the fix. Mode first (week, scope), then one collapsed
   // FILTERS panel, then the collapsed glossary, then the graded surfaces, then
   // the cards. Measured first-card top at 402x874: 1,217 px before, 733 px now.
@@ -912,10 +970,14 @@ export default async function mountParlays(el) {
     head +
     wkBar(weeks, selWeek) +
     scopeSeg(active) +
+    // R101c — the anytime-TD selector (layout B), shown on WEEK for the current
+    // week only; its cards replace the slate list while a TD mode is on.
+    '<div id="td-controls" hidden></div>' +
     filtersPanel(readFiltersOpen()) +
     legend() +
     retroPanel(readRetroOpen()) +
     '<div id="parlays-list" class="card-list"></div>' +
+    '<div id="atd-list" class="card-list" hidden></div>' +
     '<div id="myparlays-host" hidden></div>';
   paintLegSeg();
   paintTierSeg();
@@ -1017,7 +1079,7 @@ export default async function mountParlays(el) {
       if (!btn) return;
       const week = Number(btn.dataset.wk);
       if (!Number.isFinite(week) || week === selWeek) return;
-      selectWeek(week);
+      selectWeek(week).then(() => paintTd());
     });
   }
 
@@ -1048,11 +1110,12 @@ export default async function mountParlays(el) {
         b.classList.toggle('seg-btn--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');   // R90/F20
       });
-      if (active === 'my') { enterMyMode(); return; }
+      if (active === 'my') { paintTd(); enterMyMode(); return; }
       exitMyMode();
       paintLegSeg();
       paintTierSeg();
       paintList();
+      paintTd();
     });
   }
 
@@ -1085,6 +1148,20 @@ export default async function mountParlays(el) {
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
       paintList();
+    });
+  }
+
+  // R101c — TD pills and the leg stepper (delegated on the persistent host).
+  const tdBox = el.querySelector('#td-controls');
+  if (tdBox) {
+    tdBox.addEventListener('click', (e) => {
+      if (!atdMod || !td) return;
+      const next = atdMod.tdTap(td, e.target);
+      if (!next) return;
+      td = next;
+      atdMod.writeTd(td);
+      tdBox.innerHTML = atdMod.tdControls(td);
+      paintAtd();
     });
   }
 

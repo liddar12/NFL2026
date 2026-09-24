@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atd_card_scores.schema.json",
+  "title": "atd_card_scores",
+  "description": "R101c - the recorded ATD cards graded (scripts/resolve_atd_cards.py): per mode and leg count, hit rate against the model's mean chance. Pending legs keep a card pending; never a miss.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "season",
+    "generated_utc",
+    "finals_source",
+    "skipped",
+    "rule",
+    "graded",
+    "pending",
+    "by_mode",
+    "cards"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "atd_card_scores"
+      ]
+    },
+    "season": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "finals_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "skipped": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rule": {
+      "type": "string"
+    },
+    "graded": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pending": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "by_mode": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hits",
+            "graded",
+            "hit_rate",
+            "mean_model",
+            "ratio"
+          ],
+          "properties": {
+            "hits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "graded": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "hit_rate": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "mean_model": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "week",
+          "card_id",
+          "mode",
+          "n_legs",
+          "model_prob",
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "hit",
+              "miss",
+              "void"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

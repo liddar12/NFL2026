@@ -123,6 +123,14 @@ flag.
 - **Coverage (REAL):** `r101_atd_legs` (5), `r101_atd_grade` (3), `r101_atd_learning` (4),
   selftests in `smoke.sh`; mutation-checked (playable re-check, in-season demotion).
 
+### R101c-1 — WEEK + MY built 2026-09-24
+
+Layout B (owner's pick), iPhone. WEEK: server-built cards, one leg per game, recorded and graded
+(`build_atd_cards.py`, `resolve_atd_cards.py`, contracts `atd_cards` / `atd_cards_record` /
+`atd_card_scores`, `check_atd_cards`). MY: TD modes in the search (`tdLegsFor`, `maxNonAtd`),
+ANY unchanged. Coverage: `r101c_atd_cards` (7), `r101c_td_modes` (3). Not yet: MY cards in a TD
+mode are not recorded by `build_my_cards.py` (the WEEK cards are); GAME waits for R101b.
+
 ### R101b / R101c — next
 
 - **b · Simulator (E3-S1/S2).** Prices any set of same-game legs jointly; each size 2–10 validated
