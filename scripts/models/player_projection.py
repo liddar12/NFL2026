@@ -402,7 +402,8 @@ def _interval_band(player, applied_signals):
     return _clamp(band, 0.05, 0.60)
 
 
-def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None):
+def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None,
+                   candidate_weights=None):
     """Project one player. Returns a record valid vs player_projections.schema.json.
 
     player  : a player fixture record (see field usage in compute_raw_signals /
@@ -415,6 +416,11 @@ def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None
               below ALWAYS uses the games-normalized rule.
     mode    : R49 override — "gated" ships the gated number as proj_points,
               "candidate" ships the scenario candidate (default SHIPPED_ESTIMATE).
+    candidate_weights : R100 — {signal_name: learned weight} for the CANDIDATE (the
+              shipped number under the R49 override). Absent or 1.0 = the signal at
+              full strength, exactly the pre-R100 number; a learned w < 1.0 dampens
+              it to 1 + w*(adj - 1). Written only by scripts/fit_player_signals.py
+              --adopt, behind never-regress, into model_tuning.json.
     """
     pos = str(player.get("position", "")).upper()
     mode = mode or SHIPPED_ESTIMATE
@@ -448,8 +454,13 @@ def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None
     cand = cand_base
     cand_used = []
     for name, adj in raw.items():
-        cand *= adj
-        if adj != 1.0:
+        cw = 1.0 if not candidate_weights else float(candidate_weights.get(name, 1.0))
+        # The w == 1.0 branch multiplies by adj itself, not 1 + (adj - 1): the same
+        # number in exact arithmetic, but not always the same float — and a
+        # default that moved a last digit would not be byte-identical.
+        applied = adj if cw == 1.0 else 1.0 + cw * (adj - 1.0)
+        cand *= applied
+        if applied != 1.0:
             cand_used.append(name)
     cband = _clamp(band * CANDIDATE_BAND_MULTIPLIER, 0.0, 0.95)
     cand_low, cand_high = cand * (1.0 - cband), cand * (1.0 + cband)
@@ -490,10 +501,11 @@ def project_player(player, ctx=None, weights=None, baseline_rule=None, mode=None
     }
 
 
-def project_players(players, ctx=None, weights=None, baseline_rule=None, mode=None):
+def project_players(players, ctx=None, weights=None, baseline_rule=None, mode=None,
+                    candidate_weights=None):
     """Project a list of player records. Deterministic, order-preserving."""
     return [project_player(p, ctx=ctx, weights=weights, baseline_rule=baseline_rule,
-                           mode=mode)
+                           mode=mode, candidate_weights=candidate_weights)
             for p in players]
 
 

@@ -810,6 +810,48 @@ nothing ships without one.
   **Not done, and next:** automatically *seating* the viewer's own Sleeper changes needs TEAM's seating
   logic (`planRosterSync`, in a 275 KB view) moved to a shared module so LINEUP can run it; until then the
   difference is named, one tap from being applied. · **LOE** 1 d
+- **R100 · self-learning, switched on for the numbers that ship (P1) — built 2026-09-24.** Owner:
+  *"enable the self learning ai based on the results of this season, so that the parlay accuracy
+  continues to improve."* An inventory first, because "self-learning" was four loops in four states:
+  **(1) game model** (Elo home edge / reversion) — already automatic weekly behind held-out never-regress;
+  its recent candidates lost, so nothing moved. **(2) slate parlay calibration** (R58) — already
+  automatic, arms at 100 graded legs; 81 after weeks 1–2, so week 3 arms it. **(3) player signals** —
+  the 9/22 "proposal" read as an improvement waiting on a manual step. It was not: its learned weights
+  were age_curve / injury_history / injury_status all at 1.0, exactly what already ships under the R49
+  override, and its score (5.5005) *was* the shipped number's (5.5006). The real gap was that this loop
+  **could not change what ships at all** — the shipped candidate hard-coded full strength and the loop
+  compared itself to the gated series, which never ships. **(4) MY PARLAYS** — fit on 2023–25 only; the
+  weekly grades of the cards it offers were recorded and never read back. Measured on week 2: **166
+  distinct legs offered at 54.5 % hit 68.1 %**, every band 9–19 points low. **What R100 changes.**
+  *Player signals:* the shipped projection reads learned weights (`model_tuning.json
+  candidate_signal_weights`; absent = 1.0, byte-identical, proven on live-shaped players), and
+  `fit_player_signals.py --adopt` (the weekly workflow now passes it) moves them only when a refit beats
+  **what ships** on ≥ 2 held-out weeks by the 0.10 margin with no week worse — and reverts, with no
+  margin, when full strength beats them. `validate_data.py` refuses a learned weight whose receipt does
+  not support it. Today it holds: one held-out week, and the refit (age_curve 0.75) was slightly worse
+  than what ships. *MY PARLAYS:* a plain refit cannot use a few hundred 2026 legs beside 41,314 corpus
+  rows, so this season enters as a two-number layer `sigmoid(a + b·logit(p))` fit on 2026 graded legs
+  alone, from the probability each leg was actually *offered* at. It applies only with ≥ 100 legs, ≥ 2
+  held-out weeks each scored by a layer fit on earlier weeks, pooled held-out log-loss better, no week
+  worse, and a positive slope. Simulated at the real weekly size (200 legs), it catches a genuine +14-pt
+  underconfidence in **38/40** seasons, touches a calibrated season in **1/40**, and never adopts one that
+  turns around (**0/40**). Today it holds (week 2 is the only graded week); **the first week it can switch
+  on is after week 4's games.** **Locked by** `r100_self_learning.test.mjs` (6) and
+  `r100_pool_learning.test.mjs` (4, rates over 40 seasons, not one seed). · **LOE** 1 d
+- **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
+  1. **R99 E1 — anytime-TD model** (approved; starts now). Built with the same held-out adoption loop
+     from day one, and graded weekly against nflverse.
+  2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
+     gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
+     single cheapest reliability win left.
+  3. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
+     and the model; the warning that would have saved three 9/20 tickets.
+  4. **R99 E3 — game simulation + labelled 2–10-leg cards** (design gate first). Replaces pairwise
+     correlation with a simulation, so a 10-leg same-game card is priced consistently.
+  5. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
+     should show each loop's live state (held / adopted / reverted, and why) so the owner can see the
+     system learning rather than take it on trust.
+  6. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.
