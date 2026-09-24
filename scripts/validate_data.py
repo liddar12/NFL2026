@@ -123,6 +123,9 @@ SCHEMA_TO_DATA = {
     # R98 — the compact Sleeper player index LINEUP's automatic roster sync
     # reads. Runner-built from the same dump; never a model input.
     "sleeper_index.schema.json": "sleeper_index.json",
+    # R99 E1 — the anytime-TD model's walk-forward verdict. Runner-built from
+    # nflverse releases; its `adopted` gates every ATD leg (recomputed below).
+    "atd_backtest.schema.json": "atd_backtest.json",
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
@@ -250,6 +253,8 @@ OPTIONAL_DATA = frozenset([
     "sleeper_projections.json",
     # R98 — same runner, same network, same reason: absent until the first run.
     "sleeper_index.json",
+    # R99 E1 — weekly runner, nflverse network; absent until the first run.
+    "atd_backtest.json",
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",
@@ -1032,6 +1037,48 @@ _MAX_OK_AGE_HOURS = 48.0
 
 
 CANDIDATE_WEIGHT_GRID = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+
+def check_atd_backtest(doc):
+    """R99 E1 — `adopted` on the anytime-TD verdict must follow from its receipts.
+
+    Recomputed here, independently of scripts/backtest_atd.py: adopted is true
+    only if, in EVERY held-out season, the model's log loss and Brier are both
+    lower than the position base rate's and the opportunity-only share's, its
+    calibration slope is inside slope_band, and the pooled 2024-25 team-TD
+    ratio (mean lambda / mean realised) is inside team_td_band. A document that
+    says adopted without those numbers would let an ATD leg be offered on an
+    unearned model, so it is refused. None (file absent) passes.
+    """
+    if doc is None:
+        return
+    fails = []
+    lo, hi = doc["slope_band"]
+    for season in doc["held_out_seasons"]:
+        rep = doc["seasons"].get(str(season))
+        if not rep:
+            fails.append("%s not measured" % season)
+            continue
+        m = rep["model"]
+        for base in ("position_base_rate", "opportunity_only"):
+            for metric in ("log_loss", "brier"):
+                if not m[metric] < rep[base][metric]:
+                    fails.append("%s %s vs %s" % (season, metric, base))
+        if not lo <= m["calibration_slope"] <= hi:
+            fails.append("%s slope %s" % (season, m["calibration_slope"]))
+    pooled = doc.get("team_td_pooled") or {}
+    t_lo, t_hi = doc["team_td_band"]
+    if pooled.get("ratio") is None or not t_lo <= pooled["ratio"] <= t_hi:
+        fails.append("team TD ratio %s" % pooled.get("ratio"))
+    earned = not fails
+    if doc["adopted"] and not earned:
+        raise ValidationError("atd_backtest.json says adopted but its receipts do not "
+                              "support it: " + "; ".join(fails))
+    if not doc["adopted"] and earned:
+        raise ValidationError("atd_backtest.json says not adopted but every receipt passes "
+                              "- the verdict and the numbers disagree")
+    if doc["adopted"] != doc["verdict"].startswith("ADOPTED"):
+        raise ValidationError("atd_backtest.json verdict text disagrees with adopted")
 
 
 def check_candidate_signal_weights(tuning):
@@ -2924,6 +2971,12 @@ def main():
     try:
         check_candidate_signal_weights(_load(os.path.join(DATA, "model_tuning.json")))
         print("ok    model_tuning.json learned candidate weights carry a passing receipt (R100)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        atd_path = os.path.join(DATA, "atd_backtest.json")
+        check_atd_backtest(_load(atd_path) if os.path.exists(atd_path) else None)
+        print("ok    atd_backtest.json adopted follows from its receipts (R99 E1)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

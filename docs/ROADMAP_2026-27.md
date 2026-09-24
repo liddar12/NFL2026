@@ -843,9 +843,20 @@ nothing ships without one.
   and the weekly job that carries every learning loop would never have fired again. The gate was green
   because every workflow test reads the files as text. `r100_workflow_yaml.test.mjs` now refuses a
   plain-scalar `: ` in any workflow, proven on the line that broke. · **LOE** 1 d
+- **R99 E1 · anytime-TD model, measured (P1) — S1–S4 built 2026-09-24.** Owner bets mostly anytime-TD
+  parlays; the app had no ATD market. `scripts/backtest_atd.py`: P(ATD) = 1 − e^(−λ_team·share), λ from
+  shrunk offence × opponent-allowed × home, share = TD share shrunk hard toward carries/targets
+  opportunity share, R92 depth cascade (an OUT player's share goes to his position room), team shares
+  ≤ 1. Walk-forward on 2021–25, parameters chosen on 2022 alone, universe from snap counts so the
+  outcome cannot leak in. **Held-out 2023–25: beats the position base rate and opportunity-only share on
+  log loss and Brier every season, calibration slope 1.06 / 1.03 / 1.00 → ADOPTED.** Team TDs pooled
+  2024–25 within 2.8 %; 2024 alone ran 5.8 % low (league scoring jumped 7.8 % that year). Runs weekly in
+  `backtest.yml`; `validate_data.py` recomputes `adopted` from the receipts. Measure-only: no ATD leg is
+  offered yet — that is S5, which reads this flag. **Locked by** 13 tests across
+  `r99_td_corpus` / `r99_team_td` / `r99_td_share` / `r99_atd_backtest`. · **LOE** 1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **R99 E1 — anytime-TD model** (approved; starts now). Built with the same held-out adoption loop
-     from day one, and graded weekly against nflverse.
+  1. **R99 E1-S5/S6 — ATD legs in MY PARLAYS, graded weekly.** The model passed its held-out gate
+     (above); next it prices this week's ATD legs from 2026 usage and is graded against nflverse.
   2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
      gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
      single cheapest reliability win left.
