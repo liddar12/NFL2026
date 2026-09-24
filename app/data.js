@@ -161,6 +161,10 @@ export const getMyCardScores = (opts) => loadJson(PATHS.myCardScores, opts);
 // and prints its honest NOT PRESENT line. Same 404-graceful promise-cache
 // pattern as its neighbours.
 export const getPipelineStages = (opts) => loadJson(PATHS.pipelineStages, opts);
+// R98 — the compact Sleeper player index (runner-built daily from Sleeper's
+// 14.7 MB dump). Read ONLY by app/league-sync.js, which LINEUP imports only when
+// the league's rosters are over six hours old; a 404 rejects and the sync says so.
+export const getSleeperIndex = (opts) => loadJson('/data/sleeper_index.json', opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));

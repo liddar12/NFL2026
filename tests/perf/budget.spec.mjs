@@ -253,6 +253,13 @@ const CONTRACT_ALLOWLIST = new Set([
   // and the card paints its honest NOT PRESENT line, so the request is the whole
   // cost either way.
   'pipeline_stages.json',
+  // R98 — the compact Sleeper player index (data/sleeper_index.json, ~148 KB,
+  // ~25 KB brotli). Fetched by app/league-sync.js ONLY when LINEUP finds the
+  // league's rosters over six hours old — never on a fresh mount, never on boot
+  // (league-sync.js is a dynamic import off LINEUP). It replaces the 14.7 MB
+  // Sleeper dump the manual sync reads, so on the one path that fetches it the
+  // app downloads ~1% of what it otherwise would.
+  'sleeper_index.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week

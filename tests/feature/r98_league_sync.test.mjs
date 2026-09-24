@@ -18,7 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { autoSyncLeague, rosterAppIds, SLEEPER_INDEX_URL } from '../../app/league-sync.js';
+import { autoSyncLeague, rosterAppIds } from '../../app/league-sync.js';
 import {
   autoSyncDue, rosterChange, loadLeagueRosters, saveLeagueRosters, readSyncAttempt,
   AUTO_SYNC_EVERY_HOURS, AUTO_SYNC_RETRY_MINUTES, LEAGUE_ROSTERS_KEY,
@@ -48,20 +48,24 @@ function store(init = {}) {
 
 function stubFetch({ index = true, rosters = true, rostersBody = null } = {}) {
   const calls = [];
+  // The compact index arrives through data.js (injected as loadIndex); only
+  // Sleeper's API goes through fetch.
+  const loadIndex = async () => {
+    calls.push('/data/sleeper_index.json');
+    if (!index) throw new Error('[data] /data/sleeper_index.json -> HTTP 404');
+    return { players: COMPACT };
+  };
   const f = async (url) => {
     calls.push(String(url));
     const u = String(url);
     const ok = (body) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
-    if (u === SLEEPER_INDEX_URL) {
-      return index ? ok({ players: COMPACT }) : { ok: false, status: 404, json: async () => null };
-    }
     if (/\/rosters$/.test(u)) {
       return rosters ? ok(rostersBody || fx('rosters.json')) : { ok: false, status: 503, json: async () => null, text: async () => '' };
     }
     if (/\/users$/.test(u)) return ok(fx('users.json'));
     return { ok: false, status: 404, json: async () => null, text: async () => '' };
   };
-  return { f, calls };
+  return { f, loadIndex, calls };
 }
 
 test('R98: cadence — due when missing / unknown age / over 6 h; fresh inside 6 h', () => {
@@ -86,8 +90,8 @@ test('R98: a due re-read writes the league record — and never the seated roste
   const s = store({ 'nfl2026.team.v1': '{"slots":{"QB":"espn-1"}}' });
   saveLeagueRosters({ league_id: LEAGUE, at: new Date(NOW - 7 * H).toISOString(),
     teams: [{ roster_id: 4, app_ids: ['stale-id'] }], my_roster_id: 4 }, s);
-  const { f, calls } = stubFetch();
-  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, now: NOW, storage: s });
+  const { f, loadIndex, calls } = stubFetch();
+  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, loadIndex, now: NOW, storage: s });
   assert.equal(res.ok, true, res.error);
   const rec = loadLeagueRosters(LEAGUE, s);
   assert.equal(rec.at, new Date(NOW).toISOString(), 'the new read is stamped');
@@ -97,7 +101,7 @@ test('R98: a due re-read writes the league record — and never the seated roste
   assert.ok(rec.rostered_app_ids.length > 100);
   assert.equal(s.m.get('nfl2026.team.v1'), '{"slots":{"QB":"espn-1"}}',
     'the roster seated here is NEVER changed behind the viewer\'s back');
-  assert.ok(calls.includes(SLEEPER_INDEX_URL), 'the compact index is what translates ids');
+  assert.ok(calls.includes('/data/sleeper_index.json'), 'the compact index is what translates ids');
   assert.ok(!calls.some((u) => /players\/nfl/.test(u)), 'Sleeper\'s 14.7 MB dump is never fetched');
 });
 
@@ -105,8 +109,8 @@ test('R98: inside six hours nothing is fetched at all', async () => {
   const s = store();
   saveLeagueRosters({ league_id: LEAGUE, at: new Date(NOW - 2 * H).toISOString(),
     teams: [{ roster_id: 1, app_ids: ['a'] }] }, s);
-  const { f, calls } = stubFetch();
-  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, now: NOW, storage: s });
+  const { f, loadIndex, calls } = stubFetch();
+  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, loadIndex, now: NOW, storage: s });
   assert.equal(res.ran, false);
   assert.equal(calls.length, 0);
 });
@@ -133,8 +137,8 @@ test('R98: an IR (reserve) player is rostered, but not in the seatable app_ids',
   rosters[0].players = rosters[0].players.filter((x) => x !== irId);
   rosters[0].reserve = [irId];
   const s = store();
-  const { f } = stubFetch({ rostersBody: rosters });
-  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, now: NOW, storage: s });
+  const { f, loadIndex } = stubFetch({ rostersBody: rosters });
+  const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, loadIndex, now: NOW, storage: s });
   assert.equal(res.ok, true, res.error);
   const t0 = res.record.teams.find((t) => t.roster_id === rosters[0].roster_id);
   assert.equal((t0.reserve_app_ids || []).length, 1, 'the IR stash resolved');
@@ -146,14 +150,14 @@ test('R98: an IR (reserve) player is rostered, but not in the seatable app_ids',
 test('R98: every failure writes nothing, says why, and is throttled', async () => {
   for (const [opts, why] of [[{ index: false }, /compact Sleeper player index/], [{ rosters: false }, /./]]) {
     const s = store();
-    const { f } = stubFetch(opts);
-    const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, now: NOW, storage: s });
+    const { f, loadIndex } = stubFetch(opts);
+    const res = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, loadIndex, now: NOW, storage: s });
     assert.equal(res.ran, true);
     assert.equal(res.ok, false);
     assert.match(res.error, why);
     assert.equal(s.m.has(LEAGUE_ROSTERS_KEY), false, 'no half-read league is ever saved');
     assert.equal(readSyncAttempt(s).league_id, LEAGUE, 'the attempt is recorded, so the next mount waits');
-    const again = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, now: NOW + 60000, storage: s });
+    const again = await autoSyncLeague({ leagueId: LEAGUE, seatable: SEATABLE, fetch: f, loadIndex, now: NOW + 60000, storage: s });
     assert.equal(again.ran, false, 'a minute later: not retried');
   }
 });
