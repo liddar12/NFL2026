@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-22T12:11:53Z",
+  "generated_utc": "2026-09-24T16:31:42Z",
   "kind": "scheme_history",
   "source": "nflverse FTN charting release joined to the nflverse play-by-play release on (nflverse_game_id, nflverse_play_id) \u2014 the FTN file carries no posteam/defteam column",
   "source_url": "https://github.com/nflverse/nflverse-data/releases/download/ftn_charting/ftn_charting_{season}.csv",
@@ -22,7 +22,7 @@
     "applied": false,
     "dark": true,
     "http_status": 200,
-    "checked_utc": "2026-09-22T12:11:53Z",
+    "checked_utc": "2026-09-24T16:31:42Z",
     "url": "https://github.com/nflverse/nflverse-data/releases/download/ftn_charting/ftn_charting_2026.csv",
     "reason": "FTN charting 2026 is published upstream (HTTP 200 at https://github.com/nflverse/nflverse-data/releases/download/ftn_charting/ftn_charting_2026.csv), but this build ingests [2022, 2023, 2024, 2025]; a published release is not an ingested one. scheme_matchup holds no charted play for 2026, so its application path is DARK: it RAISES rather than pricing the season at a neutral 0.0. Ingesting the season means raising LAST_FTN_SEASON and rebuilding; APPLYING it additionally needs a prediction-time reader wired into scripts/build_predictions.py and a never-regress run."
   },
