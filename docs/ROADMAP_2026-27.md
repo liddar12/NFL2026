@@ -837,7 +837,12 @@ nothing ships without one.
   underconfidence in **38/40** seasons, touches a calibrated season in **1/40**, and never adopts one that
   turns around (**0/40**). Today it holds (week 2 is the only graded week); **the first week it can switch
   on is after week 4's games.** **Locked by** `r100_self_learning.test.mjs` (6) and
-  `r100_pool_learning.test.mjs` (4, rates over 40 seasons, not one seed). · **LOE** 1 d
+  `r100_pool_learning.test.mjs` (4, rates over 40 seasons, not one seed). **Broken on the way, and
+  fixed the same day:** the renamed workflow step read `(R100: auto-adopt …)`, and in a YAML plain value
+  `: ` starts a mapping — `backtest.yml` stopped parsing, GitHub listed it by path, refused a manual run,
+  and the weekly job that carries every learning loop would never have fired again. The gate was green
+  because every workflow test reads the files as text. `r100_workflow_yaml.test.mjs` now refuses a
+  plain-scalar `: ` in any workflow, proven on the line that broke. · **LOE** 1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E1 — anytime-TD model** (approved; starts now). Built with the same held-out adoption loop
      from day one, and graded weekly against nflverse.
