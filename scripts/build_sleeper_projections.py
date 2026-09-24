@@ -52,6 +52,7 @@ if _ROOT not in sys.path:
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "sleeper_projections.json")
+INDEX_PATH = os.path.join(DATA, "sleeper_index.json")
 PROJECTIONS_PATH = os.path.join(DATA, "player_projections.json")
 KDST_PATH = os.path.join(DATA, "kdst_projections.json")
 
@@ -379,10 +380,66 @@ def write(doc, path=OUT_PATH):
         fh.write("\n")
 
 
-def build(season, get_json=_get_json, out_path=OUT_PATH, now=None):
+# R98 — the COMPACT player index LINEUP's automatic roster sync reads.
+#
+# Translating a Sleeper roster into this app's ids needs Sleeper's player dump,
+# and the dump is 14.7 MB (measured 2026-09-24). TEAM's manual SYNC NOW pulls it
+# once per session; an automatic sync four times a day cannot, on a phone. This
+# runner already fetches the dump once a day, so it writes the slice the
+# crosswalk can actually use: every player at a position this app seats who is
+# on an NFL team today, in Sleeper's own raw shape and field names, so
+# app/sleeper.js buildSleeperPlayerIndex reads it unchanged and the ONE
+# crosswalk (app/sleeper.js crosswalkPlayerIds) stays the only matcher. A player
+# on no team is not in this app's pool either (R98 official rosters), so leaving
+# him out loses no match. ~148 KB. Sleeper asks that the dump be read at most
+# once a day, which is exactly this cadence.
+INDEX_POSITIONS = frozenset(("QB", "RB", "WR", "TE", "K", "DEF", "FB"))
+INDEX_FIELDS = ("player_id", "first_name", "last_name", "full_name", "position",
+                "team", "espn_id", "gsis_id", "fantasy_positions")
+INDEX_MIN_PLAYERS = 500
+
+
+def build_sleeper_index(dump, now):
+    """Pure: the raw dump -> the compact index document (no I/O)."""
+    players = {}
+    for key, raw in (dump or {}).items():
+        if not isinstance(raw, dict) or not raw.get("team"):
+            continue
+        positions = {raw.get("position")} | set(raw.get("fantasy_positions") or [])
+        if not positions & INDEX_POSITIONS:
+            continue
+        players[str(key)] = {f: raw[f] for f in INDEX_FIELDS if raw.get(f) is not None}
+    return {
+        "generated_utc": now,
+        "source": DUMP_URL,
+        "note": ("Sleeper's player dump reduced to players at a seatable position who "
+                 "are on an NFL team, raw Sleeper field names. Read by LINEUP's "
+                 "automatic roster sync to translate Sleeper ids; never a model input."),
+        "count": len(players),
+        "players": players,
+    }
+
+
+def write_index(doc, path=INDEX_PATH):
+    if doc["count"] < INDEX_MIN_PLAYERS:
+        raise FeedError("sleeper index has %d players (< %d) — refusing to write a thin "
+                        "index that would mark rostered players as free agents"
+                        % (doc["count"], INDEX_MIN_PLAYERS))
+    write(doc, path)
+    print("sleeper index: %d players on a team at a seatable position -> %s"
+          % (doc["count"], path))
+
+
+def build(season, get_json=_get_json, out_path=OUT_PATH, now=None, index_path=INDEX_PATH):
     proj, kickers, defenses = load_pool()
     pool_index = build_pool_index(proj, kickers, defenses)
-    dump_index = build_dump_index(fetch_dump(get_json))
+    dump = fetch_dump(get_json)
+    stamp = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Written FIRST: the roster sync needs it even on a day the projection
+    # endpoints below fail.
+    if index_path:
+        write_index(build_sleeper_index(dump, stamp), index_path)
+    dump_index = build_dump_index(dump)
     rows_by_week = fetch_rows_by_week(season, get_json=get_json)
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     doc = build_document(rows_by_week, dump_index, pool_index, season, now)
@@ -465,8 +522,30 @@ def selftest():
     doc2 = build_document(rows, build_dump_index(dump), build_pool_index(proj, kickers),
                           2026, "2026-09-01T00:00:00Z")
     assert json.dumps(doc, sort_keys=True) == json.dumps(doc2, sort_keys=True)
+    # R98 — the compact index: seatable positions ON A TEAM, raw Sleeper fields only.
+    idx = build_sleeper_index({
+        "1": {"player_id": "1", "full_name": "A Q", "position": "QB", "team": "KC",
+              "espn_id": 11, "age": 30, "height": "6'2\"", "fantasy_positions": ["QB"]},
+        "2": {"player_id": "2", "full_name": "Cut Guy", "position": "WR", "team": None},
+        "3": {"player_id": "3", "full_name": "A Punter", "position": "P", "team": "KC",
+              "fantasy_positions": ["P"]},
+        "SF": {"player_id": "SF", "position": "DEF", "team": "SF",
+               "fantasy_positions": ["DEF"]},
+        "4": {"player_id": "4", "full_name": "Two Way", "position": "LB", "team": "NE",
+              "fantasy_positions": ["LB", "TE"]},
+    }, "2026-09-24T00:00:00Z")
+    assert set(idx["players"]) == {"1", "SF", "4"}, idx["players"]
+    assert "age" not in idx["players"]["1"] and "height" not in idx["players"]["1"], \
+        "only the fields the crosswalk reads"
+    assert idx["players"]["1"]["espn_id"] == 11 and idx["count"] == 3
+    try:
+        write_index(idx, "/nonexistent/never-written.json")
+        raise AssertionError("a 3-player index must be refused before any write")
+    except FeedError:
+        pass
     print("selftest OK: exact-match crosswalk (espn/gsis/name/team_def), pts_ppr row "
-          "rule, stat_keys reduction, match report, determinism")
+          "rule, stat_keys reduction, match report, determinism, R98 compact index "
+          "(seatable + on a team, crosswalk fields only, thin index refused)")
 
 
 def main(argv=None):

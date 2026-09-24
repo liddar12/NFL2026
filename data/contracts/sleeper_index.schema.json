@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sleeper_index.schema.json",
+  "title": "sleeper_index",
+  "description": "R98 - Sleeper's player dump (14.7 MB) reduced to players at a position this app seats who are on an NFL team, in Sleeper's raw field names, so app/sleeper.js buildSleeperPlayerIndex reads it unchanged. Read by LINEUP's automatic roster sync (every 6 hours) to translate Sleeper roster ids into this app's ids without a 14.7 MB download on a phone. Never a model input. Produced by scripts/build_sleeper_projections.py from the dump it already fetches once a day.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "source",
+    "note",
+    "count",
+    "players"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 500
+    },
+    "players": {
+      "type": "object",
+      "minProperties": 500,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "player_id",
+          "position",
+          "team"
+        ],
+        "properties": {
+          "player_id": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "espn_id": {
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "gsis_id": {
+            "type": "string"
+          },
+          "fantasy_positions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

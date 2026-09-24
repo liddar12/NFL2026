@@ -334,7 +334,24 @@ def fetch_fantasy_pool(season, min_rows=150):
 
 
 def fetch_roster_ages(teams, get_json=None, max_failed_teams=4):
-    """{espn_athlete_id: age} across all 32 rosters.
+    """{espn_athlete_id: age} across all 32 rosters (see fetch_rosters)."""
+    return fetch_rosters(teams, get_json, max_failed_teams)[0]
+
+
+def fetch_rosters(teams, get_json=None, max_failed_teams=4):
+    """(ages, roster_teams, answered) from all 32 OFFICIAL team rosters.
+
+    ages          {espn_athlete_id: age}
+    roster_teams  {espn_athlete_id: team abbrev} -- the team whose official roster
+                  lists him TODAY (active, practice squad and injured alike: an IR
+                  player stays on his team's page, verified 2026-09-24 on Njoku/LAC)
+    answered      the abbrevs whose roster page loaded, so a caller can tell "not
+                  on this roster" from "this roster never answered"
+
+    R98 -- this pull always read every team's roster and kept only the age. The
+    team it threw away is the freshest, id-keyed statement of who plays where:
+    fresher than the fantasy pool's proTeamId, which lags a mid-season move and
+    reads 0 for a player who has been cut. See assemble_records.
 
     `teams` is espn.fetch_teams()'s output (carries each team's espn_id).
 
@@ -353,7 +370,7 @@ def fetch_roster_ages(teams, get_json=None, max_failed_teams=4):
     volume floor still applies to the teams that did answer.
     """
     get_json = get_json or _get_json
-    ages = {}
+    ages, roster_teams, answered = {}, {}, set()
     failed = []
     for ab, t in sorted(teams.items()):
         try:
@@ -367,8 +384,11 @@ def fetch_roster_ages(teams, get_json=None, max_failed_teams=4):
                   f"players carry NO age (absent, never fabricated)",
                   file=sys.stderr)
             continue
+        answered.add(ab)
         for grp in groups:
             for item in grp.get("items") or []:
+                if item.get("id") is not None:
+                    roster_teams[str(item["id"])] = ab
                 if item.get("age") is not None:
                     ages[str(item.get("id"))] = int(item["age"])
     if len(failed) > max_failed_teams:
@@ -380,7 +400,7 @@ def fetch_roster_ages(teams, get_json=None, max_failed_teams=4):
     if len(ages) < 25 * ok_teams:  # ~53 rostered per answering team, most aged
         raise FeedError(f"roster ages: only {len(ages)} entries from {ok_teams} "
                         f"answering team page(s) — pull looks broken.")
-    return ages
+    return ages, roster_teams, answered
 
 
 def _kona_market_page(season, offset, limit=_PAGE, timeout=30):
@@ -503,8 +523,22 @@ def fetch_current_pro_teams(season, min_rows=150):
     return out
 
 
-def assemble_records(pool, ages, teams, current_pro_teams=None):
+def assemble_records(pool, ages, teams, current_pro_teams=None, rosters=None):
     """Pure record assembly (no I/O): fantasy pool + ages (+ current-team map).
+
+    OFFICIAL ROSTERS (R98): with `rosters` = (roster_teams, answered) from
+    fetch_rosters, the team whose official page lists the player WINS over both
+    maps below. A player no answering roster lists is NOT ON AN NFL TEAM today --
+    cut, unsigned or retired -- and is dropped by the same `team is None` path a
+    free agent already took, instead of being stamped with last season's team and
+    projected into lineups and the waiver wire. Measured 2026-09-24 (week 3): 24
+    of the 300 shipped players were on the wrong team -- 15 on no roster at all
+    (Russell Wilson NYG, Nick Chubb HOU, DeAndre Hopkins BAL, ...) and 9 moved
+    (Ertz WAS->PHI, Cooks BUF->SF, Ford CLE->MIN, ...) -- every one of them
+    because the fantasy map read 0 or nothing and the R33 fallback below kept
+    the prior-season team. If the page of the team he WOULD have been stamped
+    on never answered, nothing proves he left: he keeps the old stamp, loudly.
+    Without `rosters` everything below is byte-for-byte unchanged.
 
     TEAM STAMPING (R33): with `current_pro_teams` (fetch_current_pro_teams output),
     `team` is the player's CURRENT proTeamId; the pool's own prior-season
@@ -518,7 +552,8 @@ def assemble_records(pool, ages, teams, current_pro_teams=None):
     """
     by_pro_id = {int(t["espn_id"]): ab for ab, t in teams.items()}
 
-    records, fallbacks = [], []
+    roster_teams, answered = rosters if rosters is not None else ({}, set())
+    records, fallbacks, moved, unrostered, unverified = [], [], [], [], []
     for p in pool:
         team = None
         if current_pro_teams is not None:
@@ -527,6 +562,18 @@ def assemble_records(pool, ages, teams, current_pro_teams=None):
                 fallbacks.append(p["name"])
         if team is None:
             team = by_pro_id.get(p["pro_team_id"])
+        if rosters is not None:
+            official = roster_teams.get(str(p["espn_id"]))
+            if official is not None:
+                if official != team:
+                    moved.append("%s %s->%s" % (p["name"], team, official))
+                team = official
+            elif team is None or team in answered:
+                # The roster he would be stamped on answered and does not list him.
+                unrostered.append("%s (%s)" % (p["name"], team or "no team"))
+                team = None
+            else:
+                unverified.append("%s (%s)" % (p["name"], team))
         if team is None:
             continue  # free agent / no current team -> not projectable to a 2026 role
         records.append({
@@ -569,6 +616,15 @@ def assemble_records(pool, ages, teams, current_pro_teams=None):
               f"{len(fallbacks)} player(s) (absent from the current-season pool, "
               f"or current proTeamId unmapped — e.g. 0 = free agent): {shown}{more}",
               file=sys.stderr)
+    for label, names in (
+            ("official roster moved", moved),
+            ("dropped: on NO official NFL roster (cut / unsigned / retired)", unrostered),
+            ("kept UNVERIFIED: his team's roster page did not answer", unverified)):
+        if names:
+            shown = ", ".join(sorted(names)[:15])
+            more = "" if len(names) <= 15 else f", +{len(names) - 15} more"
+            print(f"[info] team stamp (R98) {label}: {len(names)} — {shown}{more}",
+                  file=sys.stderr)
     return records
 
 
@@ -588,9 +644,12 @@ def build_player_records(season, teams, current_season=None):
     re-open the exact wrong-team defect this parameter exists to close.
     """
     pool = fetch_fantasy_pool(season)
-    ages = fetch_roster_ages(teams)
+    ages, roster_teams, answered = fetch_rosters(teams)
     current = fetch_current_pro_teams(current_season) if current_season else None
-    return assemble_records(pool, ages, teams, current)
+    # R98: the official rosters decide the team for the LIVE pool only; a
+    # standalone/backtest caller (no current_season) stays byte-for-byte.
+    rosters = (roster_teams, answered) if current_season else None
+    return assemble_records(pool, ages, teams, current, rosters)
 
 
 if __name__ == "__main__":  # manual smoke: python -m scripts.scrape.espn_players

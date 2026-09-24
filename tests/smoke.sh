@@ -150,6 +150,7 @@ ALLOW = {  # path -> reason (all: compact-writer, size-driven; builder named)
     "data/preseason_form.json": "build_preseason.py compact writer (standalone, unwired)",
     "data/ros_backtest.json": "backtest scripts' compact writer",
     "data/sleeper_projections.json": "build_sleeper_projections.py compact writer, ~2.3 MB (3.97 MB at indent=2; display-only, lazily fetched)",
+    "data/sleeper_index.json": "build_sleeper_projections.py compact writer, ~148 KB — fetched by LINEUP's automatic roster sync on a phone, every byte is cellular",
     "data/weather_forecast.json": "build_weather_forecast.py compact writer",
     "data/weather_history.json": "build_weather_history.py compact writer, 77 KB",
 }

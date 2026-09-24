@@ -102,7 +102,10 @@ import {
 } from '../lineup.js';
 // R49 — the league's rosters + Sleeper's week (written by TEAM's sync) and the
 // pure waiver-wire engine. Both are lazy by construction: this view is.
-import { loadLeagueRosters, loadNflWeek, defaultLineupWeek } from '../league-rosters.js';
+import {
+  loadLeagueRosters, loadNflWeek, defaultLineupWeek, rosterAgeHours, ROSTERS_STALE_HOURS,
+  autoSyncDue, readSyncAttempt, rosterChange,
+} from '../league-rosters.js';
 import { freeAgents, bestAvailable, bestFit } from '../waivers.js';
 import {
   getKdstProjections, shapeKdst, fedPositions, teamByeWeeks,
@@ -385,9 +388,13 @@ export default async function mountLineup(el) {
     (wkFromSleeper
       ? `<div class="lu-wklabel">WK ${currentWk} · current week per Sleeper</div>`
       : '') +
+    // R98 — the automatic roster refresh and the "your Sleeper roster differs"
+    // note live OUTSIDE #lineup-body, so a week-chip repaint never erases them.
+    '<div id="lineup-sync" aria-live="polite"></div>' +
     '<div id="lineup-body"></div>';
 
   const body = el.querySelector('#lineup-body');
+  const syncEl = el.querySelector('#lineup-sync');
 
   /* R49 — WAIVER WIRE state and inputs (mount-scoped; paint() re-reads them).
    * The pool is what this view already loaded: the projection players plus
@@ -396,7 +403,7 @@ export default async function mountLineup(el) {
   let wwHz = 'week';    // 'week' | 'ros'
   let lastWk = currentWk;
   const leagueId = loadLeagueId();
-  const leagueRosters = loadLeagueRosters(leagueId);
+  let leagueRosters = loadLeagueRosters(leagueId);
   const otherRosters = leagueRosters ? null : loadLeagueRosters(null);
   const fedSet = new Set(['QB', 'RB', 'WR', 'TE', ...feeds.map(canonPosition)]);
   const wwPositions = [];
@@ -432,6 +439,7 @@ export default async function mountLineup(el) {
     const paintEmpty = (wk) => { lastWk = wk; body.innerHTML = noRoster + renderWaivers(wk); };
     wireWeekBar(el, paintEmpty);
     paintEmpty(currentWk);
+    startAutoSync(() => paintEmpty(lastWk));
     return;
   }
 
@@ -598,6 +606,18 @@ export default async function mountLineup(el) {
         : 'Sync your Sleeper league on <a href="#/team">TEAM</a> to see who is unrostered';
       return `${open}<div class="state">${why}</div></section>`;
     }
+    // R98 — the league's rosters are only as fresh as the last SYNC NOW. Past a
+    // day, anyone another manager added since then is still listed below as
+    // available, so say that at the TOP of the card, where the list is read —
+    // the as-of date in the footnote was true and nobody saw it.
+    const ageH = rosterAgeHours(leagueRosters);
+    const staleNote = (ageH == null || ageH > ROSTERS_STALE_HOURS)
+      ? '<div class="state ww-stale" role="status"><b>Rosters last read '
+        + (ageH == null ? 'at an unknown time' : (ageH < 48
+          ? `${Math.round(ageH)} hours ago` : `${Math.floor(ageH / 24)} days ago`))
+        + '.</b> Anyone added or claimed since then still shows here as available. '
+        + 'Press SYNC NOW on <a href="#/team">TEAM</a> to refresh.</div>'
+      : '';
     const rostered = leagueRosters.rostered_app_ids.concat(rosterIds);
     const fas = freeAgents(poolRows, rostered).map((r) => ({ ...r, bye: byeOf(r.id) }));
     const avail = bestAvailable({
@@ -671,7 +691,7 @@ export default async function mountLineup(el) {
       + 'Estimates only — no price, ADP or ownership input anywhere. BEST FIT gain = your optimal lineup '
       + 'with the player minus without him; the drop is the rostered player whose removal costs least '
       + '(a starter only when nothing sits on the bench).</div>';
-    return open + controls + listHtml + note + '</section>';
+    return open + staleNote + controls + listHtml + note + '</section>';
   }
 
   function paint(wk) {
@@ -1018,6 +1038,69 @@ export default async function mountLineup(el) {
 
   wireWeekBar(el, paint);
   paint(currentWk);
+  startAutoSync(() => paint(lastWk));
+
+  /* R98 — AUTOMATIC ROSTER REFRESH (owner: "re-synced automatically 4 times per
+   * day"). When this league's saved rosters are over six hours old, re-read them
+   * from Sleeper in the background and repaint. app/league-sync.js (and with it
+   * app/sleeper.js) is imported only when a refresh is actually due. It rewrites
+   * the league record only — the roster seated here is never changed behind the
+   * viewer's back; a difference from Sleeper is NAMED instead (paintSync). */
+  function startAutoSync(repaint) {
+    paintSync(null);
+    if (!leagueId || !autoSyncDue(leagueRosters, readSyncAttempt(), leagueId)) return;
+    paintSync({ phase: 'running' });
+    const seatable = players.map((p) => ({
+      gsis_id: String(p.gsis_id), name: p.name, team: p.team || '', position: p.position,
+    })).concat([...kdstById.values()].filter((e) => !e.unscored)
+      .map((e) => ({ gsis_id: String(e.id), name: e.name, team: e.team, position: e.pos })));
+    import('../league-sync.js')
+      .then((m) => m.autoSyncLeague({ leagueId, seatable }))
+      .then((res) => {
+        if (!syncEl.isConnected) return;
+        if (res && res.ok) {
+          leagueRosters = res.record;
+          paintSync({ phase: 'done' });
+          repaint();
+        } else {
+          paintSync({ phase: 'failed', error: (res && res.error) || 'unknown error' });
+        }
+      })
+      .catch((err) => {
+        if (syncEl.isConnected) paintSync({ phase: 'failed', error: (err && err.message) || String(err) });
+      });
+  }
+
+  /** The refresh status line, then — whenever it is known — how the roster
+   *  seated here differs from this viewer's roster on Sleeper. */
+  function paintSync(state) {
+    if (!syncEl) return;
+    let out = '';
+    if (state && state.phase === 'running') {
+      out += '<div class="state lu-sync">Refreshing this league\'s rosters from Sleeper…</div>';
+    } else if (state && state.phase === 'failed') {
+      out += `<div class="state lu-sync lu-sync--err">Automatic roster refresh failed: ${esc(state.error)}. `
+        + 'Showing the rosters from the last successful read.</div>';
+    }
+    const my = leagueRosters && leagueRosters.my_roster_id != null
+      ? leagueRosters.teams.find((t) => Number(t.roster_id) === Number(leagueRosters.my_roster_id))
+      : null;
+    if (my && rosterIds.length) {
+      const d = rosterChange(rosterIds, my.app_ids);
+      const nameOf = (id) => {
+        const p = byId.get(id) || kdstById.get(id);
+        return esc((p && p.name) || id);
+      };
+      if (d.added.length || d.dropped.length) {
+        out += '<div class="state lu-rosterdiff" role="status"><b>Your Sleeper roster has changed.</b> '
+          + (d.added.length ? `On Sleeper, not here: ${d.added.map(nameOf).join(', ')}. ` : '')
+          + (d.dropped.length ? `Here, no longer on Sleeper: ${d.dropped.map(nameOf).join(', ')}. ` : '')
+          + 'Press SYNC NOW on <a href="#/team">TEAM</a> to seat it — this page never changes '
+          + 'your roster without showing you what goes.</div>';
+      }
+    }
+    syncEl.innerHTML = out;
+  }
 }
 
 function weekBar(active) {
