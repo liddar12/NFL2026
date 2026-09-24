@@ -182,8 +182,8 @@ jobs:
       # SHIPPED projection's signal weights move when a refit beats what ships on
       # >= 2 held-out weeks by the margin with no week worse, and revert when full
       # strength beats them. validate_data.py refuses a weight with no receipt.
-      - name: Player-signal walk-forward fit (R100: auto-adopt behind never-regress vs what ships)
-        run: bash scripts/stage.sh backtest "Player-signal walk-forward fit (R100: auto-adopt behind never-regress vs what ships)" -- python scripts/fit_player_signals.py --propose --adopt
+      - name: Player-signal walk-forward fit (R100 auto-adopt behind never-regress vs what ships)
+        run: bash scripts/stage.sh backtest "Player-signal walk-forward fit (R100 auto-adopt behind never-regress vs what ships)" -- python scripts/fit_player_signals.py --propose --adopt
 
       # R94 — DOES RAIN MATTER (measure only). Two steps, in this order: the
       # play-level rate corpus first, then the measurement that reads it. They
