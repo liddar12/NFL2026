@@ -326,15 +326,16 @@ def _violates_one_per_side(legs):
     return False
 
 
-def compatible(legs, nxt):
-    """Two legs may not sit in one card when they are the same opinion twice."""
+def compatible(legs, nxt, max_per_game=2):
+    """Two legs may not sit in one card when they are the same opinion twice.
+    R101d -- max_per_game (default 2, R83) is raised only by a TD mode's verdict."""
     gid = nxt.get("game_id")
     if gid:
         same = 0
         for leg in legs:
             if leg.get("game_id") == gid:
                 same += 1
-        if same >= 2:                         # R83 -- at most two legs per game
+        if same >= max_per_game:              # R83 -- at most two legs per game
             return False
     owner = nxt.get("owner")
     selection = nxt.get("selection")
@@ -346,19 +347,22 @@ def compatible(legs, nxt):
     return not _violates_one_per_side(list(legs) + [nxt])
 
 
-def conviction(legs, corr=None):
+def conviction(legs, corr=None, big_groups=None):
     """Conviction: the combined model probability, correlation-aware within a game."""
-    return combined_game_probs(legs, corr)[0]
+    return combined_game_probs(legs, corr, big_groups)[0]
 
 
-def score_card(legs, corr=None):
+def score_card(legs, corr=None, big_groups=None):
     """Everything a card shows, from its legs alone."""
     same_game = len(legs) > 1 and all(
         l.get("game_id") and l.get("game_id") == legs[0].get("game_id") for l in legs)
     games = [l.get("game_id") for l in legs if l.get("game_id")]
     mixed_game = (not same_game) and len(set(games)) < len(games)
-    model, implied = combined_game_probs(legs, corr)
+    model, implied = combined_game_probs(legs, corr, big_groups)
     decimal = (1.0 / implied) if implied > 0 else 0.0
+    per_game = {}
+    for g in games:
+        per_game[g] = per_game.get(g, 0) + 1
     return {
         "legs": legs,
         "model": model,
@@ -367,6 +371,8 @@ def score_card(legs, corr=None):
         "tier": _confidence_tier(model, implied, len(legs)),
         "same_game": same_game,
         "mixed_game": mixed_game,
+        # R101d -- some game supplies 3+ legs, priced as the product (GAME verdict).
+        "big_game": any(k > 2 for k in per_game.values()),
         # What $100 would return if every leg hit, at the prices shown.
         "payout": STAKE * (decimal - 1.0) if decimal > 0 else 0.0,
         "assumed": sum(1 for l in legs if not l.get("priced")),
@@ -374,7 +380,7 @@ def score_card(legs, corr=None):
 
 
 def build_cards(legs, seeds, corr=None, per_count=PER_COUNT, counts=LEG_COUNTS,
-                beam=BEAM, pool_cap=POOL_CAP):
+                beam=BEAM, pool_cap=POOL_CAP, max_non_atd=None, max_per_game=2):
     """Top cards containing at least one seed leg (beam search).
 
     Beam search rather than enumeration: 1,400+ legs choose 6 is astronomical, and
@@ -388,7 +394,14 @@ def build_cards(legs, seeds, corr=None, per_count=PER_COUNT, counts=LEG_COUNTS,
     order -- ties included -- is identical, and the key form is what keeps the
     32-seed sweep inside a pipeline step's budget.
     """
-    seed_legs = [l for l in legs if matches_seed(l, seeds)]
+    # R101c -- a TD mode caps the non-TD legs (MAJORITY) or allows none (ALL TD /
+    # 50%+); None = no cap (ANY). R101d -- max_per_game above two prices those
+    # groups as the product. Both mirror app/views/myparlays.js buildCards.
+    def non_td(ls):
+        return sum(1 for l in ls if l.get("market") != "anytime_td")
+    big = "product" if max_per_game > 2 else None
+    seed_legs = [l for l in legs if matches_seed(l, seeds)
+                 and (max_non_atd is None or l.get("market") == "anytime_td" or max_non_atd > 0)]
     if not seed_legs:
         return []
     by_conviction = lambda l: -l["model_prob"]  # noqa: E731 -- mirrors the JS comparator
@@ -403,12 +416,15 @@ def build_cards(legs, seeds, corr=None, per_count=PER_COUNT, counts=LEG_COUNTS,
         grown = []
         for partial in frontier:
             for nxt in candidates:
-                if not compatible(partial, nxt):
+                if not compatible(partial, nxt, max_per_game):
+                    continue
+                if (max_non_atd is not None and nxt.get("market") != "anytime_td"
+                        and non_td(partial) >= max_non_atd):
                     continue
                 grown.append(partial + [nxt])
         if not grown:
             break
-        grown.sort(key=lambda card: -conviction(card, corr))
+        grown.sort(key=lambda card: -conviction(card, corr, big))
         # de-dupe: the same set of legs reached by different orders is one card
         seen = set()
         frontier = []
@@ -421,8 +437,53 @@ def build_cards(legs, seeds, corr=None, per_count=PER_COUNT, counts=LEG_COUNTS,
             if len(frontier) >= beam:
                 break
         if size in counts:
-            out.extend(score_card(c, corr) for c in frontier[:per_count])
+            out.extend(score_card(c, corr, big) for c in frontier[:per_count])
     return out
+
+
+# --------------------------------------------------------------------------- #
+# R101c / R101d -- the TD modes (app/views/myparlays.js atdPoolLegs, tdLegsFor,  #
+# mergedCalib, tdMaxPerGame)                                                    #
+# --------------------------------------------------------------------------- #
+
+def atd_pool_legs(pool):
+    """The pool's anytime-TD legs, one per player, owned by the player."""
+    out = []
+    for row in (pool or {}).get("atd_legs") or []:
+        rungs = row.get("rungs") or []
+        if not rungs:
+            continue
+        out.append(_leg_from_pool(row, rungs[0]))
+    return out
+
+
+def td_legs_for(mode, n, atd, other):
+    """(legs, max_non_atd) for a TD mode and card size n."""
+    if mode == "all_td":
+        return atd, 0
+    if mode == "scorers_50":
+        return [l for l in atd if l["model_prob"] >= 0.5], 0
+    return list(atd) + list(other), n - (n // 2 + 1)
+
+
+def merged_calib(calib, pool):
+    """The slate's correlations plus the pool's measured ATD pairs."""
+    base = dict((calib or {}).get("correlations") or {})
+    extra = ((pool or {}).get("atd_correlations") or {}).get("pairs") or []
+    base["pairs"] = list(base.get("pairs") or []) + list(extra)
+    return {"correlations": base}
+
+
+def td_max_per_game(mode, verdict):
+    """Legs ONE game may supply in a TD mode: the largest n with every size 2..n
+    offered for the mode by a product-priced verdict; else the R83 cap of two."""
+    if mode == "any" or not verdict or verdict.get("pricer") != "independent":
+        return 2
+    sizes = {int(x) for x in ((verdict.get("offered_sizes") or {}).get(mode) or [])}
+    n = 2
+    while n + 1 in sizes:
+        n += 1
+    return n if 2 in sizes else 2
 
 
 def card_key(dial, seed_id, legs):

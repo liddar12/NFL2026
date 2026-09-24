@@ -10,6 +10,8 @@ count, how often the cards hit against how often the model said they would.
 R101b — the GAME-scope (same-game) cards are recorded in data/atd_game_cards/
 and graded here too; their rows carry scope "game" and are summarised under
 "game_<mode>" so a same-game size never hides inside the WEEK numbers.
+R101d — the MY TD-mode cards (scripts/build_my_td_cards.py, data/atd_my_cards/)
+likewise, under "my_<mode>".
 
 That comparison IS the learning signal for the card shapes: a mode or size whose
 hit rate keeps landing below its mean model chance is overstated, and the
@@ -40,6 +42,7 @@ from scripts.resolve_estimates import fetch_csv                   # noqa: E402
 DATA = os.path.join(_ROOT, "data")
 RECORD_GLOB = os.path.join(DATA, "atd_cards", "*_wk*.json")
 GAME_RECORD_GLOB = os.path.join(DATA, "atd_game_cards", "*_wk*.json")
+MY_RECORD_GLOB = os.path.join(DATA, "atd_my_cards", "*_wk*.json")        # R101d
 OUT_PATH = os.path.join(DATA, "atd_card_scores.json")
 
 
@@ -95,7 +98,8 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
                 continue
         return out
     week_recs, game_recs = _read(RECORD_GLOB), _read(GAME_RECORD_GLOB)
-    records = week_recs + game_recs
+    my_recs = _read(MY_RECORD_GLOB)
+    records = week_recs + game_recs + my_recs
     season = max(r["season"] for r in records) if records else None
     skipped, rows, pending, finals_source = None, [], 0, None
     if not records:
@@ -112,7 +116,8 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
             atd = {"td": index_td(csv_rows), "snaps": _snaps(season, cache_dir, None, offline)}
         rows, pending = grade_records(week_recs, by_week, finals, atd)
         g_rows, g_pending = grade_records(game_recs, by_week, finals, atd, scope="game")
-        rows, pending = rows + g_rows, pending + g_pending
+        m_rows, m_pending = grade_records(my_recs, by_week, finals, atd, scope="my")
+        rows, pending = rows + g_rows + m_rows, pending + g_pending + m_pending
     doc = {"kind": "atd_card_scores", "season": season, "generated_utc": now,
            "finals_source": finals_source, "skipped": skipped,
            "rule": ("a card hits when every leg hits; a pending leg keeps the card pending "

@@ -137,9 +137,12 @@ export function combinedProbs(legs, correlated, table) {
  * Mixed cards: correlate within each event, then multiply independent events.
  * An unidentified leg is a singleton, never a shared "unknown" event. Callers
  * building offered cards must resolve event identity before admitting a leg.
- * Three or more legs in one event are explicitly unsupported (RCA F03).
+ * Three or more legs in one event are unsupported (RCA F03) UNLESS the caller
+ * passes opts.bigGroups === 'product' — R101d: a TD mode whose GAME held-out
+ * verdict (data/joint_backtest.json) chose the product prices a 3+-leg group
+ * as the product of its legs, which is exactly what that verdict measured.
  */
-export function combinedGameProbs(legs, table) {
+export function combinedGameProbs(legs, table, opts = {}) {
   if (!legs || !legs.length) return [0, 0];
   const groups = new Map();
   let implied = 1;
@@ -150,7 +153,13 @@ export function combinedGameProbs(legs, table) {
     implied *= leg.implied_prob;
   }
   let model = 1;
-  for (const group of groups.values()) model *= combinedProbs(group, true, table)[0];
+  for (const group of groups.values()) {
+    if (group.length > 2 && opts.bigGroups === 'product') {
+      for (const leg of group) model *= leg.model_prob;
+    } else {
+      model *= combinedProbs(group, true, table)[0];
+    }
+  }
   return [model, implied];
 }
 

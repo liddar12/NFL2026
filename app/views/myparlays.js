@@ -78,6 +78,7 @@
 
 import {
   loadJson, getMyCardScores, getPlayerProjections, getPlayerWeekly, getScheduleFull,
+  getJointBacktest,
 } from '../data.js';
 import { simulateMoney, simulationBreakdown } from '../parlay-simulation.js';
 import {
@@ -197,6 +198,21 @@ export function tdLegsFor(mode, n, atdLegs, otherLegs) {
   if (mode === 'all_td') return { legs: atdLegs, maxNonAtd: 0 };
   if (mode === 'scorers_50') return { legs: atdLegs.filter((l) => l.model_prob >= 0.5), maxNonAtd: 0 };
   return { legs: atdLegs.concat(otherLegs), maxNonAtd: n - (Math.floor(n / 2) + 1) };
+}
+
+/**
+ * R101d — how many legs ONE game may supply in a TD mode. Owner chose "up to
+ * GAME's validated size": the largest n such that every size 2..n is offered
+ * for the mode by data/joint_backtest.json. Only when that verdict priced
+ * same-game cards as the PRODUCT — the browser carries no joint pricer, so a
+ * "joint" verdict (or none) keeps the R83 cap of two. The ANY mode is always 2.
+ */
+export function tdMaxPerGame(mode, verdict) {
+  if (mode === 'any' || !verdict || verdict.pricer !== 'independent') return 2;
+  const sizes = new Set(((verdict.offered_sizes || {})[mode] || []).map(Number));
+  let n = 2;
+  while (sizes.has(n + 1)) n += 1;
+  return sizes.has(2) ? n : 2;
 }
 
 /** A prop leg: an unpriced rung owned by a PLAYER. Game legs own a `team:` id. */
@@ -504,9 +520,10 @@ export function notOfferedReason(name, weeklyDoc, poolOptions) {
 
 /* ---- the search --------------------------------------------------------- */
 
-/** Two legs may not sit in one card when they are the same opinion twice. */
-function compatible(legs, next) {
-  if (next.game_id && legs.filter((l) => l.game_id === next.game_id).length >= 2) return false;
+/** Two legs may not sit in one card when they are the same opinion twice.
+ * R101d — maxPerGame (default 2, R83) is raised only by a TD mode's verdict. */
+function compatible(legs, next, maxPerGame = 2) {
+  if (next.game_id && legs.filter((l) => l.game_id === next.game_id).length >= maxPerGame) return false;
   for (const leg of legs) {
     if (leg.owner === next.owner) return false;      // one leg per player / team
     if (leg.selection === next.selection) return false;
@@ -515,18 +532,20 @@ function compatible(legs, next) {
 }
 
 /** Conviction: the combined model probability, correlation-aware within a game. */
-export function conviction(legs, table) {
-  return combinedGameProbs(legs, table)[0];
+export function conviction(legs, table, opts) {
+  return combinedGameProbs(legs, table, opts)[0];
 }
 
 /** Everything a card shows, from its legs alone. */
-export function scoreCard(legs, table) {
+export function scoreCard(legs, table, opts) {
   const sameGame = legs.length > 1
     && legs.every((l) => l.game_id && l.game_id === legs[0].game_id);
   const games = legs.map((l) => l.game_id).filter(Boolean);
   const mixedGame = !sameGame && new Set(games).size < games.length;
-  const [model, implied] = combinedGameProbs(legs, table);
+  const [model, implied] = combinedGameProbs(legs, table, opts);
   const decimal = implied > 0 ? 1 / implied : 0;
+  const perGame = new Map();
+  for (const g of games) perGame.set(g, (perGame.get(g) || 0) + 1);
   return {
     legs,
     model,
@@ -535,6 +554,8 @@ export function scoreCard(legs, table) {
     tier: confidenceTier(model, implied, legs.length),
     sameGame,
     mixedGame,
+    // R101d — some game supplies 3+ legs, priced as the product (GAME verdict).
+    bigGame: [...perGame.values()].some((k) => k > 2),
     // What $100 would return if every leg hit, at the prices shown. A price, not
     // a result: these cards are never graded, so there is no realized figure.
     payout: decimal > 0 ? STAKE * (decimal - 1) : 0,
@@ -558,6 +579,9 @@ export function buildCards(legs, seeds, table, opts = {}) {
   // allows none (ALL TD / 50%+). Undefined = no cap (the ANY mode, unchanged).
   const maxNon = opts.maxNonAtd;
   const nonTd = (ls) => ls.filter((l) => l.market !== 'anytime_td').length;
+  // R101d — legs one game may supply; above two, those groups price as the product.
+  const maxPerGame = opts.maxPerGame || 2;
+  const price = maxPerGame > 2 ? { bigGroups: 'product' } : undefined;
   const seedLegs = legs.filter((l) => matchesSeed(l, seeds)
     && (maxNon == null || l.market === 'anytime_td' || maxNon > 0));
   if (!seedLegs.length) return [];
@@ -574,13 +598,13 @@ export function buildCards(legs, seeds, table, opts = {}) {
     const grown = [];
     for (const partial of beam) {
       for (const next of candidates) {
-        if (!compatible(partial, next)) continue;
+        if (!compatible(partial, next, maxPerGame)) continue;
         if (maxNon != null && next.market !== 'anytime_td' && nonTd(partial) >= maxNon) continue;
         grown.push([...partial, next]);
       }
     }
     if (!grown.length) break;
-    grown.sort((a, b) => conviction(b, table) - conviction(a, table));
+    grown.sort((a, b) => conviction(b, table, price) - conviction(a, table, price));
     // de-dupe: the same set of legs reached by different orders is one card
     const seen = new Set();
     beam = [];
@@ -592,7 +616,7 @@ export function buildCards(legs, seeds, table, opts = {}) {
       if (beam.length >= BEAM) break;
     }
     if (counts.includes(size)) {
-      out.push(...beam.slice(0, perCount).map((c) => scoreCard(c, table)));
+      out.push(...beam.slice(0, perCount).map((c) => scoreCard(c, table, price)));
     }
   }
   return out;
@@ -704,6 +728,9 @@ export function renderCard(card, i) {
         + `<div class="legcount">${(card.ev * 100).toFixed(1)}% SIM EV</div>`
         + `<div class="pay">${money(card.payout)}<span class="k">$100 SIM NET</span><span class="pay-detail">${esc(simulationBreakdown(simulateMoney(card.legs)))}</span></div>`
       + '</div>'
+      + (card.bigGame ? '<div class="corr mp-big"><span>3+ legs from one game: priced as '
+        + 'the product of those legs — the same-game model did not beat it on held-out '
+        + 'seasons, and GAME validated this many legs per game for this TD mode.</span></div>' : '')
       + '<div class="corr"><span class="lk" aria-hidden="true">*</span><span>'
         + 'SIMULATION · multiply 1/IMPL for each leg; no same-game book adjustment. '
         + 'Prop IMPL* = model probability × 1.045 (capped below 100%), not a book price. '
@@ -715,7 +742,7 @@ export function renderCard(card, i) {
 /* ---- mount -------------------------------------------------------------- */
 
 const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
-  dial: DEFAULT_DIAL, live: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [] };
+  dial: DEFAULT_DIAL, live: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [], verdict: null };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -794,12 +821,13 @@ function paint(el) {
     const n = state.td.legs;
     const atdUp = upcomingLegs(state.atdLegs || [], state.games || []);
     const { legs, maxNonAtd } = tdLegsFor(state.td.mode, n, atdUp, dialLegs(eligible, target));
+    const maxPerGame = tdMaxPerGame(state.td.mode, state.verdict);
     cards = buildCards(legs, state.seeds, state.table,
-      { counts: [n], perCount: 10, maxNonAtd });
+      { counts: [n], perCount: 10, maxNonAtd, maxPerGame });
     if (!cards.length) {
       list.innerHTML = `<div class="state">No ${n}-leg card in this TD mode contains your `
         + 'seeds — try fewer legs, another mode, or a player with an anytime-TD price '
-        + '(at most two legs per game).</div>';
+        + `(at most ${maxPerGame} legs per game).</div>`;
       return;
     }
   }
@@ -839,6 +867,9 @@ export default async function mountMyParlays(el) {
   const [poolR, calibR, scheduleR, scoresR] = await Promise.allSettled([
     loadJson(POOL_PATH), loadJson(CALIB_PATH), getScheduleFull(), getMyCardScores(),
   ]);
+  // R101d — the GAME same-game verdict (~20 KB; absent = the R83 cap of two
+  // stays). Not awaited: the cards paint at once and a TD mode repaints on arrival.
+  const verdictP = getJointBacktest().catch(() => null);
   if (!el.isConnected) return null;
   if (poolR.status !== 'fulfilled' || !poolR.value) {
     el.innerHTML = '<div class="state">My Parlays unavailable — the leg pool has '
@@ -881,7 +912,8 @@ export default async function mountMyParlays(el) {
       + `chance is within 15 points of the dial. Cards are ranked by model hit chance within that `
       + `dial, never by payout. `
       + `Search is approximate, not a guaranteed optimum. `
-      + `At most two legs per game are supported</span>`
+      + `At most two legs per game are supported in ANY; a TD mode allows up to the `
+      + `per-game size GAME validated on held-out seasons, 3+ from one game priced as the product</span>`
       // R90/F19 — the code has always meant ANY (buildCards keeps a card that
       // holds one seed leg). The legend never said so, and "cards built around
       // the players you name" reads as ALL to anyone who types two names.
@@ -1104,6 +1136,10 @@ export default async function mountMyParlays(el) {
     paint(el);
   });
   paint(el);
+  verdictP.then((v) => {
+    state.verdict = v || null;
+    if (el.isConnected && state.td.mode !== 'any') paint(el);
+  });
   // Recheck at the next kickoff even when the tab stays open in the foreground.
   let timer;
   const scheduleCutoff = () => {

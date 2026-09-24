@@ -184,6 +184,13 @@ jobs:
       - name: Anytime-TD game cards (first-sight record)
         run: bash scripts/stage.sh daily "Anytime-TD game cards (first-sight record)" -- python3 scripts/build_atd_game_cards.py
 
+      # R101d — the MY PARLAYS anytime-TD cards (every team seed x TD mode x 2-10
+      # legs at EVEN, the top card each), rebuilt with the parity-locked Python
+      # twin of the browser search and recorded on first sight for grading
+      # (data/atd_my_cards/, graded as my_<mode>). Offline, ~40 s.
+      - name: Anytime-TD MY cards (first-sight record)
+        run: bash scripts/stage.sh daily "Anytime-TD MY cards (first-sight record)" -- python3 scripts/build_my_td_cards.py
+
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.

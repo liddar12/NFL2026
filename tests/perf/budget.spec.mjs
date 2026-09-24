@@ -266,6 +266,8 @@ const CONTRACT_ALLOWLIST = new Set([
   // R101b — this week's GAME (same-game) anytime-TD cards, fetched by PARLAYS
   // only when a TD mode is chosen on GAME; never on boot.
   'atd_game_cards.json',
+  // R101d — the same-game verdict (~20 KB), read by MY on the MY tap only.
+  'joint_backtest.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week

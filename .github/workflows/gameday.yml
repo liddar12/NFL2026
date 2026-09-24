@@ -171,6 +171,14 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "Anytime-TD game cards (first-sight record)" -- python3 scripts/build_atd_game_cards.py
 
+      # R101d — the MY PARLAYS anytime-TD cards (every team seed x TD mode x 2-10
+      # legs at EVEN, the top card each), rebuilt with the parity-locked Python
+      # twin of the browser search and recorded on first sight for grading
+      # (data/atd_my_cards/, graded as my_<mode>). Offline, ~40 s.
+      - name: Anytime-TD MY cards (first-sight record)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: bash scripts/stage.sh gameday "Anytime-TD MY cards (first-sight record)" -- python3 scripts/build_my_td_cards.py
+
       # R89 — the player backtest is measured on player_history.json, which the
       # lock step above just rebuilt. Daily runs both; gameday ran only the
       # first, so after gameday 123 the committed player_backtest.json reported
@@ -213,6 +221,7 @@ jobs:
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD week cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD game cards (first-sight record)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD MY cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Player-level walk-forward backtest (same substrate as today's history)" --reason "scores mode: the history is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 
