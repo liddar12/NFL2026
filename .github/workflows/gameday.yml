@@ -155,6 +155,14 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
 
+      # R101c — this week's WEEK-scope ANYTIME-TD cards (ALL TD / MAJORITY TD / 50%+,
+      # 2-10 legs), built from the pool just written at the pool's own prices (the
+      # validator re-checks every leg against it, so the two are rebuilt together)
+      # and recorded on first sight for grading. Stdlib, offline.
+      - name: Anytime-TD week cards (first-sight record)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: bash scripts/stage.sh gameday "Anytime-TD week cards (first-sight record)" -- python3 scripts/build_atd_cards.py
+
       # R89 — the player backtest is measured on player_history.json, which the
       # lock step above just rebuilt. Daily runs both; gameday ran only the
       # first, so after gameday 123 the committed player_backtest.json reported
@@ -195,6 +203,7 @@ jobs:
           python3 scripts/stage_status.py skip --workflow gameday --stage "Lock pre-kickoff probabilities" --reason "scores mode: nothing is re-priced"
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS leg pool (rebuild under this generation)" --reason "scores mode: nothing is re-priced"
           python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD week cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Player-level walk-forward backtest (same substrate as today's history)" --reason "scores mode: the history is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 
@@ -212,6 +221,12 @@ jobs:
 
       - name: Resolve MY cards against nflverse weekly yards
         run: bash scripts/stage.sh --continue-on-error gameday "Resolve MY cards against nflverse weekly yards" -- python scripts/resolve_my_cards.py
+        continue-on-error: true
+
+      # R101c — grade the recorded ATD cards (per mode and leg count, hit rate vs the
+      # model's mean chance). Network (nflverse), hence continue-on-error.
+      - name: Resolve ATD cards against nflverse weekly stats
+        run: bash scripts/stage.sh --continue-on-error gameday "Resolve ATD cards against nflverse weekly stats" -- python3 scripts/resolve_atd_cards.py
         continue-on-error: true
 
       # R81 — PARLAY REPLAY LAB (measure only). data/replay_lab.json is a MIRROR of

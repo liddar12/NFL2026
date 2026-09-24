@@ -128,6 +128,9 @@ SCHEMA_TO_DATA = {
     "atd_backtest.schema.json": "atd_backtest.json",
     # R101 — this week's ATD probabilities (empty unless the verdict is adopted).
     "atd_week.schema.json": "atd_week.json",
+    # R101c — this week's WEEK-scope ATD cards and their graded record.
+    "atd_cards.schema.json": "atd_cards.json",
+    "atd_card_scores.schema.json": "atd_card_scores.json",
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
@@ -228,6 +231,9 @@ PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
 # file a week, appended on first sight and never rewritten) is walked the same way.
 MY_CARDS_DIR = os.path.join(DATA, "my_cards")
 MY_CARDS_SCHEMA = "my_cards.schema.json"
+# R101c - the ATD card record (data/atd_cards/<season>_wk<NN>.json), same shape of walk.
+ATD_CARDS_DIR = os.path.join(DATA, "atd_cards")
+ATD_CARDS_RECORD_SCHEMA = "atd_cards_record.schema.json"
 
 # Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
 # their upstream): validated strictly when present, but absence is not a
@@ -259,6 +265,8 @@ OPTIONAL_DATA = frozenset([
     "atd_backtest.json",
     # R101 — daily runner, nflverse network; absent until the first run.
     "atd_week.json",
+    # R101c — built / graded by the daily runner; absent until the first run.
+    "atd_cards.json", "atd_card_scores.json",
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",
@@ -1141,6 +1149,66 @@ def check_atd_offered(leg_pool, atd_week, atd_backtest):
     if problems:
         raise ValidationError("ATD legs only on an adopted model, at its own number:\n  - %s"
                               % "\n  - ".join(problems))
+
+
+def check_atd_cards(cards_doc, leg_pool):
+    """R101c — every ATD card is honest about its own legs.
+
+    For every card in data/atd_cards.json: its legs are data/leg_pool.json legs
+    at the pool's own model_prob (one pricing path — atd_legs, the yardage rungs,
+    the copied moneylines); no two legs share a game (so the product IS the joint
+    chance, and model_prob must equal it); n_legs / n_atd match the legs; and the
+    mode's rule holds (all_td: every leg ATD; majority_td: more than half;
+    scorers_50: every leg ATD at >= 0.5). A card on a model that is not adopted is
+    refused. None (file absent) passes."""
+    if not cards_doc or not cards_doc.get("modes"):
+        return
+    problems = []
+    if not cards_doc.get("adopted"):
+        problems.append("atd_cards.json carries cards but says adopted: false")
+    price = {}
+    for r in (leg_pool or {}).get("atd_legs") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for r in (leg_pool or {}).get("players") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for g in (leg_pool or {}).get("game_legs") or []:
+        price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
+    if (cards_doc.get("season"), cards_doc.get("week")) != \
+            ((leg_pool or {}).get("season"), (leg_pool or {}).get("week")):
+        problems.append("atd_cards.json is for %s wk %s, the pool for %s wk %s"
+                        % (cards_doc.get("season"), cards_doc.get("week"),
+                           (leg_pool or {}).get("season"), (leg_pool or {}).get("week")))
+    for mode, blk in cards_doc["modes"].items():
+        for size, cards in blk.get("cards", {}).items():
+            for c in cards:
+                legs, tag = c["legs"], "%s %s-leg %s" % (mode, size, c["card_id"])
+                prod = 1.0
+                for leg in legs:
+                    prod *= leg["model_prob"]
+                    want = price.get((leg["selection"], leg["game_id"]))
+                    if want is None or abs(want - leg["model_prob"]) > 1e-9:
+                        problems.append("%s: leg %r priced %s, the pool says %s"
+                                        % (tag, leg["selection"], leg["model_prob"], want))
+                if len({l["game_id"] for l in legs}) != len(legs):
+                    problems.append("%s: two legs share a game" % tag)
+                if abs(prod - c["model_prob"]) > 1e-6:
+                    problems.append("%s: model_prob %s is not the product %s"
+                                    % (tag, c["model_prob"], round(prod, 8)))
+                n_atd = sum(1 for l in legs if l["market"] == "anytime_td")
+                if c["n_legs"] != len(legs) or str(len(legs)) != str(size) or c["n_atd"] != n_atd:
+                    problems.append("%s: counts disagree with the legs" % tag)
+                if mode in ("all_td", "scorers_50") and n_atd != len(legs):
+                    problems.append("%s: a non-TD leg on an all-TD card" % tag)
+                if mode == "scorers_50" and any(l["model_prob"] < 0.5 for l in legs):
+                    problems.append("%s: a leg under 50%% on a 50%%+ card" % tag)
+                if mode == "majority_td" and not n_atd * 2 > len(legs):
+                    problems.append("%s: %d of %d legs are TD — not a majority"
+                                    % (tag, n_atd, len(legs)))
+    if problems:
+        raise ValidationError("ATD cards honest about their legs:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
 
 
 def check_candidate_signal_weights(tuning):
@@ -3029,6 +3097,20 @@ def main():
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 
+    # 1f) R101c — the ATD card record, walked exactly like the MY card record.
+    if os.path.isdir(ATD_CARDS_DIR):
+        atd_files = [f for f in sorted(os.listdir(ATD_CARDS_DIR))
+                     if f.endswith(".json") and "_wk" in f]
+        if atd_files:
+            try:
+                atd_schema = _load(os.path.join(CONTRACTS, ATD_CARDS_RECORD_SCHEMA))
+                for f in atd_files:
+                    validate_against_schema(_load(os.path.join(ATD_CARDS_DIR, f)),
+                                            atd_schema, "atd_cards/" + f)
+                    print("ok    atd_cards/%-29s vs %s" % (f, ATD_CARDS_RECORD_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
     # 2) Cross-file invariants.
     try:
         check_meta_weights(_load(os.path.join(DATA, "meta.json")))
@@ -3052,6 +3134,8 @@ def main():
         check_atd_offered(_opt("leg_pool.json"), _opt("atd_week.json"),
                           _opt("atd_backtest.json"))
         print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
+        check_atd_cards(_opt("atd_cards.json"), _opt("leg_pool.json"))
+        print("ok    ATD cards: pool legs at pool prices, one per game, product, mode rules (R101c)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

@@ -84,6 +84,7 @@ import {
   combinedGameProbs, confidenceTier, correlationTable, legFromGame, legFromPool,
   modelEv, violatesOnePerSide,
 } from '../parlay-math.js';
+import { readTd, writeTd, tdControls, tdTap } from '../atd-cards.js';
 
 const POOL_PATH = '/data/leg_pool.json';
 const CALIB_PATH = '/data/parlay_backtest.json';
@@ -156,6 +157,46 @@ export function poolLegs(pool) {
     out.push(leg);
   }
   return out;
+}
+
+/**
+ * R101c — the pool's ANYTIME-TD legs, flattened the same way. Kept OUT of
+ * poolLegs on purpose: in the ANY mode MY is exactly what it was (and what
+ * scripts/build_my_cards.py records); ATD legs join only when a TD mode is on.
+ * The owner is the player, so a player's ATD leg and his yardage leg can never
+ * share a card (one leg per player — the two are one opinion about his day).
+ */
+export function atdPoolLegs(pool) {
+  const out = [];
+  for (const row of (pool && pool.atd_legs) || []) {
+    const rung = (row.rungs || [])[0];
+    if (!rung) continue;
+    const leg = legFromPool(row, rung);
+    leg.owner = row.gsis_id;
+    leg.label = row.player;
+    leg.position = row.position;
+    if (row.availability) leg.availability = row.availability;
+    out.push(leg);
+  }
+  return out;
+}
+
+/** R101c — the measured ATD pair correlations joined to the slate's table. */
+export function mergedCalib(calib, pool) {
+  const base = (calib && calib.correlations) || {};
+  const extra = (pool && pool.atd_correlations && pool.atd_correlations.pairs) || [];
+  return { correlations: { ...base, pairs: [...(base.pairs || []), ...extra] } };
+}
+
+/**
+ * R101c — the legs a TD mode may use, and its card rule. ALL TD: anytime-TD
+ * legs only; 50%+: anytime-TD legs at 0.5 or better; MAJORITY: anytime-TD legs
+ * plus the dial's other legs, at most n - (floor(n/2) + 1) of them per card.
+ */
+export function tdLegsFor(mode, n, atdLegs, otherLegs) {
+  if (mode === 'all_td') return { legs: atdLegs, maxNonAtd: 0 };
+  if (mode === 'scorers_50') return { legs: atdLegs.filter((l) => l.model_prob >= 0.5), maxNonAtd: 0 };
+  return { legs: atdLegs.concat(otherLegs), maxNonAtd: n - (Math.floor(n / 2) + 1) };
 }
 
 /** A prop leg: an unpriced rung owned by a PLAYER. Game legs own a `team:` id. */
@@ -513,7 +554,12 @@ export function scoreCard(legs, table) {
 export function buildCards(legs, seeds, table, opts = {}) {
   const perCount = opts.perCount || PER_COUNT;
   const counts = opts.counts || LEG_COUNTS;
-  const seedLegs = legs.filter((l) => matchesSeed(l, seeds));
+  // R101c — a TD mode caps the non-TD legs a card may carry (MAJORITY), or
+  // allows none (ALL TD / 50%+). Undefined = no cap (the ANY mode, unchanged).
+  const maxNon = opts.maxNonAtd;
+  const nonTd = (ls) => ls.filter((l) => l.market !== 'anytime_td').length;
+  const seedLegs = legs.filter((l) => matchesSeed(l, seeds)
+    && (maxNon == null || l.market === 'anytime_td' || maxNon > 0));
   if (!seedLegs.length) return [];
 
   const byConviction = (a, b) => b.model_prob - a.model_prob;
@@ -529,6 +575,7 @@ export function buildCards(legs, seeds, table, opts = {}) {
     for (const partial of beam) {
       for (const next of candidates) {
         if (!compatible(partial, next)) continue;
+        if (maxNon != null && next.market !== 'anytime_td' && nonTd(partial) >= maxNon) continue;
         grown.push([...partial, next]);
       }
     }
@@ -668,7 +715,7 @@ export function renderCard(card, i) {
 /* ---- mount -------------------------------------------------------------- */
 
 const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
-  dial: DEFAULT_DIAL, live: new Set() };
+  dial: DEFAULT_DIAL, live: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [] };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -723,7 +770,14 @@ function paint(el) {
   state.live = liveSeedIds(eligible);
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
+  // R101c — the TD pills + leg stepper (layout B). ALL TD / 50%+ have no other
+  // legs for the risk dial to choose, so the dial is hidden in those modes.
+  const tdBox = el.querySelector('#mp-td');
+  if (tdBox) tdBox.innerHTML = tdControls(state.td);
+  if (dialBox) dialBox.hidden = state.td.mode === 'all_td' || state.td.mode === 'scorers_50';
   paintRecord(el);            // the dial decides which record is shown
+  // R101c — that record grades the DIAL's cards; a TD mode's cards are not those.
+  if (state.td.mode !== 'any') { const r = el.querySelector('.mp-record'); if (r) r.remove(); }
   if (!list) return;
   if (!state.seeds.length) {
     list.innerHTML = '<div class="state">Type a player or a team above — every card '
@@ -733,7 +787,22 @@ function paint(el) {
   // R86 — the dial narrows each player's ladder to ONE rung BEFORE the search, so
   // conviction ranks legs of comparable difficulty instead of racing to the floor.
   const target = DIALS[state.dial] != null ? DIALS[state.dial] : DIALS[DEFAULT_DIAL];
-  const cards = buildCards(dialLegs(eligible, target), state.seeds, state.table);
+  let cards;
+  if (state.td.mode === 'any') {
+    cards = buildCards(dialLegs(eligible, target), state.seeds, state.table);
+  } else {
+    const n = state.td.legs;
+    const atdUp = upcomingLegs(state.atdLegs || [], state.games || []);
+    const { legs, maxNonAtd } = tdLegsFor(state.td.mode, n, atdUp, dialLegs(eligible, target));
+    cards = buildCards(legs, state.seeds, state.table,
+      { counts: [n], perCount: 10, maxNonAtd });
+    if (!cards.length) {
+      list.innerHTML = `<div class="state">No ${n}-leg card in this TD mode contains your `
+        + 'seeds — try fewer legs, another mode, or a player with an anytime-TD price '
+        + '(at most two legs per game).</div>';
+      return;
+    }
+  }
   if (!cards.length) {
     // R89 — per seed, the game and its state, instead of one fixed sentence.
     list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, state.legs,
@@ -779,7 +848,12 @@ export default async function mountMyParlays(el) {
   state.pool = poolR.value;
   state.dial = readDial();          // R86 — the viewer's own risk band, or EVEN
   state.games = scheduleR.status === 'fulfilled' ? scheduleR.value?.games || [] : [];
-  state.table = correlationTable(calibR.status === 'fulfilled' ? calibR.value : null);
+  // R101c — the ATD pairs (measured, copied into the pool) join the table; with
+  // no ATD leg on a card they change no number, so the ANY mode is untouched.
+  state.table = correlationTable(mergedCalib(
+    calibR.status === 'fulfilled' ? calibR.value : null, state.pool));
+  state.td = readTd();
+  state.atdLegs = atdPoolLegs(state.pool);
   // R87 — the graded record. A 404 (a deploy predating the feed) or any other
   // failure leaves it null and the RECORD line simply is not painted.
   state.scores = scoresR.status === 'fulfilled' ? scoresR.value : null;
@@ -799,6 +873,7 @@ export default async function mountMyParlays(el) {
     + '</div>'
     + '<div id="mp-seeds"></div>'
     + '<div class="mp-dial" role="group" aria-label="Risk dial"></div>'
+    + '<div id="mp-td"></div>'
     + `<div class="legend" id="mp-note"><span class="legend-item"><b>CONVICTION</b> our `
       + `combined probability the whole card hits. Cards carry ONE line per player, chosen by `
       + `the RISK dial above (SAFE \u2248 65%, EVEN \u2248 50%, LONGSHOT \u2248 35% model chance per leg). `
@@ -1012,6 +1087,14 @@ export default async function mountMyParlays(el) {
     if (!btn || btn.dataset.dial === state.dial) return;
     state.dial = btn.dataset.dial;
     writeDial(state.dial);
+    paint(el);
+  });
+  // R101c — TD pills and the leg stepper.
+  el.querySelector('#mp-td').addEventListener('click', (e) => {
+    const next = tdTap(state.td, e.target);
+    if (!next) return;
+    state.td = next;
+    writeTd(state.td);
     paint(el);
   });
   el.querySelector('#mp-seeds').addEventListener('click', (e) => {

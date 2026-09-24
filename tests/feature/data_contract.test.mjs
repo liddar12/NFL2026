@@ -75,7 +75,10 @@ const PARLAY_ARCHIVE_RE = /^\/data\/parlays\/\d{4}_wk\d{2}\.json$/;
 // from a clone, so "the file exists" is not a property of the repo and asserting
 // it here would red every checkout. validate_data.py registers it OPTIONAL for
 // the same reason; its shape is asserted by tests/feature/r88_stage_status.test.mjs.
-const RUNNER_BUILT = new Set(['/data/pipeline_stages.json']);
+// R101c — data/atd_cards.json is written by the daily runner (scripts/build_atd_cards.py)
+// from the leg pool; a checkout that predates its first run has none, and the WEEK view
+// treats that 404 as "no anytime-TD cards this week".
+const RUNNER_BUILT = new Set(['/data/pipeline_stages.json', '/data/atd_cards.json']);
 
 test('app/data.js PATHS is the app-reachable contract allowlist, and every entry exists', () => {
   const src = readFileSync(join(APP_DIR, 'data.js'), 'utf8');
@@ -169,6 +172,10 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // automatic re-read. Read through data.js getSleeperIndex, and only when the
     // league's rosters are over six hours old — never on a fresh mount.
     '/data/sleeper_index.json',
+    // R101c — app/views/parlays.js (via data.js getAtdCards): this week's WEEK
+    // anytime-TD cards, read only when a TD mode is chosen on WEEK — never on a
+    // cold mount. A few tens of KB; built and validated on the runner.
+    '/data/atd_cards.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {

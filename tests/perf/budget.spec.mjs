@@ -260,6 +260,9 @@ const CONTRACT_ALLOWLIST = new Set([
   // Sleeper dump the manual sync reads, so on the one path that fetches it the
   // app downloads ~1% of what it otherwise would.
   'sleeper_index.json',
+  // R101c — this week's WEEK anytime-TD cards (data/atd_cards.json, tens of KB),
+  // fetched by PARLAYS only when a TD mode is chosen on WEEK; never on boot.
+  'atd_cards.json',
 ]);
 
 // R73 — data/parlays/2026_wkNN.json: one archived parlays document per week

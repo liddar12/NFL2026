@@ -165,6 +165,9 @@ export const getPipelineStages = (opts) => loadJson(PATHS.pipelineStages, opts);
 // 14.7 MB dump). Read ONLY by app/league-sync.js, which LINEUP imports only when
 // the league's rosters are over six hours old; a 404 rejects and the sync says so.
 export const getSleeperIndex = (opts) => loadJson('/data/sleeper_index.json', opts);
+// R101c — this week's WEEK-scope anytime-TD cards (scripts/build_atd_cards.py),
+// read by PARLAYS only when a TD mode is chosen on WEEK.
+export const getAtdCards = (opts) => loadJson('/data/atd_cards.json', opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));

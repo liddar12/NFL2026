@@ -864,9 +864,21 @@ nothing ships without one.
   Correlations measured for every same-game pair an ATD leg can sit in. The validator now refuses
   schema keywords it never implemented (R99's contract had two). No screen change yet. **Locked by**
   12 tests (`r101_atd_legs` / `r101_atd_grade` / `r101_atd_learning`). · **LOE** 1 d
+- **R101c-1 · anytime-TD modes on WEEK and MY, 2–10 legs (P1) — built 2026-09-24.** Owner chose
+  Gate 2 layout B (TD pills ANY / ALL TD / MAJORITY / 50%+ plus a − n + leg stepper, iPhone) and
+  "WEEK + MY first". `build_atd_cards.py` builds this week's WEEK cards on the runner — one leg per
+  game (so the chance is the product), the leg pool's own prices, only games not yet kicked off, an
+  unfillable size refused with its reason — and records each card on first sight;
+  `resolve_atd_cards.py` grades them per mode and size (hit rate vs mean model chance), the
+  learning record for the card shapes. MY gets the same controls: ALL TD / 50%+ search only TD
+  legs, MAJORITY caps the non-TD legs, ANY is untouched. Week 3: ALL TD and MAJORITY at every size
+  2–10; 50%+ to 4 legs (four games have a 50%+ scorer). **GAME stays at today's cards** until the
+  same-game pricer passes its test. **Locked by** `r101c_atd_cards` (7) and `r101c_td_modes` (3,
+  browser, iPhone). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **R101b/c — the simulator, then 2–10-leg ATD cards in GAME, WEEK and MY** (Gate 2 design
-     first). The legs are priced and graded (above); next they reach the cards.
+  1. **R101b — same-game pricer, then GAME anytime-TD cards to 10 legs.** Measured: the independent
+     product under-prices same-game cards (6-leg MAJORITY 0.13 % vs 0.18 % observed); a two-factor
+     model is closer but not yet better on every held-out test, so it is not adopted until it is.
   2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
      gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
      single cheapest reliability win left.

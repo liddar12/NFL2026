@@ -949,6 +949,16 @@ button { font: inherit; color: inherit; }
 }
 #mp-seeds:empty { display: none; }
 .mp-dial { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* R101c — the anytime-TD selector (Gate 2, layout B): TD pills in the dial idiom
+   and a − n + leg stepper whose buttons are 44 pt squares (HIG). */
+.td-seg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; }
+.td-seg .lbl { margin-right: 4px; }
+.td-step { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
+.td-step-btn { min-width: 44px; min-height: 44px; font-size: 18px; }
+.td-step-btn[disabled] { opacity: 0.4; }
+.td-step-n { font-size: 1.4em; min-width: 28px; text-align: center; }
+.td-step-range { margin-left: auto; }
+#atd-list .state { margin-top: 8px; }
 .mp-card .leg-prov { color: var(--muted); }
 
 /* R82 — MY PARLAYS card layout. Three measured faults, no new UI.
@@ -4482,4 +4492,5 @@ body.gate-locked { overflow: hidden; }
   border-radius: 0;
   padding: 2px 0 2px 10px;
 }
+
 
