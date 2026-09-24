@@ -1,0 +1,384 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atd_backtest.schema.json",
+  "title": "atd_backtest",
+  "description": "R99 E1 - the anytime-TD model measured walk-forward (MEASURE ONLY). P(ATD) = 1 - exp(-lambda_team * share); scored against the position base rate and opportunity-only share on held-out seasons. `adopted` gates whether any ATD leg may be offered (E1-S5); validate_data.py recomputes it from the per-season receipts. No book price is an input. Produced weekly by scripts/backtest_atd.py on the runner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_utc",
+    "kind",
+    "policy",
+    "model",
+    "params",
+    "warmup_season",
+    "held_out_seasons",
+    "slope_band",
+    "team_td_band",
+    "team_td_pooled",
+    "adopted",
+    "verdict",
+    "corpus",
+    "seasons"
+  ],
+  "properties": {
+    "generated_utc": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "atd_backtest"
+    },
+    "policy": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "params": {
+      "type": "object"
+    },
+    "warmup_season": {
+      "type": "integer"
+    },
+    "held_out_seasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer"
+      }
+    },
+    "slope_band": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "team_td_band": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "team_td_pooled": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "team_games",
+            "mean_lambda",
+            "mean_realised",
+            "ratio"
+          ],
+          "properties": {
+            "seasons": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "team_games": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mean_lambda": {
+              "type": "number",
+              "minimum": 0
+            },
+            "mean_realised": {
+              "type": "number",
+              "minimum": 0
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "adopted": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "type": "string",
+      "minLength": 1
+    },
+    "corpus": {
+      "type": "object"
+    },
+    "seasons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "position_base_rate",
+          "opportunity_only",
+          "by_position",
+          "reliability",
+          "team_td"
+        ],
+        "properties": {
+          "model": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "log_loss",
+              "brier",
+              "calibration_intercept",
+              "calibration_slope",
+              "mean_p",
+              "hit_rate"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "log_loss": {
+                "type": "number",
+                "minimum": 0
+              },
+              "brier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "calibration_intercept": {
+                "type": "number"
+              },
+              "calibration_slope": {
+                "type": "number"
+              },
+              "mean_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "hit_rate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "position_base_rate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "log_loss",
+              "brier",
+              "calibration_intercept",
+              "calibration_slope",
+              "mean_p",
+              "hit_rate"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "log_loss": {
+                "type": "number",
+                "minimum": 0
+              },
+              "brier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "calibration_intercept": {
+                "type": "number"
+              },
+              "calibration_slope": {
+                "type": "number"
+              },
+              "mean_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "hit_rate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "opportunity_only": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n",
+              "log_loss",
+              "brier",
+              "calibration_intercept",
+              "calibration_slope",
+              "mean_p",
+              "hit_rate"
+            ],
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "log_loss": {
+                "type": "number",
+                "minimum": 0
+              },
+              "brier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "calibration_intercept": {
+                "type": "number"
+              },
+              "calibration_slope": {
+                "type": "number"
+              },
+              "mean_p": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "hit_rate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "by_position": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "n",
+                "log_loss",
+                "brier",
+                "calibration_intercept",
+                "calibration_slope",
+                "mean_p",
+                "hit_rate"
+              ],
+              "properties": {
+                "n": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "log_loss": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "brier": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "calibration_intercept": {
+                  "type": "number"
+                },
+                "calibration_slope": {
+                  "type": "number"
+                },
+                "mean_p": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "hit_rate": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "reliability": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "p_from",
+                "p_to",
+                "n",
+                "mean_p",
+                "hit_rate"
+              ],
+              "properties": {
+                "p_from": {
+                  "type": "number"
+                },
+                "p_to": {
+                  "type": "number"
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "mean_p": {
+                  "type": "number"
+                },
+                "hit_rate": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "team_td": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "team_games",
+              "mean_lambda",
+              "mean_realised",
+              "ratio"
+            ],
+            "properties": {
+              "seasons": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "team_games": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "mean_lambda": {
+                "type": "number",
+                "minimum": 0
+              },
+              "mean_realised": {
+                "type": "number",
+                "minimum": 0
+              },
+              "ratio": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

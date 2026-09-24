@@ -67,6 +67,8 @@ python3 scripts/resolve_parlay_legs.py --selftest || fail "resolve parlay legs s
 python3 scripts/build_my_cards.py --selftest || fail "my cards record selftest"
 python3 scripts/resolve_my_cards.py --selftest || fail "resolve my cards selftest"
 python3 scripts/fit_player_signals.py --selftest || fail "player signal fit selftest"
+# R99 E1 — the anytime-TD walk-forward backtest (pure core, offline).
+python3 scripts/backtest_atd.py --selftest || fail "atd backtest selftest"
 # R51 — weekly split v2 + parlay repricing: the two never-regress backtests and
 # the runner-side corpus refresher (pure cores, offline).
 python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"

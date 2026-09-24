@@ -1,7 +1,7 @@
 # EPIC R99 — Anytime-TD, labelled 2–10-leg parlays, and the owner's bets as training data
 
-**Filed:** 2026-09-24, from the owner. **Status:** Gate 3 — backlog awaiting confirmation. Nothing
-below is built.
+**Filed:** 2026-09-24, from the owner. **Status:** Gate 3 approved 2026-09-24. **E1 S1–S4 built
+2026-09-24** (measure-only; see E1 below); S5–S7 and E2–E4 not started.
 **One line:** the owner bets mostly anytime-TD (ATD) parlays of 4–10 legs; the app has no ATD market,
 prices at most two legs per game, and learns nothing from the bets he actually placed.
 
@@ -53,12 +53,40 @@ alt-yardage floors (P 9/11, A 5/7) and favoured bell-cow RB ATDs across games (S
 
 ## E1 — Anytime-TD model (Phase 1, measure first) · LOE ≈ 2–3 d
 
+**Built 2026-09-24 — S1–S4, in `scripts/backtest_atd.py`, run weekly by `backtest.yml`, written to
+`data/atd_backtest.json` (contract `atd_backtest.schema.json`; `validate_data.py` recomputes `adopted`
+from the receipts).** Measured on the 2021–25 nflverse corpus; universe = every QB/RB/WR/TE who took an
+offensive snap or touched the ball (snap counts, pfr → gsis through the rosters) — *not* stat rows
+alone, which would leak the outcome because every TD needs a carry or a target. Hyper-parameters were
+chosen on **2022 only**; 2023–25 never chose anything.
+
+| Held-out | Model log loss / Brier / slope | Position base rate | Opportunity-only |
+|---|---|---|---|
+| 2023 (6,773) | **0.3750** / **0.1150** / 1.06 | 0.4262 / 0.1297 | 0.3819 / 0.1172 |
+| 2024 (6,798) | **0.3844** / **0.1197** / 1.03 | 0.4391 / 0.1351 | 0.3893 / 0.1212 |
+| 2025 (6,880) | **0.3831** / **0.1188** / 1.00 | 0.4377 / 0.1340 | 0.3881 / 0.1202 |
+
+Team TDs (S2 AC2), pooled 2024–25: mean λ 2.360 vs realised 2.427, **ratio 0.972** (inside ±5 %).
+Per season it is 1.000 (2023), **0.942 (2024)** and 1.003 (2025): league scoring rose 7.8 % in 2024
+and a walk-forward model cannot see a league-wide jump coming, so it priced that season about 6 % low —
+the conservative direction. A faster-adapting league level was tried and chosen *against* on 2022
+(it made 2022 worse, 1.05 → 1.07–1.09), so the setting stands. **Verdict on 2021–25: ADOPTED** — the
+runner's weekly run is the one that counts. S5 (ATD legs in the pool) is the next step and reads that
+flag.
+
+**Coverage (REAL, in the gate):** S1 AC1–AC3 → `r99_td_corpus.test.mjs` (4); S2 AC1–AC2 →
+`r99_team_td.test.mjs` (2, the leakage test has a control that goes red); S3 AC1–AC3 →
+`r99_td_share.test.mjs` (3, cascade proven with and without); S4 AC1–AC3 → `r99_atd_backtest.test.mjs`
+(4, each failing condition alone, forged verdicts refused by the validator); `--selftest` in
+`tests/smoke.sh`. Mutation-checked: removing the team cap and relaxing `<` to `<=` both go red.
+**11 of 11 S1–S4 ACs covered.**
+
 **Source:** nflverse `stats_player/stats_player_week_{season}.csv` — verified 2026-09-24 to carry
 `carries, targets, target_share, rushing_tds, receiving_tds, passing_tds, special_teams_tds`
 (the `player_stats` tag returned nothing; the corpus builder already falls back to `stats_player`).
 **No red-zone columns** — red-zone share needs play-by-play and is E1-S7, later.
 
-| Story | Acceptance criteria | Test (to be written) |
+| Story | Acceptance criteria | Test |
 |---|---|---|
 | **S1 TD corpus.** Extend the weekly corpus with carries, targets, rushing_tds, receiving_tds (REG, 2021–25), same loud-on-hole posture. | AC1 every player-week row carries the four fields, absent-not-zero when unknown. AC2 a season with zero rows raises, never writes an empty season. AC3 team TD totals reconcile to the sum of player TDs per team-week. | `tests/feature/r99_td_corpus.test.mjs` |
 | **S2 Team TD expectation λ_team.** Shrunk offence TD rate × opponent TDs-allowed rate × home factor, walk-forward. | AC1 no week uses data from itself or later (leakage test on a planted future row). AC2 mean predicted vs realised team TDs within ±5 % on held-out 2024–25. | `tests/feature/r99_team_td.test.mjs` |

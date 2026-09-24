@@ -236,6 +236,16 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error backtest "Weather effect backtest (measure only)" -- python3 scripts/backtest_weather.py --cache-dir "$RUNNER_TEMP/wet_rates"
         continue-on-error: true
 
+      # R99 E1 — ANYTIME-TD model, measured walk-forward (measure only). Writes
+      # data/atd_backtest.json and nothing else; its `adopted` is the gate every
+      # ATD leg will need (validate_data.py recomputes it from the receipts in
+      # the step below). The nflverse CSVs go to $RUNNER_TEMP, never into data/.
+      # continue-on-error for the reason the R94 pair above gives: a third-party
+      # release outage must not red the cron whose job is the promotion gate.
+      - name: Anytime-TD backtest (R99 E1 measure only)
+        run: bash scripts/stage.sh --continue-on-error backtest "Anytime-TD backtest (R99 E1 measure only)" -- python3 scripts/backtest_atd.py --cache "$RUNNER_TEMP/atd"
+        continue-on-error: true
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
