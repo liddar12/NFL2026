@@ -1,0 +1,778 @@
+{
+  "kind": "joint_backtest",
+  "generated_utc": "2026-09-24T21:12:02Z",
+  "model": "two-factor Gaussian copula (script D, scoring S), scripts/models/joint.py",
+  "fit_seasons": [
+    2022,
+    2023
+  ],
+  "held_out_seasons": [
+    2024,
+    2025
+  ],
+  "fit": {
+    "cards": 15384,
+    "neg_log_likelihood": 24859.756
+  },
+  "loadings": {
+    "ML": [
+      0.9,
+      0.05
+    ],
+    "ATD_QB": [
+      0.725,
+      -0.4
+    ],
+    "ATD_RB": [
+      -0.15,
+      -0.05
+    ],
+    "ATD_WR": [
+      0.075,
+      -0.0
+    ],
+    "ATD_TE": [
+      0.5,
+      0.525
+    ],
+    "QBY": [
+      0.475,
+      0.475
+    ],
+    "RBY": [
+      0.325,
+      -0.075
+    ],
+    "WRY": [
+      0.125,
+      0.1
+    ]
+  },
+  "alpha": 0.05,
+  "min_expected_tail": 1.0,
+  "pricer": "independent",
+  "pooled": {
+    "cards": 43528,
+    "log_loss_independent": 0.091129,
+    "log_loss_joint": 0.091365
+  },
+  "offered_sizes": {
+    "all_td": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "majority_td": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "scorers_50": [
+      2,
+      3
+    ]
+  },
+  "sizes": {
+    "all_td": {
+      "2": {
+        "n": 544,
+        "hits": 93,
+        "tail_hits": 376,
+        "expected_independent": 105.911,
+        "expected_joint": 104.7839,
+        "tail_expected_independent": 373.0048,
+        "tail_expected_joint": 374.132,
+        "log_loss_independent": 0.452585,
+        "log_loss_joint": 0.452506,
+        "p_all": 0.2243,
+        "p_tail": 0.8765,
+        "offered": true,
+        "reason": "held-out: 93 all hit vs 105.91 priced, 376 all-but-one vs 373.00"
+      },
+      "3": {
+        "n": 544,
+        "hits": 34,
+        "tail_hits": 192,
+        "expected_independent": 36.9623,
+        "expected_joint": 36.6829,
+        "tail_expected_independent": 196.832,
+        "tail_expected_joint": 196.3426,
+        "log_loss_independent": 0.226679,
+        "log_loss_joint": 0.226727,
+        "p_all": 0.7416,
+        "p_tail": 0.7755,
+        "offered": true,
+        "reason": "held-out: 34 all hit vs 36.96 priced, 192 all-but-one vs 196.83"
+      },
+      "4": {
+        "n": 544,
+        "hits": 11,
+        "tail_hits": 86,
+        "expected_independent": 11.7023,
+        "expected_joint": 11.6755,
+        "tail_expected_independent": 86.2796,
+        "tail_expected_joint": 85.9817,
+        "log_loss_independent": 0.097107,
+        "log_loss_joint": 0.097507,
+        "p_all": 1.0,
+        "p_tail": 1.0,
+        "offered": true,
+        "reason": "held-out: 11 all hit vs 11.70 priced, 86 all-but-one vs 86.28"
+      },
+      "5": {
+        "n": 544,
+        "hits": 1,
+        "tail_hits": 32,
+        "expected_independent": 3.3618,
+        "expected_joint": 3.3137,
+        "tail_expected_independent": 32.6067,
+        "tail_expected_joint": 32.3604,
+        "log_loss_independent": 0.015117,
+        "log_loss_joint": 0.015076,
+        "p_all": 0.2759,
+        "p_tail": 1.0,
+        "offered": true,
+        "reason": "held-out: 1 all hit vs 3.36 priced, 32 all-but-one vs 32.61"
+      },
+      "6": {
+        "n": 544,
+        "hits": 0,
+        "tail_hits": 6,
+        "expected_independent": 0.8883,
+        "expected_joint": 0.855,
+        "tail_expected_independent": 10.9117,
+        "tail_expected_joint": 10.7122,
+        "log_loss_independent": 0.001635,
+        "log_loss_joint": 0.001574,
+        "p_all": 1.0,
+        "p_tail": 0.1703,
+        "offered": true,
+        "reason": "held-out: 0 all hit vs 0.89 priced, 6 all-but-one vs 10.91"
+      },
+      "7": {
+        "n": 544,
+        "hits": 0,
+        "tail_hits": 1,
+        "expected_independent": 0.2181,
+        "expected_joint": 0.2019,
+        "tail_expected_independent": 3.2906,
+        "tail_expected_joint": 3.1542,
+        "log_loss_independent": 0.000401,
+        "log_loss_joint": 0.000371,
+        "p_all": 1.0,
+        "p_tail": 0.3954,
+        "offered": true,
+        "reason": "held-out: 0 all hit vs 0.22 priced, 1 all-but-one vs 3.29"
+      },
+      "8": {
+        "n": 544,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0485,
+        "expected_joint": 0.0422,
+        "tail_expected_independent": 0.8887,
+        "tail_expected_joint": 0.8194,
+        "log_loss_independent": 8.9e-05,
+        "log_loss_joint": 7.8e-05,
+        "p_all": 1.0,
+        "p_tail": 1.0,
+        "offered": false,
+        "reason": "too few held-out cards to test: 0.89 expected with all but one leg hit"
+      },
+      "9": {
+        "n": 544,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0098,
+        "expected_joint": 0.0078,
+        "tail_expected_independent": 0.2158,
+        "tail_expected_joint": 0.1877,
+        "log_loss_independent": 1.8e-05,
+        "log_loss_joint": 1.4e-05,
+        "p_all": 1.0,
+        "p_tail": 1.0,
+        "offered": false,
+        "reason": "too few held-out cards to test: 0.22 expected with all but one leg hit"
+      },
+      "10": {
+        "n": 544,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0018,
+        "expected_joint": 0.0013,
+        "tail_expected_independent": 0.0472,
+        "tail_expected_joint": 0.0379,
+        "log_loss_independent": 3e-06,
+        "log_loss_joint": 2e-06,
+        "p_all": 1.0,
+        "p_tail": 1.0,
+        "offered": false,
+        "reason": "too few held-out cards to test: 0.05 expected with all but one leg hit"
+      }
+    },
+    "majority_td": {
+      "2": {
+        "n": 544,
+        "hits": 93,
+        "tail_hits": 376,
+        "expected_independent": 105.911,
+        "expected_joint": 104.7839,
+        "tail_expected_independent": 373.0048,
+        "tail_expected_joint": 374.132,
+        "log_loss_independent": 0.452585,
+        "log_loss_joint": 0.452506,
+        "p_all": 0.2243,
+        "p_tail": 0.8765,
+        "offered": true,
+        "reason": "held-out: 93 all hit vs 105.91 priced, 376 all-but-one vs 373.00"
+      },
+      "3": {
+        "n": 544,
+        "hits": 82,
+        "tail_hits": 354,
+        "expected_independent": 93.5386,
+        "expected_joint": 92.2136,
+        "tail_expected_independent": 341.1532,
+        "tail_expected_joint": 341.6462,
+        "log_loss_independent": 0.423764,
+        "log_loss_joint": 0.423738,
+        "p_all": 0.255,
+        "p_tail": 0.4815,
+        "offered": true,
+        "reason": "held-out: 82 all hit vs 93.54 priced, 354 all-but-one vs 341.15"
+      },
+      "4": {
+        "n": 544,
+        "hits": 31,
+        "tail_hits": 178,
+        "expected_independent": 32.3559,
+        "expected_joint": 31.9102,
+        "tail_expected_independent": 176.4757,
+        "tail_expected_joint": 175.5193,
+        "log_loss_independent": 0.21525,
+        "log_loss_joint": 0.215714,
+        "p_all": 0.9298,
+        "p_tail": 0.8803,
+        "offered": true,
+        "reason": "held-out: 31 all hit vs 32.36 priced, 178 all-but-one vs 176.48"
+      },
+      "5": {
+        "n": 544,
+        "hits": 27,
+        "tail_hits": 155,
+        "expected_independent": 26.9541,
+        "expected_joint": 26.3352,
+        "tail_expected_independent": 151.8349,
+        "tail_expected_joint": 150.6898,
+        "log_loss_independent": 0.194385,
+        "log_loss_joint": 0.194454,
+        "p_all": 0.9233,
+        "p_tail": 0.7763,
+        "offered": true,
+        "reason": "held-out: 27 all hit vs 26.95 priced, 155 all-but-one vs 151.83"
+      },
+      "6": {
+        "n": 544,
+        "hits": 9,
+        "tail_hits": 69,
+        "expected_independent": 8.2796,
+        "expected_joint": 8.0707,
+        "tail_expected_independent": 63.6777,
+        "tail_expected_joint": 62.7517,
+        "log_loss_independent": 0.085279,
+        "log_loss_joint": 0.084937,
+        "p_all": 0.7268,
+        "p_tail": 0.4903,
+        "offered": true,
+        "reason": "held-out: 9 all hit vs 8.28 priced, 69 all-but-one vs 63.68"
+      },
+      "7": {
+        "n": 544,
+        "hits": 8,
+        "tail_hits": 55,
+        "expected_independent": 6.2564,
+        "expected_joint": 6.0922,
+        "tail_expected_independent": 49.8124,
+        "tail_expected_joint": 49.1126,
+        "log_loss_independent": 0.077427,
+        "log_loss_joint": 0.076956,
+        "p_all": 0.4218,
+        "p_tail": 0.4358,
+        "offered": true,
+        "reason": "held-out: 8 all hit vs 6.26 priced, 55 all-but-one vs 49.81"
+      },
+      "8": {
+        "n": 544,
+        "hits": 1,
+        "tail_hits": 20,
+        "expected_independent": 1.6724,
+        "expected_joint": 1.6174,
+        "tail_expected_independent": 17.2697,
+        "tail_expected_joint": 16.9503,
+        "log_loss_independent": 0.012949,
+        "log_loss_joint": 0.012955,
+        "p_all": 1.0,
+        "p_tail": 0.4696,
+        "offered": true,
+        "reason": "held-out: 1 all hit vs 1.67 priced, 20 all-but-one vs 17.27"
+      },
+      "9": {
+        "n": 544,
+        "hits": 1,
+        "tail_hits": 15,
+        "expected_independent": 1.0914,
+        "expected_joint": 1.061,
+        "tail_expected_independent": 11.7415,
+        "tail_expected_joint": 11.559,
+        "log_loss_independent": 0.012302,
+        "log_loss_joint": 0.012292,
+        "p_all": 1.0,
+        "p_tail": 0.3065,
+        "offered": true,
+        "reason": "held-out: 1 all hit vs 1.09 priced, 15 all-but-one vs 11.74"
+      },
+      "10": {
+        "n": 542,
+        "hits": 0,
+        "tail_hits": 2,
+        "expected_independent": 0.2482,
+        "expected_joint": 0.2441,
+        "tail_expected_independent": 3.3668,
+        "tail_expected_joint": 3.3407,
+        "log_loss_independent": 0.000458,
+        "log_loss_joint": 0.000451,
+        "p_all": 1.0,
+        "p_tail": 0.7806,
+        "offered": true,
+        "reason": "held-out: 0 all hit vs 0.25 priced, 2 all-but-one vs 3.37"
+      }
+    },
+    "scorers_50": {
+      "2": {
+        "n": 35,
+        "hits": 10,
+        "tail_hits": 29,
+        "expected_independent": 10.7849,
+        "expected_joint": 10.709,
+        "tail_expected_independent": 28.1064,
+        "tail_expected_joint": 28.1823,
+        "log_loss_independent": 0.617419,
+        "log_loss_joint": 0.61707,
+        "p_all": 1.0,
+        "p_tail": 0.85,
+        "offered": true,
+        "reason": "held-out: 10 all hit vs 10.78 priced, 29 all-but-one vs 28.11"
+      },
+      "3": {
+        "n": 3,
+        "hits": 0,
+        "tail_hits": 2,
+        "expected_independent": 0.5649,
+        "expected_joint": 0.5634,
+        "tail_expected_independent": 1.8367,
+        "tail_expected_joint": 1.8378,
+        "log_loss_independent": 0.209138,
+        "log_loss_joint": 0.208512,
+        "p_all": 1.0,
+        "p_tail": 0.7073,
+        "offered": true,
+        "reason": "held-out: 0 all hit vs 0.56 priced, 2 all-but-one vs 1.84"
+      },
+      "4": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "5": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "6": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "7": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "8": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "9": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      },
+      "10": {
+        "n": 0,
+        "offered": false,
+        "reason": "no held-out game could fill this card"
+      }
+    }
+  },
+  "sampled": {
+    "all_td": {
+      "2": {
+        "n": 1632,
+        "hits": 139,
+        "tail_hits": 787,
+        "expected_independent": 124.0031,
+        "expected_joint": 123.3487,
+        "tail_expected_independent": 777.5354,
+        "tail_expected_joint": 778.1896,
+        "log_loss_independent": 0.27945,
+        "log_loss_joint": 0.279593
+      },
+      "3": {
+        "n": 1632,
+        "hits": 39,
+        "tail_hits": 327,
+        "expected_independent": 34.9113,
+        "expected_joint": 34.0633,
+        "tail_expected_independent": 309.1656,
+        "tail_expected_joint": 308.2415,
+        "log_loss_independent": 0.11108,
+        "log_loss_joint": 0.111481
+      },
+      "4": {
+        "n": 1632,
+        "hits": 8,
+        "tail_hits": 121,
+        "expected_independent": 9.1858,
+        "expected_joint": 8.9396,
+        "tail_expected_independent": 107.7476,
+        "tail_expected_joint": 106.9002,
+        "log_loss_independent": 0.031103,
+        "log_loss_joint": 0.031239
+      },
+      "5": {
+        "n": 1632,
+        "hits": 1,
+        "tail_hits": 42,
+        "expected_independent": 2.4531,
+        "expected_joint": 2.2895,
+        "tail_expected_independent": 35.726,
+        "tail_expected_joint": 34.7274,
+        "log_loss_independent": 0.005544,
+        "log_loss_joint": 0.005586
+      },
+      "6": {
+        "n": 1629,
+        "hits": 0,
+        "tail_hits": 13,
+        "expected_independent": 0.6928,
+        "expected_joint": 0.6348,
+        "tail_expected_independent": 11.7353,
+        "tail_expected_joint": 11.1743,
+        "log_loss_independent": 0.000426,
+        "log_loss_joint": 0.00039
+      },
+      "7": {
+        "n": 1623,
+        "hits": 0,
+        "tail_hits": 5,
+        "expected_independent": 0.1824,
+        "expected_joint": 0.1585,
+        "tail_expected_independent": 3.6189,
+        "tail_expected_joint": 3.3395,
+        "log_loss_independent": 0.000112,
+        "log_loss_joint": 9.8e-05
+      },
+      "8": {
+        "n": 1590,
+        "hits": 0,
+        "tail_hits": 1,
+        "expected_independent": 0.0499,
+        "expected_joint": 0.042,
+        "tail_expected_independent": 1.1232,
+        "tail_expected_joint": 1.0075,
+        "log_loss_independent": 3.1e-05,
+        "log_loss_joint": 2.6e-05
+      },
+      "9": {
+        "n": 1488,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0127,
+        "expected_joint": 0.0093,
+        "tail_expected_independent": 0.3165,
+        "tail_expected_joint": 0.261,
+        "log_loss_independent": 9e-06,
+        "log_loss_joint": 6e-06
+      },
+      "10": {
+        "n": 1251,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0027,
+        "expected_joint": 0.0017,
+        "tail_expected_independent": 0.075,
+        "tail_expected_joint": 0.0568,
+        "log_loss_independent": 2e-06,
+        "log_loss_joint": 1e-06
+      }
+    },
+    "majority_td": {
+      "2": {
+        "n": 1632,
+        "hits": 138,
+        "tail_hits": 816,
+        "expected_independent": 127.5197,
+        "expected_joint": 127.3574,
+        "tail_expected_independent": 782.1855,
+        "tail_expected_joint": 782.3475,
+        "log_loss_independent": 0.277694,
+        "log_loss_joint": 0.278142
+      },
+      "3": {
+        "n": 1632,
+        "hits": 61,
+        "tail_hits": 473,
+        "expected_independent": 60.6021,
+        "expected_joint": 60.9016,
+        "tail_expected_independent": 443.4497,
+        "tail_expected_joint": 443.9104,
+        "log_loss_independent": 0.149638,
+        "log_loss_joint": 0.150826
+      },
+      "4": {
+        "n": 1632,
+        "hits": 18,
+        "tail_hits": 189,
+        "expected_independent": 16.6031,
+        "expected_joint": 16.5124,
+        "tail_expected_independent": 165.4566,
+        "tail_expected_joint": 165.2962,
+        "log_loss_independent": 0.055818,
+        "log_loss_joint": 0.056236
+      },
+      "5": {
+        "n": 1632,
+        "hits": 17,
+        "tail_hits": 100,
+        "expected_independent": 7.8731,
+        "expected_joint": 7.8068,
+        "tail_expected_independent": 88.4739,
+        "tail_expected_joint": 88.2083,
+        "log_loss_independent": 0.058949,
+        "log_loss_joint": 0.059549
+      },
+      "6": {
+        "n": 1632,
+        "hits": 3,
+        "tail_hits": 34,
+        "expected_independent": 2.1342,
+        "expected_joint": 2.0952,
+        "tail_expected_independent": 29.6307,
+        "tail_expected_joint": 29.3686,
+        "log_loss_independent": 0.013281,
+        "log_loss_joint": 0.012982
+      },
+      "7": {
+        "n": 1632,
+        "hits": 1,
+        "tail_hits": 15,
+        "expected_independent": 1.0861,
+        "expected_joint": 1.1101,
+        "tail_expected_independent": 16.0896,
+        "tail_expected_joint": 16.3504,
+        "log_loss_independent": 0.005166,
+        "log_loss_joint": 0.006667
+      },
+      "8": {
+        "n": 1632,
+        "hits": 0,
+        "tail_hits": 10,
+        "expected_independent": 0.2957,
+        "expected_joint": 0.2949,
+        "tail_expected_independent": 5.1943,
+        "tail_expected_joint": 5.1947,
+        "log_loss_independent": 0.000181,
+        "log_loss_joint": 0.000181
+      },
+      "9": {
+        "n": 1631,
+        "hits": 0,
+        "tail_hits": 2,
+        "expected_independent": 0.1359,
+        "expected_joint": 0.137,
+        "tail_expected_independent": 2.5618,
+        "tail_expected_joint": 2.5887,
+        "log_loss_independent": 8.3e-05,
+        "log_loss_joint": 8.4e-05
+      },
+      "10": {
+        "n": 1625,
+        "hits": 0,
+        "tail_hits": 0,
+        "expected_independent": 0.0376,
+        "expected_joint": 0.0359,
+        "tail_expected_independent": 0.8006,
+        "tail_expected_joint": 0.7837,
+        "log_loss_independent": 2.3e-05,
+        "log_loss_joint": 2.2e-05
+      }
+    },
+    "scorers_50": {
+      "2": {
+        "n": 105,
+        "hits": 32,
+        "tail_hits": 84,
+        "expected_independent": 31.9896,
+        "expected_joint": 31.7554,
+        "tail_expected_independent": 84.0352,
+        "tail_expected_joint": 84.2694,
+        "log_loss_independent": 0.623292,
+        "log_loss_joint": 0.62281
+      },
+      "3": {
+        "n": 9,
+        "hits": 0,
+        "tail_hits": 6,
+        "expected_independent": 1.6948,
+        "expected_joint": 1.6901,
+        "tail_expected_independent": 5.51,
+        "tail_expected_joint": 5.5134,
+        "log_loss_independent": 0.209138,
+        "log_loss_joint": 0.208512
+      },
+      "4": {
+        "n": 0
+      },
+      "5": {
+        "n": 0
+      },
+      "6": {
+        "n": 0
+      },
+      "7": {
+        "n": 0
+      },
+      "8": {
+        "n": 0
+      },
+      "9": {
+        "n": 0
+      },
+      "10": {
+        "n": 0
+      }
+    },
+    "mixed": {
+      "2": {
+        "n": 1632,
+        "hits": 416,
+        "tail_hits": 1247,
+        "expected_independent": 404.7427,
+        "expected_joint": 406.0117,
+        "tail_expected_independent": 1221.614,
+        "tail_expected_joint": 1220.3641,
+        "log_loss_independent": 0.525505,
+        "log_loss_joint": 0.525505
+      },
+      "3": {
+        "n": 1632,
+        "hits": 217,
+        "tail_hits": 827,
+        "expected_independent": 202.5797,
+        "expected_joint": 203.6355,
+        "tail_expected_independent": 810.773,
+        "tail_expected_joint": 811.1774,
+        "log_loss_independent": 0.35513,
+        "log_loss_joint": 0.353535
+      },
+      "4": {
+        "n": 1632,
+        "hits": 102,
+        "tail_hits": 500,
+        "expected_independent": 102.5004,
+        "expected_joint": 103.2118,
+        "tail_expected_independent": 511.2772,
+        "tail_expected_joint": 511.3499,
+        "log_loss_independent": 0.217418,
+        "log_loss_joint": 0.218789
+      },
+      "5": {
+        "n": 1632,
+        "hits": 50,
+        "tail_hits": 324,
+        "expected_independent": 48.5081,
+        "expected_joint": 49.2049,
+        "tail_expected_independent": 295.0569,
+        "tail_expected_joint": 296.1963,
+        "log_loss_independent": 0.129541,
+        "log_loss_joint": 0.130353
+      },
+      "6": {
+        "n": 1632,
+        "hits": 26,
+        "tail_hits": 185,
+        "expected_independent": 23.9182,
+        "expected_joint": 24.4103,
+        "tail_expected_independent": 171.7823,
+        "tail_expected_joint": 172.7747,
+        "log_loss_independent": 0.077543,
+        "log_loss_joint": 0.077946
+      },
+      "7": {
+        "n": 1632,
+        "hits": 15,
+        "tail_hits": 118,
+        "expected_independent": 12.0495,
+        "expected_joint": 12.328,
+        "tail_expected_independent": 97.6361,
+        "tail_expected_joint": 99.0602,
+        "log_loss_independent": 0.049048,
+        "log_loss_joint": 0.049449
+      },
+      "8": {
+        "n": 1629,
+        "hits": 7,
+        "tail_hits": 69,
+        "expected_independent": 6.0545,
+        "expected_joint": 6.312,
+        "tail_expected_independent": 54.5052,
+        "tail_expected_joint": 55.7012,
+        "log_loss_independent": 0.02708,
+        "log_loss_joint": 0.027605
+      },
+      "9": {
+        "n": 1623,
+        "hits": 5,
+        "tail_hits": 40,
+        "expected_independent": 2.8939,
+        "expected_joint": 3.0373,
+        "tail_expected_independent": 29.3794,
+        "tail_expected_joint": 30.297,
+        "log_loss_independent": 0.018749,
+        "log_loss_joint": 0.018582
+      },
+      "10": {
+        "n": 1581,
+        "hits": 0,
+        "tail_hits": 15,
+        "expected_independent": 1.3668,
+        "expected_joint": 1.4637,
+        "tail_expected_independent": 15.5044,
+        "tail_expected_joint": 16.2317,
+        "log_loss_independent": 0.000866,
+        "log_loss_joint": 0.000927
+      }
+    }
+  },
+  "policy": "GAME cards are priced by `pricer` and offered only at the sizes listed per mode; no book price is an input."
+}
