@@ -20,7 +20,26 @@ number that actually shipped.
 WHAT THIS NEVER DOES: change data/meta.json weights. Like scripts/promote_signals.py
 --propose (owner decision, R26), --propose ARCHIVES the run into
 data/model_tuning.json `history` with `would_adopt`, and applying a weight stays a
-deliberate human act. With 0 resolved weeks the objective refuses (LedgerNotReady)
+deliberate human act.
+
+R100 — AUTOMATIC ADOPTION FOR THE NUMBER THAT SHIPS (owner, 2026-09-24: "enable the
+self learning ai based on the results of this season"). Under the R49 override the
+shipped projection is the candidate, and until now it ran every signal at full
+strength with no way for this season's results to change that: the loop above could
+only write a proposal, and its incumbent was the gated series, which never ships.
+--adopt closes the loop, against the number that DOES ship:
+
+    incumbent  = the candidate under model_tuning.json:"candidate_signal_weights"
+                 (absent = every signal at 1.0, the pre-R100 number)
+    adopt   iff >= ADOPT_MIN_FOLDS held-out weeks, pooled held-out MAE beats the
+                 incumbent by the margin, NO single held-out week is worse, and the
+                 fitted weights differ from the incumbent's
+    revert  iff learned weights are live and the full-strength default beats them
+                 on the pooled held-out weeks — no margin: a learned change that
+                 stops earning its place is undone first and argued about later
+
+Every run archives the decision; adoption writes the weights with a receipt that
+scripts/validate_data.py checks. meta.json is never touched. With 0 resolved weeks the objective refuses (LedgerNotReady)
 and this script exits 0 after saying so — nothing is written, nothing is invented.
 With ONE resolved week there is no held-out fold: the entry is archived with
 `verdict: "refused"` and the reason (R53) — the MODEL tab's LEARNING RECORD shows
@@ -50,6 +69,8 @@ SCORES_PATH = os.path.join(DATA, "estimate_scores.json")
 META_PATH = os.path.join(DATA, "meta.json")
 TUNING_PATH = os.path.join(DATA, "model_tuning.json")
 GRID = (0.0, 0.25, 0.5, 0.75, 1.0)
+ADOPT_MIN_FOLDS = 2      # held-out weeks before the shipped number may move
+TUNING_KEY = "candidate_signal_weights"
 
 
 def fit_weights(rows, start):
@@ -90,8 +111,68 @@ def walk_forward(rows, current):
             "candidate_weights": last_weights, "held_out_rows": n}
 
 
+def _mae(rows, w):
+    return sum(abs(lo.estimate(r, w) - float(r["actual"])) for r in rows) / len(rows)
+
+
+def incumbent_weights(tuning, names):
+    """The candidate weights shipping now: adopted ones, else full strength (1.0)."""
+    adopted = ((tuning or {}).get(TUNING_KEY) or {}).get("weights") or {}
+    return {n: float(adopted.get(n, 1.0)) for n in names}
+
+
+def shipped_walk_forward(rows, incumbent):
+    """Per held-out week: incumbent (what ships), refit, and full strength. Pure."""
+    names = lo.signal_names(rows)
+    ones = {n: 1.0 for n in names}
+    per, n = [], 0
+    tot = {"incumbent": 0.0, "candidate": 0.0, "full": 0.0}
+    for fit_rows, held, wk in lo.walk_forward_folds(rows):
+        w = fit_weights(fit_rows, dict(incumbent))
+        row = {"week": wk, "n": len(held),
+               "incumbent_mae": round(_mae(held, incumbent), 4),
+               "candidate_mae": round(_mae(held, w), 4),
+               "full_strength_mae": round(_mae(held, ones), 4),
+               "weights": w}
+        per.append(row)
+        tot["incumbent"] += _mae(held, incumbent) * len(held)
+        tot["candidate"] += _mae(held, w) * len(held)
+        tot["full"] += _mae(held, ones) * len(held)
+        n += len(held)
+    if not n:
+        return {"folds": 0, "per_fold": [], "incumbent_mae": None, "candidate_mae": None,
+                "full_strength_mae": None, "held_out_rows": 0}
+    return {"folds": len(per), "per_fold": per, "held_out_rows": n,
+            "incumbent_mae": round(tot["incumbent"] / n, 4),
+            "candidate_mae": round(tot["candidate"] / n, 4),
+            "full_strength_mae": round(tot["full"] / n, 4)}
+
+
+def adoption_decision(wf, incumbent, final_weights, margin):
+    """('adopt'|'revert'|'hold', reason). Pure — the whole R100 rule in one place."""
+    if wf["folds"] < ADOPT_MIN_FOLDS:
+        return "hold", ("the shipped number moves only on >= %d held-out weeks; %d so far"
+                        % (ADOPT_MIN_FOLDS, wf["folds"]))
+    learned_live = any(v != 1.0 for v in incumbent.values())
+    if learned_live and wf["full_strength_mae"] < wf["incumbent_mae"]:
+        return "revert", ("the learned weights now lose to full strength on held-out "
+                          "weeks (%.4f vs %.4f) — reverted" % (wf["full_strength_mae"],
+                                                               wf["incumbent_mae"]))
+    worse = [f["week"] for f in wf["per_fold"] if f["candidate_mae"] > f["incumbent_mae"]]
+    gain = wf["incumbent_mae"] - wf["candidate_mae"]
+    if worse:
+        return "hold", "the refit is worse on held-out week(s) %s" % worse
+    if gain < margin:
+        return "hold", ("the refit beats what ships by %.4f, under the %.2f margin"
+                        % (gain, margin))
+    if final_weights == incumbent:
+        return "hold", "the refit is the weights already shipping"
+    return "adopt", ("the refit beats what ships by %.4f on %d held-out weeks, none worse"
+                     % (gain, wf["folds"]))
+
+
 def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
-        propose=False, now=None):
+        propose=False, now=None, adopt=False):
     with open(scores_path, encoding="utf-8") as fh:
         scores = json.load(fh)
     with open(meta_path, encoding="utf-8") as fh:
@@ -140,14 +221,44 @@ def run(scores_path=SCORES_PATH, meta_path=META_PATH, tuning_path=TUNING_PATH,
                     "NEVER REGRESS: candidate does not beat the incumbent by the "
                     "%.2f-point margin; weights unchanged" % margin)),
     }
+    # R100 — the same resolved rows, judged against the number that SHIPS.
+    tuning = {}
+    if os.path.exists(tuning_path):
+        with open(tuning_path, encoding="utf-8") as fh:
+            tuning = json.load(fh)
+    names = lo.signal_names(rows)
+    incumbent = incumbent_weights(tuning, names)
+    swf = shipped_walk_forward(rows, incumbent)
+    final = fit_weights(rows, dict(incumbent)) if swf["folds"] else dict(incumbent)
+    action, why = adoption_decision(swf, incumbent, final, margin)
+    entry["auto"] = {"action": action, "reason": why, "incumbent_weights": incumbent,
+                     "fitted_weights": final, "folds": swf["folds"],
+                     "held_out_rows": swf["held_out_rows"],
+                     "incumbent_mae": swf["incumbent_mae"],
+                     "candidate_mae": swf["candidate_mae"],
+                     "full_strength_mae": swf["full_strength_mae"],
+                     "per_fold": swf["per_fold"], "applied": False}
     print("fit_player_signals: weeks=%d rows=%d folds=%d current_mae=%s candidate_mae=%s "
           "would_adopt=%s verdict=%s" % (entry["weeks_resolved"], entry["rows_resolved"],
                                          entry["folds"], entry["current_mae"],
                                          entry["candidate_mae"], entry["would_adopt"],
                                          entry["verdict"]))
+    print("fit_player_signals: vs what SHIPS -> %s: %s" % (action, why))
+    if adopt and action in ("adopt", "revert"):
+        new_w = final if action == "adopt" else {n: 1.0 for n in names}
+        tuning[TUNING_KEY] = {
+            "weights": new_w, "adopted_utc": now, "kind": action,
+            "source": "scripts/fit_player_signals.py --adopt (R100)",
+            "weeks_resolved": scores["weeks_resolved"], "folds": swf["folds"],
+            "held_out_rows": swf["held_out_rows"], "margin": margin,
+            "incumbent_mae": swf["incumbent_mae"], "candidate_mae": swf["candidate_mae"],
+            "full_strength_mae": swf["full_strength_mae"], "per_fold": swf["per_fold"],
+            "reason": why,
+        }
+        entry["auto"]["applied"] = True
+        entry["adopted"] = action == "adopt"
+        propose = True          # an applied change is always archived
     if propose:
-        with open(tuning_path, encoding="utf-8") as fh:
-            tuning = json.load(fh)
         tuning.setdefault("history", []).append(entry)
         with open(tuning_path, "w", encoding="utf-8") as fh:
             json.dump(tuning, fh, ensure_ascii=True, indent=2, sort_keys=False)
@@ -240,6 +351,9 @@ def main(argv=None):
     ap.add_argument("--propose", action="store_true",
                     help="archive the run into data/model_tuning.json history "
                          "(never applies weights)")
+    ap.add_argument("--adopt", action="store_true",
+                    help="R100: apply the decision to the SHIPPED candidate weights "
+                         "(model_tuning.json candidate_signal_weights) when it passes")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
@@ -249,7 +363,7 @@ def main(argv=None):
         print("[fit_player_signals] %s absent — run scripts/resolve_estimates.py first"
               % SCORES_PATH, file=sys.stderr)
         return 0
-    run(propose=args.propose)
+    run(propose=args.propose, adopt=args.adopt)
     return 0
 
 

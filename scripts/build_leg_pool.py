@@ -46,6 +46,7 @@ market number reaches model_prob, here or anywhere.
 import argparse
 import datetime as _dt
 import json
+import math
 import os
 import sys
 
@@ -73,12 +74,20 @@ def _load(path):
         return json.load(fh)
 
 
-def pool_prob(coef, z, p_team):
+def pool_prob(coef, z, p_team, live=None):
     """The POOL calibration's probability. Same functional form as the slate's
     (sigmoid(a + b*z + c*(p_team - 0.5)), same clamp) — only the coefficients
-    differ, because they were fit on a different population."""
+    differ, because they were fit on a different population.
+
+    R100 — `live` is leg_pool_backtest.json live_2026.adjustment when this season's
+    graded legs earned it on held-out weeks: p -> sigmoid(a + b*logit(p)). None
+    (the default, and every week it has not earned) is the pre-R100 number."""
     a, b, c = coef["a"], coef["b"], coef["c"]
-    return round(_clamp(_sigmoid(a + b * z + c * (p_team - 0.5)), *PROB_CLAMP), 4)
+    p = _sigmoid(a + b * z + c * (p_team - 0.5))
+    if live:
+        q = min(max(p, 1e-4), 1.0 - 1e-4)
+        p = _sigmoid(live["a"] + live["b"] * math.log(q / (1.0 - q)))
+    return round(_clamp(p, *PROB_CLAMP), 4)
 
 
 def _abbrev(name):
@@ -86,7 +95,8 @@ def _abbrev(name):
     return ("%s. %s" % (parts[0][0], " ".join(parts[1:]))) if len(parts) > 1 else str(name)
 
 
-def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=None):
+def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=None,
+              live=None):
     """One leg per (player, in-support rung). Returns (legs, counters).
 
     Every input is the one the slate uses: the same project_prop_yards, the same
@@ -146,7 +156,7 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
                 "line": line, "z": round(z, 4),
                 "selection": "%s %.0f+ %s" % (_abbrev(p.get("name")), line + 0.5,
                                               LABEL_OF[pos]),
-                "model_prob": pool_prob(coef, z, p_team),
+                "model_prob": pool_prob(coef, z, p_team, live),
             })
             made += 1
         if made == 0:
@@ -235,6 +245,9 @@ def build(inputs):
     sd = bt.get("residual_sd") or {}
     ladder = bt.get("ladder") or {}
     adopted = bool(((bt.get("verdict") or {}).get("adopt")))
+    # R100 — this season's correction layer, ONLY when it earned it on held-out weeks.
+    live_blk = bt.get("live_2026") or {}
+    live = live_blk.get("adjustment") if live_blk.get("applied") else None
 
     weekly_by_id = {r["gsis_id"]: r
                     for r in (inputs["player_weekly"] or {}).get("players", []) or []
@@ -248,7 +261,7 @@ def build(inputs):
     except (TypeError, ValueError):
         pool_week = None
     props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd,
-                              ladder, pool_week)
+                              ladder, pool_week, live=live)
     game_by_team, side_by_team = {}, {}
     for gp in game_preds:
         for side in ("home", "away"):
@@ -264,6 +277,8 @@ def build(inputs):
                             .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "model": bt.get("model"),
         "calibration_adopted": adopted,
+        # R100 — the 2026 correction layer in force (None = the 2023-25 fit alone).
+        "live_adjustment": live,
         "ladder": ladder,
         "support": {p: list(v) for p, v in support.items()},
         "residual_sd": sd,

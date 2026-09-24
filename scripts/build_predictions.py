@@ -944,7 +944,21 @@ def main():
             teams_fixture = json.load(fh)
     except (OSError, ValueError):
         teams_fixture = None
-    projected = project_players(players_in, ctx={"teams": teams_fixture})
+    # R100 — the LEARNED candidate weights. scripts/fit_player_signals.py --adopt
+    # writes model_tuning.json:"candidate_signal_weights" ONLY when a refit beats
+    # the number that ships on >= 2 held-out weeks by the margin, no week worse.
+    # Absent => every signal at full strength, byte-identical to pre-R100.
+    try:
+        with open(os.path.join(DATA, "model_tuning.json"), encoding="utf-8") as fh:
+            _cw_rec = json.load(fh).get("candidate_signal_weights") or {}
+    except (OSError, ValueError):
+        _cw_rec = {}
+    cand_weights = _cw_rec.get("weights") or None
+    print("player signals: candidate weights %s" % (
+        "LEARNED %s (adopted %s)" % (cand_weights, _cw_rec.get("adopted_utc"))
+        if cand_weights else "all 1.0 (full strength; nothing adopted yet)"))
+    projected = project_players(players_in, ctx={"teams": teams_fixture},
+                                candidate_weights=cand_weights)
     projected = [p for p in projected if p["proj_points"] > 0]
     projected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
     n_stamped, n_rookies = _stamp_rookies(projected)
@@ -1035,7 +1049,8 @@ def main():
             n_absent = _stamp_absence(players_in, _idx, _by_name)
             if n_overridden or n_absent:
                 reprojected = [p for p in project_players(players_in,
-                                                          ctx={"teams": teams_fixture})
+                                                          ctx={"teams": teams_fixture},
+                                                          candidate_weights=cand_weights)
                                if p["proj_points"] > 0]
                 reprojected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
                 # ORDER GUARD, mandatory. weekly_contract.test.mjs locks that

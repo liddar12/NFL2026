@@ -1031,6 +1031,65 @@ _STALE_OK = frozenset({"environment"})
 _MAX_OK_AGE_HOURS = 48.0
 
 
+CANDIDATE_WEIGHT_GRID = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+
+def check_candidate_signal_weights(tuning):
+    """R100 — a LEARNED weight on the shipped number must carry the receipt that earned it.
+
+    scripts/fit_player_signals.py --adopt writes model_tuning.json
+    "candidate_signal_weights" and scripts/build_predictions.py multiplies it into
+    every shipped projection. Absent is the pre-R100 number (all 1.0) and passes.
+    Present, it must be one of the two things the loop is allowed to write:
+      adopt  : >= 2 held-out weeks, the refit beating what shipped by the margin
+               pooled AND on every one of those weeks;
+      revert : all weights back at 1.0, because full strength beat the learned
+               weights on held-out weeks.
+    Anything else — a hand-edited weight, a thin fold count, a receipt whose own
+    numbers do not support it — is refused.
+    """
+    rec = (tuning or {}).get("candidate_signal_weights")
+    if rec is None:
+        return
+    problems = []
+    w = rec.get("weights")
+    if not isinstance(w, dict) or not w:
+        raise ValidationError("model_tuning.json candidate_signal_weights has no weights map")
+    for k, v in w.items():
+        if not isinstance(v, (int, float)) or float(v) not in CANDIDATE_WEIGHT_GRID:
+            problems.append("weight %s=%r is not on the fit grid %s" % (k, v, CANDIDATE_WEIGHT_GRID))
+    kind = rec.get("kind")
+    per = rec.get("per_fold") or []
+    num = lambda x: isinstance(x, (int, float))
+    if kind == "adopt":
+        if not (isinstance(rec.get("folds"), int) and rec["folds"] >= 2 and len(per) == rec["folds"]):
+            problems.append("adopt needs >= 2 held-out weeks with a per-week record (folds=%r, "
+                            "per_fold=%d)" % (rec.get("folds"), len(per)))
+        inc, cand, margin = rec.get("incumbent_mae"), rec.get("candidate_mae"), rec.get("margin")
+        if not (num(inc) and num(cand) and num(margin) and inc - cand >= margin - 1e-9):
+            problems.append("adopt receipt does not clear its own margin (incumbent %r, "
+                            "candidate %r, margin %r)" % (inc, cand, margin))
+        for f in per:
+            if not (num(f.get("candidate_mae")) and num(f.get("incumbent_mae"))
+                    and f["candidate_mae"] <= f["incumbent_mae"]):
+                problems.append("adopt receipt is worse on held-out week %r" % f.get("week"))
+    elif kind == "revert":
+        if any(float(v) != 1.0 for v in w.values() if num(v)):
+            problems.append("a revert must put every weight back at 1.0")
+        full, inc = rec.get("full_strength_mae"), rec.get("incumbent_mae")
+        if not (num(full) and num(inc) and full < inc):
+            problems.append("revert receipt does not show full strength beating the learned "
+                            "weights (full %r, learned %r)" % (full, inc))
+    else:
+        problems.append("kind %r is neither 'adopt' nor 'revert' — only the loop may write "
+                        "this key" % kind)
+    if not rec.get("adopted_utc"):
+        problems.append("no adopted_utc")
+    if problems:
+        raise ValidationError("model_tuning.json candidate_signal_weights (R100):\n  - %s"
+                              % "\n  - ".join(problems))
+
+
 def check_pipeline_health(status):
     """The health panel may not be rosier than the feeds it summarizes.
 
@@ -2860,6 +2919,11 @@ def main():
     try:
         check_meta_weights(_load(os.path.join(DATA, "meta.json")))
         print("ok    meta.json signal-registry invariant (32 signals @ 0.0)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_candidate_signal_weights(_load(os.path.join(DATA, "model_tuning.json")))
+        print("ok    model_tuning.json learned candidate weights carry a passing receipt (R100)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

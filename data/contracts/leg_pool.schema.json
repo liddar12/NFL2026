@@ -12,6 +12,7 @@
     "generated_utc": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1},
     "calibration_adopted": {"type": "boolean", "description": "False means the pool calibration did not clear its own never-regress gate. The builder refuses to write in that case, so a committed document always reads true."},
+    "live_adjustment": {"type": ["object", "null"], "additionalProperties": false, "required": ["a", "b"], "properties": {"a": {"type": "number"}, "b": {"type": "number", "exclusiveMinimum": 0}}, "description": "R100 - the 2026 correction layer in force: model_prob = sigmoid(a + b*logit(p_pool)). null = the 2023-25 pool calibration alone. Present only when leg_pool_backtest.json live_2026 earned it on held-out weeks."},
     "ladder": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}}, "description": "The rungs offered per position before the support rule filters them."},
     "support": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}, "description": "Per position, the z range the corpus actually covers. The calibration's real domain."},
     "residual_sd": {"type": "object", "additionalProperties": {"type": "number", "exclusiveMinimum": 0}, "description": "Per position, stated once: z = (mu - line) / residual_sd."},

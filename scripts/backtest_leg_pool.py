@@ -266,7 +266,7 @@ def narrow_guard(corpus, sd, coefs, shipped_coef):
                     "record that one coefficient set cannot serve both populations"}
 
 
-def build(rows=None, corpus=None, sd=None, support=None):
+def build(rows=None, corpus=None, sd=None, support=None, live=None):
     shipped_doc = bp._load(SHIPPED)
     shipped_coef = {p: (v["a"], v["b"], v["c"])
                     for p, v in shipped_doc["props"]["calibration"].items()}
@@ -299,6 +299,8 @@ def build(rows=None, corpus=None, sd=None, support=None):
                             {"a": round(c[0], 6), "b": round(c[1], 6), "c": round(c[2], 6)})
                         for p, c in final.items()},
         "reliability": reliability(refit),
+        # R100 — this season's graded MY legs, as a held-out-gated correction layer.
+        "live_2026": live_recalibration(load_live_rows() if live is None else live),
         "narrow_guard": (narrow_guard(corpus, sd, final, shipped_coef)
                          if corpus is not None else None),
         "note": "The MY PARLAYS leg pool only. data/parlays.json keeps the shipped "
@@ -306,6 +308,132 @@ def build(rows=None, corpus=None, sd=None, support=None):
                 "file. A rung is offered only when its z is inside `support`, so no "
                 "leg is ever priced by extrapolation. No market number is read here.",
     }
+
+
+# --------------------------------------------------------------------------- #
+# R100 — the pool learns from THIS season                                        #
+# --------------------------------------------------------------------------- #
+# The calibration above is fit on 2023-25 and never saw a 2026 leg; the MY cards
+# this app offers are graded every week (data/my_card_scores.json) and until R100
+# nothing read the grades back. A plain refit cannot use them -- a few hundred
+# 2026 legs beside a 41k-row corpus move nothing -- so this season's evidence
+# enters as a SECOND, two-number layer fit on 2026 legs alone:
+#       p_live = sigmoid(a + b * logit(p_pool))
+# using the exact probability each leg was OFFERED at (its as-made model_prob),
+# so the layer learns "we said X, it happened Y". Measured first, 2026-09-24,
+# week 2: 166 legs offered at 54.5 % on average hit 68.1 % -- every band ran low.
+# One week of correlated legs is not proof; the layer ships only when it wins on
+# held-out weeks, exactly like the player signals (R100):
+#       >= LIVE_MIN_LEGS graded legs, >= LIVE_MIN_HELD_OUT weeks each scored by a
+#       layer fit only on EARLIER weeks, pooled held-out log-loss better than the
+#       uncorrected pool, NO held-out week worse, slope b > 0 (a correction that
+#       reverses the order of the legs is not a correction)
+LIVE_MIN_LEGS = 100
+LIVE_MIN_HELD_OUT = 2
+MY_CARDS_GLOB = os.path.join(_ROOT, "data", "my_cards", "*_wk*.json")
+MY_SCORES = os.path.join(_ROOT, "data", "my_card_scores.json")
+
+
+def _logit(p):
+    p = min(max(float(p), 1e-4), 1.0 - 1e-4)
+    return math.log(p / (1.0 - p))
+
+
+def live_rows(card_docs, scores_doc):
+    """(week, pos, p_as_made, y) for every DISTINCT graded prop leg the app offered.
+    Pure. A leg offered on many cards is one observation, not many."""
+    offered = {}
+    for d in card_docs or []:
+        wk = d.get("week")
+        for c in d.get("cards") or []:
+            for leg in c.get("legs") or []:
+                if leg.get("mu") is None or leg.get("model_prob") is None:
+                    continue           # game legs and unpriced legs are not the pool's
+                offered.setdefault((wk, leg["selection"]),
+                                   (leg.get("position"), float(leg["model_prob"])))
+    rows, seen = [], set()
+    for c in (scores_doc or {}).get("cards") or []:
+        wk = c.get("week")
+        for leg in c.get("legs") or []:
+            key = (wk, leg.get("selection"))
+            if key in seen or key not in offered or leg.get("result") not in ("hit", "miss"):
+                continue
+            seen.add(key)
+            pos, p = offered[key]
+            rows.append({"week": wk, "pos": pos, "p": p, "y": 1 if leg["result"] == "hit" else 0})
+    rows.sort(key=lambda r: (r["week"], r["pos"] or "", r["p"]))
+    return rows
+
+
+def recal_fit(rows):
+    """(a, b) of sigmoid(a + b*logit(p)) on `rows`, with the shipped ridge logistic."""
+    a, b, _ = bp.fit_logistic([(_logit(r["p"]), 0.0, r["y"]) for r in rows])
+    return a, b
+
+
+def recal_apply(ab, p):
+    a, b = ab
+    return bp._sigmoid(a + b * _logit(p))
+
+
+def live_recalibration(rows):
+    """The whole R100 pool rule, pure. Returns the live_2026 block."""
+    weeks = sorted({r["week"] for r in rows})
+    block = {"weeks": weeks, "legs": len(rows),
+             "offered_mean": None if not rows else round(sum(r["p"] for r in rows) / len(rows), 4),
+             "hit_rate": None if not rows else round(sum(r["y"] for r in rows) / len(rows), 4),
+             "per_week": [], "adjustment": None, "applied": False, "reason": ""}
+    held_raw, held_adj = [], []
+    for w in weeks[1:]:
+        fit = [r for r in rows if r["week"] < w]
+        score = [r for r in rows if r["week"] == w]
+        ab = recal_fit(fit)
+        raw = [(r["p"], r["y"]) for r in score]
+        adj = [(recal_apply(ab, r["p"]), r["y"]) for r in score]
+        held_raw += raw
+        held_adj += adj
+        block["per_week"].append({"week": w, "n": len(score), "fit_weeks": sorted({r["week"] for r in fit}),
+                                  "raw_log_loss": round(_ll(raw), 4),
+                                  "adjusted_log_loss": round(_ll(adj), 4),
+                                  "raw_ece": round(ece(raw), 4), "adjusted_ece": round(ece(adj), 4)})
+    if len(rows) < LIVE_MIN_LEGS:
+        block["reason"] = "hold: %d graded legs, the layer needs >= %d" % (len(rows), LIVE_MIN_LEGS)
+        return block
+    if len(block["per_week"]) < LIVE_MIN_HELD_OUT:
+        block["reason"] = ("hold: %d held-out week(s) so far (weeks %s graded); the layer ships "
+                           "only on >= %d" % (len(block["per_week"]), weeks, LIVE_MIN_HELD_OUT))
+        return block
+    raw_ll, adj_ll = _ll(held_raw), _ll(held_adj)
+    worse = [p["week"] for p in block["per_week"] if p["adjusted_log_loss"] > p["raw_log_loss"]]
+    final = recal_fit(rows)
+    if worse:
+        block["reason"] = "hold: the layer is worse on held-out week(s) %s" % worse
+    elif adj_ll >= raw_ll:
+        block["reason"] = ("hold: pooled held-out log-loss %.4f is not better than the pool's "
+                           "own %.4f" % (adj_ll, raw_ll))
+    elif final[1] <= 0:
+        block["reason"] = "hold: fitted slope %.4f <= 0 would reverse the legs' order" % final[1]
+    else:
+        block["adjustment"] = {"a": round(final[0], 6), "b": round(final[1], 6)}
+        block["applied"] = True
+        block["reason"] = ("applied: held-out log-loss %.4f vs the pool's %.4f over %d week(s), "
+                           "none worse" % (adj_ll, raw_ll, len(block["per_week"])))
+    return block
+
+
+def load_live_rows():
+    import glob
+    docs = []
+    for f in sorted(glob.glob(MY_CARDS_GLOB)):
+        try:
+            docs.append(bp._load(f))
+        except (OSError, ValueError):
+            continue
+    try:
+        scores = bp._load(MY_SCORES)
+    except (OSError, ValueError):
+        scores = None
+    return live_rows(docs, scores)
 
 
 def gate(doc):
@@ -442,6 +570,9 @@ def main(argv=None):
     print("  refit  skill %+.4f ece %.4f | shipped skill %+.4f ece %.4f -> %s"
           % (v["refit"]["skill"], v["refit"]["ece"], v["shipped"]["skill"],
              v["shipped"]["ece"], "ADOPT" if v["adopt"] else "REFUSE"))
+    lv = doc["live_2026"]
+    print("  live 2026: %d graded leg(s) over weeks %s, offered %s -> hit %s | %s"
+          % (lv["legs"], lv["weeks"], lv["offered_mean"], lv["hit_rate"], lv["reason"]))
     return 0
 
 

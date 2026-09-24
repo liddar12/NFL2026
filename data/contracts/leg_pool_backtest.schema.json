@@ -257,6 +257,115 @@
         }
       }
     },
+    "live_2026": {
+      "type": "object",
+      "description": "R100 - this season's graded MY PARLAYS legs (data/my_card_scores.json joined to the offered legs in data/my_cards/) as a two-number correction layer sigmoid(a + b*logit(p)) over the pool calibration. Applied only with >= 100 graded legs, >= 2 held-out weeks each scored by a layer fit on earlier weeks only, pooled held-out log-loss better than the uncorrected pool, no held-out week worse, and slope b > 0. Outcomes only - no market number.",
+      "additionalProperties": false,
+      "required": [
+        "weeks",
+        "legs",
+        "offered_mean",
+        "hit_rate",
+        "per_week",
+        "adjustment",
+        "applied",
+        "reason"
+      ],
+      "properties": {
+        "weeks": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "legs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "offered_mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "hit_rate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "per_week": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "week",
+              "n",
+              "fit_weeks",
+              "raw_log_loss",
+              "adjusted_log_loss",
+              "raw_ece",
+              "adjusted_ece"
+            ],
+            "properties": {
+              "week": {
+                "type": "integer"
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fit_weeks": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "raw_log_loss": {
+                "type": "number"
+              },
+              "adjusted_log_loss": {
+                "type": "number"
+              },
+              "raw_ece": {
+                "type": "number"
+              },
+              "adjusted_ece": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "adjustment": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "a",
+            "b"
+          ],
+          "properties": {
+            "a": {
+              "type": "number"
+            },
+            "b": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "narrow_guard": {
       "type": [
         "object",
