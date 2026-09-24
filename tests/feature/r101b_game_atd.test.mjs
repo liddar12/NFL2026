@@ -92,6 +92,43 @@ print(json.dumps({"sizes": sorted(at["cards"]), "games": sorted({l["game_id"] fo
   assert.equal(r.ok, null, 'the built document passes the validator');
 });
 
+// RCA 2026-09-24: the first daily run after R101b went red because the GAME
+// contract (derived from the WEEK one) still said kind: enum ["atd_cards"], and
+// no test put a BUILT document through its own contract. These do — the GAME
+// cards, the WEEK cards and a joint_backtest document from the real code.
+test('R101b contracts: built GAME / WEEK cards and a joint_backtest doc pass their own schemas', () => {
+  const r = py(`${FIX}
+from scripts import build_atd_cards as W, backtest_joint as BJ
+import random
+def schema_errors(doc, name):
+    try:
+        V.validate_against_schema(json.loads(json.dumps(doc)), json.load(open("data/contracts/%s.schema.json" % name)), name)
+        return None
+    except V.ValidationError as e:
+        return str(e)
+week = W.build(pool, sched, {"adopted": True}, now)
+rnd = random.Random(3)
+corpus = {"2024|1|G%d|H" % g: [{"type": "ATD_RB", "side": "home" if i % 2 else "away", "pid": "p%d" % i,
+          "p": 0.3, "y": int(rnd.random() < 0.3)} for i in range(8)] for g in range(40)}
+keys = sorted(corpus)
+L0 = {t: [0.0, 0.0] for t in J.TYPES}
+sampled = BJ.measure(corpus, keys, L0, random.Random(1), per_game=1)
+rows = BJ.measure(corpus, keys, L0, None, modes=BJ.MODES[:3])
+v = BJ.decide(rows, sampled)
+jdoc = {"kind": "joint_backtest", "generated_utc": "t", "model": "m", "fit_seasons": [2022], "held_out_seasons": [2024],
+        "fit": {"cards": 1, "neg_log_likelihood": 1.0}, "loadings": L0, "alpha": BJ.ALPHA,
+        "min_expected_tail": BJ.MIN_EXPECTED_TAIL, "pricer": v["pricer"], "pooled": v["pooled"],
+        "offered_sizes": v["offered_sizes"], "sizes": rows, "sampled": sampled, "policy": "p"}
+print(json.dumps({"game": schema_errors(doc, "atd_game_cards"), "week": schema_errors(week, "atd_cards"),
+                  "joint": schema_errors(jdoc, "joint_backtest"), "kind": doc["kind"],
+                  "cross": (V.check_joint_backtest(jdoc) or "ok")}))`);
+  assert.equal(r.kind, 'atd_game_cards');
+  assert.equal(r.game, null, 'the built GAME cards document passes atd_game_cards.schema.json');
+  assert.equal(r.week, null, 'the built WEEK cards document passes atd_cards.schema.json');
+  assert.equal(r.joint, null, 'a joint_backtest document passes joint_backtest.schema.json');
+  assert.equal(r.cross, 'ok', 'and its verdict follows from its receipts');
+});
+
 test('R101b validator: each GAME-card violation is refused on its own', () => {
   const r = py(`${FIX}
 out = {}
