@@ -26,7 +26,9 @@
       "type": "string"
     },
     "kind": {
-      "const": "atd_backtest"
+      "enum": [
+        "atd_backtest"
+      ]
     },
     "policy": {
       "type": "string"
@@ -64,47 +66,43 @@
       }
     },
     "team_td_pooled": {
-      "oneOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "team_games",
-            "mean_lambda",
-            "mean_realised",
-            "ratio"
-          ],
-          "properties": {
-            "seasons": {
-              "type": "array",
-              "items": {
-                "type": "integer"
-              }
-            },
-            "team_games": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "mean_lambda": {
-              "type": "number",
-              "minimum": 0
-            },
-            "mean_realised": {
-              "type": "number",
-              "minimum": 0
-            },
-            "ratio": {
-              "type": [
-                "number",
-                "null"
-              ]
-            }
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "team_games",
+        "mean_lambda",
+        "mean_realised",
+        "ratio"
+      ],
+      "properties": {
+        "seasons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
           }
         },
-        {
-          "type": "null"
+        "team_games": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mean_lambda": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mean_realised": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ratio": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
-      ]
+      }
     },
     "adopted": {
       "type": "boolean"
@@ -379,6 +377,301 @@
           }
         }
       }
+    },
+    "in_season": {
+      "description": "R101 - the season in progress, re-measured walk-forward every weekly run (whole weeks only). After in_season_min_weeks weeks a model that does not beat the position base rate on it is demoted. live_2026 is the R100 correction layer (scripts/backtest_leg_pool.live_recalibration) fit on its graded weeks.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "season",
+        "weeks",
+        "model",
+        "position_base_rate",
+        "opportunity_only",
+        "per_week",
+        "live_2026"
+      ],
+      "properties": {
+        "season": {
+          "type": "integer"
+        },
+        "weeks": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "log_loss",
+            "brier",
+            "calibration_intercept",
+            "calibration_slope",
+            "mean_p",
+            "hit_rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "log_loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "brier": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "calibration_intercept": {
+              "type": "number"
+            },
+            "calibration_slope": {
+              "type": "number"
+            },
+            "mean_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "hit_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "position_base_rate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "log_loss",
+            "brier",
+            "calibration_intercept",
+            "calibration_slope",
+            "mean_p",
+            "hit_rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "log_loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "brier": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "calibration_intercept": {
+              "type": "number"
+            },
+            "calibration_slope": {
+              "type": "number"
+            },
+            "mean_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "hit_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "opportunity_only": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n",
+            "log_loss",
+            "brier",
+            "calibration_intercept",
+            "calibration_slope",
+            "mean_p",
+            "hit_rate"
+          ],
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "log_loss": {
+              "type": "number",
+              "minimum": 0
+            },
+            "brier": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "calibration_intercept": {
+              "type": "number"
+            },
+            "calibration_slope": {
+              "type": "number"
+            },
+            "mean_p": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "hit_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "per_week": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "week",
+              "model"
+            ],
+            "properties": {
+              "week": {
+                "type": "integer"
+              },
+              "model": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "n",
+                  "log_loss",
+                  "brier",
+                  "calibration_intercept",
+                  "calibration_slope",
+                  "mean_p",
+                  "hit_rate"
+                ],
+                "properties": {
+                  "n": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "log_loss": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "brier": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "calibration_intercept": {
+                    "type": "number"
+                  },
+                  "calibration_slope": {
+                    "type": "number"
+                  },
+                  "mean_p": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "hit_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "live_2026": {
+          "type": "object",
+          "required": [
+            "weeks",
+            "legs",
+            "applied",
+            "adjustment",
+            "reason"
+          ],
+          "properties": {
+            "applied": {
+              "type": "boolean"
+            },
+            "adjustment": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "in_season_min_weeks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "correlations": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "pairs"
+      ],
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "label",
+              "rho",
+              "n"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^anytime_td\\|[a-z_]+(\\|opposing)?$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "rho": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "description": "R101 - measured copula-lite rho for an ATD leg beside another same-game leg; keys follow the app's correlation table."
     }
   }
 }

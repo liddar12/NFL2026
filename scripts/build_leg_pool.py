@@ -63,6 +63,11 @@ from scripts.models.parlay_builder import (  # noqa: E402
 DATA = os.path.join(_ROOT, "data")
 OUT = os.path.join(DATA, "leg_pool.json")
 POOL_BACKTEST = os.path.join(DATA, "leg_pool_backtest.json")
+# R101 — anytime-TD legs: priced by scripts/build_atd_week.py from the model
+# scripts/backtest_atd.py measures, offered ONLY while that verdict is adopted.
+ATD_WEEK = os.path.join(DATA, "atd_week.json")
+ATD_BACKTEST = os.path.join(DATA, "atd_backtest.json")
+ATD_MARKET = "anytime_td"
 PROB_CLAMP = (0.05, 0.95)     # the builder's own clamp, mirrored
 POSITIONS = ("QB", "RB", "WR")
 MARKET_OF = {pos: _PROP_SEEDS[pos][0] for pos in POSITIONS}
@@ -181,6 +186,40 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
     return legs, counts
 
 
+def atd_legs(atd_doc, atd_backtest, weekly_by_id, season, week):
+    """(rows, reason) — the week's ATD legs, player-keyed like `players`, one rung.
+
+    Offered only when BOTH the measurement (atd_backtest.json) and the week file
+    say adopted, and only from a week file for THIS pool's season and week (a
+    stale file from a run that failed must never price this week). Every player
+    re-passes this pool's own playable gate against the weekly rows it read, so a
+    player ruled out since the ATD file was written loses his leg here too."""
+    if not atd_backtest or not atd_backtest.get("adopted"):
+        return [], "atd_backtest.json is not adopted"
+    if not atd_doc or not atd_doc.get("adopted"):
+        return [], "atd_week.json absent or not adopted"
+    if (atd_doc.get("season"), atd_doc.get("week")) != (season, week):
+        return [], ("atd_week.json is for %s wk %s, this pool is %s wk %s"
+                    % (atd_doc.get("season"), atd_doc.get("week"), season, week))
+    rows = []
+    for r in atd_doc.get("players") or []:
+        rec = weekly_by_id.get(r.get("gsis_id"))
+        if rec is None or not playable_this_week(rec, week):
+            continue
+        row = {"gsis_id": r["gsis_id"], "player": r.get("player"), "team": r.get("team"),
+               "position": r.get("position"), "market": ATD_MARKET,
+               "game_id": str(r.get("game_id")), "side": r.get("side"),
+               "pricing": "atd_model",
+               "rungs": [{"line": 0.5, "selection": r["selection"],
+                          "model_prob": r["model_prob"]}]}
+        q = questionable_label(rec)
+        if q:
+            row["availability"] = q
+        rows.append(row)
+    rows.sort(key=lambda r: (r["game_id"], r["position"], r["player"] or "", r["gsis_id"]))
+    return rows, "offered: %d player(s)" % len(rows)
+
+
 def game_legs_from_slate(parlays_doc, game_by_team=None, side_by_team=None):
     """Moneyline / spread legs lifted VERBATIM from the shipped slate, de-duped.
 
@@ -270,6 +309,13 @@ def build(inputs):
                 side_by_team[gp[side]] = side
     games = game_legs_from_slate(inputs.get("parlays"), game_by_team, side_by_team)
     parlays_doc = inputs.get("parlays") or {}
+    atd_bt = inputs.get("atd_backtest")
+    try:
+        pool_season = int(parlays_doc.get("season"))
+    except (TypeError, ValueError):
+        pool_season = None
+    atd, atd_reason = atd_legs(inputs.get("atd_week"), atd_bt, weekly_by_id, pool_season,
+                               pool_week)
     return {
         "season": parlays_doc.get("season"),
         "week": parlays_doc.get("week"),
@@ -284,9 +330,15 @@ def build(inputs):
         "residual_sd": sd,
         "counts": dict(counts,
                        prop_legs=sum(len(r["rungs"]) for r in props),
-                       game_legs=len(games), players_with_a_leg=len(props)),
+                       game_legs=len(games), players_with_a_leg=len(props),
+                       atd_legs=len(atd)),
         "players": props,
         "game_legs": games,
+        # R101 — anytime-TD legs and the correlations they are priced with in a
+        # same-game pair (measured in atd_backtest.json; absent = not offered).
+        "atd_legs": atd,
+        "atd_status": atd_reason,
+        "atd_correlations": ((atd_bt or {}).get("correlations") if atd else None),
         "notes": [
             "PROP legs are priced with the POOL calibration (leg_pool_backtest.json), "
             "which is fit on the wide player universe. The shipped slate keeps its own "
@@ -303,12 +355,23 @@ def build(inputs):
             % counts["not_playable"],
             "Money and book prices are display and the terms of the bet. No market "
             "number reaches model_prob.",
+            "ANYTIME-TD legs (atd_legs) are priced by the ATD model and offered only while "
+            "its held-out verdict (atd_backtest.json) is adopted: %s." % atd_reason,
         ],
     }
 
 
+def _optional(path):
+    try:
+        return _load(path)
+    except (OSError, ValueError):
+        return None
+
+
 def load_inputs():
     return {
+        "atd_week": _optional(ATD_WEEK),
+        "atd_backtest": _optional(ATD_BACKTEST),
         "pool_backtest": _load(POOL_BACKTEST),
         "player_weekly": _load(os.path.join(DATA, "player_weekly.json")),
         "player_projections": _load(os.path.join(DATA, "player_projections.json")),
@@ -400,6 +463,22 @@ def selftest():
     # and with no game-scope twin at all it is still offered, game_id null
     lone = game_legs_from_slate({"parlays": [wk["parlays"][0]]}, {})
     assert len(lone) == 1 and lone[0]["game_id"] is None, lone
+    # R101 — ATD legs: only when adopted, only this week's file, playable only
+    atd_doc = {"adopted": True, "season": 2026, "week": 3, "players": [
+        {"gsis_id": "w1", "player": "Alpha Receiver", "team": "AAA", "position": "WR",
+         "game_id": "G1", "side": "home", "selection": "A. Receiver anytime TD",
+         "model_prob": 0.31},
+        {"gsis_id": "w9", "player": "Out Guy", "team": "AAA", "position": "WR",
+         "game_id": "G1", "side": "home", "selection": "O. Guy anytime TD",
+         "model_prob": 0.2}]}
+    wk_rows = {"w1": {"gsis_id": "w1"}, "w9": {"this_week": {"playable": False}}}
+    rows, why = atd_legs(atd_doc, {"adopted": True}, wk_rows, 2026, 3)
+    assert [r["gsis_id"] for r in rows] == ["w1"] and rows[0]["market"] == ATD_MARKET, rows
+    assert rows[0]["rungs"] == [{"line": 0.5, "selection": "A. Receiver anytime TD",
+                                 "model_prob": 0.31}], rows
+    assert atd_legs(atd_doc, {"adopted": False}, wk_rows, 2026, 3)[0] == []
+    assert atd_legs(atd_doc, {"adopted": True}, wk_rows, 2026, 4)[0] == [], "stale week"
+    assert atd_legs(dict(atd_doc, adopted=False), {"adopted": True}, wk_rows, 2026, 3)[0] == []
     print("selftest OK: only in-support rungs ship, refusals and leg-less players are "
           "counted, p_team follows the side, the pool prices without quoting, and game "
           "legs are copied verbatim and de-duped")

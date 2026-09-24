@@ -105,6 +105,25 @@ SNAP_COLUMNS = {"season": ("season",), "game_type": ("game_type",), "week": ("we
                 "pfr": ("pfr_player_id",), "pos": ("position",), "team": ("team",),
                 "snaps": ("offense_snaps",)}
 TD_FIELDS = ["carries", "targets", "rush_tds", "rec_tds"]
+# R101 — yards ride along (OPTIONAL columns: absent header = None, never 0) so the
+# same corpus measures how an ATD leg moves with the yardage legs beside it.
+YARD_COLUMNS = {"pass_yds": "passing_yards", "rush_yds": "rushing_yards",
+                "rec_yds": "receiving_yards"}
+GAMES_META = os.path.join(_ROOT, "data", "fixtures", "backtest_weekly", "games_meta.json")
+# R101 — the in-season (2026) record. The weekly run re-measures the season in
+# progress walk-forward; after IN_SEASON_MIN_WEEKS graded weeks a model that is
+# not beating the position base rate on it is DEMOTED (adopted -> false), which
+# takes every ATD leg off the app until it earns its way back.
+IN_SEASON_MIN_WEEKS = 4
+# A week counts in-season only once it is (nearly) whole: a Thursday-only week is
+# ~70 player-games against ~400 for a full slate, and would be scored as one.
+IN_SEASON_WEEK_MIN_ROWS = 200
+# R101 — measured same-game correlations for ATD legs, at the slate's own yardage
+# lines, among the legs a card would actually carry (P(ATD) >= this).
+ATD_CORR_MIN_P = 0.15
+YARD_PICKS = (("qb_pass_yds", "QB", "pass_yds", 225.0, "QB 225+"),
+              ("rb_rush_yds", "RB", "rush_yds", 60.0, "RB 60+"),
+              ("wr_rec_yds", "WR", "rec_yds", 60.0, "WR 60+"))
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +154,7 @@ def parse_td_stats(text, season):
     TDs equal the sum of its kept rows' TDs exactly (AC3). Raises on 0 rows."""
     reader = csv.DictReader(io.StringIO(text))
     cols = _resolve_columns(reader.fieldnames or [], TD_COLUMNS)
+    ycols = {f: c for f, c in YARD_COLUMNS.items() if c in (reader.fieldnames or [])}
     stats = {"rows": 0, "kept_rows": 0, "not_reg": 0, "other_season": 0,
              "no_offense": 0, "duplicate_player_week": 0}
     rows, seen, team_games = [], set(), {}
@@ -171,6 +191,8 @@ def parse_td_stats(text, season):
                "name": (raw.get(cols["name"]) or "").strip(), "pos": pos,
                "team": team, "opp": opp, "home": home}
         row.update(vals)
+        for f in YARD_COLUMNS:
+            row[f] = _num(raw.get(ycols[f])) if f in ycols else None
         rows.append(row)
         g = team_games.setdefault((int(season), wk, team),
                                   {"opp": opp, "home": home, "tds": 0, "carries": 0.0,
@@ -239,7 +261,8 @@ def build_universe(rows, snaps):
             continue
         uni[key] = {"season": season, "week": week, "pid": pid, "name": "", "pos": pos,
                     "team": team, "opp": None, "home": None, "carries": 0.0,
-                    "targets": 0.0, "rush_tds": 0, "rec_tds": 0}
+                    "targets": 0.0, "rush_tds": 0, "rec_tds": 0,
+                    "pass_yds": 0.0, "rush_yds": 0.0, "rec_yds": 0.0}
     return {k: v for k, v in uni.items() if v["pos"] in SKILL}
 
 
@@ -411,6 +434,7 @@ def predict_week(season, week, by_week, tg_week, params=PARAMS, history=None):
         pr = h.pos_rate.get(r["pos"], [0.0, 0.0])
         p_base = pr[0] / pr[1] if pr[1] > 0 else 0.18
         preds.append({"pid": r["pid"], "pos": r["pos"], "team": r["team"], "week": week,
+                      "opp": opp, "home": home,
                       "team_tds": g.get("tds"),
                       "p_model": _p(lam * share), "p_base": min(P_CEIL, max(P_FLOOR, p_base)),
                       "p_opp": _p(L * shares[r["pid"]][1]), "share": share, "lam": lam,
@@ -535,9 +559,140 @@ def pooled_team_td(reports, seasons=TEAM_TD_SEASONS):
             "mean_realised": round(act / n, 4), "ratio": round(lam / act, 4)}
 
 
-def verdict(reports, held_out=HELD_OUT, band=SLOPE_BAND):
+def in_season_fails(block):
+    """[] or the reason the season in progress demotes the model."""
+    if not block or len(block.get("weeks") or []) < IN_SEASON_MIN_WEEKS:
+        return []
+    m, b = block.get("model"), block.get("position_base_rate")
+    if not m or not b:
+        return []
+    if not m["log_loss"] < b["log_loss"]:
+        return ["%s in-season (%d weeks): model log_loss %.5f is not better than the "
+                "position base rate %.5f" % (block["season"], len(block["weeks"]),
+                                             m["log_loss"], b["log_loss"])]
+    return []
+
+
+def in_season_report(season, rows):
+    """R101 — the season in progress: the same three scores, per week, and the
+    R100 live correction layer (scripts/backtest_leg_pool.live_recalibration —
+    the one rule every self-learning layer in this repo uses) fit on its graded
+    weeks, applied to live ATD legs only when it wins on held-out weeks."""
+    from scripts.backtest_leg_pool import live_recalibration   # noqa: PLC0415
+    if not rows:
+        return None
+    weeks = sorted({r["week"] for r in rows})
+    ys = [r["y"] for r in rows]
+    block = {"season": int(season), "weeks": weeks}
+    for k, col in (("model", "p_model"), ("position_base_rate", "p_base"),
+                   ("opportunity_only", "p_opp")):
+        block[k] = score([r[col] for r in rows], ys)
+    block["per_week"] = [{"week": w, "model": score([r["p_model"] for r in rows if r["week"] == w],
+                                                    [r["y"] for r in rows if r["week"] == w])}
+                         for w in weeks]
+    block["live_2026"] = live_recalibration(
+        [{"week": r["week"], "p": r["p_model"], "y": r["y"]} for r in rows])
+    return block
+
+
+def game_winners(path=GAMES_META):
+    """{(season, week, team): 1 won / 0 lost / None tie} from the committed games
+    fixture (absent file = {} and every moneyline pair is simply not measured)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    idx = {f: i for i, f in enumerate(doc.get("fields") or [])}
+    out = {}
+    for g in doc.get("games") or []:
+        hs, as_ = g[idx["home_score"]], g[idx["away_score"]]
+        if hs is None or as_ is None:
+            continue
+        key = (int(g[idx["season"]]), int(g[idx["week"]]))
+        home, away = bw.norm_team(g[idx["home"]]), bw.norm_team(g[idx["away"]])
+        out[key + (home,)] = None if hs == as_ else (1 if hs > as_ else 0)
+        out[key + (away,)] = None if hs == as_ else (1 if as_ > hs else 0)
+    return out
+
+
+def measure_correlations(preds_by_season, universe, winners, seasons=HELD_OUT,
+                         min_p=ATD_CORR_MIN_P):
+    """Copula-lite rho (scripts/backtest_parlay.rho_from_events — the method every
+    pair in parlay_backtest.json uses) for an ATD leg against the legs a same-game
+    card sits it beside. Keys follow the app's correlation table: "a|b" same side,
+    "a|b|opposing" the other team. The ATD side is every player priced >= min_p;
+    a yardage side is the team's pre-game pick (highest opportunity share) at the
+    slate's line, never the same player."""
+    from scripts.backtest_parlay import rho_from_events            # noqa: PLC0415
+    ev = {}
+
+    def add(key, a, b):
+        if a is None or b is None:
+            return
+        ev.setdefault(key, []).append((int(a), int(b)))
+
+    for season in seasons:
+        by_game = {}
+        for r in preds_by_season.get(season) or []:
+            by_game.setdefault((r["week"], r["team"]), []).append(r)
+        for (week, team), rows in by_game.items():
+            opp_team = rows[0].get("opp")
+            opp_rows = by_game.get((week, opp_team), [])
+            cands = [r for r in rows if r["p_model"] >= min_p]
+            for i, a in enumerate(cands):
+                for b in cands[i + 1:]:
+                    add("anytime_td|anytime_td", a["y"], b["y"])
+            if opp_team and team < opp_team:
+                for a in cands:
+                    for b in (x for x in opp_rows if x["p_model"] >= min_p):
+                        add("anytime_td|anytime_td|opposing", a["y"], b["y"])
+            win = winners.get((season, week, team))
+            for a in cands:
+                if win is not None:
+                    add("anytime_td|moneyline", a["y"], win)
+                    add("anytime_td|moneyline|opposing", a["y"], 1 - win)
+            for market, pos, field, line, _ in YARD_PICKS:
+                for side_rows, suffix in ((rows, ""), (opp_rows, "|opposing")):
+                    pool = [x for x in side_rows if x["pos"] == pos]
+                    if not pool:
+                        continue
+                    pick = max(pool, key=lambda x: (x["p_opp"], x["pid"]))
+                    rec = universe.get((season, week, pick["pid"])) or {}
+                    yards = rec.get(field)
+                    if yards is None:
+                        continue
+                    hit = 1 if yards >= line else 0
+                    for a in cands:
+                        if a["pid"] != pick["pid"]:
+                            add("anytime_td|%s%s" % (market, suffix), a["y"], hit)
+    labels = {"anytime_td|anytime_td": "two ATD legs, same team",
+              "anytime_td|anytime_td|opposing": "two ATD legs, opposing teams",
+              "anytime_td|moneyline": "ATD & his team ML",
+              "anytime_td|moneyline|opposing": "ATD & the opponent's ML"}
+    for market, _, _, _, label in YARD_PICKS:
+        labels["anytime_td|%s" % market] = "ATD & same-team %s" % label
+        labels["anytime_td|%s|opposing" % market] = "ATD & opposing %s" % label
+    pairs = []
+    for key in labels:
+        rho, n = rho_from_events(ev.get(key, []))
+        if rho is None:
+            continue
+        pairs.append({"key": key, "label": labels[key], "rho": round(rho, 4), "n": n})
+    return {"method": ("copula-lite rho = (P(AB) - P(A)P(B)) / sqrt(P(A)(1-P(A))P(B)(1-P(B))) "
+                       "on held-out %s player-games; ATD side = every leg priced >= %.2f, "
+                       "yardage side = the team's pre-game opportunity leader at the "
+                       "slate's line" % (list(seasons), min_p)),
+            "pairs": pairs}
+
+
+def verdict(reports, held_out=HELD_OUT, band=SLOPE_BAND, in_season=None):
     """(adopted, text). Adopted only when the model beats BOTH baselines on log
-    loss AND Brier in EVERY held-out season and every slope is inside `band`."""
+    loss AND Brier in EVERY held-out season and every slope is inside `band`.
+
+    R101 — and, once the season in progress has IN_SEASON_MIN_WEEKS graded
+    weeks, only while the model still beats the position base rate on it: the
+    weekly run can take the model OFF the app, not only put it on."""
     fails = []
     for season in held_out:
         rep = reports.get(str(season))
@@ -561,6 +716,7 @@ def verdict(reports, held_out=HELD_OUT, band=SLOPE_BAND):
         fails.append("team TDs %s: mean lambda / mean realised %s outside [%.2f, %.2f]"
                      % ("-".join(str(s) for s in TEAM_TD_SEASONS), ratio,
                         TEAM_TD_BAND[0], TEAM_TD_BAND[1]))
+    fails.extend(in_season_fails(in_season))
     if fails:
         return False, "NOT ADOPTED — " + "; ".join(fails)
     return True, ("ADOPTED — beats the position base rate and opportunity-only share on "
@@ -569,8 +725,9 @@ def verdict(reports, held_out=HELD_OUT, band=SLOPE_BAND):
                                                    band[0], band[1]))
 
 
-def document(reports, corpus_stats, now=None, params=PARAMS, held_out=HELD_OUT):
-    adopted, text = verdict(reports, held_out)
+def document(reports, corpus_stats, now=None, params=PARAMS, held_out=HELD_OUT,
+             in_season=None, correlations=None):
+    adopted, text = verdict(reports, held_out, in_season=in_season)
     return {
         "generated_utc": (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "kind": "atd_backtest",
@@ -590,6 +747,9 @@ def document(reports, corpus_stats, now=None, params=PARAMS, held_out=HELD_OUT):
         "verdict": text,
         "corpus": corpus_stats,
         "seasons": reports,
+        "in_season": in_season,
+        "in_season_min_weeks": IN_SEASON_MIN_WEEKS,
+        "correlations": correlations,
     }
 
 
@@ -620,19 +780,34 @@ def _cached(cache, name, fetch):
     return text
 
 
-def load_corpus(seasons, cache=None):
-    """(universe, team_games, corpus_stats) fetched (or read from cache)."""
+def load_corpus(seasons, cache=None, optional=()):
+    """(universe, team_games, corpus_stats) fetched (or read from cache). A season
+    in `optional` (the season in progress) that cannot be fetched or has no rows
+    yet is skipped and SAID in corpus_stats, never measured as empty."""
     rows, team_games, cstats = [], {}, {}
     roster_texts, snap_texts = [], {}
-    for season in seasons:
-        text = _cached(cache, "stats_player_week_%d.csv" % season, lambda s=season: fetch_stats(s, STATS_URLS))
-        r, tg, st = parse_td_stats(text, season)
+    for season in list(seasons) + [s for s in optional if s not in seasons]:
+        try:
+            text = _cached(cache, "stats_player_week_%d.csv" % season,
+                           lambda s=season: fetch_stats(s, STATS_URLS))
+            r, tg, st = parse_td_stats(text, season)
+        except CorpusError as exc:
+            if season not in optional:
+                raise
+            cstats[str(season)] = {"skipped": str(exc)}
+            continue
+        try:
+            roster_texts.append(_cached(cache, "roster_%d.csv" % season,
+                                        lambda s=season: fetch_text(ROSTER_URL.format(season=s))))
+            snap_texts[season] = _cached(cache, "snap_counts_%d.csv" % season,
+                                         lambda s=season: fetch_text(SNAPS_URL.format(season=s)))
+        except CorpusError as exc:
+            if season not in optional:
+                raise
+            cstats[str(season)] = {"skipped": str(exc)}
+            continue
         rows.extend(r)
         team_games.update(tg)
-        roster_texts.append(_cached(cache, "roster_%d.csv" % season,
-                                    lambda s=season: fetch_text(ROSTER_URL.format(season=s))))
-        snap_texts[season] = _cached(cache, "snap_counts_%d.csv" % season,
-                                     lambda s=season: fetch_text(SNAPS_URL.format(season=s)))
         cstats[str(season)] = {"stats": st, "team_games": len(tg)}
     pmap = pfr_to_gsis(roster_texts)
     snaps = {}
@@ -643,17 +818,39 @@ def load_corpus(seasons, cache=None):
         snaps.update(sn)
         cstats[str(season)]["snaps"] = sst
     universe = build_universe(rows, snaps)
-    for season in seasons:
+    for season in snap_texts:
         cstats[str(season)]["universe"] = sum(1 for k in universe if k[0] == season)
     return universe, team_games, cstats
 
 
-def run(seasons=DEFAULT_SEASONS, cache=None, out=OUT_PATH, now=None):
-    universe, team_games, cstats = load_corpus(seasons, cache)
+def current_season(now=None):
+    """The NFL season in progress (Sep-Feb): the calendar year from August on."""
+    now = now or datetime.now(timezone.utc)
+    return now.year if now.month >= 8 else now.year - 1
+
+
+def run(seasons=DEFAULT_SEASONS, cache=None, out=OUT_PATH, now=None, in_season=None):
+    """Measure; write. `in_season` (default: the season in progress when it is
+    later than the held-out seasons) is re-measured walk-forward every run."""
+    if in_season is None:
+        cur = current_season(now)
+        in_season = cur if cur > max(seasons) else None
+    optional = (in_season,) if in_season else ()
+    universe, team_games, cstats = load_corpus(seasons, cache, optional)
     scored = [s for s in seasons if s - 1 in seasons]
-    preds = walk_forward(universe, team_games, scored)
-    reports = {str(s): season_report(rows) for s, rows in preds.items() if rows}
-    doc = document(reports, cstats, now)
+    have_in = bool(in_season) and any(k[0] == in_season for k in team_games)
+    preds = walk_forward(universe, team_games, scored + ([in_season] if have_in else []))
+    reports = {str(s): season_report(preds[s]) for s in scored if preds.get(s)}
+    block = None
+    if have_in:
+        rows = preds.get(in_season) or []
+        n_by_week = {}
+        for r in rows:
+            n_by_week[r["week"]] = n_by_week.get(r["week"], 0) + 1
+        whole = {w for w, n in n_by_week.items() if n >= IN_SEASON_WEEK_MIN_ROWS}
+        block = in_season_report(in_season, [r for r in rows if r["week"] in whole])
+    corr = measure_correlations(preds, universe, game_winners())
+    doc = document(reports, cstats, now, in_season=block, correlations=corr)
     write_json(out, doc)
     return doc
 

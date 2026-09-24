@@ -69,6 +69,8 @@ python3 scripts/resolve_my_cards.py --selftest || fail "resolve my cards selftes
 python3 scripts/fit_player_signals.py --selftest || fail "player signal fit selftest"
 # R99 E1 — the anytime-TD walk-forward backtest (pure core, offline).
 python3 scripts/backtest_atd.py --selftest || fail "atd backtest selftest"
+# R101 — this week's ATD prices (pure core, offline).
+python3 scripts/build_atd_week.py --selftest || fail "atd week selftest"
 # R51 — weekly split v2 + parlay repricing: the two never-regress backtests and
 # the runner-side corpus refresher (pure cores, offline).
 python3 scripts/backtest_weekly.py --selftest || fail "weekly backtest selftest"

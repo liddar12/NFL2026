@@ -854,9 +854,19 @@ nothing ships without one.
   `backtest.yml`; `validate_data.py` recomputes `adopted` from the receipts. Measure-only: no ATD leg is
   offered yet — that is S5, which reads this flag. **Locked by** 13 tests across
   `r99_td_corpus` / `r99_team_td` / `r99_td_share` / `r99_atd_backtest`. · **LOE** 1 d
+- **R101a · anytime-TD legs priced, graded and learning (P1) — built 2026-09-24.** Owner: GAME,
+  WEEK and MY to 10 legs with ALL TD / MAJORITY TD / 50%+ SCORERS modes, "aligned to self learning
+  AI and continuous improvement". This first slice is the pipeline: `build_atd_week.py` prices this
+  week's playable players with the E1 model (imported, one implementation) into `atd_week.json`;
+  the leg pool offers them only on an adopted model, for its own week, playable only; one shared
+  grader settles them (the owner's 63 ATD player-games regrade, one named book void aside); the
+  weekly run re-measures 2026 and can **demote** the model, with the R100 layer as its correction.
+  Correlations measured for every same-game pair an ATD leg can sit in. The validator now refuses
+  schema keywords it never implemented (R99's contract had two). No screen change yet. **Locked by**
+  12 tests (`r101_atd_legs` / `r101_atd_grade` / `r101_atd_learning`). · **LOE** 1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **R99 E1-S5/S6 — ATD legs in MY PARLAYS, graded weekly.** The model passed its held-out gate
-     (above); next it prices this week's ATD legs from 2026 usage and is graded against nflverse.
+  1. **R101b/c — the simulator, then 2–10-leg ATD cards in GAME, WEEK and MY** (Gate 2 design
+     first). The legs are priced and graded (above); next they reach the cards.
   2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
      gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
      single cheapest reliability win left.

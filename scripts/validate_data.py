@@ -126,6 +126,8 @@ SCHEMA_TO_DATA = {
     # R99 E1 — the anytime-TD model's walk-forward verdict. Runner-built from
     # nflverse releases; its `adopted` gates every ATD leg (recomputed below).
     "atd_backtest.schema.json": "atd_backtest.json",
+    # R101 — this week's ATD probabilities (empty unless the verdict is adopted).
+    "atd_week.schema.json": "atd_week.json",
     # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
     # honest document; an invented MAE is not).
     "estimate_scores.schema.json": "estimate_scores.json",
@@ -255,6 +257,8 @@ OPTIONAL_DATA = frozenset([
     "sleeper_index.json",
     # R99 E1 — weekly runner, nflverse network; absent until the first run.
     "atd_backtest.json",
+    # R101 — daily runner, nflverse network; absent until the first run.
+    "atd_week.json",
     # R51 — both backtest records are produced by the gate / daily runner. A
     # clone without them is not red; a present file is validated strictly.
     "weekly_backtest.json", "parlay_backtest.json",
@@ -377,6 +381,17 @@ def _validate(value, schema, path, errors):
             "(it would be an unvalidated hole); inline the definition instead, "
             "as player_backtest/ros_backtest/player_usage_weekly already do"
             % (path, schema["$ref"]))
+        return
+
+    # R101 — the combinators and `const` are NOT implemented either, and a node
+    # that uses one validates nothing for that keyword. atd_backtest.schema.json
+    # shipped `oneOf` and `const` in R99 and neither was checked; now they red.
+    unsupported = sorted(k for k in ("const", "oneOf", "anyOf", "allOf", "not")
+                         if k in schema)
+    if unsupported:
+        errors.append("%s: schema uses %s — this validator does not implement it (it "
+                      "would be an unvalidated hole); use enum / a nullable type instead"
+                      % (path, ", ".join(unsupported)))
         return
 
     # type (gate the rest on it: e.g. don't check `properties` on a non-object)
@@ -795,6 +810,10 @@ def check_no_unplayable_legs(weekly, parlays, leg_pool=None):
         for row in leg_pool.get("players", []) or []:
             judge("leg_pool.json", row.get("gsis_id"), row.get("player"),
                   row.get("availability"), leg_pool.get("week"))
+        # R101 — an anytime-TD leg is a prop leg too.
+        for row in leg_pool.get("atd_legs", []) or []:
+            judge("leg_pool.json atd_legs", row.get("gsis_id"), row.get("player"),
+                  row.get("availability"), leg_pool.get("week"))
     if problems:
         raise ValidationError(
             "no unplayable legs — a player who sits this week is not a bet:\n  - %s"
@@ -1070,6 +1089,11 @@ def check_atd_backtest(doc):
     t_lo, t_hi = doc["team_td_band"]
     if pooled.get("ratio") is None or not t_lo <= pooled["ratio"] <= t_hi:
         fails.append("team TD ratio %s" % pooled.get("ratio"))
+    # R101 — the season in progress can demote the model once it has enough weeks.
+    ins = doc.get("in_season") or {}
+    if len(ins.get("weeks") or []) >= int(doc.get("in_season_min_weeks") or 10 ** 6):
+        if not ins["model"]["log_loss"] < ins["position_base_rate"]["log_loss"]:
+            fails.append("%s in-season log_loss vs position base rate" % ins.get("season"))
     earned = not fails
     if doc["adopted"] and not earned:
         raise ValidationError("atd_backtest.json says adopted but its receipts do not "
@@ -1079,6 +1103,44 @@ def check_atd_backtest(doc):
                               "- the verdict and the numbers disagree")
     if doc["adopted"] != doc["verdict"].startswith("ADOPTED"):
         raise ValidationError("atd_backtest.json verdict text disagrees with adopted")
+
+
+def check_atd_offered(leg_pool, atd_week, atd_backtest):
+    """R101 — an anytime-TD leg exists only on an adopted model, for its own week,
+    at the ATD model's own number.
+
+    leg_pool.atd_legs non-empty requires atd_backtest.json adopted, atd_week.json
+    adopted and for the pool's season/week, and every leg's model_prob equal to
+    atd_week's for that player (one pricing path, never two). atd_week.json
+    players non-empty requires atd_backtest.json adopted. Absent files pass
+    only when there is nothing on offer."""
+    problems = []
+    adopted = bool((atd_backtest or {}).get("adopted"))
+    wk_players = (atd_week or {}).get("players") or []
+    if wk_players and not adopted:
+        problems.append("atd_week.json prices %d player(s) but atd_backtest.json is not "
+                        "adopted" % len(wk_players))
+    if wk_players and not (atd_week or {}).get("adopted"):
+        problems.append("atd_week.json prices players but says adopted: false")
+    legs = (leg_pool or {}).get("atd_legs") or []
+    if legs:
+        if not adopted:
+            problems.append("leg_pool.json offers %d ATD leg(s) on a model that is not "
+                            "adopted" % len(legs))
+        if not atd_week or (atd_week.get("season"), atd_week.get("week")) != \
+                (leg_pool.get("season"), leg_pool.get("week")):
+            problems.append("leg_pool.json offers ATD legs without an atd_week.json for "
+                            "its week")
+        price = {r["gsis_id"]: r["model_prob"] for r in wk_players}
+        for leg in legs:
+            got = leg["rungs"][0]["model_prob"]
+            want = price.get(leg["gsis_id"])
+            if want is None or abs(got - want) > 1e-9:
+                problems.append("leg_pool.json ATD leg %s priced %s, atd_week.json says %s"
+                                % (leg.get("player"), got, want))
+    if problems:
+        raise ValidationError("ATD legs only on an adopted model, at its own number:\n  - %s"
+                              % "\n  - ".join(problems))
 
 
 def check_candidate_signal_weights(tuning):
@@ -2184,6 +2246,11 @@ def _selftest():
                                                 "$ref": "#/definitions/source"}}},
                  "definitions": {"source": {"type": "object"}}},
                 "a $ref subschema (must red loudly, not skip silently)")
+    # R101 — and so is every keyword the walker does not implement.
+    for _kw, _sub in (("const", {"const": 1}), ("oneOf", {"oneOf": [{"type": "null"}]}),
+                      ("anyOf", {"anyOf": [{"type": "null"}]})):
+        _schema_red({"x": 2}, {"type": "object", "properties": {"x": _sub}},
+                    "an unimplemented %s (must red loudly, not skip silently)" % _kw)
 
     # --- R30b: market_prices.schema.json really validates BELOW the top level -
     # Before the inlining, corrupting anything under sources/games/futures
@@ -2977,6 +3044,14 @@ def main():
         atd_path = os.path.join(DATA, "atd_backtest.json")
         check_atd_backtest(_load(atd_path) if os.path.exists(atd_path) else None)
         print("ok    atd_backtest.json adopted follows from its receipts (R99 E1)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        _opt = lambda n: (_load(os.path.join(DATA, n))            # noqa: E731
+                          if os.path.exists(os.path.join(DATA, n)) else None)
+        check_atd_offered(_opt("leg_pool.json"), _opt("atd_week.json"),
+                          _opt("atd_backtest.json"))
+        print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:

@@ -140,6 +140,16 @@ jobs:
       - name: Parlay archive (per-week history + index)
         run: bash scripts/stage.sh daily "Parlay archive (per-week history + index)" -- python3 scripts/build_parlay_archive.py
 
+      # R101 — this week's ANYTIME-TD probabilities (data/atd_week.json), BEFORE the
+      # leg pool that offers them. The model is scripts/backtest_atd.py (imported,
+      # not copied); nothing is priced unless data/atd_backtest.json is adopted,
+      # and the pool offers a leg only from a file for its own week. The nflverse
+      # CSVs go to $RUNNER_TEMP, never into data/. continue-on-error: a release
+      # outage leaves the pool without ATD legs (week mismatch), never red.
+      - name: Anytime-TD week predictions (R101)
+        run: bash scripts/stage.sh --continue-on-error daily "Anytime-TD week predictions (R101)" -- python3 scripts/build_atd_week.py --cache "$RUNNER_TEMP/atd"
+        continue-on-error: true
+
       # R76 — the MY PARLAYS candidate leg pool. AFTER build_predictions, because
       # it copies the slate's game legs verbatim and prices its props from the
       # same weekly projections; running it earlier would pool yesterday's week.

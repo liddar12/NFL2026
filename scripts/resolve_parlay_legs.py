@@ -174,6 +174,96 @@ def find_player(leg, week_rows):
 
 
 # --------------------------------------------------------------------------- #
+# R101 — anytime-TD grading (E1-S6), shared by every ledger that carries an     #
+# ATD leg (MY cards now; the slate when it offers one).                         #
+# --------------------------------------------------------------------------- #
+
+ATD_MARKET = "anytime_td"
+ATD_POSITIONS = ("QB", "RB", "WR", "TE")
+SNAPS_URL = ("https://github.com/nflverse/nflverse-data/releases/download/snap_counts/"
+             "snap_counts_{season}.csv")
+
+
+def index_td(csv_rows):
+    """{week: [row]} of REG QB/RB/WR/TE rows with rushing + receiving TDs. A blank
+    TD cell reads 0 only because the row itself proves the player played."""
+    by_week = {}
+    for r in csv_rows:
+        if (r.get("season_type") or "REG") != "REG":
+            continue
+        try:
+            wk = int(float(r.get("week") or 0))
+        except ValueError:
+            continue
+        pos = (r.get("position") or "").upper()
+        pos = _POS_ALIAS.get(pos, pos)
+        if pos not in ATD_POSITIONS:
+            continue
+        name = r.get("player_display_name") or r.get("player_name") or ""
+        n = norm_name(name)
+        if not n:
+            continue
+        tds = int(_yards(r, "rushing_tds") + _yards(r, "receiving_tds"))
+        by_week.setdefault(wk, []).append({"norm": n, "pos": pos, "tds": tds,
+                                           "team": normalize_team(r.get("team") or r.get("recent_team"))})
+    return by_week
+
+
+def index_snaps(csv_rows):
+    """{week: {"teams": set(teams with a published snap sheet), "rows": [row]}} of
+    REG offensive snaps — the evidence that a player with no stat line PLAYED."""
+    by_week = {}
+    for r in csv_rows:
+        if (r.get("game_type") or "REG") != "REG":
+            continue
+        try:
+            wk = int(float(r.get("week") or 0))
+        except ValueError:
+            continue
+        team = normalize_team(r.get("team"))
+        blk = by_week.setdefault(wk, {"teams": set(), "rows": []})
+        blk["teams"].add(team)
+        try:
+            snaps = float(r.get("offense_snaps") or 0)
+        except ValueError:
+            snaps = 0.0
+        blk["rows"].append({"norm": norm_name(r.get("player")), "team": team, "snaps": snaps})
+    return by_week
+
+
+def grade_atd(leg, week, td_by_week, snaps_by_week=None):
+    """(result, actual, reason) for one anytime-TD leg.
+
+    hit  = a stat line for him that week with >= 1 rushing or receiving TD;
+    miss = a stat line with none, or no stat line but >= 1 offensive snap (a TD
+           needs a carry or a target, so a player who played with no stat line
+           did not score);
+    void = his team's snap sheet is published and he is not on it (did not play —
+           the book voids the leg, and so do we: never a loss);
+    pending otherwise. Never a miss or a void without the evidence for it."""
+    rows = (td_by_week or {}).get(int(week))
+    if rows is None:
+        return "pending", None, "week_not_published"
+    name, team = norm_name(leg.get("player")), leg.get("team")
+    if not name or not team:
+        return "pending", None, "player_unidentified"
+    hits = [r for r in rows if r["norm"] == name and r["team"] == team]
+    if len(hits) > 1:
+        return "pending", None, "ambiguous"
+    if hits:
+        tds = hits[0]["tds"]
+        return ("hit" if tds >= 1 else "miss"), {"tds": tds}, None
+    snaps = (snaps_by_week or {}).get(int(week))
+    if not snaps or team not in snaps["teams"]:
+        return "pending", None, "no_stat_line"
+    played = [r for r in snaps["rows"] if r["norm"] == name and r["team"] == team
+              and r["snaps"] >= 1]
+    if played:
+        return "miss", {"tds": 0, "snaps": played[0]["snaps"]}, None
+    return "void", None, "did_not_play"
+
+
+# --------------------------------------------------------------------------- #
 # resolution (pure)                                                             #
 # --------------------------------------------------------------------------- #
 
