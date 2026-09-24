@@ -66,6 +66,10 @@ from scripts.build_backtest_weekly_corpus import (             # noqa: E402
     CorpusError, fetch_stats, fetch_text, _num, _int, _resolve_columns, RELEASE_BASE)
 
 OUT_PATH = os.path.join(_ROOT, "data", "atd_backtest.json")
+# ONLY the `stats_player` tag: the older `player_stats` tag (which the corpus
+# builder tries first) serves a format with no game_id, so the home side could
+# not be read. Found on the first runner run, 2026-09-24.
+STATS_URLS = (RELEASE_BASE + "/stats_player/stats_player_week_{season}.csv",)
 SNAPS_URL = RELEASE_BASE + "/snap_counts/snap_counts_{season}.csv"
 ROSTER_URL = RELEASE_BASE + "/rosters/roster_{season}.csv"
 
@@ -621,7 +625,7 @@ def load_corpus(seasons, cache=None):
     rows, team_games, cstats = [], {}, {}
     roster_texts, snap_texts = [], {}
     for season in seasons:
-        text = _cached(cache, "stats_player_week_%d.csv" % season, lambda s=season: fetch_stats(s))
+        text = _cached(cache, "stats_player_week_%d.csv" % season, lambda s=season: fetch_stats(s, STATS_URLS))
         r, tg, st = parse_td_stats(text, season)
         rows.extend(r)
         team_games.update(tg)

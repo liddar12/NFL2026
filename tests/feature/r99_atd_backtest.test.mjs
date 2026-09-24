@@ -136,6 +136,11 @@ test('R99 S4: runs weekly before the contract check, selftest in the gate, no bo
   assert.match(block, /continue-on-error: true/, 'a third-party outage must not red the weekly cron');
   assert.match(read('tests/smoke.sh'), /python3 scripts\/backtest_atd\.py --selftest/);
   const src = read('scripts/backtest_atd.py');
+  // The first runner run failed: the shared fetch tried the older `player_stats`
+  // tag first, whose CSV has no game_id. Only the `stats_player` tag is read.
+  assert.match(src, /STATS_URLS = \(RELEASE_BASE \+ "\/stats_player\/stats_player_week_\{season\}\.csv",\)/);
+  assert.match(src, /fetch_stats\(s, STATS_URLS\)/);
+  assert.doesNotMatch(src, /\/player_stats\//, 'the game_id-less release tag is never read');
   const cols = src.slice(src.indexOf('TD_COLUMNS = {'), src.indexOf('TD_FIELDS ='));
   assert.doesNotMatch(cols, /moneyline|spread|odds|price|line/i, 'no book number is an input');
   const vd = read('scripts/validate_data.py');
