@@ -1,0 +1,624 @@
+{
+  "generated_utc": "2026-09-24T17:20:45Z",
+  "kind": "atd_backtest",
+  "policy": "MEASURE ONLY (R99 E1). P(anytime TD) = 1 - exp(-lambda_team * share), walk-forward. No ATD leg is offered while adopted is false. No book price is an input.",
+  "model": "lambda_team = league TDs/game x shrunk offence rate x shrunk opponent TDs-allowed rate x home factor; share = TD share shrunk toward carries/targets opportunity share, R92 depth cascade, team sum <= 1",
+  "params": {
+    "prev_w": 0.5,
+    "k_team": 8.0,
+    "k_share": 80.0,
+    "k_opp": 1.0,
+    "cascade_weeks": 3
+  },
+  "warmup_season": 2022,
+  "held_out_seasons": [
+    2023,
+    2024,
+    2025
+  ],
+  "slope_band": [
+    0.9,
+    1.1
+  ],
+  "team_td_band": [
+    0.95,
+    1.05
+  ],
+  "team_td_pooled": {
+    "seasons": [
+      2024,
+      2025
+    ],
+    "team_games": 1088,
+    "mean_lambda": 2.3596,
+    "mean_realised": 2.4274,
+    "ratio": 0.972
+  },
+  "adopted": true,
+  "verdict": "ADOPTED \u2014 beats the position base rate and opportunity-only share on log loss and Brier in every held-out season (2023, 2024, 2025), calibration slope inside [0.9, 1.1] in each; team TDs within 5% over 2024-25",
+  "corpus": {
+    "2021": {
+      "stats": {
+        "rows": 18969,
+        "kept_rows": 5989,
+        "not_reg": 841,
+        "other_season": 18,
+        "no_offense": 12121,
+        "duplicate_player_week": 0
+      },
+      "team_games": 544,
+      "snaps": {
+        "rows": 26468,
+        "kept": 6431,
+        "unmapped": 257
+      },
+      "universe": 6755
+    },
+    "2022": {
+      "stats": {
+        "rows": 18831,
+        "kept_rows": 5909,
+        "not_reg": 850,
+        "other_season": 18,
+        "no_offense": 12054,
+        "duplicate_player_week": 0
+      },
+      "team_games": 542,
+      "snaps": {
+        "rows": 26381,
+        "kept": 6437,
+        "unmapped": 172
+      },
+      "universe": 6710
+    },
+    "2023": {
+      "stats": {
+        "rows": 18643,
+        "kept_rows": 5890,
+        "not_reg": 837,
+        "other_season": 18,
+        "no_offense": 11898,
+        "duplicate_player_week": 0
+      },
+      "team_games": 544,
+      "snaps": {
+        "rows": 26540,
+        "kept": 6568,
+        "unmapped": 109
+      },
+      "universe": 6773
+    },
+    "2024": {
+      "stats": {
+        "rows": 18983,
+        "kept_rows": 5945,
+        "not_reg": 853,
+        "other_season": 18,
+        "no_offense": 12167,
+        "duplicate_player_week": 0
+      },
+      "team_games": 544,
+      "snaps": {
+        "rows": 26615,
+        "kept": 6571,
+        "unmapped": 53
+      },
+      "universe": 6798
+    },
+    "2025": {
+      "stats": {
+        "rows": 19422,
+        "kept_rows": 6123,
+        "not_reg": 882,
+        "other_season": 18,
+        "no_offense": 12399,
+        "duplicate_player_week": 0
+      },
+      "team_games": 544,
+      "snaps": {
+        "rows": 26613,
+        "kept": 6583,
+        "unmapped": 21
+      },
+      "universe": 6880
+    }
+  },
+  "seasons": {
+    "2022": {
+      "model": {
+        "n": 6710,
+        "log_loss": 0.38498,
+        "brier": 0.11864,
+        "calibration_intercept": -0.1237,
+        "calibration_slope": 0.9589,
+        "mean_p": 0.1643,
+        "hit_rate": 0.1562
+      },
+      "position_base_rate": {
+        "n": 6710,
+        "log_loss": 0.42902,
+        "brier": 0.13068,
+        "calibration_intercept": -0.2129,
+        "calibration_slope": 0.8987,
+        "mean_p": 0.1628,
+        "hit_rate": 0.1562
+      },
+      "opportunity_only": {
+        "n": 6710,
+        "log_loss": 0.38731,
+        "brier": 0.11926,
+        "calibration_intercept": -0.1208,
+        "calibration_slope": 0.9647,
+        "mean_p": 0.1649,
+        "hit_rate": 0.1562
+      },
+      "by_position": {
+        "QB": {
+          "n": 648,
+          "log_loss": 0.36353,
+          "brier": 0.10849,
+          "calibration_intercept": 0.3523,
+          "calibration_slope": 1.1276,
+          "mean_p": 0.1228,
+          "hit_rate": 0.1358
+        },
+        "RB": {
+          "n": 1770,
+          "log_loss": 0.44485,
+          "brier": 0.14271,
+          "calibration_intercept": -0.185,
+          "calibration_slope": 1.0535,
+          "mean_p": 0.2411,
+          "hit_rate": 0.2062
+        },
+        "WR": {
+          "n": 2661,
+          "log_loss": 0.39177,
+          "brier": 0.12142,
+          "calibration_intercept": 0.1255,
+          "calibration_slope": 1.1235,
+          "mean_p": 0.1633,
+          "hit_rate": 0.1571
+        },
+        "TE": {
+          "n": 1631,
+          "log_loss": 0.31745,
+          "brier": 0.09202,
+          "calibration_intercept": -0.161,
+          "calibration_slope": 0.8628,
+          "mean_p": 0.0991,
+          "hit_rate": 0.1085
+        }
+      },
+      "reliability": [
+        {
+          "p_from": 0.0,
+          "p_to": 0.05,
+          "n": 1169,
+          "mean_p": 0.0301,
+          "hit_rate": 0.0376
+        },
+        {
+          "p_from": 0.05,
+          "p_to": 0.1,
+          "n": 1399,
+          "mean_p": 0.0742,
+          "hit_rate": 0.06
+        },
+        {
+          "p_from": 0.1,
+          "p_to": 0.2,
+          "n": 2031,
+          "mean_p": 0.1462,
+          "hit_rate": 0.1408
+        },
+        {
+          "p_from": 0.2,
+          "p_to": 0.3,
+          "n": 1132,
+          "mean_p": 0.2439,
+          "hit_rate": 0.2376
+        },
+        {
+          "p_from": 0.3,
+          "p_to": 0.4,
+          "n": 562,
+          "mean_p": 0.3461,
+          "hit_rate": 0.3238
+        },
+        {
+          "p_from": 0.4,
+          "p_to": 0.5,
+          "n": 313,
+          "mean_p": 0.4446,
+          "hit_rate": 0.393
+        },
+        {
+          "p_from": 0.5,
+          "p_to": 1.0,
+          "n": 104,
+          "mean_p": 0.5455,
+          "hit_rate": 0.5769
+        }
+      ],
+      "team_td": {
+        "team_games": 542,
+        "mean_lambda": 2.3949,
+        "mean_realised": 2.2823,
+        "ratio": 1.0493
+      }
+    },
+    "2023": {
+      "model": {
+        "n": 6773,
+        "log_loss": 0.37504,
+        "brier": 0.11496,
+        "calibration_intercept": 0.0879,
+        "calibration_slope": 1.0617,
+        "mean_p": 0.155,
+        "hit_rate": 0.155
+      },
+      "position_base_rate": {
+        "n": 6773,
+        "log_loss": 0.42618,
+        "brier": 0.12968,
+        "calibration_intercept": 0.0882,
+        "calibration_slope": 1.0465,
+        "mean_p": 0.1537,
+        "hit_rate": 0.155
+      },
+      "opportunity_only": {
+        "n": 6773,
+        "log_loss": 0.38187,
+        "brier": 0.11721,
+        "calibration_intercept": 0.0111,
+        "calibration_slope": 1.0138,
+        "mean_p": 0.1561,
+        "hit_rate": 0.155
+      },
+      "by_position": {
+        "QB": {
+          "n": 680,
+          "log_loss": 0.36787,
+          "brier": 0.11077,
+          "calibration_intercept": 0.585,
+          "calibration_slope": 1.2792,
+          "mean_p": 0.1301,
+          "hit_rate": 0.1412
+        },
+        "RB": {
+          "n": 1684,
+          "log_loss": 0.42985,
+          "brier": 0.13794,
+          "calibration_intercept": 0.051,
+          "calibration_slope": 1.248,
+          "mean_p": 0.2313,
+          "hit_rate": 0.2055
+        },
+        "WR": {
+          "n": 2807,
+          "log_loss": 0.38866,
+          "brier": 0.11968,
+          "calibration_intercept": 0.3208,
+          "calibration_slope": 1.1606,
+          "mean_p": 0.1501,
+          "hit_rate": 0.1596
+        },
+        "TE": {
+          "n": 1602,
+          "log_loss": 0.29663,
+          "brier": 0.0843,
+          "calibration_intercept": -0.0699,
+          "calibration_slope": 0.9297,
+          "mean_p": 0.0941,
+          "hit_rate": 0.0999
+        }
+      },
+      "reliability": [
+        {
+          "p_from": 0.0,
+          "p_to": 0.05,
+          "n": 1231,
+          "mean_p": 0.0293,
+          "hit_rate": 0.0357
+        },
+        {
+          "p_from": 0.05,
+          "p_to": 0.1,
+          "n": 1564,
+          "mean_p": 0.0747,
+          "hit_rate": 0.0684
+        },
+        {
+          "p_from": 0.1,
+          "p_to": 0.2,
+          "n": 2046,
+          "mean_p": 0.144,
+          "hit_rate": 0.1261
+        },
+        {
+          "p_from": 0.2,
+          "p_to": 0.3,
+          "n": 1037,
+          "mean_p": 0.2455,
+          "hit_rate": 0.2555
+        },
+        {
+          "p_from": 0.3,
+          "p_to": 0.4,
+          "n": 573,
+          "mean_p": 0.3454,
+          "hit_rate": 0.37
+        },
+        {
+          "p_from": 0.4,
+          "p_to": 0.5,
+          "n": 253,
+          "mean_p": 0.4403,
+          "hit_rate": 0.4862
+        },
+        {
+          "p_from": 0.5,
+          "p_to": 1.0,
+          "n": 69,
+          "mean_p": 0.5551,
+          "hit_rate": 0.5942
+        }
+      ],
+      "team_td": {
+        "team_games": 544,
+        "mean_lambda": 2.2507,
+        "mean_realised": 2.25,
+        "ratio": 1.0003
+      }
+    },
+    "2024": {
+      "model": {
+        "n": 6798,
+        "log_loss": 0.38436,
+        "brier": 0.11972,
+        "calibration_intercept": 0.1143,
+        "calibration_slope": 1.0296,
+        "mean_p": 0.1552,
+        "hit_rate": 0.1637
+      },
+      "position_base_rate": {
+        "n": 6798,
+        "log_loss": 0.43906,
+        "brier": 0.13513,
+        "calibration_intercept": -0.0127,
+        "calibration_slope": 0.9573,
+        "mean_p": 0.1561,
+        "hit_rate": 0.1637
+      },
+      "opportunity_only": {
+        "n": 6798,
+        "log_loss": 0.38934,
+        "brier": 0.12116,
+        "calibration_intercept": 0.1097,
+        "calibration_slope": 1.0166,
+        "mean_p": 0.1536,
+        "hit_rate": 0.1637
+      },
+      "by_position": {
+        "QB": {
+          "n": 682,
+          "log_loss": 0.35698,
+          "brier": 0.10643,
+          "calibration_intercept": 0.3599,
+          "calibration_slope": 1.2204,
+          "mean_p": 0.1367,
+          "hit_rate": 0.1364
+        },
+        "RB": {
+          "n": 1721,
+          "log_loss": 0.44495,
+          "brier": 0.14388,
+          "calibration_intercept": 0.0143,
+          "calibration_slope": 1.0842,
+          "mean_p": 0.2307,
+          "hit_rate": 0.2214
+        },
+        "WR": {
+          "n": 2732,
+          "log_loss": 0.41014,
+          "brier": 0.1298,
+          "calibration_intercept": 0.3099,
+          "calibration_slope": 1.108,
+          "mean_p": 0.1538,
+          "hit_rate": 0.1724
+        },
+        "TE": {
+          "n": 1663,
+          "log_loss": 0.29052,
+          "brier": 0.08359,
+          "calibration_intercept": 0.2191,
+          "calibration_slope": 1.0198,
+          "mean_p": 0.0869,
+          "hit_rate": 0.101
+        }
+      },
+      "reliability": [
+        {
+          "p_from": 0.0,
+          "p_to": 0.05,
+          "n": 1453,
+          "mean_p": 0.0284,
+          "hit_rate": 0.0317
+        },
+        {
+          "p_from": 0.05,
+          "p_to": 0.1,
+          "n": 1441,
+          "mean_p": 0.0745,
+          "hit_rate": 0.0652
+        },
+        {
+          "p_from": 0.1,
+          "p_to": 0.2,
+          "n": 1905,
+          "mean_p": 0.1449,
+          "hit_rate": 0.1564
+        },
+        {
+          "p_from": 0.2,
+          "p_to": 0.3,
+          "n": 1098,
+          "mean_p": 0.2447,
+          "hit_rate": 0.2732
+        },
+        {
+          "p_from": 0.3,
+          "p_to": 0.4,
+          "n": 524,
+          "mean_p": 0.3469,
+          "hit_rate": 0.3492
+        },
+        {
+          "p_from": 0.4,
+          "p_to": 0.5,
+          "n": 268,
+          "mean_p": 0.4459,
+          "hit_rate": 0.5037
+        },
+        {
+          "p_from": 0.5,
+          "p_to": 1.0,
+          "n": 109,
+          "mean_p": 0.5528,
+          "hit_rate": 0.5229
+        }
+      ],
+      "team_td": {
+        "team_games": 544,
+        "mean_lambda": 2.2844,
+        "mean_realised": 2.4265,
+        "ratio": 0.9415
+      }
+    },
+    "2025": {
+      "model": {
+        "n": 6880,
+        "log_loss": 0.38313,
+        "brier": 0.11879,
+        "calibration_intercept": -0.0221,
+        "calibration_slope": 0.9965,
+        "mean_p": 0.163,
+        "hit_rate": 0.1609
+      },
+      "position_base_rate": {
+        "n": 6880,
+        "log_loss": 0.43767,
+        "brier": 0.13401,
+        "calibration_intercept": -0.3237,
+        "calibration_slope": 0.8139,
+        "mean_p": 0.1643,
+        "hit_rate": 0.1609
+      },
+      "opportunity_only": {
+        "n": 6880,
+        "log_loss": 0.38812,
+        "brier": 0.12022,
+        "calibration_intercept": -0.0616,
+        "calibration_slope": 0.9616,
+        "mean_p": 0.162,
+        "hit_rate": 0.1609
+      },
+      "by_position": {
+        "QB": {
+          "n": 674,
+          "log_loss": 0.3657,
+          "brier": 0.1088,
+          "calibration_intercept": -0.1673,
+          "calibration_slope": 0.9472,
+          "mean_p": 0.1409,
+          "hit_rate": 0.132
+        },
+        "RB": {
+          "n": 1750,
+          "log_loss": 0.4352,
+          "brier": 0.14163,
+          "calibration_intercept": -0.0035,
+          "calibration_slope": 1.1372,
+          "mean_p": 0.2347,
+          "hit_rate": 0.2166
+        },
+        "WR": {
+          "n": 2781,
+          "log_loss": 0.37927,
+          "brier": 0.1174,
+          "calibration_intercept": 0.079,
+          "calibration_slope": 1.0885,
+          "mean_p": 0.1593,
+          "hit_rate": 0.1539
+        },
+        "TE": {
+          "n": 1675,
+          "log_loss": 0.34214,
+          "brier": 0.10123,
+          "calibration_intercept": 0.0881,
+          "calibration_slope": 0.9154,
+          "mean_p": 0.103,
+          "hit_rate": 0.126
+        }
+      },
+      "reliability": [
+        {
+          "p_from": 0.0,
+          "p_to": 0.05,
+          "n": 1422,
+          "mean_p": 0.0279,
+          "hit_rate": 0.0323
+        },
+        {
+          "p_from": 0.05,
+          "p_to": 0.1,
+          "n": 1318,
+          "mean_p": 0.0736,
+          "hit_rate": 0.0706
+        },
+        {
+          "p_from": 0.1,
+          "p_to": 0.2,
+          "n": 1938,
+          "mean_p": 0.147,
+          "hit_rate": 0.1305
+        },
+        {
+          "p_from": 0.2,
+          "p_to": 0.3,
+          "n": 1173,
+          "mean_p": 0.2457,
+          "hit_rate": 0.266
+        },
+        {
+          "p_from": 0.3,
+          "p_to": 0.4,
+          "n": 610,
+          "mean_p": 0.3432,
+          "hit_rate": 0.3459
+        },
+        {
+          "p_from": 0.4,
+          "p_to": 0.5,
+          "n": 271,
+          "mean_p": 0.4448,
+          "hit_rate": 0.417
+        },
+        {
+          "p_from": 0.5,
+          "p_to": 1.0,
+          "n": 148,
+          "mean_p": 0.5509,
+          "hit_rate": 0.5338
+        }
+      ],
+      "team_td": {
+        "team_games": 544,
+        "mean_lambda": 2.4347,
+        "mean_realised": 2.4283,
+        "ratio": 1.0026
+      }
+    }
+  }
+}
