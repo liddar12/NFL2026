@@ -1,0 +1,568 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atd_game_cards.schema.json",
+  "title": "atd_game_cards",
+  "description": "R101b - this week's GAME-scope (same-game) anytime-TD cards (ALL TD / MAJORITY TD / 50%+ SCORERS). Every leg of a card is from one game and a data/leg_pool.json leg at the pool's own probability; the card is priced by the pricer data/joint_backtest.json chose on held-out seasons and offered only at the sizes it validated (validate_data.py re-prices every card). Built by scripts/build_atd_game_cards.py. No book price is an input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "season",
+    "week",
+    "generated_utc",
+    "pool_generated_utc",
+    "adopted",
+    "scope",
+    "pricer",
+    "joint_backtest_utc",
+    "modes",
+    "notes"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "atd_cards"
+      ]
+    },
+    "season": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "week": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "pool_generated_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "adopted": {
+      "type": "boolean"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "game"
+      ]
+    },
+    "pricer": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "joint",
+        "independent",
+        null
+      ]
+    },
+    "joint_backtest_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "modes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "all_td": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cards",
+            "not_offered"
+          ],
+          "properties": {
+            "cards": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "card_id",
+                    "mode",
+                    "label",
+                    "n_legs",
+                    "legs",
+                    "model_prob",
+                    "break_even_american",
+                    "n_atd"
+                  ],
+                  "properties": {
+                    "card_id": {
+                      "type": "string",
+                      "minLength": 8
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "all_td",
+                        "majority_td",
+                        "scorers_50"
+                      ]
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "n_legs": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 10
+                    },
+                    "legs": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "market",
+                          "selection",
+                          "model_prob",
+                          "line",
+                          "player",
+                          "team",
+                          "position",
+                          "gsis_id",
+                          "game_id",
+                          "side"
+                        ],
+                        "properties": {
+                          "market": {
+                            "type": "string",
+                            "enum": [
+                              "anytime_td",
+                              "qb_pass_yds",
+                              "rb_rush_yds",
+                              "wr_rec_yds",
+                              "moneyline"
+                            ]
+                          },
+                          "selection": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model_prob": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "exclusiveMaximum": 1
+                          },
+                          "line": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "player": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "team": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "position": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "gsis_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "game_id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "away"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "model_prob": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 1
+                    },
+                    "break_even_american": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "n_atd": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "first_seen_utc": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "not_offered": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "majority_td": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cards",
+            "not_offered"
+          ],
+          "properties": {
+            "cards": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "card_id",
+                    "mode",
+                    "label",
+                    "n_legs",
+                    "legs",
+                    "model_prob",
+                    "break_even_american",
+                    "n_atd"
+                  ],
+                  "properties": {
+                    "card_id": {
+                      "type": "string",
+                      "minLength": 8
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "all_td",
+                        "majority_td",
+                        "scorers_50"
+                      ]
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "n_legs": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 10
+                    },
+                    "legs": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "market",
+                          "selection",
+                          "model_prob",
+                          "line",
+                          "player",
+                          "team",
+                          "position",
+                          "gsis_id",
+                          "game_id",
+                          "side"
+                        ],
+                        "properties": {
+                          "market": {
+                            "type": "string",
+                            "enum": [
+                              "anytime_td",
+                              "qb_pass_yds",
+                              "rb_rush_yds",
+                              "wr_rec_yds",
+                              "moneyline"
+                            ]
+                          },
+                          "selection": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model_prob": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "exclusiveMaximum": 1
+                          },
+                          "line": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "player": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "team": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "position": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "gsis_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "game_id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "away"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "model_prob": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 1
+                    },
+                    "break_even_american": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "n_atd": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "first_seen_utc": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "not_offered": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "scorers_50": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cards",
+            "not_offered"
+          ],
+          "properties": {
+            "cards": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "card_id",
+                    "mode",
+                    "label",
+                    "n_legs",
+                    "legs",
+                    "model_prob",
+                    "break_even_american",
+                    "n_atd"
+                  ],
+                  "properties": {
+                    "card_id": {
+                      "type": "string",
+                      "minLength": 8
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "all_td",
+                        "majority_td",
+                        "scorers_50"
+                      ]
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "n_legs": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 10
+                    },
+                    "legs": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "market",
+                          "selection",
+                          "model_prob",
+                          "line",
+                          "player",
+                          "team",
+                          "position",
+                          "gsis_id",
+                          "game_id",
+                          "side"
+                        ],
+                        "properties": {
+                          "market": {
+                            "type": "string",
+                            "enum": [
+                              "anytime_td",
+                              "qb_pass_yds",
+                              "rb_rush_yds",
+                              "wr_rec_yds",
+                              "moneyline"
+                            ]
+                          },
+                          "selection": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "model_prob": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "exclusiveMaximum": 1
+                          },
+                          "line": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "player": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "team": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "position": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "gsis_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "game_id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "home",
+                              "away"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "model_prob": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "exclusiveMaximum": 1
+                    },
+                    "break_even_american": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "n_atd": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "first_seen_utc": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "not_offered": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

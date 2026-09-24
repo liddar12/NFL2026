@@ -875,10 +875,23 @@ nothing ships without one.
   2–10; 50%+ to 4 legs (four games have a 50%+ scorer). **GAME stays at today's cards** until the
   same-game pricer passes its test. **Locked by** `r101c_atd_cards` (7) and `r101c_td_modes` (3,
   browser, iPhone). · **LOE** 0.5 d
+- **R101b · same-game pricer + GAME anytime-TD cards, 2–10 legs (P1) — built 2026-09-24.** The
+  game simulator is a two-factor Gaussian copula (`scripts/models/joint.py`: a game-script factor
+  signed by side and a scoring factor, loadings per leg type, exact Gauss-Hermite — no seed; every
+  leg keeps its own probability). `backtest_joint.py` (weekly) fits it on 2022-23 same-game cards
+  and measures 2024-25 two ways: 43,528 random cards decide the pricer (joint log loss 0.091287 vs
+  product 0.091129 — **the product wins, so GAME is priced as the product** and the joint model is
+  kept measured, not used), and the builder's own cards decide each size (two-sided Poisson on
+  all-hit and all-but-one at 5 %, and enough cards to test). Verdict: ALL TD 2–7, MAJORITY 2–10,
+  50%+ 2–3; ALL TD 8–10 not offered (too few held-out cards to test), 50%+ 4+ never filled.
+  `build_atd_game_cards.py` builds one card per open game per validated size from the pool's own
+  legs; the validator re-prices every card and recomputes the verdict; GAME cards are recorded and
+  graded apart from WEEK (`game_<mode>`). GAME gets the same TD pills + stepper. **Locked by**
+  `r101b_game_atd` (6) and `r101b_game_td` (3, browser, iPhone). · **LOE** 1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **R101b — same-game pricer, then GAME anytime-TD cards to 10 legs.** Measured: the independent
-     product under-prices same-game cards (6-leg MAJORITY 0.13 % vs 0.18 % observed); a two-factor
-     model is closer but not yet better on every held-out test, so it is not adopted until it is.
+  1. **R101d — MY same-game cards past 2 legs on the same verdict.** MY still prices same-game
+     pairs with the pairwise clamp; route MY's same-game legs through the GAME verdict (product,
+     validated sizes) and record MY TD-mode cards for grading.
   2. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
      gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
      single cheapest reliability win left.

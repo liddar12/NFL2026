@@ -168,6 +168,9 @@ export const getSleeperIndex = (opts) => loadJson('/data/sleeper_index.json', op
 // R101c — this week's WEEK-scope anytime-TD cards (scripts/build_atd_cards.py),
 // read by PARLAYS only when a TD mode is chosen on WEEK.
 export const getAtdCards = (opts) => loadJson('/data/atd_cards.json', opts);
+// R101b — this week's GAME-scope (same-game) anytime-TD cards
+// (scripts/build_atd_game_cards.py), read only when a TD mode is chosen on GAME.
+export const getAtdGameCards = (opts) => loadJson('/data/atd_game_cards.json', opts);
 export function getParlayArchive(path, opts) {
   const m = /^\/?(data\/parlays\/(?!index\.json)[\w.-]+\.json)$/.exec(String(path || ''));
   return m ? loadJson(`/${m[1]}`, opts) : Promise.reject(new Error(`[data] ${path} -> not an archive`));

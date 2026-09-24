@@ -177,6 +177,13 @@ jobs:
       - name: Anytime-TD week cards (first-sight record)
         run: bash scripts/stage.sh daily "Anytime-TD week cards (first-sight record)" -- python3 scripts/build_atd_cards.py
 
+      # R101b — the GAME-scope (same-game) ANYTIME-TD cards: every leg from one
+      # game, priced by the pricer data/joint_backtest.json chose on held-out
+      # seasons and built only at the sizes it validated (none without a verdict).
+      # Same pool, same first-sight record rule (data/atd_game_cards/). Offline.
+      - name: Anytime-TD game cards (first-sight record)
+        run: bash scripts/stage.sh daily "Anytime-TD game cards (first-sight record)" -- python3 scripts/build_atd_game_cards.py
+
       # R70 — the OL / DL-front LINE REPORT for the week (annotation only, changes
       # no number). Best-effort: an unreachable depth chart writes the honest
       # available:false document, never invented starters.

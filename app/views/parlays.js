@@ -107,7 +107,9 @@
  * names, data attributes and the MY-mode behaviour are untouched.
  */
 
-import { getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards } from '../data.js';
+import {
+  getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards, getAtdGameCards,
+} from '../data.js';
 import { renderParlayCard } from '../render.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
@@ -910,17 +912,22 @@ export default async function mountParlays(el) {
 
   /*
    * R101c — ANYTIME-TD cards on WEEK (owner: up to 10 legs, ALL TD / MAJORITY /
-   * 50%+; Gate 2 layout B). The module and the cards document are loaded on the
-   * first WEEK paint, never on a cold GAME mount. The cards are the runner's
-   * (scripts/build_atd_cards.py: one leg per game, pool prices, recorded and
-   * graded); this view only picks the mode and size and hides started games.
+   * 50%+; Gate 2 layout B); R101b — and on GAME. The module is loaded on the
+   * first TD paint and each scope's cards document only when a TD mode is chosen
+   * on that scope, never on a cold mount. The cards are the runner's — WEEK:
+   * scripts/build_atd_cards.py, one leg per game; GAME: build_atd_game_cards.py,
+   * one game per card, priced by the held-out-tested same-game pricer and only
+   * at the sizes it validated. This view only picks the mode and size and hides
+   * started games.
    */
   let td = null;
   let atdMod = null;
-  let atdDoc;               // undefined = not loaded yet; null = unavailable
+  // per scope: undefined = not loaded yet; null = unavailable
+  const atdDocs = { week: undefined, game: undefined };
+  const ATD_LOAD = { week: getAtdCards, game: getAtdGameCards };
   const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list',
     '.rv-strip--parlay'];
-  const tdEligible = () => active === 'week' && selWeek === curWeek;
+  const tdEligible = () => (active === 'week' || active === 'game') && selWeek === curWeek;
   const atdActive = () => tdEligible() && td && td.mode !== 'any';
 
   function setAtdMode(on) {
@@ -939,13 +946,17 @@ export default async function mountParlays(el) {
     setAtdMode(!!on);
     if (!on) return;
     const listEl = el.querySelector('#atd-list');
-    if (atdDoc === undefined) {
+    const scope = active;
+    if (atdDocs[scope] === undefined) {
       listEl.innerHTML = '<div class="state state--loading">Loading anytime-TD cards…</div>';
-      try { atdDoc = await getAtdCards(); } catch { atdDoc = null; }
-      if (!atdActive()) return;
+      try { atdDocs[scope] = await ATD_LOAD[scope](); } catch { atdDocs[scope] = null; }
+      if (!atdActive() || active !== scope) return;
     }
-    const { cards, reason } = atdMod.atdCardsFor(atdDoc, td.mode, td.legs, sched && sched.games);
-    listEl.innerHTML = cards.length ? cards.map(atdMod.renderAtdCard).join('')
+    const doc = atdDocs[scope];
+    const games = sched && sched.games;
+    const { cards, reason } = atdMod.atdCardsFor(doc, td.mode, td.legs, games);
+    listEl.innerHTML = cards.length
+      ? cards.map((c) => atdMod.renderAtdCard(c, { scope, pricer: doc.pricer, games })).join('')
       : `<div class="state">${reason}</div>`;
   }
 
@@ -970,8 +981,9 @@ export default async function mountParlays(el) {
     head +
     wkBar(weeks, selWeek) +
     scopeSeg(active) +
-    // R101c — the anytime-TD selector (layout B), shown on WEEK for the current
-    // week only; its cards replace the slate list while a TD mode is on.
+    // R101c — the anytime-TD selector (layout B), shown on WEEK and (R101b) GAME
+    // for the current week only; its cards replace the slate list while a TD
+    // mode is on.
     '<div id="td-controls" hidden></div>' +
     filtersPanel(readFiltersOpen()) +
     legend() +
@@ -993,6 +1005,10 @@ export default async function mountParlays(el) {
   // R90/F20 — arrow keys inside the two grouped chip rows.
   wireArrowKeys(el.querySelector('.pw-wkbar'), '.wk-chip');
   wireArrowKeys(el.querySelector('.scopeseg'), '.seg-btn');
+  // R101b — GAME is the default scope and carries the TD pills too: paint them
+  // once the list is up (the small selector module loads after first paint; a
+  // cards document is fetched only once a TD mode is on).
+  paintTd();
 
   /**
    * R76 — MY mode. The seed-driven builder and the ~294 KB leg pool it searches

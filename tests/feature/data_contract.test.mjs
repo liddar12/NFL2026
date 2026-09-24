@@ -77,8 +77,10 @@ const PARLAY_ARCHIVE_RE = /^\/data\/parlays\/\d{4}_wk\d{2}\.json$/;
 // the same reason; its shape is asserted by tests/feature/r88_stage_status.test.mjs.
 // R101c — data/atd_cards.json is written by the daily runner (scripts/build_atd_cards.py)
 // from the leg pool; a checkout that predates its first run has none, and the WEEK view
-// treats that 404 as "no anytime-TD cards this week".
-const RUNNER_BUILT = new Set(['/data/pipeline_stages.json', '/data/atd_cards.json']);
+// treats that 404 as "no anytime-TD cards this week". R101b — data/atd_game_cards.json
+// likewise (scripts/build_atd_game_cards.py), for the GAME view.
+const RUNNER_BUILT = new Set(['/data/pipeline_stages.json', '/data/atd_cards.json',
+  '/data/atd_game_cards.json']);
 
 test('app/data.js PATHS is the app-reachable contract allowlist, and every entry exists', () => {
   const src = readFileSync(join(APP_DIR, 'data.js'), 'utf8');
@@ -176,6 +178,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // anytime-TD cards, read only when a TD mode is chosen on WEEK — never on a
     // cold mount. A few tens of KB; built and validated on the runner.
     '/data/atd_cards.json',
+    // R101b — the same, for GAME (via data.js getAtdGameCards): this week's
+    // same-game anytime-TD cards, read only when a TD mode is chosen on GAME.
+    '/data/atd_game_cards.json',
   ]);
   const isAllowed = (p) => allowed.has(p) || PARLAY_ARCHIVE_RE.test(p);
   for (const [p, files] of referenced) {
