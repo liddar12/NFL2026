@@ -181,3 +181,14 @@ the real `python3 scripts/validate_data.py`.
 
 Env seams, all defaulted to what production runs: `PUBLISH_VALIDATE_CMD`,
 `PUBLISH_BACKOFF_S` (5), `PUBLISH_ATTEMPTS` (5).
+
+## R102 — CI on the data the pipeline ships
+
+`[skip actions]` (and the GITHUB_TOKEN push itself) means no push-triggered
+workflow ever runs on a data commit. `.github/workflows/data-ci.yml` closes that:
+it runs on `workflow_run: completed` of `daily-pipeline`, `gameday` and
+`weekly-backtest`, checks out `main` as it stands and runs the same gate and
+browser E2E as `ci.yml`. A red result opens (or comments on) the issue
+`[data-ci] main is red on pipeline data`; the next green run closes it. Renaming
+a pipeline workflow's `name:` disconnects it — `tests/feature/r102_data_ci.test.mjs`
+fails if that happens.

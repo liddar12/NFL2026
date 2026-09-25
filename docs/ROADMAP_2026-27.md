@@ -897,18 +897,21 @@ nothing ships without one.
   on first sight in `data/atd_my_cards/`, graded by `resolve_atd_cards.py` as `my_<mode>`; the
   Python twin is parity-locked to the browser on the committed pool. **Locked by**
   `r101d_my_td_parity` (5). · **LOE** 0.5 d
+- **R102 · CI runs against the data the pipeline ships (P1) — built 2026-09-25.** Owner's pick. New
+  `.github/workflows/data-ci.yml` runs when `daily-pipeline`, `gameday` or `weekly-backtest` COMPLETES
+  (workflow_run — not a push, so `[skip actions]` cannot skip it), checks out main as it stands (the
+  data commit included) and runs exactly ci.yml's gate and browser E2E. Red opens one issue titled
+  `[data-ci] main is red on pipeline data` (or comments on it) and fails; the next green run closes
+  it; a superseded check reports nothing. **Locked by** `r102_data_ci` (3). · **LOE** 0.25 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
-  1. **Close the `[skip actions]` blind spot.** CI never runs against the data the pipeline ships; main has
-     gone red from data several times this month (R95, R97, R98), each found after the fact. A post-publish CI run on data commits is the
-     single cheapest reliability win left.
-  2. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
+  1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
-  3. **R99 E3 — delivered as R101b/R101d.** The game simulator is re-measured weekly; it becomes the
+  2. **R99 E3 — delivered as R101b/R101d.** The game simulator is re-measured weekly; it becomes the
      GAME pricer (and needs a browser twin for MY) the week it beats the product on held-out games.
-  4. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
+  3. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
      should show each loop's live state (held / adopted / reverted, and why) so the owner can see the
      system learning rather than take it on trust.
-  5. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
+  4. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a
   declared feature / prediction / outcome shape.

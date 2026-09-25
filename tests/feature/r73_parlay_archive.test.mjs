@@ -224,8 +224,19 @@ test('committed archive: the open week mirrors data/parlays.json, index consiste
       c.legs.map((l) => `${l.market}|${l.selection}`).sort()]);
     const live = arch.parlays.filter((c) => !c.frozen_utc);
     const built = new Set(parlays.parlays.map((c) => JSON.stringify(c)));
-    for (const card of unstamped(live)) {
-      assert.ok(built.has(JSON.stringify(card)), `live card ${card.parlay_id} is the built one, verbatim`);
+    // G03 — a rebuilt card whose rank-derived parlay_id a FROZEN card already holds
+    // is archived as `<parlay_id>~<card_id[:6]>` (scripts/build_parlay_archive.py
+    // renamed_parlay_id). That rename, and only that one, is undone before the
+    // verbatim check: the suffix must be the card's own id and the base id must
+    // belong to a frozen card. (First seen on real data after the 2026-09-24
+    // Thursday game froze week-scope cards: six renamed live cards, all verbatim.)
+    const frozenIds = new Set(arch.parlays.filter((c) => c.frozen_utc).map((c) => c.parlay_id));
+    for (const card of live) {
+      const [base, suffix] = String(card.parlay_id).split('~');
+      const renamed = suffix !== undefined && suffix === String(card.card_id).slice(0, 6)
+        && frozenIds.has(base);
+      const [plain] = unstamped([renamed ? { ...card, parlay_id: base } : card]);
+      assert.ok(built.has(JSON.stringify(plain)), `live card ${card.parlay_id} is the built one, verbatim`);
     }
     const archived = new Set(arch.parlays.map(identity));
     for (const card of parlays.parlays) {
