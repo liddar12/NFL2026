@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-25T10:08:55Z",
+  "generated_utc": "2026-09-25T15:10:00Z",
   "model_candidate": "weekly_split_v2",
   "model_incumbent": "weekly_split_v1",
   "fixture": {
@@ -179,70 +179,90 @@
       "revert": 0.45
     },
     "elo_chain_from": 2019,
-    "runtime_s": 1.09
+    "runtime_s": 0.73
   },
   "live_2026": {
     "season": 2026,
-    "weeks": 2,
+    "weeks": 3,
     "weeks_resolved": [
       1,
-      2
+      2,
+      3
     ],
-    "rows": 458,
+    "rows": 699,
     "ledger": "data/estimates/2026.json",
     "scores": "data/estimate_scores.json",
     "shipped": {
-      "mae": 5.7942,
-      "rank_corr": 0.4498,
-      "topk": 0.7731
+      "mae": 6.7569,
+      "rank_corr": 0.3054,
+      "topk": 0.7591
     },
     "gated": {
-      "mae": 5.9182,
-      "rank_corr": 0.4026,
-      "topk": 0.7403
+      "mae": 6.7562,
+      "rank_corr": 0.2559,
+      "topk": 0.7261
     },
     "candidate": {
-      "mae": 5.7942,
-      "rank_corr": 0.4498,
-      "topk": 0.7731
+      "mae": 6.7569,
+      "rank_corr": 0.3054,
+      "topk": 0.7591
     },
     "per_week": [
       {
         "week": 1,
-        "n": 229,
+        "n": 230,
         "shipped": {
-          "mae": 6.0936,
-          "rank_corr": 0.4231,
+          "mae": 6.0875,
+          "rank_corr": 0.4305,
           "topk": 0.7566
         },
         "gated": {
-          "mae": 6.2462,
-          "rank_corr": 0.3666,
+          "mae": 6.237,
+          "rank_corr": 0.3743,
           "topk": 0.7331
         },
         "candidate": {
-          "mae": 6.0936,
-          "rank_corr": 0.4231,
+          "mae": 6.0875,
+          "rank_corr": 0.4305,
           "topk": 0.7566
         }
       },
       {
         "week": 2,
-        "n": 229,
+        "n": 230,
         "shipped": {
-          "mae": 5.4948,
-          "rank_corr": 0.4765,
+          "mae": 5.5021,
+          "rank_corr": 0.4809,
           "topk": 0.7911
         },
         "gated": {
-          "mae": 5.5902,
-          "rank_corr": 0.4385,
+          "mae": 5.595,
+          "rank_corr": 0.4421,
           "topk": 0.7482
         },
         "candidate": {
-          "mae": 5.4948,
-          "rank_corr": 0.4765,
+          "mae": 5.5021,
+          "rank_corr": 0.4809,
           "topk": 0.7911
+        }
+      },
+      {
+        "week": 3,
+        "n": 239,
+        "shipped": {
+          "mae": 8.6085,
+          "rank_corr": 0.0161,
+          "topk": 0.5112
+        },
+        "gated": {
+          "mae": 8.3733,
+          "rank_corr": -0.0372,
+          "topk": 0.4738
+        },
+        "candidate": {
+          "mae": 8.6085,
+          "rank_corr": 0.0161,
+          "topk": 0.5112
         }
       }
     ],
