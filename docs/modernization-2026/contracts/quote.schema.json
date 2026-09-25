@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nfl2026:design:quote:0.1",
+  "title": "Proposed quote v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "quote_id",
+    "fixture",
+    "project_id",
+    "book",
+    "provider_quote_id",
+    "event_id",
+    "market_scope",
+    "selections",
+    "combined_decimal_odds",
+    "quoted_at",
+    "expires_at",
+    "settlement_policy_id",
+    "source_ref",
+    "source_sha256",
+    "verification"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1"
+    },
+    "quote_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "book": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_quote_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "market_scope": {
+      "const": "single_game"
+    },
+    "selections": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "selection_id",
+          "event_id",
+          "entity_id",
+          "market_type",
+          "direction",
+          "line",
+          "unit",
+          "period"
+        ],
+        "properties": {
+          "selection_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "entity_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "market_type": {
+            "enum": [
+              "moneyline",
+              "spread",
+              "total",
+              "player_prop"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "home",
+              "away",
+              "tie",
+              "over",
+              "under"
+            ]
+          },
+          "line": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "period": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "combined_decimal_odds": {
+      "type": "number",
+      "exclusiveMinimum": 1
+    },
+    "quoted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "settlement_policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verification": {
+      "enum": [
+        "unverified",
+        "verified",
+        "rejected"
+      ]
+    }
+  }
+}
