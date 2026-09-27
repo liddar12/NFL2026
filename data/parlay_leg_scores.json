@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-27T23:26:08Z",
+  "generated_utc": "2026-09-27T23:29:02Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (43 games); scores from data/review.json FINAL rows (42 games); scores from ESPN live, STATUS-gated FINAL (43 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (44 games); scores from data/review.json FINAL rows (43 games); scores from ESPN live, STATUS-gated FINAL (44 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 3,
@@ -10,7 +10,7 @@
     "on_file": 331,
     "locked": 266,
     "unlocked": 65,
-    "resolved": 220,
+    "resolved": 222,
     "unresolved": 34
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 43,
-      "hit_rate": 0.6047,
-      "log_loss": 0.6667,
-      "brier": 0.2374
+      "n": 44,
+      "hit_rate": 0.6136,
+      "log_loss": 0.6623,
+      "brier": 0.2352
     },
     "spread": {
-      "n": 67,
-      "hit_rate": 0.4328,
+      "n": 68,
+      "hit_rate": 0.4412,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -169,14 +169,14 @@
         }
       },
       "moneyline": {
-        "n": 11,
-        "hit_rate": 0.7273,
-        "log_loss": 0.6306,
-        "brier": 0.2199
+        "n": 12,
+        "hit_rate": 0.75,
+        "log_loss": 0.6175,
+        "brier": 0.2134
       },
       "spread": {
-        "n": 21,
-        "hit_rate": 0.5238,
+        "n": 22,
+        "hit_rate": 0.5455,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -4162,6 +4162,36 @@
         "away_score": 30
       },
       "hit": false
+    },
+    {
+      "week": 3,
+      "game_id": "401872959",
+      "market": "moneyline",
+      "selection": "MIN ML",
+      "team": "MIN",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6223,
+      "actual": {
+        "home_score": 16,
+        "away_score": 23
+      },
+      "hit": true
+    },
+    {
+      "week": 3,
+      "game_id": "401872959",
+      "market": "spread",
+      "selection": "MIN -1.5",
+      "team": "MIN",
+      "side": "away",
+      "line": -1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 16,
+        "away_score": 23
+      },
+      "hit": true
     }
   ]
 }

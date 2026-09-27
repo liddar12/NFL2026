@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 3,
-  "generated_utc": "2026-09-27T23:25:44Z",
-  "pool_generated_utc": "2026-09-27T23:25:44Z",
+  "generated_utc": "2026-09-27T23:28:58Z",
+  "pool_generated_utc": "2026-09-27T23:28:58Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -339,6 +339,14 @@
       "cards_seen": 72,
       "cards_added": 10,
       "locked_added": 10,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-09-27T23:28:58Z",
+      "week": 3,
+      "cards_seen": 72,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -310558,6 +310566,91 @@
       "first_seen_utc": "2026-09-27T23:25:44Z",
       "locked": true,
       "locked_utc": "2026-09-27T23:25:44Z"
+    },
+    {
+      "card_id": "65d31866a6d2",
+      "dial": "longshot",
+      "seed": "CHI",
+      "rank": 6,
+      "n_legs": 4,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.035,
+      "implied": 0.0234,
+      "ev": 0.4962,
+      "tier": "low",
+      "payout": 4174.34,
+      "assumed": 4,
+      "earliest_kickoff_utc": "2026-09-28T00:20Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "K. Monangai 50+ rush yds",
+          "game_id": "401872963",
+          "team": "CHI",
+          "side": "home",
+          "player": "Kyle Monangai",
+          "gsis_id": "espn-4608686",
+          "position": "RB",
+          "line": 49.5,
+          "mu": 47.71,
+          "model_prob": 0.3905,
+          "implied_prob": 0.4081,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "M. Stafford 200+ pass yds",
+          "game_id": "401872962",
+          "team": "LAR",
+          "side": "away",
+          "player": "Matthew Stafford",
+          "gsis_id": "espn-12483",
+          "position": "QB",
+          "line": 199.5,
+          "mu": 165.38,
+          "model_prob": 0.3819,
+          "implied_prob": 0.3991,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "X. Smith 20+ rec yds",
+          "game_id": "401872962",
+          "team": "LAR",
+          "side": "away",
+          "player": "Xavier Smith",
+          "gsis_id": "espn-4386544",
+          "position": "WR",
+          "line": 19.5,
+          "mu": 16.25,
+          "model_prob": 0.3624,
+          "implied_prob": 0.3787,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "K. Raymond 20+ rec yds",
+          "game_id": "401872963",
+          "team": "CHI",
+          "side": "home",
+          "player": "Kalif Raymond",
+          "gsis_id": "espn-2973405",
+          "position": "WR",
+          "line": 19.5,
+          "mu": 16.26,
+          "model_prob": 0.363,
+          "implied_prob": 0.3793,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-27T23:28:58Z",
+      "locked": true,
+      "locked_utc": "2026-09-27T23:28:58Z"
     }
   ]
 }

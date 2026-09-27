@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-27T23:26:09Z",
+  "generated_utc": "2026-09-27T23:29:03Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (43 games); scores from data/review.json FINAL rows (42 games); scores from ESPN live, STATUS-gated FINAL (27 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (44 games); scores from data/review.json FINAL rows (43 games); scores from ESPN live, STATUS-gated FINAL (28 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss",
   "weeks_resolved": 2,
   "weeks": [
@@ -130,123 +130,123 @@
     },
     {
       "week": 3,
-      "n_cards": 3400,
-      "locked": 3400,
-      "graded": 1418,
-      "pending": 1982,
+      "n_cards": 3401,
+      "locked": 3401,
+      "graded": 1492,
+      "pending": 1909,
       "buckets": {
-        "all_hit": 93,
+        "all_hit": 94,
         "push": 0,
-        "partial": 1237,
+        "partial": 1310,
         "all_missed": 88,
-        "pending": 1982
+        "pending": 1909
       },
       "by_dial": {
         "safe": {
           "n": 741,
-          "graded": 378,
-          "all_hit": 93,
-          "hit_rate": 0.246,
-          "mean_model": 0.3122,
-          "log_loss": 0.4855,
-          "brier": 0.1562,
-          "staked": 37800.0,
-          "net_fair": 7926.24,
-          "net_vig2": 4697.83,
-          "roi_fair": 0.2097
+          "graded": 379,
+          "all_hit": 94,
+          "hit_rate": 0.248,
+          "mean_model": 0.3126,
+          "log_loss": 0.4862,
+          "brier": 0.1565,
+          "staked": 37900.0,
+          "net_fair": 8081.85,
+          "net_vig2": 4843.51,
+          "roi_fair": 0.2132
         },
         "even": {
           "n": 807,
-          "graded": 97,
+          "graded": 132,
           "all_hit": 0,
           "hit_rate": 0.0,
-          "mean_model": 0.3204,
-          "log_loss": 0.3943,
-          "brier": 0.1102,
-          "staked": 9700.0,
-          "net_fair": -9700.0,
-          "net_vig2": -9700.0,
+          "mean_model": 0.2919,
+          "log_loss": 0.3551,
+          "brier": 0.0951,
+          "staked": 13200.0,
+          "net_fair": -13200.0,
+          "net_vig2": -13200.0,
           "roi_fair": -1.0
         },
         "longshot": {
-          "n": 1852,
-          "graded": 943,
+          "n": 1853,
+          "graded": 981,
           "all_hit": 0,
           "hit_rate": 0.0,
-          "mean_model": 0.088,
-          "log_loss": 0.0971,
+          "mean_model": 0.0881,
+          "log_loss": 0.0972,
           "brier": 0.015,
-          "staked": 94300.0,
-          "net_fair": -94300.0,
-          "net_vig2": -94300.0,
+          "staked": 98100.0,
+          "net_fair": -98100.0,
+          "net_vig2": -98100.0,
           "roi_fair": -1.0
         }
       },
       "by_legs": {
         "2": {
           "n": 391,
-          "graded": 174,
-          "all_hit": 34,
-          "hit_rate": 0.1954,
-          "mean_model": 0.4157,
-          "log_loss": 0.5278,
-          "brier": 0.17,
-          "staked": 17400.0,
-          "net_fair": -8929.14,
-          "net_vig2": -9258.04,
-          "roi_fair": -0.5132
+          "graded": 179,
+          "all_hit": 35,
+          "hit_rate": 0.1955,
+          "mean_model": 0.4158,
+          "log_loss": 0.5289,
+          "brier": 0.1705,
+          "staked": 17900.0,
+          "net_fair": -9173.53,
+          "net_vig2": -9512.36,
+          "roi_fair": -0.5125
         },
         "3": {
           "n": 553,
-          "graded": 239,
+          "graded": 259,
           "all_hit": 29,
-          "hit_rate": 0.1213,
-          "mean_model": 0.2583,
-          "log_loss": 0.3567,
-          "brier": 0.1004,
-          "staked": 23900.0,
-          "net_fair": -12267.8,
-          "net_vig2": -12938.7,
-          "roi_fair": -0.5133
+          "hit_rate": 0.112,
+          "mean_model": 0.2567,
+          "log_loss": 0.3502,
+          "brier": 0.0971,
+          "staked": 25900.0,
+          "net_fair": -14267.8,
+          "net_vig2": -14938.7,
+          "roi_fair": -0.5509
         },
         "4": {
-          "n": 732,
-          "graded": 297,
+          "n": 733,
+          "graded": 321,
           "all_hit": 23,
-          "hit_rate": 0.0774,
-          "mean_model": 0.1514,
-          "log_loss": 0.2341,
-          "brier": 0.0619,
-          "staked": 29700.0,
-          "net_fair": -14783.45,
-          "net_vig2": -15919.39,
-          "roi_fair": -0.4978
+          "hit_rate": 0.0717,
+          "mean_model": 0.1503,
+          "log_loss": 0.2277,
+          "brier": 0.0587,
+          "staked": 32100.0,
+          "net_fair": -17183.45,
+          "net_vig2": -18319.39,
+          "roi_fair": -0.5353
         },
         "5": {
           "n": 787,
-          "graded": 320,
+          "graded": 333,
           "all_hit": 5,
-          "hit_rate": 0.0156,
-          "mean_model": 0.0962,
-          "log_loss": 0.124,
-          "brier": 0.0243,
-          "staked": 32000.0,
-          "net_fair": -25988.07,
-          "net_vig2": -26554.8,
-          "roi_fair": -0.8121
+          "hit_rate": 0.015,
+          "mean_model": 0.0953,
+          "log_loss": 0.1222,
+          "brier": 0.0236,
+          "staked": 33300.0,
+          "net_fair": -27288.07,
+          "net_vig2": -27854.8,
+          "roi_fair": -0.8195
         },
         "6": {
           "n": 937,
-          "graded": 388,
+          "graded": 400,
           "all_hit": 2,
-          "hit_rate": 0.0052,
-          "mean_model": 0.0574,
-          "log_loss": 0.0698,
-          "brier": 0.0107,
-          "staked": 38800.0,
-          "net_fair": -34105.3,
-          "net_vig2": -34631.24,
-          "roi_fair": -0.879
+          "hit_rate": 0.005,
+          "mean_model": 0.0565,
+          "log_loss": 0.0685,
+          "brier": 0.0104,
+          "staked": 40000.0,
+          "net_fair": -35305.3,
+          "net_vig2": -35831.24,
+          "roi_fair": -0.8826
         }
       }
     }
@@ -82245,6 +82245,88 @@
       }
     },
     {
+      "card_id": "ee33ddcb6597",
+      "week": 3,
+      "dial": "even",
+      "seed": "ATL",
+      "n_legs": 3,
+      "model": 0.2566,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "B. Robinson 70+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 194.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "7749511e3858",
+      "week": 3,
+      "dial": "even",
+      "seed": "ATL",
+      "n_legs": 4,
+      "model": 0.1635,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "B. Robinson 70+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 194.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "37e8599ca7d8",
       "week": 3,
       "dial": "even",
@@ -82358,6 +82440,88 @@
           "market": "wr_rec_yds",
           "result": "miss",
           "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "26d9560af1f6",
+      "week": 3,
+      "dial": "even",
+      "seed": "BUF",
+      "n_legs": 3,
+      "model": 0.2764,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 154.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "b878feb912d8",
+      "week": 3,
+      "dial": "even",
+      "seed": "BUF",
+      "n_legs": 4,
+      "model": 0.1761,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 154.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -82559,6 +82723,44 @@
       }
     },
     {
+      "card_id": "85a26cfbb378",
+      "week": 3,
+      "dial": "even",
+      "seed": "CAR",
+      "n_legs": 3,
+      "model": 0.2341,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "B. Young 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 291.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "a13beb2373a7",
       "week": 3,
       "dial": "even",
@@ -82591,6 +82793,144 @@
           "market": "wr_rec_yds",
           "result": "miss",
           "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "1373dc29fb4c",
+      "week": 3,
+      "dial": "even",
+      "seed": "CAR",
+      "n_legs": 4,
+      "model": 0.1553,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Coker 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 18.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "B. Young 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 291.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "2dbb76f23f06",
+      "week": 3,
+      "dial": "even",
+      "seed": "CAR",
+      "n_legs": 4,
+      "model": 0.1494,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "B. Young 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 291.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "beb95af6b2c4",
+      "week": 3,
+      "dial": "even",
+      "seed": "CAR",
+      "n_legs": 5,
+      "model": 0.0989,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Coker 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 18.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "B. Young 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 291.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -82830,6 +83170,76 @@
       }
     },
     {
+      "card_id": "7ed7968e951f",
+      "week": 3,
+      "dial": "even",
+      "seed": "DET",
+      "n_legs": 2,
+      "model": 0.4696,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "cc21849d4520",
+      "week": 3,
+      "dial": "even",
+      "seed": "DET",
+      "n_legs": 3,
+      "model": 0.2992,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "f8a14baaf7c5",
       "week": 3,
       "dial": "even",
@@ -83060,6 +83470,106 @@
           "market": "wr_rec_yds",
           "result": "miss",
           "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "13935c470075",
+      "week": 3,
+      "dial": "even",
+      "seed": "HOU",
+      "n_legs": 4,
+      "model": 0.174,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "D. Montgomery 30+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 33.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 19,
+            "away_score": 17
+          }
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "cd0ca5364d12",
+      "week": 3,
+      "dial": "even",
+      "seed": "HOU",
+      "n_legs": 5,
+      "model": 0.111,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "D. Montgomery 30+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 33.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 19,
+            "away_score": 17
+          }
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -83518,6 +84028,94 @@
       }
     },
     {
+      "card_id": "1ddbbb0f9818",
+      "week": 3,
+      "dial": "even",
+      "seed": "KC",
+      "n_legs": 3,
+      "model": 0.267,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "d439f8892919",
+      "week": 3,
+      "dial": "even",
+      "seed": "KC",
+      "n_legs": 4,
+      "model": 0.1697,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "28b642289caa",
       "week": 3,
       "dial": "even",
@@ -83611,6 +84209,88 @@
       }
     },
     {
+      "card_id": "13e449bc3e96",
+      "week": 3,
+      "dial": "even",
+      "seed": "LAC",
+      "n_legs": 3,
+      "model": 0.2607,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "K. Vidal 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 6.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "2c41854ac94b",
+      "week": 3,
+      "dial": "even",
+      "seed": "LAC",
+      "n_legs": 4,
+      "model": 0.1661,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "K. Vidal 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 6.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "13f61b1e6b9d",
       "week": 3,
       "dial": "even",
@@ -83637,6 +84317,38 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "ef8b73616d6d",
+      "week": 3,
+      "dial": "even",
+      "seed": "MIA",
+      "n_legs": 2,
+      "model": 0.3013,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "D. Achane 70+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 17.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
       }
     },
     {
@@ -83672,6 +84384,158 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "c5b2fb0c285c",
+      "week": 3,
+      "dial": "even",
+      "seed": "MIA",
+      "n_legs": 3,
+      "model": 0.2274,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "D. Achane 70+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 17.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "364945afc56b",
+      "week": 3,
+      "dial": "even",
+      "seed": "MIA",
+      "n_legs": 4,
+      "model": 0.1449,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "D. Achane 70+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 17.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "d6fff9007450",
+      "week": 3,
+      "dial": "even",
+      "seed": "MIN",
+      "n_legs": 2,
+      "model": 0.4696,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "6e630dba8cb2",
+      "week": 3,
+      "dial": "even",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.2992,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
       }
     },
     {
@@ -84293,6 +85157,50 @@
       }
     },
     {
+      "card_id": "78d51b372267",
+      "week": 3,
+      "dial": "even",
+      "seed": "NYG",
+      "n_legs": 4,
+      "model": 0.1671,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Winston 150+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 118.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "D. Mooney 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 20.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "16698cd57228",
       "week": 3,
       "dial": "even",
@@ -84334,6 +85242,56 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "112c3e852d1a",
+      "week": 3,
+      "dial": "even",
+      "seed": "NYG",
+      "n_legs": 5,
+      "model": 0.1065,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Winston 150+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 118.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "D. Mooney 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 20.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
       }
     },
     {
@@ -84415,6 +85373,44 @@
           "market": "qb_pass_yds",
           "result": "miss",
           "actual": 269.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "4d3af2fd0f17",
+      "week": 3,
+      "dial": "even",
+      "seed": "NYJ",
+      "n_legs": 3,
+      "model": 0.2697,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "G. Wilson 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 107.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -84590,6 +85586,47 @@
       }
     },
     {
+      "card_id": "9cc64984292d",
+      "week": 3,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 3,
+      "model": 0.254,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 30,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "ef3c024e5200",
       "week": 3,
       "dial": "even",
@@ -84625,6 +85662,153 @@
           "market": "wr_rec_yds",
           "result": "miss",
           "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "bd4927c74859",
+      "week": 3,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.1618,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 30,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "091cf193a668",
+      "week": 3,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.1649,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 30,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 127.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "56bc3d6f7222",
+      "week": 3,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 5,
+      "model": 0.1052,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 30,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 127.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -84791,6 +85975,44 @@
       }
     },
     {
+      "card_id": "9d234c3d0d57",
+      "week": 3,
+      "dial": "even",
+      "seed": "SEA",
+      "n_legs": 3,
+      "model": 0.2507,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "E. Wilson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 14.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "59156153c23f",
       "week": 3,
       "dial": "even",
@@ -84817,6 +86039,50 @@
           "market": "qb_pass_yds",
           "result": "hit",
           "actual": 379.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "ef55323020a5",
+      "week": 3,
+      "dial": "even",
+      "seed": "SEA",
+      "n_legs": 4,
+      "model": 0.1597,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "E. Wilson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "miss",
+          "actual": 14.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -85164,6 +86430,100 @@
       }
     },
     {
+      "card_id": "bedfadccca67",
+      "week": 3,
+      "dial": "even",
+      "seed": "TEN",
+      "n_legs": 4,
+      "model": 0.1714,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "C. Ridley 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 0.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 181.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "f97aed6e7cde",
+      "week": 3,
+      "dial": "even",
+      "seed": "TEN",
+      "n_legs": 5,
+      "model": 0.1092,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "C. Ridley 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 0.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 181.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "badb940239ce",
       "week": 3,
       "dial": "even",
@@ -85312,6 +86672,126 @@
           "market": "wr_rec_yds",
           "result": "miss",
           "actual": 49.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "3dc941fcd72e",
+      "week": 3,
+      "dial": "even",
+      "seed": "WAS",
+      "n_legs": 3,
+      "model": 0.2434,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "S. Diggs 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 33.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "50eedad1059c",
+      "week": 3,
+      "dial": "even",
+      "seed": "WAS",
+      "n_legs": 3,
+      "model": 0.2629,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Croskey-Merritt 30+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 36.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "466f7c394561",
+      "week": 3,
+      "dial": "even",
+      "seed": "WAS",
+      "n_legs": 4,
+      "model": 0.155,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "S. Diggs 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 33.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "J. Williams 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 49.0
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -113425,6 +114905,1990 @@
           "actual": {
             "home_score": 33,
             "away_score": 31
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "e7df651b6a62",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 2,
+      "model": 0.3774,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "03096ddccc5a",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1994,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "d099976be144",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1988,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "c37e733a02d4",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1887,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "GB -6",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "c58caff9895f",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1887,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "GB -5.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "33fd0350de45",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1887,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "GB -4.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "578229ffcd71",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.1892,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "7311413dbab3",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 3,
+      "model": 0.188,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "5d577712148d",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -6",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "2f12ee674979",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -5.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "bf3336072b38",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -4.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "ebcde016d2f1",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.1046,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "f90fa165f123",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0994,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "cf7372d561bb",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "9d078f2ef2dc",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "HOU -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 19,
+            "away_score": 17
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "946e6a34ffa0",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.1038,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "C. Kupp 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 46.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "1c28c366deca",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0994,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "9c7437976651",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0994,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "fb415a28d814",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0516,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "35c5798f38d7",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0553,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "3d36dac342ed",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0517,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "fdea6a620c8e",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0505,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -11.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "abf312781a92",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0505,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "0f392dfa094d",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0549,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "C. Kupp 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 46.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "82d977b3b8fc",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0507,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "35d1267f976e",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 5,
+      "model": 0.0507,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "5850231b03a5",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -6",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "eca3c6d6d87e",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -5.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "2f7f8a106800",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -4.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 14,
+            "away_score": 35
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "a5b9f302f175",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0276,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "ffd9a451b3d7",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0276,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "1970bb55c72d",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "217b2953776a",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "CLE +2.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 21,
+            "away_score": 18
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "8e17a0359cb2",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "HOU -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 19,
+            "away_score": 17
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "8e6097d8cbac",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0276,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "HOU -1.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 19,
+            "away_score": 17
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "ae3aa9385a16",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0276,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "S. Darnold 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 379.0
+        },
+        {
+          "selection": "J. Smith-Njigba 100+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 128.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -10",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 10,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "081738cff321",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -6.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 16
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "7de33c43b270",
+      "week": 3,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0258,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "MIN -1.5",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 269.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "miss",
+          "actual": 246.0
+        },
+        {
+          "selection": "R. Rice 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 88.0
+        },
+        {
+          "selection": "DET -7",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 31,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 16
           }
         }
       ],
@@ -142255,6 +145719,41 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "fe7e4d5fec9c",
+      "week": 3,
+      "dial": "safe",
+      "seed": "MIN",
+      "n_legs": 2,
+      "model": 0.4827,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "SF ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 36,
+            "away_score": 30
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 155.61,
+        "net_vig2": 145.68,
+        "assumed_price_legs": 0
       }
     },
     {
