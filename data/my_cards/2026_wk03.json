@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 3,
-  "generated_utc": "2026-09-27T19:23:18Z",
-  "pool_generated_utc": "2026-09-27T19:23:16Z",
+  "generated_utc": "2026-09-27T19:46:56Z",
+  "pool_generated_utc": "2026-09-27T19:46:55Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -299,6 +299,14 @@
       "cards_seen": 360,
       "cards_added": 9,
       "locked_added": 9,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-09-27T19:46:55Z",
+      "week": 3,
+      "cards_seen": 360,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -303155,6 +303163,91 @@
       "first_seen_utc": "2026-09-27T19:23:16Z",
       "locked": true,
       "locked_utc": "2026-09-27T19:23:16Z"
+    },
+    {
+      "card_id": "f49c2dbcfc77",
+      "dial": "safe",
+      "seed": "DEN",
+      "rank": 6,
+      "n_legs": 4,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.2912,
+      "implied": 0.2866,
+      "ev": 0.016,
+      "tier": "low",
+      "payout": 248.89,
+      "assumed": 4,
+      "earliest_kickoff_utc": "2026-09-27T20:05Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "J. Dobbins 40+ rush yds",
+          "game_id": "401872962",
+          "team": "DEN",
+          "side": "home",
+          "player": "J.K. Dobbins",
+          "gsis_id": "espn-4241985",
+          "position": "RB",
+          "line": 39.5,
+          "mu": 62.88,
+          "model_prob": 0.6997,
+          "implied_prob": 0.7312,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "game_id": "401872958",
+          "team": "SF",
+          "side": "home",
+          "player": null,
+          "gsis_id": null,
+          "position": null,
+          "line": null,
+          "mu": null,
+          "model_prob": 0.7757,
+          "implied_prob": 0.7659,
+          "price_source": "fair_market",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Olave 30+ rec yds",
+          "game_id": "401872961",
+          "team": "NO",
+          "side": "home",
+          "player": "Chris Olave",
+          "gsis_id": "espn-4361370",
+          "position": "WR",
+          "line": 29.5,
+          "mu": 55.98,
+          "model_prob": 0.6963,
+          "implied_prob": 0.7276,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "T. Shough 150+ pass yds",
+          "game_id": "401872961",
+          "team": "NO",
+          "side": "home",
+          "player": "Tyler Shough",
+          "gsis_id": "espn-4360689",
+          "position": "QB",
+          "line": 149.5,
+          "mu": 180.82,
+          "model_prob": 0.6731,
+          "implied_prob": 0.7034,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-09-27T19:46:55Z",
+      "locked": true,
+      "locked_utc": "2026-09-27T19:46:55Z"
     }
   ]
 }
