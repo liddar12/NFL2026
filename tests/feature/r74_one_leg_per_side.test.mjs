@@ -69,12 +69,22 @@ test('a real slate rebuilt through the builder carries no stacked side', () => {
   assert.ok(doc.parlays.length > 0, 'the shipped slate is empty — nothing is proven');
   // The guard means nothing unless the slate actually HAS handicaps to stack:
   // week 1 shipped only one spread leg, which is why it hid there.
-  const spreads = doc.parlays
+  // R103 — spread legs are priced only for games still to play, so by Monday of
+  // each week the live slate legitimately carries none (8 on Sunday afternoon,
+  // 0 by Monday morning, 2026-09-28). The week's OPEN archive keeps every card
+  // frozen at kickoff, spreads included, so the demonstration is made on the
+  // live slate PLUS that archive: both must be free of stacked sides, and
+  // together they must hold at least one spread.
+  const archivePath = join(DATA, 'parlays',
+    `${doc.season}_wk${String(doc.week).padStart(2, '0')}.json`);
+  const archive = existsSync(archivePath) ? load(archivePath) : { parlays: [] };
+  const cards = [...doc.parlays, ...(archive.parlays || [])];
+  const spreads = cards
     .flatMap((p) => p.legs)
     .filter((l) => l.market === 'spread').length;
   assert.ok(spreads > 0,
-    'no spread leg on the slate — this file cannot demonstrate the rule holds');
-  const offenders = doc.parlays
+    'no spread leg on the slate or its week archive — this file cannot demonstrate the rule holds');
+  const offenders = cards
     .map((p) => [p.parlay_id, stackedSides(p)])
     .filter(([, s]) => s.length > 0);
   assert.deepEqual(offenders, [], 'a parlay sells one opinion as two legs');

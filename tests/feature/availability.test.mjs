@@ -509,3 +509,27 @@ print(json.dumps({"row": row, "keys": list(row), "raised": raised}))
     assert.match(out.raised, /availability\.py/,
       'the failure must point at the file that fixes it');
   });
+
+/* R103 — an injury reported after the team's game this week is FINAL starts next
+ * week. The 2026-09-28 daily went red on exactly this: Achane was placed on IR the
+ * day after tearing an ACL in Sunday's game, the season block started at the
+ * current week, his finished week read avail:false / 0 pts, and the rebuilt slate
+ * priced a leg on that finished game at a projection of zero. */
+test('R103: a season absence on a team whose game this week is FINAL does not zero that week',
+  () => {
+    const out = runPy(`${SETUP}
+rows = [inj("Injured Reserve", "torn ACL, out for the season")]
+kw = dict(KW, first_week=3)
+live = bw.build_weekly_document(PROJ, SCHED, ELOS, injuries=rows, **kw)
+done = bw.build_weekly_document(PROJ, SCHED, ELOS, injuries=rows, gate_skip_teams=("SFX",), **kw)
+wk = lambda d: {w["wk"]: (w.get("avail"), w["pts"]) for w in d["players"][0]["weeks"]}
+print(json.dumps({"live": wk(live), "done": wk(done)}))
+`);
+    // SFX plays week 3. Not yet played: week 3 is blocked (the pre-R103 rule, kept).
+    assert.equal(out.live['3'][0], false, 'an unplayed week is still blocked');
+    // Week 3 already FINAL: it keeps its points; the block starts at week 4.
+    assert.equal(out.done['3'][0], null, 'a finished week is never retro-zeroed');
+    assert.ok(out.done['3'][1] > 0, 'the finished week keeps its projection');
+    assert.equal(out.done['4'][0], false, 'the absence starts the following week');
+    assert.equal(out.done['5'][0], false);
+  });

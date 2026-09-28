@@ -262,8 +262,17 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await expect(page.locator(`#parlay-pnl .rv-pnl[data-week="${WEEK}"][data-scope="game"]`)).toHaveCount(1);
     await expectSimulationTotal(page);
     await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
-    // the R51 leg annotations still ride the archived cards
-    await expect(page.locator('.card.parlay .leg-noedge').first()).toHaveText('NO EDGE');
+    // the R51 leg annotations still ride the archived cards: exactly one NO EDGE
+    // chip per painted spread leg. R103 — counted, not assumed: spread legs are
+    // priced only for games still to play, so by Monday the committed slate this
+    // spec is built from can legitimately hold none (2026-09-28), and "the first
+    // card has a chip" was a claim about the data, not the view.
+    const paintedSpreads = archiveDoc().parlays.filter((p) => p.scope !== 'week')
+      .flatMap((p) => p.legs).filter((l) => l.market === 'spread').length;
+    await expect(page.locator('.card.parlay .leg-noedge')).toHaveCount(paintedSpreads);
+    if (paintedSpreads) {
+      await expect(page.locator('.card.parlay .leg-noedge').first()).toHaveText('NO EDGE');
+    }
 
     // bucket filter on the past week
     await page.click('.rv-bucket[data-bucket="all_hit"]');
