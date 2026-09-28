@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-28T01:42:47Z",
+  "generated_utc": "2026-09-28T04:57:47Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "scoring": "actual = nflverse fantasy_points_ppr when the column is present; else pass_yd*0.04 + pass_td*4 - int*2 + rush_yd*0.1 + rush_td*6 + rec*1 + rec_yd*0.1 + rec_td*6 - fumbles_lost*2 + 2pt*2 over the release's component columns (regular season only)",
   "ledger": "data/estimates/2026.json",
@@ -277,59 +277,59 @@
   "skipped": null,
   "totals": {
     "n": 721,
-    "mae_shipped": 5.732,
-    "mae_candidate": 5.732,
-    "mae_gated": 5.822,
-    "mae_baseline": 5.952,
-    "bias_shipped": -0.103,
-    "bias_candidate": -0.103,
-    "bias_gated": -0.439,
-    "band_coverage": 0.4411
+    "mae_shipped": 5.674,
+    "mae_candidate": 5.674,
+    "mae_gated": 5.751,
+    "mae_baseline": 5.866,
+    "bias_shipped": -0.325,
+    "bias_candidate": -0.325,
+    "bias_gated": -0.66,
+    "band_coverage": 0.448
   },
   "by_position": {
     "QB": {
       "n": 105,
-      "mae_shipped": 7.05,
-      "mae_candidate": 7.05,
-      "mae_gated": 7.649,
-      "mae_baseline": 7.032,
-      "bias_shipped": -1.75,
-      "bias_candidate": -1.75,
-      "bias_gated": -2.475,
+      "mae_shipped": 6.928,
+      "mae_candidate": 6.928,
+      "mae_gated": 7.428,
+      "mae_baseline": 6.844,
+      "bias_shipped": -2.179,
+      "bias_candidate": -2.179,
+      "bias_gated": -2.904,
       "band_coverage": 0.4095
     },
     "RB": {
       "n": 183,
-      "mae_shipped": 5.5,
-      "mae_candidate": 5.5,
-      "mae_gated": 5.483,
-      "mae_baseline": 5.729,
-      "bias_shipped": 0.236,
-      "bias_candidate": 0.236,
-      "bias_gated": 0.277,
-      "band_coverage": 0.4918
+      "mae_shipped": 5.368,
+      "mae_candidate": 5.368,
+      "mae_gated": 5.341,
+      "mae_baseline": 5.582,
+      "bias_shipped": 0.005,
+      "bias_candidate": 0.005,
+      "bias_gated": 0.046,
+      "band_coverage": 0.5082
     },
     "TE": {
       "n": 139,
-      "mae_shipped": 4.938,
-      "mae_candidate": 4.938,
-      "mae_gated": 5.063,
-      "mae_baseline": 5.113,
-      "bias_shipped": -0.448,
-      "bias_candidate": -0.448,
-      "bias_gated": -0.438,
+      "mae_shipped": 5.005,
+      "mae_candidate": 5.005,
+      "mae_gated": 5.153,
+      "mae_baseline": 5.157,
+      "bias_shipped": -0.594,
+      "bias_candidate": -0.594,
+      "bias_gated": -0.583,
       "band_coverage": 0.482
     },
     "WR": {
       "n": 294,
-      "mae_shipped": 5.782,
-      "mae_candidate": 5.782,
-      "mae_gated": 5.738,
-      "mae_baseline": 6.1,
-      "bias_shipped": 0.436,
-      "bias_candidate": 0.436,
-      "bias_gated": -0.157,
-      "band_coverage": 0.4014
+      "mae_shipped": 5.733,
+      "mae_candidate": 5.733,
+      "mae_gated": 5.69,
+      "mae_baseline": 6.028,
+      "bias_shipped": 0.259,
+      "bias_candidate": 0.259,
+      "bias_gated": -0.335,
+      "band_coverage": 0.4082
     }
   },
   "weeks": [
@@ -359,15 +359,15 @@
     },
     {
       "week": 3,
-      "rows_available": 321,
+      "rows_available": 344,
       "players_scored": 247,
-      "mae_shipped": 5.662,
-      "mae_candidate": 5.662,
-      "mae_gated": 5.75,
-      "bias_shipped": 0.266,
-      "bias_candidate": 0.266,
-      "bias_gated": -0.041,
-      "band_coverage": 0.4251
+      "mae_shipped": 5.492,
+      "mae_candidate": 5.492,
+      "mae_gated": 5.544,
+      "bias_shipped": -0.381,
+      "bias_candidate": -0.381,
+      "bias_gated": -0.688,
+      "band_coverage": 0.4453
     }
   ],
   "resolved": [
@@ -415,13 +415,12 @@
       "low": 6.72,
       "high": 17.96,
       "gated": 17.07,
-      "actual": 0.0,
+      "actual": 20.9,
       "signals": {
         "age_curve": 0.875,
         "injury_history": 0.9353,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-14880",
@@ -722,13 +721,12 @@
       "low": 4.3,
       "high": 18.96,
       "gated": 11.57,
-      "actual": 0.0,
+      "actual": 20.7,
       "signals": {
         "age_curve": 0.84,
         "injury_history": 0.9588,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-2573079",
@@ -827,13 +825,12 @@
       "low": 1.36,
       "high": 9.42,
       "gated": 3.84,
-      "actual": 0.0,
+      "actual": 20.2,
       "signals": {
         "age_curve": 0.895,
         "injury_history": 0.8529,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-2576925",
@@ -1825,8 +1822,7 @@
         "age_curve": 0.93,
         "injury_history": 0.9353,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-3052587",
@@ -2540,13 +2536,12 @@
       "low": 6.6,
       "high": 19.52,
       "gated": 13.43,
-      "actual": 0.0,
+      "actual": 7.6,
       "signals": {
         "age_curve": 0.96,
         "injury_history": 0.9824,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-3139477",
@@ -4820,13 +4815,12 @@
       "low": 3.92,
       "high": 14.96,
       "gated": 6.92,
-      "actual": 0.0,
+      "actual": 6.3,
       "signals": {
         "age_curve": 1.0,
         "injury_history": 0.7353,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4242335",
@@ -5030,8 +5024,7 @@
         "age_curve": 1.0,
         "injury_history": 0.9235,
         "injury_status": 0.95
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4243331",
@@ -6775,13 +6768,12 @@
       "low": 6.25,
       "high": 16.49,
       "gated": 11.86,
-      "actual": 0.0,
+      "actual": 6.4,
       "signals": {
         "age_curve": 1.0,
         "injury_history": 0.9588,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4372758",
@@ -7202,13 +7194,12 @@
       "low": 10.52,
       "high": 22.6,
       "gated": 17.09,
-      "actual": 0.0,
+      "actual": 24.14,
       "signals": {
         "age_curve": 0.956,
         "injury_history": 1.0,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4426348",
@@ -8198,13 +8189,12 @@
       "low": 2.43,
       "high": 7.19,
       "gated": 6.35,
-      "actual": 0.0,
+      "actual": 3.5,
       "signals": {
         "age_curve": 1.0,
         "injury_history": 1.0,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4429148",
@@ -8713,13 +8703,12 @@
       "low": 6.44,
       "high": 19.08,
       "gated": 13.66,
-      "actual": 0.0,
+      "actual": 21.8,
       "signals": {
         "age_curve": 1.0,
         "injury_history": 0.9044,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4430802",
@@ -9074,13 +9063,12 @@
       "low": 3.87,
       "high": 12.19,
       "gated": 10.83,
-      "actual": 0.0,
+      "actual": 3.1,
       "signals": {
         "age_curve": 0.94,
         "injury_history": 0.9853,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4431299",
@@ -9849,13 +9837,12 @@
       "low": 6.23,
       "high": 18.45,
       "gated": 12.34,
-      "actual": 0.0,
+      "actual": 10.7,
       "signals": {
         "age_curve": 1.0,
         "injury_history": 1.0,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4569173",
@@ -10790,13 +10777,12 @@
       "low": 2.21,
       "high": 6.95,
       "gated": 4.57,
-      "actual": 0.0,
+      "actual": 14.4,
       "signals": {
         "age_curve": 0.94,
         "injury_history": 0.9412,
         "injury_status": 1.0
-      },
-      "dnp": true
+      }
     },
     {
       "gsis_id": "espn-4601080",
