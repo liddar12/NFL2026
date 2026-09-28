@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-28T00:31:36Z",
+  "generated_utc": "2026-09-28T10:18:57Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -351,14 +351,14 @@
   },
   "live_2026": {
     "weeks": 3,
-    "legs_resolved": 122,
+    "legs_resolved": 125,
     "seed": {
-      "log_loss": 0.681,
-      "hit_rate": 0.5246
+      "log_loss": 0.6826,
+      "hit_rate": 0.528
     },
     "calibrated": {
-      "log_loss": 0.6733,
-      "hit_rate": 0.5246
+      "log_loss": 0.6772,
+      "hit_rate": 0.528
     },
     "refit": {
       "applied": false,
@@ -367,9 +367,9 @@
         2,
         3
       ],
-      "reason": "never-regress keeps the current coefficients \u2014 2026 legs walk-forward by week: refit log-loss 0.6733 > current 0.6733; 2025 held-out fold: refit 0.6702 <= current 0.6705"
+      "reason": "never-regress keeps the current coefficients \u2014 2026 legs walk-forward by week: refit log-loss 0.6773 > current 0.6772; 2025 held-out fold: refit 0.6704 <= current 0.6705"
     },
-    "note": "122 locked prop leg(s) resolved over week(s) [1, 2, 3]; seed vs calibrated on the 122 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
+    "note": "125 locked prop leg(s) resolved over week(s) [1, 2, 3]; seed vs calibrated on the 125 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
   },
   "correlations": {
     "pairs": [
