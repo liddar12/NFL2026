@@ -1009,8 +1009,15 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         in_total = absence_in_total(p)
         gate = gates.get(pid)
         gate_wk = this_week if gate and gate["playable"] is False else None
+        # R103 — a team whose game this week is already FINAL has PLAYED this week:
+        # an absence reported now (the injury happened in that game) starts NEXT
+        # week. Blocking from first_week retro-zeroed the finished week (2026-09-28:
+        # Achane, IR Monday after tearing an ACL in Sunday's game, wk3 avail:false
+        # -> the rebuilt slate priced him at mu 0 and validation refused it).
+        own_first = (first_week + 1 if p.get("team") in set(gate_skip_teams or ())
+                     else first_week)
         split_kw = dict(injury_mult=mults.get(pid, 1.0),
-                        unavailable_weeks=n_block, first_week=first_week,
+                        unavailable_weeks=n_block, first_week=own_first,
                         absence_in_total=in_total,
                         position=p.get("position"), factors=factors)
         weeks = player_weeks(p["proj_points"], p["team"], sched_by_team, elos,

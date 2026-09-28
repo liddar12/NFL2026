@@ -164,12 +164,24 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
             "latest": est,
             "locked": dict(sorted(locked.items(), key=lambda kv: int(kv[0]))),
         }
+    # R103 — the ledger is APPEND-ONLY. A player who leaves this build's
+    # projections (IR, a depth-chart demotion out of the top 300) keeps his record
+    # VERBATIM: rebuilding `players` from today's projections alone silently
+    # deleted 25 players' locked estimates by week 3, and the resolver can only
+    # score what the ledger still holds -- a survivorship bias in the accuracy
+    # record (the injured and the demoted vanished from it). No NEW week is locked
+    # for him: his last estimate predates whatever removed him, so locking it
+    # against a later kickoff would grade a claim the model had stopped making.
+    n_projected = len(players_out)
+    for pid, prev in prev_players.items():
+        if pid not in players_out:
+            players_out[pid] = prev
     runs = list((ledger or {}).get("runs") or [])
     if not any(r.get("as_of_utc") == as_of for r in runs):
         entry = {"as_of_utc": as_of, "shipped_rule": rule or "prior_season_points",
                  "shipped_estimate": mode or "gated",
                  "weights_applied": {k: float(v) for k, v in sorted((weights or {}).items())},
-                 "players": len(players_out)}
+                 "players": n_projected}
         if locked_now:
             entry["weeks_locked"] = sorted(locked_now)
         runs.append(entry)
@@ -295,8 +307,17 @@ def selftest():
     d5 = append(None, p5, w5, kick, weights, 2026, "2026-09-20T06:00:01Z")
     assert d5["players"]["espn-1"]["locked"] == {}, "no estimate existed before kickoff"
     assert kickoffs_by_week([{"week": 1, "kickoff_utc": "b"}, {"week": 1, "kickoff_utc": "a"}]) == {1: "a"}
+    # R103 — append-only: a player who leaves the projections (IR, demoted out of
+    # the top 300) keeps his record verbatim, and no new week is locked for him.
+    gone = {"season": 2026, "updated_utc": "2026-09-24T06:00:00Z", "players": []}
+    d6 = append(d4, gone, {"players": []}, kick, weights, 2026, "2026-09-24T06:00:01Z")
+    assert d6["players"]["espn-1"] == d4["players"]["espn-1"], \
+        "a player absent from today's projections keeps his locked estimates"
+    assert list(d6["players"]["espn-1"]["locked"]) == ["1"], "no week locked while absent"
+    assert d6["runs"][-1]["players"] == 0, "the run counts the players projected today"
     print("selftest OK: idempotent per as-of, first/latest kept, weeks lock from the "
-          "last pre-kickoff estimate and never change, no estimate -> no lock")
+          "last pre-kickoff estimate and never change, no estimate -> no lock, a player "
+          "who leaves the projections keeps his record (append-only)")
 
 
 def main(argv=None):
