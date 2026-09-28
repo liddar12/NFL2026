@@ -1,13 +1,13 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-28T18:08:56Z",
+  "generated_utc": "2026-09-28T23:41:13Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "scoring": "actual = nflverse fantasy_points_ppr when the column is present; else pass_yd*0.04 + pass_td*4 - int*2 + rush_yd*0.1 + rush_td*6 + rec*1 + rec_yd*0.1 + rec_td*6 - fumbles_lost*2 + 2pt*2 over the release's component columns (regular season only)",
   "ledger": "data/estimates/2026.json",
   "weeks_resolved": 3,
-  "players_scored": 246,
-  "rows_resolved": 718,
-  "unmatched_players": 44,
+  "players_scored": 248,
+  "rows_resolved": 723,
+  "unmatched_players": 59,
   "unmatched": [
     {
       "gsis_id": "espn-11252",
@@ -22,10 +22,28 @@
       "position": "QB"
     },
     {
+      "gsis_id": "espn-14881",
+      "name": "Russell Wilson",
+      "team": "NYG",
+      "position": "QB"
+    },
+    {
+      "gsis_id": "espn-15795",
+      "name": "DeAndre Hopkins",
+      "team": "BAL",
+      "position": "WR"
+    },
+    {
       "gsis_id": "espn-15835",
       "name": "Zach Ertz",
       "team": "PHI",
       "position": "TE"
+    },
+    {
+      "gsis_id": "espn-16460",
+      "name": "Adam Thielen",
+      "team": "PIT",
+      "position": "WR"
     },
     {
       "gsis_id": "espn-16731",
@@ -37,6 +55,18 @@
       "gsis_id": "espn-2310331",
       "name": "Tyler Johnson",
       "team": "NYJ",
+      "position": "WR"
+    },
+    {
+      "gsis_id": "espn-2468609",
+      "name": "Taysom Hill",
+      "team": "NO",
+      "position": "TE"
+    },
+    {
+      "gsis_id": "espn-2577327",
+      "name": "Tyler Lockett",
+      "team": "LV",
       "position": "WR"
     },
     {
@@ -52,9 +82,33 @@
       "position": "RB"
     },
     {
+      "gsis_id": "espn-3059915",
+      "name": "Kareem Hunt",
+      "team": "KC",
+      "position": "RB"
+    },
+    {
+      "gsis_id": "espn-3115306",
+      "name": "Josh Reynolds",
+      "team": "NYJ",
+      "position": "WR"
+    },
+    {
+      "gsis_id": "espn-3120348",
+      "name": "JuJu Smith-Schuster",
+      "team": "KC",
+      "position": "WR"
+    },
+    {
       "gsis_id": "espn-3127586",
       "name": "Jeremy McNichols",
       "team": "WAS",
+      "position": "RB"
+    },
+    {
+      "gsis_id": "espn-3128720",
+      "name": "Nick Chubb",
+      "team": "HOU",
       "position": "RB"
     },
     {
@@ -62,6 +116,12 @@
       "name": "Tim Patrick",
       "team": "NYJ",
       "position": "WR"
+    },
+    {
+      "gsis_id": "espn-3886812",
+      "name": "Jake Browning",
+      "team": "CIN",
+      "position": "QB"
     },
     {
       "gsis_id": "espn-3895856",
@@ -86,6 +146,12 @@
       "name": "Tyler Huntley",
       "team": "BAL",
       "position": "QB"
+    },
+    {
+      "gsis_id": "espn-4045163",
+      "name": "Miles Sanders",
+      "team": "DAL",
+      "position": "RB"
     },
     {
       "gsis_id": "espn-4047365",
@@ -133,6 +199,12 @@
       "gsis_id": "espn-4243389",
       "name": "Calvin Austin III",
       "team": "NYG",
+      "position": "WR"
+    },
+    {
+      "gsis_id": "espn-4243537",
+      "name": "Gabe Davis",
+      "team": "BUF",
       "position": "WR"
     },
     {
@@ -250,6 +322,18 @@
       "position": "QB"
     },
     {
+      "gsis_id": "espn-4569682",
+      "name": "Audric Estime",
+      "team": "NO",
+      "position": "RB"
+    },
+    {
+      "gsis_id": "espn-4682652",
+      "name": "Devin Neal",
+      "team": "NO",
+      "position": "RB"
+    },
+    {
       "gsis_id": "espn-4683423",
       "name": "Riley Leonard",
       "team": "IND",
@@ -272,42 +356,48 @@
       "name": "Quinn Ewers",
       "team": "JAX",
       "position": "QB"
+    },
+    {
+      "gsis_id": "espn-5529",
+      "name": "Philip Rivers",
+      "team": "IND",
+      "position": "QB"
     }
   ],
   "skipped": null,
   "totals": {
-    "n": 718,
-    "mae_shipped": 5.657,
-    "mae_candidate": 5.657,
-    "mae_gated": 5.73,
-    "mae_baseline": 5.844,
-    "bias_shipped": -0.367,
-    "bias_candidate": -0.367,
-    "bias_gated": -0.708,
-    "band_coverage": 0.4471
+    "n": 723,
+    "mae_shipped": 5.691,
+    "mae_candidate": 5.691,
+    "mae_gated": 5.767,
+    "mae_baseline": 5.881,
+    "bias_shipped": -0.324,
+    "bias_candidate": -0.324,
+    "bias_gated": -0.655,
+    "band_coverage": 0.4467
   },
   "by_position": {
     "QB": {
-      "n": 105,
-      "mae_shipped": 6.928,
-      "mae_candidate": 6.928,
-      "mae_gated": 7.428,
-      "mae_baseline": 6.844,
-      "bias_shipped": -2.179,
-      "bias_candidate": -2.179,
-      "bias_gated": -2.904,
-      "band_coverage": 0.4095
+      "n": 107,
+      "mae_shipped": 7.018,
+      "mae_candidate": 7.018,
+      "mae_gated": 7.506,
+      "mae_baseline": 6.927,
+      "bias_shipped": -2.141,
+      "bias_candidate": -2.141,
+      "bias_gated": -2.828,
+      "band_coverage": 0.4019
     },
     "RB": {
-      "n": 180,
-      "mae_shipped": 5.296,
-      "mae_candidate": 5.296,
-      "mae_gated": 5.252,
-      "mae_baseline": 5.492,
-      "bias_shipped": -0.156,
-      "bias_candidate": -0.156,
-      "bias_gated": -0.132,
-      "band_coverage": 0.5056
+      "n": 183,
+      "mae_shipped": 5.368,
+      "mae_candidate": 5.368,
+      "mae_gated": 5.341,
+      "mae_baseline": 5.582,
+      "bias_shipped": 0.005,
+      "bias_candidate": 0.005,
+      "bias_gated": 0.046,
+      "band_coverage": 0.5082
     },
     "TE": {
       "n": 139,
@@ -336,38 +426,38 @@
     {
       "week": 1,
       "rows_available": 360,
-      "players_scored": 236,
-      "mae_shipped": 6.068,
-      "mae_candidate": 6.068,
-      "mae_gated": 6.18,
-      "bias_shipped": -0.681,
-      "bias_candidate": -0.681,
-      "bias_gated": -1.056,
-      "band_coverage": 0.4153
+      "players_scored": 238,
+      "mae_shipped": 6.1,
+      "mae_candidate": 6.1,
+      "mae_gated": 6.21,
+      "bias_shipped": -0.693,
+      "bias_candidate": -0.693,
+      "bias_gated": -1.054,
+      "band_coverage": 0.416
     },
     {
       "week": 2,
       "rows_available": 364,
-      "players_scored": 236,
-      "mae_shipped": 5.465,
-      "mae_candidate": 5.465,
-      "mae_gated": 5.525,
-      "bias_shipped": 0.033,
-      "bias_candidate": 0.033,
-      "bias_gated": -0.303,
-      "band_coverage": 0.4788
+      "players_scored": 238,
+      "mae_shipped": 5.488,
+      "mae_candidate": 5.488,
+      "mae_gated": 5.556,
+      "bias_shipped": 0.102,
+      "bias_candidate": 0.102,
+      "bias_gated": -0.223,
+      "band_coverage": 0.479
     },
     {
       "week": 3,
       "rows_available": 344,
-      "players_scored": 246,
-      "mae_shipped": 5.448,
-      "mae_candidate": 5.448,
-      "mae_gated": 5.496,
-      "bias_shipped": -0.449,
-      "bias_candidate": -0.449,
-      "bias_gated": -0.761,
-      "band_coverage": 0.4472
+      "players_scored": 247,
+      "mae_shipped": 5.492,
+      "mae_candidate": 5.492,
+      "mae_gated": 5.544,
+      "bias_shipped": -0.381,
+      "bias_candidate": -0.381,
+      "bias_gated": -0.688,
+      "band_coverage": 0.4453
     }
   ],
   "resolved": [
@@ -8249,6 +8339,57 @@
       "dnp": true
     },
     {
+      "gsis_id": "espn-4429160",
+      "week": 1,
+      "position": "RB",
+      "baseline": 19.75,
+      "shipped": 18.39,
+      "candidate": 18.39,
+      "low": 9.29,
+      "high": 27.49,
+      "gated": 19.4,
+      "actual": 10.6,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9314,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4429160",
+      "week": 2,
+      "position": "RB",
+      "baseline": 18.51,
+      "shipped": 17.24,
+      "candidate": 17.24,
+      "low": 8.71,
+      "high": 25.77,
+      "gated": 18.18,
+      "actual": 12.3,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9314,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4429160",
+      "week": 3,
+      "position": "RB",
+      "baseline": 19.38,
+      "shipped": 18.05,
+      "candidate": 18.05,
+      "low": 9.12,
+      "high": 26.99,
+      "gated": 19.04,
+      "actual": 1.7,
+      "signals": {
+        "age_curve": 1.0,
+        "injury_history": 0.9314,
+        "injury_status": 1.0
+      }
+    },
+    {
       "gsis_id": "espn-4429205",
       "week": 1,
       "position": "WR",
@@ -11721,6 +11862,40 @@
       "signals": {
         "age_curve": 1.0,
         "injury_history": 0.9608,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4689114",
+      "week": 1,
+      "position": "QB",
+      "baseline": 19.55,
+      "shipped": 14.69,
+      "candidate": 14.69,
+      "low": 7.15,
+      "high": 22.22,
+      "gated": 16.1,
+      "actual": 26.6,
+      "signals": {
+        "age_curve": 0.824,
+        "injury_history": 0.9118,
+        "injury_status": 1.0
+      }
+    },
+    {
+      "gsis_id": "espn-4689114",
+      "week": 2,
+      "position": "QB",
+      "baseline": 16.42,
+      "shipped": 12.34,
+      "candidate": 12.34,
+      "low": 6.01,
+      "high": 18.67,
+      "gated": 13.53,
+      "actual": 0.8,
+      "signals": {
+        "age_curve": 0.824,
+        "injury_history": 0.9118,
         "injury_status": 1.0
       }
     },
