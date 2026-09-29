@@ -357,3 +357,15 @@ test('R70: wiring — one allSettled on LINEUP, AI+-gated fetch on PLAYERS, opti
   // The chip carries meaning in TEXT: no colour-only variant exists.
   assert.ok(!/\.line-chip--q\b/.test(css));
 });
+
+/* R104 — gameday's lock step rebuilds game_predictions.json and advances the
+ * pipeline week (MNF goes FINAL overnight); the line report must follow it in the
+ * same run, or a week-N report sits under a week-N+1 slate and the committed-data
+ * check above goes red on the data commit (2026-09-29, 04:45Z gameday). */
+test('R104: gameday rebuilds the line report after the lock step, and skips it in scores mode', () => {
+  const y = readFileSync(join(REPO_ROOT, '.github/workflows/gameday.yml'), 'utf8');
+  const lock = y.indexOf('python -m scripts.build_predictions');
+  const line = y.indexOf('-- python scripts/build_line_report.py');
+  assert.ok(lock > 0 && line > lock, 'line report after the lock step');
+  assert.match(y, /skip --workflow gameday --stage "Build the line report \(OL \/ DL-front starters x injury report\)"/);
+});

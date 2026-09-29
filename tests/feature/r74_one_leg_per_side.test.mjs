@@ -75,10 +75,14 @@ test('a real slate rebuilt through the builder carries no stacked side', () => {
   // frozen at kickoff, spreads included, so the demonstration is made on the
   // live slate PLUS that archive: both must be free of stacked sides, and
   // together they must hold at least one spread.
-  const archivePath = join(DATA, 'parlays',
-    `${doc.season}_wk${String(doc.week).padStart(2, '0')}.json`);
-  const archive = existsSync(archivePath) ? load(archivePath) : { parlays: [] };
-  const cards = [...doc.parlays, ...(archive.parlays || [])];
+  // R104 — and right after the week rolls over (Tuesday, before the new week's
+  // lines post) the new slate and its archive hold none either, so the PREVIOUS
+  // week's archive (built under this rule, spreads frozen at kickoff) joins them.
+  const archiveOf = (week) => {
+    const path = join(DATA, 'parlays', `${doc.season}_wk${String(week).padStart(2, '0')}.json`);
+    return existsSync(path) ? (load(path).parlays || []) : [];
+  };
+  const cards = [...doc.parlays, ...archiveOf(doc.week), ...archiveOf(doc.week - 1)];
   const spreads = cards
     .flatMap((p) => p.legs)
     .filter((l) => l.market === 'spread').length;

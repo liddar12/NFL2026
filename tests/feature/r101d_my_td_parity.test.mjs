@@ -87,45 +87,36 @@ const hasPool = existsSync(join(ROOT, 'data/leg_pool.json'));
 const pool = hasPool ? readJson('data/leg_pool.json') : null;
 const hasAtd = Boolean(pool && (pool.atd_legs || []).length);
 
-test('R101d parity: MY TD cards are the same in the browser and the Python twin (committed pool)',
-  { skip: !hasAtd && 'the committed pool offers no anytime-TD leg' }, () => {
-    const games = readJson('data/schedule_full.json').games;
-    const calib = readJson('data/parlay_backtest.json');
-    const now = Date.parse(pool.generated_utc);
-    const table = correlationTable(mergedCalib(calib, pool));
-    const atd = upcomingLegs(atdPoolLegs(pool), games, now);
-    const other = dialLegs(upcomingLegs(poolLegs(pool), games, now), DIALS.even);
-    const teams = seedOptions(pool).filter((o) => o.kind === 'team');
-    // Seeds with the most anytime-TD legs first (where 3+ per game can happen),
-    // then a spread — sampled to keep the runtime inside the gate's budget.
-    const atdCount = (t) => atd.filter((l) => l.team === t.name).length;
-    const seeds = teams.slice().sort((a, b) => atdCount(b) - atdCount(a) || (a.name < b.name ? -1 : 1))
-      .filter((_, i) => i < 4 || i % 8 === 0);
-    const cases = [];
-    const expected = [];
-    let bigSeen = 0;
-    for (const mode of ['all_td', 'majority_td', 'scorers_50']) {
-      const cap = tdMaxPerGame(mode, VERDICT);
-      for (const n of [3, 5, 8]) {
-        const { legs, maxNonAtd } = tdLegsFor(mode, n, atd, other);
-        for (const seed of seeds) {
-          const cards = buildCards(legs, [seed], table, { counts: [n], perCount: 10, maxNonAtd, maxPerGame: cap });
-          bigSeen += cards.filter((c) => c.bigGame).length;
-          cases.push({ mode, n, cap, seed });
-          expected.push(cards.map((c) => ({ sel: c.legs.map((l) => l.selection), model: c.model,
-            implied: c.implied, big: c.bigGame })));
-        }
+/** Both sides over one (pool, games, calib) source: [cases, expected, bigSeen]. */
+function paritySweep(src, pickSeeds, sizes) {
+  const now = Date.parse(src.pool.generated_utc);
+  const table = correlationTable(mergedCalib(src.calib, src.pool));
+  const atd = upcomingLegs(atdPoolLegs(src.pool), src.games, now);
+  const other = dialLegs(upcomingLegs(poolLegs(src.pool), src.games, now), DIALS.even);
+  const seeds = pickSeeds(seedOptions(src.pool).filter((o) => o.kind === 'team'), atd);
+  const cases = [];
+  const expected = [];
+  let bigSeen = 0;
+  for (const mode of ['all_td', 'majority_td', 'scorers_50']) {
+    const cap = tdMaxPerGame(mode, VERDICT);
+    for (const n of sizes) {
+      const { legs, maxNonAtd } = tdLegsFor(mode, n, atd, other);
+      for (const seed of seeds) {
+        const cards = buildCards(legs, [seed], table, { counts: [n], perCount: 10, maxNonAtd, maxPerGame: cap });
+        bigSeen += cards.filter((c) => c.bigGame).length;
+        cases.push({ mode, n, cap, seed });
+        expected.push(cards.map((c) => ({ sel: c.legs.map((l) => l.selection), model: c.model,
+          implied: c.implied, big: c.bigGame })));
       }
     }
-    assert.ok(bigSeen > 0, 'the sweep exercises at least one 3+-legs-from-one-game card');
-    const got = python(`
+  }
+  const got = python(`
 import json, sys
 sys.path.insert(0, ".")
 from scripts.models import my_cards as M
 from scripts.models.parlay_builder import _correlation_table
 pay = json.load(open(sys.argv[1]))
-pool = json.load(open("data/leg_pool.json")); games = json.load(open("data/schedule_full.json"))["games"]
-calib = json.load(open("data/parlay_backtest.json"))
+pool, games, calib = pay["pool"], pay["games"], pay["calib"]
 corr = _correlation_table(M.merged_calib(calib, pool))
 now = pool["generated_utc"]
 atd = M.upcoming_legs(M.atd_pool_legs(pool), games, now)
@@ -137,20 +128,65 @@ for c in pay["cases"]:
                           max_non_atd=max_non, max_per_game=c["cap"])
     out.append([{"sel": [l["selection"] for l in k["legs"]], "model": k["model"],
                  "implied": k["implied"], "big": k["big_game"]} for k in cards])
-print(json.dumps(out))`, { cases });
-    assert.equal(got.length, expected.length);
-    expected.forEach((js, i) => {
-      const label = `${cases[i].mode} ${cases[i].n}-leg ${cases[i].seed.name}`;
-      const py = got[i];
-      assert.equal(py.length, js.length, `${label}: ${js.length} JS cards, ${py.length} Python`);
-      js.forEach((c, j) => {
-        assert.deepEqual(py[j].sel, c.sel, `${label} card ${j}: legs differ`);
-        assert.ok(Math.abs(py[j].model - c.model) < TOL, `${label} card ${j} model`);
-        assert.ok(Math.abs(py[j].implied - c.implied) < TOL, `${label} card ${j} implied`);
-        assert.equal(py[j].big, c.big, `${label} card ${j} bigGame`);
-      });
+print(json.dumps(out))`, { cases, pool: src.pool, games: src.games, calib: src.calib });
+  assert.equal(got.length, expected.length);
+  expected.forEach((js, i) => {
+    const label = `${cases[i].mode} ${cases[i].n}-leg ${cases[i].seed.name}`;
+    const py = got[i];
+    assert.equal(py.length, js.length, `${label}: ${js.length} JS cards, ${py.length} Python`);
+    js.forEach((c, j) => {
+      assert.deepEqual(py[j].sel, c.sel, `${label} card ${j}: legs differ`);
+      assert.ok(Math.abs(py[j].model - c.model) < TOL, `${label} card ${j} model`);
+      assert.ok(Math.abs(py[j].implied - c.implied) < TOL, `${label} card ${j} implied`);
+      assert.equal(py[j].big, c.big, `${label} card ${j} bigGame`);
     });
   });
+  return bigSeen;
+}
+
+test('R101d parity: MY TD cards are the same in the browser and the Python twin (committed pool)',
+  { skip: !hasAtd && 'the committed pool offers no anytime-TD leg' }, () => {
+    const src = { pool, games: readJson('data/schedule_full.json').games,
+      calib: readJson('data/parlay_backtest.json') };
+    // Seeds with the most anytime-TD legs first (where 3+ per game can happen),
+    // then a spread — sampled to keep the runtime inside the gate's budget.
+    // Whether THIS week's sample happens to rank a 3+-legs-from-one-game card is
+    // up to the data (week 4's did not, 2026-09-29); the synthetic case below is
+    // what guarantees that path is exercised.
+    paritySweep(src, (teams, atd) => {
+      const atdCount = (t) => atd.filter((l) => l.team === t.name).length;
+      return teams.slice().sort((a, b) => atdCount(b) - atdCount(a) || (a.name < b.name ? -1 : 1))
+        .filter((_, i) => i < 4 || i % 8 === 0);
+    }, [3, 5, 8]);
+  });
+
+/* A two-game slate where a 4-leg ALL TD card MUST take 3+ legs from one game: it
+ * proves the product-priced big-group path matches, independent of the week. */
+function syntheticSource() {
+  const games = [
+    { game_id: 'G1', status: 'STATUS_SCHEDULED', kickoff_utc: '2026-12-06T18:00Z' },
+    { game_id: 'G2', status: 'STATUS_SCHEDULED', kickoff_utc: '2026-12-06T21:25Z' },
+  ];
+  const atd_legs = [];
+  const players = [];
+  for (const [gid, teams, probs] of [['G1', ['AAA', 'BBB'], [0.62, 0.55, 0.51, 0.44, 0.35]],
+    ['G2', ['CCC', 'DDD'], [0.30, 0.26]]]) {
+    probs.forEach((p, j) => atd_legs.push({ gsis_id: `${gid}${j}`, player: `P ${gid}${j}`,
+      team: teams[j % 2], position: 'RB', market: 'anytime_td', game_id: gid,
+      side: j % 2 ? 'away' : 'home',
+      rungs: [{ line: 0.5, selection: `${gid}${j} anytime TD`, model_prob: p }] }));
+    players.push({ gsis_id: `${gid}y`, player: `Y ${gid}`, team: teams[0], position: 'WR',
+      market: 'wr_rec_yds', game_id: gid, side: 'home',
+      rungs: [{ line: 39.5, selection: `${gid} Y 40+`, model_prob: 0.5 }] });
+  }
+  return { games, calib: null,
+    pool: { season: 2026, week: 13, generated_utc: '2026-12-01T10:00:00Z', atd_legs, players, game_legs: [] } };
+}
+
+test('R101d parity: the 3+-legs-from-one-game path matches on a slate that forces it', () => {
+  const bigSeen = paritySweep(syntheticSource(), (teams) => teams, [4, 6]);
+  assert.ok(bigSeen > 0, 'the synthetic slate ranks at least one 3+-legs-from-one-game card');
+});
 
 test('R101d recorder: the recorded top card is the browser\'s top card, and it records once',
   { skip: !hasAtd && 'the committed pool offers no anytime-TD leg' }, () => {

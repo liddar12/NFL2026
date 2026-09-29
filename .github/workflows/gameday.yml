@@ -179,6 +179,16 @@ jobs:
         if: ${{ github.event.inputs.mode != 'scores' }}
         run: bash scripts/stage.sh gameday "Anytime-TD MY cards (first-sight record)" -- python3 scripts/build_my_td_cards.py
 
+      # R104 — the line report follows the week build_predictions just wrote. The
+      # lock step above advances the pipeline week (MNF goes FINAL overnight), so
+      # without this a week-3 line report sat under a week-4 slate until the next
+      # daily run and the R70 committed-data check went red on the data commit.
+      # Same command and the same best-effort rule as daily.yml.
+      - name: Build the line report (OL / DL-front starters x injury report)
+        if: ${{ github.event.inputs.mode != 'scores' }}
+        run: bash scripts/stage.sh --continue-on-error gameday "Build the line report (OL / DL-front starters x injury report)" -- python scripts/build_line_report.py
+        continue-on-error: true
+
       # R89 — the player backtest is measured on player_history.json, which the
       # lock step above just rebuilt. Daily runs both; gameday ran only the
       # first, so after gameday 123 the committed player_backtest.json reported
@@ -222,6 +232,7 @@ jobs:
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD week cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD game cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD MY cards (first-sight record)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "Build the line report (OL / DL-front starters x injury report)" --reason "scores mode: the week is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Player-level walk-forward backtest (same substrate as today's history)" --reason "scores mode: the history is not rebuilt"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Parlay-leg ledger append (as-made pricing, locked pre-kickoff)" --reason "scores mode: no new leg is offered"
 
