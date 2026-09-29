@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-24T20:36:37Z",
+  "generated_utc": "2026-09-29T13:51:55Z",
   "model": "leg_pool_v1",
   "ladder": {
     "QB": [
@@ -238,15 +238,28 @@
   ],
   "live_2026": {
     "weeks": [
-      2
+      2,
+      3
     ],
-    "legs": 166,
-    "offered_mean": 0.5446,
-    "hit_rate": 0.6807,
-    "per_week": [],
+    "legs": 420,
+    "offered_mean": 0.5234,
+    "hit_rate": 0.6667,
+    "per_week": [
+      {
+        "week": 3,
+        "n": 254,
+        "fit_weeks": [
+          2
+        ],
+        "raw_log_loss": 0.6616,
+        "adjusted_log_loss": 0.6194,
+        "raw_ece": 0.1503,
+        "adjusted_ece": 0.0448
+      }
+    ],
     "adjustment": null,
     "applied": false,
-    "reason": "hold: 0 held-out week(s) so far (weeks [2] graded); the layer ships only on >= 2"
+    "reason": "hold: 1 held-out week(s) so far (weeks [2, 3] graded); the layer ships only on >= 2"
   },
   "narrow_guard": {
     "pool_fit": {

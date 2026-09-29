@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-24T20:38:27Z",
+  "generated_utc": "2026-09-29T13:53:41Z",
   "kind": "atd_backtest",
   "policy": "MEASURE ONLY (R99 E1). P(anytime TD) = 1 - exp(-lambda_team * share), walk-forward. No ATD leg is offered while adopted is false. No book price is an input.",
   "model": "lambda_team = league TDs/game x shrunk offence rate x shrunk opponent TDs-allowed rate x home factor; share = TD share shrunk toward carries/targets opportunity share, R92 depth cascade, team sum <= 1",
@@ -117,27 +117,27 @@
       "team_games": 544,
       "snaps": {
         "rows": 26613,
-        "kept": 6587,
-        "unmapped": 17
+        "kept": 6588,
+        "unmapped": 16
       },
       "universe": 6883
     },
     "2026": {
       "stats": {
-        "rows": 2225,
-        "kept_rows": 724,
+        "rows": 3339,
+        "kept_rows": 1089,
         "not_reg": 0,
-        "other_season": 2,
-        "no_offense": 1499,
+        "other_season": 3,
+        "no_offense": 2247,
         "duplicate_player_week": 0
       },
-      "team_games": 64,
+      "team_games": 96,
       "snaps": {
-        "rows": 2994,
-        "kept": 784,
-        "unmapped": 6
+        "rows": 4488,
+        "kept": 1174,
+        "unmapped": 9
       },
-      "universe": 820
+      "universe": 1232
     }
   },
   "seasons": {
@@ -642,69 +642,83 @@
     "season": 2026,
     "weeks": [
       1,
-      2
+      2,
+      3
     ],
     "model": {
-      "n": 820,
-      "log_loss": 0.37252,
-      "brier": 0.1125,
-      "calibration_intercept": -0.0473,
-      "calibration_slope": 1.0294,
-      "mean_p": 0.1603,
-      "hit_rate": 0.15
+      "n": 1232,
+      "log_loss": 0.38736,
+      "brier": 0.11823,
+      "calibration_intercept": -0.142,
+      "calibration_slope": 0.9238,
+      "mean_p": 0.1599,
+      "hit_rate": 0.1558
     },
     "position_base_rate": {
-      "n": 820,
-      "log_loss": 0.42301,
-      "brier": 0.12764,
-      "calibration_intercept": -0.8606,
-      "calibration_slope": 0.5275,
-      "mean_p": 0.1615,
-      "hit_rate": 0.15
+      "n": 1232,
+      "log_loss": 0.43425,
+      "brier": 0.13202,
+      "calibration_intercept": -1.1655,
+      "calibration_slope": 0.3142,
+      "mean_p": 0.1605,
+      "hit_rate": 0.1558
     },
     "opportunity_only": {
-      "n": 820,
-      "log_loss": 0.37723,
-      "brier": 0.11486,
-      "calibration_intercept": -0.1071,
-      "calibration_slope": 1.016,
-      "mean_p": 0.1654,
-      "hit_rate": 0.15
+      "n": 1232,
+      "log_loss": 0.39124,
+      "brier": 0.12039,
+      "calibration_intercept": -0.1765,
+      "calibration_slope": 0.9192,
+      "mean_p": 0.1634,
+      "hit_rate": 0.1558
     },
     "per_week": [
       {
         "week": 1,
         "model": {
-          "n": 406,
-          "log_loss": 0.39168,
-          "brier": 0.12273,
-          "calibration_intercept": 0.4376,
-          "calibration_slope": 1.2355,
-          "mean_p": 0.1596,
-          "hit_rate": 0.1724
+          "n": 407,
+          "log_loss": 0.39106,
+          "brier": 0.12246,
+          "calibration_intercept": 0.4393,
+          "calibration_slope": 1.2384,
+          "mean_p": 0.1595,
+          "hit_rate": 0.172
         }
       },
       {
         "week": 2,
         "model": {
           "n": 414,
-          "log_loss": 0.35374,
-          "brier": 0.10248,
-          "calibration_intercept": -0.5038,
-          "calibration_slope": 0.8509,
+          "log_loss": 0.35367,
+          "brier": 0.1025,
+          "calibration_intercept": -0.504,
+          "calibration_slope": 0.8506,
           "mean_p": 0.161,
           "hit_rate": 0.128
+        }
+      },
+      {
+        "week": 3,
+        "model": {
+          "n": 411,
+          "log_loss": 0.41765,
+          "brier": 0.12988,
+          "calibration_intercept": -0.2714,
+          "calibration_slope": 0.7637,
+          "mean_p": 0.159,
+          "hit_rate": 0.1679
         }
       }
     ],
     "live_2026": {
       "weeks": [
         1,
-        2
+        2,
+        3
       ],
-      "legs": 820,
-      "offered_mean": 0.1603,
-      "hit_rate": 0.15,
+      "legs": 1232,
+      "offered_mean": 0.1599,
+      "hit_rate": 0.1558,
       "per_week": [
         {
           "week": 2,
@@ -713,14 +727,26 @@
             1
           ],
           "raw_log_loss": 0.3537,
-          "adjusted_log_loss": 0.3632,
-          "raw_ece": 0.04,
-          "adjusted_ece": 0.064
+          "adjusted_log_loss": 0.3631,
+          "raw_ece": 0.0397,
+          "adjusted_ece": 0.0633
+        },
+        {
+          "week": 3,
+          "n": 411,
+          "fit_weeks": [
+            1,
+            2
+          ],
+          "raw_log_loss": 0.4177,
+          "adjusted_log_loss": 0.4196,
+          "raw_ece": 0.0324,
+          "adjusted_ece": 0.0456
         }
       ],
       "adjustment": null,
       "applied": false,
-      "reason": "hold: 1 held-out week(s) so far (weeks [1, 2] graded); the layer ships only on >= 2"
+      "reason": "hold: the layer is worse on held-out week(s) [2, 3]"
     }
   },
   "in_season_min_weeks": 4,
