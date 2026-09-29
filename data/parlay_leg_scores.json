@@ -1,92 +1,92 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-29T02:36:28Z",
+  "generated_utc": "2026-09-29T04:45:31Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (47 games); scores from data/review.json FINAL rows (47 games); scores from ESPN live, STATUS-gated FINAL (47 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (48 games); scores from data/review.json FINAL rows (47 games); scores from ESPN live, STATUS-gated FINAL (48 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 3,
   "legs": {
-    "on_file": 333,
-    "locked": 266,
+    "on_file": 395,
+    "locked": 328,
     "unlocked": 67,
-    "resolved": 242,
-    "unresolved": 20
+    "resolved": 249,
+    "unresolved": 17
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 125,
-      "hit_rate": 0.528,
+      "n": 128,
+      "hit_rate": 0.5312,
       "model": {
-        "log_loss": 0.6772,
-        "brier": 0.2423
+        "log_loss": 0.6774,
+        "brier": 0.2425
       },
       "seed": {
-        "log_loss": 0.6826,
-        "brier": 0.2448
+        "log_loss": 0.6833,
+        "brier": 0.2451
       },
       "by_pricing": {
-        "calibrated": 125
+        "calibrated": 128
       }
     },
     "moneyline": {
-      "n": 47,
-      "hit_rate": 0.5957,
-      "log_loss": 0.6675,
-      "brier": 0.2377
+      "n": 49,
+      "hit_rate": 0.5918,
+      "log_loss": 0.6681,
+      "brier": 0.238
     },
     "spread": {
-      "n": 70,
-      "hit_rate": 0.4429,
+      "n": 72,
+      "hit_rate": 0.4306,
       "log_loss": 0.6931,
       "brier": 0.25
     }
   },
   "by_position": {
     "QB": {
-      "n": 40,
-      "hit_rate": 0.5,
-      "model": {
-        "log_loss": 0.6943,
-        "brier": 0.2506
-      },
-      "seed": {
-        "log_loss": 0.671,
-        "brier": 0.239
-      },
-      "by_pricing": {
-        "calibrated": 40
-      }
-    },
-    "RB": {
-      "n": 44,
-      "hit_rate": 0.5227,
-      "model": {
-        "log_loss": 0.6608,
-        "brier": 0.2345
-      },
-      "seed": {
-        "log_loss": 0.672,
-        "brier": 0.2395
-      },
-      "by_pricing": {
-        "calibrated": 44
-      }
-    },
-    "WR": {
       "n": 41,
-      "hit_rate": 0.561,
+      "hit_rate": 0.4878,
       "model": {
-        "log_loss": 0.6782,
-        "brier": 0.2427
+        "log_loss": 0.6866,
+        "brier": 0.247
       },
       "seed": {
-        "log_loss": 0.7053,
-        "brier": 0.256
+        "log_loss": 0.6704,
+        "brier": 0.2387
       },
       "by_pricing": {
         "calibrated": 41
+      }
+    },
+    "RB": {
+      "n": 45,
+      "hit_rate": 0.5333,
+      "model": {
+        "log_loss": 0.6657,
+        "brier": 0.2369
+      },
+      "seed": {
+        "log_loss": 0.6736,
+        "brier": 0.2403
+      },
+      "by_pricing": {
+        "calibrated": 45
+      }
+    },
+    "WR": {
+      "n": 42,
+      "hit_rate": 0.5714,
+      "model": {
+        "log_loss": 0.6809,
+        "brier": 0.2441
+      },
+      "seed": {
+        "log_loss": 0.7062,
+        "brier": 0.2564
+      },
+      "by_pricing": {
+        "calibrated": 42
       }
     }
   },
@@ -154,29 +154,29 @@
     {
       "week": 3,
       "props": {
-        "n": 44,
-        "hit_rate": 0.6364,
+        "n": 47,
+        "hit_rate": 0.6383,
         "model": {
-          "log_loss": 0.6979,
-          "brier": 0.2526
+          "log_loss": 0.6971,
+          "brier": 0.2523
         },
         "seed": {
-          "log_loss": 0.6668,
-          "brier": 0.237
+          "log_loss": 0.6697,
+          "brier": 0.2384
         },
         "by_pricing": {
-          "calibrated": 44
+          "calibrated": 47
         }
       },
       "moneyline": {
-        "n": 15,
-        "hit_rate": 0.6667,
-        "log_loss": 0.6426,
-        "brier": 0.2256
+        "n": 17,
+        "hit_rate": 0.6471,
+        "log_loss": 0.6474,
+        "brier": 0.2279
       },
       "spread": {
-        "n": 24,
-        "hit_rate": 0.5417,
+        "n": 26,
+        "hit_rate": 0.5,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -300,27 +300,6 @@
       "game_id": "401872962",
       "market": "wr_rec_yds",
       "selection": "P. Nacua 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 3,
-      "game_id": "401872963",
-      "market": "qb_pass_yds",
-      "selection": "J. Hurts 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 3,
-      "game_id": "401872963",
-      "market": "rb_rush_yds",
-      "selection": "S. Barkley 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 3,
-      "game_id": "401872963",
-      "market": "wr_rec_yds",
-      "selection": "D. Smith 60+ rec yds",
       "reason": "no_stat_line"
     }
   ],
@@ -4453,6 +4432,123 @@
       "model_prob": 0.3379,
       "seed_prob": 0.474,
       "actual": 137.0,
+      "hit": true
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "moneyline",
+      "selection": "CHI ML",
+      "team": "CHI",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5616,
+      "actual": {
+        "home_score": 27,
+        "away_score": 7
+      },
+      "hit": true
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "moneyline",
+      "selection": "PHI ML",
+      "team": "PHI",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5459,
+      "actual": {
+        "home_score": 27,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Hurts 225+ pass yds",
+      "player": "Jalen Hurts",
+      "team": "PHI",
+      "line": 224.5,
+      "mu": 185.53,
+      "sd": 76.66,
+      "z": -0.5083,
+      "p_team": 0.4384,
+      "pricing": "calibrated",
+      "model_prob": 0.3169,
+      "seed_prob": 0.4754,
+      "actual": 153.0,
+      "hit": false
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "S. Barkley 60+ rush yds",
+      "player": "Saquon Barkley",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 57.86,
+      "sd": 38.87,
+      "z": -0.0422,
+      "p_team": 0.4384,
+      "pricing": "calibrated",
+      "model_prob": 0.4146,
+      "seed_prob": 0.4754,
+      "actual": 82.0,
+      "hit": true
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "spread",
+      "selection": "PHI -3.5",
+      "team": "PHI",
+      "side": "away",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 27,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "spread",
+      "selection": "PHI -4.5",
+      "team": "PHI",
+      "side": "away",
+      "line": -4.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 27,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 3,
+      "game_id": "401872963",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. Smith 60+ rec yds",
+      "player": "DeVonta Smith",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 62.09,
+      "sd": 41.58,
+      "z": 0.0622,
+      "p_team": 0.4384,
+      "pricing": "calibrated",
+      "model_prob": 0.4516,
+      "seed_prob": 0.4754,
+      "actual": 65.0,
       "hit": true
     }
   ]
