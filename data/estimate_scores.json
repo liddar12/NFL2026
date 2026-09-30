@@ -1,12 +1,12 @@
 {
   "season": 2026,
-  "generated_utc": "2026-09-30T16:26:26Z",
+  "generated_utc": "2026-09-30T22:09:45Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "scoring": "actual = nflverse fantasy_points_ppr when the column is present; else pass_yd*0.04 + pass_td*4 - int*2 + rush_yd*0.1 + rush_td*6 + rec*1 + rec_yd*0.1 + rec_td*6 - fumbles_lost*2 + 2pt*2 over the release's component columns (regular season only)",
   "ledger": "data/estimates/2026.json",
   "weeks_resolved": 3,
   "players_scored": 249,
-  "rows_resolved": 726,
+  "rows_resolved": 727,
   "unmatched_players": 58,
   "unmatched": [
     {
@@ -318,13 +318,13 @@
     {
       "gsis_id": "espn-4569682",
       "name": "Audric Estime",
-      "team": "NO",
+      "team": "MIN",
       "position": "RB"
     },
     {
       "gsis_id": "espn-4682652",
       "name": "Devin Neal",
-      "team": "NO",
+      "team": "MIN",
       "position": "RB"
     },
     {
@@ -360,27 +360,27 @@
   ],
   "skipped": null,
   "totals": {
-    "n": 726,
-    "mae_shipped": 5.636,
-    "mae_candidate": 5.636,
-    "mae_gated": 5.709,
-    "mae_baseline": 5.823,
-    "bias_shipped": -0.444,
-    "bias_candidate": -0.444,
-    "bias_gated": -0.775,
-    "band_coverage": 0.4573
+    "n": 727,
+    "mae_shipped": 5.628,
+    "mae_candidate": 5.628,
+    "mae_gated": 5.701,
+    "mae_baseline": 5.815,
+    "bias_shipped": -0.443,
+    "bias_candidate": -0.443,
+    "bias_gated": -0.774,
+    "band_coverage": 0.458
   },
   "by_position": {
     "QB": {
-      "n": 107,
-      "mae_shipped": 6.9,
-      "mae_candidate": 6.9,
-      "mae_gated": 7.388,
-      "mae_baseline": 6.81,
-      "bias_shipped": -2.259,
-      "bias_candidate": -2.259,
-      "bias_gated": -2.946,
-      "band_coverage": 0.4112
+      "n": 108,
+      "mae_shipped": 6.836,
+      "mae_candidate": 6.836,
+      "mae_gated": 7.319,
+      "mae_baseline": 6.746,
+      "bias_shipped": -2.238,
+      "bias_candidate": -2.238,
+      "bias_gated": -2.919,
+      "band_coverage": 0.4167
     },
     "RB": {
       "n": 183,
@@ -444,14 +444,14 @@
     {
       "week": 3,
       "rows_available": 367,
-      "players_scored": 248,
-      "mae_shipped": 5.315,
-      "mae_candidate": 5.315,
-      "mae_gated": 5.365,
-      "bias_shipped": -0.795,
-      "bias_candidate": -0.795,
-      "bias_gated": -1.1,
-      "band_coverage": 0.4798
+      "players_scored": 249,
+      "mae_shipped": 5.294,
+      "mae_candidate": 5.294,
+      "mae_gated": 5.344,
+      "bias_shipped": -0.792,
+      "bias_candidate": -0.792,
+      "bias_gated": -1.095,
+      "band_coverage": 0.4819
     }
   ],
   "resolved": [
@@ -11932,6 +11932,24 @@
         "injury_history": 0.9118,
         "injury_status": 1.0
       }
+    },
+    {
+      "gsis_id": "espn-4689114",
+      "week": 3,
+      "position": "QB",
+      "baseline": 0.0,
+      "shipped": 0.0,
+      "candidate": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "gated": 0.0,
+      "actual": 0.0,
+      "signals": {
+        "age_curve": 0.824,
+        "injury_history": 0.9118,
+        "injury_status": 1.0
+      },
+      "dnp": true
     },
     {
       "gsis_id": "espn-4695404",
