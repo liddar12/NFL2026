@@ -1,0 +1,197 @@
+{
+  "kind": "learning_loops",
+  "generated_utc": "2026-10-01T15:57:56Z",
+  "policy": "Each loop decides on its own record whether a candidate clears its gate; this file only reports those decisions, verbatim. transitions is append-only.",
+  "summary": {
+    "adopted": 5,
+    "held": 6,
+    "reverted": 0,
+    "measuring": 5,
+    "absent": 0
+  },
+  "loops": [
+    {
+      "id": "game_params",
+      "group": "ships",
+      "name": "Game model parameters",
+      "learns": "every FINAL game 2022-25 + each graded 2026 lock",
+      "moves": "every game win probability",
+      "source": "data/model_tuning.json",
+      "state": "held",
+      "why": "NEVER REGRESS: best backtest grid candidate hfa_elo=45 revert=0.45 k=25 scores 0.6369 vs incumbent (hfa_elo=45 revert=0.45 k=20) at 0.6371 over 1084 real FINAL games (seasons 2022-2023-2024-2025); the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
+      "last_run_utc": "2026-09-29T13:52:39Z",
+      "runs": 53,
+      "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
+      "live_since_utc": "2026-07-17T17:16:18Z"
+    },
+    {
+      "id": "game_signals",
+      "group": "ships",
+      "name": "Game signal weights (promotion gate)",
+      "learns": "walk-forward 2022-25 finals",
+      "moves": "the venue / cold signal weights in game odds",
+      "source": "data/model_tuning.json",
+      "state": "held",
+      "why": "incumbent retained: no candidate cleared the margin \u2014 signals stay at weight 0",
+      "last_run_utc": "2026-07-18T02:47:47Z",
+      "runs": 25
+    },
+    {
+      "id": "player_signals",
+      "group": "ships",
+      "name": "Player signal weights",
+      "learns": "this season's resolved player-weeks (walk-forward)",
+      "moves": "every player projection",
+      "source": "data/model_tuning.json",
+      "state": "held",
+      "why": "the refit is worse on held-out week(s) [2]",
+      "last_run_utc": "2026-09-29T13:53:21Z",
+      "runs": 9,
+      "live": "every signal at full strength"
+    },
+    {
+      "id": "weekly_split",
+      "group": "ships",
+      "name": "Weekly split (player points per week)",
+      "learns": "2023-25 player-weeks, held-out 2025",
+      "moves": "every player's weekly number",
+      "source": "data/weekly_backtest.json",
+      "state": "adopted",
+      "why": "v2 beats v1 on pooled MAE (6.003 vs 6.050) and pooled rank_corr (0.381 vs 0.369); held-out 2025 MAE 6.079 vs 6.111",
+      "last_run_utc": "2026-10-01T15:54:40Z"
+    },
+    {
+      "id": "kdst_split",
+      "group": "ships",
+      "name": "Kicker / D-ST weekly split",
+      "learns": "resolved K and D/ST weeks",
+      "moves": "K and D/ST weekly numbers",
+      "source": "data/kdst_backtest.json",
+      "state": "adopted",
+      "why": "split beats flat by 0.1191, 95% CI [-0.1624, -0.0758] excludes 0",
+      "last_run_utc": "2026-09-29T13:51:52Z"
+    },
+    {
+      "id": "leg_pool",
+      "group": "ships",
+      "name": "Parlay leg calibration (wide pool)",
+      "learns": "41k historical prop legs, walk-forward",
+      "moves": "every MY PARLAYS leg probability",
+      "source": "data/leg_pool_backtest.json",
+      "state": "adopted",
+      "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0723, margin 0.005), keeps skill (0.1758 vs 0.1427) and carries information (skill > 0.02)",
+      "last_run_utc": "2026-09-29T13:51:55Z"
+    },
+    {
+      "id": "leg_pool_live",
+      "group": "ships",
+      "name": "Parlay leg calibration (2026 layer)",
+      "learns": "this season's graded legs",
+      "moves": "every MY PARLAYS leg probability",
+      "source": "data/leg_pool_backtest.json",
+      "state": "held",
+      "why": "hold: 1 held-out week(s) so far (weeks [2, 3] graded); the layer ships only on >= 2",
+      "last_run_utc": "2026-09-29T13:51:55Z"
+    },
+    {
+      "id": "props_calibration",
+      "group": "ships",
+      "name": "Slate prop calibration",
+      "learns": "2024-25 prop outcomes, walk-forward",
+      "moves": "prop legs on the slate parlays",
+      "source": "data/parlay_backtest.json",
+      "state": "adopted",
+      "why": "calibrated log-loss <= seed on every fold: 2024: 0.6767 vs 0.6920; 2025: 0.6705 vs 0.6820",
+      "last_run_utc": "2026-09-29T10:18:26Z"
+    },
+    {
+      "id": "spread_model",
+      "group": "ships",
+      "name": "Spread cover model",
+      "learns": "797 games 2023-25",
+      "moves": "spread legs (flat until it shows an edge)",
+      "source": "data/parlay_backtest.json",
+      "state": "held",
+      "why": "cover model log-loss 0.7231 vs a coin flip 0.6931 over 797 games \u2014 no edge, spreads stay priced flat",
+      "last_run_utc": "2026-09-29T10:18:26Z"
+    },
+    {
+      "id": "atd_model",
+      "group": "ships",
+      "name": "Anytime-TD model",
+      "learns": "2023-25 held-out seasons",
+      "moves": "every anytime-TD leg and card",
+      "source": "data/atd_backtest.json",
+      "state": "adopted",
+      "why": "ADOPTED \u2014 beats the position base rate and opportunity-only share on log loss and Brier in every held-out season (2023, 2024, 2025), calibration slope inside [0.9, 1.1] in each; team TDs within 5% over 2024-25",
+      "last_run_utc": "2026-09-29T13:53:41Z"
+    },
+    {
+      "id": "joint_pricer",
+      "group": "ships",
+      "name": "Same-game card pricer",
+      "learns": "held-out seasons of simulated same-game cards",
+      "moves": "GAME anytime-TD card prices and sizes",
+      "source": "data/joint_backtest.json",
+      "state": "held",
+      "why": "held-out log-loss joint 0.091365 vs independent 0.091129 over 43528 cards \u2014 the independent product keeps pricing them",
+      "last_run_utc": "2026-09-29T13:59:20Z"
+    },
+    {
+      "id": "backup_qb",
+      "group": "measure",
+      "name": "Backup-QB effect",
+      "learns": "QB-out games",
+      "moves": "nothing (phase 1 measures only)",
+      "source": "data/backup_qb_backtest.json",
+      "state": "measuring",
+      "why": "phase 1 measures only; 2 of 10 candidates clear never-regress (best by pooled MAE: cap_gap_RB)",
+      "last_run_utc": "2026-09-29T13:53:21Z"
+    },
+    {
+      "id": "weather",
+      "group": "measure",
+      "name": "Rain and wind",
+      "learns": "outdoor games with weather",
+      "moves": "nothing (measure only)",
+      "source": "data/weather_backtest.json",
+      "state": "measuring",
+      "why": "not powered: 1 of 10 measured effects have the sample to detect the effect of interest; 0 candidate(s) adoptable",
+      "last_run_utc": "2026-09-29T13:53:30Z"
+    },
+    {
+      "id": "qb_depth",
+      "group": "measure",
+      "name": "QB depth chart",
+      "learns": "QB changes",
+      "moves": "nothing (measure only)",
+      "source": "data/qb_depth_backtest.json",
+      "state": "measuring",
+      "why": "verdict none: no candidate clears the one-sided test at alpha 0.05 over 4 families",
+      "last_run_utc": "2026-09-29T13:53:03Z"
+    },
+    {
+      "id": "lines",
+      "group": "measure",
+      "name": "Offensive / defensive line injuries",
+      "learns": "starter absences",
+      "moves": "nothing (phase 1 measures only)",
+      "source": "data/lines_backtest.json",
+      "state": "measuring",
+      "why": "phase 1 measures only; 0 of 15 variants clear never-regress",
+      "last_run_utc": "2026-10-01T15:54:50Z"
+    },
+    {
+      "id": "replay_lab",
+      "group": "measure",
+      "name": "Replay lab (parlay rules)",
+      "learns": "this season's graded legs",
+      "moves": "nothing (adopts nothing)",
+      "source": "data/replay_lab.json",
+      "state": "measuring",
+      "why": "candidate parlay rules replayed on 3 week(s): same pool_calibration, seed, shrink_to_half; worse spread_margin_model",
+      "last_run_utc": "2026-10-01T15:57:53Z"
+    }
+  ],
+  "transitions": []
+}
