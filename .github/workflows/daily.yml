@@ -223,6 +223,15 @@ jobs:
       - name: Estimate ledger append (shipped + candidate, per remaining week)
         run: bash scripts/stage.sh daily "Estimate ledger append (shipped + candidate, per remaining week)" -- python scripts/build_estimate_ledger.py
 
+      # R105b — the ledger heals itself from its own git history (checkout above
+      # is fetch-depth 0): any lock, first sight or player record a committed
+      # version ever held and the file no longer does is restored verbatim, with
+      # the absence that explains it. A no-op once healed; whatever is lost later
+      # is put back on the next run, never by hand. Before the resolver, so the
+      # restored locks are scored.
+      - name: Estimate ledger self-heal (every committed lock survives)
+        run: bash scripts/stage.sh daily "Estimate ledger self-heal (every committed lock survives)" -- python scripts/restore_ledger_players.py
+
       - name: Resolve estimates against nflverse weekly actuals
         run: bash scripts/stage.sh --continue-on-error daily "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run

@@ -384,8 +384,9 @@ def merge_locked(base, theirs, ours):
 def merge_player(base, theirs, ours, spec):
     """One player in data/estimates/<season>.json.
 
-    `first` is a lock (earlier wins), `latest` is a watermark (later wins), and
-    `locked` is a per-week union of locks. Everything else is flat.
+    `first` is a lock (earlier wins), `latest` is a watermark (later wins),
+    `locked` is a per-week union of locks, and (R105b) `gaps` / `recovered` are
+    unions. Everything else is flat.
     """
     out = {}
     for k in ordered_keys(base, theirs, ours):
@@ -398,6 +399,20 @@ def merge_player(base, theirs, ours, spec):
             out[k] = pick_by_asof(t, o, later=True)
         elif k == "locked":
             out[k] = merge_locked(b, t, o)
+        elif k == "gaps":
+            # R105b — every recorded absence from either side, once, in order.
+            seen = []
+            for g in (t or []) + (o or []):
+                if g not in seen:
+                    seen.append(g)
+            out[k] = sorted(seen, key=lambda g: g.get("last_seen") or "")
+        elif k == "recovered":
+            # R105b — what the heal restored, from either side.
+            t_, o_ = t or {}, o or {}
+            out[k] = {"locked_weeks": sorted(set(t_.get("locked_weeks") or [])
+                                             | set(o_.get("locked_weeks") or [])),
+                      "first": bool(t_.get("first")) or bool(o_.get("first")),
+                      "source": t_.get("source") or o_.get("source")}
         else:
             sub = merge_flat(
                 {k: b} if b is not None else {},

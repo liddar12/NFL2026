@@ -917,6 +917,19 @@ nothing ships without one.
   and the archive no longer admits a card built after its kickoff. PARTIAL now reads
   "PARTIAL · LOSS". The learning record (`parlay_leg_scores.json`) is untouched: only locked legs
   calibrate. **Locked by** `r106_parlay_settle` (3), `r90_card_freeze` (updated). · **LOE** 0.5 d
+- **R105b · The estimate ledger heals itself (P1) — built 2026-10-01.** Owner: "figure out an ongoing
+  solution" for the 18 players dropped and later re-added before R103, who had lost 19 locked week
+  estimates and their true first sight. Three parts: (1) the builder records a returning player's
+  absence as a gap `{last_seen, back}` and locks NO week from his stale pre-absence estimate (a
+  latent defect of append-only: a player back from IR would have had every missed week locked from
+  his old number); (2) `scripts/restore_ledger_players.py` now runs on every daily pipeline (full
+  history checked out) and restores, verbatim from the ledger file's own git history, every lock,
+  first sight and record a committed version ever held, with the gap that explains the absence,
+  marked `recovered` — idempotent, so it is a no-op once healed and puts back anything lost later
+  without a hand commit; (3) one rule, `lock_eligible`, says exactly which weeks a player must hold
+  a lock for, and the committed ledger must match it (warned by the validator, enforced by CI and
+  data-ci). The race-safe merge unions gaps and recovered weeks. **Locked by** `r105b_ledger_heal`
+  (4). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

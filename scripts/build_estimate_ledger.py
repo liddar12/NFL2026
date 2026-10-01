@@ -146,7 +146,16 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
         prev = prev_players.get(pid)
         first = prev["first"] if prev else est
         locked = dict(prev["locked"]) if prev else {}
-        if prev:
+        gaps = list(prev.get("gaps") or []) if prev else []
+        # R105b — a player RETURNING after missing one or more appends (his latest
+        # predates the ledger's) gets the absence recorded as a gap, and NO week is
+        # locked from that stale pre-absence estimate: a kickoff that fell inside
+        # the gap had no estimate from the model at the time, so locking one
+        # against it would grade a claim the model had stopped making.
+        returning = bool(prev) and prev["latest"]["as_of_utc"] != (ledger or {}).get("as_of_utc")
+        if returning:
+            gaps.append({"last_seen": prev["latest"]["as_of_utc"], "back": as_of})
+        if prev and not returning:
             # Lock every week whose kickoff has passed as of THIS append, from the
             # previous latest — the last estimate written before the kickoff.
             p_latest = prev["latest"]
@@ -164,6 +173,11 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
             "latest": est,
             "locked": dict(sorted(locked.items(), key=lambda kv: int(kv[0]))),
         }
+        for k in ("gaps", "recovered"):
+            if k == "gaps" and gaps:
+                players_out[pid]["gaps"] = gaps
+            elif k == "recovered" and prev and prev.get("recovered"):
+                players_out[pid]["recovered"] = prev["recovered"]
     # R103 — the ledger is APPEND-ONLY. A player who leaves this build's
     # projections (IR, a depth-chart demotion out of the top 300) keeps his record
     # VERBATIM: rebuilding `players` from today's projections alone silently
@@ -198,6 +212,34 @@ def append(ledger, projections, weekly, kickoffs, weights, season, generated_utc
         "runs": runs,
         "players": players_out,
     }
+
+
+def lock_eligible(rec, week_kick, ledger_as_of):
+    """True iff the builder MUST hold a lock for this week (R105b): the ledger has
+    appended since the kickoff, the player was projected before it and after it,
+    and no recorded absence (gap) straddles it. Same string comparisons as
+    append(), so the rule and the builder can never disagree on an edge."""
+    if week_kick > ledger_as_of:
+        return False                      # no append since the kickoff yet
+    if not rec["first"]["as_of_utc"] < week_kick or week_kick > rec["latest"]["as_of_utc"]:
+        return False                      # not projected on both sides of it
+    return not any(g["last_seen"] < week_kick and not week_kick > g["back"]
+                   for g in rec.get("gaps") or [])
+
+
+def lock_violations(doc, kickoffs):
+    """[(pid, week, why)] where a player's locks disagree with lock_eligible."""
+    out = []
+    for pid, rec in (doc.get("players") or {}).items():
+        for week, kick in sorted(kickoffs.items()):
+            has = str(week) in (rec.get("locked") or {})
+            want = lock_eligible(rec, kick, doc.get("as_of_utc") or "")
+            if want and not has:
+                out.append((pid, int(week), "lock missing"))
+            elif has and not want:
+                out.append((pid, int(week), "locked inside a gap or without an estimate "
+                                            "at kickoff"))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -315,9 +357,30 @@ def selftest():
         "a player absent from today's projections keeps his locked estimates"
     assert list(d6["players"]["espn-1"]["locked"]) == ["1"], "no week locked while absent"
     assert d6["runs"][-1]["players"] == 0, "the run counts the players projected today"
+    # R105b — he RETURNS after week 2 kicked off while he was gone: the absence is
+    # recorded as a gap and week 2 is NOT locked from his stale pre-absence estimate.
+    p7, w7 = _fixture("2026-09-26T06:00:00Z")
+    d7 = append(d6, p7, w7, kick, weights, 2026, "2026-09-26T06:00:01Z")
+    e7 = d7["players"]["espn-1"]
+    assert e7["gaps"] == [{"last_seen": "2026-09-12T06:00:00Z", "back": "2026-09-26T06:00:00Z"}], e7
+    assert list(e7["locked"]) == ["1"], "no week locked across the gap: %s" % e7["locked"]
+    assert e7["first"] == d6["players"]["espn-1"]["first"], "first sight survives the gap"
+    assert lock_violations(d7, kick) == [], lock_violations(d7, kick)
+    # present on the next append too: locking resumes, the gap is kept verbatim
+    p8, w8 = _fixture("2026-09-27T06:00:00Z")
+    d8 = append(d7, p8, w8, kick, weights, 2026, "2026-09-27T06:00:01Z")
+    assert d8["players"]["espn-1"]["gaps"] == e7["gaps"] and "gaps" not in d3["players"]["espn-1"]
+    assert lock_violations(d8, kick) == [] and lock_violations(d3, kick) == []
+    bad = json.loads(json.dumps(d8))
+    bad["players"]["espn-1"]["locked"]["2"] = dict(lk, as_of_utc="2026-09-12T06:00:00Z")
+    assert lock_violations(bad, kick) == [("espn-1", 2, "locked inside a gap or without "
+                                           "an estimate at kickoff")], lock_violations(bad, kick)
+    del bad["players"]["espn-1"]["locked"]["1"]
+    assert ("espn-1", 1, "lock missing") in lock_violations(bad, kick)
     print("selftest OK: idempotent per as-of, first/latest kept, weeks lock from the "
           "last pre-kickoff estimate and never change, no estimate -> no lock, a player "
-          "who leaves the projections keeps his record (append-only)")
+          "who leaves the projections keeps his record (append-only), a returning "
+          "player's absence is a gap and no week locks across it")
 
 
 def main(argv=None):
