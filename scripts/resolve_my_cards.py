@@ -60,9 +60,10 @@ if _ROOT not in sys.path:
 
 from scripts.build_my_cards import DIAL_ORDER, OUT_DIR as CARDS_DIR  # noqa: E402
 from scripts.build_parlay_ledger import _SPREAD_RE  # noqa: E402
-from scripts.build_review import STAKE, parlay_bucket, parlay_money  # noqa: E402
+from scripts.build_review import (STAKE, parlay_bucket, parlay_money,  # noqa: E402
+                                  parlay_result)
 from scripts.models.my_cards import LEG_COUNTS  # noqa: E402
-from scripts.resolve_estimates import RELEASE_URL, fetch_csv  # noqa: E402
+from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
 from scripts.resolve_parlay_legs import (  # noqa: E402
     ATD_MARKET, GAME_MARKETS, PROP_POSITION, SNAPS_URL, brier, find_player, grade_atd,
     index_snaps, index_stats, index_td, load_finals, log_loss, read_csv, split_abbrev,
@@ -134,8 +135,42 @@ def spread_handicap(leg):
     return float(m.group("hcap"))
 
 
-def grade_prop(leg, week, by_week):
-    """(result, actual, reason) for one prop leg. Never a miss without a stat line."""
+def snap_evidence(leg, week, snaps_by_week):
+    """R106 — did the player behind a leg with NO stat line play? Read off the
+    week's snap sheet (resolve_parlay_legs.index_snaps), the evidence grade_atd
+    already uses: ("played", snaps) when he is on his team's published sheet with
+    >= 1 offensive snap, ("dnp", None) when the sheet is published and he is not on
+    it, (None, None) when there is no evidence either way. The name is his full
+    name when the leg carries one, else the selection's initial + surname."""
+    snaps = (snaps_by_week or {}).get(int(week))
+    team = leg.get("team")
+    if not snaps or not team or team not in snaps["teams"]:
+        return None, None
+    rows = [r for r in snaps["rows"] if r["team"] == team]
+    full = norm_name(leg.get("player")) if leg.get("player") else None
+    if full:
+        mine = [r for r in rows if r["norm"] == full]
+    else:
+        parsed = split_abbrev(leg.get("selection"))
+        if parsed is None:
+            return None, None
+        ini, last = parsed
+        mine = [r for r in rows if len(r["norm"].split(" ")) >= 2
+                and r["norm"][0] == ini and " ".join(r["norm"].split(" ")[1:]) == last]
+        if len({r["norm"] for r in mine}) > 1:
+            return None, None                 # two men fit the abbreviation: no call
+    played = [r for r in mine if r["snaps"] >= 1]
+    if played:
+        return "played", played[0]["snaps"]
+    return "dnp", None
+
+
+def grade_prop(leg, week, by_week, snaps_by_week=None):
+    """(result, actual, reason) for one prop leg. Never a miss without evidence:
+    a stat line, or (R106) a snap sheet showing he played and so gained 0 yards.
+    A published snap sheet he is NOT on is a void (did_not_play) — the book's rule
+    and grade_atd's — so a parlay settles on its other legs instead of sitting
+    pending forever."""
     rows = by_week.get(int(week))
     if rows is None:
         return "pending", None, "week_not_published"
@@ -154,6 +189,12 @@ def grade_prop(leg, week, by_week):
            "home": leg.get("team"), "away": leg.get("team")}
     row, why = find_player(ref, rows)
     if row is None:
+        if why == "no_stat_line":
+            ev, snaps = snap_evidence(leg, week, snaps_by_week)
+            if ev == "played":
+                return ("hit" if 0.0 >= float(line) else "miss"), 0.0, None
+            if ev == "dnp":
+                return "void", None, "did_not_play"
         return "pending", None, why
     yards = row["yards"][position]
     return ("hit" if yards >= float(line) else "miss"), yards, None
@@ -206,21 +247,15 @@ def grade_card(card, week, by_week, finals, atd=None):
         elif market in GAME_MARKETS:
             result, actual, reason = grade_game(leg, finals)
         elif market in PROP_POSITION:
-            result, actual, reason = grade_prop(leg, week, by_week)
+            result, actual, reason = grade_prop(leg, week, by_week,
+                                                (atd or {}).get("snaps"))
         else:
             result, actual, reason = "pending", None, "unknown_market"
         legs_out.append({"selection": leg.get("selection"), "market": market,
                          "game_id": leg.get("game_id"), "result": result,
                          "actual": actual, "reason": reason})
     results = [l["result"] for l in legs_out]
-    if not results or "pending" in results:
-        pres = "pending"
-    elif "miss" in results:
-        pres = "miss"
-    elif "void" in results:
-        pres = "void"
-    else:
-        pres = "hit"
+    pres = parlay_result(results)
     bucket = parlay_bucket(results)
     price_index = {}
     for leg in card.get("legs") or []:
@@ -407,7 +442,9 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
         if csv_rows is not None:
             by_week = index_stats(csv_rows)
             atd = {"td": index_td(csv_rows), "snaps": None}
-            if any(l.get("market") == ATD_MARKET for _, c in rows for l in c.get("legs") or []):
+            # R106 — prop legs read the snap sheet too (did-not-play -> void).
+            if any(l.get("market") == ATD_MARKET or l.get("market") in PROP_POSITION
+                   for _, c in rows for l in c.get("legs") or []):
                 atd["snaps"] = _snaps(season, cache_dir, dry_run_csv, offline)
 
     weeks, graded = score(rows, by_week, finals, atd)

@@ -271,7 +271,7 @@ test.describe('R72 — PARLAYS outcome buckets', () => {
     // every card carries its row's bucket chip
     for (const p of gameRows.slice(0, 5)) {
       const c = page.locator(`.card.parlay[data-parlay-id="${p.parlay_id}"]`);
-      await expect(c.locator('.rv-bchip')).toHaveText(p.bucket.replace('_', ' ').toUpperCase());
+      await expect(c.locator('.rv-bchip')).toHaveText(p.bucket === 'partial' ? 'PARTIAL · LOSS' : p.bucket.replace('_', ' ').toUpperCase());
       await expect(c).toHaveAttribute('data-rv-bucket', p.bucket);
     }
     // tap ALL HIT: only that bucket in the active scope
@@ -298,7 +298,7 @@ test.describe('R72 — PARLAYS outcome buckets', () => {
     const expected = wk.parlays.filter((p) => p.scope === 'week' && legsOf.get(p.parlay_id) === 3 && p.bucket === 'partial');
     await expect(page.locator('.card.parlay')).toHaveCount(expected.length);
     if (expected.length) {
-      await expect(page.locator('.card.parlay .rv-bchip').first()).toHaveText('PARTIAL');
+      await expect(page.locator('.card.parlay .rv-bchip').first()).toHaveText('PARTIAL · LOSS');
     } else {
       await expect(page.locator('#parlays-list .state')).toContainText('No parlays in that bucket');
     }

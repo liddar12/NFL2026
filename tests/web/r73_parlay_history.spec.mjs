@@ -251,7 +251,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await expect(page.locator(`.rv-strip--parlay[data-week="${WEEK}"]`)).toHaveCount(1);
     for (const p of gameRows.slice(0, 5)) {
       const c = page.locator(`.card.parlay[data-parlay-id="${p.parlay_id}"]`);
-      await expect(c.locator('.rv-bchip')).toHaveText(p.bucket.replace('_', ' ').toUpperCase());
+      await expect(c.locator('.rv-bchip')).toHaveText(p.bucket === 'partial' ? 'PARTIAL · LOSS' : p.bucket.replace('_', ' ').toUpperCase());
       await expect(c.locator('.rv-pchip')).toHaveText(RESULT_OF[p.bucket].toUpperCase());
     }
     // the bucket card for the past week and its P&L line (GAME scope: a loss, a push, assumed legs)
@@ -299,7 +299,7 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await page.click('.rv-bucket[data-bucket="partial"]');
     const expected = three.filter((p) => p.bucket === 'partial');
     await expect(page.locator('.card.parlay')).toHaveCount(expected.length);
-    if (expected.length) await expect(page.locator('.card.parlay .rv-bchip').first()).toHaveText('PARTIAL');
+    if (expected.length) await expect(page.locator('.card.parlay .rv-bchip').first()).toHaveText('PARTIAL · LOSS');
     else await expect(page.locator('#parlays-list .state')).toContainText('No parlays in that bucket');
 
     // back to the current week: no refetch, the current ids, filters reset, current P&L

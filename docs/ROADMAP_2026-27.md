@@ -903,6 +903,20 @@ nothing ships without one.
   data commit included) and runs exactly ci.yml's gate and browser E2E. Red opens one issue titled
   `[data-ci] main is red on pipeline data` (or comments on it) and fails; the next green run closes
   it; a superseded check reports nothing. **Locked by** `r102_data_ci` (3). · **LOE** 0.25 d
+- **R106 · Every parlay settles; only all-hit wins (P0) — built 2026-10-01.** Owner: "partially hit
+  parlays are considered a loss … some are still pending from weeks 1, 2, 3, and they should all be
+  final." RCA, three causes: (1) a missed leg beside a pending one left the card PENDING; now one
+  miss settles it as a loss at once (`parlay_result`, shared by the slate review and MY cards).
+  (2) A prop whose player did not play had no stat line and sat pending forever (Darnold, Flowers,
+  Harvey wk2; Nacua wk2–3; …); the yardage grader now reads the snap sheet like the anytime-TD grader
+  (played → 0 yards, a miss; absent from his team's published sheet → void, the book's rule).
+  (3) Rebuilds after kickoff put 131 wk2 and 56 wk3 cards into the archive as if offered pregame;
+  their legs reached the leg ledger unlocked and were never graded, and the review only graded the
+  66 cards parlays.json held at one moment. The review now grades EVERY archived card, any leg the
+  ledger did not from the same finals / stat line / snap sheet (owner: grade them like any card),
+  and the archive no longer admits a card built after its kickoff. PARTIAL now reads
+  "PARTIAL · LOSS". The learning record (`parlay_leg_scores.json`) is untouched: only locked legs
+  calibrate. **Locked by** `r106_parlay_settle` (3), `r90_card_freeze` (updated). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
