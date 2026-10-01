@@ -169,6 +169,9 @@ SCHEMA_TO_DATA = {
     # after the leg resolver, so OPTIONAL like its neighbours; a 0-resolved-week
     # document is valid and carries nulls, never zeros.
     "replay_lab.schema.json": "replay_lab.json",
+    # R105 — every learning loop's live state (scripts/build_learning_loops.py),
+    # read by the MODEL tab only. Runner-built, OPTIONAL like its neighbours.
+    "learning_loops.schema.json": "learning_loops.json",
     # R92 - the QB DEPTH CASCADE backtest (scripts/backtest_qb_depth.py): the
     # walk-forward measurement behind the `qb_depth` candidate family. MEASURE
     # ONLY - it adopts nothing and writes no model parameter, and the family it
@@ -317,6 +320,8 @@ OPTIONAL_DATA = frozenset([
     # R81 — the replay lab, written by the daily runner right after the parlay-leg
     # resolver; absent on a clone that has never run it, strict when present.
     "replay_lab.json",
+    # R105 — the learning-loop record; absent until the first runner build.
+    "learning_loops.json",
     # R87 — the graded MY cards, written right after the parlay-leg resolver;
     # absent until the first run, validated strictly when present.
     "my_card_scores.json",
@@ -1252,6 +1257,32 @@ def _pool_prices(leg_pool):
     for g in (leg_pool or {}).get("game_legs") or []:
         price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
     return price
+
+
+def check_learning_loops(doc):
+    """R105 — the summary counts the loops it summarizes, ids are unique, and
+    every transition names a loop on file and records a real change of state."""
+    if not doc:
+        return
+    loops = doc.get("loops") or []
+    problems = []
+    counts = {}
+    for l in loops:
+        counts[l.get("state")] = counts.get(l.get("state"), 0) + 1
+    for state, n in (doc.get("summary") or {}).items():
+        if counts.get(state, 0) != n:
+            problems.append("summary.%s = %s but %d loop(s) are %s"
+                            % (state, n, counts.get(state, 0), state))
+    ids = [l.get("id") for l in loops]
+    if len(set(ids)) != len(ids):
+        problems.append("duplicate loop id")
+    for t in doc.get("transitions") or []:
+        if t.get("loop") not in ids:
+            problems.append("transition for unknown loop %r" % t.get("loop"))
+        if t.get("from") == t.get("to"):
+            problems.append("transition %r records no change" % t.get("loop"))
+    if problems:
+        raise ValidationError("learning_loops.json:\n  - %s" % "\n  - ".join(problems))
 
 
 def check_joint_backtest(doc):
@@ -3291,6 +3322,8 @@ def main():
         print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
         check_atd_cards(_opt("atd_cards.json"), _opt("leg_pool.json"))
         print("ok    ATD cards: pool legs at pool prices, one per game, product, mode rules (R101c)")
+        check_learning_loops(_opt("learning_loops.json"))
+        print("ok    learning_loops.json summary counts its loops; transitions are real changes (R105)")
         check_joint_backtest(_opt("joint_backtest.json"))
         print("ok    joint_backtest.json pricer and offered sizes follow from its receipts (R101b)")
         check_atd_game_cards(_opt("atd_game_cards.json"), _opt("leg_pool.json"),

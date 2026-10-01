@@ -930,14 +930,22 @@ nothing ships without one.
   a lock for, and the committed ledger must match it (warned by the validator, enforced by CI and
   data-ci). The race-safe merge unions gaps and recovered weeks. **Locked by** `r105b_ledger_heal`
   (4). · **LOE** 0.5 d
+- **R105 · Show the learning (P1) — built 2026-10-01.** Owner's pick. New
+  `scripts/build_learning_loops.py` reads each loop's OWN record (model_tuning history, the weekly /
+  K-DST / leg-pool / parlay / anytime-TD / joint backtests, the measure-only experiments, the replay
+  lab) and writes `data/learning_loops.json`: per loop its state — ADOPTED / HELD / REVERTED /
+  MEASURE ONLY / NOT ON FILE — the reason verbatim, what it learns from and what it can move, last
+  run, live-since; plus an append-only `transitions` log of every state change between builds
+  (rewritten only on a change; built in daily, gameday and backtest). The MODEL tab's new LEARNING
+  LOOPS card, high on the page, paints 11 loops that can move a shipped number and 5 measure-only
+  experiments, then the change log. Contract `learning_loops.schema.json`; the validator checks the
+  summary and transitions. **Locked by** `r105_learning_loops` (5). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
   2. **R99 E3 — delivered as R101b/R101d.** The game simulator is re-measured weekly; it becomes the
      GAME pricer (and needs a browser twin for MY) the week it beats the product on held-out games.
-  3. **Show the learning.** The MODEL tab's LEARNING RECORD still shows only the old proposal line; it
-     should show each loop's live state (held / adopted / reverted, and why) so the owner can see the
-     system learning rather than take it on trust.
+  3. **Show the learning — delivered as R105** (LEARNING LOOPS card on the MODEL tab).
   4. **Red-zone share** (R99 E1-S7) from play-by-play — the strongest TD signal the free weekly feed lacks.
 #### ▢ S1 · Sports task contract — *read side shipped in spirit by R58; the contract is not written*
 - `task` values `nfl.game`, `nfl.player_week`, `nfl.parlay_leg` (and `wc.match`), each with a

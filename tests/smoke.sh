@@ -59,6 +59,8 @@ python3 scripts/build_kdst.py --selftest || fail "kdst projection selftest"
 python3 scripts/build_sleeper_projections.py --selftest || fail "sleeper projections selftest"
 python3 scripts/build_estimate_ledger.py --selftest || fail "estimate ledger selftest"
 python3 scripts/restore_ledger_players.py --selftest || fail "estimate ledger self-heal selftest"
+# R105 — the learning-loop record (pure: reads each loop's own record).
+python3 scripts/build_learning_loops.py --selftest || fail "learning loops selftest"
 python3 scripts/resolve_estimates.py --selftest || fail "resolve estimates selftest"
 # R58 — the parlay-leg ledger and its resolver (pure cores).
 python3 scripts/build_parlay_ledger.py --selftest || fail "parlay ledger selftest"

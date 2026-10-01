@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "learning_loops.schema.json",
+  "title": "Learning loops (R105) - data/learning_loops.json",
+  "description": "Every learning loop's live state as its OWN record decided it (scripts/build_learning_loops.py): adopted / held / reverted / measuring / absent, the loop's reason verbatim, what it learns from and what it can move. `transitions` is append-only: one row each time a loop's state changed between builds. Read by the MODEL tab's LEARNING LOOPS card only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "generated_utc",
+    "policy",
+    "summary",
+    "loops",
+    "transitions"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "learning_loops"
+      ]
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "policy": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adopted",
+        "held",
+        "reverted",
+        "measuring",
+        "absent"
+      ],
+      "properties": {
+        "adopted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "held": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reverted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measuring": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "absent": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "loops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "group",
+          "name",
+          "learns",
+          "moves",
+          "source",
+          "state",
+          "why",
+          "last_run_utc"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "ships",
+              "measure"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "learns": {
+            "type": "string"
+          },
+          "moves": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "adopted",
+              "held",
+              "reverted",
+              "measuring",
+              "absent"
+            ]
+          },
+          "why": {
+            "type": "string"
+          },
+          "last_run_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "live": {
+            "type": "string"
+          },
+          "live_since_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "utc",
+          "loop",
+          "name",
+          "from",
+          "to",
+          "why"
+        ],
+        "properties": {
+          "utc": {
+            "type": "string"
+          },
+          "loop": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "enum": [
+              "adopted",
+              "held",
+              "reverted",
+              "measuring",
+              "absent"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "adopted",
+              "held",
+              "reverted",
+              "measuring",
+              "absent"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

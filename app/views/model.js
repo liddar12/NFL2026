@@ -45,6 +45,9 @@ export const loadReplayLab = (opts) => loadJson('/data/replay_lab.json', opts).c
 // resolve-to-null contract as the three above, and the card says NOT PRESENT
 // rather than inventing a green row for a stage nobody has run.
 export const loadPipelineStages = (opts) => getPipelineStages(opts).catch(() => null);
+// R105 — every learning loop's live state (scripts/build_learning_loops.py). Same
+// resolve-to-null contract: absent means the card says so, never a placeholder.
+export const loadLearningLoops = (opts) => loadJson('/data/learning_loops.json', opts).catch(() => null);
 import { teamTint } from '../render.js';
 
 /** Signals pinned display-only by validate_data.py MARKET_DISPLAY_ONLY —
@@ -878,6 +881,75 @@ export function learningCard(meta) {
   );
 }
 
+/* ---- R105: learning loops ----------------------------------------------------
+ * Owner (2026-10-01): "Show the learning." One row per loop that can move a
+ * shipped number, then the measure-only experiments: the loop's state as its OWN
+ * record decided it (ADOPTED / HELD / REVERTED / MEASURE ONLY / NOT ON FILE), the
+ * reason verbatim, what it learns from and what it can move, and the append-only
+ * log of every state change. Pure — unit-tested; reads data/learning_loops.json.
+ */
+const LOOP_CHIP = Object.freeze({
+  adopted: ['ADOPTED', 'gate-chip gate-chip--adopted'],
+  held: ['HELD', 'gate-chip'],
+  reverted: ['REVERTED', 'gate-chip gate-chip--reverted'],
+  measuring: ['MEASURE ONLY', 'gate-chip gate-chip--nopath'],
+  absent: ['NOT ON FILE', 'gate-chip gate-chip--skipped'],
+});
+const LOOP_GROUPS = Object.freeze([
+  ['ships', 'CAN MOVE A SHIPPED NUMBER'],
+  ['measure', 'MEASURE ONLY — ADOPTS NOTHING'],
+]);
+const day = (u) => (typeof u === 'string' && u.length >= 10 ? u.slice(0, 10) : null);
+
+/** The LEARNING LOOPS card body. '' never: an absent record is an honest line. */
+export function learningLoopsCard(doc) {
+  if (!isObj(doc) || !Array.isArray(doc.loops) || !doc.loops.length) {
+    return '<div class="state">No learning-loop record on file yet '
+      + '(data/learning_loops.json) — the next pipeline run writes it.</div>';
+  }
+  const loops = doc.loops.filter(isObj);
+  const count = (st) => loops.filter((l) => l.state === st).length;
+  const head = `<div class="ll-sum">${loops.length} loops · ${count('adopted')} adopted · `
+    + `${count('held')} held · ${count('reverted')} reverted · ${count('measuring')} measure only`
+    + (count('absent') ? ` · ${count('absent')} not on file` : '') + '</div>';
+  const row = (l) => {
+    const [label, cls] = LOOP_CHIP[l.state] || ['UNKNOWN', 'gate-chip gate-chip--skipped'];
+    const meta = [
+      l.learns ? `learns from ${esc(l.learns)}` : '',
+      l.moves ? `moves ${esc(l.moves)}` : '',
+      l.live ? `live: ${esc(l.live)}` : '',
+      day(l.live_since_utc) ? `since ${esc(day(l.live_since_utc))}` : '',
+      day(l.last_run_utc) ? `last run ${esc(day(l.last_run_utc))}` : 'no run on file',
+      Number.isFinite(Number(l.runs)) && l.runs != null ? `${esc(l.runs)} runs` : '',
+    ].filter(Boolean).join(' · ');
+    return `<div class="ll-row" data-loop="${esc(l.id)}" data-state="${esc(l.state)}">`
+      + `<div class="ll-top"><span class="ll-name">${esc(l.name)}</span>`
+      + `<span class="${cls}">${label}</span></div>`
+      + `<div class="ll-why">${esc(l.why || '')}</div>`
+      + `<div class="ll-meta">${meta}</div></div>`;
+  };
+  const groups = LOOP_GROUPS.map(([g, title]) => {
+    const rows = loops.filter((l) => l.group === g);
+    return rows.length
+      ? `<div class="ll-group">${title}</div>${rows.map(row).join('')}`
+      : '';
+  }).join('');
+  const tr = Array.isArray(doc.transitions) ? doc.transitions.filter(isObj) : [];
+  const chip = (st) => (LOOP_CHIP[st] || [String(st || '—').toUpperCase()])[0];
+  const log = tr.length
+    ? tr.slice(-8).reverse().map((t) => `<div class="ll-change">${esc(day(t.utc) || '—')} · `
+      + `<b>${esc(t.name || t.loop)}</b>: ${esc(chip(t.from))} → ${esc(chip(t.to))}`
+      + (t.why ? ` — ${esc(t.why)}` : '') + '</div>').join('')
+    : '<div class="gate-note">No loop has changed state since this record began'
+      + (day(doc.generated_utc) ? ` (${esc(day(doc.generated_utc))})` : '')
+      + '. A change — a hold turning into an adoption, or an adoption reverted — is '
+      + 'logged here the run it happens.</div>';
+  return head + groups + '<div class="ll-group">CHANGES</div>' + log
+    + '<div class="m-explain">Each loop decides on its own record whether a candidate clears '
+    + 'its gate; this card reports those decisions verbatim. HELD means the latest run kept '
+    + 'what ships, and says why.</div>';
+}
+
 /* ---- R51: weekly split gate + parlay gate -----------------------------------
  * Both read a runner-built backtest record — data/weekly_backtest.json
  * (scripts/backtest_weekly.py) and data/parlay_backtest.json
@@ -1622,7 +1694,7 @@ export default async function mountModel(el) {
 
   el.innerHTML = '<div class="state state--loading">Loading model dashboard…</div>';
   const [metaRes, tuningRes, oddsRes, mktRes, statusRes, weeklyRes, parlayRes, replayRes,
-    stagesRes] =
+    stagesRes, loopsRes] =
     await Promise.allSettled([
       getMeta(), getModelTuning(), getPlayoffOdds(), getMarketPrices(), getPipelineStatus(),
       // R51 — both resolve to null when absent (never reject); null paints nothing.
@@ -1633,6 +1705,8 @@ export default async function mountModel(el) {
       // request, and a 404 resolves to null and paints the NOT PRESENT line.
       // #/model is its ONLY reader — no other route pays for it.
       loadPipelineStages(),
+      // R105 — the learning loops' live state; #/model is its only reader.
+      loadLearningLoops(),
     ]);
   const meta = metaRes.status === 'fulfilled' ? metaRes.value : null;
   const tuning = tuningRes.status === 'fulfilled' ? tuningRes.value : null;
@@ -1643,6 +1717,7 @@ export default async function mountModel(el) {
   const parlayBacktest = parlayRes.status === 'fulfilled' ? parlayRes.value : null;
   const replayLab = replayRes.status === 'fulfilled' ? replayRes.value : null;
   const stages = stagesRes.status === 'fulfilled' ? stagesRes.value : null;
+  const loopsDoc = loopsRes.status === 'fulfilled' ? loopsRes.value : null;
   // R51 — painted once; '' means the file is absent and the card is omitted.
   const weeklyHtml = weeklyGateCard(weeklyBacktest);
   const parlayHtml = parlayGateCard(parlayBacktest);
@@ -1678,6 +1753,10 @@ export default async function mountModel(el) {
     // ALWAYS rendered: an absent file is an honest state line, not an omission.
     card('PIPELINE STAGES · EVERY STEP, AS IT RAN',
       pipelineStagesCard(stages), 'm-stages', 'measured') +
+    // R105 — high on the page on purpose: it answers "is it learning?" before any
+    // single gate card does. ALWAYS rendered (an absent record is an honest line).
+    card('LEARNING LOOPS · WHAT EACH ONE DECIDED, AND WHY',
+      learningLoopsCard(loopsDoc), 'm-loops', 'measured') +
     card('ADOPTED PARAMETERS', paramsCard(tuning), 'm-params', 'estimate') +
     card('BACKTEST · WALK-FORWARD', backtestCard(tuning), 'm-backtest', 'measured') +
     card('PROMOTION GATE · CANDIDATE FAMILIES', gateCard(tuning), 'm-gate', 'measured') +

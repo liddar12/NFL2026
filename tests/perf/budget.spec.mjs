@@ -240,6 +240,9 @@ const CONTRACT_ALLOWLIST = new Set([
   // by #/model only; a 404 resolves to null and the card paints its honest
   // NOT PRESENT line, so the request is the whole cost either way.
   'replay_lab.json',
+  // R105 — the LEARNING LOOPS record (data/learning_loops.json, a few KB of
+  // scalars), fetched by #/model only; a 404 paints the card's honest line.
+  'learning_loops.json',
   // R87 — the MY cards record scores (data/my_card_scores.json: per-week and
   // per-dial scalars plus GRADED cards only; ~4 KB with nothing graded). Fetched
   // by app/views/myparlays.js, itself a LAZY import taken only when the MY chip
@@ -319,7 +322,8 @@ const ROUTES = [
   // same cost, and the card renders its honest state line on a 404.
   // R88 — 9 -> 10: data/pipeline_stages.json joins it too, for the PIPELINE
   // STAGES card. Same shape, same cost: one request, null on a 404.
-  { hash: '#/model', name: 'model', contracts: 10 },
+  // R105 — 10 -> 11: data/learning_loops.json joins it for LEARNING LOOPS.
+  { hash: '#/model', name: 'model', contracts: 11 },
   { hash: '#/compare?a=espn-3117251&b=espn-4426515', name: 'compare', contracts: 6 },
   // R48 — '#/league' is deliberately NOT listed: it fetches zero contracts. The
   // LEAGUE tab reads the saved profile, the league id and the sync log from
