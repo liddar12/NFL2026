@@ -67,7 +67,7 @@ d = bl.append(L, proj, weekly, kick, json.load(open("data/meta.json"))["weights"
 bl.write(d, ${JSON.stringify(LOCKED)})
 print(json.dumps({"kick1": kick[1], "players": len(d["players"]),
   "locked": sum(1 for p in d["players"].values() if "1" in (p["locked"] or {})),
-  "eligible": sum(1 for p in d["players"].values() if p["first"]["as_of_utc"] < kick[1]),
+  "eligible": sum(1 for p in d["players"].values() if bl.lock_eligible(p, kick[1], d["as_of_utc"])),
   "weeks_locked": d["runs"][-1].get("weeks_locked")}))`);
 
 function dryRun(csvPath, ledgerPath = LOCKED) {
@@ -86,6 +86,10 @@ test('the production append locks week 1 on the ledger copy from the last pre-ki
   // Every player the ledger saw BEFORE the week-1 kickoff carries a locked week 1;
   // a player first appended after kickoff (the committed ledger grows in-season)
   // has no pre-kickoff estimate to lock — derived, never pinned to day zero.
+  // R105b — "eligible" is the ledger's own lock rule (lock_eligible): a player
+  // whose TRUE first sight predates the kickoff but who was out of the
+  // projections across it (a recorded gap) owes no week-1 lock. The bare
+  // first-sight test counted the 13 such players the self-heal restored.
   assert.ok(lockInfo.eligible >= 200);
   assert.equal(lockInfo.locked, lockInfo.eligible, 'every pre-kickoff player carries a locked week 1');
   // a fresh lock reports weeks_locked [1]; on a ledger already locked (committed

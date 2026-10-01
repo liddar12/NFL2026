@@ -296,6 +296,11 @@ jobs:
       - name: Build post-game review (data/review.json)
         run: bash scripts/stage.sh gameday "Build post-game review (data/review.json)" -- python3 scripts/build_review.py
 
+      # R105 — every learning loop's live state for the MODEL tab, read verbatim
+      # from the records the steps above just wrote; rewritten only on a change.
+      - name: Learning loops record (MODEL tab)
+        run: bash scripts/stage.sh gameday "Learning loops record (MODEL tab)" -- python3 scripts/build_learning_loops.py
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

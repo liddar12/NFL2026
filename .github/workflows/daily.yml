@@ -291,6 +291,11 @@ jobs:
         continue-on-error: true
 
       # Validate everything we're about to commit against the JSON contracts.
+      # R105 — every learning loop's live state for the MODEL tab, read verbatim
+      # from the records the steps above just wrote; rewritten only on a change.
+      - name: Learning loops record (MODEL tab)
+        run: bash scripts/stage.sh daily "Learning loops record (MODEL tab)" -- python3 scripts/build_learning_loops.py
+
       - name: Validate data contracts
         run: python scripts/validate_data.py
 

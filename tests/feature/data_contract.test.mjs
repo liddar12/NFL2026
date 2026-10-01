@@ -157,6 +157,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // through the same resolve-to-null-on-404 loader as the two R51 backtest
     // records. Reporting only; nothing it carries is ever adopted.
     '/data/replay_lab.json',
+    // R105 — app/views/model.js: the LEARNING LOOPS record (a few KB of scalars),
+    // same resolve-to-null loader; #/model is its only reader.
+    '/data/learning_loops.json',
     // R87 — app/views/myparlays.js: how the MY cards we offered actually did,
     // read through loadJson (same promise cache) for the one RECORD line under
     // the legend. Small by construction — it carries the GRADED cards and the

@@ -56,6 +56,7 @@ const WIRED_BUILDERS = [
   'build_sleeper_projections.py',
   'build_estimate_ledger.py',
   'restore_ledger_players.py',   // R105b — the ledger's self-heal
+  'build_learning_loops.py',     // R105 — the MODEL tab's learning loops
   'resolve_estimates.py',
   'fit_player_signals.py',
   // R58 — the parlay-leg ledger and its resolver.
