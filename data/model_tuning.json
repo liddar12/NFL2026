@@ -46453,6 +46453,78 @@
         ],
         "applied": false
       }
+    },
+    {
+      "generated_utc": "2026-10-01T23:24:16Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 5,
+      "fold_candidates": [
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.20625,
+          "n_train": 38,
+          "n_held": 10
+        },
+        {
+          "hfa_elo": 29.875,
+          "revert": 0.58,
+          "n_train": 38,
+          "n_held": 10
+        },
+        {
+          "hfa_elo": 71.75,
+          "revert": 0.785,
+          "n_train": 38,
+          "n_held": 10
+        },
+        {
+          "hfa_elo": 79.75,
+          "revert": 0.8725,
+          "n_train": 39,
+          "n_held": 9
+        },
+        {
+          "hfa_elo": 76.75,
+          "revert": 0.71,
+          "n_train": 39,
+          "n_held": 9
+        }
+      ],
+      "evals": 3185,
+      "margin": 0.0015,
+      "n_resolved": 48,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 52.375,
+        "revert": 0.655
+      },
+      "current_loss": 0.673515,
+      "candidate_loss": 0.67059,
+      "heldout_current_loss": 0.673515,
+      "heldout_candidate_loss": 0.730031,
+      "improvement": -0.056516,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 52.375, 'revert': 0.655} scores 0.730031 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.673515 across 5 folds over n=48 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false."
     }
   ],
   "game_params": {
