@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 4,
-  "generated_utc": "2026-10-01T22:08:26Z",
-  "pool_generated_utc": "2026-10-01T22:08:14Z",
+  "generated_utc": "2026-10-01T23:21:53Z",
+  "pool_generated_utc": "2026-10-01T23:21:43Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -131,6 +131,14 @@
       "cards_seen": 960,
       "cards_added": 127,
       "locked_added": 127,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-10-01T23:21:43Z",
+      "week": 4,
+      "cards_seen": 960,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -163766,6 +163774,59 @@
       "first_seen_utc": "2026-10-01T22:08:14Z",
       "locked": true,
       "locked_utc": "2026-10-01T22:08:14Z"
+    },
+    {
+      "card_id": "153b99e6a9e3",
+      "dial": "longshot",
+      "seed": "PHI",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": false,
+      "mixed_game": false,
+      "model": 0.1886,
+      "implied": 0.206,
+      "ev": -0.0843,
+      "tier": "low",
+      "payout": 385.45,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-10-04T17:00Z",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "J. Hurts 225+ pass yds",
+          "game_id": "401872970",
+          "team": "PHI",
+          "side": "home",
+          "player": "Jalen Hurts",
+          "gsis_id": "espn-4040715",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 184.89,
+          "model_prob": 0.3698,
+          "implied_prob": 0.3864,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "L. Jackson 275+ pass yds",
+          "game_id": "401872973",
+          "team": "BAL",
+          "side": "home",
+          "player": "Lamar Jackson",
+          "gsis_id": "espn-3916387",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 260.4,
+          "model_prob": 0.5101,
+          "implied_prob": 0.5331,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-10-01T23:21:43Z",
+      "locked": true,
+      "locked_utc": "2026-10-01T23:21:43Z"
     }
   ]
 }
