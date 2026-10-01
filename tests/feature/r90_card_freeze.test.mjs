@@ -112,29 +112,24 @@ test('a Thursday card freezes while the week stays open; Friday appends instead 
     // 20:00Z — G1 has kicked off (17:00), G2 has not (Sunday 00:15).
     const out = archive(tmp, FRI, '2026-09-13T20:00:00Z');
     assert.match(out, /wk 1 refreshed/);
-    assert.match(out, /wk 1 4 card\(s\) frozen/);
+    assert.match(out, /wk 1 3 card\(s\) frozen/);
     const f = load(WK1(tmp));
     assert.equal(f.closed, false, 'the week is still open');
     const frozen = f.parlays.filter((c) => c.frozen_utc);
     const live = f.parlays.filter((c) => !c.frozen_utc);
-    // G03 — the newcomer took rank 1 from a frozen card, so it lands under
-    // `G1-g1~<first 6 of card_id>`. Two cards named G1-g1 is the defect: every
-    // consumer builds a Map on parlay_id and one bet gets the other's grade.
-    const newcomer = f.parlays.find((c) => c.card_id !== byId['G1-g1']
-      && c.legs[0].selection === 'BBB ML');
-    const renamed = `G1-g1~${newcomer.card_id.slice(0, 6)}`;
-    assert.equal(newcomer.parlay_id, renamed);
-    assert.deepEqual(ids(f.parlays), ['G1-g1', 'week-1', 'week-2', renamed, 'G2-g1', 'week-3'],
+    // R106 — the rebuild re-picked G1 AFTER its kickoff (the BBB ML card). That
+    // card was never offered before the game, so it is NOT archived; before R106
+    // it landed frozen under a renamed id and the week's record carried it.
+    assert.equal(f.parlays.filter((c) => c.card_id !== byId['G1-g1']
+      && c.legs[0].selection === 'BBB ML').length, 0, 'a card built after kickoff is not an offer');
+    assert.deepEqual(ids(f.parlays), ['G1-g1', 'week-1', 'week-2', 'G2-g1', 'week-3'],
       'carried-forward frozen cards first, in their archived order, then the rebuild');
-    assert.deepEqual(ids(frozen), ['G1-g1', 'week-1', 'week-2', renamed]);
+    assert.deepEqual(ids(frozen), ['G1-g1', 'week-1', 'week-2']);
     assert.equal(new Set(ids(f.parlays)).size, f.parlays.length, 'one card, one parlay_id');
     assert.deepEqual(unstamped(f.parlays.slice(0, 3)),
       unstamped(rr.parlays.filter((c) => ['G1-g1', 'week-1', 'week-2'].includes(c.parlay_id))),
       'a frozen card is the archived copy, verbatim');
     assert.ok(frozen.every((c) => c.frozen_utc === '2026-09-13T20:00:00Z'));
-
-    // the rank change: the same rank over different legs is a NEW card
-    assert.notEqual(newcomer.card_id, byId['G1-g1'], 'a new bet, a new id');
     assert.equal(f.parlays[0].parlay_id, 'G1-g1', 'the FROZEN card keeps its name');
     assert.deepEqual(f.parlays[0].legs.map((l) => l.selection).sort(), ['AAA -3', 'AAA ML'],
       'the frozen card still holds the bet it was archived with');
@@ -144,7 +139,7 @@ test('a Thursday card freezes while the week stays open; Friday appends instead 
     const g2 = live.find((c) => c.parlay_id === 'G2-g1');
     assert.equal(g2.legs[0].implied_prob, 0.58, 'the Sunday card takes the rebuild');
     assert.equal(g2.card_id, byId['G2-g1'], 'same bet, same id');
-    assert.equal(f.history.at(-1).frozen, 4, 'the refresh says how many cards it froze');
+    assert.equal(f.history.at(-1).frozen, 3, 'the refresh says how many cards it froze');
     assert.deepEqual(f.history.map((h) => h.updated_utc),
       ['2026-09-13T08:00:00Z', '2026-09-13T09:00:00Z', '2026-09-13T19:30:00Z']);
 
@@ -327,6 +322,9 @@ print(json.dumps({
   "before_rows": rows(before),
   "after_cards": len(after), "after_ids": len(pa.duplicate_parlay_ids(after)),
   "after_rows": rows(after), "renamed": sum(1 for c in after if "~" in str(c["parlay_id"])),
+  "started_new": sum(1 for c in incoming
+                     if c.get("card_id") not in {a.get("card_id") for a in arch["parlays"]}
+                     and earliest(c) is not None and earliest(c) <= pa._parse_utc(NOW)),
   "same_as_on_disk": sorted(pa.duplicate_parlay_ids(after)) == sorted(on_disk),
   "sizes": [len(json.loads(s)) for s in snaps],
   "dups": [rows(json.loads(s)) for s in snaps],
@@ -345,7 +343,12 @@ print(json.dumps({
   assert.ok(r.before_rows > r.on_disk_rows, 'the rebuild ADDS duplicates under the old rule');
   // The fix: the rebuild introduces none. The 13 pairs already frozen on disk
   // before this rule existed stay — a frozen card is verbatim by contract.
-  assert.equal(r.after_cards, r.before_cards, 'the same cards, only renamed');
+  // R106 — the rebuild re-picked games already under way; those cards were never
+  // offered before kickoff, so none of them reaches the archive any more (the old
+  // rule froze every one). Everything else lands exactly as before.
+  assert.ok(r.started_new > 0, 'the rebuild really did re-pick started games');
+  assert.equal(r.after_cards, r.before_cards - r.started_new,
+    'the same cards minus the ones built after their kickoff');
   assert.equal(r.after_rows, r.on_disk_rows,
     'zero duplicates introduced by the rebuild');
   assert.equal(r.same_as_on_disk, true,

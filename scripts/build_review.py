@@ -660,10 +660,13 @@ def leg_game_id(leg, parlay_game_id, week, ledger_legs, games_by_team):
 
 
 def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
-                  game_reviews=None):
+                  game_reviews=None, direct=None):
     """One parlay row. Moneyline legs also grade straight from the game review
-    (lock receipts / finals) when the ledger has not resolved them yet; spread and
-    prop legs grade only through the ledger adapter."""
+    (lock receipts / finals) when the ledger has not resolved them yet. R106 —
+    `direct(leg, game_id, week)` grades any other leg the ledger has not (a leg it
+    recorded unlocked, or a did-not-play prop) from the same evidence the ledger
+    resolver reads; an outcome is a fact about the game, whenever the card was
+    built. The learning record (data/parlay_leg_scores.json) is untouched."""
     legs_out = []
     for leg in parlay.get("legs") or []:
         gid = leg_game_id(leg, parlay.get("game_id"), week, ledger_legs, games_by_team)
@@ -685,21 +688,19 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
                 result = "hit" if fin["winner"] == team else "miss"
                 actual = fin.get("winner")
                 why = "winner %s (%s)" % (fin["winner"], game_reviews[gid].get("final_source"))
-        elif oc is not None:
-            why = "ledger: %s" % (oc.get("reason") or "unresolved")
         else:
-            why = "not in the leg ledger yet" if gid else "game not identified"
+            d = direct(leg, gid, week) if (direct and gid) else None
+            if d is not None and d[0] != "pending":
+                result, actual = d[0], d[1]
+                why = "graded: %s" % (d[2] or result)
+            elif oc is not None:
+                why = "ledger: %s" % (oc.get("reason") or "unresolved")
+            else:
+                why = "not in the leg ledger yet" if gid else "game not identified"
         legs_out.append({"selection": leg.get("selection"), "market": leg.get("market"),
                          "game_id": gid, "result": result, "actual": actual, "why": why})
     results = [l["result"] for l in legs_out]
-    if not results or "pending" in results:
-        pres = "pending"
-    elif "miss" in results:
-        pres = "miss"
-    elif "void" in results:
-        pres = "void"        # every leg graded, none missed, a push/tie among them
-    else:
-        pres = "hit"
+    pres = parlay_result(results)
     bucket = parlay_bucket(results)
     assert bucket in BUCKET_OF_RESULT[pres], (pres, bucket)
     # G03 — the row carries the card's IDENTITY, not just its rank. parlay_id is
@@ -714,6 +715,40 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
             "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
+
+
+def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger):
+    """R106 — leg -> (result, actual, reason) from FINAL scores, the nflverse stat
+    line and the snap sheet, through the MY-cards graders (one rule for every
+    card). The player's full name, team and line come from the leg-ledger row when
+    there is one, else the card leg itself (its side names the team). None when a
+    leg cannot be identified; a grader with no evidence answers pending."""
+    from scripts import resolve_my_cards as rmc  # noqa: PLC0415 — it imports this module
+    from scripts.build_parlay_ledger import GAME_MARKETS as GMK, PROP_POSITION  # noqa: PLC0415
+    from scripts.resolve_parlay_legs import index_stats as leg_stats_index  # noqa: PLC0415
+    by_week = leg_stats_index(stats_rows or []) if stats_rows else {}
+    rows = {}
+    for l in (parlay_ledger or {}).get("legs") or []:
+        rows.setdefault((int(l["week"]), str(l.get("game_id")), l.get("market"),
+                         l.get("selection")), l)
+
+    def grade(leg, gid, week):
+        market, sel = leg.get("market"), leg.get("selection")
+        row = rows.get((int(week), str(gid), market, sel)) or {}
+        side = leg.get("side") or row.get("side")
+        game = (sched or {}).get(str(gid)) or {}
+        team = game.get(side) if side in ("home", "away") else None
+        team = team or row.get("team")
+        if market in GMK:
+            return rmc.grade_game({"market": market, "game_id": gid, "side": side,
+                                   "selection": sel, "team": team}, finals)
+        if market in PROP_POSITION:
+            line = leg.get("line") if leg.get("line") is not None else row.get("line")
+            return rmc.grade_prop({"market": market, "position": PROP_POSITION[market],
+                                   "player": row.get("player"), "selection": sel,
+                                   "team": team, "line": line}, week, by_week, snaps)
+        return None
+    return grade
 
 
 def ledger_price_index(parlay_ledger):
@@ -853,15 +888,37 @@ def stake_100(parlays, week, price_index):
     return out
 
 
+def parlay_result(leg_results):
+    """A parlay WINS only when every leg hits (owner rule, R106). So ONE missed leg
+    settles it as a loss at once, even while another leg is still pending — nothing
+    the pending leg does can save it. Otherwise: pending while any leg is; void when
+    every leg is graded, none missed and a push/tie (or did-not-play) is among them
+    (the book reprices without that leg); hit when every leg hit."""
+    results = list(leg_results or [])
+    if not results:
+        return "pending"
+    if "miss" in results:
+        return "miss"
+    if "pending" in results:
+        return "pending"
+    if "void" in results:
+        return "void"
+    return "hit"
+
+
 def parlay_bucket(leg_results):
     """Owner decision 3 — the five outcome buckets, decided in this order:
-      pending     any leg still pending (or no legs at all)
+      partial     some hit, some missed           (a LOSS — R106)
+      all_missed  no leg hit, at least one missed (a LOSS)
+      pending     no leg missed, one still pending (or no legs at all)
       push        at least one leg push/void and EVERY other leg hit
       all_hit     every leg hit
-      all_missed  no leg hit (misses, or misses among voids)
-      partial     some hit, some missed
-    Pure over the leg result strings (hit | miss | pending | void)."""
+    R106 — a miss decides the bucket even beside a pending leg: the parlay is
+    already lost, so it is never left PENDING. Pure over the leg result strings
+    (hit | miss | pending | void)."""
     results = list(leg_results or [])
+    if "miss" in results:
+        return "partial" if "hit" in results else "all_missed"
     if not results or "pending" in results:
         return "pending"
     hits = sum(1 for r in results if r == "hit")
@@ -1180,6 +1237,9 @@ def build(inputs, now):
     scores = (inputs.get("estimate_scores") or {}).get("resolved") or []
     parlays_doc = inputs.get("parlays") or {}
     previous = inputs.get("previous") or {}
+    archives = inputs.get("archives") or {}
+    direct = direct_leg_grader(sched, finals, inputs.get("stats_rows"), inputs.get("snaps"),
+                               inputs.get("parlay_ledger"))
 
     tuning = inputs.get("tuning") or {}
     refit = newest_refit(tuning)
@@ -1228,15 +1288,30 @@ def build(inputs, now):
                                          final_by_team.get(ident.get("team")),
                                          injuries_as_of, stats_available))
         parlays = []
-        if int(parlays_doc.get("week", -1)) == wk:
+        arch = archives.get(wk) or archives.get(str(wk)) or {}
+        if arch.get("parlays"):
+            # R106 — the week's ARCHIVE is the record of every card the week showed
+            # (frozen at kickoff + the live rebuild); grading only what parlays.json
+            # held at one moment left every other archived card ungraded forever.
+            # Cards parlays.json holds that the archive has not caught up with join.
+            cards = list(arch["parlays"])
+            if int(parlays_doc.get("week", -1)) == wk:
+                have = {parlay_card_id(c) if not c.get("card_id") else c["card_id"]
+                        for c in cards}
+                cards += [c for c in parlays_doc.get("parlays") or []
+                          if (c.get("card_id") or parlay_card_id(c)) not in have]
+            for p in cards:
+                parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
+                                             game_by_id, direct))
+        elif int(parlays_doc.get("week", -1)) == wk:
             for p in parlays_doc.get("parlays") or []:
                 parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
-                                             game_by_id))
+                                             game_by_id, direct))
         else:
             prev_p = ((previous.get("weeks") or {}).get(str(wk)) or {}).get("parlays") or []
             for p in prev_p:
                 parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
-                                             game_by_id))
+                                             game_by_id, direct))
             if prev_p:
                 notes.append("wk %d parlays carried forward from the previous review "
                              "(parlays.json now holds week %s)" % (wk, parlays_doc.get("week")))
@@ -1328,6 +1403,12 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     legs = _load_opt(os.path.join(data, "parlay_leg_scores.json"))
     sources["parlay_leg_scores"] = _stamp(legs, "generated_utc")
     previous = _load_opt(OUT_PATH if root == _ROOT else os.path.join(data, "review.json"))
+    archives = {}
+    for path in sorted(glob.glob(os.path.join(data, "parlays", "%d_wk[0-9][0-9].json" % season))):
+        doc = _load_opt(path)
+        if doc and isinstance(doc.get("week"), int):
+            archives[int(doc["week"])] = doc
+    sources["parlay_archives"] = sorted(archives)
 
     finals, finals_reason = [], None
     if finals_path:
@@ -1373,7 +1454,14 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             stats_rows = rows
             sources["stats"] = RELEASE_URL.format(season=season)
 
+    snaps = None
+    if not offline and not stats_csv:
+        from scripts.resolve_my_cards import _snaps  # noqa: PLC0415 — runner only
+        snaps = _snaps(season, None, None, False)
+    sources["snaps"] = "nflverse snap_counts" if snaps else None
+
     return {"season": season, "schedule": sched, "predictions": gp, "tuning": tuning,
+            "archives": archives, "snaps": snaps,
             "locks": locks, "finals": finals,
             "finals_reason": finals_reason, "estimate_scores": es, "weekly": weekly,
             "projections": proj, "injuries": inj, "forecast": fc, "parlays": parlays,
@@ -1600,6 +1688,14 @@ def _selftest_r72():
     assert sum(w1["summary"]["parlays"]["buckets"].values()) == w1["summary"]["parlays"]["n"]
     assert parlay_bucket([]) == "pending" and parlay_bucket(["void", "void"]) == "push" \
         and parlay_bucket(["miss", "void"]) == "all_missed" and parlay_bucket(["hit", "miss", "void"]) == "partial"
+    # R106 — only all-hit wins: one missed leg settles the parlay as a LOSS at once,
+    # even beside a leg that is still pending; no miss + a pending leg stays pending.
+    for legs_r, want in ((["hit", "miss", "pending"], ("miss", "partial")),
+                         (["miss", "pending"], ("miss", "all_missed")),
+                         (["hit", "pending"], ("pending", "pending")),
+                         (["hit", "void"], ("void", "push")), (["hit", "hit"], ("hit", "all_hit"))):
+        got = (parlay_result(legs_r), parlay_bucket(legs_r))
+        assert got == want and got[1] in BUCKET_OF_RESULT[got[0]], (legs_r, got)
     # players_season across the two week blocks
     ps = doc["players_season"]
     assert ps["P1"]["weeks"] == 2 and ps["P1"]["met"] == 1 and ps["P1"]["under"] == 1 \

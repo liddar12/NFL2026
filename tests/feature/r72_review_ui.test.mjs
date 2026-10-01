@@ -106,7 +106,7 @@ test('buckets: label map, counts read from summary only, per-row bucket map', as
   const m = await loadReview();
   assert.deepEqual(m.BUCKET_ORDER, ['all_hit', 'push', 'partial', 'all_missed', 'pending']);
   assert.deepEqual(m.BUCKET_LABEL,
-    { all_hit: 'ALL HIT', push: 'PUSH', partial: 'PARTIAL', all_missed: 'ALL MISSED', pending: 'PENDING' });
+    { all_hit: 'ALL HIT', push: 'PUSH', partial: 'PARTIAL · LOSS', all_missed: 'ALL MISSED', pending: 'PENDING' });
   assert.deepEqual(m.parlayBucketCounts(1), { all_hit: 1, push: 1, partial: 1, all_missed: 1, pending: 1 });
   assert.equal(m.parlayBucketCounts(9), null);
   assert.equal(m.parlayBucketCounts(1, { weeks: { 1: { summary: { parlays: { n: 3 } } } } }), null, 'R71 shape -> null');

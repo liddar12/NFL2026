@@ -466,7 +466,8 @@ const LEG_MARK = { hit: '✓', miss: '✗', pending: '–', void: '–' };
 /** R72 — the five outcome buckets, in display order, with their labels. */
 export const BUCKET_ORDER = Object.freeze(['all_hit', 'push', 'partial', 'all_missed', 'pending']);
 export const BUCKET_LABEL = Object.freeze({
-  all_hit: 'ALL HIT', push: 'PUSH', partial: 'PARTIAL', all_missed: 'ALL MISSED', pending: 'PENDING',
+  // R106 — a parlay wins only when every leg hits: PARTIAL is a loss, and says so.
+  all_hit: 'ALL HIT', push: 'PUSH', partial: 'PARTIAL · LOSS', all_missed: 'ALL MISSED', pending: 'PENDING',
 });
 
 /** summary.parlays.buckets for `week` (null when the document has none). */
