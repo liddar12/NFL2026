@@ -77,6 +77,7 @@ backtests, estimate ledger). The parlay spine is identical and in the same order
 | `scripts.backtest_player` | yes, degrades | no |
 | `build_sleeper_projections.py` (display only) | yes | yes |
 | `build_estimate_ledger.py` | no | no |
+| `restore_ledger_players.py` (R105b self-heal; needs git history) | no | no |
 | `resolve_estimates.py` | yes | yes |
 | `build_parlay_ledger.py` | no | no |
 | `resolve_parlay_legs.py` | yes | yes |

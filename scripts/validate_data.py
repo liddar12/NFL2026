@@ -218,6 +218,28 @@ SCHEMA_TO_DATA = {
     "weather_forecast_archive.schema.json": "weather_forecast_archive.json",
 }
 
+def check_ledger_locks(doc, label):
+    """R105b — every player's locks match the ledger's own rule exactly
+    (build_estimate_ledger.lock_eligible): a lock for each week whose kickoff fell
+    while he was projected on both sides of it, none inside a recorded absence.
+    A missing lock is a deleted receipt (the R103 defect); an extra one grades a
+    claim the model had stopped making (the stale-estimate lock R105b closed).
+    WARN-only here: a schedule correction (reconcile_schedule moving a kickoff)
+    can disagree with a lock made under the old time, and a red validate step
+    would stop the pipeline's data commit. tests/feature/r105b_ledger_heal
+    enforces it on CI and data-ci, which open an issue instead of blocking data."""
+    from scripts.build_estimate_ledger import kickoffs_by_week, lock_violations  # noqa: PLC0415
+    sched_path = os.path.join(DATA, "schedule_full.json")
+    if not os.path.exists(sched_path):
+        return
+    bad = lock_violations(doc, kickoffs_by_week(_load(sched_path).get("games") or []))
+    if bad:
+        print("WARN  %s: %d player-week lock(s) disagree with the lock rule, e.g. %s"
+              % (label, len(bad), bad[:5]))
+    else:
+        print("ok    %-36s locks match the lock rule" % label)
+
+
 # R49 — the estimate ledger lives per season under data/estimates/ (one file a
 # season, compact) and is validated like the snapshot directory below.
 ESTIMATES_DIR = os.path.join(DATA, "estimates")
@@ -3184,9 +3206,11 @@ def main():
                                    else ESTIMATES_SCHEMA)
                     if schema_name not in schemas:
                         schemas[schema_name] = _load(os.path.join(CONTRACTS, schema_name))
-                    validate_against_schema(_load(os.path.join(ESTIMATES_DIR, f)),
-                                            schemas[schema_name], "estimates/" + f)
+                    led_doc = _load(os.path.join(ESTIMATES_DIR, f))
+                    validate_against_schema(led_doc, schemas[schema_name], "estimates/" + f)
                     print("ok    estimates/%-30s vs %s" % (f, schema_name))
+                    if schema_name == ESTIMATES_SCHEMA:
+                        check_ledger_locks(led_doc, "estimates/" + f)
             except (OSError, ValueError, ValidationError) as exc:
                 failures.append(str(exc))
 

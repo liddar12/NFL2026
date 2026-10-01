@@ -331,6 +331,52 @@
                 }
               }
             }
+          },
+          "gaps": {
+            "type": "array",
+            "description": "R105b - each absence from the projections the ledger knows of: last_seen = his latest as-of before it, back = the as-of he returned. No week is locked for a kickoff inside a gap (build_estimate_ledger.lock_eligible).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "last_seen",
+                "back"
+              ],
+              "properties": {
+                "last_seen": {
+                  "type": "string"
+                },
+                "back": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recovered": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "locked_weeks",
+              "first",
+              "source"
+            ],
+            "description": "R105b - what scripts/restore_ledger_players.py restored for this player from the ledger file's git history (verbatim, never re-derived).",
+            "properties": {
+              "locked_weeks": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18
+                }
+              },
+              "first": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
           }
         }
       }
