@@ -294,10 +294,12 @@ test('G04: a FINAL game on the CURRENT week is graded truth — its head is the 
   const mod = await loadReview();
   assert.ok(gradedRows.length > 0,
     'some week at or before the current one carries a FINAL game to grade');
-  const currentStarted = SCHEDULE.games
-    .some((g) => Number(g.week) === CURRENT_WEEK && String(g.status) !== 'STATUS_SCHEDULED');
-  assert.equal(currentStarted ? gradedWeek : CURRENT_WEEK, CURRENT_WEEK,
-    'once the current week has kicked off, ITS finals are the ones under test');
+  // A game IN PROGRESS has started but has no final yet (data-ci ran inside the
+  // Thursday game, 2026-10-02 02:52Z): the rule is about the week's FINALS, so it
+  // binds once the current week has one, not the moment its first game kicks off.
+  const currentHasFinal = weekGames(CURRENT_WEEK).some(isFinal);
+  assert.equal(currentHasFinal ? gradedWeek : CURRENT_WEEK, CURRENT_WEEK,
+    'once the current week has a FINAL game, ITS finals are the ones under test');
   for (const row of gradedRows) {
     // THE decision applyHistoricalTruth makes, on the pipeline's own week.
     assert.equal(mod.isGradedRow(row), true, `${row.away} at ${row.home} is graded`);
