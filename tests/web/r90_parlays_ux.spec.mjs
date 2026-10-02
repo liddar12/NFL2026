@@ -497,7 +497,9 @@ test('F19: "J. Jefferson, KC" resolves both halves the same way', async ({ page 
   await page.fill('#mp-input', 'J. Jefferson, KC');
   await page.press('#mp-input', 'Enter');
   await expect(page.locator('#mp-seeds .leg-chip')).toHaveCount(2);
-  await expect(page.locator('#mp-seeds')).toContainText('Justin Jefferson');
+  // The pool is live: a Jefferson ruled OUT for the week leaves it (Justin, week 4),
+  // and the ranking rule itself is pinned in tests/feature/r90_parlays_ux.test.mjs.
+  await expect(page.locator('#mp-seeds .leg-chip').first()).toContainText(/Jefferson/);
   await expect(page.locator('#mp-seeds')).toContainText('KC');
   expect(errors).toEqual([]);
 });

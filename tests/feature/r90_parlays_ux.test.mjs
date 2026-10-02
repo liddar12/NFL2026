@@ -65,22 +65,41 @@ test('F18: a sort key the view does not know is never printed as one', () => {
    F19 · the box accepts the example it prints
    ========================================================================== */
 
-test('F19: "j. jefferson" ranks Justin Jefferson first', () => {
-  const hits = matchSeeds(OPTIONS, 'j. jefferson');
+// The pool is live data: a player ruled OUT drops out of it for the week (Justin
+// Jefferson, week 4, ankle). The RANKING rule is pinned on a fixed list; the live
+// pool only has to resolve the example the box prints.
+const FIXED = [
+  { id: 'v', kind: 'player', name: 'Van Jefferson', team: 'WAS' },
+  { id: 'j', kind: 'player', name: 'Justin Jefferson', team: 'MIN' },
+  { id: 'f', kind: 'player', name: 'Justin Fields', team: 'NYJ' },
+  { id: 'team:KC', kind: 'team', name: 'KC', team: 'KC' },
+];
+
+test('F19: "j. jefferson" ranks Justin Jefferson first (initial + surname beats surname alone)', () => {
+  const hits = matchSeeds(FIXED, 'j. jefferson');
   assert.ok(hits.length > 0, 'the abbreviated form must resolve at all');
   assert.equal(hits[0].name, 'Justin Jefferson');
+  // on the live pool: when a J. Jefferson is offered this week, he is first
+  const live = matchSeeds(OPTIONS, 'j. jefferson');
+  assert.ok(live.length > 0, 'the abbreviated form resolves on the live pool');
+  const jj = OPTIONS.filter((o) => /^J\S* Jefferson$/.test(String(o.name)));
+  if (jj.length) assert.ok(jj.some((o) => o.id === live[0].id), `${live[0].name} outranked a J. Jefferson`);
 });
 
 test('F19: the first token of "J. Jefferson, KC" resolves, and so does the second', () => {
   // The view splits on commas and commits each part in order; this is the same
   // resolution, part by part, that makes the placeholder work verbatim.
   const parts = 'J. Jefferson, KC'.split(',').map((s) => s.trim());
+  const fixed = parts.map((p) => matchSeeds(FIXED, p, 1)[0]);
+  assert.equal(fixed[0].name, 'Justin Jefferson');
+  assert.equal(fixed[1].kind, 'team');
+  assert.equal(fixed[1].name, 'KC');
+  // ...on the live pool, both parts still resolve, to two DIFFERENT seeds
   const picked = parts.map((p) => matchSeeds(OPTIONS, p, 1)[0]);
   assert.ok(picked.every(Boolean), 'both parts of the example must resolve');
-  assert.equal(picked[0].name, 'Justin Jefferson');
+  assert.match(String(picked[0].name), /Jefferson$/);
   assert.equal(picked[1].kind, 'team');
   assert.equal(picked[1].name, 'KC');
-  // ...and they are two DIFFERENT seeds, which is the whole point of the comma
   assert.notEqual(picked[0].id, picked[1].id);
 });
 
