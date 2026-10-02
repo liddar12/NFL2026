@@ -1,10 +1,10 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-02T02:52:18Z",
+  "generated_utc": "2026-10-02T10:21:54Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (48 games); scores from data/review.json FINAL rows (48 games); scores from ESPN live, STATUS-gated FINAL (32 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (49 games); scores from data/review.json FINAL rows (48 games); scores from ESPN live, STATUS-gated FINAL (33 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss",
-  "weeks_resolved": 2,
+  "weeks_resolved": 3,
   "weeks": [
     {
       "week": 2,
@@ -252,123 +252,123 @@
     },
     {
       "week": 4,
-      "n_cards": 1944,
-      "locked": 1944,
-      "graded": 0,
-      "pending": 1944,
+      "n_cards": 1948,
+      "locked": 1948,
+      "graded": 167,
+      "pending": 1781,
       "buckets": {
-        "all_hit": 0,
+        "all_hit": 1,
         "push": 0,
-        "partial": 0,
-        "all_missed": 0,
-        "pending": 1944
+        "partial": 10,
+        "all_missed": 156,
+        "pending": 1781
       },
       "by_dial": {
         "safe": {
-          "n": 541,
-          "graded": 0,
+          "n": 542,
+          "graded": 1,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.185,
+          "log_loss": 0.2046,
+          "brier": 0.0342,
+          "staked": 100.0,
+          "net_fair": -100.0,
+          "net_vig2": -100.0,
+          "roi_fair": -1.0
         },
         "even": {
           "n": 454,
-          "graded": 0,
+          "graded": 5,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.1801,
+          "log_loss": 0.207,
+          "brier": 0.0431,
+          "staked": 500.0,
+          "net_fair": -500.0,
+          "net_vig2": -500.0,
+          "roi_fair": -1.0
         },
         "longshot": {
-          "n": 949,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "n": 952,
+          "graded": 161,
+          "all_hit": 1,
+          "hit_rate": 0.0062,
+          "mean_model": 0.0765,
+          "log_loss": 0.0917,
+          "brier": 0.0148,
+          "staked": 16100.0,
+          "net_fair": -15735.53,
+          "net_vig2": -15749.69,
+          "roi_fair": -0.9774
         }
       },
       "by_legs": {
         "2": {
-          "n": 302,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "n": 303,
+          "graded": 27,
+          "all_hit": 1,
+          "hit_rate": 0.037,
+          "mean_model": 0.2273,
+          "log_loss": 0.312,
+          "brier": 0.0757,
+          "staked": 2700.0,
+          "net_fair": -2335.53,
+          "net_vig2": -2349.69,
+          "roi_fair": -0.865
         },
         "3": {
-          "n": 369,
-          "graded": 0,
+          "n": 370,
+          "graded": 25,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.115,
+          "log_loss": 0.1226,
+          "brier": 0.0139,
+          "staked": 2500.0,
+          "net_fair": -2500.0,
+          "net_vig2": -2500.0,
+          "roi_fair": -1.0
         },
         "4": {
-          "n": 402,
-          "graded": 0,
+          "n": 403,
+          "graded": 36,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.0628,
+          "log_loss": 0.0651,
+          "brier": 0.0042,
+          "staked": 3600.0,
+          "net_fair": -3600.0,
+          "net_vig2": -3600.0,
+          "roi_fair": -1.0
         },
         "5": {
           "n": 430,
-          "graded": 0,
+          "graded": 45,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.0305,
+          "log_loss": 0.0311,
+          "brier": 0.001,
+          "staked": 4500.0,
+          "net_fair": -4500.0,
+          "net_vig2": -4500.0,
+          "roi_fair": -1.0
         },
         "6": {
-          "n": 441,
-          "graded": 0,
+          "n": 442,
+          "graded": 34,
           "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null
+          "hit_rate": 0.0,
+          "mean_model": 0.0221,
+          "log_loss": 0.0228,
+          "brier": 0.0014,
+          "staked": 3400.0,
+          "net_fair": -3400.0,
+          "net_vig2": -3400.0,
+          "roi_fair": -1.0
         }
       }
     }
@@ -277444,6 +277444,7459 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "c120a02cae46",
+      "week": 4,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.3505,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 93.0
+        },
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "3128377e3f20",
+      "week": 4,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 3,
+      "model": 0.236,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Pittman Jr. 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        },
+        {
+          "selection": "BUF ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "0c0e91849e8c",
+      "week": 4,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.1532,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 93.0
+        },
+        {
+          "selection": "BUF ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "76ed0bae0855",
+      "week": 4,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 5,
+      "model": 0.0975,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 93.0
+        },
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "5cf33b6820ff",
+      "week": 4,
+      "dial": "even",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.0632,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "J. Warren 40+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 93.0
+        },
+        {
+          "selection": "BUF ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Cook III 80+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "SF ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. McCaffrey 30+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT ML",
+          "market": "moneyline",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "f8481b2793da",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ARI",
+      "n_legs": 3,
+      "model": 0.1175,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Harrison Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Brissett 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "77bef86cfd58",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ARI",
+      "n_legs": 5,
+      "model": 0.0308,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Harrison Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Brissett 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "83794807b954",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ARI",
+      "n_legs": 5,
+      "model": 0.0329,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Harrison Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Brissett 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "df79a5313f2c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ATL",
+      "n_legs": 3,
+      "model": 0.1031,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Penix Jr. 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. London 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9e1117b7b862",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ATL",
+      "n_legs": 5,
+      "model": 0.0271,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Penix Jr. 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. London 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "182c54730d00",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "ATL",
+      "n_legs": 5,
+      "model": 0.0289,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "M. Penix Jr. 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. London 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "c1a97685b59b",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "bf62d76cb17f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 2,
+      "model": 0.255,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "75dcab065059",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 3,
+      "model": 0.1311,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "4c1b8671bc29",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 5,
+      "model": 0.0344,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "1624dd45bca5",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "76a5807e01d4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "b5630b022909",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BAL",
+      "n_legs": 6,
+      "model": 0.0184,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "44dab924077f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "5f0cdd550e9c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "c1f74a22f3b8",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "a9ac0e9c0941",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "bec063b93e82",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "cd01ebd8cba5",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "BUF",
+      "n_legs": 6,
+      "model": 0.0184,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "e119191070aa",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CAR",
+      "n_legs": 3,
+      "model": 0.1125,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "B. Young 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. McMillan 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "3244b74fb3a3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CAR",
+      "n_legs": 5,
+      "model": 0.0295,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "B. Young 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. McMillan 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "b558d450a4dd",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CAR",
+      "n_legs": 5,
+      "model": 0.0315,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "B. Young 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. McMillan 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "557652b6dc3b",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CHI",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "CHI -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "aa04490f1610",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CHI",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "CHI -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "8c64fe3642ca",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CHI",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "CHI -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "d316d6b6922c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CHI",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "CHI -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "486229ea9655",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CIN",
+      "n_legs": 2,
+      "model": 0.1966,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Perine 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "9e89e59e4a1e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CIN",
+      "n_legs": 3,
+      "model": 0.1061,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Burrow 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Higgins 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "43c09ae7127e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CIN",
+      "n_legs": 5,
+      "model": 0.0278,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Burrow 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Higgins 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "9ec57d1571c2",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CIN",
+      "n_legs": 5,
+      "model": 0.0307,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "A. Iosivas 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Burrow 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "21c3b11897e1",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 2,
+      "model": 0.199,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "a9b8a8c9a4d3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 2,
+      "model": 0.1951,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "72c93847fa5a",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 2,
+      "model": 0.1852,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "378c8dab3e68",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 2,
+      "model": 0.1951,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "0453a3237aab",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 3,
+      "model": 0.0991,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "d50680afd6d9",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 3,
+      "model": 0.1023,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "f21f149273d6",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 3,
+      "model": 0.0982,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Bateman 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "17ade711a6a4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 3,
+      "model": 0.1023,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9309b8abf10d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0505,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "7f5119bf94ef",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0512,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "f6add0f44988",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0546,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "8daf0575d2cc",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0468,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "A. St. Brown 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "e0498e62de7e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0452,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "09056dbb3a7f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0512,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "65b3fef3b47d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 4,
+      "model": 0.0546,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "1070b29fba4f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 5,
+      "model": 0.0249,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Bateman 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "cda39a8b3340",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 5,
+      "model": 0.0268,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "0c3def242a6e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 5,
+      "model": 0.0239,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "Z. Flowers 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "27b96ab52268",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 5,
+      "model": 0.0233,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "A. St. Brown 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "477ec55969fe",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 5,
+      "model": 0.026,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "7ac4317a2e9c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 6,
+      "model": 0.0119,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "A. St. Brown 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "4656d6859fa4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 6,
+      "model": 0.0134,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "7770c03ed7a0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 6,
+      "model": 0.0119,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "M. Harrison Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Brissett 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "4f1ef4930aed",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 6,
+      "model": 0.0134,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "148fea20529b",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "CLE",
+      "n_legs": 6,
+      "model": 0.0143,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "I. Bond 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 2.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "bcdf2ff6c8f2",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DAL",
+      "n_legs": 3,
+      "model": 0.106,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "G. Pickens 70+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Prescott 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9fd010d0ad01",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DAL",
+      "n_legs": 5,
+      "model": 0.0278,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "G. Pickens 70+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Prescott 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "37ccc1d99533",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DAL",
+      "n_legs": 5,
+      "model": 0.0297,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "G. Pickens 70+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Prescott 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "cf3e13a3192d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DEN",
+      "n_legs": 3,
+      "model": 0.1072,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Franklin 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "B. Nix 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "0fe3bac6331e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DEN",
+      "n_legs": 5,
+      "model": 0.0281,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Franklin 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "B. Nix 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "15036f2b2571",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DEN",
+      "n_legs": 5,
+      "model": 0.03,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Franklin 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "B. Nix 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "52a38cf33c11",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DET",
+      "n_legs": 5,
+      "model": 0.0309,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "A. St. Brown 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "c801ae98cad5",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "DET",
+      "n_legs": 5,
+      "model": 0.033,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Goff 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "A. St. Brown 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "0ba1ca327c40",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "GB",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "205197446085",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "GB",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "faa8eaee6288",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "GB",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "6867815c6fc0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "GB",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "89b15524ff8d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "HOU",
+      "n_legs": 2,
+      "model": 0.1953,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Noel 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "53c109677a39",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "HOU",
+      "n_legs": 4,
+      "model": 0.0547,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Noel 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "88839434b0af",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "HOU",
+      "n_legs": 5,
+      "model": 0.0266,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Noel 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Stroud 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "93d766105547",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "HOU",
+      "n_legs": 5,
+      "model": 0.0284,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Noel 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Stroud 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "f05f2cfe04a4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "IND",
+      "n_legs": 3,
+      "model": 0.0995,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Slayton 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Jones 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9ae9d846bd4f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "IND",
+      "n_legs": 5,
+      "model": 0.0261,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Slayton 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Jones 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "3f750ff36488",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "IND",
+      "n_legs": 5,
+      "model": 0.0279,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Slayton 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Jones 250+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "f926c1ad6d11",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "JAX",
+      "n_legs": 3,
+      "model": 0.1157,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Meyers 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Lawrence 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "64fff14cf2cb",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.0303,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Meyers 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Lawrence 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "9cc6051b380f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.0324,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Meyers 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Lawrence 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "1f77ed85f3b3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "KC",
+      "n_legs": 3,
+      "model": 0.1312,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "5f12a99f97a6",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "KC",
+      "n_legs": 5,
+      "model": 0.0344,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "d855ff277300",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "KC",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "8609b11d6f3a",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "KC",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "d62d94a57669",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "KC",
+      "n_legs": 6,
+      "model": 0.0184,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "74890e1760a3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAC",
+      "n_legs": 3,
+      "model": 0.1087,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Herbert 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Harris 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "5e73b472518f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAC",
+      "n_legs": 5,
+      "model": 0.0285,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Herbert 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Harris 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "fcfcdfb608df",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAC",
+      "n_legs": 5,
+      "model": 0.0304,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Herbert 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "T. Harris 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "c06cf2578689",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAR",
+      "n_legs": 2,
+      "model": 0.2003,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "P. Nacua 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "285a49d3f262",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAR",
+      "n_legs": 4,
+      "model": 0.0561,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "P. Nacua 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "4791a147dd47",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAR",
+      "n_legs": 5,
+      "model": 0.0274,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "P. Nacua 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Stafford 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "a56497fed693",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LAR",
+      "n_legs": 5,
+      "model": 0.0292,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "P. Nacua 80+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Stafford 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "1bdbb3ce1810",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 3,
+      "model": 0.1111,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "788ec45ce99d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 4,
+      "model": 0.0555,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "4972f95b351b",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 5,
+      "model": 0.0291,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "d1b6f7cd83c8",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 6,
+      "model": 0.0146,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "bd6f89452b9a",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 6,
+      "model": 0.0146,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "eb16de88f0c2",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "LV",
+      "n_legs": 6,
+      "model": 0.0156,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "2a0385bfe674",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIA",
+      "n_legs": 2,
+      "model": 0.2004,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Tolbert 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "fec3d06ea325",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIA",
+      "n_legs": 4,
+      "model": 0.0526,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Tolbert 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "cc250b3b1abd",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIA",
+      "n_legs": 4,
+      "model": 0.0561,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Tolbert 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "2b97f54d9444",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIA",
+      "n_legs": 6,
+      "model": 0.0138,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Tolbert 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "2968c0f12ea3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "MIN -10.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "2f9c5a729c97",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "MIN -10.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "770383ede28b",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "MIN -10.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "b70a9aac21af",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "MIN",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "MIN -10.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "41b71f57b8a0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NE",
+      "n_legs": 2,
+      "model": 0.1938,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "R. Doubs 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "f3c05097e4b0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NE",
+      "n_legs": 4,
+      "model": 0.0543,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "R. Doubs 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "75519fc34527",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NE",
+      "n_legs": 6,
+      "model": 0.0133,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "R. Doubs 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "de626589a458",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NO",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "NO -2.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "e01b1dda73da",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NO",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "NO -2.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "0f0b3b1b322c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NO",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "NO -2.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "435e0526e7bf",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NO",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "NO -2.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9f80824b9323",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYG",
+      "n_legs": 3,
+      "model": 0.1069,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Mooney 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Winston 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "032624690d06",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYG",
+      "n_legs": 5,
+      "model": 0.028,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Mooney 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Winston 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "6939896f9b79",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYG",
+      "n_legs": 5,
+      "model": 0.0299,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "D. Mooney 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Winston 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "73bcdd605ec0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYJ",
+      "n_legs": 2,
+      "model": 0.1983,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "a8ba1aa9645d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYJ",
+      "n_legs": 3,
+      "model": 0.1045,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "G. Smith 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "0460d589a2d6",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYJ",
+      "n_legs": 4,
+      "model": 0.0555,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "f2fe166e231e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYJ",
+      "n_legs": 5,
+      "model": 0.0274,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "G. Smith 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "867ca5b8bbcd",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "NYJ",
+      "n_legs": 5,
+      "model": 0.0293,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "G. Smith 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "1f0812099652",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0997,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Hurts 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "55035b8ed708",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0262,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Hurts 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "a0820acb9d4a",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0279,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "J. Hurts 225+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "40e9facf8279",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.1933,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "D. Metcalf 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 115.0
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "dee97f2cd7ca",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "01ec43b98e51",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.255,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "1105264fef72",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.1864,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "M. Pittman Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "5deb836af859",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "e8d74e82bb4f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 3,
+      "model": 0.1312,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "c0d49d5981a6",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 3,
+      "model": 0.0951,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "M. Pittman Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "add63d59505c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 3,
+      "model": 0.1311,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "5e6f501b5b65",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "4d4b6d9d5a1d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "3fb6c059fe60",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.0473,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Pittman Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "0e7adce7c93c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "1fb1e1521931",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "3f2f2ab7c6a4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 5,
+      "model": 0.0344,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "180bda17e38a",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 5,
+      "model": 0.0241,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Pittman Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "f95fbe8eec7f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 5,
+      "model": 0.0333,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "b4188157c6b0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "8d22d36196fd",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.0119,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Rice 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Pittman Jr. 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "R. Bateman 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "f5e304c07f02",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "9cefe8e202cf",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.0184,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "35cdb8ec4f7d",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SEA",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SEA -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "bf8f4de31db8",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SEA",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SEA -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "9acab5001051",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SEA",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SEA -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "48d0003a9897",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SEA",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SEA -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "bf56583415a7",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "89289a53fce1",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 4,
+      "model": 0.0656,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "e4d76746d69e",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 4,
+      "model": 0.07,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "b1d65a87d452",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 6,
+      "model": 0.0172,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "58cd0cf69394",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TB",
+      "n_legs": 2,
+      "model": 0.1875,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Tucker 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "4da4a7d9d3d4",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TB",
+      "n_legs": 4,
+      "model": 0.0492,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Tucker 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "5abdc4d564e7",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TB",
+      "n_legs": 4,
+      "model": 0.0525,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Tucker 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "f4eeb8e9de3c",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TB",
+      "n_legs": 6,
+      "model": 0.0129,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "S. Tucker 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "6f358743e772",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TEN",
+      "n_legs": 3,
+      "model": 0.1117,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "E. Ayomanor 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "2c19d8decbf6",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TEN",
+      "n_legs": 5,
+      "model": 0.0293,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "E. Ayomanor 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "7fa65a138632",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TEN",
+      "n_legs": 6,
+      "model": 0.0147,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "E. Ayomanor 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "GB -3.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "e8ed83d34b9f",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TEN",
+      "n_legs": 6,
+      "model": 0.0147,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "E. Ayomanor 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -6.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "5de91d8ca0f0",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "TEN",
+      "n_legs": 6,
+      "model": 0.0147,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "E. Ayomanor 30+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "C. Ward 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        },
+        {
+          "selection": "BUF -7",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "a60c83d4c7c3",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "WAS",
+      "n_legs": 3,
+      "model": 0.1066,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "V. Jefferson 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Daniels 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "1ba8aeb34362",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "WAS",
+      "n_legs": 5,
+      "model": 0.028,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "V. Jefferson 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Daniels 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "KC -4.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "P. Mahomes 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "d49e8c8130bc",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "WAS",
+      "n_legs": 5,
+      "model": 0.0299,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "V. Jefferson 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "L. Jackson 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL -11.5",
+          "market": "spread",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Daniels 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "PIT -2.5",
+          "market": "spread",
+          "result": "miss",
+          "actual": {
+            "home_score": 27,
+            "away_score": 24
+          }
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "d6b24ec7fe51",
+      "week": 4,
+      "dial": "safe",
+      "seed": "PIT",
+      "n_legs": 6,
+      "model": 0.185,
+      "result": "miss",
+      "bucket": "partial",
+      "legs": [
+        {
+          "selection": "A. Rodgers 125+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 299.0
+        },
+        {
+          "selection": "SEA ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "BAL ML",
+          "market": "moneyline",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "J. Mason 30+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "pending",
+          "actual": null
+        },
+        {
+          "selection": "M. Pittman Jr. 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "miss",
+          "actual": 15.0
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
       }
     }
   ],
