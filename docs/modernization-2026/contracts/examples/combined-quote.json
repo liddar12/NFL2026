@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.1",
+  "quote_id": "fixture-quote-001",
+  "fixture": true,
+  "project_id": "nfl2026-design-fixture",
+  "book": "Example book — no real quote",
+  "provider_quote_id": "fixture-provider-001",
+  "event_id": "fixture-game-001",
+  "market_scope": "single_game",
+  "selections": [
+    {
+      "selection_id": "fixture-home-ml",
+      "event_id": "fixture-game-001",
+      "entity_id": "fixture-home-team",
+      "market_type": "moneyline",
+      "direction": "home",
+      "line": null,
+      "unit": "none",
+      "period": "full_game"
+    },
+    {
+      "selection_id": "fixture-total-over",
+      "event_id": "fixture-game-001",
+      "entity_id": "fixture-game-001",
+      "market_type": "total",
+      "direction": "over",
+      "line": 44.5,
+      "unit": "points",
+      "period": "full_game"
+    }
+  ],
+  "combined_decimal_odds": 3.0,
+  "quoted_at": "2026-10-08T12:00:00Z",
+  "expires_at": "2026-10-08T12:01:00Z",
+  "settlement_policy_id": "fixture-book-full-game-v1",
+  "source_ref": "fixture://quote/example-001",
+  "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "verification": "unverified"
+}
