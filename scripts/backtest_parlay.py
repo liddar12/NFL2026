@@ -1021,10 +1021,15 @@ def _write(path, doc):
         fh.write("\n")
 
 
-def compute():
+def compute(live_weeks=None):
+    """The full record. `live_weeks` (R107) restricts the 2026 legs to those weeks —
+    the gate's way to recompute exactly what an older committed file saw."""
     games = load_games(_load(GAMES_META_PATH))
     weekly = load_weekly(_load(WEEKLY_ACTUALS_PATH))
-    return run(games, weekly, load_game_params(), live=load_live_legs())
+    live = load_live_legs()
+    if live_weeks is not None:
+        live = [r for r in live if r["week"] in set(live_weeks)]
+    return run(games, weekly, load_game_params(), live=live)
 
 
 def _print_summary(doc):
@@ -1066,10 +1071,49 @@ def _print_summary(doc):
         print("     %-32s rho %s n=%d (prior %s)" % (p["label"], p["rho"], p["n"], p["prior"]))
 
 
-def gate(doc, committed_path=OUT_PATH):
+def _shipped_differs(committed, doc):
+    """[problem] where the committed SHIPPED numbers differ from `doc`'s."""
+    out = []
+    for key in ("calibration", "residual_sd"):
+        if committed.get("props", {}).get(key) != doc["props"][key]:
+            out.append("committed props.%s differs from the recomputed value — "
+                       "production would price from stale numbers" % key)
+    if committed.get("correlations", {}).get("pairs") != doc["correlations"]["pairs"]:
+        out.append("committed correlations.pairs differ from the recomputed values")
+    return out
+
+
+def _lag_explains(committed, doc, recompute_on):
+    """R107 — the documented one-day lag. The daily runner writes this file BEFORE
+    scripts/resolve_parlay_legs.py grades the newest legs, so on the commit that
+    grades them the file still reflects the legs it saw. When graded 2026 legs have
+    moved past the committed file's, recompute on exactly the weeks it fit and
+    accept it if THAT reproduces it; the next daily run adopts the rest. Returns
+    the lag note, or None when the lag does not explain the difference."""
+    c_live = committed.get("live_2026") or {}
+    weeks = (c_live.get("refit") or {}).get("fit_weeks")
+    d_live = doc.get("live_2026") or {}
+    if not weeks or recompute_on is None:
+        return None
+    if (d_live.get("legs_resolved"), d_live.get("weeks")) == \
+            (c_live.get("legs_resolved"), c_live.get("weeks")):
+        return None                     # same legs seen: no lag to explain anything
+    then = recompute_on(weeks)
+    if (then.get("live_2026") or {}).get("legs_resolved") != c_live.get("legs_resolved"):
+        return None                     # the committed input cannot be reproduced
+    if _shipped_differs(committed, then):
+        return None
+    return ("one-day lag: the committed file reproduces from the %d legs it saw "
+            "(weeks %s); %d legs are graded now and the next daily run re-decides "
+            "(%s)" % (c_live.get("legs_resolved"), weeks, d_live.get("legs_resolved"),
+                      ((d_live.get("refit") or {}).get("reason") or "no refit")))
+
+
+def gate(doc, committed_path=OUT_PATH, recompute_on=None):
     """Exit 1 when the world changed: props not adopted, spread verdict not
     no_edge, or the committed file's SHIPPED numbers no longer match what the
-    fixtures produce (production reads that file)."""
+    fixtures produce (production reads that file) — except where the documented
+    one-day lag explains it exactly (R107, _lag_explains)."""
     problems = []
     if not doc["props"]["verdict"]["adopted"]:
         problems.append("props verdict is NOT adopted: %s" % doc["props"]["verdict"]["reason"])
@@ -1082,12 +1126,13 @@ def gate(doc, committed_path=OUT_PATH):
                         % os.path.relpath(committed_path, _REPO_ROOT))
     else:
         committed = _load(committed_path)
-        for key in ("calibration", "residual_sd"):
-            if committed.get("props", {}).get(key) != doc["props"][key]:
-                problems.append("committed props.%s differs from the recomputed value — "
-                                "production would price from stale numbers" % key)
-        if committed.get("correlations", {}).get("pairs") != doc["correlations"]["pairs"]:
-            problems.append("committed correlations.pairs differ from the recomputed values")
+        stale = _shipped_differs(committed, doc)
+        if stale:
+            lag = _lag_explains(committed, doc, recompute_on)
+            if lag:
+                print("GATE NOTE: %s" % lag)
+            else:
+                problems.extend(stale)
     for p in problems:
         print("GATE FAIL: %s" % p, file=sys.stderr)
     return 1 if problems else 0
@@ -1265,7 +1310,7 @@ def main(argv):
         return 0
     doc = compute()
     if "--gate" in argv:
-        rc = gate(doc)
+        rc = gate(doc, recompute_on=lambda weeks: compute(live_weeks=weeks))
         print("parlay backtest gate: %s" % ("PASS" if rc == 0 else "FAIL"))
         return rc
     existing = _load(OUT_PATH) if os.path.exists(OUT_PATH) else None
