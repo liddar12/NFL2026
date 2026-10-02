@@ -940,6 +940,17 @@ nothing ships without one.
   LOOPS card, high on the page, paints 11 loops that can move a shipped number and 5 measure-only
   experiments, then the change log. Contract `learning_loops.schema.json`; the validator checks the
   summary and transitions. **Locked by** `r105_learning_loops` (5). · **LOE** 0.5 d
+- **R107 · Main red after the first week-4 game, fixed (P0) — 2026-10-02.** data-ci #53-#55 went red
+  overnight. (1) Two archive tests still asserted every parlays.json card is archived; R106 refuses a
+  card first built after its kickoff (PIT @ CLE re-picked at 02:49Z), so they now allow exactly
+  that, computed by the archive's own earliest_kickoff. (2) G04 bound "current week started" while
+  the first game was still in progress; it now binds on the week's first FINAL. (3) The parlay gate
+  flagged the documented one-day lag the first time it mattered: Thursday's graded legs flipped the
+  2026 prop refit to ADOPTED (walk-forward 0.6862 <= 0.6866), and the gate compared the committed
+  file to a recompute on legs it had not seen yet. It now recomputes on the weeks the committed file
+  fit and accepts the difference only when that reproduces it exactly; the next daily ships the
+  refit. **Locked by** `r107_parlay_gate_lag` (2), `r73_parlay_archive`, `r90_card_freeze`,
+  `r90_slate_truth` (updated). · **LOE** 0.25 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

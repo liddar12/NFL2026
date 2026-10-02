@@ -211,6 +211,32 @@ print(json.dumps({"s": s, "idx_n": len(idx), "z": only_pending, "consts": [br.ST
 
 /* --------------------------------------------------- 3. committed data */
 
+/* R106 — the archive no longer admits a card first built AFTER its kickoff (it
+ * was never a pregame offer), while the slate builder still re-picks started
+ * games into data/parlays.json. So a live card may be missing from the open
+ * week's archive exactly when its earliest kickoff is at or before the archive's
+ * last refresh — the rule scripts/build_parlay_archive.merge_frozen applies,
+ * computed by its own earliest_kickoff. */
+function builtAfterKickoff(archivePath) {
+  const out = execFileSync('python3', ['-'], {
+    cwd: REPO_ROOT, encoding: 'utf8', env: { ...process.env, PYTHONPATH: REPO_ROOT },
+    input: `import json, os, sys
+sys.path.insert(0, ".")
+from scripts import build_parlay_archive as pa
+p = json.load(open("data/parlays.json"))
+a = json.load(open(${JSON.stringify(archivePath)}))
+kicks, by_team = pa.week_kickoffs(json.load(open("data/schedule_full.json"))["games"], p["week"])
+lp = "data/estimates/parlays_%d.json" % p["season"]
+legs = pa.ledger_game_index(json.load(open(lp)) if os.path.exists(lp) else {}, p["week"])
+at = pa._parse_utc(a.get("archived_utc"))
+ek = lambda c: pa.earliest_kickoff(c, kicks, by_team, legs)
+late = [c["parlay_id"] for c in p["parlays"]
+        if at is not None and ek(c) is not None and ek(c) <= at]
+print(json.dumps(late))`,
+  });
+  return new Set(JSON.parse(out.trim().split('\n').pop()));
+}
+
 test('committed archive: the open week mirrors data/parlays.json, index consistent, contracts green', () => {
   const parlays = load('data/parlays.json');
   const name = `data/parlays/${parlays.season}_wk${String(parlays.week).padStart(2, '0')}.json`;
@@ -239,8 +265,11 @@ test('committed archive: the open week mirrors data/parlays.json, index consiste
       assert.ok(built.has(JSON.stringify(plain)), `live card ${card.parlay_id} is the built one, verbatim`);
     }
     const archived = new Set(arch.parlays.map(identity));
+    const late = builtAfterKickoff(name);
     for (const card of parlays.parlays) {
-      assert.ok(archived.has(identity(card)), `parlays.json card ${card.parlay_id} is in the archive`);
+      if (archived.has(identity(card))) continue;
+      assert.ok(late.has(card.parlay_id),
+        `parlays.json card ${card.parlay_id} is in the archive, or was built after its kickoff`);
     }
     assert.ok(arch.parlays.every((c) => typeof c.card_id === 'string'), 'every archived card is identified');
   }
