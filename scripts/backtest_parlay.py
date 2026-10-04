@@ -106,6 +106,7 @@ OUT_PATH = os.path.join(DATA, "parlay_backtest.json")
 # R58 — the resolved 2026 legs (scripts/resolve_parlay_legs.py) and the refit rule.
 LIVE_SCORES_REL = "data/parlay_leg_scores.json"
 LIVE_SCORES_PATH = os.path.join(_REPO_ROOT, LIVE_SCORES_REL)
+SCHEDULE_PATH = os.path.join(DATA, "schedule_full.json")
 LIVE_SEASON = 2026
 REFIT_MIN_LEGS = 100
 PROP_MARKETS = {"qb_pass_yds": "QB", "rb_rush_yds": "RB", "wr_rec_yds": "WR"}
@@ -749,7 +750,7 @@ def load_live_legs(path=LIVE_SCORES_PATH):
         out.append({"week": int(r["week"]), "pos": pos, "z": f("z"), "sd": f("sd"),
                     "p_team": f("p_team"), "pricing": r.get("pricing"),
                     "model_prob": float(r["model_prob"]), "seed_prob": f("seed_prob"),
-                    "y": 1 if r["hit"] else 0})
+                    "y": 1 if r["hit"] else 0, "game_id": r.get("game_id")})
     return out
 
 
@@ -1021,14 +1022,34 @@ def _write(path, doc):
         fh.write("\n")
 
 
-def compute(live_weeks=None):
+def _kickoff_prefix(live, n, kickoffs):
+    """R113 — the legs of the earliest-kicking-off games that number exactly `n`, or
+    None. The resolver grades games in kickoff order, so a committed file written
+    between two gradings of the SAME week (Thursday's game graded, Sunday's not yet)
+    saw such a prefix; the week filter alone cannot rebuild it."""
+    kick = lambda r: kickoffs.get(str(r.get("game_id"))) or ""  # noqa: E731
+    for cut in sorted({kick(r) for r in live}):
+        sub = [r for r in live if kick(r) <= cut]
+        if len(sub) == n:
+            return sub
+    return None
+
+
+def compute(live_weeks=None, live_legs=None):
     """The full record. `live_weeks` (R107) restricts the 2026 legs to those weeks —
-    the gate's way to recompute exactly what an older committed file saw."""
+    the gate's way to recompute exactly what an older committed file saw; with
+    `live_legs` (R113) it narrows them to the kickoff-order prefix of that size when
+    the weeks hold more graded legs than the committed file saw."""
     games = load_games(_load(GAMES_META_PATH))
     weekly = load_weekly(_load(WEEKLY_ACTUALS_PATH))
     live = load_live_legs()
     if live_weeks is not None:
         live = [r for r in live if r["week"] in set(live_weeks)]
+        if live_legs is not None and len(live) != live_legs:
+            sched = (_load(SCHEDULE_PATH) if os.path.exists(SCHEDULE_PATH) else {}) or {}
+            kickoffs = {str(g.get("game_id")): g.get("kickoff_utc") or ""
+                        for g in sched.get("games") or []}
+            live = _kickoff_prefix(live, live_legs, kickoffs) or live
     return run(games, weekly, load_game_params(), live=live)
 
 
@@ -1310,7 +1331,9 @@ def main(argv):
         return 0
     doc = compute()
     if "--gate" in argv:
-        rc = gate(doc, recompute_on=lambda weeks: compute(live_weeks=weeks))
+        committed = _load(OUT_PATH) if os.path.exists(OUT_PATH) else {}
+        seen = (committed.get("live_2026") or {}).get("legs_resolved")
+        rc = gate(doc, recompute_on=lambda weeks: compute(live_weeks=weeks, live_legs=seen))
         print("parlay backtest gate: %s" % ("PASS" if rc == 0 else "FAIL"))
         return rc
     existing = _load(OUT_PATH) if os.path.exists(OUT_PATH) else None

@@ -54,6 +54,25 @@ test('the lag passes only when the committed file reproduces from the legs it sa
   assert.equal(r.none, 1, 'without the recompute hook the old strict rule stands');
 });
 
+/* R113 (data-ci #80) — the lag inside ONE week. Thursday's game was graded when the
+ * file was written (fit_weeks [1..4], 131 legs); Sunday's games were graded after, in
+ * the same week 4, so the week filter rebuilds 157 legs and could never reproduce the
+ * file. The gate's recompute narrows the weeks to the kickoff-order prefix of exactly
+ * the size the file saw; no prefix of that size -> None, and the gate stays strict. */
+test('R113: the recompute rebuilds the kickoff-order prefix the committed file saw', () => {
+  const r = py(`
+from scripts import backtest_parlay as bp
+k = {"g1": "2026-09-27T17:00Z", "thu": "2026-10-02T00:15Z", "sun": "2026-10-04T17:00Z"}
+live = [{"week": 3, "game_id": "g1"}] * 2 + [{"week": 4, "game_id": "thu"}] * 3 \
+     + [{"week": 4, "game_id": "sun"}] * 5
+thu = bp._kickoff_prefix(live, 5, k)
+print(json.dumps({"thu": [r["game_id"] for r in thu], "all": len(bp._kickoff_prefix(live, 10, k)),
+                  "none": bp._kickoff_prefix(live, 6, k)}))`);
+  assert.deepEqual(r.thu, ['g1', 'g1', 'thu', 'thu', 'thu']);
+  assert.equal(r.all, 10);
+  assert.equal(r.none, null, 'no game boundary gives 6 legs: nothing to reproduce from');
+});
+
 test('the committed data passes the gate (with the lag stated when it applies)', () => {
   const out = execFileSync('python3', ['scripts/backtest_parlay.py', '--gate'],
     { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
