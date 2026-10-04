@@ -160,6 +160,13 @@ const VALIDATE_STUB = `import json, os, sys
 if "--fail" in sys.argv:
     print("validate stub: REFUSING (forced failure)", file=sys.stderr)
     sys.exit(1)
+if "--join" in sys.argv and os.path.exists("data/source.json"):
+    # a cross-file join, like leg_pool.json's ATD legs against atd_week.json
+    src = json.load(open("data/source.json"))["generated_utc"]
+    got = json.load(open("data/game_predictions.json"))["generated_utc"]
+    if src != got:
+        print("validate stub: game_predictions %s does not join source %s" % (got, src), file=sys.stderr)
+        sys.exit(1)
 for base, _dirs, files in os.walk("data"):
     for name in files:
         if name.endswith(".json"):
@@ -616,6 +623,62 @@ test('(e) the contract gate fails on the merged tree: nothing is published and m
     assert.ok(!existsSync(join(world.b, '.git/rebase-merge')));
     assert.ok(!existsSync(join(world.b, '.git/rebase-apply')));
     assert.equal(readJson(world.b, 'data/game_predictions.json').games[0].p_home, 0.77);
+    assert.equal(git(world.b, 'status', '--porcelain'), '', 'no debris left behind');
+  } finally { cleanup(world); }
+});
+
+/* ---------- (j) R111: valid alone, invalid together ---------------------- */
+
+test('(j) two writers that do not join across files: this run\'s ledgers and locks publish, its regenerable files lose to the published ones', () => {
+  // 2026-10-04, gameday #153: daily landed a newer atd_week.json; gameday's
+  // leg_pool.json was built from the old one; the merged tree failed the gate
+  // and the whole gameday generation, lock receipts included, was discarded.
+  const world = makeWorld();
+  try {
+    const JOIN = { PUBLISH_VALIDATE_CMD: 'python3 tools/validate_stub.py --join' };
+    // A (daily) rebuilds the source AND its derived file, consistently.
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    writeJson(world.a, 'data/source.json', { generated_utc: TA });
+    assert.equal(publish(world.a, 'data: daily pipeline refresh [skip actions]', JOIN).status, 0);
+    const mainBefore = git(world.a, 'rev-parse', 'origin/main');
+
+    // B (gameday) rebuilt the derived file from the OLD source, appended its own
+    // ledger entries, and graded nothing new in the receipts.
+    generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
+    const r = publish(world.b, 'data: gameday refresh [skip actions]', JOIN);
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /falling back to the published regenerable files/);
+    assert.match(r.out, /data\/game_predictions\.json: fallback, taking the published version/);
+    assert.match(r.out, /::warning::published this run's ledger entries and snapshots/);
+
+    // the regenerable file is the published one (it joins its source) ...
+    assert.equal(readMain(world, 'data/game_predictions.json').generated_utc, TA);
+    // ... and nothing only B could contribute was lost
+    assert.deepEqual(readMain(world, 'data/estimates/parlays_2026.json').legs.map((l) => l.selection),
+      ['SEA ML', 'A ML', 'B ML']);
+    assert.deepEqual(readMain(world, 'data/my_cards/2026_wk02.json').cards.map((c) => c.card_id),
+      ['base', 'aaa', 'bbb']);
+    // B's commit sits on top of A's, untouched
+    git(world.b, 'fetch', '--quiet', 'origin', 'main');
+    assert.equal(git(world.b, 'rev-parse', 'FETCH_HEAD~1'), mainBefore);
+  } finally { cleanup(world); }
+});
+
+test('(j2) when even the fallback fails the gate, nothing is published, exactly as before', () => {
+  const world = makeWorld();
+  try {
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    assert.equal(publish(world.a, 'data: daily pipeline refresh [skip actions]').status, 0);
+    const mainBefore = git(world.a, 'rev-parse', 'origin/main');
+    generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
+    const r = publish(world.b, 'data: gameday refresh [skip actions]',
+                      { PUBLISH_VALIDATE_CMD: 'python3 tools/validate_stub.py --fail' });
+    assert.notEqual(r.status, 0);
+    assert.match(r.out, /fallback to the published regenerable files fails them too/);
+    git(world.b, 'fetch', '--quiet', 'origin', 'main');
+    assert.equal(git(world.b, 'rev-parse', 'FETCH_HEAD'), mainBefore, 'main is untouched');
+    assert.equal(readJson(world.b, 'data/game_predictions.json').games[0].p_home, 0.77,
+      'B\'s own generation is intact in its checkout');
     assert.equal(git(world.b, 'status', '--porcelain'), '', 'no debris left behind');
   } finally { cleanup(world); }
 });
