@@ -25,8 +25,10 @@ export function matchingLegs(card, review) {
 
 /** Null is unavailable, never a made-up -110 price. A loss still loses the stake. */
 export function simulateMoney(legs, outcomes = null) {
-  const settled = outcomes && outcomes.length === legs.length
-    && outcomes.every((l) => ['hit', 'miss', 'void'].includes(l.result));
+  // R106: one missed leg settles the parlay as a loss even while other legs are pending.
+  const lost = !!outcomes && outcomes.some((l) => l?.result === 'miss');
+  const settled = lost || (outcomes && outcomes.length === legs.length
+    && outcomes.every((l) => ['hit', 'miss', 'void'].includes(l.result)));
   const kind = settled ? 'settled' : 'potential';
   let decimal = 1;
   let available = legs.length > 0;
@@ -36,7 +38,6 @@ export function simulateMoney(legs, outcomes = null) {
     if (typeof ip !== 'number' || !Number.isFinite(ip) || ip <= 0 || ip > 1) available = false;
     else decimal /= ip;
   });
-  const lost = settled && outcomes.some((l) => l.result === 'miss');
   const net = lost ? -100 : available ? Math.round(10000 * (decimal - 1)) / 100 : null;
   return { kind, net_fair: net, net_vig2: null,
     assumed_price_legs: legs.filter((l) => l.price_source !== 'book_quote').length,

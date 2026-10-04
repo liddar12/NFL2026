@@ -30,6 +30,10 @@ test('R84: one simulation prices MY, published cards and graded review; net excl
   assert.equal(simulateMoney(legs, outcomes(['void', 'void'])).net_fair, 0);
   assert.equal(simulateMoney(legs, outcomes(['hit', 'miss'])).net_fair, -100);
   assert.equal(simulateMoney(legs, outcomes(['hit', 'pending'])).kind, 'potential');
+  // R113 (data-ci #79): a miss settles the loss even while the other leg is pending (R106)
+  assert.deepEqual([simulateMoney(legs, outcomes(['miss', 'pending'])).kind,
+    simulateMoney(legs, outcomes(['miss', 'pending'])).net_fair], ['settled', -100]);
+  assert.equal(simulateMoney(legs, outcomes(['pending', 'miss'])).net_fair, -100);
   for (const invalid of [null, undefined, 0, -1, 1.1, NaN, '0.5']) {
     assert.equal(simulateMoney([{ ...legs[0], implied_prob: invalid }]).net_fair, null);
   }

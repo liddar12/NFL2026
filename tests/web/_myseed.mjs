@@ -28,21 +28,30 @@ const POOL = JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.
 const SCHEDULE = JSON.parse(readFileSync(new URL('../../data/schedule_full.json', import.meta.url), 'utf8'));
 
 const week = Number(POOL.week);
+/* 2026-10-04 (R113): the seed is derived when the spec loads, but a full gate
+ * runs for minutes; DEN @ SF kicked off at 20:25Z between load (20:22Z) and the
+ * test, and MY rightly offered DEN nothing. So a team whose game is still more
+ * than SEED_MARGIN_MS away is preferred; the upcoming set itself is unchanged. */
+const SEED_MARGIN_MS = 45 * 60 * 1000;
 const upcoming = new Set();
 const upcomingGames = [];
+const kickoffOf = new Map();
 for (const g of SCHEDULE.games || []) {
   if (Number(g.week) !== week || g.status !== 'STATUS_SCHEDULED') continue;
   if (!(Date.parse(g.kickoff_utc) > Date.now())) continue;
   upcomingGames.push(g);
   upcoming.add(g.home); upcoming.add(g.away);
+  kickoffOf.set(g.home, Date.parse(g.kickoff_utc)); kickoffOf.set(g.away, Date.parse(g.kickoff_utc));
 }
+const clear = (team) => (kickoffOf.get(team) > Date.now() + SEED_MARGIN_MS ? 1 : 0);
 const byTeam = new Map();
 for (const row of POOL.players || []) {
   if (!upcoming.has(row.team)) continue;
   if (!byTeam.has(row.team)) byTeam.set(row.team, []);
   byTeam.get(row.team).push(row);
 }
-const ranked = [...byTeam.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+const ranked = [...byTeam.entries()].sort((a, b) => clear(b[0]) - clear(a[0])
+  || b[1].length - a[1].length || a[0].localeCompare(b[0]));
 
 /* WHEN THE WEEK IS OVER, SAY SO — DO NOT THROW.
  *
