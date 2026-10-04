@@ -105,6 +105,15 @@ const STAKE = 100;
  * priced, not new prices. */
 export const DIALS = { safe: 0.65, even: 0.50, longshot: 0.35 };
 export const GAME_LEG_BAND = 0.15;
+/* R109 — a SPREAD is priced at exactly 0.50 by policy (the model holds no opinion
+ * on a cover), so it is the difficulty only EVEN asks for. SAFE and LONGSHOT used
+ * to admit it from their bands' inclusive edge (|0.50 - 0.35| = 0.15) and the
+ * conviction search filled LONGSHOT cards with it. Replayed over every week-2/3
+ * leg pool the pipeline committed (scratch harness; the recorded cards reproduce
+ * exactly), LONGSHOT cards without it hit 4.7% / 2.4% against 3.0% / 0.1%, their
+ * realised/model ratio rose from 0.42 / 0.01 to 0.63 / 0.29, and SAFE and EVEN were
+ * unchanged in both weeks. */
+export const SPREAD_DIAL_TARGET = 0.5;
 export const DEFAULT_DIAL = 'even';
 const DIAL_ORDER = [['safe', 'SAFE'], ['even', 'EVEN'], ['longshot', 'LONGSHOT']];
 const DIAL_KEY = 'nfl2026.myparlays.dial.v1';
@@ -254,9 +263,11 @@ export function dialLegs(legs, target) {
   // |0.65 - 0.50| evaluates to 0.15000000000000002, which would silently drop the
   // leg that sits exactly on the edge the legend promises.
   const inBand = (p) => Math.abs(Number(p) - t) - GAME_LEG_BAND <= 1e-9;
+  // R109 — a spread (0.50 by policy) only on the dial that targets 0.50.
+  const spreadOk = (leg) => leg.market !== 'spread' || Math.abs(t - SPREAD_DIAL_TARGET) <= 1e-9;
   return (legs || []).filter((leg) => (isPropLeg(leg)
     ? chosen.get(leg.owner) === leg
-    : inBand(leg.model_prob)));
+    : inBand(leg.model_prob) && spreadOk(leg)));
 }
 
 /** Seed suggestions: every player and every team the pool can actually price. */
@@ -908,8 +919,9 @@ export default async function mountMyParlays(el) {
     + `<div class="legend" id="mp-note"><span class="legend-item"><b>CONVICTION</b> our `
       + `combined probability the whole card hits. Cards carry ONE line per player, chosen by `
       + `the RISK dial above (SAFE \u2248 65%, EVEN \u2248 50%, LONGSHOT \u2248 35% model chance per leg). `
-      + `The dial applies to EVERY leg: a moneyline or spread is only offered when its own model `
-      + `chance is within 15 points of the dial. Cards are ranked by model hit chance within that `
+      + `The dial applies to EVERY leg: a moneyline is only offered when its own model `
+      + `chance is within 15 points of the dial, and a spread (a 50% coin flip to the model) only `
+      + `on EVEN. Cards are ranked by model hit chance within that `
       + `dial, never by payout. `
       + `Search is approximate, not a guaranteed optimum. `
       + `At most two legs per game are supported in ANY; a TD mode allows up to the `

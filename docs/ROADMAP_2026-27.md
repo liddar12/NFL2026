@@ -965,6 +965,22 @@ nothing ships without one.
   and 913 ATD-MY cards settle on their other legs. **Locked by** `r108_excluded_offer` (6),
   `r108_excluded_records` (8), `r108_excluded` (web, 2), `parlay_rules` and `smoke.sh` (the
   3-cards-per-game rule exempts an excluded game and asserts it has none). · **LOE** 0.5 d
+- **R109 · Parlay accuracy: measure, then ship only what wins (P1) — 2026-10-04.** Owner: "Improve
+  the accuracy of all the parlays that will win"; adopt only a rule that raises the all-hit rate and
+  calibration and never regresses on a held-out week. Baseline (weeks 1-3 graded): spread legs are
+  priced at exactly 0.50 by policy and hit 42-45 % in every source; MY LONGSHOT cards hit 41 / 2,988
+  (1.4 %) against a 10 % model — the conviction search filled them with spreads admitted from the
+  dial band's inclusive edge. **Shipped:** a spread fills only an EVEN card (the dial that targets
+  0.50), in the browser and its Python recorder. Replayed over every week-2/3 leg pool the pipeline
+  committed (every recorded card reproduces; no fitted parameter, so both weeks are held out):
+  LONGSHOT 3.0 % → 4.7 % (wk2) and 0.1 % → 2.4 % (wk3, 90 % game-cluster CI of the gain
+  [+0.2, +15.1] points), realised/model 0.42 → 0.63 and 0.01 → 0.29; SAFE identical, EVEN untouched.
+  **Not shipped:** the same rule on slate GAME cards (replayed on the locked legs: 32/117 → 31/114,
+  week 3 down one card — fails never-regress). Still pending, honestly: the pool-leg recalibration
+  (R100 `leg_pool_live`, props under-confident by 9-24 points) is HELD until week 4 is graded and
+  re-gates itself then; ATD cards at 4+ legs run over-confident on one graded week — not enough to
+  act on. **Locked by** `r109_spread_dial` (3), `r86_my_dial` (legend), `r87_my_cards_parity`.
+  · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
