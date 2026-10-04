@@ -1024,6 +1024,18 @@ nothing ships without one.
   follow R106. The MY browser seed also prefers a game more than 45 min from kickoff, because a gate
   run outlived DEN @ SF's 20:25Z kickoff. **Locked by** `r84_preview_safety`, `r72_review_summary`,
   `r75_parlay_controls` (web), `r110_my_bets` (web). · **LOE** 0.1 d
+- **R114 · Two data-ci #80 causes the evening pipeline exposed (P1) — 2026-10-04.** (1) nflverse
+  writes "Josh Palmer"; the card says "Joshua Palmer". The Python grader falls back to first initial +
+  last name and graded the leg a miss; `build_bet_facts` matched the exact name only, so MY BETS
+  left it pending. The facts builder now uses the grader's fallback (`_match`). (2) The R107 lag
+  explainer re-fit "the weeks the committed file saw", but on a game day the resolver grades more
+  legs inside a week already fitted (Thursday's game, then Sunday's), so it could never reproduce
+  the file. The gate's recompute now takes the kickoff-order prefix of exactly the size the file
+  saw (`_kickoff_prefix`), and still demands exact reproduction. (3) Today's post-kickoff re-ranks
+  re-used four rank ids for different bets; the page joins by bet identity (R112), but the
+  `r75_parlay_controls` oracle still joined by rank id. It now joins the way `app/review.js` does.
+  **Locked by** `build_bet_facts --selftest`, `r110_bet_facts` AC3, `r107_parlay_gate_lag`,
+  `r75_parlay_controls` (web). · **LOE** 0.25 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

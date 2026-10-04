@@ -118,6 +118,23 @@ def _snap_call(name, team, snaps_week):
                for r in snaps_week["rows"])
 
 
+def _match(rows, name, team, pos=None):
+    """The player's rows on his team: the exact normalized name, else -- as
+    resolve_parlay_legs.find_player does -- first initial + last name, so a stats
+    feed that writes "Josh Palmer" still finds "Joshua Palmer" (data-ci #80)."""
+    cands = [r for r in rows if r["team"] == team and (pos is None or r["pos"] == pos)]
+    exact = [r for r in cands if r["norm"] == name]
+    if exact:
+        return exact
+    parts = name.split(" ")
+    if len(parts) < 2:
+        return []
+    ini, last = parts[0][0], " ".join(parts[1:])
+    return [r for r in cands
+            if len(r["norm"].split(" ")) >= 2 and r["norm"][0] == ini
+            and " ".join(r["norm"].split(" ")[1:]) == last]
+
+
 def player_facts(ident, stat_rows, td_rows, snaps_week):
     """{"y": ..., "td": ...} for one player-week, or None when there is nothing."""
     name, team, pos = norm_name(ident.get("name")), ident.get("team"), ident.get("position")
@@ -130,7 +147,7 @@ def player_facts(ident, stat_rows, td_rows, snaps_week):
 
     y = None
     if pos in YARD_POSITIONS and stat_rows is not None:
-        rows = [r for r in stat_rows if r["norm"] == name and r["team"] == team and r["pos"] == pos]
+        rows = _match(stat_rows, name, team, pos)
         if len(rows) == 1:
             yd = rows[0]["yards"]
             y = [yd["QB"], yd["RB"], yd["WR"]]
@@ -139,7 +156,7 @@ def player_facts(ident, stat_rows, td_rows, snaps_week):
             y = [0, 0, 0] if f == 0 else f
     td = None
     if td_rows is not None:
-        rows = [r for r in td_rows if r["norm"] == name and r["team"] == team]
+        rows = _match(td_rows, name, team)
         if len(rows) == 1:
             td = rows[0]["tds"]
         elif not rows:
@@ -264,6 +281,13 @@ def selftest():
     assert "p5" not in w3["players"], "no sheet for DDD and no line: no evidence -> absent (pending)"
     assert w3["players"]["p6"] == {"y": "dnp", "td": "dnp"}, "sheet published without the player: void"
     assert doc["excluded"] == ["G9"]
+    # data-ci #80: the feed's "Josh Palmer" is the card's "Joshua Palmer" (initial + last)
+    nick = build(games, finals, {"p7": {"name": "Joshua Palmer", "team": "BBB", "position": "WR"}},
+                 {3: [{"norm": "josh palmer", "pos": "WR", "team": "BBB",
+                       "yards": {"QB": 0.0, "RB": 0.0, "WR": 3.0}}]},
+                 {3: [{"norm": "josh palmer", "pos": "WR", "team": "BBB", "tds": 0}]},
+                 snaps, set(), 2026, "t", "fixture")
+    assert nick["weeks"]["3"]["players"]["p7"] == {"y": [0.0, 0.0, 3.0], "td": 0}
     # an in-progress / scheduled game never carries a score
     w = game_facts([{"game_id": "G7", "week": 6, "home": "X", "away": "Y"}], {})
     assert w == {6: {"G7": {"h": "X", "a": "Y", "k": None}}}

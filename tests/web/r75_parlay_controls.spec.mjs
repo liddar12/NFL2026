@@ -20,6 +20,7 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { cardIdOf } from '../../app/review.js';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const PARLAYS = read('../../data/parlays.json');
@@ -46,7 +47,11 @@ for (const [week, block] of Object.entries(REVIEW.weeks)) {
   // "401872933-g1~e9d2a3") and BOTH forms sit in the archive, so a parlay_id
   // lookup silently returns the superseded card and prices the wrong legs — the
   // week-2 archive made that a $414.64 disagreement with the page.
-  const byCard = new Map(cards.filter((c) => c.card_id).map((c) => [String(c.card_id), c]));
+  // R114 — the slate's cards carry no card_id: give each the identity app/review.js
+  // stamps (stampCardIds), so a rank id re-used after a post-kickoff re-rank never
+  // prices one bet with another bet's legs (R112, data-ci #80).
+  const ids = await Promise.all(cards.map((c) => c.card_id || cardIdOf(c).catch(() => '')));
+  const byCard = new Map(cards.map((c, i) => [String(ids[i]), c]).filter(([id]) => id));
   for (const row of block.parlays) {
     const card = (row.card_id && byCard.get(String(row.card_id)))
       || cards.find((p) => p.parlay_id === row.parlay_id);
@@ -66,6 +71,16 @@ for (const [week, block] of Object.entries(REVIEW.weeks)) {
 
 const moneyRows = (week) => Object.fromEntries(
   ((REVIEW.weeks?.[String(week)]?.parlays) || []).map((p) => [String(p.parlay_id), p]));
+/** R114 — the review row for a painted slate card, joined the way app/review.js
+ * joins (reviewRowFor): by the card's identity, the rank id only as the fallback. */
+const CUR_IDS = new Map(await Promise.all(PARLAYS.parlays.map(async (c) =>
+  [String(c.parlay_id), c.card_id || await cardIdOf(c).catch(() => '')])));
+const rowFor = (week, rankId) => {
+  const rows = (REVIEW.weeks?.[String(week)]?.parlays) || [];
+  const id = CUR_IDS.get(String(rankId));
+  return (id && rows.find((p) => String(p.card_id) === String(id)))
+    || rows.find((p) => String(p.parlay_id) === String(rankId));
+};
 const footer = (week, scope) => REVIEW.weeks?.[String(week)]?.summary?.parlays?.stake_100?.[scope];
 
 const tiersPresent = (parlays, scope) => TIER_ORDER.filter((t) => parlays
@@ -170,7 +185,7 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
     const rows = moneyRows(CUR);
     expect(Object.keys(rows).length).toBeGreaterThan(0);
     for (const c of await cards(page)) {
-      const row = rows[c.id];
+      const row = rowFor(CUR, c.id);
       expect(row, `no review row for ${c.id}`).toBeTruthy();
       expect(c.pay).toBeCloseTo(row.money.net_fair, 2);   // the card never re-prices
       expect(c.kind).toBe(row.money.kind);
