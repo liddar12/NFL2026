@@ -1017,6 +1017,13 @@ nothing ships without one.
   `app/review.js` now stamps every slate card with the archive writer's own identity hash
   (`stampCardIds`) before matching, and the $100 sort keys on it. **Locked by**
   `r112_card_identity` (2), `r75_parlay_controls` (web). · **LOE** 0.25 d
+- **R113 · A missed leg settles the card in the browser too (P1) — 2026-10-04.** data-ci #79: a live
+  week-4 card (401872973-g3) had one leg missed and one pending. The builder grades it a settled loss
+  (R106: one miss loses), but the browser re-pricer `simulateMoney` still called it "potential" and
+  painted +$378.74 if hit; the r72 contract test still said any pending leg means pending. Both now
+  follow R106. The MY browser seed also prefers a game more than 45 min from kickoff, because a gate
+  run outlived DEN @ SF's 20:25Z kickoff. **Locked by** `r84_preview_safety`, `r72_review_summary`,
+  `r75_parlay_controls` (web), `r110_my_bets` (web). · **LOE** 0.1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

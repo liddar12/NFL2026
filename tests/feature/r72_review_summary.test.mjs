@@ -286,7 +286,9 @@ print(json.dumps({"errs": errs[:5], "canonical": raw == canon, "sched_weeks": sc
       const ok = { hit: ['all_hit'], void: ['push'], miss: ['partial', 'all_missed'], pending: ['pending'] };
       assert.ok(ok[p.result].includes(p.bucket), `${p.parlay_id}: ${p.result} <-> ${p.bucket}`);
       const legs = p.legs.map((l) => l.result);
-      if (legs.length === 0 || legs.includes('pending')) assert.equal(p.bucket, 'pending');
+      // R106: one missed leg loses even while others are pending; only miss-free rows wait
+      if (legs.includes('miss')) assert.ok(['partial', 'all_missed'].includes(p.bucket), p.parlay_id);
+      else if (legs.length === 0 || legs.includes('pending')) assert.equal(p.bucket, 'pending');
     }
     for (const g of blk.games) {
       if (g.result == null) assert.equal(g.brier, null, 'no result -> no brier');
