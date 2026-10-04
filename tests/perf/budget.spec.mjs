@@ -168,6 +168,10 @@ const LAZY_ONLY_MODULES = [
   'app/waivers.js', //       R49 — waiver-wire engine (BEST FIT / BEST AVAILABLE), lineup view only
   'app/league-rosters.js', // R49 — league rosters + NFL week memory, reachable from team/lineup only
   'app/views/parlays.js', // R51 — parlay cards, needed by #/parlays only (moved off the boot graph)
+  // R110 — MY BETS: the ledger view and its pure core load on the BETS chip or an
+  // I BET THIS tap, never on a cold mount of any route.
+  'app/views/mybets.js',
+  'app/bets.js',
 ];
 
 // PIPELINE-ONLY artifacts. These exist for scripts/ and tests/feature/ and must
@@ -243,6 +247,9 @@ const CONTRACT_ALLOWLIST = new Set([
   // R105 — the LEARNING LOOPS record (data/learning_loops.json, a few KB of
   // scalars), fetched by #/model only; a 404 paints the card's honest line.
   'learning_loops.json',
+  // R110 — the MY BETS facts (data/bet_facts.json, ~10 KB a week), fetched by the
+  // BETS mode only, after a tap; no route fetches it on a cold mount.
+  'bet_facts.json',
   // R87 — the MY cards record scores (data/my_card_scores.json: per-week and
   // per-dial scalars plus GRADED cards only; ~4 KB with nothing graded). Fetched
   // by app/views/myparlays.js, itself a LAZY import taken only when the MY chip

@@ -411,3 +411,66 @@ export function slipsToBets(evidence, weekOf) {
   }
   return out;
 }
+
+/* --------------------------------------------------------- card -> bet */
+
+/**
+ * A card leg (slate, MY, ATD) -> the leg a bet keeps. MY legs carry their player
+ * as `owner` (a team leg's owner is "team:XXX"); the slate's prop legs carry
+ * `gsis_id`. Either way the bet keeps the id, so the leg auto-grades.
+ */
+export function betLeg(leg, gameId = null) {
+  const owner = leg.owner && !String(leg.owner).startsWith('team:') ? leg.owner : null;
+  return {
+    market: leg.market,
+    selection: leg.selection,
+    game_id: leg.game_id != null ? leg.game_id : gameId,
+    team: leg.team,
+    side: leg.side,
+    player: leg.player || leg.label,
+    gsis_id: leg.gsis_id || owner || undefined,
+    position: leg.position,
+    line: leg.line,
+    model_prob: leg.model_prob,
+    implied_prob: leg.implied_prob,
+  };
+}
+
+/** The card's own fair price as American odds (1 / product of implied), or null. */
+export function fairAmerican(legs) {
+  let p = 1;
+  for (const l of legs) {
+    const ip = Number(l.implied_prob != null ? l.implied_prob : l.model_prob);
+    if (!(ip > 0 && ip < 1)) return null;
+    p *= ip;
+  }
+  return decimalToAmerican(1 / p);
+}
+
+/**
+ * Slip date -> NFL week, read off the facts' kickoffs ("9/21" is the ET calendar
+ * date a game kicked off); "W1" style dates name the week outright.
+ */
+export function weekOfDate(facts) {
+  const map = new Map();
+  for (const [wk, blk] of Object.entries((facts && facts.weeks) || {})) {
+    for (const g of Object.values(blk.games || {})) {
+      const t = Date.parse(g.k);
+      if (!Number.isFinite(t)) continue;
+      // UTC-5 lands every kickoff on its US calendar date in EDT and EST alike: no
+      // NFL game kicks off between 04:00Z and 05:00Z.
+      const et = new Date(t - 5 * 3600e3);
+      map.set(`${et.getUTCMonth() + 1}/${et.getUTCDate()}`, Number(wk));
+    }
+  }
+  return (s) => {
+    const m = /^W(\d+)$/i.exec(String(s || ''));
+    if (m) return Number(m[1]);
+    return map.get(String(s || '').trim());
+  };
+}
+
+/** Bets not yet known to be settled (the chip's count reads the cached status). */
+export function openCount(doc) {
+  return ((doc && doc.bets) || []).filter((b) => !['won', 'lost', 'void'].includes(b.status)).length;
+}

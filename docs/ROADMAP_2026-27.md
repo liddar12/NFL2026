@@ -989,7 +989,15 @@ nothing ships without one.
   pipeline's graders use — and `app/bets.js`, the browser's grader, a mirror of them. Parity measured
   on the record: 25,692 / 25,692 MY legs and 15,668 / 15,668 ATD legs grade identically. Contract
   `bet_facts.schema.json`; the validator checks status gating (a score only as a FINAL pair).
-  **Locked by** `r110_bet_facts` (6). (b) the BETS screen follows. · **LOE** 1.5 d
+  **Locked by** `r110_bet_facts` (6). **(b) built:** the BETS chip in PARLAYS (open-bet count on it);
+  I BET THIS on every current-week GAME / WEEK / TD card and every MY card opens a save sheet (stake, the
+  book's odds pre-filled with the card's fair price, the return, duplicate and exposure warnings before
+  saving); BUILD A BET from this week's leg pool under MY's rules; the slip-stack ledger (OPEN / WON /
+  LOST / NO ACTION, ✓ ✗ – per leg, kickoff for open legs, the book's payout typed over the graded
+  one), totals and WHAT THE LEDGER SAYS (by legs, by source: hit rate vs model vs book); EXPORT /
+  IMPORT; the owner's 19 FanDuel slips in one tap (reproduces $186 staked, $608.33 back). The 9/20
+  slate warns on nine players, three more than R99 §2 named. Lazy: nothing loads before the tap.
+  **Locked by** `r110_my_bets` (19), `r110_my_bets` (web, 6). · **LOE** 1.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
