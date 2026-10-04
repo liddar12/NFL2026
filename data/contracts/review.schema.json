@@ -67,6 +67,12 @@
         "type": "object",
         "required": ["games", "parlays", "players", "summary"],
         "properties": {
+          "excluded_cards": {
+            "type": "array",
+            "description": "R108: card_ids of the week's cards made ONLY of legs of owner-excluded games (config/excluded_games.json). They are not bets: no row in `parlays`, and never in the summary, the buckets, stake_100 or any row's money. A card with SOME excluded legs keeps its row; those legs are result 'void', why 'excluded game (owner)', and drop out at 1.0. Sorted, unique; absent when none.",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
           "games": {
             "type": "array",
             "items": {

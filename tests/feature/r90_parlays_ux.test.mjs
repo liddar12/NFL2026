@@ -66,8 +66,11 @@ test('F18: a sort key the view does not know is never printed as one', () => {
    ========================================================================== */
 
 // The pool is live data: a player ruled OUT drops out of it for the week (Justin
-// Jefferson, week 4, ankle). The RANKING rule is pinned on a fixed list; the live
-// pool only has to resolve the example the box prints.
+// Jefferson, week 4, ankle), and so does every player of an owner-excluded game
+// (R108: Van Jefferson, WAS, week 4). The RANKING rule is pinned on a fixed list;
+// the live pool is checked only when it offers a Jefferson at all, and the example
+// the box actually prints is pinned on the live pool below.
+const LIVE_JEFFERSON = OPTIONS.some((o) => o.kind === 'player' && /Jefferson$/.test(String(o.name)));
 const FIXED = [
   { id: 'v', kind: 'player', name: 'Van Jefferson', team: 'WAS' },
   { id: 'j', kind: 'player', name: 'Justin Jefferson', team: 'MIN' },
@@ -80,6 +83,7 @@ test('F19: "j. jefferson" ranks Justin Jefferson first (initial + surname beats 
   assert.ok(hits.length > 0, 'the abbreviated form must resolve at all');
   assert.equal(hits[0].name, 'Justin Jefferson');
   // on the live pool: when a J. Jefferson is offered this week, he is first
+  if (!LIVE_JEFFERSON) return;
   const live = matchSeeds(OPTIONS, 'j. jefferson');
   assert.ok(live.length > 0, 'the abbreviated form resolves on the live pool');
   const jj = OPTIONS.filter((o) => /^J\S* Jefferson$/.test(String(o.name)));
@@ -95,6 +99,7 @@ test('F19: the first token of "J. Jefferson, KC" resolves, and so does the secon
   assert.equal(fixed[1].kind, 'team');
   assert.equal(fixed[1].name, 'KC');
   // ...on the live pool, both parts still resolve, to two DIFFERENT seeds
+  if (!LIVE_JEFFERSON) return;
   const picked = parts.map((p) => matchSeeds(OPTIONS, p, 1)[0]);
   assert.ok(picked.every(Boolean), 'both parts of the example must resolve');
   assert.match(String(picked[0].name), /Jefferson$/);

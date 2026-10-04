@@ -43,6 +43,12 @@
  * net_vig2, assumed_price_legs, note}) — pending parlays are excluded by the
  * builder (graded < n), the money is the builder's arithmetic and this file
  * only formats it. DISPLAY ONLY: the dollar figures never feed a model.
+ *
+ * R108 (additive, parlay section): a week block may list `excluded_cards` — the
+ * card_ids of cards made only of legs of owner-excluded games. excludedCardIds /
+ * withoutExcludedCards / excludedCards let app/views/parlays.js leave them off
+ * the list; a parlays.json card (no card_id stamp) is matched by the archive
+ * writer's own id rule (cardIdOf). Nothing here voids a leg: the builder did.
  */
 
 import { loadJson } from './data.js';
@@ -738,6 +744,64 @@ export function prepareParlaySimulation(week, cards, doc = docSync) {
       net_fair: graded.length && complete ? graded.reduce((s, r) => s + r.money.net_fair, 0) : null,
       net_vig2: null, assumed_price_legs: graded.reduce((s, r) => s + (r.money?.assumed_price_legs || 0), 0) }];
   }));
+}
+
+/* R108 — owner-excluded games ----------------------------------------------- */
+
+/**
+ * The card_ids review.json lists for `week` in `excluded_cards`: cards made ONLY
+ * of legs of games the owner took out of every bet (config/excluded_games.json).
+ * They are not bets — the builder gives them no row, no bucket and no money — so
+ * the PARLAYS list must not show them either. An empty Set when none are listed
+ * (and for a document written before R108). A card with only SOME excluded legs
+ * keeps its row; those legs are "void" and paint with the existing void mark.
+ */
+export function excludedCardIds(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const ids = blk && Array.isArray(blk.excluded_cards) ? blk.excluded_cards : [];
+  return new Set(ids.filter((x) => typeof x === 'string' && x !== ''));
+}
+
+/** Pure: `cards` minus those whose id (`idOf(card)`, the card's own card_id by
+ * default) is in `ids`. The same array when nothing is listed. */
+export function withoutExcludedCards(cards, ids, idOf = (c) => (c && c.card_id) || '') {
+  if (!Array.isArray(cards) || !ids || !ids.size) return cards;
+  return cards.filter((c) => !ids.has(String(idOf(c) || '')));
+}
+
+const pyStr = (v) => (v == null ? 'None' : String(v));
+
+/** The string scripts/build_parlay_archive.card_identity hashes into card_id,
+ * mirrored exactly: scope, the game (when the card has one), then the legs as
+ * sorted "market|selection" lines. */
+export function cardIdentity(card) {
+  const c = card || {};
+  const parts = [`scope=${c.scope || ''}`];
+  if (c.game_id != null && c.game_id !== '') parts.push(`game_id=${c.game_id}`);
+  parts.push(...(Array.isArray(c.legs) ? c.legs : [])
+    .map((l) => `${pyStr(l && l.market)}|${pyStr(l && l.selection)}`).sort());
+  return parts.join('\n');
+}
+
+/** A card's card_id: its own stamp (every archived card carries one), else the
+ * archive writer's rule — the first 12 hex of sha1(cardIdentity) — because a
+ * parlays.json card carries no stamp. '' where crypto.subtle is unavailable (an
+ * insecure context): such a card is then simply not matched. */
+export async function cardIdOf(card) {
+  if (card && card.card_id) return String(card.card_id);
+  const subtle = globalThis.crypto && globalThis.crypto.subtle;
+  if (!card || !subtle) return '';
+  const digest = await subtle.digest('SHA-1', new TextEncoder().encode(cardIdentity(card)));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+}
+
+/** The cards of `cards` the review lists as excluded for `week` ([] when it
+ * lists none — no card is hashed then). */
+export async function excludedCards(cards, week, doc = docSync) {
+  const ids = excludedCardIds(week, doc);
+  if (!ids.size || !Array.isArray(cards) || !cards.length) return [];
+  const keys = await Promise.all(cards.map((c) => cardIdOf(c).catch(() => '')));
+  return cards.filter((c, i) => ids.has(keys[i]));
 }
 
 /* --------------------------------------------------------------------------

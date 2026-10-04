@@ -188,7 +188,7 @@ PY
 echo "smoke: core invariants"
 # One consolidated python check keeps the interpreter startup cost to a single call.
 python3 - <<'PY' || fail "core invariant check failed"
-import json, sys
+import json, os, sys
 
 def load(p):
     with open(p, encoding="utf-8") as fh:
@@ -231,8 +231,15 @@ if mt["adopted"] is not False:
 
 # parlays: >=3 game-scope for EVERY game on the current slate, and >=3 week.
 # The slate is derived from game_predictions.json (never a hardcoded fixture id).
-parlays = load("data/parlays.json")["parlays"]
-slate = {g["game_id"] for g in load("data/game_predictions.json")["games"]}
+# R108 — a game on the owner's excluded list (config/excluded_games.json) gets NO
+# card: it leaves the >=3 rule, and once the slate was built after the exclusion
+# was added it must have exactly 0 (a slate built before it still holds them).
+pdoc = load("data/parlays.json")
+parlays = pdoc["parlays"]
+xg = {str(g["game_id"]): g for g in (json.load(open("config/excluded_games.json"))["games"]
+                                     if os.path.exists("config/excluded_games.json") else [])}
+slate = {g["game_id"] for g in load("data/game_predictions.json")["games"]
+         if str(g["game_id"]) not in xg}
 per_game = {}
 for p in parlays:
     if p["scope"] == "game":
@@ -240,6 +247,10 @@ for p in parlays:
 short = {g: per_game.get(g, 0) for g in slate if per_game.get(g, 0) < 3}
 if short:
     problems.append(f"slate games with <3 parlays: {short}")
+for gid, x in xg.items():
+    if per_game.get(gid, 0) and str(pdoc.get("updated_utc", "")) >= str(x.get("added_utc", "")):
+        problems.append(f"owner-excluded game {gid} still has {per_game[gid]} card(s) on a slate "
+                        f"built after it was excluded")
 week_n = sum(1 for p in parlays if p["scope"] == "week")
 if week_n < 3:
     problems.append(f"only {week_n} week parlays (need >=3)")

@@ -105,6 +105,12 @@
  * they now say role="group" with aria-pressed on each chip, and Left/Right
  * arrows move focus and selection inside the group as a convenience. Class
  * names, data attributes and the MY-mode behaviour are untouched.
+ *
+ * R108 — a card review.json lists in the week's `excluded_cards` (made ONLY of
+ * legs of games the owner excluded, config/excluded_games.json) is left off
+ * the list, the leg chips and the tier chips, on the current week and on an
+ * archived one alike (app/review.js excludedCards). A card with SOME excluded
+ * legs stays: those legs carry the existing void mark and it settles on the rest.
  */
 
 import {
@@ -641,10 +647,17 @@ export default async function mountParlays(el) {
 
   const scopeOf = (p) => (p.scope === 'week' ? 'week' : 'game');
   const legOf = (p) => (Array.isArray(p.legs) ? p.legs.length : 0);
+  // R108 — cards review.json lists in a week's `excluded_cards` (made ONLY of
+  // legs of owner-excluded games) are not bets. paintReview finds them once the
+  // lazy review module lands and they leave every list, leg chip and tier chip
+  // from then on. Card OBJECTS are held, so the current list and each archived
+  // week keep their own (a week's archive is the same cached object each visit).
+  const hiddenCards = new WeakSet();
+  const visible = () => parlays.filter((p) => !hiddenCards.has(p));
 
   /** Distinct leg counts present in the active scope, ascending. */
   function legCountsForScope() {
-    const set = new Set(parlays.filter((p) => scopeOf(p) === active).map(legOf));
+    const set = new Set(visible().filter((p) => scopeOf(p) === active).map(legOf));
     return [...set].sort((a, b) => a - b);
   }
 
@@ -657,7 +670,7 @@ export default async function mountParlays(el) {
 
   /** R75 — distinct tiers present in the active scope, strongest first. */
   function tiersForScope() {
-    const set = new Set(parlays.filter((p) => scopeOf(p) === active)
+    const set = new Set(visible().filter((p) => scopeOf(p) === active)
       .map(tierOf).filter(Boolean));
     return TIER_ORDER.filter((t) => set.has(t));
   }
@@ -765,6 +778,21 @@ export default async function mountParlays(el) {
     reviewP.then((mod) => {
       if (!mod || !listEl.isConnected || week !== selWeek) return;
       reviewMod = mod;
+      // R108 — leave the week's excluded cards off the list. Async: a
+      // parlays.json card carries no card_id, so its id is derived the archive
+      // writer's way first. One repaint, once: a hidden card is never fresh again.
+      const list = parlays;
+      mod.excludedCards(list, week).then((gone) => {
+        const fresh = gone.filter((c) => !hiddenCards.has(c));
+        if (!fresh.length) return;
+        fresh.forEach((c) => hiddenCards.add(c));
+        // MY mode owns the chrome; leaving it repaints the slate list anyway.
+        if (active === 'my' || week !== selWeek || list !== parlays || !listEl.isConnected) return;
+        if (activeLeg !== 'all' && !legCountsForScope().includes(Number(activeLeg))) activeLeg = 'all';
+        paintLegSeg();
+        paintTierSeg();
+        paintList();
+      });
       mod.prepareParlaySimulation(week, parlays);
       // R82 — applyParlayReview REPLACES the review strip node (review.js
       // placeStrip removes the old one and re-inserts). A MY-mode entry that
@@ -790,7 +818,7 @@ export default async function mountParlays(el) {
   // into #parlays-list.
   function paintList() {
     const bucketOf = activeBucket && reviewMod ? reviewMod.parlayBucketMap(selWeek) : null;
-    const filtered = parlays.filter((p) =>
+    const filtered = visible().filter((p) =>
       scopeOf(p) === active
       && (activeLeg === 'all' || legOf(p) === Number(activeLeg))
       && (activeTier === 'all' || tierOf(p) === activeTier)

@@ -94,6 +94,19 @@ card can show what a $100 wager did or would do without pricing anything itself:
     it so. A pending parlay is still never staked in the footer.
   * same leg-decimal rule, same -110 assumption, counted per parlay.
 
+R108 (owner, 2026-10-04: "Update all the parlays for week 4, so that the Colts
+vs Washington game is not included in any bets") — config/excluded_games.json
+(scripts/excluded_games.py, read once by load_inputs) lists the excluded games:
+  * a leg whose game (leg_game_id) is excluded is VOID — result "void", actual
+    null, why "excluded game (owner)" — decided BEFORE any other grading of it;
+  * a card that keeps other legs settles on them by the rules above (a void leg
+    drops out at 1.0; one missed remaining leg is a loss);
+  * a card whose EVERY leg is excluded gets NO row in the week's `parlays`: its
+    card_id is listed in the week block's `excluded_cards` instead, so the
+    summary, the buckets, stake_100 and the per-row money never count it.
+The learning records (parlay_leg_scores.json, calibration, the estimate
+ledger) are not touched: the game's outcomes are real data.
+
 Pure core (no I/O): review_game, review_player, review_parlay, parlay_bucket,
 leg_outcomes_from_ledger, ledger_price_index, leg_decimal, parlay_money,
 potential_return, stamp_parlay_money, stake_100,
@@ -149,6 +162,8 @@ _POS_ALIAS = {"FB": "RB", "HB": "RB"}
 BLOWOUT_MARGIN = 17          # >= 17 points (three scores) is reported as a blowout
 MAX_NUMERIC_REASONS = 3      # the "top 1-3 contributing factors"
 VOID_REASONS = frozenset(["push", "tie"])
+# R108 — the `why` of a leg voided because the owner excluded its game.
+EXCLUDED_WHY = "excluded game (owner)"
 
 # PPR scoring the stat line and the expectations share (matches resolve_estimates).
 PTS = {"pass_yd": 0.04, "pass_td": 4.0, "pass_int": -2.0, "pass_2pt": 2.0,
@@ -660,16 +675,25 @@ def leg_game_id(leg, parlay_game_id, week, ledger_legs, games_by_team):
 
 
 def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
-                  game_reviews=None, direct=None):
+                  game_reviews=None, direct=None, excluded=None):
     """One parlay row. Moneyline legs also grade straight from the game review
     (lock receipts / finals) when the ledger has not resolved them yet. R106 —
     `direct(leg, game_id, week)` grades any other leg the ledger has not (a leg it
     recorded unlocked, or a did-not-play prop) from the same evidence the ledger
     resolver reads; an outcome is a fact about the game, whenever the card was
-    built. The learning record (data/parlay_leg_scores.json) is untouched."""
+    built. The learning record (data/parlay_leg_scores.json) is untouched.
+    R108 — `excluded` (a set of game_id strings, the owner's list) voids a leg of
+    an excluded game BEFORE any grading: result "void", actual null, why
+    EXCLUDED_WHY, so the parlay settles on its other legs by the rules below.
+    Whether the WHOLE card was excluded is the caller's call (fully_excluded)."""
     legs_out = []
     for leg in parlay.get("legs") or []:
         gid = leg_game_id(leg, parlay.get("game_id"), week, ledger_legs, games_by_team)
+        if excluded and gid is not None and str(gid) in excluded:
+            legs_out.append({"selection": leg.get("selection"), "market": leg.get("market"),
+                             "game_id": gid, "result": "void", "actual": None,
+                             "why": EXCLUDED_WHY})
+            continue
         key = (int(week), gid, leg.get("market"), leg.get("selection"))
         oc = outcomes.get(key) if gid else None
         result, actual, why = "pending", None, None
@@ -715,6 +739,15 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
             "scope": parlay.get("scope"),
             "game_id": str(parlay["game_id"]) if parlay.get("game_id") else None,
             "result": pres, "bucket": bucket, "legs": legs_out}
+
+
+def fully_excluded(row, excluded):
+    """R108 — True when a reviewed parlay row has legs and EVERY one belongs to an
+    owner-excluded game (its resolved leg game_id). Such a card is not a bet any
+    more: it gets no review row and is listed in the week's `excluded_cards`."""
+    legs = row.get("legs") or []
+    return bool(excluded) and bool(legs) and all(
+        l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
 
 
 def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger):
@@ -812,13 +845,18 @@ def potential_return(parlay, week, price_index):
     """R75 — what a $100 stake WOULD return if every leg of this parlay hit, at
     the same prices: 100 x (prod of all leg decimals - 1). This is the only
     figure an ungraded parlay can honestly carry — it is a price, not a result,
-    and the card labels it so. (net, assumed_price_legs)."""
+    and the card labels it so. (net, assumed_price_legs).
+    R108 — a leg already VOID (an owner-excluded game, a did-not-play) can no
+    longer hit or miss: it drops out at 1.0 here exactly as parlay_money drops
+    it, so the quote is what the remaining legs would pay (and what
+    app/parlay-simulation.simulateMoney already shows on the card)."""
     dec = 1.0
     assumed = 0
     for leg in parlay.get("legs") or []:
         d, is_assumed = leg_decimal(leg, week, price_index)
         assumed += 1 if is_assumed else 0
-        dec *= d
+        if leg.get("result") != "void":
+            dec *= d
     return STAKE * (dec - 1.0), assumed
 
 
@@ -1240,6 +1278,9 @@ def build(inputs, now):
     archives = inputs.get("archives") or {}
     direct = direct_leg_grader(sched, finals, inputs.get("stats_rows"), inputs.get("snaps"),
                                inputs.get("parlay_ledger"))
+    # R108 — the owner's excluded games (load_inputs reads config/excluded_games.json);
+    # absent from an inputs dict (the fixtures) excludes nothing.
+    excluded = {str(g) for g in inputs.get("excluded_games") or ()}
 
     tuning = inputs.get("tuning") or {}
     refit = newest_refit(tuning)
@@ -1288,6 +1329,18 @@ def build(inputs, now):
                                          final_by_team.get(ident.get("team")),
                                          injuries_as_of, stats_available))
         parlays = []
+        # R108 — card_ids made ONLY of owner-excluded games' legs: reviewed (so the
+        # rule is one rule) and then left out of `parlays`, listed instead.
+        dropped = set()
+
+        def review(p):
+            row = review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
+                                game_by_id, direct, excluded)
+            if fully_excluded(row, excluded):
+                dropped.add(row["card_id"])
+            else:
+                parlays.append(row)
+
         arch = archives.get(wk) or archives.get(str(wk)) or {}
         if arch.get("parlays"):
             # R106 — the week's ARCHIVE is the record of every card the week showed
@@ -1301,17 +1354,18 @@ def build(inputs, now):
                 cards += [c for c in parlays_doc.get("parlays") or []
                           if (c.get("card_id") or parlay_card_id(c)) not in have]
             for p in cards:
-                parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
-                                             game_by_id, direct))
+                review(p)
         elif int(parlays_doc.get("week", -1)) == wk:
             for p in parlays_doc.get("parlays") or []:
-                parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
-                                             game_by_id, direct))
+                review(p)
         else:
-            prev_p = ((previous.get("weeks") or {}).get(str(wk)) or {}).get("parlays") or []
+            prev_blk = (previous.get("weeks") or {}).get(str(wk)) or {}
+            prev_p = prev_blk.get("parlays") or []
             for p in prev_p:
-                parlays.append(review_parlay(p, wk, outcomes, ledger_legs, games_by_team,
-                                             game_by_id, direct))
+                review(p)
+            # a card dropped by an earlier run has no row left to carry forward
+            # and no archive to re-review it from: it stays dropped.
+            dropped.update(str(c) for c in prev_blk.get("excluded_cards") or [])
             if prev_p:
                 notes.append("wk %d parlays carried forward from the previous review "
                              "(parlays.json now holds week %s)" % (wk, parlays_doc.get("week")))
@@ -1321,10 +1375,21 @@ def build(inputs, now):
         # R75 — each row carries its own $100 figure, from the same price index
         # the footer sums, so the card and the footer cannot disagree.
         stamp_parlay_money(parlays, wk, price_index)
-        out_weeks[str(wk)] = {"games": games, "parlays": parlays, "players": players,
-                              "summary": summarize(games, parlays, players,
-                                                   learning_for_week(lock_rows, refit),
-                                                   wk, price_index)}
+        blk = {"games": games, "parlays": parlays}
+        if dropped:
+            blk["excluded_cards"] = sorted(dropped)
+        voided = [sum(1 for l in r["legs"] if l["why"] == EXCLUDED_WHY) for r in parlays]
+        if dropped or any(voided):
+            notes.append("wk %d: owner-excluded game(s) %s (config/excluded_games.json, R108) "
+                         "— %d leg(s) voided on %d kept card(s); %d card(s) made only of "
+                         "excluded legs dropped from the parlays, summary and $100 P&L"
+                         % (wk, ", ".join(sorted(excluded)) or "none listed now", sum(voided),
+                            sum(1 for n in voided if n), len(dropped)))
+        blk.update({"players": players,
+                    "summary": summarize(games, parlays, players,
+                                         learning_for_week(lock_rows, refit),
+                                         wk, price_index)})
+        out_weeks[str(wk)] = blk
     if not stats_available:
         notes.append("stats: no nflverse stat line loaded — player touchdowns/volume/"
                      "efficiency/turnovers factors omitted on every row (%s)"
@@ -1409,6 +1474,8 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
         if doc and isinstance(doc.get("week"), int):
             archives[int(doc["week"])] = doc
     sources["parlay_archives"] = sorted(archives)
+    from scripts import excluded_games  # noqa: PLC0415 — R108, the owner's list
+    excluded = sorted(excluded_games.excluded_ids())
 
     finals, finals_reason = [], None
     if finals_path:
@@ -1467,6 +1534,7 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             "projections": proj, "injuries": inj, "forecast": fc, "parlays": parlays,
             "ledger": ledger, "parlay_ledger": pledger, "leg_scores": legs,
             "stats_rows": stats_rows, "stats_reason": stats_reason,
+            "excluded_games": excluded,
             "previous": previous, "sources": sources, "notes": notes}
 
 
@@ -1646,6 +1714,7 @@ def selftest():
         and not _validate_against_schema(empty)
     _selftest_r72()
     _selftest_r73()
+    _selftest_r108()
     print("selftest OK: status gating (FINAL/receipt grade, halftime and 0-0 stubs never), "
           "band verdicts incl. boundaries, DNP null not 0, measured why sums to delta, "
           "adapter on C's ledger shapes, parlay hit/miss/pending/void, summary math, "
@@ -1653,7 +1722,9 @@ def selftest():
           "week blocks through the pipeline week, five parlay buckets <-> result, "
           "players_season tally, the learning proof from lock files + refit archive; "
           "R75 per-parlay money (settled rows sum to the footer, a pending parlay is quoted not settled, schema); R73 stake_100 P&L (all_hit / push drop-out / loss / pending excluded / "
-          "assumed -110 / vig re-pricing)")
+          "assumed -110 / vig re-pricing); R108 owner-excluded games (leg void before grading, "
+          "hit+excluded push, miss+excluded loss, a fully excluded card has no row and is "
+          "listed in excluded_cards, never counted or staked)")
 
 
 def _selftest_r72():
@@ -1833,6 +1904,67 @@ def _selftest_r73():
     bad2 = json.loads(json.dumps(doc))
     bad2["weeks"]["1"]["parlays"][0]["money"]["kind"] = "guess"
     assert _validate_against_schema(bad2), "kind is settled or potential, nothing else"
+
+
+def _selftest_r108():
+    """R108 — the owner's excluded games on the r71 fixture (G1 = BBB @ AAA, AAA won
+    27-7; G2 = DDD @ CCC, DDD won on the lock receipt), G1 excluded."""
+    fx = _fixture_inputs()
+    fx["parlays"] = json.loads(json.dumps(fx["parlays"]))
+    leg = lambda m, sel: {"market": m, "selection": sel}  # noqa: E731
+    fx["parlays"]["parlays"] += [
+        {"parlay_id": "x-hit", "scope": "week",
+         "legs": [leg("moneyline", "AAA ML"), leg("moneyline", "DDD ML")]},
+        {"parlay_id": "x-miss", "scope": "week",
+         "legs": [leg("moneyline", "BBB ML"), leg("moneyline", "CCC ML")]},
+        {"parlay_id": "x-pend", "scope": "week",
+         "legs": [leg("moneyline", "EEE ML"), leg("moneyline", "AAA ML")]}]
+    now = "2026-09-14T12:00:00Z"
+    base = build(fx, now)["weeks"]["1"]
+    assert "excluded_cards" not in base, "nothing excluded -> no field (no churn)"
+    bp = {p["parlay_id"]: p for p in base["parlays"]}
+    assert (bp["x-hit"]["bucket"], bp["x-miss"]["bucket"]) == ("all_hit", "all_missed")
+    fx["excluded_games"] = ["G1"]
+    doc = build(fx, now)
+    assert not _validate_against_schema(doc), _validate_against_schema(doc)[:3]
+    w = doc["weeks"]["1"]
+    pr = {p["parlay_id"]: p for p in w["parlays"]}
+    # every leg in G1 -> no row; the card ids are listed instead (game AND week scope)
+    gone = sorted(bp[k]["card_id"] for k in ("G1-g1", "G1-g2", "week-2"))
+    assert w["excluded_cards"] == gone and not set(pr) & {"G1-g1", "G1-g2", "week-2"}, \
+        (w.get("excluded_cards"), sorted(pr))
+    # the excluded leg is void BEFORE any grading (the ledger graded AAA ML a hit)
+    xl = pr["x-hit"]["legs"][0]
+    assert (xl["result"], xl["actual"], xl["why"], xl["game_id"]) == \
+        ("void", None, EXCLUDED_WHY, "G1"), xl
+    # hit + excluded = push, paid on the remaining leg alone; miss + excluded = loss
+    assert (pr["x-hit"]["result"], pr["x-hit"]["bucket"]) == ("void", "push")
+    assert pr["x-hit"]["money"] == {"kind": "settled", "net_fair": _r(STAKE * (ASSUMED_DECIMAL - 1)),
+                                    "net_vig2": pr["x-hit"]["money"]["net_vig2"],
+                                    "assumed_price_legs": 2}, pr["x-hit"]["money"]
+    assert (pr["x-miss"]["result"], pr["x-miss"]["bucket"]) == ("miss", "all_missed")
+    assert pr["x-miss"]["money"]["net_fair"] == -100.0
+    # a pending card is quoted on its remaining legs only (the void leg at 1.0)
+    assert pr["x-pend"]["bucket"] == "pending" and pr["x-pend"]["money"] == {
+        "kind": "potential", "net_fair": _r(STAKE * (ASSUMED_DECIMAL - 1)), "net_vig2": None,
+        "assumed_price_legs": 2}, pr["x-pend"]["money"]
+    # the dropped cards are in no count, no bucket and no stake
+    s = w["summary"]["parlays"]
+    assert s["n"] == len(base["parlays"]) - 3 == len(w["parlays"]) == 5, s["n"]
+    assert sum(s["buckets"].values()) == s["n"]
+    st = s["stake_100"]
+    assert (st["game"]["n"], st["game"]["graded"], st["game"]["net_fair"]) == (1, 0, None), st["game"]
+    assert (st["week"]["n"], st["week"]["graded"], st["week"]["push"]) == (4, 2, 1), st["week"]
+    assert st["week"]["net_fair"] == _r(STAKE * (ASSUMED_DECIMAL - 1) - STAKE), st["week"]
+    assert any("R108" in n and "3 card(s)" in n for n in doc["notes"]), doc["notes"]
+    # a dropped card stays dropped when its week is carried forward from the review
+    fx2 = dict(fx)
+    fx2["parlays"] = {"season": 2026, "week": 2, "parlays": []}
+    fx2["previous"] = json.loads(json.dumps(doc))
+    w2 = build(fx2, "2026-09-16T12:00:00Z")["weeks"]["1"]
+    assert w2["excluded_cards"] == gone and len(w2["parlays"]) == 5
+    assert fully_excluded({"legs": []}, {"G1"}) is False, "a card with no legs is not excluded"
+    assert fully_excluded({"legs": [{"game_id": "G1"}]}, set()) is False
 
 
 def main(argv=None):

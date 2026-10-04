@@ -59,6 +59,7 @@ from scripts.models.parlay_builder import (  # noqa: E402
     _PROP_SEEDS, _clamp, _sigmoid, playable_this_week, project_prop_yards,
     questionable_label,
 )
+from scripts.excluded_games import excluded_ids  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT = os.path.join(DATA, "leg_pool.json")
@@ -277,6 +278,19 @@ def game_legs_from_slate(parlays_doc, game_by_team=None, side_by_team=None):
     return out
 
 
+def drop_excluded(rows, excluded):
+    """R108 — (kept, n_dropped): a row whose game_id is in `excluded` (the owner's
+    list, config/excluded_games.json, read by load_inputs) is not offered.
+
+    build() applies it to all three kinds of leg AFTER each is built: a game leg's
+    game_id is resolved from its team first (a week-scope card carries none), and
+    an input written before the game was listed (a parlays.json or atd_week.json
+    from an earlier run) cannot carry one of its legs through. Every MY / ATD card
+    builder and the browser's MY PARLAYS read only this file, so they inherit it."""
+    kept = [r for r in rows if r.get("game_id") is None or str(r["game_id"]) not in excluded]
+    return kept, len(rows) - len(kept)
+
+
 def build(inputs):
     bt = inputs["pool_backtest"]
     calib = {p: v for p, v in (bt.get("calibration") or {}).items() if v}
@@ -316,6 +330,18 @@ def build(inputs):
         pool_season = None
     atd, atd_reason = atd_legs(inputs.get("atd_week"), atd_bt, weekly_by_id, pool_season,
                                pool_week)
+    # R108 — the owner's excluded games: one filter over props, game legs and ATD
+    # legs, counted (`excluded_game`, leg rows dropped), never silent. An inputs
+    # dict without the key (a caller that predates R108) still gets the owner's list.
+    excluded = inputs.get("excluded_games")
+    excluded = excluded_ids() if excluded is None else {str(x) for x in excluded}
+    props, n_x_props = drop_excluded(props, excluded)
+    games, n_x_games = drop_excluded(games, excluded)
+    atd, n_x_atd = drop_excluded(atd, excluded)
+    if n_x_atd:
+        atd_reason = ("offered: %d player(s); %d on owner-excluded games not offered (R108)"
+                      % (len(atd), n_x_atd))
+    counts["excluded_game"] = n_x_props + n_x_games + n_x_atd
     return {
         "season": parlays_doc.get("season"),
         "week": parlays_doc.get("week"),
@@ -370,6 +396,7 @@ def _optional(path):
 
 def load_inputs():
     return {
+        "excluded_games": excluded_ids(),     # R108 — config/excluded_games.json
         "atd_week": _optional(ATD_WEEK),
         "atd_backtest": _optional(ATD_BACKTEST),
         "pool_backtest": _load(POOL_BACKTEST),
@@ -479,9 +506,47 @@ def selftest():
     assert atd_legs(atd_doc, {"adopted": False}, wk_rows, 2026, 3)[0] == []
     assert atd_legs(atd_doc, {"adopted": True}, wk_rows, 2026, 4)[0] == [], "stale week"
     assert atd_legs(dict(atd_doc, adopted=False), {"adopted": True}, wk_rows, 2026, 3)[0] == []
+
+    # R108 — an owner-excluded game offers nothing through build(): its prop rows,
+    # its game legs (a week-scope leg's game_id is RESOLVED from its team first)
+    # and its ATD rows all drop and are counted; the other game keeps every leg.
+    ml = {"market": "moneyline", "implied_prob": 0.55, "model_prob": 0.6}
+    inputs = {
+        "pool_backtest": {"calibration": calib, "support": {"WR": [-1.0, 1.0]},
+                          "residual_sd": sd, "ladder": ladder, "verdict": {"adopt": True}},
+        "player_weekly": {"players": [{"gsis_id": w} for w in ("w1", "w2", "w3")]},
+        "player_projections": {"players": players},
+        "game_predictions": {"games": gp + [{"game_id": "G2", "home": "CCC", "away": "DDD",
+                                             "probs": {"home": 0.5}}]},
+        "parlays": {"season": 2026, "week": 3, "parlays": [
+            {"legs": [dict(ml, selection="AAA ML")]},
+            {"game_id": "G2", "legs": [dict(ml, selection="CCC ML")]}]},
+        "atd_week": dict(atd_doc, players=atd_doc["players"] + [
+            {"gsis_id": "w2", "player": "Beta Receiver", "team": "CCC", "position": "WR",
+             "game_id": "G2", "side": "home", "selection": "B. Receiver anytime TD",
+             "model_prob": 0.25}]),
+        "atd_backtest": {"adopted": True},
+    }
+    g["project_prop_yards"] = lambda pos, rec, gp_, side: (60.0, None)
+    try:
+        open_doc = build(dict(inputs, excluded_games=set()))
+        x_doc = build(dict(inputs, excluded_games={"G1"}))
+    finally:
+        g["project_prop_yards"] = saved
+    games_of = lambda d: sorted({str(r["game_id"]) for k in ("players", "game_legs", "atd_legs")  # noqa: E731
+                                 for r in d[k]})
+    assert games_of(open_doc) == ["G1", "G2"] and open_doc["counts"]["excluded_game"] == 0
+    assert games_of(x_doc) == ["G2"], games_of(x_doc)
+    assert [r["gsis_id"] for r in x_doc["players"]] == ["w2"], x_doc["players"]
+    assert [l["selection"] for l in x_doc["game_legs"]] == ["CCC ML"], x_doc["game_legs"]
+    assert [r["gsis_id"] for r in x_doc["atd_legs"]] == ["w2"], x_doc["atd_legs"]
+    # w1 + w3 prop rows, the resolved AAA ML, w1's ATD row
+    assert x_doc["counts"]["excluded_game"] == 4, x_doc["counts"]
+    assert x_doc["counts"]["atd_legs"] == 1 and "R108" in x_doc["atd_status"], x_doc["atd_status"]
     print("selftest OK: only in-support rungs ship, refusals and leg-less players are "
-          "counted, p_team follows the side, the pool prices without quoting, and game "
-          "legs are copied verbatim and de-duped")
+          "counted, p_team follows the side, the pool prices without quoting, game "
+          "legs are copied verbatim and de-duped, and an owner-excluded game (R108) "
+          "offers no prop, game or ATD leg")
 
 
 def main(argv=None):

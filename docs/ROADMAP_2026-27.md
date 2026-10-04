@@ -951,6 +951,20 @@ nothing ships without one.
   fit and accepts the difference only when that reproduces it exactly; the next daily ships the
   refit. **Locked by** `r107_parlay_gate_lag` (2), `r73_parlay_archive`, `r90_card_freeze`,
   `r90_slate_truth` (updated). · **LOE** 0.25 d
+- **R108 · Owner excluded-games list — IND @ WAS out of every week-4 bet (P0) — 2026-10-04.**
+  Owner, 2026-10-04: "the colts vs Washington game is not included in any bets". A reusable list,
+  `config/excluded_games.json` (contract `excluded_games.schema.json`, helper
+  `scripts/excluded_games.py`). OFFER side: the slate builder gives an excluded game no GAME card
+  and no WEEK leg; the leg pool drops its prop, game and ATD legs (`counts.excluded_game`), so MY
+  and every ATD scope stop offering it. RECORD side: every grader (review, MY, ATD) VOIDS an
+  excluded game's legs before any market grader runs (reason `excluded_game`), so a card settles on
+  its remaining legs exactly as around a did-not-play; a card made only of excluded legs is not a
+  bet any more — dropped from the tallies and the $100 P&L, listed in the week's `excluded_cards`
+  (review) or counted in `excluded` (MY/ATD scores), and hidden by the PARLAYS view. Week-4 effect:
+  its 3 GAME cards and 18 pool legs gone; 11 MY and 64 ATD-game cards dropped; 275 MY, 141 ATD-week
+  and 913 ATD-MY cards settle on their other legs. **Locked by** `r108_excluded_offer` (6),
+  `r108_excluded_records` (8), `r108_excluded` (web, 2), `parlay_rules` and `smoke.sh` (the
+  3-cards-per-game rule exempts an excluded game and asserts it has none). · **LOE** 0.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

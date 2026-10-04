@@ -87,6 +87,11 @@ dropped the total leg outright (no scoring model exists anywhere in this repo).
     leg falls back to the seed and is stamped `estimate_note` — never silently.
   * TOTAL — still not emitted (no scoring model).
 
+## R108 — owner-excluded games
+
+A game on config/excluded_games.json (scripts/excluded_games.py) is never offered:
+build_parlays drops it before any card or week leg is built.
+
 Deterministic, stdlib only, reads fixtures.
 """
 
@@ -100,6 +105,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+
+# R108 — the owner's excluded-games list (config/excluded_games.json). Read by
+# build_parlays, the one entry point every slate build goes through.
+from scripts.excluded_games import PATH as EXCLUDED_GAMES_PATH, is_excluded  # noqa: E402
 
 # The backtest artifact the builder prices from (prop calibration + correlations).
 # Produced by scripts/backtest_parlay.py; verified by `--gate`.
@@ -1043,20 +1052,37 @@ def _report_unmodeled_markets(markets_by_game):
 
 
 def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
-                  calibration_path=DEFAULT_CALIBRATION_PATH):
+                  calibration_path=DEFAULT_CALIBRATION_PATH,
+                  excluded_path=EXCLUDED_GAMES_PATH):
     """Build the full parlay list for a slate: >=3 per game AND >=3 for the week.
 
     game_preds      : list of records from game_model.predict_game.
     markets_by_game : optional {game_id: market dict} of real lines.
     props_by_game   : optional {game_id: [prop leg dicts]} of real prop candidates.
     calibration_path: data/parlay_backtest.json (correlations + spread note).
+    excluded_path   : config/excluded_games.json (R108 — the owner's list).
 
     Week parlays are bucketed by leg count (2..7) via build_week_parlays_multi so the
     UI can offer a leg-count selector. If a (tiny) slate cannot yield >=3 week parlays
     that way, fall back to the 2-leg week builder so the >=3/week invariant still holds.
 
+    R108 — a game on the owner's excluded list is dropped from `game_preds` BEFORE
+    anything is built, so it gets no game-scope card and supplies no week leg (its
+    moneyline, spread and props never reach a parlay). build_predictions and
+    build_all both call this function, so every slate build inherits the rule from
+    here. The >=3-per-game invariant therefore covers the slate MINUS excluded
+    games. game_predictions.json is untouched: the game is still predicted and
+    graded (real data for the learning loops); it is only never bet.
+
     Returns a flat list of schema-valid parlays. Deterministic.
     """
+    dropped = sorted(str(gp.get("game_id")) for gp in game_preds
+                     if is_excluded(gp.get("game_id"), excluded_path))
+    if dropped:
+        print("parlay_builder: R108 — owner-excluded game(s) %s get no parlay and "
+              "supply no leg (config/excluded_games.json)." % dropped, file=sys.stderr)
+        game_preds = [gp for gp in game_preds
+                      if not is_excluded(gp.get("game_id"), excluded_path)]
     markets_by_game = markets_by_game or {}
     props_by_game = props_by_game or {}
     _report_unmodeled_markets(markets_by_game)
@@ -1083,7 +1109,8 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
 
 def build_parlays_document(game_preds, season, week, as_of_utc,
                            markets_by_game=None, props_by_game=None,
-                           calibration_path=DEFAULT_CALIBRATION_PATH):
+                           calibration_path=DEFAULT_CALIBRATION_PATH,
+                           excluded_path=EXCLUDED_GAMES_PATH):
     """Wrap build_parlays in the parlays.json top-level shape.
 
     as_of_utc : caller-supplied fixed ISO-8601 timestamp (NO wall-clock here — the
@@ -1098,5 +1125,6 @@ def build_parlays_document(game_preds, season, week, as_of_utc,
             markets_by_game=markets_by_game,
             props_by_game=props_by_game,
             calibration_path=calibration_path,
+            excluded_path=excluded_path,
         ),
     }

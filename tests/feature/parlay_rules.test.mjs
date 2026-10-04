@@ -11,7 +11,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const doc = JSON.parse(
   readFileSync(new URL("../../data/parlays.json", import.meta.url), "utf8"),
@@ -30,16 +30,33 @@ test("parlays file has the expected envelope", () => {
   assert.ok(Array.isArray(parlays) && parlays.length > 0);
 });
 
+// R108 — the owner's excluded games (config/excluded_games.json) get NO card.
+const EXCLUDED = (() => {
+  const p = new URL("../../config/excluded_games.json", import.meta.url);
+  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")).games : [];
+})();
+const excludedIds = new Set(EXCLUDED.map((g) => String(g.game_id)));
+
 test(">= 3 parlays scope='game' for EVERY game on the slate", () => {
   const perGame = new Map();
   for (const p of parlays) {
     if (p.scope === "game") perGame.set(p.game_id, (perGame.get(p.game_id) || 0) + 1);
   }
   for (const gid of slateIds) {
+    if (excludedIds.has(String(gid))) continue;      // R108: excluded, asserted below
     assert.ok(
       (perGame.get(gid) || 0) >= 3,
       `expected >=3 game parlays for ${gid}, got ${perGame.get(gid) || 0}`,
     );
+  }
+});
+
+test("R108: an owner-excluded game has no card on a slate built after it was excluded", () => {
+  for (const x of EXCLUDED) {
+    if (String(doc.updated_utc) < String(x.added_utc)) continue;   // built before the exclusion
+    const n = parlays.filter((p) => String(p.game_id) === String(x.game_id)
+      || (p.legs || []).some((l) => String(l.game_id) === String(x.game_id))).length;
+    assert.equal(n, 0, `${x.matchup} (${x.game_id}) still on ${n} card(s)`);
   }
 });
 
