@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "excluded_games.schema.json",
+  "title": "Owner-excluded games (R108) - config/excluded_games.json",
+  "description": "Games the owner removed from every bet. Builders never offer their legs; graders void them in every recorded card. Read only through scripts/excluded_games.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["games"],
+  "properties": {
+    "note": {"type": "string"},
+    "games": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["game_id", "season", "week", "matchup", "reason", "added_utc"],
+        "properties": {
+          "game_id": {"type": "string", "minLength": 1},
+          "season": {"type": "integer", "minimum": 2026},
+          "week": {"type": "integer", "minimum": 1, "maximum": 22},
+          "matchup": {"type": "string"},
+          "reason": {"type": "string", "minLength": 3},
+          "added_utc": {"type": "string"}
+        }
+      }
+    }
+  }
+}

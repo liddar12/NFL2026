@@ -3224,6 +3224,17 @@ def main():
         else:
             print("ok    no snapshot files to validate (data/snapshots/ empty)")
 
+    # 1b2) R108 — the owner's excluded-games list (config/excluded_games.json):
+    # hand-edited, so it is validated strictly when present.
+    _xg = os.path.join(ROOT, "config", "excluded_games.json")
+    if os.path.exists(_xg):
+        try:
+            validate_against_schema(_load(_xg), _load(os.path.join(CONTRACTS,
+                                    "excluded_games.schema.json")), "config/excluded_games.json")
+            print("ok    config/excluded_games.json           vs excluded_games.schema.json")
+        except (OSError, ValueError, ValidationError) as exc:
+            failures.append(str(exc))
+
     # 1c) R49 — estimate ledger files (data/estimates/<season>.json), when present.
     # R58 — the parlay-leg ledger (parlays_<season>.json) lives beside them with
     # its own contract (OPTIONAL: absent until the first daily append).
