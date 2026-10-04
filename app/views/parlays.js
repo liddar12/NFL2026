@@ -857,7 +857,9 @@ export default async function mountParlays(el) {
     const money = activeSort === 'pay' && reviewMod
       ? reviewMod.parlayMoneyMap(selWeek) : null;
     const payOf = (x) => {
-      const m = money && money.get(String(x.parlay_id));
+      // R112 — by the card's identity once review.js has stamped it, so a rank
+      // id re-used after a post-kickoff re-pick never borrows another bet's money.
+      const m = money && (money.get(String(x.card_id || '')) || money.get(String(x.parlay_id)));
       return m ? Number(m.net_fair) : -Infinity;
     };
     const cmp = activeSort === 'pay' && money

@@ -650,11 +650,41 @@ export function renderPay(m) {
   );
 }
 
+/**
+ * R112 — the review row for a painted card: by the card's IDENTITY (its own
+ * card_id, else the archive's hash of its legs), and only then by its rank id,
+ * for a review document written before its rows carried card_id. matchingLegs
+ * still refuses a rank id that names a different bet.
+ */
+export function reviewRowFor(byId, source, computedId, rankId) {
+  const key = source && (source.card_id || computedId);
+  return (key && byId.get(String(key))) || (source && byId.get(cardKey(source)))
+    || byId.get(String(rankId));
+}
+
+/** R112 — write each card's archive identity onto it as card_id (in place, once):
+ * the same 12 hex the archive writer stamps, so every later match — the money
+ * re-pricing, the review row, the $100 sort — is by bet, never by rank. */
+export async function stampCardIds(cards) {
+  const list = (cards || []).filter((c) => c && !c.card_id);
+  const ids = await Promise.all(list.map((c) => cardIdOf(c).catch(() => '')));
+  list.forEach((c, i) => { if (ids[i]) c.card_id = ids[i]; });
+  return cards;
+}
+
 /** Mark the painted parlay cards in `listEl` from the week's review. */
 export async function applyParlayReview(listEl, week, sourceCards = []) {
   const doc = await primeReview();
   if (!listEl || !listEl.isConnected) return;
   if (listEl.dataset.parlayWeek !== String(week)) return;
+  // R112 — a parlays.json card carries no card_id, so stamp each with the
+  // archive writer's own identity hash (cardIdOf) before anything matches it to
+  // a review row. Without it a rank id re-used after a post-kickoff re-pick
+  // (2026-10-04: ARI @ NYG g3 became NYG ML + Nabers; the review's g3 is NYG ML +
+  // Brissett, and its NYG ML + Nabers row is g2) matched the wrong card: the
+  // money re-pricing dropped the row's $100 figure and the card painted none.
+  await stampCardIds(sourceCards);
+  if (!listEl.isConnected || listEl.dataset.parlayWeek !== String(week)) return;
   prepareParlaySimulation(week, sourceCards, doc);
   const blk = weekBlock(doc, week);
   if (!blk) { placeStrip(listEl, '.rv-strip--parlay', ''); return; }
@@ -663,10 +693,7 @@ export async function applyParlayReview(listEl, week, sourceCards = []) {
     // The DOM can only carry the rank id, so the painted card resolves to its
     // SOURCE first and the review row is then fetched by that card's identity.
     const source = sourceCards.find((c) => String(c.parlay_id) === String(card.dataset.parlayId));
-    // Identity first; the rank id second, for a review document written before
-    // its rows carried card_id (matchingLegs below still refuses a reused rank
-    // id that names a different bet).
-    const p = (source && byId.get(cardKey(source))) || byId.get(String(card.dataset.parlayId));
+    const p = reviewRowFor(byId, source, null, card.dataset.parlayId);
     if (!p || card.querySelector('.rv-pchip')) return;
     const matched = matchingLegs(source, p);
     if (!matched) return; // A reused rank ID is not an immutable card identity.

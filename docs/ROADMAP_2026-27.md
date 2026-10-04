@@ -1010,6 +1010,13 @@ nothing ships without one.
   for an unlabelled leg (a mutated `assumed` leg still reds both). **Locked by** `r88_publish_race`
   (j, j2), `parlay_market_independence`, `r30b_model`.
   · **LOE** 0.25 d
+- **R112 · Slate cards match the review by bet, never by rank (P1) — 2026-10-04.** data-ci #78: ARI @
+  NYG's cards were re-ranked after kickoff, so the slate's g3 (NYG ML + Nabers) shared a rank id with
+  the review's frozen g3 (NYG ML + Brissett). parlays.json cards carry no card_id, the money
+  re-pricing paired rows to cards by rank, and the card painted no grade and no $100 figure.
+  `app/review.js` now stamps every slate card with the archive writer's own identity hash
+  (`stampCardIds`) before matching, and the $100 sort keys on it. **Locked by**
+  `r112_card_identity` (2), `r75_parlay_controls` (web). · **LOE** 0.25 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
