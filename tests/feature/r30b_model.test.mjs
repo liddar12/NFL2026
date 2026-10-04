@@ -380,7 +380,11 @@ test('DATA AGREEMENT: legend\'s IMPL claims hold — real book game lines, vig-c
   for (const p of PARLAYS.parlays) {
     for (const leg of p.legs) {
       const fabricated = Math.abs(leg.implied_prob - leg.model_prob * HOLD) <= 2e-4;
-      if (leg.market === 'spread' && fabricated) fabricatedSpreads += 1;
+      // A game line is judged by its provenance label (make_leg: no book price ->
+      // 'assumed'): a real in-game quote can land on model*1.045 by coincidence
+      // (2026-10-04: GB -6.5 at 0.5224). An unlabelled leg falls back to the number.
+      const notBook = leg.price_source != null ? leg.price_source !== 'fair_market' : fabricated;
+      if (leg.market === 'spread' && notBook) fabricatedSpreads += 1;
       if (!gameLine(leg.market)) {
         propLegs += 1;
         if (!fabricated) realProps += 1;

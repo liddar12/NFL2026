@@ -195,6 +195,38 @@ take_ours() {
   fi
 }
 
+# Set when fall_back_to_theirs had to run, for the summary line.
+FELL_BACK=0
+
+# R111 — DEGRADE, NEVER DISCARD. Two writers can each be valid alone and still
+# disagree ACROSS files: on 2026-10-04 gameday rebuilt leg_pool.json from the
+# atd_week.json it had, daily landed a newer atd_week.json first, and the merged
+# tree priced 37 anytime-TD legs off the old model, so the gate refused it and
+# the whole gameday generation -- its pre-kickoff lock receipts included -- was
+# thrown away. The fallback keeps what only this run can contribute (its
+# append-only ledger entries, already merged by identity, and its snapshots and
+# lock receipts) and takes every REGENERABLE file from the head being replayed
+# onto, which the gate already passed as a set; the next run regenerates them
+# anyway. The gate then runs again: a tree that still fails is refused exactly
+# as before. ONTO is the commit being replayed onto.
+fall_back_to_theirs() {
+  local onto="$1" path
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if is_ledger "$path" || [ "${path#data/snapshots/}" != "$path" ]; then
+      continue
+    fi
+    if git cat-file -e "$onto:$path" 2>/dev/null; then
+      git checkout --quiet "$onto" -- "$path"
+    else
+      git rm --quiet --cached -- "$path"
+      rm -f -- "$path"
+    fi
+    log "  $path: fallback, taking the published version (this run's copy did not join the other writer's files)"
+  done <<< "$(git diff --cached --name-only "$onto" -- data/)"
+  FELL_BACK=1
+}
+
 replay_onto() {
   local onto="$1"
   REBASE_RESOLVED=0
@@ -211,7 +243,11 @@ replay_onto() {
     # the only moment where both are true: the tree is what would be published,
     # and abandoning it costs nothing.
     if ! eval "$VALIDATE_CMD"; then
-      die "the merged tree fails the data contracts, so it is not published. This run's generation and the other writer's commit are both intact; re-run the pipeline against the new head."
+      log "  the merged tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
+      fall_back_to_theirs "$onto"
+      if ! eval "$VALIDATE_CMD"; then
+        die "the merged tree fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). This run's generation and the other writer's commit are both intact; re-run the pipeline against the new head."
+      fi
     fi
 
     if git diff --cached --quiet; then
@@ -231,7 +267,7 @@ main() {
     echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote
+  local message="$1" attempt remote replayed
 
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
@@ -255,7 +291,19 @@ main() {
       replay_onto "$remote"
       log "attempt $attempt: replayed onto $(git rev-parse --short "$remote"); head is now $(git rev-parse --short HEAD)"
       if [ "$REBASE_RESOLVED" -eq 0 ] && ! eval "$VALIDATE_CMD"; then
-        die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published. Nothing on main changed; re-run the pipeline against the new head."
+        log "  the replayed tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
+        replayed="$(git rev-parse HEAD)"
+        fall_back_to_theirs "$remote"
+        if git diff --cached --quiet "$remote" -- .; then
+          git reset --quiet --hard "$remote"
+          log "  nothing of this run's survives the fallback; main already holds it"
+          exit 0
+        fi
+        git -c core.editor=true commit --quiet --amend --no-edit
+        if ! eval "$VALIDATE_CMD"; then
+          git reset --quiet --hard "$replayed"
+          die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). Nothing on main changed; re-run the pipeline against the new head."
+        fi
       fi
       if git merge-base --is-ancestor "$remote" HEAD; then
         :
@@ -266,6 +314,9 @@ main() {
 
     if git push origin HEAD:main; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
+      if [ "$FELL_BACK" -eq 1 ]; then
+        echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"
+      fi
       exit 0
     fi
     log "attempt $attempt: push rejected -- another writer landed between the fetch and the push; retrying"

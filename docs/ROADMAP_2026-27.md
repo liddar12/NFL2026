@@ -998,6 +998,18 @@ nothing ships without one.
   IMPORT; the owner's 19 FanDuel slips in one tap (reproduces $186 staked, $608.33 back). The 9/20
   slate warns on nine players, three more than R99 §2 named. Lazy: nothing loads before the tap.
   **Locked by** `r110_my_bets` (19), `r110_my_bets` (web, 6). · **LOE** 1.5 d
+- **R111 · Publish degrades instead of discarding (P1) — 2026-10-04.** Gameday #153 (18:02Z) raced
+  a daily run: daily landed a newer `atd_week.json`, gameday's `leg_pool.json` was priced off the old
+  one, the merged tree failed the ATD join on 37 legs and the gate refused the whole generation — lock
+  receipts included. `scripts/publish_data.sh` now retries the gate once with every regenerable file
+  taken from the published head, keeping this run's ledger entries and snapshots; it publishes that
+  (with a `::warning::`) or refuses exactly as before. Separate concurrency groups stay: a shared one
+  would let a queued daily cancel a pending gameday lock. Same day, data-ci #74: an in-game GB -6.5
+  book quote landed at 0.5224, within 1e-4 of the old fabricated 0.5 x 1.045, and two tests read it
+  as invented; they now judge a spread price by its provenance label (`fair_market`), the number only
+  for an unlabelled leg (a mutated `assumed` leg still reds both). **Locked by** `r88_publish_race`
+  (j, j2), `parlay_market_independence`, `r30b_model`.
+  · **LOE** 0.25 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

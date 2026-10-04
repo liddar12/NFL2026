@@ -302,9 +302,18 @@ test('shipped parlays.json: every spread leg is OUR number for the team it names
       assert.match(leg.edge_note, /NO EDGE/);
       assert.ok(side.isHome || !side.isHome); // the team named is on the slate (asserted above)
       void point;
-      // The old fabricated IMPL was exactly model * 1.045; a real price is not.
-      assert.ok(Math.abs(leg.implied_prob - leg.model_prob * 1.045) > 1e-4,
-        `${p.parlay_id} ${leg.selection}: IMPL looks fabricated from MODEL`);
+      // The old fabricated IMPL was exactly model * 1.045. The builder labels
+      // every price by where it came from (make_leg: no book price -> 'assumed'),
+      // so a spread leg must say the book priced it. The numeric heuristic is
+      // kept only for a leg with no label: a real in-game line CAN land within
+      // 1e-4 of 0.5225 (2026-10-04: GB -6.5 at 0.5224, a book quote).
+      if (leg.price_source != null) {
+        assert.equal(leg.price_source, 'fair_market',
+          `${p.parlay_id} ${leg.selection}: a spread IMPL must be the book's price`);
+      } else {
+        assert.ok(Math.abs(leg.implied_prob - leg.model_prob * 1.045) > 1e-4,
+          `${p.parlay_id} ${leg.selection}: IMPL looks fabricated from MODEL`);
+      }
       checked += 1;
     }
   }

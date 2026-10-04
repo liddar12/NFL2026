@@ -38,6 +38,14 @@ with exit 1.
       at all is gated too, after the fact: every file is then wholly one side's, but
       the contracts also check joins *across* files, and this run's documents have
       never been seen beside the other writer's.
+      **R111 — degrade, never discard.** Before refusing, the gate gets one second
+      chance: every *regenerable* file this run changed is taken from the head it is
+      replaying onto (a set the gate already passed), while this run's append-only
+      ledger entries and its snapshots / lock receipts are kept. If that tree passes,
+      it is published with one `::warning::` line; if not, the refusal above stands.
+      Why: on 2026-10-04 gameday #153 built `leg_pool.json` from an `atd_week.json`
+      that daily replaced first; each was valid alone, the pair failed the ATD join,
+      and the whole gameday generation (its lock receipts included) was discarded.
    5. Push. Rejected because someone landed between the fetch and the push → log the
       reason, sleep 5 s, next attempt.
 3. Out of attempts → one `::error::` line and exit 1. The generation is still
