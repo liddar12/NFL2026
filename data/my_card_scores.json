@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-04T23:33:41Z",
+  "generated_utc": "2026-10-04T23:36:51Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (59 games); scores from data/review.json FINAL rows (59 games); scores from ESPN live, STATUS-gated FINAL (43 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (59 games); scores from data/review.json FINAL rows (59 games); scores from ESPN live, STATUS-gated FINAL (44 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108)",
   "weeks_resolved": 3,
   "weeks": [
@@ -254,14 +254,14 @@
       "week": 4,
       "n_cards": 2720,
       "locked": 2720,
-      "graded": 1637,
-      "pending": 1083,
+      "graded": 1640,
+      "pending": 1080,
       "buckets": {
-        "all_hit": 48,
-        "push": 14,
-        "partial": 684,
-        "all_missed": 891,
-        "pending": 1083
+        "all_hit": 49,
+        "push": 16,
+        "partial": 819,
+        "all_missed": 756,
+        "pending": 1080
       },
       "by_dial": {
         "safe": {
@@ -279,44 +279,44 @@
         },
         "even": {
           "n": 616,
-          "graded": 448,
-          "all_hit": 5,
-          "hit_rate": 0.0112,
-          "mean_model": 0.1607,
-          "log_loss": 0.1891,
-          "brier": 0.0389,
-          "staked": 44800.0,
-          "net_fair": -43086.29,
-          "net_vig2": -43152.86,
-          "roi_fair": -0.9617
+          "graded": 449,
+          "all_hit": 6,
+          "hit_rate": 0.0134,
+          "mean_model": 0.1611,
+          "log_loss": 0.1912,
+          "brier": 0.0399,
+          "staked": 44900.0,
+          "net_fair": -42892.45,
+          "net_vig2": -42970.43,
+          "roi_fair": -0.9553
         },
         "longshot": {
           "n": 1336,
-          "graded": 1061,
+          "graded": 1063,
           "all_hit": 10,
           "hit_rate": 0.0094,
-          "mean_model": 0.07,
-          "log_loss": 0.0883,
-          "brier": 0.015,
-          "staked": 106100.0,
-          "net_fair": -100557.05,
-          "net_vig2": -100745.95,
-          "roi_fair": -0.9478
+          "mean_model": 0.0704,
+          "log_loss": 0.0886,
+          "brier": 0.0151,
+          "staked": 106300.0,
+          "net_fair": -100343.56,
+          "net_vig2": -100540.57,
+          "roi_fair": -0.944
         }
       },
       "by_legs": {
         "2": {
           "n": 390,
-          "graded": 241,
-          "all_hit": 38,
-          "hit_rate": 0.1577,
-          "mean_model": 0.3053,
-          "log_loss": 0.4322,
-          "brier": 0.1286,
-          "staked": 24100.0,
-          "net_fair": -12136.79,
-          "net_vig2": -12567.99,
-          "roi_fair": -0.5036
+          "graded": 244,
+          "all_hit": 39,
+          "hit_rate": 0.1598,
+          "mean_model": 0.3049,
+          "log_loss": 0.434,
+          "brier": 0.1295,
+          "staked": 24400.0,
+          "net_fair": -11729.46,
+          "net_vig2": -12180.18,
+          "roi_fair": -0.4807
         },
         "3": {
           "n": 507,
@@ -277667,8 +277667,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -277711,8 +277714,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -277770,8 +277776,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -277814,8 +277823,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -277858,8 +277870,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -278090,7 +278105,7 @@
       "n_legs": 4,
       "model": 0.1372,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Robinson Jr. 30+ rush yds",
@@ -278116,8 +278131,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -278134,7 +278152,7 @@
       "n_legs": 5,
       "model": 0.091,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Robinson Jr. 30+ rush yds",
@@ -278160,8 +278178,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -278290,7 +278311,7 @@
       "n_legs": 5,
       "model": 0.0874,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Penix Jr. 150+ pass yds",
@@ -278316,8 +278337,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -278340,7 +278364,7 @@
       "n_legs": 6,
       "model": 0.0579,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Robinson Jr. 30+ rush yds",
@@ -278366,8 +278390,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -278523,7 +278550,7 @@
       "n_legs": 6,
       "model": 0.0556,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Penix Jr. 150+ pass yds",
@@ -278549,8 +278576,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -278947,8 +278977,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -279029,8 +279062,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279094,8 +279130,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279197,8 +279236,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279238,8 +279280,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279371,8 +279416,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279512,7 +279560,7 @@
       "n_legs": 3,
       "model": 0.2718,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "BUF ML",
@@ -279532,8 +279580,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -279550,7 +279601,7 @@
       "n_legs": 4,
       "model": 0.1803,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "BUF ML",
@@ -279570,8 +279621,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279688,7 +279742,7 @@
       "n_legs": 5,
       "model": 0.1147,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "BUF ML",
@@ -279708,8 +279762,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279873,8 +279930,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -279932,8 +279992,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -280015,8 +280078,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -280232,7 +280298,7 @@
       "n_legs": 5,
       "model": 0.0934,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Coker 20+ rec yds",
@@ -280243,8 +280309,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -280335,7 +280404,7 @@
       "n_legs": 6,
       "model": 0.0602,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Coker 20+ rec yds",
@@ -280367,8 +280436,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -280450,7 +280522,7 @@
       "n_legs": 6,
       "model": 0.0594,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Coker 20+ rec yds",
@@ -280461,8 +280533,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -280748,7 +280823,7 @@
       "n_legs": 3,
       "model": 0.2205,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -280759,8 +280834,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -280918,7 +280996,7 @@
       "n_legs": 4,
       "model": 0.1454,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -280944,8 +281022,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -280988,8 +281069,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -281056,7 +281140,7 @@
       "n_legs": 5,
       "model": 0.0964,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -281082,8 +281166,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281132,8 +281219,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281397,8 +281487,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281421,7 +281514,7 @@
       "n_legs": 6,
       "model": 0.0613,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -281447,8 +281540,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281506,8 +281602,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281816,8 +281915,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -281951,7 +282053,7 @@
       "n_legs": 3,
       "model": 0.2196,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -281962,8 +282064,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -282077,7 +282182,7 @@
       "n_legs": 5,
       "model": 0.096,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -282103,8 +282208,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -282286,7 +282394,7 @@
       "n_legs": 6,
       "model": 0.0611,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -282312,8 +282420,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -282433,8 +282544,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -282638,8 +282752,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -282682,8 +282799,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -282847,8 +282967,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -283020,6 +283143,38 @@
       }
     },
     {
+      "card_id": "af1e33d2ecf4",
+      "week": 4,
+      "dial": "even",
+      "seed": "DAL",
+      "n_legs": 2,
+      "model": 0.3195,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "G. Pickens 60+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 75.0
+        },
+        {
+          "selection": "SF ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 193.84,
+        "net_vig2": 182.43,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "cd58b2d0973b",
       "week": 4,
       "dial": "even",
@@ -283129,8 +283284,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -283220,8 +283378,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -283376,8 +283537,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -283441,8 +283605,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -283485,8 +283652,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -283559,8 +283729,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -283603,8 +283776,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -284446,7 +284622,7 @@
       "n_legs": 5,
       "model": 0.0845,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "I. Pacheco 30+ rush yds",
@@ -284472,8 +284648,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -284496,7 +284675,7 @@
       "n_legs": 5,
       "model": 0.0835,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. St. Brown 70+ rec yds",
@@ -284522,8 +284701,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -284599,7 +284781,7 @@
       "n_legs": 6,
       "model": 0.0537,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "I. Pacheco 30+ rush yds",
@@ -284625,8 +284807,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -284658,7 +284843,7 @@
       "n_legs": 6,
       "model": 0.0531,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. St. Brown 70+ rec yds",
@@ -284684,8 +284869,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285115,8 +285303,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -285162,8 +285353,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -285206,8 +285400,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285259,8 +285456,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285474,8 +285674,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285530,8 +285733,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285796,7 +286002,7 @@
       "n_legs": 2,
       "model": 0.3955,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "HOU ML",
@@ -285810,8 +286016,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -285869,7 +286078,7 @@
       "n_legs": 3,
       "model": 0.2623,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "HOU ML",
@@ -285883,8 +286092,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -285907,7 +286119,7 @@
       "n_legs": 4,
       "model": 0.1729,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "HOU ML",
@@ -285936,8 +286148,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -286004,7 +286219,7 @@
       "n_legs": 5,
       "model": 0.1147,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "HOU ML",
@@ -286033,8 +286248,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -286213,8 +286431,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -286260,8 +286481,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -286337,8 +286561,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -286656,7 +286883,7 @@
       "n_legs": 4,
       "model": 0.1555,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "IND ML",
@@ -286682,8 +286909,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -286753,7 +286983,7 @@
       "n_legs": 5,
       "model": 0.1032,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "IND ML",
@@ -286764,8 +286994,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -286803,7 +287036,7 @@
       "n_legs": 5,
       "model": 0.1003,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Jones 200+ pass yds",
@@ -286835,8 +287068,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -286906,7 +287142,7 @@
       "n_legs": 6,
       "model": 0.0666,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Jones 200+ pass yds",
@@ -286938,8 +287174,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -286962,7 +287201,7 @@
       "n_legs": 6,
       "model": 0.0656,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "IND ML",
@@ -286973,8 +287212,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -287517,8 +287759,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -287570,8 +287815,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -287691,8 +287939,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -287888,7 +288139,7 @@
       "n_legs": 4,
       "model": 0.1474,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "X. Worthy 30+ rec yds",
@@ -287914,8 +288165,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -287932,7 +288186,7 @@
       "n_legs": 5,
       "model": 0.0978,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "X. Worthy 30+ rec yds",
@@ -287958,8 +288212,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -288088,7 +288345,7 @@
       "n_legs": 6,
       "model": 0.0622,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "X. Worthy 30+ rec yds",
@@ -288114,8 +288371,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -288271,7 +288531,7 @@
       "n_legs": 6,
       "model": 0.0605,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "X. Worthy 30+ rec yds",
@@ -288297,8 +288557,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -288476,7 +288739,7 @@
       "n_legs": 4,
       "model": 0.147,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "K. Vidal 20+ rush yds",
@@ -288502,8 +288765,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -288520,7 +288786,7 @@
       "n_legs": 5,
       "model": 0.0975,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "K. Vidal 20+ rush yds",
@@ -288546,8 +288812,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -288676,7 +288945,7 @@
       "n_legs": 6,
       "model": 0.062,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "K. Vidal 20+ rush yds",
@@ -288702,8 +288971,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -289327,8 +289599,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -289377,8 +289652,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -289545,8 +289823,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -289833,7 +290114,7 @@
       "n_legs": 5,
       "model": 0.0899,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 30+ rec yds",
@@ -289844,8 +290125,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -289936,7 +290220,7 @@
       "n_legs": 6,
       "model": 0.058,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 30+ rec yds",
@@ -289947,8 +290231,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -290051,7 +290338,7 @@
       "n_legs": 6,
       "model": 0.0572,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 30+ rec yds",
@@ -290062,8 +290349,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -290297,7 +290587,7 @@
       "n_legs": 4,
       "model": 0.109,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Tolbert 20+ rec yds",
@@ -290308,8 +290598,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "J. Cook III 80+ rush yds",
@@ -290341,7 +290634,7 @@
       "n_legs": 5,
       "model": 0.0723,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Tolbert 20+ rec yds",
@@ -290352,8 +290645,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "J. Cook III 80+ rush yds",
@@ -290497,7 +290793,7 @@
       "n_legs": 6,
       "model": 0.046,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Tolbert 20+ rec yds",
@@ -290508,8 +290804,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "J. Cook III 80+ rush yds",
@@ -290867,7 +291166,7 @@
       "n_legs": 4,
       "model": 0.1505,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jones Sr. 30+ rush yds",
@@ -290893,8 +291192,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -290911,7 +291213,7 @@
       "n_legs": 5,
       "model": 0.0998,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jones Sr. 30+ rush yds",
@@ -290922,8 +291224,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291067,7 +291372,7 @@
       "n_legs": 6,
       "model": 0.0635,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jones Sr. 30+ rush yds",
@@ -291078,8 +291383,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291407,8 +291715,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291442,8 +291753,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291560,8 +291874,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291610,8 +291927,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291672,8 +291992,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -291728,8 +292051,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292004,7 +292330,7 @@
       "n_legs": 5,
       "model": 0.1001,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO ML",
@@ -292030,8 +292356,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292054,7 +292383,7 @@
       "n_legs": 6,
       "model": 0.0661,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO ML",
@@ -292080,8 +292409,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292228,7 +292560,7 @@
       "n_legs": 6,
       "model": 0.0637,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO ML",
@@ -292254,8 +292586,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292709,8 +293044,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292768,8 +293106,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -292821,8 +293162,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292859,8 +293203,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -292948,8 +293295,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -293264,7 +293614,7 @@
       "n_legs": 4,
       "model": 0.1526,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Smith 175+ pass yds",
@@ -293281,8 +293631,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -293358,7 +293711,7 @@
       "n_legs": 5,
       "model": 0.1007,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Hall 50+ rush yds",
@@ -293384,8 +293737,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -293408,7 +293764,7 @@
       "n_legs": 5,
       "model": 0.1006,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Smith 175+ pass yds",
@@ -293440,8 +293796,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -293458,7 +293817,7 @@
       "n_legs": 6,
       "model": 0.0654,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Smith 175+ pass yds",
@@ -293490,8 +293849,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294024,7 +294386,7 @@
       "n_legs": 5,
       "model": 0.0971,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Barkley 60+ rush yds",
@@ -294050,8 +294412,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294074,7 +294439,7 @@
       "n_legs": 5,
       "model": 0.0974,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Smith 50+ rec yds",
@@ -294100,8 +294465,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294177,7 +294545,7 @@
       "n_legs": 5,
       "model": 0.0961,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "H. Brown 20+ rec yds",
@@ -294203,8 +294571,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294227,7 +294598,7 @@
       "n_legs": 6,
       "model": 0.0622,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Barkley 60+ rush yds",
@@ -294253,8 +294624,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294286,7 +294660,7 @@
       "n_legs": 6,
       "model": 0.0617,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Barkley 60+ rush yds",
@@ -294312,8 +294686,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294345,7 +294722,7 @@
       "n_legs": 6,
       "model": 0.062,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Smith 50+ rec yds",
@@ -294380,8 +294757,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294664,8 +295044,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294817,8 +295200,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -294882,8 +295268,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -295076,7 +295465,7 @@
       "n_legs": 5,
       "model": 0.1002,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Smith-Njigba 80+ rec yds",
@@ -295102,8 +295491,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -295232,7 +295624,7 @@
       "n_legs": 6,
       "model": 0.0639,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Smith-Njigba 80+ rec yds",
@@ -295258,8 +295650,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -295288,7 +295683,7 @@
       "n_legs": 6,
       "model": 0.0638,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Smith-Njigba 80+ rec yds",
@@ -295314,8 +295709,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -295347,13 +295745,16 @@
       "n_legs": 2,
       "model": 0.3955,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "HOU ML",
@@ -295379,13 +295780,16 @@
       "n_legs": 3,
       "model": 0.2718,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295417,13 +295821,16 @@
       "n_legs": 3,
       "model": 0.2623,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -295455,13 +295862,16 @@
       "n_legs": 4,
       "model": 0.1803,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295499,13 +295909,16 @@
       "n_legs": 4,
       "model": 0.1729,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295546,13 +295959,16 @@
       "n_legs": 5,
       "model": 0.1147,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295604,8 +296020,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295657,8 +296076,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295710,8 +296132,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295769,8 +296194,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295828,8 +296256,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -295987,7 +296418,7 @@
       "n_legs": 3,
       "model": 0.2287,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "E. Egbuka 40+ rec yds",
@@ -295998,8 +296429,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296069,7 +296503,7 @@
       "n_legs": 4,
       "model": 0.1507,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "E. Egbuka 40+ rec yds",
@@ -296095,8 +296529,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -296113,7 +296550,7 @@
       "n_legs": 5,
       "model": 0.1,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "E. Egbuka 40+ rec yds",
@@ -296139,8 +296576,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296269,7 +296709,7 @@
       "n_legs": 6,
       "model": 0.0636,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "E. Egbuka 40+ rec yds",
@@ -296295,8 +296735,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296551,7 +296994,7 @@
       "n_legs": 3,
       "model": 0.2213,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "W. Robinson 40+ rec yds",
@@ -296562,8 +297005,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296715,7 +297161,7 @@
       "n_legs": 5,
       "model": 0.0967,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "W. Robinson 40+ rec yds",
@@ -296741,8 +297187,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296871,7 +297320,7 @@
       "n_legs": 6,
       "model": 0.0615,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "W. Robinson 40+ rec yds",
@@ -296897,8 +297346,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -296956,8 +297408,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -297653,7 +298108,7 @@
       "n_legs": 4,
       "model": 0.1472,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Mariota 125+ pass yds",
@@ -297679,8 +298134,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -297697,7 +298155,7 @@
       "n_legs": 5,
       "model": 0.0965,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "WAS ML",
@@ -297708,8 +298166,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -297906,7 +298367,7 @@
       "n_legs": 5,
       "model": 0.0976,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Mariota 125+ pass yds",
@@ -297917,8 +298378,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -297956,7 +298420,7 @@
       "n_legs": 5,
       "model": 0.0988,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Daniels 150+ pass yds",
@@ -297967,8 +298431,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -298165,7 +298632,7 @@
       "n_legs": 6,
       "model": 0.0625,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "WAS ML",
@@ -298176,8 +298643,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -298221,7 +298691,7 @@
       "n_legs": 6,
       "model": 0.0643,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Mariota 125+ pass yds",
@@ -298232,8 +298702,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -298277,7 +298750,7 @@
       "n_legs": 6,
       "model": 0.0649,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Daniels 150+ pass yds",
@@ -298288,8 +298761,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BUF ML",
@@ -298333,7 +298809,7 @@
       "n_legs": 6,
       "model": 0.0614,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "WAS ML",
@@ -298353,8 +298829,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -298392,7 +298871,7 @@
       "n_legs": 6,
       "model": 0.0621,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Mariota 125+ pass yds",
@@ -298427,8 +298906,11 @@
         {
           "selection": "SF ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "C. McCaffrey 30+ rush yds",
@@ -300859,7 +301341,7 @@
       "n_legs": 6,
       "model": 0.0136,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Penix Jr. 175+ pass yds",
@@ -300897,8 +301379,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -305801,7 +306286,7 @@
       "n_legs": 6,
       "model": 0.0148,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Young 200+ pass yds",
@@ -305839,8 +306324,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -313325,7 +313813,7 @@
       "n_legs": 6,
       "model": 0.0155,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. St. Brown 80+ rec yds",
@@ -313363,8 +313851,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -320568,7 +321059,7 @@
       "n_legs": 4,
       "model": 0.0659,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC -4.5",
@@ -320594,8 +321085,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -320891,7 +321385,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC -4.5",
@@ -320917,8 +321411,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -321147,7 +321644,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC -4.5",
@@ -321173,8 +321670,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "NO -1.5",
@@ -321554,7 +322054,7 @@
       "n_legs": 6,
       "model": 0.0165,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC -4.5",
@@ -321580,8 +322080,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -321970,7 +322473,7 @@
       "n_legs": 6,
       "model": 0.0159,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "P. Mahomes 275+ pass yds",
@@ -321996,8 +322499,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -322954,7 +323460,7 @@
       "n_legs": 6,
       "model": 0.0143,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Herbert 200+ pass yds",
@@ -322992,8 +323498,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -325516,7 +326025,7 @@
       "n_legs": 4,
       "model": 0.0556,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 40+ rec yds",
@@ -325542,8 +326051,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -325886,7 +326398,7 @@
       "n_legs": 5,
       "model": 0.0278,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 40+ rec yds",
@@ -325912,8 +326424,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -326142,7 +326657,7 @@
       "n_legs": 5,
       "model": 0.0278,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 40+ rec yds",
@@ -326168,8 +326683,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "NO -1.5",
@@ -326549,7 +327067,7 @@
       "n_legs": 6,
       "model": 0.0139,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 40+ rec yds",
@@ -326575,8 +327093,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -326965,7 +327486,7 @@
       "n_legs": 6,
       "model": 0.0131,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 40+ rec yds",
@@ -327003,8 +327524,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -328388,7 +328912,7 @@
       "n_legs": 2,
       "model": 0.25,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -328402,8 +328926,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -329072,7 +329599,7 @@
       "n_legs": 4,
       "model": 0.0659,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -329098,8 +329625,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -329689,7 +330219,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -329715,8 +330245,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -329892,7 +330425,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -329918,8 +330451,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "NO -1.5",
@@ -330175,7 +330711,7 @@
       "n_legs": 6,
       "model": 0.0165,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -330201,8 +330737,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -330532,7 +331071,7 @@
       "n_legs": 6,
       "model": 0.0159,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "MIN -10",
@@ -330558,8 +331097,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -332936,7 +333478,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO -1.5",
@@ -332968,8 +333510,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -333407,7 +333952,7 @@
       "n_legs": 6,
       "model": 0.0165,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO -1.5",
@@ -333439,8 +333984,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -333811,7 +334359,7 @@
       "n_legs": 6,
       "model": 0.0159,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NO -1.5",
@@ -333843,8 +334391,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "SEA -7",
@@ -339654,7 +340205,7 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SEA -7",
@@ -339686,8 +340237,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         }
       ],
       "money": {
@@ -340019,7 +340573,7 @@
       "n_legs": 6,
       "model": 0.0165,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SEA -7",
@@ -340051,8 +340605,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "NO -1.5",
@@ -340305,7 +340862,7 @@
       "n_legs": 6,
       "model": 0.0159,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SEA -7",
@@ -340337,8 +340894,11 @@
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "NO -1.5",
@@ -340361,13 +340921,16 @@
       "n_legs": 2,
       "model": 0.25,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "PIT -2.5",
@@ -340393,13 +340956,16 @@
       "n_legs": 2,
       "model": 0.255,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -340422,13 +340988,16 @@
       "n_legs": 2,
       "model": 0.25,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "MIN -10",
@@ -340454,13 +341023,16 @@
       "n_legs": 2,
       "model": 0.25,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "GB -3.5",
@@ -340475,6 +341047,73 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "45ff734a7c81",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
+        },
+        {
+          "selection": "IND -4.5",
+          "market": "spread",
+          "result": "void",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": 109.07,
+        "net_vig2": 104.97,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "1c8c8ab348b2",
+      "week": 4,
+      "dial": "longshot",
+      "seed": "SF",
+      "n_legs": 2,
+      "model": 0.25,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "SF -3",
+          "market": "spread",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
+        },
+        {
+          "selection": "GB -3",
+          "market": "spread",
+          "result": "void",
+          "actual": {
+            "home_score": 14,
+            "away_score": 17
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 104.42,
+        "net_vig2": 100.41,
         "assumed_price_legs": 0
       }
     },
@@ -340556,13 +341195,16 @@
       "n_legs": 3,
       "model": 0.1311,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "BAL -11.5",
@@ -340594,13 +341236,16 @@
       "n_legs": 4,
       "model": 0.0656,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -340638,13 +341283,16 @@
       "n_legs": 4,
       "model": 0.07,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -340685,13 +341333,16 @@
       "n_legs": 4,
       "model": 0.0699,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -340729,13 +341380,16 @@
       "n_legs": 4,
       "model": 0.0659,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -340773,13 +341427,16 @@
       "n_legs": 4,
       "model": 0.0656,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -340817,13 +341474,16 @@
       "n_legs": 4,
       "model": 0.07,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -340864,13 +341524,16 @@
       "n_legs": 4,
       "model": 0.07,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -340911,13 +341574,16 @@
       "n_legs": 4,
       "model": 0.0699,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -341005,13 +341671,16 @@
       "n_legs": 5,
       "model": 0.0344,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341055,13 +341724,16 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341152,13 +341824,16 @@
       "n_legs": 5,
       "model": 0.0333,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "P. Mahomes 275+ pass yds",
@@ -341202,13 +341877,16 @@
       "n_legs": 5,
       "model": 0.0329,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341305,13 +341983,16 @@
       "n_legs": 6,
       "model": 0.0172,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341364,13 +342045,16 @@
       "n_legs": 6,
       "model": 0.0183,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -341420,13 +342104,16 @@
       "n_legs": 6,
       "model": 0.0165,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341529,13 +342216,16 @@
       "n_legs": 6,
       "model": 0.0172,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "KC -4.5",
@@ -341588,13 +342278,16 @@
       "n_legs": 6,
       "model": 0.0184,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -341647,13 +342340,16 @@
       "n_legs": 6,
       "model": 0.0183,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "L. Jackson 275+ pass yds",
@@ -341706,13 +342402,16 @@
       "n_legs": 6,
       "model": 0.0159,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SF -3",
           "market": "spread",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 14
+          }
         },
         {
           "selection": "P. Mahomes 275+ pass yds",
