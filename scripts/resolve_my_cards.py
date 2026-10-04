@@ -41,6 +41,15 @@ the complete record of what was offered is data/my_cards/ -- putting ~900 pendin
 rows a week into an app-reachable feed would cost the reader megabytes to learn
 nothing. weeks[] counts every recorded card, graded or not.
 
+R108 (owner, 2026-10-04) — config/excluded_games.json (scripts/excluded_games.py)
+lists games the owner took out of every bet. grade_card voids a leg of an
+excluded game BEFORE the market graders (reason "excluded_game"), so the card
+settles on its remaining legs: a void leg drops out at 1.0, one missed remaining
+leg is a loss. A card made ONLY of excluded legs is not a bet: score() drops it
+from the graded rows, the pending counts and every block, and the document's
+top-level `excluded` says how many were dropped. The learning records are not
+touched -- the game's outcomes are real data.
+
 Stdlib only. --selftest drives the pure core on fixtures; --offline writes the
 honest 0-resolved document.
 """
@@ -62,6 +71,8 @@ from scripts.build_my_cards import DIAL_ORDER, OUT_DIR as CARDS_DIR  # noqa: E40
 from scripts.build_parlay_ledger import _SPREAD_RE  # noqa: E402
 from scripts.build_review import (STAKE, parlay_bucket, parlay_money,  # noqa: E402
                                   parlay_result)
+from scripts.excluded_games import VOID_REASON as EXCLUDED_REASON  # noqa: E402
+from scripts.excluded_games import excluded_ids  # noqa: E402
 from scripts.models.my_cards import LEG_COUNTS  # noqa: E402
 from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
 from scripts.resolve_parlay_legs import (  # noqa: E402
@@ -78,7 +89,8 @@ RULE = ("only LOCKED cards are graded; a prop leg hits when the market's yards r
         "the winner, spread on the margin against the handicap its selection states, an "
         "exact push void); a card is a hit only when every leg hit, a miss when any leg "
         "missed, void when something voided and nothing missed, and pending while any "
-        "leg is unresolved -- an unresolved leg is never a miss")
+        "leg is unresolved -- an unresolved leg is never a miss; a leg of an "
+        "owner-excluded game is void and a card made only of such legs is dropped (R108)")
 
 
 def _r(x, nd=4):
@@ -234,14 +246,34 @@ def grade_game(leg, finals):
     return ("hit" if winner == side else "miss"), {"winner": winner}, None
 
 
-def grade_card(card, week, by_week, finals, atd=None):
+def owner_excluded(excluded=None):
+    """R108 — the excluded game ids as a set of strings: the owner's list
+    (config/excluded_games.json) when `excluded` is None, else exactly `excluded`."""
+    return excluded_ids() if excluded is None else {str(g) for g in excluded}
+
+
+def fully_excluded(card, excluded):
+    """R108 — True when the recorded card has legs and EVERY leg's game_id is in
+    `excluded`: such a card is not a bet any more and is dropped from the record."""
+    legs = card.get("legs") or []
+    return bool(excluded) and bool(legs) and all(
+        l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
+
+
+def grade_card(card, week, by_week, finals, atd=None, excluded=None):
     """A graded card row: per-leg results, the card's result + bucket, and money.
     `atd` = {"td": index_td(...), "snaps": index_snaps(...)} grades anytime-TD legs
-    (R101); without it an ATD leg stays pending, never a miss."""
+    (R101); without it an ATD leg stays pending, never a miss. R108 — a leg whose
+    game_id is in `excluded` (a set of game ids; None = none) is VOID before any
+    market grader runs, reason "excluded_game"; the card then settles on its other
+    legs exactly as it does around a did-not-play void."""
+    excluded = {str(g) for g in excluded} if excluded else set()
     legs_out = []
     for leg in card.get("legs") or []:
         market = leg.get("market")
-        if market == ATD_MARKET:
+        if leg.get("game_id") is not None and str(leg["game_id"]) in excluded:
+            result, actual, reason = "void", None, EXCLUDED_REASON
+        elif market == ATD_MARKET:
             result, actual, reason = (grade_atd(leg, week, atd.get("td"), atd.get("snaps"))
                                       if atd else ("pending", None, "no_td_index"))
         elif market in GAME_MARKETS:
@@ -343,7 +375,7 @@ def week_block(week, cards, graded_rows):
 
 
 def document(season, weeks, cards_rows, finals_source, skipped, generated_utc,
-             source=None):
+             source=None, excluded=0):
     return {
         "season": int(season),
         "generated_utc": generated_utc,
@@ -354,19 +386,27 @@ def document(season, weeks, cards_rows, finals_source, skipped, generated_utc,
         "weeks": weeks,
         "cards": cards_rows,
         "skipped": skipped,
+        # R108 — recorded cards made only of owner-excluded games' legs, dropped.
+        "excluded": int(excluded),
     }
 
 
-def score(rows, by_week, finals, atd=None):
-    """(week blocks, graded card rows) over [(week, card)] recorded cards."""
+def score(rows, by_week, finals, atd=None, excluded=None):
+    """(week blocks, graded card rows) over [(week, card)] recorded cards.
+    R108 — `excluded` (None = the owner's list) voids those games' legs, and a
+    card made only of them is dropped before anything counts it: it is in no
+    week's n_cards / locked / pending / buckets / by_dial / by_legs and no row."""
+    excluded = owner_excluded(excluded)
     weeks, graded_all = [], []
     for week in sorted({w for w, _ in rows}):
-        cards = [c for w, c in rows if w == week]
+        cards = [c for w, c in rows if w == week and not fully_excluded(c, excluded)]
+        if not cards:
+            continue
         graded = []
         for card in cards:
             if not card.get("locked"):
                 continue                       # counted, never scored
-            row = grade_card(card, week, by_week, finals, atd)
+            row = grade_card(card, week, by_week, finals, atd, excluded)
             if row["result"] != "pending":
                 graded.append(row)
         weeks.append(week_block(week, cards, graded))
@@ -413,6 +453,8 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
         season = found[-1] if found else int(dt.datetime.now(dt.timezone.utc).year)
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = load_cards(cards_dir, season)
+    excluded = owner_excluded()                       # R108 — the owner's list
+    n_excluded = sum(1 for _, c in rows if fully_excluded(c, excluded))
     skipped = None
     source = None
     by_week = {}
@@ -447,10 +489,11 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
                    for _, c in rows for l in c.get("legs") or []):
                 atd["snaps"] = _snaps(season, cache_dir, dry_run_csv, offline)
 
-    weeks, graded = score(rows, by_week, finals, atd)
+    weeks, graded = score(rows, by_week, finals, atd, excluded)
     if rows and not graded and not skipped:
         skipped = "stats and finals reachable, but no recorded card has every leg resolved"
-    doc = document(season, weeks, graded, finals_source, skipped, now, source=source)
+    doc = document(season, weeks, graded, finals_source, skipped, now, source=source,
+                   excluded=n_excluded)
 
     stream = sys.stdout
     if dry_run_csv and out_path is None:
@@ -611,11 +654,50 @@ def selftest():
     b = doc["weeks"][0]["by_dial"]["even"]
     assert b["graded"] == 0 and b["hit_rate"] is None and b["staked"] is None
     assert doc["weeks"][0]["pending"] == 5
+    assert doc["excluded"] == 0
+
+    # ---- R108: an owner-excluded game ---------------------------------------
+    # gX is excluded. Its leg is void BEFORE any grader (the X ML leg would be a
+    # pending no_final otherwise); hit + excluded = push on the hit leg alone,
+    # miss + excluded = loss, and an all-gX card is dropped from every count.
+    x_ml = _leg("moneyline", "XXX ML", game_id="gX", team="XXX", side="home",
+                implied_prob=0.5, price_source="fair_market")
+    x_sp = _leg("spread", "YYY +3.5", game_id="gX", team="YYY", side="away",
+                implied_prob=0.5, price_source="fair_market")
+    hen, low = rows[0][1]["legs"][0], rows[1][1]["legs"][1]
+    x_rows = [(1, _card("xhit00000001", "even", [hen, x_ml], model=0.3)),
+              (1, _card("xmis00000001", "even", [low, x_ml], model=0.3)),
+              (1, _card("xall00000001", "even", [x_ml, x_sp], model=0.3)),
+              (1, _card("xunl00000001", "even", [x_ml, x_sp], model=0.3, locked=False))]
+    xg = grade_card(x_rows[0][1], 1, by_week, finals, excluded={"gX"})
+    assert [l["result"] for l in xg["legs"]] == ["hit", "void"] and xg["legs"][1]["actual"] is None
+    assert (xg["result"], xg["bucket"]) == ("void", "push"), xg
+    from scripts.build_review import ASSUMED_DECIMAL  # noqa: PLC0415 — a prop's -110
+    assert xg["money"] == {"net_fair": _r(STAKE * (ASSUMED_DECIMAL - 1), 2),
+                           "net_vig2": xg["money"]["net_vig2"], "assumed_price_legs": 1}, \
+        "paid on the hit prop alone; the void ML leg drops out at 1.0"
+    assert grade_card(x_rows[0][1], 1, by_week, finals)["result"] == "pending", \
+        "without the list the gX leg has no final: pending, as before"
+    x_weeks, x_graded = score(rows + x_rows, by_week, finals, excluded={"gX"})
+    xw, xb = x_weeks[0], {r["card_id"]: r for r in x_graded}
+    assert set(xb) == set(by_id) | {"xhit00000001", "xmis00000001"}, sorted(xb)
+    assert (xb["xmis00000001"]["result"], xb["xmis00000001"]["bucket"]) == ("miss", "all_missed")
+    assert xb["xmis00000001"]["money"]["net_fair"] == -100.0
+    assert (xw["n_cards"], xw["locked"], xw["graded"], xw["pending"]) == \
+        (w["n_cards"] + 2, w["locked"] + 2, w["graded"] + 2, w["pending"]), xw
+    assert xw["by_dial"]["even"]["n"] == even["n"] + 2, "the all-gX cards are in no block"
+    assert score(x_rows[2:], by_week, finals, excluded={"gX"}) == ([], []), \
+        "a week of nothing but excluded cards has no block at all"
+    assert fully_excluded(x_rows[2][1], {"gX"}) and not fully_excluded(x_rows[0][1], {"gX"})
+    assert not fully_excluded(x_rows[2][1], set()) and not fully_excluded({"legs": []}, {"gX"})
+    assert document(2026, x_weeks, x_graded, "f", None, "t", excluded=2)["excluded"] == 2
 
     print("selftest OK: locked-only grading, an unresolved leg is pending and never a "
           "miss, exact push voids, winner-only finals grade a moneyline and not a "
           "cover, buckets sum to the locked cards, $100 flat settles from the card's "
-          "own prices, and every metric is null (never 0) with nothing graded")
+          "own prices, and every metric is null (never 0) with nothing graded; R108 "
+          "an excluded game's leg is void before grading (hit+excluded push, "
+          "miss+excluded loss) and an all-excluded card is dropped from every count")
 
 
 def main(argv=None):

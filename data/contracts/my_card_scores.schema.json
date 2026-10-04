@@ -1035,6 +1035,11 @@
         "null"
       ],
       "description": "Why nothing (or not everything) resolved. Null when the run resolved cleanly."
+    },
+    "excluded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "R108: recorded cards made ONLY of legs of owner-excluded games (config/excluded_games.json), dropped from weeks[] (every count, bucket and block) and cards[]. A card with some excluded legs is graded on its other legs (those legs void, dropping out at 1.0)."
     }
   }
 }

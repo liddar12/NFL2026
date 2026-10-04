@@ -30,7 +30,8 @@
         "no_projection": {"type": "integer", "minimum": 0},
         "no_calibration": {"type": "integer", "minimum": 0},
         "not_playable": {"type": "integer", "minimum": 0, "description": "R77: players whose weekly row says they do not play this week (this_week.playable false) and therefore carry no leg at any rung."},
-        "atd_legs": {"type": "integer", "minimum": 0, "description": "R101: anytime-TD legs offered (0 while atd_backtest.json is not adopted)."}
+        "atd_legs": {"type": "integer", "minimum": 0, "description": "R101: anytime-TD legs offered (0 while atd_backtest.json is not adopted)."},
+        "excluded_game": {"type": "integer", "minimum": 0, "description": "R108: leg rows (prop players, game legs, ATD players) dropped because their game is on the owner's excluded list (config/excluded_games.json). Counted, never offered."}
       }
     },
     "players": {

@@ -56,6 +56,11 @@
       "type": "integer",
       "minimum": 0
     },
+    "excluded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "R108: recorded cards made ONLY of legs of owner-excluded games (config/excluded_games.json), dropped from cards, pending and by_mode. A card with some excluded legs is graded on its other legs (those legs void, like a did-not-play)."
+    },
     "by_mode": {
       "type": "object",
       "additionalProperties": {

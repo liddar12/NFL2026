@@ -18,6 +18,14 @@ hit rate keeps landing below its mean model chance is overstated, and the
 record says so in numbers. Pending legs keep a card pending (never a miss); a
 void leg (player did not play) is dropped by the grader's own rule.
 
+R108 — a leg of an owner-excluded game (config/excluded_games.json) is voided by
+grade_card BEFORE any grader, exactly like a did-not-play void, in every mode
+(all_td, majority_td, scorers_50 — the mode shapes which legs a card holds, never
+how a leg grades): the card settles on its other legs (result "void" when the
+rest all hit, never a hit, so the hit rate is never flattered; "miss" when one
+missed). A card made ONLY of excluded legs is dropped by grade_records -- in no
+row, no pending count and no summary -- and the top-level `excluded` counts them.
+
   python3 scripts/resolve_atd_cards.py [--cache DIR]   runner
   python3 scripts/resolve_atd_cards.py --selftest      offline
 """
@@ -34,7 +42,8 @@ _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from scripts.resolve_my_cards import _snaps, grade_card          # noqa: E402
+from scripts.resolve_my_cards import (_snaps, fully_excluded,     # noqa: E402
+                                      grade_card, owner_excluded)
 from scripts.resolve_parlay_legs import (                         # noqa: E402
     GAME_MARKETS, index_stats, index_td, load_finals)
 from scripts.resolve_estimates import fetch_csv                   # noqa: E402
@@ -70,12 +79,27 @@ def summarize(rows):
     return out
 
 
-def grade_records(records, by_week, finals, atd, scope="week"):
+def excluded_count(records, excluded=None):
+    """R108 — how many recorded cards are made ONLY of owner-excluded games' legs
+    (the cards grade_records drops). `excluded` None = the owner's list."""
+    excluded = owner_excluded(excluded)
+    return sum(1 for rec in records for card in rec.get("cards") or []
+               if fully_excluded(card, excluded))
+
+
+def grade_records(records, by_week, finals, atd, scope="week", excluded=None):
+    """(graded rows, pending count). R108 — `excluded` (None = the owner's list):
+    a leg of an excluded game is void, and a card made only of such legs is
+    skipped -- neither a row nor pending."""
+    excluded = owner_excluded(excluded)
     rows, pending = [], 0
     for rec in records:
         week = int(rec["week"])
         for card in rec.get("cards") or []:
-            g = grade_card(dict(card, dial=card.get("mode")), week, by_week, finals, atd)
+            if fully_excluded(card, excluded):
+                continue
+            g = grade_card(dict(card, dial=card.get("mode")), week, by_week, finals, atd,
+                           excluded)
             if g["result"] == "pending":
                 pending += 1
                 continue
@@ -101,6 +125,7 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
     my_recs = _read(MY_RECORD_GLOB)
     records = week_recs + game_recs + my_recs
     season = max(r["season"] for r in records) if records else None
+    excluded = owner_excluded()                       # R108 — the owner's list
     skipped, rows, pending, finals_source = None, [], 0, None
     if not records:
         skipped = "no recorded ATD cards yet"
@@ -114,15 +139,20 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
         else:
             by_week = index_stats(csv_rows)
             atd = {"td": index_td(csv_rows), "snaps": _snaps(season, cache_dir, None, offline)}
-        rows, pending = grade_records(week_recs, by_week, finals, atd)
-        g_rows, g_pending = grade_records(game_recs, by_week, finals, atd, scope="game")
-        m_rows, m_pending = grade_records(my_recs, by_week, finals, atd, scope="my")
+        rows, pending = grade_records(week_recs, by_week, finals, atd, excluded=excluded)
+        g_rows, g_pending = grade_records(game_recs, by_week, finals, atd, scope="game",
+                                          excluded=excluded)
+        m_rows, m_pending = grade_records(my_recs, by_week, finals, atd, scope="my",
+                                          excluded=excluded)
         rows, pending = rows + g_rows + m_rows, pending + g_pending + m_pending
     doc = {"kind": "atd_card_scores", "season": season, "generated_utc": now,
            "finals_source": finals_source, "skipped": skipped,
            "rule": ("a card hits when every leg hits; a pending leg keeps the card pending "
-                    "(never a miss); ATD legs graded by grade_atd (void = did not play)"),
+                    "(never a miss); ATD legs graded by grade_atd (void = did not play); a "
+                    "leg of an owner-excluded game is void and a card made only of such "
+                    "legs is dropped (R108)"),
            "graded": len(rows), "pending": pending, "by_mode": summarize(rows),
+           "excluded": excluded_count(records, excluded),
            "cards": rows}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, ensure_ascii=True, indent=2)
@@ -157,7 +187,23 @@ def selftest():
         "GAME cards summarised apart from WEEK cards"
     rows2, pending2 = grade_records([rec], {}, {}, None)
     assert rows2 == [] and pending2 == 3, "no TD index: every ATD card pending, never a miss"
-    print("selftest ok: hit / miss / pending per card, pending never a miss, summary by mode and size")
+    # R108 — g2 excluded: c2 (hit + excluded) is void, exactly as a did-not-play
+    # leg leaves it, never a hit; an all-g2 card is dropped -- no row, not pending.
+    xrec = dict(rec, cards=rec["cards"] + [
+        {"card_id": "c4", "mode": "majority_td", "n_legs": 1, "model_prob": 0.5,
+         "legs": [leg("Beta Wide", "SF", "g2")]},
+        {"card_id": "c5", "mode": "all_td", "n_legs": 2, "model_prob": 0.25,
+         "legs": [leg("Beta Wide", "SF", "g2"), leg("Nobody", "NE", "g3")]}])
+    rows3, pending3 = grade_records([xrec], {}, {}, {"td": td, "snaps": None}, excluded={"g2"})
+    res3 = {r["card_id"]: (r["result"], [l["result"] for l in r["legs"]]) for r in rows3}
+    assert res3 == {"c1": ("hit", ["hit"]), "c2": ("void", ["hit", "void"])}, res3
+    assert pending3 == 2, "c3 and c5 (a pending leg beside the void) stay pending; c4 is gone"
+    assert summarize(rows3)["all_td"]["2"] == {"hits": 0, "graded": 1, "hit_rate": 0.0,
+                                               "mean_model": 0.25, "ratio": 0.0}
+    assert excluded_count([xrec], {"g2"}) == 1 and excluded_count([xrec], set()) == 0
+    print("selftest ok: hit / miss / pending per card, pending never a miss, summary by mode "
+          "and size; R108 an excluded leg voids like a did-not-play and an all-excluded "
+          "card is dropped and counted")
 
 
 def main(argv=None):
