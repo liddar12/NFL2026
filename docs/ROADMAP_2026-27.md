@@ -981,6 +981,15 @@ nothing ships without one.
   re-gates itself then; ATD cards at 4+ legs run over-confident on one graded week — not enough to
   act on. **Locked by** `r109_spread_dial` (3), `r86_my_dial` (legend), `r87_my_cards_parity`.
   · **LOE** 0.5 d
+- **R110 · MY BETS ledger (R99 E2, re-scoped) — 2026-10-04.** Owner's picks: "I bet this" on every
+  card + a manual builder; stored on the device with export/import; a BETS chip in PARLAYS; the
+  slip-stack look; backlog `docs/backlog/epics/R110-my-bets-ledger.md` approved as written.
+  **(a) built:** `scripts/build_bet_facts.py` → `data/bet_facts.json` (daily + gameday, after the ATD
+  resolver): every game's FINAL score and every player's yards / TDs per week — the exact evidence the
+  pipeline's graders use — and `app/bets.js`, the browser's grader, a mirror of them. Parity measured
+  on the record: 25,692 / 25,692 MY legs and 15,668 / 15,668 ATD legs grade identically. Contract
+  `bet_facts.schema.json`; the validator checks status gating (a score only as a FINAL pair).
+  **Locked by** `r110_bet_facts` (6). (b) the BETS screen follows. · **LOE** 1.5 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

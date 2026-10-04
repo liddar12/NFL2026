@@ -172,6 +172,10 @@ SCHEMA_TO_DATA = {
     # R105 — every learning loop's live state (scripts/build_learning_loops.py),
     # read by the MODEL tab only. Runner-built, OPTIONAL like its neighbours.
     "learning_loops.schema.json": "learning_loops.json",
+    # R110 — the facts MY BETS grades the owner's on-device bets with
+    # (scripts/build_bet_facts.py), read by the PARLAYS BETS mode only.
+    # Runner-built, OPTIONAL like its neighbours, strict when present.
+    "bet_facts.schema.json": "bet_facts.json",
     # R92 - the QB DEPTH CASCADE backtest (scripts/backtest_qb_depth.py): the
     # walk-forward measurement behind the `qb_depth` candidate family. MEASURE
     # ONLY - it adopts nothing and writes no model parameter, and the family it
@@ -322,6 +326,8 @@ OPTIONAL_DATA = frozenset([
     "replay_lab.json",
     # R105 — the learning-loop record; absent until the first runner build.
     "learning_loops.json",
+    # R110 — the MY BETS facts; absent until the first runner build.
+    "bet_facts.json",
     # R87 — the graded MY cards, written right after the parlay-leg resolver;
     # absent until the first run, validated strictly when present.
     "my_card_scores.json",
@@ -1257,6 +1263,36 @@ def _pool_prices(leg_pool):
     for g in (leg_pool or {}).get("game_legs") or []:
         price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
     return price
+
+
+def check_bet_facts(doc):
+    """R110 — status gating and fact shapes the schema cannot say: a score is a
+    PAIR (both or neither) and never sits beside a winner-only mark; yards are
+    exactly [pass, rush, rec]; the only string a fact may hold is 'dnp'; a week
+    key is an NFL week."""
+    if not doc:
+        return
+    problems = []
+    for wk, blk in (doc.get("weeks") or {}).items():
+        if not str(wk).isdigit() or not 1 <= int(wk) <= 22:
+            problems.append("week key %r is not an NFL week" % wk)
+        for gid, g in (blk.get("games") or {}).items():
+            if ("hs" in g) != ("as" in g):
+                problems.append("wk %s game %s: half a score" % (wk, gid))
+            if "w" in g and "hs" in g:
+                problems.append("wk %s game %s: a score AND a winner-only mark" % (wk, gid))
+        for pid, f in (blk.get("players") or {}).items():
+            y, td = f.get("y"), f.get("td")
+            if isinstance(y, str) and y != "dnp":
+                problems.append("wk %s %s: y is %r (only 'dnp' may be a string)" % (wk, pid, y))
+            if isinstance(y, list) and len(y) != 3:
+                problems.append("wk %s %s: y holds %d values, not [pass, rush, rec]" % (wk, pid, len(y)))
+            if isinstance(td, str) and td != "dnp":
+                problems.append("wk %s %s: td is %r (only 'dnp' may be a string)" % (wk, pid, td))
+            if isinstance(td, int) and td < 0:
+                problems.append("wk %s %s: negative TDs" % (wk, pid))
+    if problems:
+        raise ValidationError("bet_facts.json:\n  - %s" % "\n  - ".join(problems[:20]))
 
 
 def check_learning_loops(doc):
@@ -3333,6 +3369,8 @@ def main():
         print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
         check_atd_cards(_opt("atd_cards.json"), _opt("leg_pool.json"))
         print("ok    ATD cards: pool legs at pool prices, one per game, product, mode rules (R101c)")
+        check_bet_facts(_opt("bet_facts.json"))
+        print("ok    bet_facts.json scores are FINAL pairs; facts are numbers, 'dnp' or null (R110)")
         check_learning_loops(_opt("learning_loops.json"))
         print("ok    learning_loops.json summary counts its loops; transitions are real changes (R105)")
         check_joint_backtest(_opt("joint_backtest.json"))
