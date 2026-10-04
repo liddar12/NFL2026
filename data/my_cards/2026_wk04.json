@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 4,
-  "generated_utc": "2026-10-04T22:55:20Z",
-  "pool_generated_utc": "2026-10-04T22:55:20Z",
+  "generated_utc": "2026-10-04T23:24:06Z",
+  "pool_generated_utc": "2026-10-04T23:24:05Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -371,6 +371,14 @@
       "cards_seen": 72,
       "cards_added": 9,
       "locked_added": 9,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-10-04T23:24:05Z",
+      "week": 4,
+      "cards_seen": 72,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -241880,6 +241888,59 @@
       "first_seen_utc": "2026-10-04T22:55:20Z",
       "locked": true,
       "locked_utc": "2026-10-04T22:55:20Z"
+    },
+    {
+      "card_id": "31154bcc3217",
+      "dial": "safe",
+      "seed": "ATL",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": false,
+      "mixed_game": false,
+      "model": 0.4731,
+      "implied": 0.5167,
+      "ev": -0.0843,
+      "tier": "low",
+      "payout": 93.55,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-10-05T00:20Z",
+      "legs": [
+        {
+          "market": "wr_rec_yds",
+          "selection": "D. London 50+ rec yds",
+          "game_id": "401872979",
+          "team": "ATL",
+          "side": "away",
+          "player": "Drake London",
+          "gsis_id": "espn-4426502",
+          "position": "WR",
+          "line": 49.5,
+          "mu": 75.05,
+          "model_prob": 0.6829,
+          "implied_prob": 0.7136,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Young 125+ pass yds",
+          "game_id": "401872978",
+          "team": "CAR",
+          "side": "home",
+          "player": "Bryce Young",
+          "gsis_id": "espn-4685720",
+          "position": "QB",
+          "line": 124.5,
+          "mu": 164.9,
+          "model_prob": 0.6928,
+          "implied_prob": 0.724,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-10-04T23:24:05Z",
+      "locked": true,
+      "locked_utc": "2026-10-04T23:24:05Z"
     }
   ]
 }
