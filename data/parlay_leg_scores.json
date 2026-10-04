@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-04T15:21:51Z",
+  "generated_utc": "2026-10-04T17:06:20Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (49 games); scores from data/review.json FINAL rows (49 games); scores from ESPN live, STATUS-gated FINAL (49 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (50 games); scores from data/review.json FINAL rows (49 games); scores from ESPN live, STATUS-gated FINAL (50 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 4,
   "legs": {
-    "on_file": 419,
+    "on_file": 421,
     "locked": 349,
-    "unlocked": 70,
-    "resolved": 254,
+    "unlocked": 72,
+    "resolved": 257,
     "unresolved": 64
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 50,
-      "hit_rate": 0.58,
-      "log_loss": 0.6689,
-      "brier": 0.2384
+      "n": 52,
+      "hit_rate": 0.5769,
+      "log_loss": 0.6687,
+      "brier": 0.2383
     },
     "spread": {
-      "n": 73,
-      "hit_rate": 0.4247,
+      "n": 74,
+      "hit_rate": 0.4324,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -199,14 +199,14 @@
         }
       },
       "moneyline": {
-        "n": 1,
-        "hit_rate": 0.0,
-        "log_loss": 0.7097,
-        "brier": 0.2583
+        "n": 3,
+        "hit_rate": 0.3333,
+        "log_loss": 0.678,
+        "brier": 0.2426
       },
       "spread": {
-        "n": 1,
-        "hit_rate": 0.0,
+        "n": 2,
+        "hit_rate": 0.5,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -4995,6 +4995,51 @@
       "model_prob": 0.4124,
       "seed_prob": 0.5033,
       "actual": 115.0,
+      "hit": true
+    },
+    {
+      "week": 4,
+      "game_id": "401872965",
+      "market": "moneyline",
+      "selection": "IND ML",
+      "team": "IND",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5722,
+      "actual": {
+        "home_score": 13,
+        "away_score": 30
+      },
+      "hit": true
+    },
+    {
+      "week": 4,
+      "game_id": "401872965",
+      "market": "moneyline",
+      "selection": "WAS ML",
+      "team": "WAS",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5352,
+      "actual": {
+        "home_score": 13,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 4,
+      "game_id": "401872965",
+      "market": "spread",
+      "selection": "IND -4.5",
+      "team": "IND",
+      "side": "away",
+      "line": -4.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 13,
+        "away_score": 30
+      },
       "hit": true
     }
   ]
