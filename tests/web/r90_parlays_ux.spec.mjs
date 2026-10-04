@@ -40,6 +40,9 @@ const DESKTOP = { width: 1280, height: 900 };
  * playable — derived, never hardcoded, so this stays true as the season moves.
  * Falls back to a TE (an excluded position) if a week ever has no such player. */
 const POOLED = new Set(POOL.players.map((p) => String(p.gsis_id)));
+// The pool is live: a Jefferson ruled OUT (Justin, week 4) or on an owner-excluded
+// game (R108: WAS's Van Jefferson, week 4) leaves it for the week.
+const LIVE_JEFFERSON = POOL.players.some((p) => /Jefferson$/.test(String(p.player)));
 const NOT_PLAYABLE = (() => {
   const byId = new Map(PROJ.players.map((p) => [String(p.gsis_id), p]));
   for (const row of WEEKLY.players) {
@@ -493,6 +496,9 @@ test('F19: the comma-separated example the field prints adds one seed per part',
 
 test('F19: "J. Jefferson, KC" resolves both halves the same way', async ({ page }) => {
   const errors = errorsOf(page);
+  // No Jefferson offered this week: the comma path is still pinned on the live pool
+  // by the printed-example test above, and the ranking rule by the feature test.
+  test.skip(!LIVE_JEFFERSON, 'no Jefferson in this week\'s pool');
   await openMy(page);
   await page.fill('#mp-input', 'J. Jefferson, KC');
   await page.press('#mp-input', 'Enter');

@@ -107,13 +107,19 @@ others = [str(g["game_id"]) for g in games if str(g["game_id"]) != X]
 print(json.dumps({"on_slate": on_slate, "open_x": slate_x(slate_open), "open_game": open_game,
                   "x": slate_x(slate), "others_short": [g for g in others if per_game.get(g, 0) < 3],
                   "week": sum(1 for p in slate["parlays"] if p["scope"] == "week"),
+                  "week_open": sum(1 for p in slate_open["parlays"] if p["scope"] == "week"),
                   "lost": len(slate_open["parlays"]) - len(slate["parlays"])}))`);
   assert.equal(r.x, 0, 'no game card for the excluded game and no week leg naming its teams');
   assert.deepEqual(r.others_short, [], 'every other slate game keeps >=3 game cards');
   assert.ok(r.week >= 3, 'the week still offers >=3 cross-game parlays');
   if (r.on_slate) {
     assert.ok(r.open_game >= 3, 'precondition: with no list the game WOULD get its >=3 cards');
-    assert.equal(r.lost, r.open_x, 'only cards touching the excluded game are gone');
+    // The game's own GAME cards are gone. A WEEK card that used its moneyline is
+    // not deleted but REBUILT from the remaining games (2026-10-04: IND / WAS was
+    // a top favourite and sat on 8 open-slate week cards), so the week keeps its
+    // size and none of its legs names the excluded game (r.x above).
+    assert.equal(r.lost, r.open_game, 'exactly the excluded game\'s GAME cards are gone');
+    assert.equal(r.week, r.week_open, 'the WEEK set keeps its size, rebuilt over the remaining games');
   }
 });
 

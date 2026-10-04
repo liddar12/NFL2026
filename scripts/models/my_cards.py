@@ -58,6 +58,9 @@ from scripts.models.parlay_builder import (  # noqa: E402
 DIALS = {"safe": 0.65, "even": 0.50, "longshot": 0.35}
 DEFAULT_DIAL = "even"
 GAME_LEG_BAND = 0.15
+# R109 -- a SPREAD is priced at exactly 0.50 by policy, so only the dial that
+# targets 0.50 (EVEN) admits it (app/views/myparlays.js SPREAD_DIAL_TARGET).
+SPREAD_DIAL_TARGET = 0.5
 LEG_COUNTS = (2, 3, 4, 5, 6)
 PER_COUNT = 2          # two cards per leg count -> ten cards
 BEAM = 24              # partial cards kept at each step
@@ -240,7 +243,9 @@ def dial_legs(legs, target):
         if _is_prop_leg(leg):
             if chosen.get(leg["owner"]) is leg:
                 out.append(leg)
-        elif abs(float(leg["model_prob"]) - t) - GAME_LEG_BAND <= BAND_TOL:
+        elif abs(float(leg["model_prob"]) - t) - GAME_LEG_BAND <= BAND_TOL and (
+                leg.get("market") != "spread" or abs(t - SPREAD_DIAL_TARGET) <= BAND_TOL):
+            # R109 -- a spread (0.50 by policy) only on the dial that targets 0.50.
             out.append(leg)
     return out
 
