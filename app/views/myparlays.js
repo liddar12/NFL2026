@@ -861,6 +861,22 @@ function paint(el) {
     html.push(renderCard(card, i));
   });
   list.innerHTML = html.join('');
+  // R110 — I BET THIS on every card; the sheet (app/views/mybets.js) loads on the tap.
+  state.shown = cards;
+  list.querySelectorAll('.mp-card[data-mp]').forEach((node) => node.insertAdjacentHTML(
+    'beforeend', '<button type="button" class="leg-chip bet-this">I BET THIS</button>'));
+}
+
+/** R110 — a tap on I BET THIS: the card's legs go to the save sheet as they are. */
+function onBetTap(e) {
+  const btn = e.target.closest('.bet-this');
+  const node = btn && btn.closest('.mp-card[data-mp]');
+  const card = node && state.shown && state.shown[Number(node.dataset.mp)];
+  if (!card) return;
+  import('./mybets.js')
+    .then((mod) => mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
+      week: state.pool && state.pool.week, legs: card.legs, model: card.model }))
+    .catch((err) => console.warn('[nfl2026] my bets failed to load:', err));
 }
 
 /**
@@ -937,6 +953,8 @@ export default async function mountMyParlays(el) {
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
     + '<div id="mp-list" class="card-list"></div>';
+  const mpList = el.querySelector('#mp-list');
+  if (mpList) mpList.addEventListener('click', onBetTap);
 
   /* R89 — the type-ahead. The whole list is re-rendered on every keystroke:
    * matchSeeds over 246 options is one pass of string work, far below a frame,

@@ -160,6 +160,9 @@ test('no view can reach a pipeline artifact: every /data/ path in app/ is on the
     // R105 — app/views/model.js: the LEARNING LOOPS record (a few KB of scalars),
     // same resolve-to-null loader; #/model is its only reader.
     '/data/learning_loops.json',
+    // R110 — app/views/mybets.js: the MY BETS facts (scores + stat lines, ~10 KB
+    // a week), read by the BETS mode only, after a tap.
+    '/data/bet_facts.json',
     // R87 — app/views/myparlays.js: how the MY cards we offered actually did,
     // read through loadJson (same promise cache) for the one RECORD line under
     // the legend. Small by construction — it carries the GRADED cards and the

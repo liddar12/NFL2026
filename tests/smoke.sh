@@ -149,6 +149,7 @@ python3 - <<'PY' || fail "canonical JSON write convention"
 import glob, json, sys
 
 ALLOW = {  # path -> reason (all: compact-writer, size-driven; builder named)
+    "data/bet_facts.json": "build_bet_facts.py compact writer, 44 KB at week 4 (118 KB at indent=2, 2.7x) — fetched by the BETS mode on a phone, grows every week",
     "data/epa_history.json": "build_epa_history.py compact writer, 1.4 MB",
     "data/game_context.json": "build_game_context.py compact writer, 3.2 MB",
     "data/injury_history.json": "build_injury_history.py compact writer, 553 KB",

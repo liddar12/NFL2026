@@ -153,8 +153,33 @@ function scopeSeg(active) {
       // R76 — MY is a MODE, not a route: a new route costs 644 bytes on a boot
       // graph with 33 to spare, and this is where parlays already live.
       seg('my', 'MY') +
+      // R110 — MY BETS (owner, Gate 2: a BETS chip here, where "I BET THIS" lives).
+      seg('bets', betsLabel()) +
     '</div>'
   );
+}
+
+/** R110 — "BETS" with the open-bet count the ledger cached on this device. */
+function betsLabel() {
+  let n = 0;
+  try {
+    const doc = JSON.parse(localStorage.getItem('nfl26.mybets.v1') || 'null');
+    n = ((doc && doc.bets) || []).filter((b) => !['won', 'lost', 'void'].includes(b.status)).length;
+  } catch { /* private mode / unreadable: no count */ }
+  return n ? `BETS · ${n}` : 'BETS';
+}
+
+/* R110 — "I BET THIS" on every current-week card. The sheet (app/views/mybets.js)
+ * loads on the tap, never on a cold mount. */
+const BET_BTN = '<button type="button" class="leg-chip bet-this">I BET THIS</button>';
+
+/** Append the button to each card in `listEl`; `cards[i]` is the i-th card painted. */
+export function addBetButtons(listEl, cards) {
+  listEl.querySelectorAll(':scope > .card').forEach((node, i) => {
+    if (!cards[i]) return;
+    node.dataset.betI = String(i);
+    node.insertAdjacentHTML('beforeend', BET_BTN);
+  });
 }
 
 /** Leg-count chips for the counts present in the active scope, plus ALL. */
@@ -632,6 +657,8 @@ export default async function mountParlays(el) {
 
   let active = 'game';
   let activeLeg = 'all';
+  // R110 — the cards each list painted, in DOM order, for the I BET THIS tap.
+  const betShown = { list: [], atd: [] };
   // R72 — the pressed bucket chip (null = no bucket filter) and the lazily
   // imported review module once it has resolved (null until then / absent).
   let activeBucket = null;
@@ -855,6 +882,8 @@ export default async function mountParlays(el) {
           ? '<div class="state">No parlays in that tier at this scope and leg count.</div>'
           : '<div class="state">No parlays at this leg count.</div>'));
     if (shown.length) annotateLegs(listEl, shown);
+    betShown.list = selWeek === curWeek ? shown : [];
+    if (betShown.list.length) addBetButtons(listEl, betShown.list);
     // R71 — post-game review marks (✓ / ✗ / – per leg, HIT / MISS / PENDING per
     // parlay, a summary line), lazily so app/review.js stays off the boot graph.
     // Absent data/review.json (or a failed import) paints nothing extra.
@@ -986,6 +1015,8 @@ export default async function mountParlays(el) {
     listEl.innerHTML = cards.length
       ? cards.map((c) => atdMod.renderAtdCard(c, { scope, pricer: doc.pricer, games })).join('')
       : `<div class="state">${reason}</div>`;
+    betShown.atd = cards;
+    if (cards.length) addBetButtons(listEl, cards);
   }
 
   async function paintTd() {
@@ -1018,7 +1049,8 @@ export default async function mountParlays(el) {
     retroPanel(readRetroOpen()) +
     '<div id="parlays-list" class="card-list"></div>' +
     '<div id="atd-list" class="card-list" hidden></div>' +
-    '<div id="myparlays-host" hidden></div>';
+    '<div id="myparlays-host" hidden></div>' +
+    '<div id="mybets-host" hidden></div>';
   paintLegSeg();
   paintTierSeg();
   paintSortSeg();
@@ -1114,6 +1146,58 @@ export default async function mountParlays(el) {
     if (host) host.hidden = true;
   }
 
+  /**
+   * R110 — BETS mode: the owner's ledger (app/views/mybets.js, loaded on the
+   * tap). Like MY it hides the slate's chrome, none of which describes a bet
+   * already placed.
+   */
+  let betsMod = null;
+  function enterBetsMode() {
+    setMyChromeHidden(true);
+    const sub = el.querySelector('.view-sub');
+    if (sub) sub.textContent = 'MY BETS · kept on this device · graded from the results feed';
+    const host = el.querySelector('#mybets-host');
+    if (!host) return;
+    host.hidden = false;
+    host.innerHTML = '<div class="state state--loading">Loading My Bets…</div>';
+    import('./mybets.js')
+      .then((mod) => { betsMod = mod; return mod.default(host); })
+      .catch((err) => {
+        console.warn('[nfl2026] my bets failed to load:', err);
+        host.innerHTML = '<div class="state">My Bets unavailable — the view failed to load.</div>';
+      });
+  }
+
+  function exitBetsMode() {
+    const host = el.querySelector('#mybets-host');
+    if (host) host.hidden = true;
+  }
+
+  /** R110 — I BET THIS on a slate or anytime-TD card: open the save sheet. */
+  function onBetTap(e) {
+    const btn = e.target.closest('.bet-this');
+    if (!btn) return;
+    const node = btn.closest('.card');
+    const i = node ? Number(node.dataset.betI) : NaN;
+    const atd = e.currentTarget.id === 'atd-list';
+    const card = (atd ? betShown.atd : betShown.list)[i];
+    if (!card) return;
+    const legs = (card.legs || []).map((l) => ({ ...l, game_id: l.game_id != null ? l.game_id : card.game_id }));
+    // the card's own model chance: ATD cards carry it; a slate card carries its
+    // EV over the product of its prices, so model = (1 + EV) x that product
+    const priced = legs.reduce((p, l) => p * Number(l.implied_prob), 1);
+    const model = atd ? card.model_prob
+      : (Number.isFinite(priced) && Number.isFinite(Number(card.model_ev)) ? (1 + Number(card.model_ev)) * priced : null);
+    const source = atd ? 'td' : (scopeOf(card) === 'week' ? 'week' : 'game');
+    import('./mybets.js')
+      .then((mod) => mod.openBetSheet({ source, week: curWeek, legs, title: card.parlay_id || card.mode || null, model }))
+      .catch((err) => console.warn('[nfl2026] my bets failed to load:', err));
+  }
+  ['#parlays-list', '#atd-list'].forEach((sel) => {
+    const node = el.querySelector(sel);
+    if (node) node.addEventListener('click', onBetTap);
+  });
+
   // R73 — week chips (event delegation, one listener; a tap on the selected
   // week is a no-op).
   const bar = el.querySelector('.pw-wkbar');
@@ -1154,7 +1238,9 @@ export default async function mountParlays(el) {
         b.classList.toggle('seg-btn--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');   // R90/F20
       });
-      if (active === 'my') { paintTd(); enterMyMode(); return; }
+      if (active === 'my') { exitBetsMode(); paintTd(); enterMyMode(); return; }
+      if (active === 'bets') { exitMyMode(); paintTd(); enterBetsMode(); return; }
+      exitBetsMode();
       exitMyMode();
       paintLegSeg();
       paintTierSeg();

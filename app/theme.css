@@ -4279,6 +4279,66 @@ body.gate-locked { overflow: hidden; }
 .legend.legend--parlays .legend-body { margin-top: 0; padding-bottom: 8px; }
 
 
+/* ==========================================================================
+   R110 — MY BETS (the BETS chip in PARLAYS): slip stack, save sheet, builder.
+   Tokens only, so both themes and the AA audit carry over unchanged.
+   ========================================================================== */
+.bet-this { align-self: flex-start; min-height: 44px; margin-top: 4px; }
+.mb-totals {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  padding: 10px 12px; border-radius: 12px;
+  background: var(--surface-2); color: var(--muted); font-size: 13px;
+}
+.mb-totals b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.mb-pos b { color: var(--pos-txt); }
+.mb-neg b { color: var(--accent-txt); }
+.mb-actions, .mb-sheet-act, .mb-slip-act, .mb-picked, .mb-hits {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.mb-import { position: relative; }
+.mb-sec { margin: 8px 0 0; font-size: 13px; letter-spacing: 0.06em; color: var(--muted); }
+.mb-slip { border-left: 4px solid var(--border); }
+.mb-slip--open { border-left-color: var(--brand); }
+.mb-slip--won { border-left-color: var(--pos); }
+.mb-slip--lost { border-left-color: var(--neg); }
+.mb-st { font-weight: 700; font-size: 12px; letter-spacing: 0.05em; color: var(--muted); }
+.mb-st--won { color: var(--pos-txt); }
+.mb-st--lost { color: var(--accent-txt); }
+.mb-st--open { color: var(--brand-txt); }
+.mb-money { font-variant-numeric: tabular-nums; color: var(--ink); }
+.mb-leg { display: flex; gap: 8px; align-items: baseline; }
+.mb-tick { width: 1.2em; text-align: center; font-weight: 700; color: var(--muted); }
+.mb-tick--hit { color: var(--pos-txt); }
+.mb-tick--miss { color: var(--accent-txt); }
+.mb-when { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.mb-warn { color: var(--warn); font-size: 13px; }
+.mb-hint { color: var(--muted); font-size: 13px; }
+.mb-what { display: flex; flex-direction: column; gap: 8px; }
+.mb-what summary { list-style: none; width: max-content; }
+.mb-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.mb-table caption { text-align: left; color: var(--muted); padding: 6px 0; }
+.mb-table th, .mb-table td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border); }
+.mb-table th[scope="row"] { text-align: left; color: var(--ink); }
+.mb-build { display: flex; flex-direction: column; gap: 10px; }
+.mb-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); flex: 1 1 140px; }
+.mb-fields { display: flex; flex-wrap: wrap; gap: 10px; }
+.mb-sheet {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.mb-sheet-in {
+  width: 100%; max-width: 560px; max-height: 88vh; overflow: auto;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: var(--surface); color: var(--ink);
+}
+.mb-sheet-h { margin: 0; font-size: 16px; }
+.mb-sheet-legs { margin: 0; padding-left: 18px; color: var(--ink); font-size: 14px; }
+.mb-ret { font-variant-numeric: tabular-nums; }
+
 /* =============================================================================
    R71 — POST-GAME REVIEW (.rv-* only; additive, touches no existing rule)
    Painted by app/review.js after a FINAL: a filled --pos circle on the predicted
@@ -4510,5 +4570,3 @@ body.gate-locked { overflow: hidden; }
   border-radius: 0;
   padding: 2px 0 2px 10px;
 }
-
-
