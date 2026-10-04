@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-04T19:34:01Z",
+  "generated_utc": "2026-10-04T19:37:14Z",
   "policy": "Each loop decides on its own record whether a candidate clears its gate; this file only reports those decisions, verbatim. transitions is append-only.",
   "summary": {
     "adopted": 5,
@@ -19,8 +19,8 @@
       "source": "data/model_tuning.json",
       "state": "held",
       "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 51.75, 'revert': 0.6675} scores 0.725815 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.6757 across 5 folds over n=50 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
-      "last_run_utc": "2026-10-04T18:40:40Z",
-      "runs": 58,
+      "last_run_utc": "2026-10-04T19:34:49Z",
+      "runs": 59,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z"
     },
@@ -190,7 +190,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 4 week(s): same pool_calibration, seed, shrink_to_half; worse spread_margin_model",
-      "last_run_utc": "2026-10-04T19:33:59Z"
+      "last_run_utc": "2026-10-04T19:37:13Z"
     }
   ],
   "transitions": []
