@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "bet_facts.schema.json",
+  "title": "MY BETS facts (R110) - data/bet_facts.json",
+  "description": "The facts the browser grades the owner's on-device bets with (scripts/build_bet_facts.py; app/bets.js gradeLeg mirrors resolve_my_cards / resolve_parlay_legs). Per week: every scheduled game (h, a, k = kickoff) with hs/as only once FINAL, or w (winner only, from a lock receipt); per player espn id: y = [pass, rush, rec] yards | 'dnp' | null and td = rushing + receiving TDs | 'dnp' | null. 'dnp' = the team's snap sheet is published without the player (the leg is void); null = no evidence (pending). Facts only: no probability, no price. Read by the PARLAYS BETS mode only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "season",
+    "generated_utc",
+    "rule",
+    "source",
+    "excluded",
+    "weeks"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "bet_facts"
+      ]
+    },
+    "season": {
+      "type": "integer",
+      "minimum": 2000
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "rule": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "weeks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "games",
+          "players"
+        ],
+        "properties": {
+          "games": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "h",
+                "a",
+                "k"
+              ],
+              "properties": {
+                "h": {
+                  "type": "string"
+                },
+                "a": {
+                  "type": "string"
+                },
+                "k": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "hs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "as": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "w": {
+                  "type": "string",
+                  "enum": [
+                    "home",
+                    "away"
+                  ]
+                }
+              }
+            }
+          },
+          "players": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "y",
+                "td"
+              ],
+              "properties": {
+                "y": {
+                  "type": [
+                    "array",
+                    "string",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "td": {
+                  "type": [
+                    "integer",
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

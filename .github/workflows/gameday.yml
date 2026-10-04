@@ -258,6 +258,14 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error gameday "Resolve ATD cards against nflverse weekly stats" -- python3 scripts/resolve_atd_cards.py
         continue-on-error: true
 
+      # R110 — the facts MY BETS grades the owner's on-device bets with: every
+      # game's FINAL score and every player's yards / TDs per week, the same
+      # evidence the two resolvers above just used. Network (nflverse, ESPN
+      # finals), hence continue-on-error: an outage leaves yesterday's facts.
+      - name: MY BETS facts (data/bet_facts.json)
+        run: bash scripts/stage.sh --continue-on-error gameday "MY BETS facts (data/bet_facts.json)" -- python3 scripts/build_bet_facts.py
+        continue-on-error: true
+
       # R81 — PARLAY REPLAY LAB (measure only). data/replay_lab.json is a MIRROR of
       # the parlay archive, the leg ledger and the leg resolver: it reports what a
       # candidate rule would have done on exactly those rows. gameday rebuilt all
