@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-05T05:12:04Z",
+  "generated_utc": "2026-10-05T10:19:38Z",
   "policy": "Each loop decides on its own record whether a candidate clears its gate; this file only reports those decisions, verbatim. transitions is append-only.",
   "summary": {
     "adopted": 5,
@@ -58,7 +58,7 @@
       "source": "data/weekly_backtest.json",
       "state": "adopted",
       "why": "v2 beats v1 on pooled MAE (6.003 vs 6.050) and pooled rank_corr (0.381 vs 0.369); held-out 2025 MAE 6.079 vs 6.111",
-      "last_run_utc": "2026-10-05T02:02:16Z"
+      "last_run_utc": "2026-10-05T10:17:16Z"
     },
     {
       "id": "kdst_split",
@@ -102,7 +102,7 @@
       "source": "data/parlay_backtest.json",
       "state": "adopted",
       "why": "calibrated log-loss <= seed on every fold: 2024: 0.6767 vs 0.6920; 2025: 0.6705 vs 0.6820",
-      "last_run_utc": "2026-10-05T02:02:27Z"
+      "last_run_utc": "2026-10-05T10:17:24Z"
     },
     {
       "id": "spread_model",
@@ -113,7 +113,7 @@
       "source": "data/parlay_backtest.json",
       "state": "held",
       "why": "cover model log-loss 0.7231 vs a coin flip 0.6931 over 797 games \u2014 no edge, spreads stay priced flat",
-      "last_run_utc": "2026-10-05T02:02:27Z"
+      "last_run_utc": "2026-10-05T10:17:24Z"
     },
     {
       "id": "atd_model",
@@ -179,7 +179,7 @@
       "source": "data/lines_backtest.json",
       "state": "measuring",
       "why": "phase 1 measures only; 0 of 15 variants clear never-regress",
-      "last_run_utc": "2026-10-05T02:02:26Z"
+      "last_run_utc": "2026-10-05T10:17:23Z"
     },
     {
       "id": "replay_lab",
@@ -190,7 +190,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 4 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-10-05T05:12:02Z"
+      "last_run_utc": "2026-10-05T10:19:36Z"
     }
   ],
   "transitions": []
