@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-04T22:21:12Z",
+  "generated_utc": "2026-10-05T02:02:27Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -301,40 +301,37 @@
     ],
     "calibration": {
       "QB": {
-        "a": -0.109035,
-        "b": 1.063097,
-        "c": 0.988283,
+        "a": -0.127713,
+        "b": 1.146601,
+        "c": 0.936247,
         "fit_seasons": [
           2023,
           2024,
-          2025,
-          2026
+          2025
         ]
       },
       "RB": {
-        "a": -0.21122,
-        "b": 1.113622,
-        "c": 1.048263,
+        "a": -0.235873,
+        "b": 1.123922,
+        "c": 1.004332,
         "fit_seasons": [
           2023,
           2024,
-          2025,
-          2026
+          2025
         ]
       },
       "WR": {
-        "a": -0.191602,
-        "b": 0.93701,
-        "c": 0.51923,
+        "a": -0.218547,
+        "b": 0.948201,
+        "c": 0.561142,
         "fit_seasons": [
           2023,
           2024,
-          2025,
-          2026
+          2025
         ]
       }
     },
-    "calibration_note": "SHIPPED coefficients are fit on ALL fixture seasons [2023, 2024, 2025] \u2014 that fit is not a measurement; the walk-forward folds above are. residual_sd is likewise the all-seasons value. R58: coefficients re-fit on the corpus + the resolved 2026 legs of weeks [1, 2, 3, 4] and adopted under never-regress (see live_2026.refit).",
+    "calibration_note": "SHIPPED coefficients are fit on ALL fixture seasons [2023, 2024, 2025] \u2014 that fit is not a measurement; the walk-forward folds above are. residual_sd is likewise the all-seasons value.",
     "skipped": {
       "QB": {
         "no_eligible_player": 17
@@ -354,26 +351,26 @@
   },
   "live_2026": {
     "weeks": 4,
-    "legs_resolved": 157,
+    "legs_resolved": 167,
     "seed": {
-      "log_loss": 0.6846,
-      "hit_rate": 0.5287
+      "log_loss": 0.6811,
+      "hit_rate": 0.515
     },
     "calibrated": {
-      "log_loss": 0.6785,
-      "hit_rate": 0.5287
+      "log_loss": 0.6658,
+      "hit_rate": 0.515
     },
     "refit": {
-      "applied": true,
+      "applied": false,
       "fit_weeks": [
         1,
         2,
         3,
         4
       ],
-      "reason": "refit adopted under never-regress \u2014 2025 held-out fold: refit 0.6703 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6783 <= current 0.6785"
+      "reason": "never-regress keeps the current coefficients \u2014 2026 legs walk-forward by week: refit log-loss 0.6658 > current 0.6657; 2025 held-out fold: refit 0.6702 <= current 0.6705"
     },
-    "note": "157 locked prop leg(s) resolved over week(s) [1, 2, 3, 4]; seed vs calibrated on the 157 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
+    "note": "167 locked prop leg(s) resolved over week(s) [1, 2, 3, 4]; seed vs calibrated on the 167 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
   },
   "correlations": {
     "pairs": [
