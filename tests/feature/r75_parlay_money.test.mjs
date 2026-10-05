@@ -122,7 +122,10 @@ test('every committed parlay row carries money of a declared kind', () => {
         assert.notEqual(p.bucket, 'pending', 'a pending parlay is never settled');
         assert.equal(typeof m.net_vig2, 'number');
         const won = p.bucket === 'all_hit' || p.bucket === 'push';
-        assert.equal(won ? m.net_fair > 0 : m.net_fair === -100, true,
+        // R115 (data-ci #92): every leg void (GB -3 pushed, Jacobs voided) is "no
+        // action" -- the stake comes back, net exactly 0 (R106/R110)
+        const noAction = (p.legs || []).length > 0 && p.legs.every((l) => l.result === 'void');
+        assert.equal(noAction ? m.net_fair === 0 : won ? m.net_fair > 0 : m.net_fair === -100, true,
           `wk ${wk} ${p.parlay_id}: ${p.bucket} paid ${m.net_fair}`);
       }
     }

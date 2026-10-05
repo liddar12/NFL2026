@@ -248,6 +248,12 @@ def grade_atd(leg, week, td_by_week, snaps_by_week=None):
     if not name or not team:
         return "pending", None, "player_unidentified"
     hits = [r for r in rows if r["norm"] == name and r["team"] == team]
+    if not hits and " " in name:
+        # R115 — as find_player does: first initial + last name on his team, so the
+        # feed's "Kenny Gainwell" is the card's "Kenneth Gainwell" (data-ci #92).
+        ini, last = name[0], name.split(" ", 1)[1]
+        hits = [r for r in rows if r["team"] == team and " " in r["norm"]
+                and r["norm"][0] == ini and r["norm"].split(" ", 1)[1] == last]
     if len(hits) > 1:
         return "pending", None, "ambiguous"
     if hits:
