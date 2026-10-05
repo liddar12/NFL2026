@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-05T02:04:26Z",
+  "generated_utc": "2026-10-05T05:11:53Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (62 games); scores from data/review.json FINAL rows (62 games); scores from ESPN live, STATUS-gated FINAL (62 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (63 games); scores from data/review.json FINAL rows (62 games); scores from ESPN live, STATUS-gated FINAL (63 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 4,
@@ -10,31 +10,31 @@
     "on_file": 469,
     "locked": 350,
     "unlocked": 119,
-    "resolved": 316,
-    "unresolved": 30
+    "resolved": 320,
+    "unresolved": 27
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 167,
-      "hit_rate": 0.515,
+      "n": 170,
+      "hit_rate": 0.5176,
       "model": {
-        "log_loss": 0.6658,
-        "brier": 0.2368
+        "log_loss": 0.6653,
+        "brier": 0.2366
       },
       "seed": {
-        "log_loss": 0.6811,
-        "brier": 0.2441
+        "log_loss": 0.6813,
+        "brier": 0.2442
       },
       "by_pricing": {
-        "calibrated": 167
+        "calibrated": 170
       }
     },
     "moneyline": {
-      "n": 65,
-      "hit_rate": 0.6,
-      "log_loss": 0.6458,
-      "brier": 0.2279
+      "n": 66,
+      "hit_rate": 0.6061,
+      "log_loss": 0.6465,
+      "brier": 0.2283
     },
     "spread": {
       "n": 84,
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 55,
-      "hit_rate": 0.4727,
+      "n": 56,
+      "hit_rate": 0.4821,
       "model": {
-        "log_loss": 0.6849,
-        "brier": 0.2461
+        "log_loss": 0.6822,
+        "brier": 0.2448
       },
       "seed": {
-        "log_loss": 0.6685,
-        "brier": 0.2378
+        "log_loss": 0.6689,
+        "brier": 0.238
       },
       "by_pricing": {
-        "calibrated": 55
+        "calibrated": 56
       }
     },
     "RB": {
-      "n": 57,
-      "hit_rate": 0.5263,
+      "n": 58,
+      "hit_rate": 0.5172,
       "model": {
-        "log_loss": 0.6489,
-        "brier": 0.2288
+        "log_loss": 0.6506,
+        "brier": 0.2297
       },
       "seed": {
-        "log_loss": 0.6778,
-        "brier": 0.2424
+        "log_loss": 0.6781,
+        "brier": 0.2426
       },
       "by_pricing": {
-        "calibrated": 57
+        "calibrated": 58
       }
     },
     "WR": {
-      "n": 55,
-      "hit_rate": 0.5455,
+      "n": 56,
+      "hit_rate": 0.5536,
       "model": {
-        "log_loss": 0.6642,
-        "brier": 0.2359
+        "log_loss": 0.6635,
+        "brier": 0.2355
       },
       "seed": {
-        "log_loss": 0.6972,
+        "log_loss": 0.6971,
         "brier": 0.252
       },
       "by_pricing": {
-        "calibrated": 55
+        "calibrated": 56
       }
     }
   },
@@ -184,25 +184,25 @@
     {
       "week": 4,
       "props": {
-        "n": 39,
-        "hit_rate": 0.4615,
+        "n": 42,
+        "hit_rate": 0.4762,
         "model": {
-          "log_loss": 0.6277,
-          "brier": 0.2184
+          "log_loss": 0.6283,
+          "brier": 0.2186
         },
         "seed": {
-          "log_loss": 0.6741,
-          "brier": 0.2406
+          "log_loss": 0.6755,
+          "brier": 0.2413
         },
         "by_pricing": {
-          "calibrated": 39
+          "calibrated": 42
         }
       },
       "moneyline": {
-        "n": 16,
-        "hit_rate": 0.625,
-        "log_loss": 0.5775,
-        "brier": 0.1971
+        "n": 17,
+        "hit_rate": 0.6471,
+        "log_loss": 0.5841,
+        "brier": 0.2001
       },
       "spread": {
         "n": 12,
@@ -380,27 +380,6 @@
       "market": "spread",
       "selection": "SEA -7",
       "reason": "push"
-    },
-    {
-      "week": 4,
-      "game_id": "401872978",
-      "market": "qb_pass_yds",
-      "selection": "J. Goff 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 4,
-      "game_id": "401872978",
-      "market": "rb_rush_yds",
-      "selection": "J. Gibbs 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 4,
-      "game_id": "401872978",
-      "market": "wr_rec_yds",
-      "selection": "A. St. Brown 60+ rec yds",
-      "reason": "no_stat_line"
     },
     {
       "week": 4,
@@ -5831,6 +5810,78 @@
       "model_prob": 0.6672,
       "seed_prob": 0.6157,
       "actual": 76.0,
+      "hit": true
+    },
+    {
+      "week": 4,
+      "game_id": "401872978",
+      "market": "moneyline",
+      "selection": "CAR ML",
+      "team": "CAR",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5016,
+      "actual": {
+        "home_score": 32,
+        "away_score": 26
+      },
+      "hit": true
+    },
+    {
+      "week": 4,
+      "game_id": "401872978",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Goff 225+ pass yds",
+      "player": "Jared Goff",
+      "team": "DET",
+      "line": 224.5,
+      "mu": 256.42,
+      "sd": 76.66,
+      "z": 0.4164,
+      "p_team": 0.4984,
+      "pricing": "calibrated",
+      "model_prob": 0.5862,
+      "seed_prob": 0.4994,
+      "actual": 412.0,
+      "hit": true
+    },
+    {
+      "week": 4,
+      "game_id": "401872978",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "J. Gibbs 60+ rush yds",
+      "player": "Jahmyr Gibbs",
+      "team": "DET",
+      "line": 59.5,
+      "mu": 71.43,
+      "sd": 38.87,
+      "z": 0.307,
+      "p_team": 0.4984,
+      "pricing": "calibrated",
+      "model_prob": 0.5269,
+      "seed_prob": 0.4994,
+      "actual": 46.0,
+      "hit": false
+    },
+    {
+      "week": 4,
+      "game_id": "401872978",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "A. St. Brown 60+ rec yds",
+      "player": "Amon-Ra St. Brown",
+      "team": "DET",
+      "line": 59.5,
+      "mu": 75.12,
+      "sd": 41.58,
+      "z": 0.3755,
+      "p_team": 0.4984,
+      "pricing": "calibrated",
+      "model_prob": 0.5341,
+      "seed_prob": 0.4994,
+      "actual": 75.0,
       "hit": true
     }
   ]
