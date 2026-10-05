@@ -46,7 +46,15 @@ cases = {
   "other_team_sheet": grade_atd({"player": "Eps Away", "team": "SF"}, 3, td, snaps),
   "week_unpublished": grade_atd({"player": "Alpha Back", "team": "LAR"}, 4, td, snaps),
   "unidentified": grade_atd({"player": "", "team": "LAR"}, 3, td, snaps)}
+# R115 (data-ci #92): the feed's "Kenny Gainwell" scored; the card names "Kenneth Gainwell"
+# and the snap sheet does too -- a stat line by initial + last name beats "played, no line"
+nick_td = index_td([{"player_display_name": "Kenny Gainwell", "position": "RB", "team": "TB",
+                     "week": "4", "season_type": "REG", "rushing_tds": "0", "receiving_tds": "1"}])
+nick_snaps = index_snaps([{"player": "Kenneth Gainwell", "team": "TB", "week": "4",
+                           "game_type": "REG", "offense_snaps": "27"}])
+cases["nickname"] = grade_atd({"player": "Kenneth Gainwell", "team": "TB"}, 4, nick_td, nick_snaps)
 print(json.dumps(cases))`);
+  assert.deepEqual(r.nickname.slice(0, 2), ['hit', { tds: 1 }], 'initial + last name finds the stat line');
   assert.deepEqual(r.hit.slice(0, 2), ['hit', { tds: 2 }]);
   assert.deepEqual(r.miss_line.slice(0, 2), ['miss', { tds: 0 }]);
   assert.equal(r.miss_snaps[0], 'miss', 'played, no stat line: a TD needs a touch, so no TD');

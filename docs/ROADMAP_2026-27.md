@@ -1036,6 +1036,16 @@ nothing ships without one.
   `r75_parlay_controls` oracle still joined by rank id. It now joins the way `app/review.js` does.
   **Locked by** `build_bet_facts --selftest`, `r110_bet_facts` AC3, `r107_parlay_gate_lag`,
   `r75_parlay_controls` (web). · **LOE** 0.25 d
+- **R115 · The ATD grader learns the name fallback; an all-void card pays 0 (P1) — 2026-10-05.**
+  data-ci #92. (1) nflverse wrote "Kenny Gainwell" (receiving TD, week 4); the card says "Kenneth
+  Gainwell". `grade_atd` matched exact names only, found the snap sheet and graded ten ATD legs a
+  MISS. R114's facts builder found the TD, so the browser said HIT, and the parity test caught the
+  disagreement. `grade_atd` now falls back to first initial + last name on his team, as
+  `find_player` does; the resolvers regrade from scratch, so the ten legs become hits on the next
+  run. (2) GB -3 pushed and Jacobs was voided, so card 401872968-g3 is all void: no action, net
+  exactly 0 (R106/R110). The r75 money test assumed every push pays more than 0; it now requires
+  exactly 0 for an all-void card. **Locked by** `r101_atd_grade` (nickname case), `r75_parlay_money`.
+  · **LOE** 0.1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.
