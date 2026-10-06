@@ -327,11 +327,12 @@ def _fixture_pool(generated_utc):
             {"gsis_id": "p3", "player": "Gamma Three", "team": "BBB", "position": "QB",
              "market": "qb_pass_yds", "game_id": "G1", "side": "away", "mu": 240.0,
              "p_team": 0.4, "pricing": "pool_calibrated",
-             "rungs": [rung(224, 0.49, "G. Three", "pass yds")]},
+             "rungs": [rung(224, 0.49, "G. Three", "pass yds"),
+                       rung(274, 0.38, "G. Three", "pass yds")]},   # R117: a LONGSHOT rung
             {"gsis_id": "p4", "player": "Delta Four", "team": "CCC", "position": "WR",
              "market": "wr_rec_yds", "game_id": "G2", "side": "home", "mu": 80.0,
              "p_team": 0.55, "pricing": "pool_calibrated",
-             "rungs": [rung(59, 0.53, "D. Four", "rec yds")]},
+             "rungs": [rung(59, 0.53, "D. Four", "rec yds"), rung(89, 0.36, "D. Four", "rec yds")]},
         ],
         "game_legs": [
             {"market": "moneyline", "selection": "AAA ML", "model_prob": 0.56,

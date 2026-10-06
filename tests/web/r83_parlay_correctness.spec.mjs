@@ -7,8 +7,9 @@ const player = (id, name, team, game, p) => ({
 });
 const pool = (side) => ({
   season: 2026, week: 2,
-  players: [player('a', 'Alpha One', 'AAA', 'g1', 0.8),
-    player('b', 'Beta Two', 'BBB', 'g2', 0.7)],
+  // R117: props within PROP_DIAL_BAND of EVEN (the default dial), or no card builds
+  players: [player('a', 'Alpha One', 'AAA', 'g1', 0.55),
+    player('b', 'Beta Two', 'BBB', 'g2', 0.45)],
   game_legs: [{ market: 'moneyline', selection: 'AAA ML', team: 'AAA',
     game_id: 'g1', model_prob: 0.6, implied_prob: 0.62,
     ...(side ? { side } : {}) }],
@@ -37,9 +38,9 @@ for (const side of [null, 'home']) {
     await expect(card).toHaveCount(1);
     await expect(card.locator('.leg-nm')).toHaveCount(3);
     await expect(card).toContainText('AAA ML');
-    // Independent oracle: (.8*.6 + .1*sqrt(.8*.2*.6*.4)) * .7 = .349717…
-    // R82 multiplied all three marginals, displaying 34 instead of 35.
-    await expect(card.locator('.ev')).toHaveText('35%CONVICTION');
+    // Independent oracle: (.55*.6 + .1*sqrt(.55*.45*.6*.4)) * .45 = .159467…
+    // R82 multiplied all three marginals (.1485), which would display 15 instead of 16.
+    await expect(card.locator('.ev')).toHaveText('16%CONVICTION');
     await expect(page.locator('#myparlays-host [role="status"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });

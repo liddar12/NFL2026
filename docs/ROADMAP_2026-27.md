@@ -1,4 +1,17 @@
-# Roadmap 2026-27 — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
+# Roadmap 2026-27- **R117 · Week-4 re-measure: the R100 layer ships, the dial holds its promise (P1) — 2026-10-06.**
+  Week 4 was R100's second held-out week; `leg_pool_live` adopted (held-out log-loss 0.66 -> 0.63,
+  ECE 0.13 -> 0.04-0.06; props hit 64.6 % against a 51.4 % model). Priced honestly, each player's
+  nearest rung often sat far from the dial and the search took the highest: EVEN prop legs averaged
+  0.647. **Shipped:** a prop rung only within PROP_DIAL_BAND (0.10) of the dial, browser and recorder.
+  Replayed walk-forward over weeks 2-4 (the layer fit only on earlier weeks): EVEN all-hit 18.3 -> 21.1,
+  0.4 -> 2.3, 4.3 -> 11.7 %; SAFE never lower (identical, 10.4 -> 43.6 %, identical); LONGSHOT hits less
+  (4.7 -> 3.5, 1.7 -> 1.3, 1.5 -> 0.8 %) with calibration better every week (0.63 -> 0.74, 0.11 -> 0.20,
+  0.12 -> 0.15). Owner's call: a harder LONGSHOT is the point. **Re-confirmed:** R109 on week 4 (its
+  third held-out week): LONGSHOT 2.8 -> 6.5 %, realised/model 0.39 -> 0.90, SAFE/EVEN unchanged.
+  **Measured, not shipped:** a minimum leg-probability floor (lower all-hit within every dial once
+  stratified), rank-by-probability (week 2 -3 hits), an ATD 4+ scalar (week-4 error 0.006 -> 0.010).
+  **Locked by** `r86_my_dial` (R117 band), `r76_myparlays_search`, `build_my_cards --selftest`. · **LOE** 0.5 d
+ — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
 re-derived from shipped code and committed data) · **Horizon:** 2026 season + offseason, to Aug 2027

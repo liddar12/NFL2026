@@ -61,6 +61,14 @@ GAME_LEG_BAND = 0.15
 # R109 -- a SPREAD is priced at exactly 0.50 by policy, so only the dial that
 # targets 0.50 (EVEN) admits it (app/views/myparlays.js SPREAD_DIAL_TARGET).
 SPREAD_DIAL_TARGET = 0.5
+# R117 -- a PROP rung only within PROP_DIAL_BAND of the dial. Once the R100 layer
+# priced props honestly (+13 points), each player's nearest rung often sat well
+# above the target and the conviction search took the highest of them: EVEN prop
+# legs averaged 0.647 (app/views/myparlays.js PROP_DIAL_BAND, same rule). Replayed
+# walk-forward over weeks 2-4: EVEN all-hit 18.3->21.1 / 0.4->2.3 / 4.3->11.7 %, SAFE
+# never lower; LONGSHOT hits less (it is harder, by design) with calibration better
+# every week -- the owner accepted that trade (2026-10-06).
+PROP_DIAL_BAND = 0.10
 LEG_COUNTS = (2, 3, 4, 5, 6)
 PER_COUNT = 2          # two cards per leg count -> ten cards
 BEAM = 24              # partial cards kept at each step
@@ -241,7 +249,8 @@ def dial_legs(legs, target):
     out = []
     for leg in legs or []:
         if _is_prop_leg(leg):
-            if chosen.get(leg["owner"]) is leg:
+            if chosen.get(leg["owner"]) is leg and \
+                    abs(float(leg["model_prob"]) - t) - PROP_DIAL_BAND <= BAND_TOL:
                 out.append(leg)
         elif abs(float(leg["model_prob"]) - t) - GAME_LEG_BAND <= BAND_TOL and (
                 leg.get("market") != "spread" or abs(t - SPREAD_DIAL_TARGET) <= BAND_TOL):
