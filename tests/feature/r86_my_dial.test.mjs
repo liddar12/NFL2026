@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import {
-  DEFAULT_DIAL, DIALS, GAME_LEG_BAND, buildCards, dialLegs, poolLegs, renderCard,
+  DEFAULT_DIAL, DIALS, PROP_DIAL_BAND, GAME_LEG_BAND, buildCards, dialLegs, poolLegs, renderCard,
   seedOptions,
 } from '../../app/views/myparlays.js';
 import { correlationTable } from '../../app/parlay-math.js';
@@ -96,11 +96,28 @@ test('a tie between two rungs goes to the HIGHER line', () => {
 test('every player keeps one rung, and players do not borrow each other\'s', () => {
   const legs = [
     ...ladder('p1', [[19.5, 0.90], [39.5, 0.52]]),
-    ...ladder('p2', [[24.5, 0.71], [44.5, 0.33]], 'G2'),
+    ...ladder('p2', [[24.5, 0.71], [44.5, 0.43]], 'G2'),
   ];
   const kept = dialLegs(legs, 0.50).filter(isProp);
   assert.equal(kept.length, 2);
   assert.deepEqual(kept.map((l) => [l.owner, l.line]), [['p1', 39.5], ['p2', 44.5]]);
+});
+
+test('R117: a prop rung is admitted only within PROP_DIAL_BAND of the dial', () => {
+  // After the R100 layer priced props honestly, a player's NEAREST rung could sit
+  // 0.15+ above the target and the conviction search took those: EVEN prop legs
+  // averaged 0.647. The nearest rung still wins, and is then held to the band.
+  assert.equal(PROP_DIAL_BAND, 0.10);
+  const legs = [
+    ...ladder('p1', [[19.5, 0.90], [39.5, 0.62]]),          // nearest 0.62: out at EVEN
+    ...ladder('p2', [[24.5, 0.71], [44.5, 0.60]], 'G2'),   // nearest 0.60: on the edge, in
+    ...ladder('p3', [[29.5, 0.39], [49.5, 0.33]], 'G3'),   // nearest 0.39: out at EVEN
+  ];
+  assert.deepEqual(dialLegs(legs, 0.50).filter(isProp).map((l) => [l.owner, l.line]),
+    [['p2', 44.5]]);
+  // the same p1 rung is the right difficulty for SAFE
+  assert.deepEqual(dialLegs(legs, 0.65).filter(isProp).map((l) => l.owner).sort(),
+    ['p1', 'p2']);
 });
 
 /** A game leg at a given model probability. */

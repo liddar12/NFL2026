@@ -44,7 +44,7 @@ test('R84: MY drops legs when kickoff arrives while the page remains open', asyn
     season: 2026, week: 2, players: ['One', 'Two'].map((name, i) => ({
       gsis_id: name, player: name, team: 'AAA', position: 'WR', market: 'wr_rec_yds',
       game_id: 'g1', side: 'home', mu: 70, pricing: 'pool_calibrated',
-      rungs: [{ line: 39.5, z: 0, selection: `${name} 40+ rec yds`, model_prob: .7 - i * .1 }],
+      rungs: [{ line: 39.5, z: 0, selection: `${name} 40+ rec yds`, model_prob: .55 - i * .1 }],   // R117: inside the EVEN band
     })), game_legs: [],
   } }));
   await page.goto('/#/parlays');

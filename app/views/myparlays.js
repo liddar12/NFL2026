@@ -114,6 +114,14 @@ export const GAME_LEG_BAND = 0.15;
  * realised/model ratio rose from 0.42 / 0.01 to 0.63 / 0.29, and SAFE and EVEN were
  * unchanged in both weeks. */
 export const SPREAD_DIAL_TARGET = 0.5;
+/* R117 — a PROP rung only within PROP_DIAL_BAND of the dial. Once the R100 layer
+ * priced props honestly (+13 points), each player's nearest rung often sat well
+ * above the target and the conviction search took the highest of them: EVEN prop
+ * legs averaged 0.647. scripts/models/my_cards.py PROP_DIAL_BAND, same rule.
+ * Replayed walk-forward over weeks 2-4: EVEN all-hit 18.3->21.1 / 0.4->2.3 /
+ * 4.3->11.7 %, SAFE never lower; LONGSHOT hits less (it is harder, by design) with
+ * calibration better every week — the owner accepted that trade (2026-10-06). */
+export const PROP_DIAL_BAND = 0.10;
 export const DEFAULT_DIAL = 'even';
 const DIAL_ORDER = [['safe', 'SAFE'], ['even', 'EVEN'], ['longshot', 'LONGSHOT']];
 const DIAL_KEY = 'nfl2026.myparlays.dial.v1';
@@ -265,8 +273,9 @@ export function dialLegs(legs, target) {
   const inBand = (p) => Math.abs(Number(p) - t) - GAME_LEG_BAND <= 1e-9;
   // R109 — a spread (0.50 by policy) only on the dial that targets 0.50.
   const spreadOk = (leg) => leg.market !== 'spread' || Math.abs(t - SPREAD_DIAL_TARGET) <= 1e-9;
+  const propOk = (p) => Math.abs(Number(p) - t) - PROP_DIAL_BAND <= 1e-9;
   return (legs || []).filter((leg) => (isPropLeg(leg)
-    ? chosen.get(leg.owner) === leg
+    ? chosen.get(leg.owner) === leg && propOk(leg.model_prob)
     : inBand(leg.model_prob) && spreadOk(leg)));
 }
 

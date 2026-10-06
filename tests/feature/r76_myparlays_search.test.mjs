@@ -48,10 +48,10 @@ function toyPool() {
       { gsis_id: 'p1', player: 'Alpha One', team: 'AAA', position: 'WR',
         market: 'wr_rec_yds', game_id: 'G1', side: 'home', mu: 70, p_team: 0.6,
         pricing: 'pool_calibrated',
-        rungs: [rung(39.5, 0.8, 'A. One'), rung(59.5, 0.65, 'A. One')] },
+        rungs: [rung(39.5, 0.8, 'A. One'), rung(59.5, 0.58, 'A. One')] },   // R117: in band at EVEN
       { gsis_id: 'p2', player: 'Beta Two', team: 'AAA', position: 'RB',
         market: 'rb_rush_yds', game_id: 'G1', side: 'home', mu: 60, p_team: 0.6,
-        pricing: 'pool_calibrated', rungs: [rung(39.5, 0.7, 'B. Two')] },
+        pricing: 'pool_calibrated', rungs: [rung(39.5, 0.57, 'B. Two')] },
       { gsis_id: 'p3', player: 'Gamma Three', team: 'BBB', position: 'QB',
         market: 'qb_pass_yds', game_id: 'G1', side: 'away', mu: 240, p_team: 0.4,
         pricing: 'pool_calibrated', rungs: [rung(224.5, 0.55, 'G. Three')] },
