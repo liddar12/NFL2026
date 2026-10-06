@@ -1046,6 +1046,13 @@ nothing ships without one.
   exactly 0 (R106/R110). The r75 money test assumed every push pays more than 0; it now requires
   exactly 0 for an all-void card. **Locked by** `r101_atd_grade` (nickname case), `r75_parlay_money`.
   · **LOE** 0.1 d
+- **R116 · The MY box prints an example that resolves this week (P2) — 2026-10-06.** data-ci #99:
+  week 5 began with KC on bye, and the fixed placeholder "goff, j allen, KC" no longer resolved, so
+  the example the field asks for added two seeds of three. The example is now built from the week's
+  pool (`placeholderExample`): it keeps the shipped text whenever every part resolves, and otherwise
+  offers a QB surname, an initial + surname and a team that do (never a Jr./Sr. suffix). The live
+  "J. Jefferson, KC" check now also needs KC offered, as it already needed a Jefferson. **Locked by**
+  `r90_parlays_ux` (feature + web). · **LOE** 0.1 d
 - **What is next for self-learning and parlays, in order** (owner asked, 2026-09-24):
   1. **R99 E2 — MY BETS ledger + exposure guard.** Your real tickets, graded, measured against the book
      and the model; the warning that would have saved three 9/20 tickets.

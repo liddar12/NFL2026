@@ -371,6 +371,31 @@ export function matchSeeds(options, query, limit = 8) {
   return ranked.slice(0, Math.max(0, Number(limit) || 0)).map((r) => r.option);
 }
 
+/** R116 — the example the box prints, built from THIS week's pool so that typed
+ * verbatim it adds one seed per part. A fixed "KC" stopped resolving the week KC
+ * had a bye (data-ci #99); the shipped text is kept whenever every part still
+ * resolves, otherwise a surname, an initial + surname and a team that do. */
+export const PLACEHOLDER_EXAMPLE = 'goff, j allen, KC';
+export function placeholderExample(options) {
+  const own = (part, option) => matchSeeds(options, part, 1)[0]?.id === option.id;
+  const shipped = PLACEHOLDER_EXAMPLE.split(',').map((s) => s.trim());
+  const ids = shipped.map((p) => matchSeeds(options, p, 1)[0]?.id);
+  if (ids.every(Boolean) && new Set(ids).size === ids.length) return PLACEHOLDER_EXAMPLE;
+  const parts = [];
+  const used = new Set();
+  const words = (o) => String(o.name).toLowerCase().replace(/[.']/g, '').split(/\s+/)
+    .filter((w) => w && !/^(jr|sr|ii|iii|iv|v)$/.test(w));
+  const players = (options || []).filter((o) => o.kind === 'player')
+    .sort((a, b) => (a.position === 'QB' ? 0 : 1) - (b.position === 'QB' ? 0 : 1));
+  for (const form of [(w) => w[w.length - 1], (w) => `${w[0][0]} ${w[w.length - 1]}`]) {
+    const hit = players.find((o) => !used.has(o.id) && words(o).length > 1 && own(form(words(o)), o));
+    if (hit) { used.add(hit.id); parts.push(form(words(hit))); }
+  }
+  const team = (options || []).find((o) => o.kind === 'team' && own(o.name, o));
+  if (team) parts.push(team.name);
+  return parts.length > 1 ? parts.join(', ') : PLACEHOLDER_EXAMPLE;
+}
+
 /** The seed ids — players and `team:` ids — that still have an upcoming leg. */
 function liveSeedIds(upcoming) {
   const live = new Set();
@@ -925,7 +950,7 @@ export default async function mountMyParlays(el) {
       + '<label class="mp-label" for="mp-input">PLAYERS OR TEAMS</label>'
       + '<input id="mp-input" class="mp-input" autocomplete="off" role="combobox" '
         + 'aria-autocomplete="list" aria-expanded="false" aria-controls="mp-suggest" '
-        + 'placeholder="e.g. goff, j allen, KC" aria-describedby="mp-note">'
+        + `placeholder="e.g. ${esc(placeholderExample(options))}" aria-describedby="mp-note">`
       + '<ul id="mp-suggest" class="mp-suggest" role="listbox" '
         + 'aria-label="Matching players and teams"></ul>'
     + '</div>'

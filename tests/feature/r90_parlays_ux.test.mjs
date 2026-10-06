@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 
 import { filtersSummary } from '../../app/views/parlays.js';
 import {
-  joinIdentity, matchSeeds, notOfferedReason, seedOptions,
+  joinIdentity, matchSeeds, notOfferedReason, placeholderExample, PLACEHOLDER_EXAMPLE, seedOptions,
 } from '../../app/views/myparlays.js';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
@@ -71,6 +71,8 @@ test('F18: a sort key the view does not know is never printed as one', () => {
 // the live pool is checked only when it offers a Jefferson at all, and the example
 // the box actually prints is pinned on the live pool below.
 const LIVE_JEFFERSON = OPTIONS.some((o) => o.kind === 'player' && /Jefferson$/.test(String(o.name)));
+// R116 (data-ci #99): KC has byes too (week 5); the live comma check needs both halves
+const LIVE_KC = OPTIONS.some((o) => o.kind === 'team' && o.name === 'KC');
 const FIXED = [
   { id: 'v', kind: 'player', name: 'Van Jefferson', team: 'WAS' },
   { id: 'j', kind: 'player', name: 'Justin Jefferson', team: 'MIN' },
@@ -99,7 +101,7 @@ test('F19: the first token of "J. Jefferson, KC" resolves, and so does the secon
   assert.equal(fixed[1].kind, 'team');
   assert.equal(fixed[1].name, 'KC');
   // ...on the live pool, both parts still resolve, to two DIFFERENT seeds
-  if (!LIVE_JEFFERSON) return;
+  if (!LIVE_JEFFERSON || !LIVE_KC) return;
   const picked = parts.map((p) => matchSeeds(OPTIONS, p, 1)[0]);
   assert.ok(picked.every(Boolean), 'both parts of the example must resolve');
   assert.match(String(picked[0].name), /Jefferson$/);
@@ -109,10 +111,31 @@ test('F19: the first token of "J. Jefferson, KC" resolves, and so does the secon
 });
 
 test('F19: the shipped placeholder resolves part by part too', () => {
-  const placeholder = 'goff, j allen, KC';
-  const picked = placeholder.split(',').map((p) => matchSeeds(OPTIONS, p.trim(), 1)[0]);
+  // R116 — the example is built from this week's pool, so it resolves on a bye week too
+  const placeholder = placeholderExample(OPTIONS);
+  const parts = placeholder.split(',').map((p) => p.trim());
+  assert.ok(parts.length > 1, placeholder);
+  const picked = parts.map((p) => matchSeeds(OPTIONS, p, 1)[0]);
   assert.ok(picked.every(Boolean),
     'every part of the example the field prints must add a seed');
+  assert.equal(new Set(picked.map((o) => o.id)).size, parts.length, 'one distinct seed per part');
+});
+
+test('R116: the printed example keeps the shipped text when it resolves, and drops a team on bye', () => {
+  const week = [
+    { id: 'g', kind: 'player', name: 'Jared Goff', team: 'DET', position: 'QB' },
+    { id: 'a', kind: 'player', name: 'Josh Allen', team: 'BUF', position: 'QB' },
+    { id: 'n', kind: 'player', name: 'Bo Nix', team: 'DEN', position: 'QB' },
+    { id: 's', kind: 'player', name: 'Aaron Jones Sr.', team: 'MIN', position: 'RB' },
+    { id: 'team:DEN', kind: 'team', name: 'DEN', team: 'DEN' },
+  ];
+  assert.equal(placeholderExample(week.concat([{ id: 'team:KC', kind: 'team', name: 'KC', team: 'KC' }])),
+    PLACEHOLDER_EXAMPLE);
+  const bye = placeholderExample(week);          // KC on bye: no KC option this week
+  assert.ok(!/\bKC\b/.test(bye), bye);
+  assert.ok(!/\bsr\b/.test(bye), 'a name suffix is never offered as a surname');
+  const picked = bye.split(',').map((p) => matchSeeds(week, p.trim(), 1)[0]);
+  assert.ok(picked.every(Boolean) && new Set(picked.map((o) => o.id)).size === picked.length, bye);
 });
 
 test('F19: the whole comma string matched as ONE name still finds nothing', () => {

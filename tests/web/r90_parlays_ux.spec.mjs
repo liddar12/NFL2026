@@ -43,6 +43,8 @@ const POOLED = new Set(POOL.players.map((p) => String(p.gsis_id)));
 // The pool is live: a Jefferson ruled OUT (Justin, week 4) or on an owner-excluded
 // game (R108: WAS's Van Jefferson, week 4) leaves it for the week.
 const LIVE_JEFFERSON = POOL.players.some((p) => /Jefferson$/.test(String(p.player)));
+// R116: KC has a bye some weeks (week 5); the comma example needs KC offered too
+const LIVE_KC = POOL.players.some((p) => p.team === 'KC') || (POOL.game_legs || []).some((g) => g.team === 'KC');
 const NOT_PLAYABLE = (() => {
   const byId = new Map(PROJ.players.map((p) => [String(p.gsis_id), p]));
   for (const row of WEEKLY.players) {
@@ -498,7 +500,7 @@ test('F19: "J. Jefferson, KC" resolves both halves the same way', async ({ page 
   const errors = errorsOf(page);
   // No Jefferson offered this week: the comma path is still pinned on the live pool
   // by the printed-example test above, and the ranking rule by the feature test.
-  test.skip(!LIVE_JEFFERSON, 'no Jefferson in this week\'s pool');
+  test.skip(!LIVE_JEFFERSON || !LIVE_KC, 'no Jefferson, or no KC (bye), in this week\'s pool');
   await openMy(page);
   await page.fill('#mp-input', 'J. Jefferson, KC');
   await page.press('#mp-input', 'Enter');
