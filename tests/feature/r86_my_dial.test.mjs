@@ -211,6 +211,8 @@ function sweep(legs, target, lowest, teams, pick = (ls) => dialLegs(ls, target))
   let maxPerGame = 0;
   let cards = 0;
   const offenders = [];
+  const outOfBand = [];          // R117 — a prop leg farther than PROP_DIAL_BAND from the dial
+  const floorsOutOfBand = [];    // ...of which sit on the player's ladder floor (the R86 lock)
   for (const seed of teams) {
     for (const card of buildCards(dialled, [seed], TABLE)) {
       cards += 1;
@@ -222,6 +224,10 @@ function sweep(legs, target, lowest, teams, pick = (ls) => dialLegs(ls, target))
       for (const l of card.legs) {
         if (!isProp(l)) { games += 1; continue; }
         props += 1;
+        if (Math.abs(l.model_prob - target) - PROP_DIAL_BAND > 1e-9) {
+          outOfBand.push(l.selection);
+          if (Number(l.line) === lowest.get(l.owner)) floorsOutOfBand.push(l.selection);
+        }
         sum += l.model_prob;
         if (Number(l.line) === lowest.get(l.owner)) {
           atLowest += 1;
@@ -234,7 +240,7 @@ function sweep(legs, target, lowest, teams, pick = (ls) => dialLegs(ls, target))
     }
   }
   return { cards, props, games, atLowest, pctAtLowest: (100 * atLowest) / props,
-    mean: sum / props, maxPerGame, offenders,
+    mean: sum / props, maxPerGame, offenders, outOfBand, floorsOutOfBand,
     eligibleProps, eligibleAtLowest,
     eligiblePctAtLowest: (100 * eligibleAtLowest) / eligibleProps };
 }
@@ -285,11 +291,17 @@ test('the committed pool no longer parks every prop leg on the ladder floor', ()
   // offers them, which is what the pre-R86 search did: it drew from every rung
   // of every ladder and still put a floor on 99.8% of card legs. That comparison
   // is measured live below rather than remembered as a number.
-  assert.ok(even.pctAtLowest <= even.eligiblePctAtLowest + 1e-9,
-    `${even.pctAtLowest.toFixed(2)}% of prop legs on cards sit at the player's lowest `
-    + `rung (${even.atLowest} of ${even.props}), but only `
-    + `${even.eligiblePctAtLowest.toFixed(2)}% of the legs the dial made eligible are `
-    + 'floors — the search is biased toward the ladder floor, which is the R86 fault');
+  //
+  // RE-AIMED 2026-10-07 (R117, data-ci #108). Since R117 every prop rung on a card
+  // sits within PROP_DIAL_BAND of the dial, so a floor that reaches a card IS the
+  // difficulty the dial asked for; comparing floor SHARES then measured noise (21.90 %
+  // vs 21.61 %, two legs in 694). The fault R86 removed was the near-lock floor —
+  // 0.906 legs on a 0.50 dial — and that is what is now required to be absent: no
+  // floor outside the band, and no prop leg outside the band at all.
+  assert.deepEqual(even.floorsOutOfBand, [],
+    'a ladder floor outside the dial\'s band reached a card — the R86 lock is back');
+  assert.deepEqual(even.outOfBand, [],
+    `a prop leg sits more than ${PROP_DIAL_BAND} from the EVEN dial on a card`);
 
   // ...and the fault is still reachable on THIS pool, so the line above is not
   // vacuous: with every rung eligible (the pre-R86 rule) the cards park on the
@@ -302,6 +314,9 @@ test('the committed pool no longer parks every prop leg on the ladder floor', ()
   assert.ok(undialled.mean > 0.85,
     `the undialled mean prop probability is ${undialled.mean.toFixed(4)} — R86 was `
     + 'measured against 0.906 near-locks');
+  assert.ok(undialled.floorsOutOfBand.length > 0,
+    'with every rung eligible no out-of-band floor reaches a card — the lock check above '
+    + 'measures nothing on this pool');
   assert.ok(even.pctAtLowest < undialled.pctAtLowest,
     'the dial must reduce the floor share it was introduced to remove');
 
@@ -343,6 +358,7 @@ test('SAFE admits easier legs than EVEN, and LONGSHOT harder ones', () => {
     `LONGSHOT mean ${longshot.mean.toFixed(4)} is not below EVEN ${even.mean.toFixed(4)}`);
   for (const s of [safe, even, longshot]) {
     assert.deepEqual(s.offenders, [], 'a dial chose a floor over a nearer rung');
+    assert.deepEqual(s.outOfBand, [], 'a prop leg on a card sits outside its dial\'s band');
     assert.ok(s.maxPerGame <= 2, 'more than two legs from one game');
   }
 });
