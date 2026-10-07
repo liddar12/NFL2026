@@ -103,10 +103,25 @@ def recorded_legs(data_dir=DATA):
         for path in sorted(glob.glob(os.path.join(data_dir, pattern))):
             doc = _load(path, {}) or {}
             for c in doc.get("cards") or []:
-                rows.extend(c.get("legs") or [])
+                rows.extend(dict(leg, week=doc.get("week")) for leg in c.get("legs") or [])
     rows.extend((_load(os.path.join(data_dir, "estimates", "parlays_2026.json"), {}) or {})
                 .get("legs") or [])
     return rows
+
+
+def week_teams(recorded):
+    """R118 -- {(espn id, week): team} from the legs as recorded. A player traded
+    after a week (Xavier Smith, LAR -> SF after week 3) is graded for that week
+    on the roster his bets named, never on today's (data-ci #111)."""
+    out = {}
+    for r in recorded or []:
+        try:
+            wk = int(r.get("week"))
+        except (TypeError, ValueError):
+            continue
+        if r.get("gsis_id") and r.get("team"):
+            out[(str(r["gsis_id"]), wk)] = r["team"]
+    return out
 
 
 def _snap_call(name, team, snaps_week):
@@ -188,7 +203,7 @@ def game_facts(games, finals):
 
 
 def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, excluded,
-          season, generated_utc, source):
+          season, generated_utc, source, teams_by_week=None):
     gf = game_facts(games, finals)
     weeks = {}
     for wk in sorted(gf):
@@ -197,7 +212,11 @@ def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, exclu
             continue                                  # nothing to grade in that week yet
         players = {}
         for pid in sorted(idents):
-            f = player_facts(idents[pid], (stats_by_week or {}).get(wk),
+            ident = idents[pid]
+            team = (teams_by_week or {}).get((pid, wk))
+            if team and team != ident.get("team"):
+                ident = dict(ident, team=team)
+            f = player_facts(ident, (stats_by_week or {}).get(wk),
                              (td_by_week or {}).get(wk), (snaps_by_week or {}).get(wk))
             if f is not None:
                 players[pid] = f
@@ -221,7 +240,8 @@ def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     weeks = sorted({int(g["week"]) for g in games if g.get("week") is not None})
     finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
-    idents = identities(_load(PROJ_PATH), _load(POOL_PATH), recorded_legs())
+    recorded = recorded_legs()
+    idents = identities(_load(PROJ_PATH), _load(POOL_PATH), recorded)
     stats_by_week = td_by_week = snaps_by_week = None
     stats_note = "offline: no stat lines (props and ATD pending)"
     if not offline:
@@ -234,7 +254,8 @@ def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
             stats_note = "nflverse stats_player_week (%d weeks)%s" % (
                 len(stats_by_week), "" if snaps_by_week else "; snap counts unavailable")
     doc = build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week,
-                excluded_ids(), season, now, "finals: %s; stats: %s" % (finals_source, stats_note))
+                excluded_ids(), season, now, "finals: %s; stats: %s" % (finals_source, stats_note),
+                teams_by_week=week_teams(recorded))
     write(doc, out_path)
     n_players = sum(len(w["players"]) for w in doc["weeks"].values())
     print("bet_facts: %d week(s), %d player-week fact(s), %d excluded game(s) -> %s"
@@ -288,6 +309,17 @@ def selftest():
                  {3: [{"norm": "josh palmer", "pos": "WR", "team": "BBB", "tds": 0}]},
                  snaps, set(), 2026, "t", "fixture")
     assert nick["weeks"]["3"]["players"]["p7"] == {"y": [0.0, 0.0, 3.0], "td": 0}
+    # data-ci #111: traded after week 3 (today on DDD); week 3 is graded on his week-3 team
+    moved = {"p8": {"name": "Xa Vier", "team": "DDD", "position": "WR"}}
+    wk3 = {3: [{"norm": "xa vier", "pos": "WR", "team": "AAA",
+                "yards": {"QB": 0.0, "RB": 0.0, "WR": 12.0}}]}
+    td3 = {3: [{"norm": "xa vier", "pos": "WR", "team": "AAA", "tds": 0}]}
+    snap3 = {3: {"teams": {"AAA", "DDD"}, "rows": [{"norm": "xa vier", "team": "AAA", "snaps": 30.0}]}}
+    stale = build(games, finals, moved, wk3, td3, snap3, set(), 2026, "t", "fixture")
+    assert stale["weeks"]["3"]["players"]["p8"] == {"y": "dnp", "td": "dnp"}, "the bug: today's team"
+    fixed = build(games, finals, moved, wk3, td3, snap3, set(), 2026, "t", "fixture",
+                  teams_by_week=week_teams([{"gsis_id": "p8", "team": "AAA", "week": 3}]))
+    assert fixed["weeks"]["3"]["players"]["p8"] == {"y": [0.0, 0.0, 12.0], "td": 0}
     # an in-progress / scheduled game never carries a score
     w = game_facts([{"game_id": "G7", "week": 6, "home": "X", "away": "Y"}], {})
     assert w == {6: {"G7": {"h": "X", "a": "Y", "k": None}}}

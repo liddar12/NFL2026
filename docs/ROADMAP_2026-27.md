@@ -16,6 +16,12 @@
   on a card is the difficulty asked for. The check now targets the R86 fault itself: no ladder floor
   and no prop leg outside the dial's band on any card, on every dial, and it proves it can fail (the
   undialled search still puts out-of-band floors on cards).
+- **R118 · MY BETS grades a traded player on the roster his bet named (P1) — 2026-10-07.** data-ci
+  #111: Xavier Smith moved LAR -> SF after week 3. `build_bet_facts` took every player's CURRENT team,
+  found him on no SF week-3 snap sheet and wrote "did not play", so 48 week-3 MY legs read VOID in the
+  browser against the grader's MISS. Facts now use the team the recorded legs named for that week
+  (`week_teams`), and today's team only when no bet named him that week. **Locked by**
+  `build_bet_facts --selftest` (traded-player case), `r110_bet_facts` AC3. · **LOE** 0.1 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
