@@ -11,6 +11,11 @@
   **Measured, not shipped:** a minimum leg-probability floor (lower all-hit within every dial once
   stratified), rank-by-probability (week 2 -3 hits), an ATD 4+ scalar (week-4 error 0.006 -> 0.010).
   **Locked by** `r86_my_dial` (R117 band), `r76_myparlays_search`, `build_my_cards --selftest`. · **LOE** 0.5 d
+  **Follow-up 2026-10-07 (data-ci #108):** R86's floor-share comparison (cards <= dialled pool)
+  went red on noise (21.90 % vs 21.61 %, two legs in 694): with every prop inside the band, a floor
+  on a card is the difficulty asked for. The check now targets the R86 fault itself: no ladder floor
+  and no prop leg outside the dial's band on any card, on every dial, and it proves it can fail (the
+  undialled search still puts out-of-band floors on cards).
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
