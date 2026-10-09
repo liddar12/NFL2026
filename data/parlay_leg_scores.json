@@ -1,17 +1,17 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-09T17:01:06Z",
+  "generated_utc": "2026-10-09T22:09:53Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (65 games); scores from data/review.json FINAL rows (65 games); scores from ESPN live, STATUS-gated FINAL (65 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 5,
   "legs": {
-    "on_file": 564,
-    "locked": 442,
+    "on_file": 570,
+    "locked": 448,
     "unlocked": 122,
     "resolved": 332,
-    "unresolved": 68
+    "unresolved": 72
   },
   "skipped": null,
   "pooled": {
@@ -422,7 +422,21 @@
       "week": 5,
       "game_id": "401872981",
       "market": "rb_rush_yds",
+      "selection": "B. Tuten 60+ rush yds",
+      "reason": "no_stat_line"
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "rb_rush_yds",
       "selection": "S. Barkley 60+ rush yds",
+      "reason": "no_stat_line"
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "wr_rec_yds",
+      "selection": "B. Thomas Jr. 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -639,6 +653,13 @@
       "week": 5,
       "game_id": "401872990",
       "market": "qb_pass_yds",
+      "selection": "C. Williams 225+ pass yds",
+      "reason": "no_stat_line"
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "qb_pass_yds",
       "selection": "J. Love 225+ pass yds",
       "reason": "no_stat_line"
     },
@@ -689,6 +710,13 @@
       "game_id": "401872992",
       "market": "wr_rec_yds",
       "selection": "J. Smith-Njigba 60+ rec yds",
+      "reason": "no_stat_line"
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "qb_pass_yds",
+      "selection": "M. Penix Jr. 225+ pass yds",
       "reason": "no_stat_line"
     },
     {
