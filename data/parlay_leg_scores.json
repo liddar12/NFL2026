@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-11T16:28:54Z",
+  "generated_utc": "2026-10-11T18:44:40Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (65 games); scores from data/review.json FINAL rows (65 games); scores from ESPN live, STATUS-gated FINAL (65 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (66 games); scores from data/review.json FINAL rows (65 games); scores from ESPN live, STATUS-gated FINAL (66 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 5,
   "legs": {
-    "on_file": 573,
+    "on_file": 578,
     "locked": 451,
-    "unlocked": 122,
-    "resolved": 332,
+    "unlocked": 127,
+    "resolved": 337,
     "unresolved": 72
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 68,
-      "hit_rate": 0.5882,
-      "log_loss": 0.6552,
-      "brier": 0.2325
+      "n": 69,
+      "hit_rate": 0.5942,
+      "log_loss": 0.6502,
+      "brier": 0.2301
     },
     "spread": {
-      "n": 88,
-      "hit_rate": 0.3864,
+      "n": 92,
+      "hit_rate": 0.3696,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -229,13 +229,13 @@
         }
       },
       "moneyline": {
-        "n": 1,
-        "hit_rate": 0.0,
-        "log_loss": 1.075,
-        "brier": 0.4339
+        "n": 2,
+        "hit_rate": 0.5,
+        "log_loss": 0.6951,
+        "brier": 0.2535
       },
       "spread": {
-        "n": 2,
+        "n": 6,
         "hit_rate": 0.0,
         "log_loss": 0.6931,
         "brier": 0.25
@@ -6432,6 +6432,81 @@
       "seed_prob": 0.5635,
       "actual": 130.0,
       "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "moneyline",
+      "selection": "JAX ML",
+      "team": "JAX",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7297,
+      "actual": {
+        "home_score": 19,
+        "away_score": 17
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "spread",
+      "selection": "JAX -6.5",
+      "team": "JAX",
+      "side": "home",
+      "line": -6.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 17
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "spread",
+      "selection": "JAX -7",
+      "team": "JAX",
+      "side": "home",
+      "line": -7.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 17
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "spread",
+      "selection": "JAX -7.5",
+      "team": "JAX",
+      "side": "home",
+      "line": -7.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 17
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872981",
+      "market": "spread",
+      "selection": "JAX -8.5",
+      "team": "JAX",
+      "side": "home",
+      "line": -8.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 19,
+        "away_score": 17
+      },
+      "hit": false
     }
   ]
 }
