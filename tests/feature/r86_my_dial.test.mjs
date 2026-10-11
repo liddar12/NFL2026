@@ -250,7 +250,11 @@ test('the committed pool no longer parks every prop leg on the ladder floor', ()
   const pool = readJson('data/leg_pool.json');
   const legs = poolLegs(pool);
   const teams = seedOptions(pool).filter((s) => s.kind === 'team');
-  assert.ok(teams.length >= 30, `${teams.length} team seeds — expected the full league`);
+  // R119 — both teams of a game on the owner's excluded list seed nothing.
+  const excludedTeams = 2 * readJson('config/excluded_games.json').games
+    .filter((g) => Number(g.season) === Number(pool.season) && Number(g.week) === Number(pool.week)).length;
+  assert.ok(teams.length >= 30 - excludedTeams,
+    `${teams.length} team seeds — expected the full league less ${excludedTeams} owner-excluded`);
   const lowest = new Map();
   for (const l of legs) {
     if (!isProp(l)) continue;

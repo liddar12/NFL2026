@@ -52,6 +52,16 @@ for (const [week, block] of Object.entries(REVIEW.weeks)) {
   // prices one bet with another bet's legs (R112, data-ci #80).
   const ids = await Promise.all(cards.map((c) => c.card_id || cardIdOf(c).catch(() => '')));
   const byCard = new Map(cards.map((c, i) => [String(ids[i]), c]).filter(([id]) => id));
+  // R119 — a recorded current-week card the slate no longer offers (2026-10-11: the
+  // week cards that carried JAX ML, rebuilt away when PHI @ JAX was excluded) is
+  // still priced with its OWN legs, from this week's archive; a slate card keeps
+  // first claim on its identity.
+  const weekArchive = Number(week) === CUR && archived
+    ? read(`../../data/parlays/${PARLAYS.season}_wk${String(week).padStart(2, '0')}.json`).parlays : [];
+  for (const c of weekArchive) {
+    const id = String(c.card_id || '');
+    if (id && !byCard.has(id)) byCard.set(id, c);
+  }
   for (const row of block.parlays) {
     const card = (row.card_id && byCard.get(String(row.card_id)))
       || cards.find((p) => p.parlay_id === row.parlay_id);

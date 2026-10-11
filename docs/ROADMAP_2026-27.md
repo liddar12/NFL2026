@@ -28,6 +28,11 @@
   game or ATD leg in the pool, no ATD / MY / MY TD card, and its legs VOID in every recorded card
   (a card made only of them leaves the tallies and $100). **Locked by** `r119_excluded_phi_jax`
   (red without the entry: 21 cards / legs used the game). · **LOE** 0.1 d
+  **Follow-up 2026-10-11 (data-ci #134):** the first post-merge publish showed three tests that
+  assumed no game this week could be excluded: r86 / r87's "full league" floor (30 team seeds; now
+  less both teams of each listed game, 28 this week) and r75's money oracle, which looked recorded
+  current-week cards up on the slate only — three week cards that carried JAX ML were rebuilt away,
+  so it now falls back to the week's archive (a slate card keeps first claim on its identity).
 - **R120 · The bucket filter keeps a card by its own outcome (P1) — 2026-10-11.** data-ci #155,
   red from 2026-10-09: the TB @ DAL slate was re-picked, so rank 401872980-g1 named two bets
   (Prescott + Pickens, ALL HIT; DAL ML + Irving, PARTIAL); the ALL HIT filter looked buckets up by
