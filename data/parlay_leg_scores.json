@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-11T19:23:28Z",
+  "generated_utc": "2026-10-11T20:12:53Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (66 games); scores from data/review.json FINAL rows (66 games); scores from ESPN live, STATUS-gated FINAL (66 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (71 games); scores from data/review.json FINAL rows (66 games); scores from ESPN live, STATUS-gated FINAL (72 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 5,
   "legs": {
-    "on_file": 584,
+    "on_file": 586,
     "locked": 451,
-    "unlocked": 133,
-    "resolved": 337,
+    "unlocked": 135,
+    "resolved": 358,
     "unresolved": 72
   },
   "skipped": null,
@@ -31,14 +31,14 @@
       }
     },
     "moneyline": {
-      "n": 69,
-      "hit_rate": 0.5942,
-      "log_loss": 0.6502,
-      "brier": 0.2301
+      "n": 76,
+      "hit_rate": 0.6053,
+      "log_loss": 0.6445,
+      "brier": 0.2273
     },
     "spread": {
-      "n": 92,
-      "hit_rate": 0.3696,
+      "n": 106,
+      "hit_rate": 0.4151,
       "log_loss": 0.6931,
       "brier": 0.25
     }
@@ -229,14 +229,14 @@
         }
       },
       "moneyline": {
-        "n": 2,
-        "hit_rate": 0.5,
-        "log_loss": 0.6951,
-        "brier": 0.2535
+        "n": 9,
+        "hit_rate": 0.6667,
+        "log_loss": 0.6117,
+        "brier": 0.2115
       },
       "spread": {
-        "n": 6,
-        "hit_rate": 0.0,
+        "n": 20,
+        "hit_rate": 0.5,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -6507,6 +6507,321 @@
         "away_score": 17
       },
       "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872983",
+      "market": "moneyline",
+      "selection": "CLE ML",
+      "team": "CLE",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5644,
+      "actual": {
+        "home_score": 17,
+        "away_score": 12
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872983",
+      "market": "spread",
+      "selection": "CLE +1.5",
+      "team": "CLE",
+      "side": "away",
+      "line": 1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 12
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872983",
+      "market": "spread",
+      "selection": "CLE +2.5",
+      "team": "CLE",
+      "side": "away",
+      "line": 2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 17,
+        "away_score": 12
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872984",
+      "market": "moneyline",
+      "selection": "HOU ML",
+      "team": "HOU",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6276,
+      "actual": {
+        "home_score": 3,
+        "away_score": 26
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872984",
+      "market": "spread",
+      "selection": "HOU -6.5",
+      "team": "HOU",
+      "side": "away",
+      "line": -6.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 26
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872984",
+      "market": "spread",
+      "selection": "HOU -7",
+      "team": "HOU",
+      "side": "away",
+      "line": -7.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 26
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872984",
+      "market": "spread",
+      "selection": "HOU -7.5",
+      "team": "HOU",
+      "side": "away",
+      "line": -7.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 3,
+        "away_score": 26
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872985",
+      "market": "moneyline",
+      "selection": "PIT ML",
+      "team": "PIT",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5897,
+      "actual": {
+        "home_score": 34,
+        "away_score": 22
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872985",
+      "market": "spread",
+      "selection": "PIT -2.5",
+      "team": "PIT",
+      "side": "home",
+      "line": -2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 34,
+        "away_score": 22
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872985",
+      "market": "spread",
+      "selection": "PIT -3",
+      "team": "PIT",
+      "side": "home",
+      "line": -3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 34,
+        "away_score": 22
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872986",
+      "market": "moneyline",
+      "selection": "NE ML",
+      "team": "NE",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7034,
+      "actual": {
+        "home_score": 45,
+        "away_score": 17
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872987",
+      "market": "moneyline",
+      "selection": "MIN ML",
+      "team": "MIN",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6575,
+      "actual": {
+        "home_score": 13,
+        "away_score": 23
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872987",
+      "market": "spread",
+      "selection": "MIN -1.5",
+      "team": "MIN",
+      "side": "away",
+      "line": -1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 13,
+        "away_score": 23
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872987",
+      "market": "spread",
+      "selection": "MIN -2.5",
+      "team": "MIN",
+      "side": "away",
+      "line": -2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 13,
+        "away_score": 23
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "moneyline",
+      "selection": "CHI ML",
+      "team": "CHI",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5827,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "moneyline",
+      "selection": "GB ML",
+      "team": "GB",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5244,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "spread",
+      "selection": "CHI -1.5",
+      "team": "CHI",
+      "side": "away",
+      "line": -1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "spread",
+      "selection": "CHI -3",
+      "team": "CHI",
+      "side": "away",
+      "line": -3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "spread",
+      "selection": "GB +1.5",
+      "team": "GB",
+      "side": "home",
+      "line": 1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "spread",
+      "selection": "GB +2.5",
+      "team": "GB",
+      "side": "home",
+      "line": 2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872990",
+      "market": "spread",
+      "selection": "GB +3",
+      "team": "GB",
+      "side": "home",
+      "line": 3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 31,
+        "away_score": 7
+      },
+      "hit": true
     }
   ]
 }
