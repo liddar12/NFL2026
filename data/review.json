@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-11T23:26:10Z",
+  "generated_utc": "2026-10-11T23:29:34Z",
   "review_through_week": 6,
   "weeks": {
     "1": {
@@ -15266,12 +15266,12 @@
         "learning": {
           "graded_locks": 16,
           "refit": {
-            "archived_utc": "2026-10-11T19:21:06Z",
-            "n_resolved": 66,
+            "archived_utc": "2026-10-11T23:27:29Z",
+            "n_resolved": 74,
             "adopted": false,
             "verdict": "held"
           },
-          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T19:21:06Z consumed n_resolved=66 across all lock files and was held"
+          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T23:27:29Z consumed n_resolved=74 across all lock files and was held"
         },
         "players": {
           "n": 247,
@@ -36581,12 +36581,12 @@
         "learning": {
           "graded_locks": 16,
           "refit": {
-            "archived_utc": "2026-10-11T19:21:06Z",
-            "n_resolved": 66,
+            "archived_utc": "2026-10-11T23:27:29Z",
+            "n_resolved": 74,
             "adopted": false,
             "verdict": "held"
           },
-          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T19:21:06Z consumed n_resolved=66 across all lock files and was held"
+          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T23:27:29Z consumed n_resolved=74 across all lock files and was held"
         },
         "players": {
           "n": 248,
@@ -47903,20 +47903,38 @@
           "delta": -0.18,
           "why": {
             "source": "measured",
-            "summary": "MET by 0.2 (actual 2.7 vs 2.9 projected, band 0.7-5.1)",
+            "summary": "MET by 0.2 (actual 2.7 vs 2.9 projected, band 0.7-5.1); touchdowns -0.9, efficiency +0.4, volume +0.3",
             "reasons": [
+              {
+                "factor": "touchdowns",
+                "points": -0.95,
+                "text": "0 receiving TD vs 0.2 expected (-1.0)"
+              },
+              {
+                "factor": "efficiency",
+                "points": 0.44,
+                "text": "1.35 vs 1.13 pts per target (+0.4)"
+              },
+              {
+                "factor": "volume",
+                "points": 0.32,
+                "text": "2 targets vs 1.7 expected (+0.3)"
+              },
+              {
+                "factor": "model_factor",
+                "points": 0.27,
+                "text": "weekly split applied x1.10 for wk 3 (opp NYJ, home): +0.3 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 1.101
+              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 31-24 (home margin +7)"
               }
             ],
-            "expected_basis": null,
-            "unattributed": null,
-            "omitted": [
-              "no season components in player_weekly.json: expectations omitted",
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "expected_basis": "season components x 0.0634 (shipped / season projection)",
+            "unattributed": 0.01,
+            "omitted": []
           }
         },
         {
@@ -52605,20 +52623,38 @@
           "delta": 6.77,
           "why": {
             "source": "measured",
-            "summary": "OVER by 6.8 (actual 9.3 vs 2.5 projected, band 1.2-3.9)",
+            "summary": "OVER by 6.8 (actual 9.3 vs 2.5 projected, band 1.2-3.9); touchdowns +5.5, efficiency +1.2, volume +0.1",
             "reasons": [
+              {
+                "factor": "touchdowns",
+                "points": 5.46,
+                "text": "1 receiving TD vs 0.1 expected (+5.5)"
+              },
+              {
+                "factor": "efficiency",
+                "points": 1.21,
+                "text": "1.65 vs 1.04 pts per target (+1.2)"
+              },
+              {
+                "factor": "volume",
+                "points": 0.08,
+                "text": "2 targets vs 1.9 expected (+0.1)"
+              },
+              {
+                "factor": "model_factor",
+                "points": -0.14,
+                "text": "weekly split applied x0.95 for wk 3 (opp SEA, home): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 0.949
+              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 33-31 (home margin +2)"
               }
             ],
-            "expected_basis": null,
-            "unattributed": null,
-            "omitted": [
-              "no season components in player_weekly.json: expectations omitted",
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "expected_basis": "season components x 0.0559 (shipped / season projection)",
+            "unattributed": 0.02,
+            "omitted": []
           }
         },
         {
@@ -54785,20 +54821,38 @@
           "delta": -2.74,
           "why": {
             "source": "measured",
-            "summary": "UNDER by 2.7 (actual 0.0 vs 2.7 projected, band 1.3-4.2)",
+            "summary": "UNDER by 2.7 (actual 0.0 vs 2.7 projected, band 1.3-4.2); efficiency -2.4, touchdowns -1.3, volume +1.0",
             "reasons": [
+              {
+                "factor": "efficiency",
+                "points": -2.44,
+                "text": "0.00 vs 2.44 pts per target (-2.4)"
+              },
+              {
+                "factor": "touchdowns",
+                "points": -1.3,
+                "text": "0 receiving TD vs 0.2 expected (-1.3)"
+              },
+              {
+                "factor": "volume",
+                "points": 1.01,
+                "text": "1 targets vs 0.6 expected (+1.0)"
+              },
+              {
+                "factor": "model_factor",
+                "points": 0.07,
+                "text": "weekly split applied x1.03 for wk 3 (opp DAL, away): +0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 1.026
+              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 31-34 (home margin -3)"
               }
             ],
-            "expected_basis": null,
-            "unattributed": null,
-            "omitted": [
-              "no season components in player_weekly.json: expectations omitted",
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "expected_basis": "season components x 0.0604 (shipped / season projection)",
+            "unattributed": -0.01,
+            "omitted": []
           }
         },
         {
@@ -55630,12 +55684,12 @@
         "learning": {
           "graded_locks": 16,
           "refit": {
-            "archived_utc": "2026-10-11T19:21:06Z",
-            "n_resolved": 66,
+            "archived_utc": "2026-10-11T23:27:29Z",
+            "n_resolved": 74,
             "adopted": false,
             "verdict": "held"
           },
-          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T19:21:06Z consumed n_resolved=66 across all lock files and was held"
+          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T23:27:29Z consumed n_resolved=74 across all lock files and was held"
         },
         "players": {
           "n": 262,
@@ -62991,29 +63045,8 @@
           "delta": -0.72,
           "why": {
             "source": "measured",
-            "summary": "MET by 0.7 (actual 2.0 vs 2.7 projected, band 1.0-4.4); touchdowns -1.0, efficiency +0.8, volume -0.5",
+            "summary": "MET by 0.7 (actual 2.0 vs 2.7 projected, band 1.0-4.4)",
             "reasons": [
-              {
-                "factor": "touchdowns",
-                "points": -1.0,
-                "text": "0 receiving TD vs 0.2 expected (-1.0)"
-              },
-              {
-                "factor": "efficiency",
-                "points": 0.79,
-                "text": "2.00 vs 1.21 pts per target (+0.8)"
-              },
-              {
-                "factor": "volume",
-                "points": -0.51,
-                "text": "1 targets vs 1.4 expected (-0.5)"
-              },
-              {
-                "factor": "model_factor",
-                "points": -0.04,
-                "text": "weekly split applied x0.99 for wk 4 (opp NYG, away): -0.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
-                "factor_value": 0.986
-              },
               {
                 "factor": "availability",
                 "points": null,
@@ -63025,9 +63058,12 @@
                 "text": "final 36-24 (home margin +12)"
               }
             ],
-            "expected_basis": "season components x 0.0574 (shipped / season projection)",
-            "unattributed": 0.0,
-            "omitted": []
+            "expected_basis": null,
+            "unattributed": null,
+            "omitted": [
+              "no season components in player_weekly.json: expectations omitted",
+              "no week row in player_weekly.json: model factor omitted"
+            ]
           }
         },
         {
@@ -65751,20 +65787,16 @@
                 "text": "did not play: the whole 2.6 projection is lost"
               },
               {
-                "factor": "model_factor",
-                "points": -0.02,
-                "text": "weekly split applied x0.99 for wk 4 (opp DEN, home): -0.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
-                "factor_value": 0.993
-              },
-              {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 24-14 (home margin +10)"
               }
             ],
-            "expected_basis": "season components x 0.0520 (shipped / season projection)",
+            "expected_basis": null,
             "unattributed": null,
-            "omitted": []
+            "omitted": [
+              "no week row in player_weekly.json: model factor omitted"
+            ]
           }
         },
         {
@@ -66059,38 +66091,20 @@
           "delta": -2.83,
           "why": {
             "source": "measured",
-            "summary": "UNDER by 2.8 (actual 0.0 vs 2.8 projected, band 1.1-4.6); efficiency -2.7, touchdowns -0.8, volume +0.7",
+            "summary": "UNDER by 2.8 (actual 0.0 vs 2.8 projected, band 1.1-4.6)",
             "reasons": [
-              {
-                "factor": "efficiency",
-                "points": -2.72,
-                "text": "0.00 vs 1.36 pts per target (-2.7)"
-              },
-              {
-                "factor": "touchdowns",
-                "points": -0.8,
-                "text": "0 receiving TD vs 0.1 expected (-0.8)"
-              },
-              {
-                "factor": "volume",
-                "points": 0.7,
-                "text": "2 targets vs 1.5 expected (+0.7)"
-              },
-              {
-                "factor": "model_factor",
-                "points": -0.6,
-                "text": "weekly split applied x0.83 for wk 4 (opp PHI, away): -0.6 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
-                "factor_value": 0.829
-              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 20-24 (home margin -4)"
               }
             ],
-            "expected_basis": "season components x 0.0478 (shipped / season projection)",
-            "unattributed": -0.01,
-            "omitted": []
+            "expected_basis": null,
+            "unattributed": null,
+            "omitted": [
+              "no season components in player_weekly.json: expectations omitted",
+              "no week row in player_weekly.json: model factor omitted"
+            ]
           }
         },
         {
@@ -68409,38 +68423,20 @@
           "delta": 11.43,
           "why": {
             "source": "measured",
-            "summary": "OVER by 11.4 (actual 15.3 vs 3.9 projected, band 2.1-5.6); touchdowns +6.0, efficiency +5.5, volume -0.3",
+            "summary": "OVER by 11.4 (actual 15.3 vs 3.9 projected, band 2.1-5.6)",
             "reasons": [
-              {
-                "factor": "touchdowns",
-                "points": 6.0,
-                "text": "1 receiving TD vs 0.0 expected (+6.0)"
-              },
-              {
-                "factor": "efficiency",
-                "points": 5.53,
-                "text": "0.00 vs 0.00 pts per attempt (+0.0); 0.00 vs 1.13 pts per carry (-0.0); 3.10 vs 1.26 pts per target (+5.5)"
-              },
-              {
-                "factor": "volume",
-                "points": -0.26,
-                "text": "0 pass attempts vs 0.1 expected (-0.0); 0 carries vs 0.2 expected (-0.3); 3 targets vs 3.0 expected (+0.0)"
-              },
-              {
-                "factor": "model_factor",
-                "points": 0.19,
-                "text": "weekly split applied x1.05 for wk 4 (opp CHI, away): +0.2 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
-                "factor_value": 1.051
-              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 23-12 (home margin +11)"
               }
             ],
-            "expected_basis": "season components x 0.0777 (shipped / season projection)",
-            "unattributed": 0.16,
-            "omitted": []
+            "expected_basis": null,
+            "unattributed": null,
+            "omitted": [
+              "no season components in player_weekly.json: expectations omitted",
+              "no week row in player_weekly.json: model factor omitted"
+            ]
           }
         },
         {
@@ -69023,20 +69019,38 @@
           "delta": 7.8,
           "why": {
             "source": "measured",
-            "summary": "OVER by 7.8 (actual 11.3 vs 3.5 projected, band 1.3-5.7)",
+            "summary": "OVER by 7.8 (actual 11.3 vs 3.5 projected, band 1.3-5.7); volume +10.3, efficiency -2.2, touchdowns -0.4",
             "reasons": [
+              {
+                "factor": "volume",
+                "points": 10.34,
+                "text": "10 carries vs 3.7 expected (+3.6); 6 targets vs 0.8 expected (+6.7)"
+              },
+              {
+                "factor": "efficiency",
+                "points": -2.16,
+                "text": "0.39 vs 0.58 pts per carry (-1.9); 1.23 vs 1.28 pts per target (-0.3)"
+              },
+              {
+                "factor": "touchdowns",
+                "points": -0.39,
+                "text": "0 rushing TD vs 0.1 expected (-0.4)"
+              },
+              {
+                "factor": "model_factor",
+                "points": -0.13,
+                "text": "weekly split applied x0.97 for wk 4 (opp SEA, away): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 0.965
+              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 30-23 (home margin +7)"
               }
             ],
-            "expected_basis": null,
-            "unattributed": null,
-            "omitted": [
-              "no season components in player_weekly.json: expectations omitted",
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "expected_basis": "season components x 0.0547 (shipped / season projection)",
+            "unattributed": 0.01,
+            "omitted": []
           }
         },
         {
@@ -71245,12 +71259,12 @@
         "learning": {
           "graded_locks": 16,
           "refit": {
-            "archived_utc": "2026-10-11T19:21:06Z",
-            "n_resolved": 66,
+            "archived_utc": "2026-10-11T23:27:29Z",
+            "n_resolved": 74,
             "adopted": false,
             "verdict": "held"
           },
-          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T19:21:06Z consumed n_resolved=66 across all lock files and was held"
+          "note": "16 graded receipts feed scripts/refit.py; newest pass 2026-10-11T23:27:29Z consumed n_resolved=74 across all lock files and was held"
         },
         "players": {
           "n": 261,
@@ -71779,19 +71793,43 @@
           "kickoff_utc": "2026-10-11T20:25Z",
           "picked": "DET",
           "pick_prob": 0.5578,
-          "final": null,
-          "status": "STATUS_IN_PROGRESS",
-          "final_source": null,
-          "result": null,
-          "brier": null,
+          "final": {
+            "home_score": 21,
+            "away_score": 45,
+            "winner": "DET"
+          },
+          "status": "STATUS_FINAL",
+          "final_source": "espn_final",
+          "result": "won",
+          "brier": 0.3911,
           "why": {
             "source": "measured",
-            "summary": "not final \u2014 no result yet",
+            "summary": "WON: picked DET at 56%, DET won",
             "reasons": [
               {
                 "factor": "confidence",
                 "points": null,
                 "text": "picked DET at 56% (lock 2026-10-06T05:19:56Z, model elo_prior)"
+              },
+              {
+                "factor": "margin",
+                "points": null,
+                "text": "DET won 21-45 (home margin -24, blowout)"
+              },
+              {
+                "factor": "qb1_home",
+                "points": null,
+                "text": "ARI QB1 Jacoby Brissett: Active (injuries.json as of 2026-10-11T20:10:35Z)"
+              },
+              {
+                "factor": "qb1_away",
+                "points": null,
+                "text": "DET QB1 Jared Goff: Active (injuries.json as of 2026-10-11T20:10:35Z)"
+              },
+              {
+                "factor": "venue_weather",
+                "points": null,
+                "text": "roof indoor; no forecast row on file"
               }
             ]
           }
@@ -74265,9 +74303,12 @@
               "selection": "DET ML",
               "market": "moneyline",
               "game_id": "401872991",
-              "result": "pending",
-              "actual": null,
-              "why": "not in the leg ledger yet"
+              "result": "hit",
+              "actual": {
+                "home_score": 21,
+                "away_score": 45
+              },
+              "why": "ledger: hit"
             },
             {
               "selection": "J. Gibbs 60+ rush yds",
@@ -74297,9 +74338,12 @@
               "selection": "DET -5.5",
               "market": "spread",
               "game_id": "401872991",
-              "result": "pending",
-              "actual": null,
-              "why": "not in the leg ledger yet"
+              "result": "hit",
+              "actual": {
+                "home_score": 21,
+                "away_score": 45
+              },
+              "why": "ledger: hit"
             },
             {
               "selection": "J. Gibbs 60+ rush yds",
@@ -74639,23 +74683,26 @@
         },
         {
           "parlay_id": "401872991-g3",
-          "card_id": "fd73cb672f55",
+          "card_id": "46923f283ef3",
           "scope": "game",
           "game_id": "401872991",
-          "result": "pending",
-          "bucket": "pending",
+          "result": "miss",
+          "bucket": "all_missed",
           "legs": [
             {
-              "selection": "DET ML",
-              "market": "moneyline",
+              "selection": "DET -24.5",
+              "market": "spread",
               "game_id": "401872991",
-              "result": "pending",
-              "actual": null,
-              "why": "not in the leg ledger yet"
+              "result": "miss",
+              "actual": {
+                "home_score": 21,
+                "away_score": 45
+              },
+              "why": "graded: miss"
             },
             {
-              "selection": "A. St. Brown 60+ rec yds",
-              "market": "wr_rec_yds",
+              "selection": "J. Gibbs 60+ rush yds",
+              "market": "rb_rush_yds",
               "game_id": "401872991",
               "result": "pending",
               "actual": null,
@@ -74663,9 +74710,9 @@
             }
           ],
           "money": {
-            "kind": "potential",
-            "net_fair": 187.69,
-            "net_vig2": null,
+            "kind": "settled",
+            "net_fair": -100.0,
+            "net_vig2": -100.0,
             "assumed_price_legs": 1
           }
         },
@@ -76868,6 +76915,11 @@
                 "points": 0.52,
                 "text": "weekly split applied x1.05 for wk 5 (opp DET, home): +0.5 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.05
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0611 (shipped / season projection)",
@@ -77324,6 +77376,11 @@
                 "points": 0.22,
                 "text": "weekly split applied x1.05 for wk 5 (opp DET, home): +0.2 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.047
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0606 (shipped / season projection)",
@@ -77405,6 +77462,11 @@
                 "points": 1.98,
                 "text": "weekly split applied x1.11 for wk 5 (opp ARI, away): +2.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.108
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0631 (shipped / season projection)",
@@ -80145,13 +80207,22 @@
                 "factor": "availability",
                 "points": -2.8,
                 "text": "did not play: the whole 2.8 projection is lost"
+              },
+              {
+                "factor": "model_factor",
+                "points": 0.19,
+                "text": "weekly split applied x1.07 for wk 5 (opp ARI, away): +0.2 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 1.071
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
-            "expected_basis": null,
+            "expected_basis": "season components x 0.0616 (shipped / season projection)",
             "unattributed": null,
-            "omitted": [
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "omitted": []
           }
         },
         {
@@ -80931,6 +81002,11 @@
                 "points": 0.51,
                 "text": "weekly split applied x1.05 for wk 5 (opp DET, home): +0.5 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.047
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0607 (shipped / season projection)",
@@ -81078,6 +81154,11 @@
                 "points": 0.32,
                 "text": "weekly split applied x1.02 for wk 5 (opp DET, home): +0.3 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.018
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0593 (shipped / season projection)",
@@ -81871,6 +81952,11 @@
                 "points": -0.18,
                 "text": "weekly split applied x0.97 for wk 5 (opp DET, home): -0.2 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 0.973
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0572 (shipped / season projection)",
@@ -81937,6 +82023,11 @@
                 "points": -0.14,
                 "text": "weekly split applied x0.99 for wk 5 (opp ARI, away): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 0.993
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0567 (shipped / season projection)",
@@ -82208,6 +82299,11 @@
                 "points": -0.09,
                 "text": "weekly split applied x0.99 for wk 5 (opp ARI, away): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 0.992
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0567 (shipped / season projection)",
@@ -82307,6 +82403,11 @@
                 "points": 0.05,
                 "text": "weekly split applied x1.02 for wk 5 (opp DET, home): +0.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.017
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0594 (shipped / season projection)",
@@ -82474,6 +82575,11 @@
                 "points": -0.14,
                 "text": "weekly split applied x0.97 for wk 5 (opp DET, home): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 0.973
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0572 (shipped / season projection)",
@@ -83114,6 +83220,11 @@
                 "points": 1.03,
                 "text": "weekly split applied x1.05 for wk 5 (opp ARI, away): +1.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.049
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0617 (shipped / season projection)",
@@ -83147,6 +83258,11 @@
                 "points": 0.67,
                 "text": "weekly split applied x1.07 for wk 5 (opp ARI, away): +0.7 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 1.071
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0650 (shipped / season projection)",
@@ -84266,20 +84382,38 @@
           "delta": 1.91,
           "why": {
             "source": "measured",
-            "summary": "OVER by 1.9 (actual 4.6 vs 2.7 projected, band 1.2-4.1)",
+            "summary": "OVER by 1.9 (actual 4.6 vs 2.7 projected, band 1.2-4.1); volume +3.1, efficiency -0.6, touchdowns -0.6",
             "reasons": [
+              {
+                "factor": "volume",
+                "points": 3.09,
+                "text": "5 targets vs 2.0 expected (+3.1)"
+              },
+              {
+                "factor": "efficiency",
+                "points": -0.62,
+                "text": "0.92 vs 1.04 pts per target (-0.6)"
+              },
+              {
+                "factor": "touchdowns",
+                "points": -0.57,
+                "text": "0 receiving TD vs 0.1 expected (-0.6)"
+              },
+              {
+                "factor": "model_factor",
+                "points": 0.02,
+                "text": "weekly split applied x1.01 for wk 5 (opp NYG, home): +0.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 1.009
+              },
               {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 27-27 (home margin +0)"
               }
             ],
-            "expected_basis": null,
-            "unattributed": null,
-            "omitted": [
-              "no season components in player_weekly.json: expectations omitted",
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "expected_basis": "season components x 0.0594 (shipped / season projection)",
+            "unattributed": 0.01,
+            "omitted": []
           }
         },
         {
@@ -84974,16 +85108,20 @@
                 "text": "did not play: the whole 2.4 projection is lost"
               },
               {
+                "factor": "model_factor",
+                "points": -0.1,
+                "text": "weekly split applied x0.97 for wk 5 (opp DEN, home): -0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 0.973
+              },
+              {
                 "factor": "game_script",
                 "points": null,
                 "text": "final 17-23 (home margin -6)"
               }
             ],
-            "expected_basis": null,
+            "expected_basis": "season components x 0.0378 (shipped / season projection)",
             "unattributed": null,
-            "omitted": [
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "omitted": []
           }
         },
         {
@@ -86170,13 +86308,17 @@
                 "factor": "availability",
                 "points": -2.79,
                 "text": "did not play: the whole 2.8 projection is lost (injury report: Active)"
+              },
+              {
+                "factor": "model_factor",
+                "points": 0.12,
+                "text": "weekly split applied x1.04 for wk 5 (opp ATL, away): +0.1 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
+                "factor_value": 1.044
               }
             ],
-            "expected_basis": null,
+            "expected_basis": "season components x 0.0615 (shipped / season projection)",
             "unattributed": null,
-            "omitted": [
-              "no week row in player_weekly.json: model factor omitted"
-            ]
+            "omitted": []
           }
         },
         {
@@ -86895,6 +87037,11 @@
                 "points": -0.03,
                 "text": "weekly split applied x0.99 for wk 5 (opp ARI, away): -0.0 pts vs an even split \u2014 DvP, Elo tilt, weather and venue combined (per-factor split not stored in player_weekly.json)",
                 "factor_value": 0.994
+              },
+              {
+                "factor": "game_script",
+                "points": null,
+                "text": "final 21-45 (home margin -24, blowout)"
               }
             ],
             "expected_basis": "season components x 0.0566 (shipped / season projection)",
@@ -86953,27 +87100,27 @@
       ],
       "summary": {
         "picks": {
-          "n": 10,
-          "won": 7,
-          "pct": 0.7,
-          "brier": 0.4,
-          "right": 7,
+          "n": 11,
+          "won": 8,
+          "pct": 0.7273,
+          "brier": 0.3992,
+          "right": 8,
           "wrong": 3,
-          "tbd": 4
+          "tbd": 3
         },
         "parlays": {
           "n": 98,
           "hit": 13,
-          "miss": 55,
-          "pending": 25,
+          "miss": 56,
+          "pending": 24,
           "legs_n": 287,
-          "legs_hit": 158,
+          "legs_hit": 160,
           "buckets": {
             "all_hit": 13,
             "push": 5,
             "partial": 44,
-            "all_missed": 11,
-            "pending": 25
+            "all_missed": 12,
+            "pending": 24
           },
           "stake_100": {
             "week": {
@@ -86989,26 +87136,26 @@
             },
             "game": {
               "n": 60,
-              "graded": 37,
+              "graded": 38,
               "hit": 8,
               "push": 2,
-              "staked": 3700.0,
-              "net_fair": -543.4,
-              "net_vig2": -658.64,
-              "assumed_price_legs": 47,
-              "note": "$100 flat on each of the 60 game-scope parlays: 37 graded (8 all_hit paid, 2 push with pushed legs at 1.0, 27 lost -100), 23 pending excluded; leg decimal = 1/implied_prob of the as-made R58 ledger row (moneyline/spread), 47 leg(s) with no book price (props, or no ledger row) assumed at -110 (1.9091); net_vig2 re-prices every leg at implied x 1.02 capped at 0.99. Display-only money, never a model input."
+              "staked": 3800.0,
+              "net_fair": -643.4,
+              "net_vig2": -758.64,
+              "assumed_price_legs": 48,
+              "note": "$100 flat on each of the 60 game-scope parlays: 38 graded (8 all_hit paid, 2 push with pushed legs at 1.0, 28 lost -100), 22 pending excluded; leg decimal = 1/implied_prob of the as-made R58 ledger row (moneyline/spread), 48 leg(s) with no book price (props, or no ledger row) assumed at -110 (1.9091); net_vig2 re-prices every leg at implied x 1.02 capped at 0.99. Display-only money, never a model input."
             }
           }
         },
         "learning": {
           "graded_locks": 10,
           "refit": {
-            "archived_utc": "2026-10-11T19:21:06Z",
-            "n_resolved": 66,
+            "archived_utc": "2026-10-11T23:27:29Z",
+            "n_resolved": 74,
             "adopted": false,
             "verdict": "held"
           },
-          "note": "10 graded receipts feed scripts/refit.py; newest pass 2026-10-11T19:21:06Z consumed n_resolved=66 across all lock files and was held"
+          "note": "10 graded receipts feed scripts/refit.py; newest pass 2026-10-11T23:27:29Z consumed n_resolved=74 across all lock files and was held"
         },
         "players": {
           "n": 260,
@@ -87345,13 +87492,13 @@
   "learning": {
     "graded_locks_total": 74,
     "refit": {
-      "archived_utc": "2026-10-11T19:21:06Z",
-      "n_resolved": 66,
+      "archived_utc": "2026-10-11T23:27:29Z",
+      "n_resolved": 74,
       "adopted": false,
       "verdict": "held"
     },
-    "consumed_all": false,
-    "note": "74 graded lock receipts on file but the newest refit pass (2026-10-11T19:21:06Z) consumed n_resolved=66 \u2014 8 receipt(s) graded after the last refit pass"
+    "consumed_all": true,
+    "note": "all 74 graded lock receipts were consumed by the refit pass archived 2026-10-11T23:27:29Z (n_resolved=74); verdict held"
   },
   "players_season": {
     "espn-12483": {
@@ -98495,8 +98642,8 @@
     }
   },
   "sources": {
-    "schedule_full": "2026-10-11T23:23:09Z",
-    "game_predictions": "2026-10-11T23:23:09Z",
+    "schedule_full": "2026-10-11T23:27:31Z",
+    "game_predictions": "2026-10-11T23:27:31Z",
     "locks": [
       "data/snapshots/2026_wk01_games_open.json",
       "data/snapshots/2026_wk02_games_open.json",
@@ -98505,15 +98652,15 @@
       "data/snapshots/2026_wk05_games_open.json"
     ],
     "model_tuning": "2026-07-15T12:00:00Z",
-    "estimate_scores": "2026-10-11T23:25:52Z",
-    "player_weekly": "2026-10-11T23:23:09Z",
-    "player_projections": "2026-10-11T23:23:09Z",
+    "estimate_scores": "2026-10-11T23:29:18Z",
+    "player_weekly": "2026-10-11T23:27:31Z",
+    "player_projections": "2026-10-11T23:27:31Z",
     "injuries": "2026-10-11T20:10:35Z",
     "weather_forecast": "2026-10-11T23:22:08Z",
-    "parlays": "2026-10-11T23:23:09Z",
+    "parlays": "2026-10-11T23:27:31Z",
     "estimate_ledger": "2026-10-11T23:25:47Z",
-    "parlay_ledger": "2026-10-11T23:25:53Z",
-    "parlay_leg_scores": "2026-10-11T23:25:53Z",
+    "parlay_ledger": "2026-10-11T23:29:18Z",
+    "parlay_leg_scores": "2026-10-11T23:29:18Z",
     "parlay_archives": [
       1,
       2,
