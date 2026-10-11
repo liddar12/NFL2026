@@ -48,6 +48,13 @@
   where the line lives, is open and a graded row is unpriced (`unpricedGradedCount`), so a cold load
   stays inside its contract budget (R25). **Locked by** `r121_week_archive_pricing`, r73's call-site
   check and r75's current-week line against the oracle (red without the fix). · **LOE** 0.2 d
+- **R122 · The validator agrees with R103: a player hurt in a FINAL game keeps that week (P1) —
+  2026-10-11.** Daily #288 refused its own document: espn-4602667, ruled out for the season after
+  his week-5 game went FINAL. build_weekly (R103, `own_first`) rightly blocks from week 6 and keeps
+  week 5's points; the validator's out-for-season rule still counted week 5 as blockable ("12 of 13
+  remaining weeks"). It now starts the blockable range the week after the gate week for a team in
+  `skipped_final_teams`, as the builder does. **Locked by** `validate_data --selftest` (the case
+  passes; the same rows with the game not FINAL still red). · **LOE** 0.1 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
