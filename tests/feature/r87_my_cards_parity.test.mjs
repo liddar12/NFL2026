@@ -230,7 +230,11 @@ test('the Python mirror offers the same cards as the browser, number for number'
     const options = seedOptions(pool);
     const teams = options.filter((o) => o.kind === 'team');
     const players = options.filter((o) => o.kind === 'player');
-    assert.ok(teams.length >= 30, `${teams.length} team seeds — expected the full league`);
+    // R119 — both teams of a game on the owner's excluded list seed nothing.
+    const excludedTeams = 2 * readJson('config/excluded_games.json').games
+      .filter((g) => Number(g.season) === Number(pool.season) && Number(g.week) === Number(pool.week)).length;
+    assert.ok(teams.length >= 30 - excludedTeams,
+      `${teams.length} team seeds — expected the full league less ${excludedTeams} owner-excluded`);
     committed = { pool: join(ROOT, 'data/leg_pool.json'),
       schedule: join(ROOT, 'data/schedule_full.json') };
 
