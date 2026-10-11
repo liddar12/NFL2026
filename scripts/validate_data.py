@@ -1846,11 +1846,16 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
         # non-bye weeks from that week on — never the ones already in the books.
         # gate_wk absent (a document with no this-week meta) means week 1, where
         # the two sets are the same thing.
-        blockable_non_bye = non_bye if gate_wk is None else [
-            w for w in non_bye if (w.get("wk") or 0) >= gate_wk]
+        record = proj.get(pid)
+        # R103 mirror (build_weekly's own_first): a team whose game this week is
+        # already FINAL has PLAYED it, so an absence ruled now starts NEXT week and
+        # the played week keeps its points (daily #288, 2026-10-11, refused that).
+        own_first = None if gate_wk is None else (
+            gate_wk + 1 if (record or {}).get("team") in skip_teams else gate_wk)
+        blockable_non_bye = non_bye if own_first is None else [
+            w for w in non_bye if (w.get("wk") or 0) >= own_first]
         blocked_all = [w for w in non_bye if w.get("avail") is False]
         avail = pl.get("availability")
-        record = proj.get(pid)
         tw = pl.get("this_week")
 
         # --- R77: rules 6-8, the this-week gate -------------------------------
@@ -2040,7 +2045,7 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
             season_ending += 1
             if any(w.get("pts") != 0.0 for w in blockable_non_bye):
                 problems.append("%s: out_for_season but some non-bye week from week "
-                                "%s on still scores" % (pid, gate_wk or 1))
+                                "%s on still scores" % (pid, own_first or 1))
             if len(blocked) != len(blockable_non_bye):
                 problems.append("%s: out_for_season but only %d of %d remaining "
                                 "non-bye weeks are avail:false"
@@ -2239,6 +2244,19 @@ def _selftest():
     w, p, i = _fixture(blocked=17, out_for_season=True)
     w["players"][0]["weeks"][0]["pts"] = 5.0
     red(w, p, i, "out_for_season with a scoring week")
+
+    # R103 mirror — ruled out for the year AFTER his week-5 game went FINAL: week
+    # 5 is history and keeps its points, the block starts in week 6, exactly what
+    # build_weekly writes (own_first). Daily #288 (2026-10-11) died here: rule 2
+    # still read week 5 as blockable and refused a correct document.
+    w, p, i = _fixture(blocked=12, out_for_season=True, first_week=6)
+    w["model"]["this_week"].update({"wk": 5, "gated": 0, "skipped_final_teams": ["SF"],
+                                    "by_reason": {"inactive": 0, "status": 0, "depth": 0}})
+    w["players"][0].pop("this_week", None)
+    ok(w, p, i, why="team's wk5 game FINAL, out for the year from wk6")
+    # ...and only for a team whose game is FINAL: the same rows otherwise red.
+    w["model"]["this_week"]["skipped_final_teams"] = []
+    red(w, p, i, "game not FINAL: week 5 must be blocked too")
 
     # R97 — THE IN-SEASON SHAPE, which the week-1 fixtures above never reach.
     # build_weekly blocks forward from model.this_week.wk, so a player ruled out
