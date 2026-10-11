@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-11T22:57:41Z",
+  "generated_utc": "2026-10-11T23:25:55Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (73 games); scores from data/review.json FINAL rows (74 games); scores from ESPN live, STATUS-gated FINAL (58 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (74 games); scores from data/review.json FINAL rows (74 games); scores from ESPN live, STATUS-gated FINAL (59 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108)",
   "weeks_resolved": 4,
   "weeks": [
@@ -376,14 +376,14 @@
       "week": 5,
       "n_cards": 5512,
       "locked": 5512,
-      "graded": 3050,
-      "pending": 2462,
+      "graded": 3063,
+      "pending": 2449,
       "buckets": {
-        "all_hit": 63,
-        "push": 98,
-        "partial": 1755,
-        "all_missed": 1134,
-        "pending": 2462
+        "all_hit": 73,
+        "push": 101,
+        "partial": 1828,
+        "all_missed": 1061,
+        "pending": 2449
       },
       "by_dial": {
         "safe": {
@@ -401,16 +401,16 @@
         },
         "even": {
           "n": 1893,
-          "graded": 728,
-          "all_hit": 40,
-          "hit_rate": 0.0549,
-          "mean_model": 0.164,
-          "log_loss": 0.2376,
-          "brier": 0.0598,
-          "staked": 72800.0,
-          "net_fair": -39672.26,
-          "net_vig2": -41233.28,
-          "roi_fair": -0.5449
+          "graded": 741,
+          "all_hit": 50,
+          "hit_rate": 0.0675,
+          "mean_model": 0.1667,
+          "log_loss": 0.2518,
+          "brier": 0.0659,
+          "staked": 74100.0,
+          "net_fair": -37096.14,
+          "net_vig2": -38837.31,
+          "roi_fair": -0.5006
         },
         "longshot": {
           "n": 1965,
@@ -429,42 +429,42 @@
       "by_legs": {
         "2": {
           "n": 784,
-          "graded": 363,
-          "all_hit": 48,
-          "hit_rate": 0.1322,
-          "mean_model": 0.379,
-          "log_loss": 0.5584,
-          "brier": 0.1875,
-          "staked": 36300.0,
-          "net_fair": -11981.91,
-          "net_vig2": -12741.77,
-          "roi_fair": -0.3301
+          "graded": 372,
+          "all_hit": 55,
+          "hit_rate": 0.1478,
+          "mean_model": 0.3787,
+          "log_loss": 0.5672,
+          "brier": 0.1917,
+          "staked": 37200.0,
+          "net_fair": -10591.94,
+          "net_vig2": -11434.55,
+          "roi_fair": -0.2847
         },
         "3": {
           "n": 1011,
-          "graded": 437,
-          "all_hit": 11,
-          "hit_rate": 0.0252,
+          "graded": 440,
+          "all_hit": 13,
+          "hit_rate": 0.0295,
           "mean_model": 0.2335,
-          "log_loss": 0.3095,
-          "brier": 0.0828,
-          "staked": 43700.0,
-          "net_fair": -30500.05,
-          "net_vig2": -31076.41,
-          "roi_fair": -0.6979
+          "log_loss": 0.315,
+          "brier": 0.0851,
+          "staked": 44000.0,
+          "net_fair": -29760.14,
+          "net_vig2": -30392.3,
+          "roi_fair": -0.6764
         },
         "4": {
           "n": 1122,
-          "graded": 614,
-          "all_hit": 3,
-          "hit_rate": 0.0049,
+          "graded": 615,
+          "all_hit": 4,
+          "hit_rate": 0.0065,
           "mean_model": 0.1536,
-          "log_loss": 0.1826,
-          "brier": 0.0365,
-          "staked": 61400.0,
-          "net_fair": -55391.77,
-          "net_vig2": -55757.23,
-          "roi_fair": -0.9021
+          "log_loss": 0.1854,
+          "brier": 0.0376,
+          "staked": 61500.0,
+          "net_fair": -54945.53,
+          "net_vig2": -55352.59,
+          "roi_fair": -0.8934
         },
         "5": {
           "n": 1248,
@@ -406152,8 +406152,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -406176,7 +406179,7 @@
       "n_legs": 6,
       "model": 0.0551,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "K. Bourne 30+ rec yds",
@@ -406199,8 +406202,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -406643,7 +406649,7 @@
       "n_legs": 6,
       "model": 0.0554,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "B. Robinson Jr. 40+ rush yds",
@@ -406654,8 +406660,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -406913,7 +406922,7 @@
       "n_legs": 5,
       "model": 0.0826,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "Z. Flowers 70+ rec yds",
@@ -406936,8 +406945,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -407107,8 +407119,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -407392,7 +407407,7 @@
       "n_legs": 5,
       "model": 0.087,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "R. Davis 20+ rush yds",
@@ -407415,8 +407430,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -407610,7 +407628,7 @@
       "n_legs": 6,
       "model": 0.0565,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "R. Davis 20+ rush yds",
@@ -407633,8 +407651,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -407689,8 +407710,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -407972,7 +407996,7 @@
       "n_legs": 2,
       "model": 0.3197,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -407983,8 +408007,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -408150,7 +408177,7 @@
       "n_legs": 3,
       "model": 0.203,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "K. Raymond 20+ rec yds",
@@ -408161,8 +408188,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408299,7 +408329,7 @@
       "n_legs": 3,
       "model": 0.2109,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -408310,8 +408340,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408372,7 +408405,7 @@
       "n_legs": 3,
       "model": 0.2345,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CHI ML",
@@ -408386,8 +408419,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408536,7 +408572,7 @@
       "n_legs": 4,
       "model": 0.1366,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -408547,8 +408583,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408591,8 +408630,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408635,8 +408677,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -408897,7 +408942,7 @@
       "n_legs": 4,
       "model": 0.1485,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CHI ML",
@@ -408911,8 +408956,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409117,8 +409165,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409167,8 +409218,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409202,8 +409256,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409241,7 +409298,7 @@
       "n_legs": 5,
       "model": 0.0972,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CHI ML",
@@ -409267,8 +409324,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409497,7 +409557,7 @@
       "n_legs": 5,
       "model": 0.0814,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -409520,8 +409580,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409800,8 +409863,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409859,8 +409925,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409894,8 +409963,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -409968,8 +410040,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -410080,8 +410155,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "HOU ML",
@@ -410178,7 +410256,7 @@
       "n_legs": 6,
       "model": 0.0529,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Swift 60+ rush yds",
@@ -410210,8 +410288,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -410257,8 +410338,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -410902,7 +410986,7 @@
       "n_legs": 4,
       "model": 0.1557,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -410919,8 +411003,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411081,7 +411168,7 @@
       "n_legs": 5,
       "model": 0.1011,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -411098,8 +411185,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411148,8 +411238,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411231,7 +411324,7 @@
       "n_legs": 5,
       "model": 0.1029,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -411248,8 +411341,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411410,8 +411506,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411472,8 +411571,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411528,8 +411630,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -411567,7 +411672,7 @@
       "n_legs": 6,
       "model": 0.0648,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Chase 80+ rec yds",
@@ -411584,8 +411689,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -412169,7 +412277,7 @@
       "n_legs": 3,
       "model": 0.2271,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -412183,8 +412291,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -412571,7 +412682,7 @@
       "n_legs": 4,
       "model": 0.1496,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -412585,8 +412696,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -412662,7 +412776,7 @@
       "n_legs": 4,
       "model": 0.1454,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -412676,8 +412790,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -412953,7 +413070,7 @@
       "n_legs": 5,
       "model": 0.0969,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -412967,8 +413084,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413020,8 +413140,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413274,7 +413397,7 @@
       "n_legs": 5,
       "model": 0.0942,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -413288,8 +413411,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413397,8 +413523,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413436,7 +413565,7 @@
       "n_legs": 5,
       "model": 0.0945,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -413450,8 +413579,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413565,8 +413697,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -413754,8 +413889,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413792,8 +413930,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -413837,7 +413978,7 @@
       "n_legs": 6,
       "model": 0.0619,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -413851,8 +413992,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -414140,8 +414284,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -414188,7 +414335,7 @@
       "n_legs": 6,
       "model": 0.0578,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -414220,8 +414367,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -414303,7 +414453,7 @@
       "n_legs": 6,
       "model": 0.0603,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "CLE ML",
@@ -414317,8 +414467,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -414601,7 +414754,7 @@
       "n_legs": 2,
       "model": 0.3591,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "C. Lamb 80+ rec yds",
@@ -414612,8 +414765,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -414817,7 +414973,7 @@
       "n_legs": 3,
       "model": 0.2368,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "C. Lamb 80+ rec yds",
@@ -414828,8 +414984,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -414978,7 +415137,7 @@
       "n_legs": 4,
       "model": 0.1535,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "C. Lamb 80+ rec yds",
@@ -414989,8 +415148,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415033,8 +415195,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415459,8 +415624,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415503,8 +415671,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415559,8 +415730,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -415698,7 +415872,7 @@
       "n_legs": 5,
       "model": 0.0914,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "C. Lamb 80+ rec yds",
@@ -415709,8 +415883,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415883,8 +416060,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415951,8 +416131,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -415986,8 +416169,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -416066,8 +416252,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -416149,7 +416338,7 @@
       "n_legs": 6,
       "model": 0.0594,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "C. Lamb 80+ rec yds",
@@ -416181,8 +416370,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -416216,8 +416408,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -416254,6 +416449,149 @@
       }
     },
     {
+      "card_id": "172803a87296",
+      "week": 5,
+      "dial": "even",
+      "seed": "DEN",
+      "n_legs": 2,
+      "model": 0.3963,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "NYG ML",
+          "market": "moneyline",
+          "result": "void",
+          "actual": {
+            "home_score": 27,
+            "away_score": 27
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 60.64,
+        "net_vig2": 57.49,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "382c5b36f1ba",
+      "week": 5,
+      "dial": "even",
+      "seed": "DEN",
+      "n_legs": 2,
+      "model": 0.42,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "D. Prescott 275+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 316.0
+        }
+      ],
+      "money": {
+        "net_fair": 206.68,
+        "net_vig2": 194.77,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "924627f3d4d8",
+      "week": 5,
+      "dial": "even",
+      "seed": "DEN",
+      "n_legs": 2,
+      "model": 0.3838,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 3,
+            "away_score": 26
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 113.96,
+        "net_vig2": 105.65,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "7c9f11cec356",
+      "week": 5,
+      "dial": "even",
+      "seed": "DEN",
+      "n_legs": 3,
+      "model": 0.2392,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "CIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 31
+          }
+        },
+        {
+          "selection": "S. Perine 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 68.0
+        }
+      ],
+      "money": {
+        "net_fair": 310.11,
+        "net_vig2": 286.46,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "f889c68ca6db",
       "week": 5,
       "dial": "even",
@@ -416266,8 +416604,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Goff 275+ pass yds",
@@ -416302,13 +416643,16 @@
       "n_legs": 4,
       "model": 0.1557,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416348,8 +416692,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Goff 275+ pass yds",
@@ -416395,8 +416742,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Goff 275+ pass yds",
@@ -416440,13 +416790,16 @@
       "n_legs": 5,
       "model": 0.1011,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416495,8 +416848,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416540,13 +416896,16 @@
       "n_legs": 5,
       "model": 0.1029,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416592,8 +416951,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Goff 275+ pass yds",
@@ -416648,8 +417010,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Goff 275+ pass yds",
@@ -416701,8 +417066,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416760,8 +417128,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "CIN ML",
@@ -416819,8 +417190,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -416870,13 +417244,16 @@
       "n_legs": 6,
       "model": 0.0648,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -417216,8 +417593,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -417361,7 +417741,7 @@
       "n_legs": 6,
       "model": 0.0552,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DET ML",
@@ -417384,8 +417764,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418073,8 +418456,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418178,6 +418564,41 @@
       }
     },
     {
+      "card_id": "e170d01e339a",
+      "week": 5,
+      "dial": "even",
+      "seed": "HOU",
+      "n_legs": 2,
+      "model": 0.3838,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 3,
+            "away_score": 26
+          }
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 121.33,
+        "net_vig2": 112.74,
+        "assumed_price_legs": 0
+      }
+    },
+    {
       "card_id": "1915a178fbda",
       "week": 5,
       "dial": "even",
@@ -418207,6 +418628,50 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "9258db622cfb",
+      "week": 5,
+      "dial": "even",
+      "seed": "HOU",
+      "n_legs": 3,
+      "model": 0.2487,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 3,
+            "away_score": 26
+          }
+        },
+        {
+          "selection": "NYG ML",
+          "market": "moneyline",
+          "result": "void",
+          "actual": {
+            "home_score": 27,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 121.33,
+        "net_vig2": 112.74,
+        "assumed_price_legs": 0
       }
     },
     {
@@ -418354,8 +418819,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418467,6 +418935,56 @@
       "money": {
         "net_fair": 253.49,
         "net_vig2": 233.1,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "815a627b0cb9",
+      "week": 5,
+      "dial": "even",
+      "seed": "HOU",
+      "n_legs": 4,
+      "model": 0.1501,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 3,
+            "away_score": 26
+          }
+        },
+        {
+          "selection": "CIN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 24,
+            "away_score": 31
+          }
+        },
+        {
+          "selection": "S. Perine 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 68.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 446.24,
+        "net_vig2": 404.64,
         "assumed_price_legs": 1
       }
     },
@@ -418657,8 +419175,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418769,8 +419290,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418825,8 +419349,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418940,8 +419467,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -418999,8 +419529,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -419043,8 +419576,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -419123,8 +419659,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -419731,8 +420270,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -419949,8 +420491,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -422762,8 +423307,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -422942,6 +423490,38 @@
       }
     },
     {
+      "card_id": "70a6645390b9",
+      "week": 5,
+      "dial": "even",
+      "seed": "MIA",
+      "n_legs": 2,
+      "model": 0.3027,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "M. Washington 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 43.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 206.68,
+        "net_vig2": 194.77,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "fc23824ea6cd",
       "week": 5,
       "dial": "even",
@@ -423094,6 +423674,47 @@
       }
     },
     {
+      "card_id": "a3dd3883b6e4",
+      "week": 5,
+      "dial": "even",
+      "seed": "MIA",
+      "n_legs": 3,
+      "model": 0.19,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "M. Washington 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 43.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        },
+        {
+          "selection": "HOU ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 3,
+            "away_score": 26
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 308.47,
+        "net_vig2": 284.91,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "62e3f17e0c35",
       "week": 5,
       "dial": "even",
@@ -423233,7 +423854,7 @@
       "n_legs": 4,
       "model": 0.1141,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Wright 20+ rush yds",
@@ -423244,8 +423865,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -423326,8 +423950,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -423535,8 +424162,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -423617,8 +424247,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -423667,8 +424300,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -423732,8 +424368,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -423956,8 +424595,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -424065,8 +424707,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -424139,8 +424784,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -424183,8 +424831,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -424936,8 +425587,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -425007,7 +425661,7 @@
       "n_legs": 5,
       "model": 0.084,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Mason 50+ rush yds",
@@ -425030,8 +425684,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -425313,8 +425970,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -425396,7 +426056,7 @@
       "n_legs": 6,
       "model": 0.0546,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Mason 50+ rush yds",
@@ -425428,8 +426088,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -425484,8 +426147,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -425811,7 +426477,7 @@
       "n_legs": 3,
       "model": 0.2129,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Henderson 60+ rush yds",
@@ -425822,8 +426488,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426056,8 +426725,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426341,8 +427013,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426365,7 +427040,7 @@
       "n_legs": 5,
       "model": 0.0883,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Henderson 60+ rush yds",
@@ -426388,8 +427063,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426606,8 +427284,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426662,8 +427343,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -426932,6 +427616,38 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "c960a64b0276",
+      "week": 5,
+      "dial": "even",
+      "seed": "NO",
+      "n_legs": 2,
+      "model": 0.3331,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "K. Miller 20+ rush yds",
+          "market": "rb_rush_yds",
+          "result": "hit",
+          "actual": 30.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 206.68,
+        "net_vig2": 194.77,
+        "assumed_price_legs": 1
       }
     },
     {
@@ -427228,7 +427944,7 @@
       "n_legs": 3,
       "model": 0.2171,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -427239,8 +427955,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -427594,7 +428313,7 @@
       "n_legs": 4,
       "model": 0.141,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -427605,8 +428324,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -427638,7 +428360,7 @@
       "n_legs": 4,
       "model": 0.1374,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -427649,8 +428371,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -427737,8 +428462,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -427949,8 +428677,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428046,8 +428777,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -428120,7 +428854,7 @@
       "n_legs": 5,
       "model": 0.0892,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -428131,8 +428865,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428193,8 +428930,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428243,8 +428983,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428267,7 +429010,7 @@
       "n_legs": 5,
       "model": 0.0905,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -428278,8 +429021,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428346,8 +429092,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -428496,8 +429245,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428544,7 +429296,7 @@
       "n_legs": 6,
       "model": 0.0572,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Shough 175+ pass yds",
@@ -428573,8 +429325,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428735,8 +429490,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -428850,8 +429608,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428903,8 +429664,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -428962,8 +429726,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -429172,6 +429939,41 @@
         "net_fair": 90.91,
         "net_vig2": 87.17,
         "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "275ce34e666b",
+      "week": 5,
+      "dial": "even",
+      "seed": "NYG",
+      "n_legs": 2,
+      "model": 0.3963,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "NYG ML",
+          "market": "moneyline",
+          "result": "void",
+          "actual": {
+            "home_score": 27,
+            "away_score": 27
+          }
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 60.64,
+        "net_vig2": 57.49,
+        "assumed_price_legs": 0
       }
     },
     {
@@ -429448,7 +430250,7 @@
       "n_legs": 4,
       "model": 0.1504,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tracy Jr. 50+ rush yds",
@@ -429468,8 +430270,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -429612,8 +430417,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -429698,7 +430506,7 @@
       "n_legs": 5,
       "model": 0.1011,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "NYG ML",
@@ -429712,8 +430520,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -429827,8 +430638,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -429871,8 +430685,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430036,8 +430853,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430110,8 +430930,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430689,7 +431512,7 @@
       "n_legs": 4,
       "model": 0.1426,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Shepard 20+ rec yds",
@@ -430706,8 +431529,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430747,8 +431573,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430909,7 +431738,7 @@
       "n_legs": 5,
       "model": 0.0924,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Shepard 20+ rec yds",
@@ -430926,8 +431755,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -430976,8 +431808,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431176,8 +432011,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431226,8 +432064,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431544,8 +432385,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431618,8 +432462,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431642,7 +432489,7 @@
       "n_legs": 6,
       "model": 0.059,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Shepard 20+ rec yds",
@@ -431659,8 +432506,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431821,8 +432671,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431863,7 +432716,7 @@
       "n_legs": 6,
       "model": 0.0551,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "S. Shepard 20+ rec yds",
@@ -431880,8 +432733,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -431933,8 +432789,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -433099,8 +433958,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -434056,8 +434918,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -434115,8 +434980,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -434533,7 +435401,7 @@
       "n_legs": 6,
       "model": 0.0581,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "SEA ML",
@@ -434550,8 +435418,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -435165,6 +436036,38 @@
       }
     },
     {
+      "card_id": "d12c47ac3436",
+      "week": 5,
+      "dial": "even",
+      "seed": "TB",
+      "n_legs": 2,
+      "model": 0.3331,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "T. Johnson 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 64.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 206.68,
+        "net_vig2": 194.77,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "34ba5a0f48a4",
       "week": 5,
       "dial": "even",
@@ -435368,7 +436271,7 @@
       "n_legs": 4,
       "model": 0.1429,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "E. Egbuka 40+ rec yds",
@@ -435379,8 +436282,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -435532,8 +436438,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -435632,8 +436541,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -435667,8 +436579,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "R. Harvey 20+ rush yds",
@@ -435862,8 +436777,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -435909,8 +436827,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436032,7 +436953,7 @@
       "n_legs": 2,
       "model": 0.3409,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436043,8 +436964,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -436144,6 +437068,38 @@
       }
     },
     {
+      "card_id": "8fb24cc0ed22",
+      "week": 5,
+      "dial": "even",
+      "seed": "TEN",
+      "n_legs": 2,
+      "model": 0.3323,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "W. Robinson 50+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 53.0
+        },
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
+        }
+      ],
+      "money": {
+        "net_fair": 206.68,
+        "net_vig2": 194.77,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "a45b17d70eb2",
       "week": 5,
       "dial": "even",
@@ -436224,7 +437180,7 @@
       "n_legs": 3,
       "model": 0.2248,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436235,8 +437191,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436294,7 +437253,7 @@
       "n_legs": 3,
       "model": 0.2209,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436314,8 +437273,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -436373,7 +437335,7 @@
       "n_legs": 4,
       "model": 0.1457,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436384,8 +437346,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436443,8 +437408,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -436461,7 +437429,7 @@
       "n_legs": 4,
       "model": 0.1421,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436478,8 +437446,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436595,8 +437566,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436628,7 +437602,7 @@
       "n_legs": 4,
       "model": 0.1323,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436651,8 +437625,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -436669,7 +437646,7 @@
       "n_legs": 4,
       "model": 0.1413,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436692,8 +437669,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -436760,7 +437740,7 @@
       "n_legs": 5,
       "model": 0.0886,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436771,8 +437751,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436810,7 +437793,7 @@
       "n_legs": 5,
       "model": 0.093,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -436827,8 +437810,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -436977,8 +437963,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437001,7 +437990,7 @@
       "n_legs": 5,
       "model": 0.0868,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -437024,8 +438013,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437180,8 +438172,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437239,8 +438234,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437298,8 +438296,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437345,8 +438346,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437384,7 +438388,7 @@
       "n_legs": 6,
       "model": 0.0573,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -437395,8 +438399,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437493,7 +438500,7 @@
       "n_legs": 6,
       "model": 0.0564,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -437516,8 +438523,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437575,8 +438585,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437643,8 +438656,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         }
       ],
       "money": {
@@ -437661,7 +438677,7 @@
       "n_legs": 6,
       "model": 0.057,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Spears 20+ rush yds",
@@ -437684,8 +438700,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Chase 80+ rec yds",
@@ -437868,7 +438887,7 @@
       "n_legs": 3,
       "model": 0.2182,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "R. White 40+ rush yds",
@@ -437879,8 +438898,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -437982,7 +439004,7 @@
       "n_legs": 4,
       "model": 0.1408,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "V. Jefferson 20+ rec yds",
@@ -437993,8 +439015,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438116,8 +439141,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438251,8 +439279,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438410,8 +439441,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438460,8 +439494,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438616,8 +439653,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438672,8 +439712,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438696,7 +439739,7 @@
       "n_legs": 6,
       "model": 0.0581,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "V. Jefferson 20+ rec yds",
@@ -438707,8 +439750,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438884,8 +439930,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438943,8 +439992,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
@@ -438976,7 +440028,7 @@
       "n_legs": 6,
       "model": 0.0545,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "V. Jefferson 20+ rec yds",
@@ -438987,8 +440039,11 @@
         {
           "selection": "DEN ML",
           "market": "moneyline",
-          "result": "pending",
-          "actual": null
+          "result": "hit",
+          "actual": {
+            "home_score": 17,
+            "away_score": 23
+          }
         },
         {
           "selection": "J. Dobbins 60+ rush yds",
