@@ -844,12 +844,14 @@ export default async function mountParlays(el) {
   // Render the parlay cards for the active scope + leg filter (+ R72 bucket)
   // into #parlays-list.
   function paintList() {
-    const bucketOf = activeBucket && reviewMod ? reviewMod.parlayBucketMap(selWeek) : null;
+    // R120 — the bucket a card is FILTERED by is the bucket its chip paints:
+    // matched by the card's identity, never by a rank id another bet once held.
+    const bucketOf = activeBucket && reviewMod ? reviewMod.parlayBucketResolver(selWeek) : null;
     const filtered = visible().filter((p) =>
       scopeOf(p) === active
       && (activeLeg === 'all' || legOf(p) === Number(activeLeg))
       && (activeTier === 'all' || tierOf(p) === activeTier)
-      && (!bucketOf || bucketOf.get(String(p.parlay_id)) === activeBucket));
+      && (!bucketOf || bucketOf(p) === activeBucket));
     // R75 — sort a COPY; `parlays` stays in the document's own order so a
     // re-render is never order-dependent. The $100 sort reads the builder's
     // money map (the same numbers the cards show); a parlay the map does not

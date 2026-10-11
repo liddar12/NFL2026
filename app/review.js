@@ -525,6 +525,25 @@ export function parlayBucketMap(week, doc = docSync) {
 }
 
 /**
+ * R120 — `card -> bucket` for the bucket FILTER, from the same review row
+ * applyParlayReview paints on the card: by the card's identity (reviewRowFor),
+ * the rank id only as the fallback, refused by matchingLegs when the row names
+ * a different bet. A filter keyed by parlay_id alone kept a re-picked card
+ * under the ALL HIT of the bet that had held its rank (data-ci #155,
+ * 2026-10-09: 401872980-g1 = DAL ML + B. Irving 60+ rush yds, painted PARTIAL).
+ */
+export function parlayBucketResolver(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  const byId = indexRows(((blk && blk.parlays) || []).filter(Boolean), (p) => p);
+  return (card) => {
+    if (!card) return undefined;
+    const p = reviewRowFor(byId, card, null, card.parlay_id);
+    if (!p || !matchingLegs(card, p)) return undefined;
+    return BUCKET_LABEL[p.bucket] ? p.bucket : undefined;
+  };
+}
+
+/**
  * The bucket summary card: one tappable chip per bucket whose count the
  * document carries, "ALL HIT 12". `active` marks the pressed chip. '' when
  * the document has no buckets (an R71-shaped file), so nothing invents a 0.

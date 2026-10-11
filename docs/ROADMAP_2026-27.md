@@ -22,6 +22,18 @@
   browser against the grader's MISS. Facts now use the team the recorded legs named for that week
   (`week_teams`), and today's team only when no bet named him that week. **Locked by**
   `build_bet_facts --selftest` (traded-player case), `r110_bet_facts` AC3. · **LOE** 0.1 d
+- **R119 · PHI @ JAX out of every week-5 bet and prop (P1) — 2026-10-11.** Owner: "exclude the
+  eagles and jaguars game and props." `config/excluded_games.json` now lists 401872981 (the 09:30 ET
+  game) beside R108's IND @ WAS; R108's filters do the rest: no GAME card, no WEEK leg, no prop,
+  game or ATD leg in the pool, no ATD / MY / MY TD card, and its legs VOID in every recorded card
+  (a card made only of them leaves the tallies and $100). **Locked by** `r119_excluded_phi_jax`
+  (red without the entry: 21 cards / legs used the game). · **LOE** 0.1 d
+- **R120 · The bucket filter keeps a card by its own outcome (P1) — 2026-10-11.** data-ci #155,
+  red from 2026-10-09: the TB @ DAL slate was re-picked, so rank 401872980-g1 named two bets
+  (Prescott + Pickens, ALL HIT; DAL ML + Irving, PARTIAL); the ALL HIT filter looked buckets up by
+  rank id and kept today's PARTIAL card under the other bet's ALL HIT. The filter now resolves each card through the row its chip paints
+  (`parlayBucketResolver`: identity first, rank only as the fallback, refused when the legs differ).
+  **Locked by** `r120_bucket_filter_identity`, `r90_parlays_ux` F18. · **LOE** 0.1 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
