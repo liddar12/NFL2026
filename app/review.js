@@ -67,6 +67,24 @@ export function primeReview() {
 let docSync = null; // the resolved document, for the synchronous player renderer
 primeReview().then((d) => { docSync = d; });
 
+/** R121 — week -> that week's archived cards, the fallback price source for a
+ * recorded row whose card is no longer on the painted slate. */
+const archiveSources = new Map();
+
+/** R121 — hand prepareParlaySimulation `week`'s archived cards. */
+export function setWeekArchiveSources(week, cards) {
+  archiveSources.set(String(week), Array.isArray(cards) ? cards : []);
+}
+
+/** R121 — graded rows of `week` the simulation left unpriced: their card is not
+ * among the cards it was given. The current week's view fetches its archive
+ * only when this is > 0, so a cold load stays archive-free. */
+export function unpricedGradedCount(week, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  return ((blk && blk.parlays) || [])
+    .filter((r) => r && r.bucket !== 'pending' && !isNum(r.money?.net_fair)).length;
+}
+
 /** Escape for innerHTML (the renderers build strings, like app/render.js). */
 function esc(v) {
   return String(v == null ? '' : v)
@@ -772,9 +790,18 @@ export function prepareParlaySimulation(week, cards, doc = docSync) {
   const blk = weekBlock(doc, week);
   if (!blk) return;
   const sources = indexRows(cards.filter(Boolean), (p) => p);
+  const archived = indexRows((archiveSources.get(String(week)) || []).filter(Boolean), (p) => p);
   for (const row of blk.parlays || []) {
-    const source = sources.get(cardKey(row)) || sources.get(String(row.parlay_id));
-    const outcomes = matchingLegs(source, row);
+    let source = sources.get(cardKey(row)) || sources.get(String(row.parlay_id));
+    let outcomes = matchingLegs(source, row);
+    if (!outcomes) {
+      // R121 — the card left the slate (a re-pick, an owner-excluded game's
+      // rebuild): price the row with its own archived card. Only a row the
+      // painted cards could not price falls through, so no figure moves.
+      const alt = archived.get(cardKey(row)) || archived.get(String(row.parlay_id));
+      const altOutcomes = matchingLegs(alt, row);
+      if (altOutcomes) { source = alt; outcomes = altOutcomes; }
+    }
     row.money = source && outcomes ? simulateMoney(source.legs, outcomes) : null;
   }
   const summary = blk.summary?.parlays;
