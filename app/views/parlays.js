@@ -615,7 +615,8 @@ export default async function mountParlays(el) {
   el.innerHTML = '<div class="state state--loading">Loading parlays…</div>';
   // R73 — one allSettled: the current document, the schedule (optional
   // matchup labels) and the history index (optional; 404 = no chips). Archive
-  // files are NOT here — they are fetched only when a past week is tapped.
+  // files are NOT here — they are fetched only when a past week is tapped
+  // (R121: or the current week's, once the RETROSPECTIVE panel opens).
   const [parlaysR, schedR, indexR] = await Promise.allSettled([
     getParlays(), getScheduleFull(), getParlaysIndex(),
   ]);
@@ -821,6 +822,7 @@ export default async function mountParlays(el) {
         paintList();
       });
       mod.prepareParlaySimulation(week, parlays);
+      priceOffSlateRows();   // R121 — when the RETROSPECTIVE panel is already open
       // R82 — applyParlayReview REPLACES the review strip node (review.js
       // placeStrip removes the old one and re-inserts). A MY-mode entry that
       // beat this lazy import set `hidden` on a node that no longer exists, so
@@ -931,7 +933,6 @@ export default async function mountParlays(el) {
     activeLeg = 'all';
     activeBucket = null;
     activeTier = 'all';   // R75 — the tier chips are per-week, like the leg chips
-    const entry = weeks.find((w) => w.week === week) || null;
     syncWeekChrome(week, archivedFor(week));
     const seq = ++paintSeq;
     if (week === curWeek) {
@@ -946,8 +947,7 @@ export default async function mountParlays(el) {
     listEl.innerHTML = '<div class="state state--loading">Loading week…</div>';
     let doc;
     try {
-      const path = (entry && entry.path) || parlayArchivePathFor(index && index.season, week);
-      doc = await getParlayArchive(path);
+      doc = await weekArchive(week);
     } catch (err) {
       if (seq !== paintSeq) return;
       parlays = [];
@@ -969,6 +969,35 @@ export default async function mountParlays(el) {
       return;
     }
     paintList();
+  }
+
+  /** R73 — a week's archive (cached by data.js): the ONE call site of the getter.
+   * Reached on a week tap (selectWeek) and, for the current week, when the
+   * RETROSPECTIVE panel opens with a graded row off the slate (R121) — never by
+   * the mount, so a cold load keeps its contract budget (tests/perf/budget). */
+  function weekArchive(week) {
+    const entry = weeks.find((w) => w.week === week) || null;
+    const path = (entry && entry.path) || parlayArchivePathFor(index && index.season, week);
+    return getParlayArchive(path);
+  }
+
+  /**
+   * R121 — a graded row whose card left the slate (a re-pick; an owner-excluded
+   * game's rebuild) is priced from this week's archive, so the current week's
+   * $100 line is not "unavailable". Only once the RETROSPECTIVE panel (where the
+   * line lives) is open, and only when the slate leaves such a row unpriced.
+   */
+  function priceOffSlateRows() {
+    const box = el.querySelector('#parlay-retro');
+    if (!reviewMod || !box || !box.open || selWeek !== curWeek) return;
+    if (reviewMod.unpricedGradedCount(selWeek) === 0) return;
+    const week = selWeek;
+    weekArchive(week).then((doc) => {
+      if (!doc || !Array.isArray(doc.parlays) || week !== selWeek) return;
+      reviewMod.setWeekArchiveSources(week, doc.parlays);
+      reviewMod.prepareParlaySimulation(week, parlays);
+      paintPnl();
+    }).catch(() => {});
   }
 
   /*
@@ -1065,7 +1094,12 @@ export default async function mountParlays(el) {
   if (filtersBox) filtersBox.addEventListener('toggle', () => writeFiltersOpen(filtersBox.open));
   // R95 — and the graded-chrome panel, the same way.
   const retroBox = el.querySelector('#parlay-retro');
-  if (retroBox) retroBox.addEventListener('toggle', () => writeRetroOpen(retroBox.open));
+  if (retroBox) {
+    retroBox.addEventListener('toggle', () => {
+      writeRetroOpen(retroBox.open);
+      priceOffSlateRows();   // R121 — the $100 line is in here
+    });
+  }
   // R90/F20 — arrow keys inside the two grouped chip rows.
   wireArrowKeys(el.querySelector('.pw-wkbar'), '.wk-chip');
   wireArrowKeys(el.querySelector('.scopeseg'), '.seg-btn');

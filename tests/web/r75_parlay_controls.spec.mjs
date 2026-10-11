@@ -309,4 +309,32 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
     }
     expect(errors).toEqual([]);
   });
+
+  // R121 — the CURRENT week's line prices every graded row, including one whose
+  // card left the slate (a re-pick; 2026-10-11 the PHI @ JAX rebuild): the page
+  // falls back to the week's archive, and the line equals the oracle's money.
+  test('the current week\'s P&L line is the oracle\'s money, never "unavailable"', async ({ page }) => {
+    const errors = errorsOf(page);
+    await mount(page);
+    // the line lives in the RETROSPECTIVE panel; opening it is what prices the
+    // off-slate rows (a cold load stays inside the contract budget)
+    await page.locator('#parlay-retro summary').click();
+    let checked = 0;
+    for (const scope of ['game', 'week']) {
+      const f = footer(CUR, scope);
+      if (!f || !f.graded) continue;
+      await page.click(`.scopeseg [data-seg="${scope}"]`);
+      const line = page.locator('#parlay-pnl .rv-pnl-line');
+      await expect(line).toContainText(`WEEK ${CUR}`, { timeout: 20000 });
+      await expect(line).not.toContainText('unavailable', { timeout: 20000 });
+      const text = await line.textContent();
+      const m = /SIM NET ([+−-]?)\$([\d,]+)/.exec(text);
+      expect(m, text).not.toBeNull();
+      const shown = (m[1] === '−' || m[1] === '-' ? -1 : 1) * Number(m[2].replace(/,/g, ''));
+      expect(Math.abs(shown - f.net_fair)).toBeLessThanOrEqual(1);
+      checked += 1;
+    }
+    test.skip(checked === 0, 'no graded parlays in the current week yet');
+    expect(errors).toEqual([]);
+  });
 });

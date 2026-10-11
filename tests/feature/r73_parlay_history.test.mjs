@@ -237,11 +237,14 @@ test('app layer: index in the mount allSettled, archive only on tap via data.js,
   assert.doesNotMatch(view, /\bfetch\s*\(/, 'the view never fetches');
   assert.match(view, /Promise\.allSettled\(\[\s*getParlays\(\), getScheduleFull\(\), getParlaysIndex\(\),?\s*\]\)/,
     'the index joins the mount allSettled (cold 5 -> 6, tests/perf/budget.spec.mjs)');
-  // the archive getter is called exactly once, inside selectWeek, never at mount
+  // the archive getter is called exactly once — in weekArchive, which only a
+  // week tap (selectWeek) and R121's RETROSPECTIVE-open pricing reach — never at mount
   const calls = [...view.matchAll(/getParlayArchive\(/g)].length;
   assert.equal(calls, 1, 'one call site for the archive getter');
   const sel = view.indexOf('async function selectWeek');
-  assert.ok(sel > 0 && view.indexOf('getParlayArchive(') > sel, 'the call site is inside selectWeek');
+  assert.ok(sel > 0 && view.indexOf('getParlayArchive(') > sel, 'the call site follows selectWeek');
+  const reach = [...view.matchAll(/(?<!function )\bweekArchive\(week\)/g)].length;
+  assert.equal(reach, 2, 'weekArchive is reached from selectWeek and priceOffSlateRows only');
   assert.ok(view.indexOf('getParlayArchive(') < view.indexOf('el.innerHTML =\n    head +'), 'and before the mount paint');
   assert.match(view, /chooseDefaultWeek\(data\.week, index && index\.current_week\)/, 'default = parlays.json week');
   assert.match(view, /import\('\.\.\/review\.js'\)/, 'review stays lazy');

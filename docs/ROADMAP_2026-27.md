@@ -39,6 +39,15 @@
   rank id and kept today's PARTIAL card under the other bet's ALL HIT. The filter now resolves each card through the row its chip paints
   (`parlayBucketResolver`: identity first, rank only as the fallback, refused when the legs differ).
   **Locked by** `r120_bucket_filter_identity`, `r90_parlays_ux` F18. · **LOE** 0.1 d
+- **R121 · The current week's $100 line prices a card that left the slate (P1) — 2026-10-11.**
+  Owner's call after R119. The view priced recorded current-week rows from the painted slate only,
+  so a row whose card was re-picked (TB @ DAL, Thursday: 2 game rows) or rebuilt away (R119: 15
+  week rows) had no money and the line read "SIM NET unavailable". Such a row is now priced with
+  its own archived card (`setWeekArchiveSources`); a row the slate prices keeps the slate's figure,
+  and the week's archive is fetched (through R73's one call site) only once the RETROSPECTIVE panel,
+  where the line lives, is open and a graded row is unpriced (`unpricedGradedCount`), so a cold load
+  stays inside its contract budget (R25). **Locked by** `r121_week_archive_pricing`, r73's call-site
+  check and r75's current-week line against the oracle (red without the fix). · **LOE** 0.2 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
