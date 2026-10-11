@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 5,
-  "generated_utc": "2026-10-11T23:29:10Z",
-  "pool_generated_utc": "2026-10-11T23:29:10Z",
+  "generated_utc": "2026-10-11T23:32:15Z",
+  "pool_generated_utc": "2026-10-11T23:32:14Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -371,6 +371,14 @@
       "cards_seen": 72,
       "cards_added": 0,
       "locked_added": 0,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-10-11T23:32:14Z",
+      "week": 5,
+      "cards_seen": 72,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -491762,6 +491770,91 @@
       "first_seen_utc": "2026-10-11T22:57:23Z",
       "locked": true,
       "locked_utc": "2026-10-11T22:57:23Z"
+    },
+    {
+      "card_id": "1a05905448ff",
+      "dial": "even",
+      "seed": "BAL",
+      "rank": 6,
+      "n_legs": 4,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0909,
+      "implied": 0.0763,
+      "ev": 0.1922,
+      "tier": "low",
+      "payout": 1211.06,
+      "assumed": 4,
+      "earliest_kickoff_utc": "2026-10-12T00:20Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "D. Henry 70+ rush yds",
+          "game_id": "401872993",
+          "team": "BAL",
+          "side": "away",
+          "player": "Derrick Henry",
+          "gsis_id": "espn-3043078",
+          "position": "RB",
+          "line": 69.5,
+          "mu": 65.28,
+          "model_prob": 0.5014,
+          "implied_prob": 0.524,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "J. Allen 225+ pass yds",
+          "game_id": "401872994",
+          "team": "BUF",
+          "side": "away",
+          "player": "Josh Allen",
+          "gsis_id": "espn-3918298",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 190.53,
+          "model_prob": 0.5341,
+          "implied_prob": 0.5581,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "D. Moore 50+ rec yds",
+          "game_id": "401872994",
+          "team": "BUF",
+          "side": "away",
+          "player": "DJ Moore",
+          "gsis_id": "espn-3915416",
+          "position": "WR",
+          "line": 49.5,
+          "mu": 47.05,
+          "model_prob": 0.5182,
+          "implied_prob": 0.5415,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "R. Bateman 30+ rec yds",
+          "game_id": "401872993",
+          "team": "BAL",
+          "side": "away",
+          "player": "Rashod Bateman",
+          "gsis_id": "espn-4360939",
+          "position": "WR",
+          "line": 29.5,
+          "mu": 22.19,
+          "model_prob": 0.4609,
+          "implied_prob": 0.4816,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-10-11T23:32:14Z",
+      "locked": true,
+      "locked_utc": "2026-10-11T23:32:14Z"
     }
   ]
 }
