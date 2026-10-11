@@ -116,7 +116,15 @@ test('non-bye weekly points sum to the AVAILABILITY-ADJUSTED season projection',
       return;
     }
     if (a.out_for_season) {
-      assert.equal(sum, 0, `${p.gsis_id}: out for season must carry 0 points`);
+      // From the first unplayed week on (R97; the next week when his team's game
+      // this week is already FINAL, R103/R122) he carries nothing; weeks already
+      // played keep the points they had.
+      const tw0 = (weekly.model || {}).this_week || null;
+      const gateWk = tw0 ? Number(tw0.wk) : 1;
+      const ownFirst = tw0 && (tw0.skipped_final_teams || []).includes(proj.players[i].team)
+        ? gateWk + 1 : gateWk;
+      const ahead = p.weeks.reduce((s, w) => s + (!w.bye && Number(w.wk) >= ownFirst ? w.pts : 0), 0);
+      assert.equal(ahead, 0, `${p.gsis_id}: out for season must carry 0 points from week ${ownFirst} on`);
       return;
     }
     // R49 games-normalized baseline: when the projection row states that its

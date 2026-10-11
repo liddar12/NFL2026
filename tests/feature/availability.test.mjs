@@ -424,8 +424,16 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
     // The duration statement and its applied consequence must agree — that is what
     // lets weeks[].avail stay the single carrier for blocked weeks.
     if (a.out_for_season) {
-      assert.equal(nBlocked, p.weeks.filter((w) => !w.bye).length,
-        `${p.gsis_id}: out for season must block every non-bye week`);
+      // In season an absence blocks FORWARD from the first unplayed week (R97):
+      // the current week, or the next one when his team's game this week is
+      // already FINAL (R103) — exactly the weeks build_weekly and the validator
+      // (R122) hold it to. Every one of those weeks must be blocked.
+      const tw0 = (weekly.model || {}).this_week || null;
+      const gateWk = tw0 ? Number(tw0.wk) : 1;
+      const ownFirst = tw0 && (tw0.skipped_final_teams || []).includes(proj.players[i].team)
+        ? gateWk + 1 : gateWk;
+      assert.equal(nBlocked, p.weeks.filter((w) => !w.bye && Number(w.wk) >= ownFirst).length,
+        `${p.gsis_id}: out for season must block every non-bye week from week ${ownFirst} on`);
       assert.equal(a.weeks_out, null);
     } else {
       assert.equal(a.weeks_out, nBlocked,

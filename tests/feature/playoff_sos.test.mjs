@@ -464,4 +464,5 @@ test('app/playoffs.js imports no market/price/odds source', () => {
     'the module must stay pure: no fetch, no DOM, no storage');
 });
 
-function round2(n) { return Math.round(n * 100) / 100; }
+// app/playoffs.js round(): never -0 (a tiny positive elo_diff restates as -0).
+function round2(n) { const r = Math.round(n * 100) / 100; return r === 0 ? 0 : r; }
