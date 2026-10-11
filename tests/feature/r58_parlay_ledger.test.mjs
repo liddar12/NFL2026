@@ -84,7 +84,7 @@ function gradedGameLegs() {
       }
     }
   }
-  let moneyline = 0; let spread = 0; let spreadPush = 0; let spreadPending = 0;
+  let moneyline = 0; let spread = 0; let spreadPush = 0; let spreadPending = 0; let mlTie = 0;
   let lockedProps = 0; let scored = false; const weeks = new Set();
   for (const l of ledger.legs) {
     if (!l.locked) continue;
@@ -101,7 +101,7 @@ function gradedGameLegs() {
     const hasScore = fin.home_score != null;
     if (hasScore) scored = true;
     if (l.market === 'moneyline') {
-      if (hasScore && fin.home_score === fin.away_score) continue; // tie: unresolved
+      if (hasScore && fin.home_score === fin.away_score) { mlTie += 1; continue; } // tie: unresolved
       moneyline += 1; weeks.add(l.week);
     } else if (!hasScore) {
       spreadPending += 1;
@@ -112,7 +112,7 @@ function gradedGameLegs() {
       else { spread += 1; weeks.add(l.week); }
     }
   }
-  return { moneyline, spread, spreadPush, spreadPending, lockedProps, weeks: weeks.size, weekSet: weeks, scored };
+  return { moneyline, spread, spreadPush, spreadPending, mlTie, lockedProps, weeks: weeks.size, weekSet: weeks, scored };
 }
 
 function runPy(code) {
@@ -254,7 +254,7 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   const absentProps = g.lockedProps - FIXTURE_PROPS;
   assert.equal(doc.legs.resolved, FIXTURE_PROPS + g.moneyline + g.spread,
     'fixture-covered props + graded moneylines + spreads with a score on file (R80)');
-  assert.equal(doc.legs.unresolved, absentProps + g.spreadPending + g.spreadPush,
+  assert.equal(doc.legs.unresolved, absentProps + g.spreadPending + g.spreadPush + g.mlTie,
     'every locked prop the fixture does not cover, plus spreads awaiting a score');
   // locked + unlocked (post-kickoff first sight) account for every leg on file
   assert.equal(doc.legs.locked + doc.legs.unlocked, doc.legs.on_file);
@@ -287,7 +287,8 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   // unresolved legs: the players with no fixture row, never a miss; a spread
   // leg of a receipt-graded game with no score on file waits (no_final_score),
   // and a spread that lands exactly on the line is a push — never a miss
-  assert.equal(doc.unresolved.length, absentProps + g.spreadPending + g.spreadPush);
+  // a moneyline of a game that ended level (2026-10-11, week 5) is a tie, never a miss
+  assert.equal(doc.unresolved.length, absentProps + g.spreadPending + g.spreadPush + g.mlTie);
   // Identity is (week, game_id, market, selection) — the same prop selection text
   // recurs week to week, so comparing on selection alone collides once the ledger
   // holds more than one week.
@@ -295,6 +296,7 @@ test('resolver dry run: hit/miss/unresolved with reasons, seed and model on iden
   const resolvedKeys = new Set(doc.resolved.map(legKey));
   for (const u of doc.unresolved) {
     if (u.market === 'spread') assert.ok(['no_final_score', 'push'].includes(u.reason), u.reason);
+    else if (u.market === 'moneyline') assert.equal(u.reason, 'tie');
     else assert.equal(u.reason, 'no_stat_line');
     assert.ok(!resolvedKeys.has(legKey(u)), `${legKey(u)} is both resolved and unresolved`);
   }

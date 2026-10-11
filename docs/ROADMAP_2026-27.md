@@ -55,6 +55,12 @@
   remaining weeks"). It now starts the blockable range the week after the gate week for a team in
   `skipped_final_teams`, as the builder does. **Locked by** `validate_data --selftest` (the case
   passes; the same rows with the game not FINAL still red). · **LOE** 0.1 d
+  **Follow-up 2026-10-11 (data-ci #142):** the first document R122 let through reddened four tests
+  that had never met its case or a sibling: availability / weekly_contract still held an out-for-season
+  player to EVERY non-bye week (pre-R97) — now the weeks from the first unplayed one, as producer and
+  validator do; r58's resolver oracle skipped a TIED game's moneyline from the resolved count but never
+  counted it unresolved (week 5's first tie); playoff_sos's round2 oracle emitted -0 where
+  app/playoffs.js round() never does.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
