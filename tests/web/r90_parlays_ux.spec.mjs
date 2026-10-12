@@ -38,7 +38,12 @@ const DESKTOP = { width: 1280, height: 900 };
 
 /* A committed player the pool does NOT price and the weekly feed marks not
  * playable — derived, never hardcoded, so this stays true as the season moves.
- * Falls back to a TE (an excluded position) if a week ever has no such player. */
+ * Falls back to a TE (an excluded position) if a week ever has no such player.
+ * R123: only at a position the pool prices (myparlays.js PRICED_POSITIONS).
+ * notOfferedReason names an excluded position before the week's injury, so an
+ * inactive TE (Colby Parkinson, week 5) reads "no calibrated market for TE" —
+ * data-ci #152 expected the weekly reason for him. */
+const PRICED_POSITIONS = new Set(['QB', 'RB', 'WR']);
 const POOLED = new Set(POOL.players.map((p) => String(p.gsis_id)));
 // The pool is live: a Jefferson ruled OUT (Justin, week 4) or on an owner-excluded
 // game (R108: WAS's Van Jefferson, week 4) leaves it for the week.
@@ -51,7 +56,9 @@ const NOT_PLAYABLE = (() => {
     if (!row.this_week || row.this_week.playable !== false) continue;
     if (POOLED.has(String(row.gsis_id))) continue;
     const id = byId.get(String(row.gsis_id));
-    if (id && id.name) return { name: id.name, team: id.team, position: id.position, kind: 'weekly' };
+    if (id && id.name && PRICED_POSITIONS.has(String(id.position).toUpperCase())) {
+      return { name: id.name, team: id.team, position: id.position, kind: 'weekly' };
+    }
   }
   const te = PROJ.players.find((p) => p.position === 'TE' && !POOLED.has(String(p.gsis_id)));
   return te ? { name: te.name, team: te.team, position: te.position, kind: 'position' } : null;
