@@ -157,6 +157,8 @@ const fixtureIdentity = {
     { gsis_id: 'p-te', name: 'Tight Fixture', team: 'SF', position: 'TE', projected: 150,
       this_week: { wk: 2, playable: true } },
     { gsis_id: 'p-k', name: 'Kicker Fixture', team: 'NE', position: 'K', projected: 120, this_week: null },
+    { gsis_id: 'p-te-out', name: 'Ivan Inactive', team: 'LAR', position: 'TE', projected: 90,
+      this_week: { wk: 5, playable: false, reason: 'inactive' } },
     { gsis_id: 'p-noproj', name: 'Unprojected Fixture', team: 'NYJ', position: 'RB',
       projected: null, this_week: null },
     { gsis_id: 'p-unpriced', name: 'Healthy Fixture', team: 'DAL', position: 'RB',
@@ -195,6 +197,14 @@ test('F19: an excluded position says which position, for TE and for K alike', ()
   assert.equal(
     notOfferedReason('Kicker Fixture', fixtureIdentity, fixtureOptions),
     'Kicker Fixture (NE · K) is not offered: no calibrated market for K');
+});
+
+// R123 (data-ci #152): the season-long reason outranks the week's — an inactive
+// TE is never offered in any week, so the sentence names the position.
+test('F19: an excluded position is named before the week\'s injury', () => {
+  assert.equal(
+    notOfferedReason('Ivan Inactive', fixtureIdentity, fixtureOptions),
+    'Ivan Inactive (LAR · TE) is not offered: no calibrated market for TE');
 });
 
 test('F19: no projection on file is its own reason, and a priced-but-unpooled player is not called injured', () => {

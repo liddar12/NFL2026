@@ -61,6 +61,13 @@
   validator do; r58's resolver oracle skipped a TIED game's moneyline from the resolved count but never
   counted it unresolved (week 5's first tie); playoff_sos's round2 oracle emitted -0 where
   app/playoffs.js round() never does.
+- **R123 · F19's browser example agrees with the app's reason order (P1) — 2026-10-12.** data-ci
+  #152: the evening publish ruled Colby Parkinson (LAR TE) inactive, the first unpooled not-playable
+  player on file, so r90's derived example expected "not playable this week" for him. The app names
+  an excluded position first (`notOfferedReason`: the season's fact before the week's), and the box
+  rightly read "no calibrated market for TE". The weekly example is now taken only at a priced
+  position (QB / RB / WR; Joshua Palmer, BUF WR, OUT this week). No app change. **Locked by**
+  `r90_parlays_ux` (node: an inactive TE reads the position reason; browser F19). · **LOE** 0.05 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
