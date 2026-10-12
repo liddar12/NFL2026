@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 5,
-  "generated_utc": "2026-10-12T22:41:46Z",
-  "pool_generated_utc": "2026-10-12T22:41:46Z",
+  "generated_utc": "2026-10-12T23:20:46Z",
+  "pool_generated_utc": "2026-10-12T23:20:46Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -435,6 +435,14 @@
       "cards_seen": 12,
       "cards_added": 0,
       "locked_added": 0,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-10-12T23:20:46Z",
+      "week": 5,
+      "cards_seen": 12,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -491911,6 +491919,59 @@
       "first_seen_utc": "2026-10-11T23:32:14Z",
       "locked": true,
       "locked_utc": "2026-10-11T23:32:14Z"
+    },
+    {
+      "card_id": "34c1792b21eb",
+      "dial": "even",
+      "seed": "BUF",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.3502,
+      "implied": 0.2967,
+      "ev": 0.1801,
+      "tier": "medium",
+      "payout": 237.01,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-10-13T00:15Z",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "J. Allen 225+ pass yds",
+          "game_id": "401872994",
+          "team": "BUF",
+          "side": "away",
+          "player": "Josh Allen",
+          "gsis_id": "espn-3918298",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 190.84,
+          "model_prob": 0.5353,
+          "implied_prob": 0.5594,
+          "price_source": "assumed",
+          "priced": false
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "K. Shakir 50+ rec yds",
+          "game_id": "401872994",
+          "team": "BUF",
+          "side": "away",
+          "player": "Khalil Shakir",
+          "gsis_id": "espn-4373678",
+          "position": "WR",
+          "line": 49.5,
+          "mu": 46.11,
+          "model_prob": 0.5076,
+          "implied_prob": 0.5304,
+          "price_source": "assumed",
+          "priced": false
+        }
+      ],
+      "first_seen_utc": "2026-10-12T23:20:46Z",
+      "locked": true,
+      "locked_utc": "2026-10-12T23:20:46Z"
     }
   ]
 }
