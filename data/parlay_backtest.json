@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-12T02:25:29Z",
+  "generated_utc": "2026-10-12T10:17:54Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -301,9 +301,9 @@
     ],
     "calibration": {
       "QB": {
-        "a": -0.092473,
-        "b": 1.021238,
-        "c": 1.081567,
+        "a": -0.084335,
+        "b": 0.990786,
+        "c": 1.082753,
         "fit_seasons": [
           2023,
           2024,
@@ -312,9 +312,9 @@
         ]
       },
       "RB": {
-        "a": -0.223879,
-        "b": 1.124924,
-        "c": 1.070661,
+        "a": -0.223318,
+        "b": 1.130724,
+        "c": 1.068627,
         "fit_seasons": [
           2023,
           2024,
@@ -323,9 +323,9 @@
         ]
       },
       "WR": {
-        "a": -0.20858,
-        "b": 0.998787,
-        "c": 0.477591,
+        "a": -0.206929,
+        "b": 1.000335,
+        "c": 0.47641,
         "fit_seasons": [
           2023,
           2024,
@@ -354,14 +354,14 @@
   },
   "live_2026": {
     "weeks": 5,
-    "legs_resolved": 213,
+    "legs_resolved": 216,
     "seed": {
-      "log_loss": 0.682,
-      "hit_rate": 0.5117
+      "log_loss": 0.6818,
+      "hit_rate": 0.5185
     },
     "calibrated": {
-      "log_loss": 0.665,
-      "hit_rate": 0.5117
+      "log_loss": 0.6681,
+      "hit_rate": 0.5185
     },
     "refit": {
       "applied": true,
@@ -372,9 +372,9 @@
         4,
         5
       ],
-      "reason": "refit adopted under never-regress \u2014 2025 held-out fold: refit 0.6700 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6641 <= current 0.6651"
+      "reason": "refit adopted under never-regress \u2014 2025 held-out fold: refit 0.6701 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6671 <= current 0.6687"
     },
-    "note": "213 locked prop leg(s) resolved over week(s) [1, 2, 3, 4, 5]; seed vs calibrated on the 213 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
+    "note": "216 locked prop leg(s) resolved over week(s) [1, 2, 3, 4, 5]; seed vs calibrated on the 216 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
   },
   "correlations": {
     "pairs": [
