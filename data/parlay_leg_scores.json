@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-12T02:27:37Z",
+  "generated_utc": "2026-10-12T05:33:30Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (76 games); scores from data/review.json FINAL rows (77 games); scores from ESPN live, STATUS-gated FINAL (77 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (77 games); scores from data/review.json FINAL rows (77 games); scores from ESPN live, STATUS-gated FINAL (78 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 5,
@@ -10,83 +10,83 @@
     "on_file": 596,
     "locked": 451,
     "unlocked": 145,
-    "resolved": 405,
-    "unresolved": 37
+    "resolved": 413,
+    "unresolved": 34
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 213,
-      "hit_rate": 0.5117,
+      "n": 216,
+      "hit_rate": 0.5185,
       "model": {
-        "log_loss": 0.665,
-        "brier": 0.2362
+        "log_loss": 0.6681,
+        "brier": 0.2374
       },
       "seed": {
-        "log_loss": 0.682,
-        "brier": 0.2445
+        "log_loss": 0.6818,
+        "brier": 0.2444
       },
       "by_pricing": {
-        "calibrated": 213
+        "calibrated": 216
       }
     },
     "moneyline": {
-      "n": 80,
-      "hit_rate": 0.6125,
-      "log_loss": 0.6428,
-      "brier": 0.2264
+      "n": 81,
+      "hit_rate": 0.6049,
+      "log_loss": 0.6442,
+      "brier": 0.2271
     },
     "spread": {
-      "n": 112,
-      "hit_rate": 0.4286,
+      "n": 116,
+      "hit_rate": 0.4138,
       "log_loss": 0.6931,
       "brier": 0.25
     }
   },
   "by_position": {
     "QB": {
-      "n": 69,
-      "hit_rate": 0.5072,
+      "n": 70,
+      "hit_rate": 0.5143,
       "model": {
-        "log_loss": 0.693,
-        "brier": 0.2498
+        "log_loss": 0.7062,
+        "brier": 0.2554
       },
       "seed": {
-        "log_loss": 0.662,
-        "brier": 0.2345
+        "log_loss": 0.6621,
+        "brier": 0.2346
       },
       "by_pricing": {
-        "calibrated": 69
+        "calibrated": 70
       }
     },
     "RB": {
-      "n": 72,
-      "hit_rate": 0.4861,
+      "n": 73,
+      "hit_rate": 0.4932,
       "model": {
-        "log_loss": 0.6497,
-        "brier": 0.2288
+        "log_loss": 0.647,
+        "brier": 0.2275
       },
       "seed": {
-        "log_loss": 0.6803,
+        "log_loss": 0.6801,
         "brier": 0.2436
       },
       "by_pricing": {
-        "calibrated": 72
+        "calibrated": 73
       }
     },
     "WR": {
-      "n": 72,
-      "hit_rate": 0.5417,
+      "n": 73,
+      "hit_rate": 0.5479,
       "model": {
-        "log_loss": 0.6534,
-        "brier": 0.2305
+        "log_loss": 0.6527,
+        "brier": 0.2301
       },
       "seed": {
-        "log_loss": 0.7028,
-        "brier": 0.2548
+        "log_loss": 0.7024,
+        "brier": 0.2546
       },
       "by_pricing": {
-        "calibrated": 72
+        "calibrated": 73
       }
     }
   },
@@ -214,29 +214,29 @@
     {
       "week": 5,
       "props": {
-        "n": 40,
-        "hit_rate": 0.45,
+        "n": 43,
+        "hit_rate": 0.4884,
         "model": {
-          "log_loss": 0.6581,
-          "brier": 0.2318
+          "log_loss": 0.6743,
+          "brier": 0.2384
         },
         "seed": {
-          "log_loss": 0.6825,
-          "brier": 0.2447
+          "log_loss": 0.6817,
+          "brier": 0.2443
         },
         "by_pricing": {
-          "calibrated": 40
+          "calibrated": 43
         }
       },
       "moneyline": {
-        "n": 13,
-        "hit_rate": 0.6923,
-        "log_loss": 0.6114,
-        "brier": 0.2108
+        "n": 14,
+        "hit_rate": 0.6429,
+        "log_loss": 0.6214,
+        "brier": 0.2157
       },
       "spread": {
-        "n": 26,
-        "hit_rate": 0.5385,
+        "n": 30,
+        "hit_rate": 0.4667,
         "log_loss": 0.6931,
         "brier": 0.25
       }
@@ -465,27 +465,6 @@
       "game_id": "401872990",
       "market": "rb_rush_yds",
       "selection": "J. Jacobs 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 5,
-      "game_id": "401872993",
-      "market": "qb_pass_yds",
-      "selection": "M. Penix Jr. 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 5,
-      "game_id": "401872993",
-      "market": "rb_rush_yds",
-      "selection": "B. Robinson 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 5,
-      "game_id": "401872993",
-      "market": "wr_rec_yds",
-      "selection": "D. London 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -7429,6 +7408,138 @@
       "model_prob": 0.6588,
       "seed_prob": 0.5258,
       "actual": 102.0,
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "moneyline",
+      "selection": "ATL ML",
+      "team": "ATL",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5287,
+      "actual": {
+        "home_score": 23,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "M. Penix Jr. 225+ pass yds",
+      "player": "Michael Penix Jr.",
+      "team": "ATL",
+      "line": 224.5,
+      "mu": 129.52,
+      "sd": 76.66,
+      "z": -1.239,
+      "p_team": 0.5287,
+      "pricing": "calibrated",
+      "model_prob": 0.1991,
+      "seed_prob": 0.5115,
+      "actual": 240.0,
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "B. Robinson 60+ rush yds",
+      "player": "Bijan Robinson",
+      "team": "ATL",
+      "line": 59.5,
+      "mu": 85.89,
+      "sd": 38.87,
+      "z": 0.679,
+      "p_team": 0.5287,
+      "pricing": "calibrated",
+      "model_prob": 0.6355,
+      "seed_prob": 0.5115,
+      "actual": 86.0,
+      "hit": true
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "spread",
+      "selection": "ATL +1.5",
+      "team": "ATL",
+      "side": "home",
+      "line": 1.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 23,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "spread",
+      "selection": "ATL +2.5",
+      "team": "ATL",
+      "side": "home",
+      "line": 2.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 23,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "spread",
+      "selection": "ATL -3",
+      "team": "ATL",
+      "side": "home",
+      "line": -3.0,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 23,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "spread",
+      "selection": "ATL -3.5",
+      "team": "ATL",
+      "side": "home",
+      "line": -3.5,
+      "model_prob": 0.5,
+      "actual": {
+        "home_score": 23,
+        "away_score": 30
+      },
+      "hit": false
+    },
+    {
+      "week": 5,
+      "game_id": "401872993",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "D. London 60+ rec yds",
+      "player": "Drake London",
+      "team": "ATL",
+      "line": 59.5,
+      "mu": 76.83,
+      "sd": 41.58,
+      "z": 0.4166,
+      "p_team": 0.5287,
+      "pricing": "calibrated",
+      "model_prob": 0.548,
+      "seed_prob": 0.5115,
+      "actual": 118.0,
       "hit": true
     }
   ]
