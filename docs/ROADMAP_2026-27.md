@@ -68,6 +68,14 @@
   rightly read "no calibrated market for TE". The weekly example is now taken only at a priced
   position (QB / RB / WR; Joshua Palmer, BUF WR, OUT this week). No app change. **Locked by**
   `r90_parlays_ux` (node: an inactive TE reads the position reason; browser F19). · **LOE** 0.05 d
+- **R124 · Four oracles meet the first four-team bye week (P1) — 2026-10-13.** data-ci #156-#159,
+  red from the week-6 roll (03:01Z): r86 / r87's "full league" floor was a pinned 30, and week 6
+  schedules 28 (CIN, DET, MIA, MIN on bye) — the floor is now the week's scheduled teams less the
+  owner-excluded; r75's current-week line test (R121) clicked the RETROSPECTIVE panel before its
+  "no grades yet" skip, and from Monday night to Thursday that panel is rightly absent — the skip now
+  comes first; REL17's forced-start fixture took the feed's first two RBs, and Gibbs (DET) is on
+  bye in the week Lineup opens on — a bye is not a forced start — so it now takes the first two with
+  a game that week. No app change. **Locked by** the same four tests. · **LOE** 0.1 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses

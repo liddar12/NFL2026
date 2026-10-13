@@ -233,8 +233,12 @@ test('the Python mirror offers the same cards as the browser, number for number'
     // R119 — both teams of a game on the owner's excluded list seed nothing.
     const excludedTeams = 2 * readJson('config/excluded_games.json').games
       .filter((g) => Number(g.season) === Number(pool.season) && Number(g.week) === Number(pool.week)).length;
-    assert.ok(teams.length >= 30 - excludedTeams,
-      `${teams.length} team seeds — expected the full league less ${excludedTeams} owner-excluded`);
+    // R124 — the full league is the week's slate, not a pinned 30: week 6 has
+    // four teams on bye (CIN, DET, MIA, MIN), 28 scheduled (data-ci #156).
+    const slateTeams = new Set(games.filter((g) => Number(g.week) === Number(pool.week))
+      .flatMap((g) => [g.home, g.away])).size;
+    assert.ok(teams.length >= slateTeams - excludedTeams,
+      `${teams.length} team seeds — expected this week's ${slateTeams} scheduled teams less ${excludedTeams} owner-excluded`);
     committed = { pool: join(ROOT, 'data/leg_pool.json'),
       schedule: join(ROOT, 'data/schedule_full.json') };
 
