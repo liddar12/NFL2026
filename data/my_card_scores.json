@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-13T10:56:31Z",
+  "generated_utc": "2026-10-13T17:36:06Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (78 games); scores from data/review.json FINAL rows (79 games); scores from ESPN live, STATUS-gated FINAL (63 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108)",
@@ -376,28 +376,28 @@
       "week": 5,
       "n_cards": 5514,
       "locked": 5514,
-      "graded": 5510,
-      "pending": 4,
+      "graded": 5514,
+      "pending": 0,
       "buckets": {
         "all_hit": 246,
-        "push": 540,
+        "push": 544,
         "partial": 3591,
         "all_missed": 1133,
-        "pending": 4
+        "pending": 0
       },
       "by_dial": {
         "safe": {
           "n": 1654,
-          "graded": 1650,
+          "graded": 1654,
           "all_hit": 96,
-          "hit_rate": 0.0582,
-          "mean_model": 0.2873,
-          "log_loss": 0.3858,
-          "brier": 0.1113,
-          "staked": 165000.0,
-          "net_fair": 70274.86,
-          "net_vig2": 53220.65,
-          "roi_fair": 0.4259
+          "hit_rate": 0.058,
+          "mean_model": 0.2874,
+          "log_loss": 0.386,
+          "brier": 0.1114,
+          "staked": 165400.0,
+          "net_fair": 71648.28,
+          "net_vig2": 54506.33,
+          "roi_fair": 0.4332
         },
         "even": {
           "n": 1895,
@@ -429,16 +429,16 @@
       "by_legs": {
         "2": {
           "n": 785,
-          "graded": 783,
+          "graded": 785,
           "all_hit": 94,
-          "hit_rate": 0.1201,
-          "mean_model": 0.3732,
-          "log_loss": 0.5374,
-          "brier": 0.1769,
-          "staked": 78300.0,
-          "net_fair": -26706.12,
-          "net_vig2": -28262.87,
-          "roi_fair": -0.3411
+          "hit_rate": 0.1197,
+          "mean_model": 0.3734,
+          "log_loss": 0.5377,
+          "brier": 0.1771,
+          "staked": 78500.0,
+          "net_fair": -26524.3,
+          "net_vig2": -28088.53,
+          "roi_fair": -0.3379
         },
         "3": {
           "n": 1011,
@@ -455,29 +455,29 @@
         },
         "4": {
           "n": 1123,
-          "graded": 1122,
+          "graded": 1123,
           "all_hit": 47,
           "hit_rate": 0.0419,
           "mean_model": 0.1612,
           "log_loss": 0.2441,
           "brier": 0.0599,
-          "staked": 112200.0,
-          "net_fair": -11732.1,
-          "net_vig2": -18153.87,
-          "roi_fair": -0.1046
+          "staked": 112300.0,
+          "net_fair": -11136.3,
+          "net_vig2": -17598.2,
+          "roi_fair": -0.0992
         },
         "5": {
           "n": 1248,
-          "graded": 1247,
+          "graded": 1248,
           "all_hit": 21,
           "hit_rate": 0.0168,
-          "mean_model": 0.1014,
-          "log_loss": 0.1481,
+          "mean_model": 0.1015,
+          "log_loss": 0.1482,
           "brier": 0.0292,
-          "staked": 124700.0,
-          "net_fair": -12947.54,
-          "net_vig2": -21624.28,
-          "roi_fair": -0.1038
+          "staked": 124800.0,
+          "net_fair": -12351.74,
+          "net_vig2": -21068.61,
+          "roi_fair": -0.099
         },
         "6": {
           "n": 1347,
@@ -496,20 +496,20 @@
     },
     {
       "week": 6,
-      "n_cards": 1177,
-      "locked": 1177,
+      "n_cards": 1995,
+      "locked": 1995,
       "graded": 0,
-      "pending": 1177,
+      "pending": 1995,
       "buckets": {
         "all_hit": 0,
         "push": 0,
         "partial": 0,
         "all_missed": 0,
-        "pending": 1177
+        "pending": 1995
       },
       "by_dial": {
         "safe": {
-          "n": 318,
+          "n": 582,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -522,7 +522,7 @@
           "roi_fair": null
         },
         "even": {
-          "n": 479,
+          "n": 753,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -535,7 +535,7 @@
           "roi_fair": null
         },
         "longshot": {
-          "n": 380,
+          "n": 660,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -550,7 +550,7 @@
       },
       "by_legs": {
         "2": {
-          "n": 204,
+          "n": 358,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -563,7 +563,7 @@
           "roi_fair": null
         },
         "3": {
-          "n": 218,
+          "n": 380,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -576,7 +576,7 @@
           "roi_fair": null
         },
         "4": {
-          "n": 238,
+          "n": 404,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -589,7 +589,7 @@
           "roi_fair": null
         },
         "5": {
-          "n": 256,
+          "n": 424,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -602,7 +602,7 @@
           "roi_fair": null
         },
         "6": {
-          "n": 261,
+          "n": 429,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -410265,7 +410265,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -412969,7 +412969,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         }
       ],
@@ -413890,7 +413890,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -415753,7 +415753,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         }
       ],
@@ -416406,7 +416406,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -416761,7 +416761,7 @@
         {
           "selection": "D. Moore 50+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -505066,7 +505066,7 @@
         {
           "selection": "J. Palmer 30+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -505124,7 +505124,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -505357,7 +505357,7 @@
         {
           "selection": "J. Palmer 30+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -505836,7 +505836,7 @@
         {
           "selection": "J. Palmer 30+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -505918,7 +505918,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -506041,7 +506041,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -506205,7 +506205,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -506657,7 +506657,7 @@
         {
           "selection": "J. Palmer 30+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -507616,7 +507616,7 @@
         {
           "selection": "J. Palmer 30+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -507816,7 +507816,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -567309,7 +567309,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -569156,7 +569156,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -569209,7 +569209,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -570278,7 +570278,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -572125,7 +572125,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -572178,7 +572178,7 @@
         {
           "selection": "D. Moore 60+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -588262,6 +588262,35 @@
       }
     },
     {
+      "card_id": "ffaa3959559a",
+      "week": 5,
+      "dial": "safe",
+      "seed": "BUF",
+      "n_legs": 2,
+      "model": 0.4903,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Allen 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 210.0
+        },
+        {
+          "selection": "J. Palmer 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "void",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": 90.91,
+        "net_vig2": 87.17,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "2f3b7b2c0de4",
       "week": 5,
       "dial": "safe",
@@ -588303,7 +588332,7 @@
         {
           "selection": "D. Moore 20+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -588409,6 +588438,35 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "3f75517edc91",
+      "week": 5,
+      "dial": "safe",
+      "seed": "BUF",
+      "n_legs": 2,
+      "model": 0.4696,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Allen 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 210.0
+        },
+        {
+          "selection": "D. Moore 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "void",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": 90.91,
+        "net_vig2": 87.17,
         "assumed_price_legs": 2
       }
     },
@@ -588641,7 +588699,7 @@
         {
           "selection": "D. Moore 20+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
@@ -589007,7 +589065,7 @@
         {
           "selection": "J. Palmer 20+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         }
       ],
@@ -589266,6 +589324,47 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "4ebe084a2209",
+      "week": 5,
+      "dial": "safe",
+      "seed": "BUF",
+      "n_legs": 4,
+      "model": 0.2395,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Allen 200+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 210.0
+        },
+        {
+          "selection": "D. Moore 40+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "void",
+          "actual": null
+        },
+        {
+          "selection": "M. Penix Jr. 125+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 240.0
+        },
+        {
+          "selection": "D. London 70+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 118.0
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
         "assumed_price_legs": 4
       }
     },
@@ -589555,6 +589654,53 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "5cd410f61fd3",
+      "week": 5,
+      "dial": "safe",
+      "seed": "BUF",
+      "n_legs": 5,
+      "model": 0.1919,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Moore 20+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "void",
+          "actual": null
+        },
+        {
+          "selection": "J. Smith-Njigba 70+ rec yds",
+          "market": "wr_rec_yds",
+          "result": "hit",
+          "actual": 102.0
+        },
+        {
+          "selection": "S. Darnold 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 195.0
+        },
+        {
+          "selection": "J. Allen 175+ pass yds",
+          "market": "qb_pass_yds",
+          "result": "hit",
+          "actual": 210.0
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "result": "void",
+          "actual": null
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 4
       }
     },
     {
@@ -590306,7 +590452,7 @@
         {
           "selection": "J. Palmer 20+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         }
       ],
@@ -590780,7 +590926,7 @@
         {
           "selection": "J. Palmer 20+ rec yds",
           "market": "wr_rec_yds",
-          "result": "pending",
+          "result": "void",
           "actual": null
         },
         {
