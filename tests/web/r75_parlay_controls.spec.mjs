@@ -315,14 +315,18 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
   // falls back to the week's archive, and the line equals the oracle's money.
   test('the current week\'s P&L line is the oracle\'s money, never "unavailable"', async ({ page }) => {
     const errors = errorsOf(page);
+    // R124 — decided BEFORE mounting: from Monday night to Thursday the week the
+    // pipeline rolled to has no grades, so the RETROSPECTIVE panel is correctly
+    // absent (r90 locks that) and there is nothing to open (data-ci #156).
+    const graded = ['game', 'week'].filter((scope) => { const f = footer(CUR, scope); return f && f.graded; });
+    test.skip(graded.length === 0, 'no graded parlays in the current week yet');
     await mount(page);
     // the line lives in the RETROSPECTIVE panel; opening it is what prices the
     // off-slate rows (a cold load stays inside the contract budget)
     await page.locator('#parlay-retro summary').click();
     let checked = 0;
-    for (const scope of ['game', 'week']) {
+    for (const scope of graded) {
       const f = footer(CUR, scope);
-      if (!f || !f.graded) continue;
       await page.click(`.scopeseg [data-seg="${scope}"]`);
       const line = page.locator('#parlay-pnl .rv-pnl-line');
       await expect(line).toContainText(`WEEK ${CUR}`, { timeout: 20000 });
@@ -334,7 +338,7 @@ test.describe('R75 — PARLAYS tier filter, sort and the $100 figure', () => {
       expect(Math.abs(shown - f.net_fair)).toBeLessThanOrEqual(1);
       checked += 1;
     }
-    test.skip(checked === 0, 'no graded parlays in the current week yet');
+    expect(checked).toBe(graded.length);
     expect(errors).toEqual([]);
   });
 });

@@ -1554,7 +1554,19 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
   });
 
   test('a FORCED start is filled, flagged, and never called "optimal"', async ({ page }) => {
-    const { qb, rb, wr, te, nameOf } = seedAvail();
+    const { qb, wr, te, nameOf } = seedAvail();
+    // R124 — both backs must have a GAME in the week Lineup opens on (the
+    // game_predictions week): a back on bye scores 0 as a bye, not as a forced
+    // start. Week 6 put the feed's second RB (Gibbs, DET) on bye and left one
+    // banner of two (data-ci #156).
+    const wkNow = Number(readData('game_predictions.json').week);
+    const weeklyById = new Map(readData('player_weekly.json').players.map((p) => [String(p.gsis_id), p]));
+    const rb = readData('player_projections.json').players
+      .filter((p) => String(p.position).toUpperCase() === 'RB')
+      .map((p) => String(p.gsis_id))
+      .filter((id) => ((weeklyById.get(id) || {}).weeks || []).some((w) => Number(w.wk) === wkNow && !w.bye))
+      .slice(0, 2);
+    expect(rb.length).toBe(2);
     // Both rostered RBs are on IR in the same week and there is no RB behind them.
     await withWeekly(page, (doc) => {
       flag(doc, rb[0], SEASON_IR, 'all');
