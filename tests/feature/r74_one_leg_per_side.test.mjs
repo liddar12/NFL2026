@@ -83,11 +83,27 @@ test('a real slate rebuilt through the builder carries no stacked side', () => {
     return existsSync(path) ? (load(path).parlays || []) : [];
   };
   const cards = [...doc.parlays, ...archiveOf(doc.week), ...archiveOf(doc.week - 1)];
-  const spreads = cards
+  // R126 — a curated spread is now a FALLBACK (a game that cannot field three pairs
+  // without it), so a whole slate can legitimately carry none. The demonstration then
+  // runs the builder's fallback path itself, which must put a spread on a card and
+  // still never stack it with that team's moneyline.
+  const fallback = JSON.parse(execFileSync('python3', ['-c', `
+import json, sys
+sys.path.insert(0, ".")
+from scripts.models.parlay_builder import build_game_parlays
+game = {"game_id": "r74", "home": "KC", "away": "DEN", "probs": {"home": 0.8, "away": 0.2}}
+market = {"spread": {"home_cover_prob": 0.5, "away_cover_prob": 0.5, "home_point": -7.5,
+                     "home_selection": "KC -7.5", "away_selection": "DEN +7.5"}}
+prop = {"market": "wr_rec_yds", "selection": "R. Rice 60+ rec yds", "model_prob": 0.55,
+        "_corr_tag": "wr_rec_yds", "_side": "home"}
+print(json.dumps(build_game_parlays(game, market=market, props=[prop])))
+`], { cwd: ROOT, encoding: 'utf8' }));
+  const spreads = [...cards, ...fallback]
     .flatMap((p) => p.legs)
     .filter((l) => l.market === 'spread').length;
   assert.ok(spreads > 0,
-    'no spread leg on the slate or its week archive — this file cannot demonstrate the rule holds');
+    'no spread leg on the slate, its archives or the fallback build — this file cannot demonstrate the rule holds');
+  cards.push(...fallback);
   const offenders = cards
     .map((p) => [p.parlay_id, stackedSides(p)])
     .filter(([, s]) => s.length > 0);
