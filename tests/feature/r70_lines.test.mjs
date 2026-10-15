@@ -144,7 +144,9 @@ print(json.dumps({"plain_keys": list(plain[0]), "rich": [(r["player"], r["positi
     ['Bare String Pos', 'DE', null, 'DOUBTFUL'],
   ]);
   const bp = read('scripts/build_predictions.py');
-  assert.match(bp, /espn\.fetch_injuries\(carry_positions=True\)/, 'build_predictions asks for them');
+  // Week-6 integration: the call also passes quarantine_unknown/return_document now;
+  // carry_positions=True is still what this test requires.
+  assert.match(bp, /espn\.fetch_injuries\(carry_positions=True[,)]/, 'build_predictions asks for them');
   assert.match(bp, /_dst\["position"\] = _src\.get\("position"\)/, 'and writes them through enrich_document');
   const schema = readJson('data/contracts/injuries.schema.json');
   const props = schema.properties.injuries.items.properties;
