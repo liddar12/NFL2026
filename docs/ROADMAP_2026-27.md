@@ -76,6 +76,13 @@
   comes first; REL17's forced-start fixture took the feed's first two RBs, and Gibbs (DET) is on
   bye in the week Lineup opens on — a bye is not a forced start — so it now takes the first two with
   a game that week. No app change. **Locked by** the same four tests. · **LOE** 0.1 d
+- **R125 · The injury feed reads ESPN's reserve/retired list (P0) — 2026-10-14.** Found by the
+  parlay-accuracy RCA: from daily #288 (2026-10-11 22:04Z) every run's `fetch_injuries` refused
+  all 800 rows on one unmapped status, "Reserve-Ret" (PHI Lane Johnson), so `data/injuries.json`
+  froze at 2026-10-11T20:10Z and every week-6 card and this-week gate read a 3-day-old report while
+  the stage table said ok. The spelling now maps to the IR season class (no snap, never ACTIVE);
+  the loud-on-unknown rule stays. Today's live ESPN payload replays to all 800 rows. **Locked by**
+  `availability.py --selftest`, `availability.test.mjs` (red without the line). · **LOE** 0.05 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
