@@ -84,7 +84,9 @@ from scripts.models.my_cards import LEG_COUNTS  # noqa: E402
 from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
 from scripts.resolve_parlay_legs import (  # noqa: E402
     ATD_MARKET, GAME_MARKETS, PROP_POSITION, SNAPS_URL, brier, find_player, grade_atd,
-    index_snaps, index_stats, index_td, load_finals, log_loss, read_csv, split_abbrev,
+    capture_snap_absence_unknown, capture_stat_fallback_blocked, captured_inputs,
+    index_snaps, index_stats, index_td, load_finals, log_loss,
+    read_csv, require_capture_games, require_capture_weeks, split_abbrev,
 )
 
 DATA = os.path.join(_ROOT, "data")
@@ -171,11 +173,15 @@ def snap_evidence(leg, week, snaps_by_week):
     full = norm_name(leg.get("player")) if leg.get("player") else None
     if full:
         mine = [r for r in rows if r["norm"] == full]
+        if capture_stat_fallback_blocked(snaps, full):
+            return None, None
     else:
         parsed = split_abbrev(leg.get("selection"))
         if parsed is None:
             return None, None
         ini, last = parsed
+        if capture_stat_fallback_blocked(snaps, ini + " " + last):
+            return None, None
         mine = [r for r in rows if len(r["norm"].split(" ")) >= 2
                 and r["norm"][0] == ini and " ".join(r["norm"].split(" ")[1:]) == last]
         if len({r["norm"] for r in mine}) > 1:
@@ -183,6 +189,8 @@ def snap_evidence(leg, week, snaps_by_week):
     played = [r for r in mine if r["snaps"] >= 1]
     if played:
         return "played", played[0]["snaps"]
+    if capture_snap_absence_unknown(snaps, team, full or (ini + " " + last)):
+        return None, None               # zero offense is not proof of no participation
     return "dnp", None
 
 
@@ -273,7 +281,7 @@ def fully_excluded(card, excluded):
         l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
 
 
-def grade_card(card, week, by_week, finals, atd=None, excluded=None):
+def grade_card(card, week, by_week, finals, atd=None, excluded=None, final_game_ids=None):
     """A graded card row: per-leg results, the card's result + bucket, and money.
     `atd` = {"td": index_td(...), "snaps": index_snaps(...)} grades anytime-TD legs
     (R101); without it an ATD leg stays pending, never a miss. R108 — a leg whose
@@ -286,6 +294,8 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
         market = leg.get("market")
         if leg.get("game_id") is not None and str(leg["game_id"]) in excluded:
             result, actual, reason = "void", None, EXCLUDED_REASON
+        elif final_game_ids is not None and str(leg.get("game_id")) not in final_game_ids:
+            result, actual, reason = "pending", None, "no_final"
         elif market == ATD_MARKET:
             result, actual, reason = (grade_atd(leg, week, atd.get("td"), atd.get("snaps"))
                                       if atd else ("pending", None, "no_td_index"))
@@ -484,7 +494,7 @@ def document(season, weeks, cards_rows, finals_source, skipped, generated_utc,
     }
 
 
-def score(rows, by_week, finals, atd=None, excluded=None):
+def score(rows, by_week, finals, atd=None, excluded=None, final_game_ids=None):
     """(week blocks, graded card rows) over [(week, card)] recorded cards.
     R108 — `excluded` (None = the owner's list) voids those games' legs, and a
     card made only of them is dropped before anything counts it: it is in no
@@ -499,7 +509,7 @@ def score(rows, by_week, finals, atd=None, excluded=None):
         for card in cards:
             if not card.get("locked"):
                 continue                       # counted, never scored
-            row = grade_card(card, week, by_week, finals, atd, excluded)
+            row = grade_card(card, week, by_week, finals, atd, excluded, final_game_ids)
             if row["result"] != "pending":
                 graded.append(row)
         weeks.append(week_block(week, cards, graded))
@@ -540,7 +550,13 @@ def _snaps(season, cache_dir, dry_run_csv, offline):
 
 
 def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_csv=None,
-        finals_path=None, cards_dir=CARDS_DIR, now=None):
+        finals_path=None, cards_dir=CARDS_DIR, now=None, evidence_capture=None):
+    captured = None
+    if evidence_capture is not None:
+        if cache_dir is not None or offline or dry_run_csv is not None or finals_path is not None:
+            raise ValueError("--evidence-capture cannot be combined with cache/offline/CSV/finals inputs")
+        captured = captured_inputs(evidence_capture, season)
+        season = captured["season"]
     if season is None:
         found = seasons_on_file(cards_dir)
         season = found[-1] if found else int(dt.datetime.now(dt.timezone.utc).year)
@@ -556,8 +572,20 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
     # The weeks whose finals matter: every week holding a locked game leg.
     game_weeks = sorted({w for w, c in rows if c.get("locked")
                          and any(l.get("market") in GAME_MARKETS for l in c.get("legs") or [])})
-    finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+    if captured is not None:
+        require_capture_weeks(captured, {int(w) for w, card in rows if card.get("locked")})
+        locked_legs = []
+        for week, card in rows:
+            if card.get("locked"):
+                for leg in card.get("legs") or []:
+                    if leg.get("week", week) != week:
+                        raise ValueError("recorded card leg week mismatch")
+                    locked_legs.append(dict(leg, week=week))
+        require_capture_games(captured, locked_legs)
+        finals, finals_source = captured["finals"], captured["source"]
+    else:
+        finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
+                                            offline=offline)
 
     if not rows:
         skipped = ("no recorded cards at %s yet -- scripts/build_my_cards.py writes them "
@@ -566,7 +594,9 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
         skipped = "no locked (pre-kickoff) card on file yet"
     else:
         csv_rows = None
-        if dry_run_csv:
+        if captured is not None:
+            csv_rows, source = captured["stats"], captured["source"]
+        elif dry_run_csv:
             csv_rows, source = read_csv(dry_run_csv), "dry run: %s" % dry_run_csv
         elif offline:
             skipped = "offline run: stats not fetched"
@@ -578,11 +608,14 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
             by_week = index_stats(csv_rows)
             atd = {"td": index_td(csv_rows), "snaps": None}
             # R106 — prop legs read the snap sheet too (did-not-play -> void).
-            if any(l.get("market") == ATD_MARKET or l.get("market") in PROP_POSITION
-                   for _, c in rows for l in c.get("legs") or []):
+            if captured is not None:
+                atd["snaps"] = captured["snap_index"]
+            elif any(l.get("market") == ATD_MARKET or l.get("market") in PROP_POSITION
+                     for _, c in rows for l in c.get("legs") or []):
                 atd["snaps"] = _snaps(season, cache_dir, dry_run_csv, offline)
 
-    weeks, graded = score(rows, by_week, finals, atd, excluded)
+    weeks, graded = score(rows, by_week, finals, atd, excluded,
+                         captured["final_game_ids"] if captured is not None else None)
     if rows and not graded and not skipped:
         skipped = "stats and finals reachable, but no recorded card has every leg resolved"
     doc = document(season, weeks, graded, finals_source, skipped, now, source=source,
@@ -804,15 +837,21 @@ def main(argv=None):
                          "(writes nothing unless --out is given)")
     ap.add_argument("--finals", metavar="JSON", default=None,
                     help="FINAL rows (game_id, home_score, away_score) for game legs")
+    ap.add_argument("--evidence-capture", metavar="JSON", default=None,
+                    help="verified immutable input capture; never fetch or use legacy fallbacks")
     ap.add_argument("--out", default=None, help="write the document here instead")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
+    if args.evidence_capture is not None and (args.cache_dir is not None or args.offline
+                                 or args.dry_run_with is not None or args.finals is not None):
+        ap.error("--evidence-capture is exclusive with --cache-dir/--offline/--dry-run-with/--finals")
     if args.selftest:
         selftest()
         return 0
     out_path = args.out or (None if args.dry_run_with else OUT_PATH)
     run(season=args.season, cache_dir=args.cache_dir, out_path=out_path,
-        offline=args.offline, dry_run_csv=args.dry_run_with, finals_path=args.finals)
+        offline=args.offline, dry_run_csv=args.dry_run_with, finals_path=args.finals,
+        evidence_capture=args.evidence_capture)
     return 0
 
 
