@@ -146,7 +146,8 @@ test('prop legs flow through build_game_parlays; same-game parlays stay small', 
     legsSeen.some((l) => propMarkets.has(l.market)),
     'at least one prop leg must surface in the game parlays',
   );
-  // The QB+WR pair is the strongest prop correlation (measured rho 0.32) and must appear.
+  // The QB+WR pair (measured rho 0.32) is among the three likeliest pairs here (R126 ranks
+  // by joint probability) and must appear.
   assert.ok(
     r.parlays.some((p) => {
       const mk = p.legs.map((l) => l.market).sort();

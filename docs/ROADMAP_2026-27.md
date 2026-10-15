@@ -88,6 +88,20 @@
   file was frozen; its selftest (smoke) and r91 G07 went red. Both "Suspension" (ignored by design,
   not an injury) and "Reserve-Ret" (IR -> Out) are now pinned. The fresh report moved week 6's
   status-gated players from 34 to 18: the stale report had been sitting players who are back.
+- **R126 · A game card is the pair most likely to hit; the flat spread is a fallback (P0, week 6) —
+  2026-10-15.** Owner: "fix to improve parlay accuracy" before TNF, then validate on the results.
+  From the parlay-accuracy RCA: `build_game_parlays` ranked pairs by |rho| first, which after R74
+  filled the slot with opposite-side pairs (a favourite's ML + the underdog's back: 7/34 hit vs
+  19/45 same-side), and it shipped the spread leg priced at exactly 0.5 on the model's favourite
+  (covered 48/119 legs in 2026, 382/797 games in 2023-25). Pairs now rank by joint model probability
+  (correlation included), and the spread is a candidate only when a game cannot field three
+  distinct pairs without it. Replayed on the frozen pre-kickoff game cards of weeks 1-5 (same
+  candidate legs, real results): 74/235 = 0.315 as built -> 83/233 = 0.356 (wk1 15/47 -> 11/44,
+  wk2-5 59/188 -> 72/185; within noise, so week 6 is the prospective test). On the week-6 slate:
+  12 spread legs and 7 negative-correlation cards leave; expected game-card hits by the model's
+  own prices 13.0 -> 14.2 of 42. Week cards are unchanged (already most-likely-first). **Locked
+  by** `r126_game_card_ranking` (red without the change), `r74` (fallback demonstration),
+  `parlay_props`. · **LOE** 0.2 d
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
