@@ -1081,10 +1081,94 @@ def _report_unmodeled_markets(markets_by_game):
         )
 
 
+def parlay_bet_key(card):
+    """Actual offered contract, ignoring rank/id, prices, probability and leg order."""
+    legs = []
+    for leg in card.get("legs") or []:
+        player = leg.get("gsis_id")
+        owner = ("player:" + str(player)) if player else " ".join(str(leg.get("selection", "")).split())
+        line = leg.get("line")
+        line = format(float(line), ".12g") if isinstance(line, (int, float)) else None
+        legs.append((str(leg.get("game_id") or card.get("game_id") or ""),
+                     str(leg.get("market") or ""), owner, line, leg.get("side"),
+                     leg.get("direction", "over" if player else None),
+                     leg.get("comparison_operator", "gte" if player else None)))
+    return (card.get("scope"), str(card.get("game_id") or ""),
+            tuple(sorted(legs, key=lambda row: json.dumps(row))))
+
+
+def _distinct_cards(cards):
+    kept, seen = [], set()
+    for card in cards:
+        key = parlay_bet_key(card)
+        if key not in seen:
+            kept.append(card)       # preserve the R126 choice, order and first id
+            seen.add(key)
+    return kept
+
+
+def parlay_coverage_problems(doc, game_ids, props_by_game=None):
+    """Current publication only: no duplicate filler; evidence-bound count exceptions.
+
+    Legacy full slates need no new metadata. A thin game must have zero supplied
+    eligible props and only distinct single game bets. This is candidate coverage,
+    not a claim that every player is injured or that an input feed is fresh.
+    """
+    game_ids = {str(g) for g in game_ids}
+    cards, problems = doc.get("parlays") or [], []
+    keys = [parlay_bet_key(card) for card in cards]
+    if len(set(keys)) != len(keys):
+        problems.append("duplicate actual bets in published parlays")
+    coverage = doc.get("candidate_coverage")
+    if coverage is not None and (not isinstance(coverage, dict)
+            or coverage.get("version") != "distinct_cards_v1"
+            or coverage.get("generated_utc") != doc.get("updated_utc")):
+        return problems + ["invalid or mismatched candidate coverage generation"]
+    coverage = coverage or {}
+    entries = coverage.get("game_shortfalls", [])
+    if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
+        return problems + ["invalid game shortfall records"]
+    by_id = {str(e.get("game_id")): e for e in entries}
+    if len(by_id) != len(entries):
+        problems.append("duplicate game shortfall records")
+    expected_ids = set()
+    for gid in sorted(game_ids):
+        mine = [c for c in cards if c.get("scope") == "game" and str(c.get("game_id")) == gid]
+        if len(mine) >= 3:
+            continue
+        expected_ids.add(gid)
+        reason = (by_id.get(gid) or {}).get("reason")
+        if reason not in ("no_eligible_prop_candidates", "prop_inputs_not_supplied"):
+            reason = "no_eligible_prop_candidates"
+        expected = {"game_id": gid, "target": 3, "candidate_prop_count": 0,
+                    "raw_cards": 3, "distinct_cards": len(mine),
+                    "duplicates_removed": 3 - len(mine), "shortfall": 3 - len(mine),
+                    "reason": reason}
+        if json.dumps(by_id.get(gid), sort_keys=True) != json.dumps(expected, sort_keys=True):
+            problems.append("game %s needs an exact, generation-bound shortfall record" % gid)
+        if props_by_game is not None and props_by_game.get(gid):
+            problems.append("game %s claims zero props despite supplied eligible prop candidates" % gid)
+        if not 1 <= len(mine) <= 2 or any(len(c.get("legs") or []) != 1
+                or c["legs"][0].get("market") not in ("moneyline", "spread") for c in mine):
+            problems.append("game %s shortfall is not explained by zero prop candidates" % gid)
+    if set(by_id) != expected_ids:
+        problems.append("game shortfall records do not match the current thin games")
+    week_n = sum(c.get("scope") == "week" for c in cards)
+    expected_week = None
+    if week_n < 3:
+        expected_week = {"target": 3, "slate_games": len(game_ids), "distinct_cards": week_n,
+                         "shortfall": 3 - week_n, "reason": "insufficient_distinct_games"}
+        if len(game_ids) >= 3 or week_n != (1 if len(game_ids) == 2 else 0):
+            problems.append("week shortfall is not explained by the number of slate games")
+    if json.dumps(coverage.get("week_shortfall"), sort_keys=True) != json.dumps(expected_week, sort_keys=True):
+        problems.append("week shortfall record is missing or inconsistent")
+    return problems
+
+
 def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
                   calibration_path=DEFAULT_CALIBRATION_PATH,
-                  excluded_path=EXCLUDED_GAMES_PATH):
-    """Build the full parlay list for a slate: >=3 per game AND >=3 for the week.
+                  excluded_path=EXCLUDED_GAMES_PATH, coverage=None):
+    """Build distinct cards: target >=3 per game/week, report infeasible shortfalls.
 
     game_preds      : list of records from game_model.predict_game.
     markets_by_game : optional {game_id: market dict} of real lines.
@@ -1093,8 +1177,8 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
     excluded_path   : config/excluded_games.json (R108 — the owner's list).
 
     Week parlays are bucketed by leg count (2..7) via build_week_parlays_multi so the
-    UI can offer a leg-count selector. If a (tiny) slate cannot yield >=3 week parlays
-    that way, fall back to the 2-leg week builder so the >=3/week invariant still holds.
+    UI can offer a leg-count selector. A tiny slate is never padded with repeated
+    bets. The document wrapper records exact generation-bound count shortfalls.
 
     R108 — a game on the owner's excluded list is dropped from `game_preds` BEFORE
     anything is built, so it gets no game-scope card and supplies no week leg (its
@@ -1114,6 +1198,7 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
         game_preds = [gp for gp in game_preds
                       if not is_excluded(gp.get("game_id"), excluded_path)]
     markets_by_game = markets_by_game or {}
+    props_supplied = props_by_game is not None
     props_by_game = props_by_game or {}
     _report_unmodeled_markets(markets_by_game)
     if load_calibration(calibration_path) is None:
@@ -1122,18 +1207,38 @@ def build_parlays(game_preds, markets_by_game=None, props_by_game=None,
               "and stamped." % calibration_path, file=sys.stderr)
 
     parlays = []
+    game_shortfalls = []
     for gp in game_preds:
         gid = gp.get("game_id", "GAME")
-        parlays.extend(build_game_parlays(
+        raw = build_game_parlays(
             gp,
             market=markets_by_game.get(gid),
             props=props_by_game.get(gid),
             calibration_path=calibration_path,
-        ))
-    week = build_week_parlays_multi(game_preds, markets_by_game=markets_by_game)
-    if sum(1 for p in week if p.get("scope") == "week") < 3:
-        week = build_week_parlays(game_preds, markets_by_game=markets_by_game)
+        )
+        distinct = _distinct_cards(raw)
+        parlays.extend(distinct)
+        if len(distinct) < 3:
+            item = {"game_id": str(gid), "target": 3,
+                    "candidate_prop_count": len(props_by_game.get(gid) or []),
+                    "raw_cards": len(raw), "distinct_cards": len(distinct),
+                    "duplicates_removed": len(raw) - len(distinct),
+                    "shortfall": 3 - len(distinct),
+                    "reason": "no_eligible_prop_candidates" if props_supplied else "prop_inputs_not_supplied"}
+            game_shortfalls.append(item)
+            print("parlay_builder: game %s has %d distinct card(s), %d eligible prop candidates; "
+                  "%d duplicate filler card(s) withheld" % (gid, len(distinct),
+                  item["candidate_prop_count"], item["duplicates_removed"]), file=sys.stderr)
+    week = _distinct_cards(build_week_parlays_multi(game_preds, markets_by_game=markets_by_game))
     parlays.extend(week)
+    week_shortfall = None
+    if len(week) < 3:
+        week_shortfall = {"target": 3, "slate_games": len(game_preds), "distinct_cards": len(week),
+                          "shortfall": 3 - len(week), "reason": "insufficient_distinct_games"}
+        print("parlay_builder: %d slate game(s) yield %d distinct week card(s); "
+              "no duplicate filler" % (len(game_preds), len(week)), file=sys.stderr)
+    if coverage is not None:
+        coverage.update({"game_shortfalls": game_shortfalls, "week_shortfall": week_shortfall})
     return parlays
 
 
@@ -1146,7 +1251,8 @@ def build_parlays_document(game_preds, season, week, as_of_utc,
     as_of_utc : caller-supplied fixed ISO-8601 timestamp (NO wall-clock here — the
                 pipeline passes a deterministic value so outputs are reproducible).
     """
-    return {
+    coverage = {"version": "distinct_cards_v1", "generated_utc": as_of_utc}
+    doc = {
         "season": int(season),
         "week": int(week),
         "updated_utc": as_of_utc,
@@ -1156,5 +1262,12 @@ def build_parlays_document(game_preds, season, week, as_of_utc,
             props_by_game=props_by_game,
             calibration_path=calibration_path,
             excluded_path=excluded_path,
+            coverage=coverage,
         ),
+        "candidate_coverage": coverage,
     }
+    ids = [g.get("game_id", "GAME") for g in game_preds if not is_excluded(g.get("game_id"), excluded_path)]
+    problems = parlay_coverage_problems(doc, ids, props_by_game or {})
+    if problems:
+        raise ValueError("invalid parlay candidate coverage: " + "; ".join(problems))
+    return doc

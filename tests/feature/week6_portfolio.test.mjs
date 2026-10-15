@@ -30,6 +30,14 @@ test('mixed vintages, opposite sides, invalid p and same-game props never fake i
   assert.equal(mismatch.reason, 'selection_event_mismatch');
 });
 
+test('shared selection text does not claim a verified shared game when event evidence is missing', () => {
+  const risk = summarizePortfolio([{ legs: [leg('A', .8)] }, { legs: [leg('A', .8)] }], [], 6);
+  assert.equal(risk.pZeroWinners, null);
+  assert.equal(risk.reason, 'event_identity_unverified');
+  assert.match(renderPortfolioRisk(risk), /2\/2 share one selection/);
+  assert.doesNotMatch(renderPortfolioRisk(risk), /share one game/);
+});
+
 test('Python and browser agree on the committed offered Week set without changing it', () => {
   const doc = JSON.parse(readFileSync(new URL('../../data/parlays.json', import.meta.url), 'utf8'));
   const sched = JSON.parse(readFileSync(new URL('../../data/schedule_full.json', import.meta.url), 'utf8'));

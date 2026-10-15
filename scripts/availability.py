@@ -158,6 +158,88 @@ def norm_name(name):
     return " ".join(str(name or "").replace(".", "").lower().split())
 
 
+def _espn_id(record):
+    """Canonical ESPN identity, without treating a display name as an ID."""
+    pid = str(record.get("gsis_id") or "")
+    return pid[5:] if pid.startswith("espn-") else str(
+        record.get("athlete_id") or record.get("espn_id") or "")
+
+
+def quarantine_scope(records, quarantine):
+    """Resolve unknown statuses to the smallest defensible recommendation scope.
+
+    IDs win even when names/teams disagree. Without an ID, an exact team/name
+    match wins, then an unambiguous name-only mover match. Ambiguous names do
+    not identify a player: all possible matches are withheld explicitly. A
+    team-only row affects that team, not the league; only a row with no usable
+    identity or team makes the entire source unverified.
+    """
+    players, teams, unidentified = {}, set(), False
+    records = list(records or [])
+    for row in quarantine or []:
+        eid = str(row.get("athlete_id") or "")
+        name, team = norm_name(row.get("player")), row.get("team")
+        if eid:
+            matches = [p for p in records if _espn_id(p) == eid]
+            detail = "quarantined_status"
+        elif name:
+            named = [p for p in records if norm_name(p.get("name")) == name]
+            exact = [p for p in named if team and p.get("team") == team]
+            matches = exact or named
+            # Repeated report rows for one athlete are not distinct identities.
+            identities = {_espn_id(p) or (p.get("team"), norm_name(p.get("name")))
+                          for p in matches}
+            detail = "quarantined_status" if len(identities) <= 1 else "ambiguous_quarantine"
+        elif team:
+            teams.add(team)
+            matches = [p for p in records if p.get("team") == team]
+            detail = "quarantined_team"
+        else:
+            unidentified = True
+            matches = []
+            detail = "unidentified_quarantine"
+        for p in matches:
+            # Team-level uncertainty dominates a row-level explanation, independent
+            # of source ordering. No medical status or projection is fabricated.
+            pid = p.get("gsis_id")
+            if pid is not None and players.get(pid) != "quarantined_team":
+                players[pid] = detail
+    return {"players": players, "teams": teams, "unidentified": unidentified}
+
+
+def quarantine_inputs(records, document):
+    """Return (scope, trustworthy rows) for this exact consumer pool.
+
+    Record-level exclusions are also required: a second, understood name-only
+    row must not reintroduce an OUT/IR discount for an ID-quarantined athlete.
+    The caller retains the full pool for duplicate-name guards when applying
+    the remaining report; it skips scoped records rather than shrinking the pool.
+    """
+    document = document or {}
+    quarantine = document.get("quarantine") or []
+    scope = quarantine_scope(records, quarantine)
+    rows = document.get("injuries") or []
+    report_records = [dict(row, gsis_id="report:%s" % i, name=row.get("player"))
+                      for i, row in enumerate(rows)]
+    report_scope = quarantine_scope(report_records, quarantine)
+    # A canonical-ID quarantine can coexist with an older valid row that lost
+    # its ID. Resolve that row against the full pool, not the quarantined subset:
+    # otherwise filtering would turn a namesake into a false unique match.
+    for i, row in enumerate(rows):
+        if row.get("athlete_id"):
+            continue
+        name = norm_name(row.get("player"))
+        named = [p for p in records if norm_name(p.get("name")) == name]
+        exact = [p for p in named if row.get("team") and p.get("team") == row.get("team")]
+        matches = exact or named
+        if matches and all(p.get("gsis_id") in scope["players"] for p in matches):
+            report_scope["players"]["report:%s" % i] = "quarantined_status"
+    filtered = [] if scope["unidentified"] else [
+        row for i, row in enumerate(rows)
+        if "report:%s" % i not in report_scope["players"]]
+    return scope, filtered
+
+
 def enrich(row):
     """One data/injuries.json row -> the same row plus the Rel17 availability fields.
 
@@ -334,7 +416,7 @@ def lookup_report(index, by_name, team, name, ambiguous=frozenset()):
     return by_name.get(n)
 
 
-def apply_to_records(records, index, by_name=None):
+def apply_to_records(records, index, by_name=None, excluded_ids=frozenset()):
     """Stamp the canonical `injury_status` onto player records IN PLACE.
 
     `records` are espn_players.build_player_records rows ({team, name, ...}); they
@@ -353,6 +435,8 @@ def apply_to_records(records, index, by_name=None):
     n = 0
     ambiguous = dup_names(records) if by_name else frozenset()
     for rec in records or []:
+        if rec.get("gsis_id") in excluded_ids:
+            continue
         view = lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"),
                              ambiguous)
         if not view:

@@ -120,6 +120,8 @@ import { renderParlayCard } from '../render.js';
 import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
+const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 // Tooltip for a spread leg whose feed predates edge_note; the same measured verdict.
 const SPREAD_NOTE_FALLBACK =
   'NO EDGE — cover model measured below coin-flip on 2023-25 (scripts/backtest_parlay.py); '
@@ -559,6 +561,25 @@ export function propQChip(leg) {
     : null;
 }
 
+/** Explain a smaller eligible offer set without padding it with repeated bets. */
+export function renderCandidateCoverage(coverage, scope, matchupById = new Map()) {
+  if (!coverage || coverage.version !== 'distinct_cards_v1') return '';
+  if (scope === 'game') {
+    const rows = Array.isArray(coverage.game_shortfalls) ? coverage.game_shortfalls : [];
+    return rows.map((row) => '<div class="state">LIMITED PICKS · '
+      + `${esc(matchupById.get(String(row.game_id)) || `Game ${row.game_id}`)}: `
+      + `${esc(row.distinct_cards)} of the usual ${esc(row.target)} distinct picks available. `
+      + (row.reason === 'prop_inputs_not_supplied'
+        ? 'Player-prop selections are not included in this slate. '
+        : 'Eligible player props are unavailable. ')
+      + 'Repeated picks are withheld.</div>').join('');
+  }
+  const row = scope === 'week' ? coverage.week_shortfall : null;
+  return row ? '<div class="state">LIMITED PICKS · '
+    + `${esc(row.distinct_cards)} distinct cross-game picks available from ${esc(row.slate_games)} ${row.slate_games === 1 ? 'game' : 'games'}. `
+    + 'Repeated picks are withheld.</div>' : '';
+}
+
 /**
  * R51 — stamp each painted .leg with its pricing honesty. renderParlayCard
  * (app/render.js) paints the contract's four leg fields; the annotations live
@@ -887,13 +908,15 @@ export default async function mountParlays(el) {
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
     listEl.dataset.parlayWeek = String(selWeek);
-    listEl.innerHTML = shown.length
+    const coverageNote = selWeek === curWeek && parlays === curParlays
+      ? renderCandidateCoverage(data.candidate_coverage, active, matchupById) : '';
+    listEl.innerHTML = coverageNote + (shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
         : (activeTier !== 'all'
           ? '<div class="state">No parlays in that tier at this scope and leg count.</div>'
-          : '<div class="state">No parlays at this leg count.</div>'));
+          : '<div class="state">No parlays at this leg count.</div>')));
     if (shown.length) annotateLegs(listEl, shown);
     betShown.list = selWeek === curWeek ? shown : [];
     if (betShown.list.length) addBetButtons(listEl, betShown.list);

@@ -17,6 +17,42 @@
       "maximum": 18
     },
     "updated_utc": { "type": "string" },
+    "candidate_coverage": {
+      "type": "object", "additionalProperties": false,
+      "description": "Generation-bound live candidate coverage. A zero-prop game or tiny slate may offer fewer distinct cards, never duplicate filler. Not copied into mixed frozen archives.",
+      "required": ["version", "generated_utc", "game_shortfalls", "week_shortfall"],
+      "properties": {
+        "version": {"type": "string", "enum": ["distinct_cards_v1"]},
+        "generated_utc": {"type": "string", "minLength": 1},
+        "game_shortfalls": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["game_id", "target", "candidate_prop_count", "raw_cards", "distinct_cards", "duplicates_removed", "shortfall", "reason"],
+            "properties": {
+              "game_id": {"type": "string", "minLength": 1},
+              "target": {"type": "integer", "enum": [3]},
+              "candidate_prop_count": {"type": "integer", "enum": [0]},
+              "raw_cards": {"type": "integer", "enum": [3]},
+              "distinct_cards": {"type": "integer", "minimum": 1, "maximum": 2},
+              "duplicates_removed": {"type": "integer", "minimum": 1, "maximum": 2},
+              "shortfall": {"type": "integer", "minimum": 1, "maximum": 2},
+              "reason": {"type": "string", "enum": ["no_eligible_prop_candidates", "prop_inputs_not_supplied"]}
+            }
+          }
+        },
+        "week_shortfall": {
+          "type": ["object", "null"], "additionalProperties": false,
+          "required": ["target", "slate_games", "distinct_cards", "shortfall", "reason"],
+          "properties": {
+            "target": {"type": "integer", "enum": [3]},
+            "slate_games": {"type": "integer", "minimum": 0, "maximum": 2},
+            "distinct_cards": {"type": "integer", "minimum": 0, "maximum": 1},
+            "shortfall": {"type": "integer", "minimum": 2, "maximum": 3},
+            "reason": {"type": "string", "enum": ["insufficient_distinct_games"]}
+          }
+        }
+      }
+    },
     "parlays": {
       "type": "array",
       "items": {

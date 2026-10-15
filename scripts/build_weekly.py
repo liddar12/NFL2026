@@ -99,7 +99,7 @@ if _ROOT not in sys.path:
 from scripts import availability  # noqa: E402
 
 INJURIES_PATH = os.path.join(_ROOT, "data", "injuries.json")
-INJURY_MAX_AGE_HOURS = 24.0  # twice-daily refresh plus one missed run; not a fact about health
+INJURY_MAX_AGE_HOURS = 12.0  # Week-6 RCA pregame freshness acceptance; not a health claim
 
 
 def read_injury_document(path=INJURIES_PATH):
@@ -143,10 +143,9 @@ def injury_source_state(doc, checked_utc, week):
         reason = "future_timestamp"
     elif doc.get("week") is not None and doc["week"] != week:
         reason = "wrong_week"
-    elif age > INJURY_MAX_AGE_HOURS:
+    elif age >= INJURY_MAX_AGE_HOURS:
         reason = "stale_report"
-    elif any(not q.get("athlete_id") and not (q.get("team") and q.get("player"))
-             for q in doc.get("quarantine") or []):
+    elif availability.quarantine_scope([], doc.get("quarantine"))["unidentified"]:
         reason = "unidentified_quarantine"
     quarantined = len(doc.get("quarantine") or [])
     return {"verified": reason is None, "reason": reason,
@@ -158,18 +157,11 @@ def injury_source_state(doc, checked_utc, week):
             "quarantined_rows": quarantined}
 
 
-def injury_eligibility(projection, doc, state, week):
+def injury_eligibility(projection, doc, state, week, scope=None):
     """An explicit offer refusal or None; unknown is neither ACTIVE nor OUT."""
-    reason = state.get("reason")
-    pid = str(projection.get("gsis_id") or "")
-    eid = pid[5:] if pid.startswith("espn-") else None
-    for row in (doc or {}).get("quarantine") or []:
-        identity = (str(row.get("athlete_id")) == eid if row.get("athlete_id") and eid
-                    else row.get("team") == projection.get("team")
-                    and availability.norm_name(row.get("player")) == availability.norm_name(projection.get("name")))
-        if identity:
-            reason = "quarantined_status"
-            break
+    scope = scope if scope is not None else availability.quarantine_scope(
+        [projection], (doc or {}).get("quarantine"))
+    reason = state.get("reason") or scope["players"].get(projection.get("gsis_id"))
     if reason:
         return {"eligible": False, "reason": "source_unverified", "detail": reason,
                 "week": week, "source": "injuries",
@@ -1065,11 +1057,13 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     build is byte-identical to the pre-Rel17 document.
     """
     source_state = None
+    quarantine = {"players": {}}
     if injury_document is not None and this_week is not None:
         source_state = injury_source_state(injury_document, updated_utc, this_week)
         # Old OUT/IR rows must not create a new week's status, injury shaping or
         # duration. Unknown input withholds offers separately and preserves points.
-        injuries = (injury_document.get("injuries") or []) if source_state["verified"] else []
+        quarantine, trusted_rows = availability.quarantine_inputs(projections, injury_document)
+        injuries = trusted_rows if source_state["verified"] else []
     if injuries is None:
         injuries = load_injuries(injuries_path)
     if factors is None:
@@ -1077,6 +1071,11 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                                 load_forecast(forecast_path))
     mults = injury_multipliers(projections, injuries)
     unavail = unavailability(projections, injuries)
+    # Duplicate understood rows cannot convert quarantined participation into
+    # a medical zero. Keep independent posted inactives and depth facts intact.
+    for pid in quarantine["players"]:
+        mults.pop(pid, None)
+        unavail.pop(pid, None)
     sched_by_team = team_schedule(schedule_games)
     gates, gate_meta = this_week_gate(projections, unavail, injuries, depth_chart,
                                       this_week, sched_by_team, gate_skip_teams,
@@ -1181,7 +1180,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
             row["this_week"] = gate
         if source_state is not None and p.get("team") not in set(gate_skip_teams or ()) \
                 and this_week in sched_by_team.get(p.get("team"), {}):
-            eligibility = injury_eligibility(p, injury_document, source_state, this_week)
+            eligibility = injury_eligibility(p, injury_document, source_state, this_week,
+                                            scope=quarantine)
             if eligibility:
                 row["eligibility"] = eligibility
         row["weeks"] = weeks

@@ -29,7 +29,8 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
       const key = id != null ? `game:${id}` : `selection:${leg.market}:${leg.selection}`;
       const game = games.get(String(id));
       if (!seen.has(key)) {
-        const row = exposures.get(key) || { key, label: game ? `${game.away} @ ${game.home}` : String(leg.selection), cards: 0 };
+        const row = exposures.get(key) || { key, kind: game ? 'game' : 'selection',
+          label: game ? `${game.away} @ ${game.home}` : String(leg.selection), cards: 0 };
         row.cards += 1;
         exposures.set(key, row);
       } else reason ||= 'multiple_legs_same_game';
@@ -75,7 +76,7 @@ export function renderPortfolioRisk(summary) {
   const exact = summary.pZeroWinners != null;
   const common = top.cards === summary.cards;
   return '<details class="pfilters portfolio-risk">'
-    + `<summary>SHARED RISK · ${top.cards}/${summary.cards} share one game</summary>`
+    + `<summary>SHARED RISK · ${top.cards}/${summary.cards} share one ${top.kind === 'game' ? 'game' : 'selection'}</summary>`
     + `<p>${esc(top.label)} appears in ${top.cards} of these ${summary.cards} shown cards. `
     + (common && exact ? 'One loss of that shared selection defeats every shown card. '
       : 'These cards are not independent chances. ')

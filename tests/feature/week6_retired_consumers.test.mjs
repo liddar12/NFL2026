@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { gateTag, withWeekHeadline } from '../../app/views/players.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -42,4 +43,21 @@ print(json.dumps({
   assert.deepEqual(out.projection, [0, 1], 'no snaps, no effectiveness change, explicit');
   assert.equal(out.history, null, 'a retirement is never an injury-training label');
   assert.equal(out.history_ignored, true);
+});
+
+test('RETIRED labels the gated player headline and explains the absence instead of calling zero a matchup projection', () => {
+  const gate = { wk: 6, playable: false, reason: 'status', status: 'RETIRED' };
+  assert.deepEqual(gateTag(gate), ['RETIRED', 'Not playable this week — retired']);
+  const shell = '<div class="p-proj"><div class="p-num">170.0</div>'
+    + '<div class="p-unit">PROJ PTS</div>';
+  const headline = withWeekHeadline(shell, 6, { points: 0, bye: false, gate }, 170);
+  assert.match(headline, /WK 6 · RETIRED/);
+  assert.match(headline, /title="Not playable this week — retired"/);
+  assert.match(headline, /class="p-num">0\.0<\/div>/);
+  assert.ok(!headline.includes('MATCHUP'), 'a known retirement must not look like a zero-point matchup prediction');
+  // The added label does not turn playable or unrelated-week rows into a gate.
+  assert.equal(gateTag({ ...gate, playable: true }), null);
+  assert.equal(gateTag({ ...gate, status: 'QUESTIONABLE', playable: true }), null);
+  assert.equal(gateTag(null), null);
+  assert.match(withWeekHeadline(shell, 5, { points: 12, bye: false, gate: null }, 170), /WK 5 · MATCHUP/);
 });

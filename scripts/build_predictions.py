@@ -550,7 +550,7 @@ def _stamp_prior_seasons(records, history_path=None):
     return stamped
 
 
-def _stamp_absence(records, index, by_name):
+def _stamp_absence(records, index, by_name, excluded_ids=frozenset()):
     """R49 — stamp the DOCUMENTED expected absence (`absence_weeks`, and
     `absence_confidence` when non-zero) from the injury report onto the pool
     records, through the SAME join (availability.lookup_report) and the SAME
@@ -563,6 +563,8 @@ def _stamp_absence(records, index, by_name):
     ambiguous = availability.dup_names(records)
     n = 0
     for rec in records:
+        if rec.get("gsis_id") in excluded_ids:
+            continue
         view = availability.lookup_report(index, by_name or {}, rec.get("team"),
                                           rec.get("name"), ambiguous)
         weeks, confidence = 0, None
@@ -581,6 +583,24 @@ def _stamp_absence(records, index, by_name):
         else:
             rec.pop("absence_confidence", None)
     return n
+
+
+def _apply_injury_report(records, document, checked_utc, week):
+    """Actual second-pass boundary: only verified, identity-resolved source facts.
+
+    Quarantined records retain pre-existing fantasy/history inputs; this pass
+    neither stamps a conflicting site status nor invents an absence for them.
+    Keep the full record pool so filtering cannot erase a duplicate-name guard.
+    """
+    if not build_weekly.injury_source_state(document, checked_utc, week)["verified"]:
+        return 0, 0
+    scope, rows = availability.quarantine_inputs(records, document)
+    index, by_name = availability.index_report(rows), availability.index_report_by_name(rows)
+    excluded = set(scope["players"])
+    overridden = availability.apply_to_records(records, index, by_name=by_name,
+                                               excluded_ids=excluded)
+    absent = _stamp_absence(records, index, by_name, excluded_ids=excluded)
+    return overridden, absent
 
 
 def _backtest_from_disk(key):
@@ -1074,14 +1094,10 @@ def main():
             # report's every August, so the (team, name) join dropped exactly
             # the players who changed teams — Questionable stars rendered
             # healthy five days before the owner's draft).
-            _idx, _by_name = (availability.index_report(inj),
-                              availability.index_report_by_name(inj))
-            n_overridden = availability.apply_to_records(players_in, _idx,
-                                                         by_name=_by_name)
             # R49 — the documented absence rides the same join; it moves
             # projected_games / candidate_points on every rule, and proj_points
             # only under the games-normalized shipped rule.
-            n_absent = _stamp_absence(players_in, _idx, _by_name)
+            n_overridden, n_absent = _apply_injury_report(players_in, _inj_doc, received, wk)
             if n_overridden or n_absent:
                 reprojected = [p for p in project_players(players_in,
                                                           ctx={"teams": teams_fixture},

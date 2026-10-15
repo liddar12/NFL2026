@@ -12,6 +12,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const doc = JSON.parse(
   readFileSync(new URL("../../data/parlays.json", import.meta.url), "utf8"),
@@ -37,15 +39,28 @@ const EXCLUDED = (() => {
 })();
 const excludedIds = new Set(EXCLUDED.map((g) => String(g.game_id)));
 
-test(">= 3 parlays scope='game' for EVERY game on the slate", () => {
+test('distinct published cards meet >=3 targets or carry exact generation-bound infeasibility evidence', () => {
+  const result = JSON.parse(execFileSync('python3', ['-c', `
+import json,sys
+from scripts.models.parlay_builder import parlay_coverage_problems
+d=json.load(sys.stdin)
+print(json.dumps(parlay_coverage_problems(d['doc'], d['game_ids'])))
+`], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8',
+    input: JSON.stringify({doc, game_ids: [...slateIds].filter(g => !excludedIds.has(String(g)))}) }));
+  assert.deepEqual(result, []);
+});
+
+test(">= 3 game cards unless a zero-prop generation explicitly records the exact shortfall", () => {
   const perGame = new Map();
   for (const p of parlays) {
     if (p.scope === "game") perGame.set(p.game_id, (perGame.get(p.game_id) || 0) + 1);
   }
   for (const gid of slateIds) {
     if (excludedIds.has(String(gid))) continue;      // R108: excluded, asserted below
+    const n = perGame.get(gid) || 0;
+    const short = doc.candidate_coverage?.game_shortfalls?.find(x => x.game_id === String(gid));
     assert.ok(
-      (perGame.get(gid) || 0) >= 3,
+      n >= 3 || (short?.distinct_cards === n && short?.shortfall === 3 - n && short?.candidate_prop_count === 0),
       `expected >=3 game parlays for ${gid}, got ${perGame.get(gid) || 0}`,
     );
   }
@@ -73,7 +88,10 @@ test("every game-scope parlay references a game that exists on the slate", () =>
 
 test(">= 3 parlays scope='week'", () => {
   const weekParlays = parlays.filter((p) => p.scope === "week");
-  assert.ok(weekParlays.length >= 3, `expected >=3 week parlays, got ${weekParlays.length}`);
+  const short = doc.candidate_coverage?.week_shortfall;
+  assert.ok(weekParlays.length >= 3 || (short?.distinct_cards === weekParlays.length
+    && short?.slate_games < 3 && short?.shortfall === 3 - weekParlays.length),
+  `expected >=3 week parlays or evidenced infeasibility, got ${weekParlays.length}`);
 });
 
 // REL3 — the 2..7-leg selector needs week parlays bucketed by leg count.

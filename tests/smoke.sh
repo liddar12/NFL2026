@@ -245,16 +245,19 @@ per_game = {}
 for p in parlays:
     if p["scope"] == "game":
         per_game[p["game_id"]] = per_game.get(p["game_id"], 0) + 1
-short = {g: per_game.get(g, 0) for g in slate if per_game.get(g, 0) < 3}
-if short:
-    problems.append(f"slate games with <3 parlays: {short}")
+from scripts.models.parlay_builder import parlay_coverage_problems, build_props_by_game
+coverage_props = None
+if (pdoc.get("candidate_coverage") or {}).get("game_shortfalls"):
+    coverage_props = build_props_by_game(load("data/game_predictions.json")["games"],
+                                        load("data/player_weekly.json"),
+                                        load("data/player_projections.json"))
+problems.extend(parlay_coverage_problems(pdoc, slate, coverage_props))
 for gid, x in xg.items():
     if per_game.get(gid, 0) and str(pdoc.get("updated_utc", "")) >= str(x.get("added_utc", "")):
         problems.append(f"owner-excluded game {gid} still has {per_game[gid]} card(s) on a slate "
                         f"built after it was excluded")
-week_n = sum(1 for p in parlays if p["scope"] == "week")
-if week_n < 3:
-    problems.append(f"only {week_n} week parlays (need >=3)")
+# The shared semantic check also requires >=3 week cards unless the exact
+# generation documents that fewer than three distinct games made it infeasible.
 
 # REL17 — THE SINGLE CHECK THAT STOPS THIS BUG CLASS RECURRING.
 # Every `status` in data/injuries.json must normalize to a canonical availability
