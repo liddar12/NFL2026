@@ -189,3 +189,63 @@ The remaining boundary must not manufacture authority from legacy outputs:
 
 No workflow, production source, model coefficient, candidate adoption or
 deployed site is changed by this local follow-up.
+
+## Immutable outcome-capture checkpoint
+
+October 15, 2026, 6:33 p.m. CDT (America/Chicago). Local runtime checkpoint
+`1bd076ac`, independently reviewed; not pushed, deployed or enabled in the
+daily workflow.
+
+- `scripts/capture_outcome_evidence.py` captures raw ESPN scoreboards first,
+  then nflverse stats and snaps, under fixed source profiles and bounded
+  retrieval. Content-addressed bytes, observations and a final success manifest
+  are verified together. Failed/partial retrieval never publishes a success
+  manifest. Replay does not refetch or restamp clocks.
+- `scripts/build_learning_outcomes.py` joins the original frozen journal
+  receipt, player pool and schedule. It preserves every valid vintage/rung
+  without using current rosters or owner exclusions as learning labels.
+  Raw-hash, membership, timing, canonical-contract and feature/base parity are
+  checked before normalized outcomes are produced.
+- `resolve_parlay_legs.py`, `resolve_my_cards.py` and `build_bet_facts.py` have
+  an opt-in `--evidence-capture` path. Conflicting legacy inputs are rejected;
+  no fallback is fetched. Required historical/locked weeks cannot be silently
+  dropped by an aggregate overwrite. Every supported market requires explicit
+  FINAL/OT evidence and a matching game identity.
+- Missing required measurements, unknown identities/periods, plausible aliases,
+  malformed/fractional/duplicate snaps and ambiguous zero-offense participation
+  cannot fabricate a zero or DNP. Exact measured zero/negative yardage and valid
+  R106 evidence remain usable. Explicit POST stat evidence can conservatively
+  withhold an inferred label; it never fabricates one.
+
+Unknown provider issue/update, actual game-finish time and last-revision status
+remain unknown. A fetch after observed FINAL does not establish provider
+completeness. R106 team-sheet absence and positive-snap/absent-stat zero are
+explicit inferences, **not official sportsbook settlement**. This producer
+supports MY yardage learning only; optional existing UI graders support their
+declared markets without extending the shared calibrator to joint parlays.
+
+Root verification on the frozen runtime (exit 0): Python 3.12 full gate passed
+data validation, smoke, **2,220 feature tests** and all four model-regression
+gates. **Browser step 8 was skipped** because Playwright is absent; this is not
+a complete browser or exact-release-SHA acceptance claim. Focused capture,
+consumer, producer/adversarial and tool self-tests passed independent review.
+
+`tests/measure_outcome_coverage.py` traces actual Node-spawned Python children
+and new threads using opt-in stdlib instrumentation. The evidence report is
+`docs/reviews/2026-10-15-outcome-coverage.json`: capture **518/575 = 90.087%**,
+producer **316/346 = 91.3295%**, total **834/921 = 90.5537%**, all five suites
+passed (**57 tests**, **69 Python shards**), source hashes stable. Six tooling
+self-tests cover per-file thresholds, uncalled-line denominator, shard binding
+and safe output including hardlinks. This is line coverage of those two new
+files, not consumer-change/branch coverage, full acceptance, SQL, live source
+verification or an accuracy measurement.
+
+SelfLearning checkpoint `7204ebd` adds a separate pure observed-clock resolver
+and immutable no-change observation records. Current local acceptance still
+does not establish a production index or atomic observation/revision ACK.
+The next local D1 storage work must enumerate complete fenced history and
+commit both streams atomically; D2 must bind raw provenance through bounded
+transport and validate complete underlying-stat groups across rungs/vintages.
+Neither this capture nor the existing exporter implements that hosted outcome
+transport. No synthetic records were sent to a cloud database, and committed
+`data/` and workflows are unchanged.
