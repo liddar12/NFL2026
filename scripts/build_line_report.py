@@ -58,7 +58,7 @@ SOURCE_UNAVAILABLE = ("unavailable: depth chart not reachable; no starters inven
 # absence is an absence this week too), and the two report designations that
 # leave him in doubt. Read through the ONE vocabulary (scripts/availability.py).
 OUT_CODES = frozenset({availability.OUT, availability.IR, availability.PUP,
-                       availability.NFI, availability.SUSPENDED})
+                       availability.NFI, availability.SUSPENDED, availability.RETIRED})
 DOUBTFUL_CODES = frozenset({availability.DOUBTFUL})
 QUESTIONABLE_CODES = frozenset({availability.QUESTIONABLE})
 
@@ -166,7 +166,8 @@ def index_injuries(injury_rows):
     order = {}
     for i, c in enumerate((availability.ACTIVE, availability.QUESTIONABLE,
                            availability.DOUBTFUL, availability.OUT, availability.IR,
-                           availability.PUP, availability.NFI, availability.SUSPENDED)):
+                           availability.PUP, availability.NFI, availability.SUSPENDED,
+                           availability.RETIRED)):
         order[c] = i
     idx = {}
 

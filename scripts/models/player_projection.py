@@ -172,6 +172,10 @@ _INJURY_STATUS = {
     availability.PUP: (0.00, 1.00),
     availability.NFI: (0.00, 1.00),
     availability.SUSPENDED: (0.00, 1.00),
+    # RETIRED (ESPN "Reserve-Ret"): classified explicitly, never the neutral (1.0, 1.0)
+    # fall-through. Same no-snap reading as the other season-class absences; no
+    # learned weight changes.
+    availability.RETIRED: (0.00, 1.00),
 }
 
 # Codes whose uncertainty widens the projection interval: a short-term tag nobody has
