@@ -87,6 +87,12 @@ _MAP = {
     "suspension": SUSPENDED,
     "physically unable to perform": PUP,
     "non-football injury": NFI,
+    # R125 -- ESPN's reserve/retired list, first OBSERVED 2026-10-11 (PHI Lane
+    #     Johnson). Unmapped, it made fetch_injuries refuse all 800 rows on every run
+    #     from daily #288 on, so data/injuries.json froze at 2026-10-11T20:10Z. A
+    #     player on a reserve list takes no snap: the IR season class (the R77 gate
+    #     blocks him, the rule floor applies), never ACTIVE.
+    "reserve-ret": IR,
     # --- espn_kona (fantasy API -> espn_players.injury_status, already lower-cased)
     "injury_reserve": IR,
     "day_to_day": QUESTIONABLE,
@@ -377,6 +383,8 @@ def selftest():
     assert normalize_status("Suspension") == SUSPENDED
     assert normalize_status("Physically Unable to Perform") == PUP
     assert normalize_status("Non-Football Injury") == NFI
+    assert normalize_status("Reserve-Ret") == IR                # R125
+    assert status_class(normalize_status("Reserve-Ret")) == "season"
     assert normalize_status("injury_reserve") == IR            # espn kona
     assert normalize_status("day_to_day") == QUESTIONABLE
     assert normalize_status("probable") == ACTIVE
