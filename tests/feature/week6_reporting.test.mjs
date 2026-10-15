@@ -234,3 +234,23 @@ except ValidationError:
 print(json.dumps({"legacy": True, "fresh": True, "missing_n_rejected": rejected}))`);
   assert.deepEqual(result, { legacy: true, fresh: true, missing_n_rejected: true });
 });
+
+// Integration (2026-10-15): the MODEL view reads the producer's own field,
+// chronology: {invalid_timestamps, latest_conflict}, not a chronology_warnings
+// array nobody writes.
+test('MODEL learning-loop rows show the producer chronology warnings', async () => {
+  const { learningLoopsCard, chronologyWarnings } = await import('../../app/views/model.js');
+  assert.deepEqual(chronologyWarnings(undefined), []);
+  assert.deepEqual(chronologyWarnings({ invalid_timestamps: 0, latest_conflict: false }), []);
+  assert.deepEqual(chronologyWarnings({ invalid_timestamps: 2, latest_conflict: true }), [
+    '2 history rows without a valid timestamp ignored',
+    'the newest history rows disagree, so no decision is shown as latest',
+  ]);
+  const html = learningLoopsCard({
+    generated_utc: '2026-10-15T00:00:00Z',
+    loops: [{ id: 'game_params', name: 'Game model', group: 'ships', state: 'held', why: 'w',
+      chronology: { invalid_timestamps: 1, latest_conflict: true } }],
+    transitions: [],
+  });
+  assert.match(html, /History warning: 1 history row without a valid timestamp ignored; the newest history rows disagree/);
+});
