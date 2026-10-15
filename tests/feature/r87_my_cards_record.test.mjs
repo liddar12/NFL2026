@@ -88,7 +88,10 @@ test('the record is the current dial\'s, from the latest week that has graded ca
   assert.match(even, /EVEN/);
   assert.match(even, /320 cards graded/);
   assert.match(even, /41 all hit \(12\.8%\)/);
-  assert.match(even, /mean conviction 14\.1%/);
+  // Week-6 integration: a legacy block (no `calibration` cohort) is a mixed-settlement
+  // population, so its mean is not presented as calibration (was "mean conviction").
+  assert.match(even, /legacy calibration cohort not verified/);
+  assert.ok(!even.includes('mean conviction'), 'a mixed-settlement mean is not a calibration claim');
 
   const safe = renderRecord(FIXTURE, 'safe');
   assert.match(safe, /SAFE/);
@@ -110,7 +113,7 @@ test('the whole line reads as the product states it', () => {
   const text = html.replace(/<[^>]*>/g, '');
   assert.equal(text,
     'RECORD · WK 2 · EVEN · 320 cards graded · 41 all hit (12.8%) · '
-    + 'mean conviction 14.1% · $100 flat net −$1,240MEASURED');
+    + 'legacy calibration cohort not verified · $100 flat net −$1,240MEASURED');
   // the money uses the view's own formatter: a real minus sign and thousands
   assert.match(html, /−\$1,240/);
   assert.ok(!/-\$1,240/.test(html), 'a hyphen is not a minus sign');
@@ -212,4 +215,26 @@ test('the committed feed is the shape renderRecord reads', () => {
       assert.equal(typeof renderRecord(doc, dial), 'string');
     }
   }
+});
+
+/* Week-6 integration — the calibration cohort has its OWN denominator ---------- */
+
+test('unchanged-contract calibration prints its own n, never the graded count', () => {
+  // 320 cards graded, but only 250 unchanged, fully resolved contracts can be
+  // compared with the original all-hit prediction (voids/reduced settlements out).
+  const withCohort = {
+    ...FIXTURE,
+    weeks: [week(2, { even: { ...GRADED.even,
+      calibration: { n: 250, all_hit: 30, hit_rate: 0.12, mean_model: 0.155 } } })],
+  };
+  const text = renderRecord(withCohort, 'even').replace(/<[^>]*>/g, '');
+  assert.match(text, /320 cards graded · 41 all hit \(12\.8%\)/, 'the settlement record is unchanged');
+  assert.match(text, /unchanged contracts 250: actual 12\.0% vs predicted 15\.5%/);
+  assert.ok(!/unchanged contracts 320/.test(text), 'the cohort n is not the graded count');
+  // an empty cohort says so instead of printing a 0% calibration
+  const empty = {
+    ...FIXTURE,
+    weeks: [week(2, { even: { ...GRADED.even, calibration: { n: 0, all_hit: 0, hit_rate: null, mean_model: null } } })],
+  };
+  assert.match(renderRecord(empty, 'even'), /no unchanged-contract calibration sample/);
 });
