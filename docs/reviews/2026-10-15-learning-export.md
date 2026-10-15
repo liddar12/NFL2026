@@ -120,3 +120,72 @@ because this isolated checkout has no `@playwright/test`; this is **not** a full
 browser/release-gate pass. Existing generated `data/` had no tracked changes.
 The exact future release SHA must still be reconciled with current main and
 re-gated, including configured browser checks.
+
+## Outcome evidence correctness and remaining transport gap
+
+Local follow-up (October 15, 2026; not released): the shared yardage index now
+preserves an unknown **required** measurement (QB passing, RB rushing, WR
+receiving) instead of converting missing, malformed, boolean or nonfinite values
+to zero. Both the leg-ledger and MY-card graders withhold that measurement with
+`missing_stat_value`. Actual numeric zero and negative yardage remain measurable
+outcomes. A present but malformed cell is not repaired by a snap sheet. R106's
+distinct no-stat-row path remains unchanged: positive offensive-snap evidence
+supports zero production; a published team sheet without the player supports
+DNP/VOID; absent participation evidence remains pending. Non-applicable yardage
+columns and the existing blank-TD-component convention remain unchanged.
+
+The compact MY BETS facts consumer emits `y:null` for an unknown required
+measurement, never an invalid numeric array containing a null cell or a false
+zero. Existing valid finalized facts and grading behavior are unchanged.
+
+The shared finals index now independently requires `STATUS_FINAL` or
+`STATUS_FINAL_OVERTIME` and two finite nonnegative integer scores. This also
+protects explicit `--finals` files and injected ESPN fetchers: live/stub,
+status-less or malformed rows cannot grade merely because they carry scores or
+`final:true`. Intended-FINAL inline selftest fixtures now name their actual FINAL
+status; every pre-existing expected outcome and assertion is retained. No
+committed outcome history was regenerated or repriced by this change.
+
+`tests/feature/week6_outcome_evidence.test.mjs` covers these behaviors through
+both graders, the facts schema and actual browser `gradeLeg`, file and injected
+fetch routes, and the existing producer selftests. This is a correctness fix,
+**not a completed authoritative outcome transport**.
+
+Local verification: the new suite passed 8/8 under Python 3.9.6 and 3.12.9
+(both exit 0). The nine related feature suites passed 69/69 (exit 0), including
+the existing parlay gate and committed-data validator. `git diff --check`
+exited 0. No full browser/release gate is claimed for this follow-up.
+
+Root regression on the frozen follow-up source, October 15, 2026, before
+5:44 p.m. CDT (America/Chicago): `PATH` selected Python 3.12.9 and
+`bash tests/run_gate.sh` exited 0. Data validation, smoke, all 2,165 feature
+tests and all four model-regression gates passed. Browser step 8 explicitly
+skipped because Playwright is not installed. There were no tracked changes to
+`data/` or workflows. This is a dependency-free regression checkpoint, not
+complete browser acceptance or authorization to release.
+
+The remaining boundary must not manufacture authority from legacy outputs:
+
+- `fetch_csv` and the snap fetcher discard response digests, headers and retrieval
+  clocks. ESPN `fetch_scores` retains FINAL/OT status and kickoff but no exact
+  finish time or upstream update clock. Missing clocks remain unknown.
+- `load_finals` and compact score/facts outputs discard per-row source identity;
+  MY scored-card output also omits pending-only cards and per-leg reasons. These
+  display/settlement files are not complete source-evidence journals.
+- Separate daily resolver/facts commands currently refetch without a shared
+  cache, so they can observe different source vintages in one run. A future
+  outcome producer should capture one immutable stats/snaps/scoreboard bundle
+  and have every learner fact reference it.
+- Resolve identities from each forecast's frozen pool, never today's roster.
+  Fan a verified official correction out to every original receipt vintage of
+  the same contract. Owner `excluded_game` policy is not an official learning
+  VOID and must not remove real outcomes from the learning population.
+- Preserve first observation per measurement revision. A repeated fetch of
+  identical evidence must not restamp its clocks or fabricate a new correction.
+  Use an explicitly versioned observation-clock adapter when upstream update or
+  exact game-finish times are unavailable; do not relabel retrieval time as
+  either. Database insertion time remains the trustworthy training-availability
+  boundary, not a claimed historical `generated_utc`.
+
+No workflow, production source, model coefficient, candidate adoption or
+deployed site is changed by this local follow-up.

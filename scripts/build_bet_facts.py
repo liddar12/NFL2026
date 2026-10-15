@@ -31,6 +31,7 @@ Facts only: no probability, no price, nothing the model is trained on.
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import sys
 import tempfile
@@ -165,7 +166,13 @@ def player_facts(ident, stat_rows, td_rows, snaps_week):
         rows = _match(stat_rows, name, team, pos)
         if len(rows) == 1:
             yd = rows[0]["yards"]
-            y = [yd["QB"], yd["RB"], yd["WR"]]
+            # A present row with an unknown required stat is not evidence of
+            # zero production. Keep the whole yardage fact unknown (the compact
+            # contract permits y:null, not null cells inside its numeric array).
+            required = yd.get(pos)
+            if (isinstance(required, (int, float)) and not isinstance(required, bool)
+                    and math.isfinite(required)):
+                y = [yd["QB"], yd["RB"], yd["WR"]]
         elif not rows:
             f = fallback()
             y = [0, 0, 0] if f == 0 else f

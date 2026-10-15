@@ -25,7 +25,8 @@ WHAT IS GRADED
 
 HONESTY RULES (the ones this file exists to keep)
   * AN UNRESOLVED LEG IS NEVER A MISS. A week with no stats rows, a player with no
-    stat line, an unreadable handicap: all PENDING, with the reason recorded.
+    stat line, a present row with missing/nonfinite required yardage, an unreadable
+    handicap: all PENDING, with the reason recorded.
   * A card with any pending leg is pending; a card is a miss if any leg missed; a
     void if something voided and nothing missed; a hit only when every leg hit.
     That is build_review.review_parlay's rule, and the bucket comes from
@@ -187,7 +188,8 @@ def snap_evidence(leg, week, snaps_by_week):
 
 def grade_prop(leg, week, by_week, snaps_by_week=None):
     """(result, actual, reason) for one prop leg. Never a miss without evidence:
-    a stat line, or (R106) a snap sheet showing he played and so gained 0 yards.
+    a finite measured stat, or (R106) no stat line and a snap sheet showing he
+    played and so gained 0 yards. A malformed cell on a present row stays unknown.
     A published snap sheet he is NOT on is a void (did_not_play) — the book's rule
     and grade_atd's — so a parlay settles on its other legs instead of sitting
     pending forever."""
@@ -217,6 +219,9 @@ def grade_prop(leg, week, by_week, snaps_by_week=None):
                 return "void", None, "did_not_play"
         return "pending", None, why
     yards = row["yards"][position]
+    if (not isinstance(yards, (int, float)) or isinstance(yards, bool)
+            or not math.isfinite(yards)):
+        return "pending", None, "missing_stat_value"
     return ("hit" if yards >= float(line) else "miss"), yards, None
 
 

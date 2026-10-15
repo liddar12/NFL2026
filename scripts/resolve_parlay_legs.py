@@ -27,7 +27,8 @@ HONESTY RULES
     resolved as this ships: weeks_resolved is 0 and every metric is null.
   * A locked prop leg whose player has no stat line in a published week is
     `unresolved` with a reason (no_stat_line / ambiguous / player_unidentified /
-    no_line) — never a miss, never a 0.
+    no_line) — never a miss, never a 0. A present row whose required yardage is
+    missing, malformed or nonfinite is unresolved (missing_stat_value), not zero.
   * The join is the selection's abbreviated name + the market's position + the
     game's two teams; when the ledger locked the full name from the pool it is
     tried first (exact normalised name, unique), then the abbreviation
@@ -60,6 +61,7 @@ from scripts.build_parlay_ledger import (PROP_POSITION, GAME_MARKETS,  # noqa: E
                                          ledger_path)
 from scripts.models.parlay_builder import seed_prop_prob  # noqa: E402
 from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
+from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
 from scripts.scrape.renames import normalize_team  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
@@ -99,13 +101,33 @@ def _yards(row, col):
         return 0.0
 
 
+def _required_yards(row, col):
+    """A measured position's yardage, or unknown; missing is never zero.
+
+    Non-applicable columns and blank TD components retain their existing
+    conventions. A QB passing / RB rushing / WR receiving measurement must be
+    an actual finite number before a locked yardage prop can be graded.
+    """
+    value = row.get(col)
+    if isinstance(value, bool):
+        return None
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if math.isfinite(value) else None
+
+
 # --------------------------------------------------------------------------- #
 # stats index + player join                                                     #
 # --------------------------------------------------------------------------- #
 
 def index_stats(csv_rows):
     """{week: [row]} of REG-season QB/RB/WR rows with canonical team and the
-    three yardage columns; a row that fails to normalise is dropped."""
+    three yardage columns; a row that fails to normalise is dropped. The
+    position's required measurement remains None when missing or nonfinite;
+    retaining the row prevents a malformed cell being mistaken for no stat line
+    and then zero-filled from participation evidence."""
     by_week = {}
     for r in csv_rows:
         if (r.get("season_type") or "REG") != "REG":
@@ -125,9 +147,11 @@ def index_stats(csv_rows):
         if not n:
             continue
         team = normalize_team(r.get("team") or r.get("recent_team"))
+        yards = {p: (_required_yards(r, c) if p == pos else _yards(r, c))
+                 for p, c in YARDS_COL.items()}
         by_week.setdefault(wk, []).append({
             "name": name, "norm": n, "pos": pos, "team": team,
-            "yards": {p: _yards(r, c) for p, c in YARDS_COL.items()},
+            "yards": yards,
         })
     return by_week
 
@@ -299,6 +323,10 @@ def resolve_props(ledger, csv_rows):
             unresolved.append(_ref(leg, why))
             continue
         yards = row["yards"][leg["position"]]
+        if (not isinstance(yards, (int, float)) or isinstance(yards, bool)
+                or not math.isfinite(yards)):
+            unresolved.append(_ref(leg, "missing_stat_value"))
+            continue
         resolved.append({
             "week": wk, "game_id": leg["game_id"], "market": leg["market"],
             "position": leg["position"], "selection": leg["selection"],
@@ -312,15 +340,35 @@ def resolve_props(ledger, csv_rows):
     return resolved, unresolved, sorted(by_week)
 
 
+def _final_score(value):
+    """A complete nonnegative integer score, or None; never truncate a float."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(number) or number < 0 or not number.is_integer():
+        return None
+    return int(number)
+
+
 def finals_index(final_rows):
-    """{game_id: {"home_score", "away_score"}} from FINAL rows (espn shape).
-    A row without both integer scores is ignored — a stub never grades."""
+    """{game_id: {"home_score", "away_score"}} from explicit ESPN FINAL rows.
+
+    Verify status even for --finals files and injected fetchers. Score presence
+    or a status-less `final` flag is not evidence of a completed game. A row
+    without both genuine integer scores is ignored — a live/stub never grades.
+    """
     out = {}
     for g in final_rows or []:
-        hs, as_ = g.get("home_score"), g.get("away_score")
+        if (not isinstance(g, dict) or not isinstance(g.get("status"), str)
+                or g["status"] not in FINAL_STATUSES):
+            continue
+        hs, as_ = _final_score(g.get("home_score")), _final_score(g.get("away_score"))
         if g.get("game_id") is None or hs is None or as_ is None:
             continue
-        out[str(g["game_id"])] = {"home_score": int(hs), "away_score": int(as_)}
+        out[str(g["game_id"])] = {"home_score": hs, "away_score": as_}
     return out
 
 
@@ -500,7 +548,7 @@ def read_csv(path):
 
 
 REVIEW_PATH = os.path.join(DATA, "review.json")
-_FINAL_STATUSES = frozenset(["STATUS_FINAL", "STATUS_FINAL_OVERTIME"])
+_FINAL_STATUSES = FINAL_STATUSES
 
 
 def finals_from_review(review_doc):
@@ -513,7 +561,7 @@ def finals_from_review(review_doc):
     for wk in weeks.values() if isinstance(weeks, dict) else weeks:
         for g in (wk or {}).get("games") or []:
             fin = g.get("final") or {}
-            hs, as_ = fin.get("home_score"), fin.get("away_score")
+            hs, as_ = _final_score(fin.get("home_score")), _final_score(fin.get("away_score"))
             if g.get("status") not in _FINAL_STATUSES or hs is None or as_ is None:
                 continue
             out[str(g.get("game_id"))] = {"home_score": int(hs), "away_score": int(as_)}
@@ -751,13 +799,13 @@ def selftest():
     assert not any(r["week"] == 2 for r in props), \
         "week 2 is published but W. Two has no row there -> unresolved, never scored"
     # games: scores resolve ML + spread; winner-only resolves ML only; tie / push
-    finals = finals_index([{"game_id": "g1", "home_score": 24, "away_score": 20},
-                           {"game_id": "g2", "home_score": 17, "away_score": 17},
-                           {"game_id": "stub", "home_score": None, "away_score": None}])
+    finals = finals_index([{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 24, "away_score": 20},
+                           {"game_id": "g2", "status": "STATUS_FINAL", "home_score": 17, "away_score": 17},
+                           {"game_id": "stub", "status": "STATUS_SCHEDULED", "home_score": None, "away_score": None}])
     games, g_unres = resolve_games(ledger, finals)
     assert {(g["selection"], g["hit"]) for g in games} == {("SEA ML", True), ("SEA -3", True)}
     assert [u["reason"] for u in g_unres] == ["tie"]
-    push = finals_index([{"game_id": "g1", "home_score": 23, "away_score": 20}])
+    push = finals_index([{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 23, "away_score": 20}])
     games2, g_unres2 = resolve_games(ledger, push)
     assert [u["reason"] for u in g_unres2] == ["push"] and len(games2) == 1
     winners = winners_from_locks([[{"event_type": "game", "event_id": "g1", "resolved": True,
@@ -786,7 +834,7 @@ def selftest():
     assert len(games5) == 2
     # ESPN live: a failed week is noted, never invented
     live, notes = fetch_finals_espn(2026, [1, 2], fetch=lambda wk: (
-        [{"game_id": "g1", "home_score": 30, "away_score": 27}] if wk == 1
+        [{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 30, "away_score": 27}] if wk == 1
         else (_ for _ in ()).throw(RuntimeError("boom"))))
     assert live == {"g1": {"home_score": 30, "away_score": 27}} and len(notes) == 1
     # scoring: seed and model are scored on the SAME legs; counts conserve
