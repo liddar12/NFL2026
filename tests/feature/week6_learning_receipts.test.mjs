@@ -234,3 +234,13 @@ print(json.dumps({"live":result["live_2026"],"coef_version_changes":
   assert.equal(r.live.lineage.quarantined_records, 1);
   assert.equal(r.coef_version_changes, true);
 });
+
+test('one leg graded on several cards is one observation', () => {
+  const r = py(`
+docs,scores=combine([fixture(card_id="one",y=1),fixture(card_id="two",y=1)])
+rows,audit=bt.live_rows(docs,scores,True)
+print(json.dumps({"rows":rows}))
+`);
+  assert.equal(r.rows.length, 1, 'the repeated leg counts once');
+  assert.equal(r.rows[0].y, 1);
+});

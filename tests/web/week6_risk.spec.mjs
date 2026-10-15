@@ -59,3 +59,16 @@ test('a thin game explains its smaller offer set and the message follows scope c
   await page.locator('.scopeseg [data-seg="my"]').click();
   await expect(notice).toBeHidden();
 });
+
+test('a past week that fails to load does not keep the shown week\'s shared-risk warning', async ({ page }) => {
+  const past = Number(doc.week) - 1;
+  await page.route(`**/data/parlays/2026_wk${String(past).padStart(2, '0')}.json*`,
+    (route) => route.fulfill({ status: 404, body: 'not found' }));
+  await page.goto('/#/parlays');
+  await page.locator('.scopeseg [data-seg="week"]').click();
+  await expect(page.locator('#portfolio-risk summary')).toBeVisible();
+  await page.click(`.pw-wkbar .wk-chip[data-wk="${past}"]`);
+  await expect(page.locator(`.pw-wkbar .wk-chip[data-wk="${past}"][aria-pressed="true"]`)).toHaveCount(1);
+  await expect(page.locator('#parlays-list')).toContainText('not archived');
+  await expect(page.locator('#portfolio-risk')).toBeHidden();
+});

@@ -110,7 +110,9 @@ export function availabilityOf(weeklyPlayerRow, wk, currentWk) {
       && (eligibility.week == null ? wkNum === Number(currentWk)
         : wkNum === Number(eligibility.week))) {
     return {
-      ...healthy(false), applies: true, label: 'STATUS UNVERIFIED', tone: 'watch', glyph: '⚠',
+      // Offers are withheld by the producer (playable_this_week); LINEUP and GRADE keep the
+      // projection, because `playable:false` is what makes them score 0 and bench.
+      ...healthy(!blocked), applies: true, unverified: true, label: 'STATUS UNVERIFIED', tone: 'watch', glyph: '⚠',
       title: 'Availability source is stale or incomplete; recommendations withheld, not a prediction of zero points',
       phrase: 'has unverified availability; recommendations are withheld',
       evidence: typeof eligibility.detail === 'string' ? eligibility.detail : null,

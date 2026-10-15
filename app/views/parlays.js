@@ -964,6 +964,10 @@ export default async function mountParlays(el) {
     activeBucket = null;
     activeTier = 'all';   // R75 — the tier chips are per-week, like the leg chips
     syncWeekChrome(week, archivedFor(week));
+    // The risk panel describes the cards on screen; paintList repaints it when a
+    // week's cards land, so a failed or empty week must not keep the last one.
+    const riskHost = el.querySelector('#portfolio-risk');
+    if (riskHost) { riskHost.innerHTML = ''; riskHost.hidden = true; }
     const seq = ++paintSeq;
     if (week === curWeek) {
       parlays = curParlays;

@@ -71,7 +71,8 @@ export function summarizePortfolio(cards, schedule = [], week = null) {
 }
 
 export function renderPortfolioRisk(summary) {
-  if (!summary || summary.cards < 2 || !summary.exposures.length) return '';
+  if (!summary || summary.cards < 2 || !summary.exposures.length
+      || summary.exposures[0].cards < 2) return '';
   const top = summary.exposures[0];
   const exact = summary.pZeroWinners != null;
   const common = top.cards === summary.cards;

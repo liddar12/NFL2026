@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { summarizePortfolio, renderPortfolioRisk } from '../../app/portfolio-risk.js';
 import { availabilityOf, renderAvailChip } from '../../app/availability.js';
+import { teamWeekPoints } from '../../app/grade-weekly.js';
 
 const root = new URL('../../', import.meta.url);
 const py = (code) => JSON.parse(execFileSync('python3', ['-c', code], { cwd: root, encoding: 'utf8' }));
@@ -92,7 +93,9 @@ test('stale-source eligibility is visible and does not claim zero points or alte
   const row = { availability: { status: 'OUT', class: 'week' }, weeks: [{ wk: 6, pts: 17 }],
     eligibility: { eligible: false, reason: 'source_unverified', week: 6, detail: 'stale_report' } };
   const av = availabilityOf(row, 6, 6);
-  assert.equal(av.playable, false);
+  // Withholding offers is not benching: LINEUP and GRADE read playable:false as 0 points.
+  assert.equal(av.playable, true);
+  assert.equal(av.unverified, true);
   assert.equal(av.label, 'STATUS UNVERIFIED');
   assert.match(renderAvailChip(av), /not a prediction of zero points/);
   assert.equal(row.weeks[0].pts, 17);
@@ -113,4 +116,28 @@ test('retirement renders without an invented IR floor', () => {
   assert.equal(av.label, 'RETIRED');
   assert.equal(av.durText, '');
   assert.doesNotMatch(renderAvailChip(av), /LEAGUE MIN|4.*WKS/);
+});
+
+test('an unverified starter keeps his projection and his slot over a bye-week player', () => {
+  const weeks = (byeWk) => Array.from({ length: 18 }, (_, i) => ({
+    wk: i + 1, bye: i + 1 === byeWk, pts: i + 1 === byeWk ? 0 : 10 }));
+  const weekly = new Map([
+    ['wrA', { gsis_id: 'wrA', receptions_prior: 0, weeks: weeks(9),
+      eligibility: { eligible: false, reason: 'source_unverified', week: 6, detail: 'stale_report' } }],
+    ['wrB', { gsis_id: 'wrB', receptions_prior: 0, weeks: weeks(6) }],
+  ]);
+  const r = teamWeekPoints({
+    rosterPlayers: [{ gsis_id: 'wrA', name: 'WR A', position: 'WR', proj_points: 170 },
+      { gsis_id: 'wrB', name: 'WR B', position: 'WR', proj_points: 170 }],
+    week: 6, profile: { shape: { roster_positions: ['WR', 'BN'] } }, weeklyById: weekly,
+    kdstIndex: null, feeds: [], currentWk: 6,
+  });
+  assert.equal(r.lineup.slots.WR1, 'wrA', 'the bye-week player never takes the slot');
+  assert.deepEqual(r.unavailable, []);
+  assert.ok(r.rows.find((x) => x.id === 'wrA').pts > 0, 'an unverified source is not a zero projection');
+});
+
+test('cards that share no selection are not described as shared risk', () => {
+  const risk = summarizePortfolio([{ legs: [leg('A', .6, 'g1')] }, { legs: [leg('C', .7, 'g2')] }], schedule, 6);
+  assert.equal(renderPortfolioRisk(risk), '');
 });
