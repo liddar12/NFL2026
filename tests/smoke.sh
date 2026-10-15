@@ -268,7 +268,8 @@ from scripts.availability import VOCAB_VERSION, counts, normalize_status  # noqa
 inj_doc = load("data/injuries.json")
 if inj_doc.get("vocab_version") != VOCAB_VERSION:
     problems.append(f"injuries.json vocab_version {inj_doc.get('vocab_version')!r} != "
-                    f"scripts/availability.VOCAB_VERSION {VOCAB_VERSION}")
+                    f"scripts/availability.VOCAB_VERSION {VOCAB_VERSION} (regenerate: "
+                    f"python3 scripts/availability.py --reenrich data/injuries.json)")
 unmapped = sorted({r["status"] for r in inj_doc["injuries"]
                    if normalize_status(r["status"]) is None})
 if unmapped:

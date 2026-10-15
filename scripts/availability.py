@@ -519,9 +519,41 @@ def selftest():
           f"offseason-mover fallback joins by unique name only")
 
 
+def reenrich_file(path):
+    """Re-apply the CURRENT vocabulary to a committed injuries document, in place.
+
+    For a VOCAB_VERSION bump (week 6: RETIRED): tests/smoke.sh refuses a committed
+    data/injuries.json written under another version, so the change that bumps the
+    vocabulary must regenerate the file with this tool, never by hand. Rows are
+    re-enriched exactly as the producer does (enrich_document), the scraper fields
+    enrich drops (position, athlete_id) are carried back onto the same rows, and every
+    other top-level field (source/received timestamps, week, quarantine) is kept.
+    Writes the producer's convention (ensure_ascii, indent 2, trailing newline).
+    """
+    import json
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    out = enrich_document(doc)
+    for src, dst in zip(doc.get("injuries") or [], out["injuries"]):
+        for k in ("position", "athlete_id"):
+            if k in src:
+                dst[k] = src[k]
+    for k, v in doc.items():
+        if k not in out:
+            out[k] = v
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=True, indent=2, sort_keys=False)
+        fh.write("\n")
+    return out
+
+
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         selftest()
+        sys.exit(0)
+    if "--reenrich" in sys.argv:
+        done = reenrich_file(sys.argv[sys.argv.index("--reenrich") + 1])
+        print(f"re-enriched {len(done['injuries'])} rows at vocab_version {done['vocab_version']}")
         sys.exit(0)
     print(__doc__)
     sys.exit(0)
