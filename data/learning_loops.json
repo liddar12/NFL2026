@@ -1,7 +1,7 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-15T14:57:26Z",
-  "policy": "Each loop decides on its own record whether a candidate clears its gate; this file only reports those decisions, verbatim. transitions is append-only.",
+  "generated_utc": "2026-10-15T17:56:33Z",
+  "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
     "held": 6,
@@ -22,7 +22,19 @@
       "last_run_utc": "2026-10-13T14:53:15Z",
       "runs": 80,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
-      "live_since_utc": "2026-07-17T17:16:18Z"
+      "live_since_utc": "2026-07-17T17:16:18Z",
+      "chronology": {
+        "invalid_timestamps": 0,
+        "latest_conflict": false
+      },
+      "effective": {
+        "state": "active",
+        "source": "data/model_tuning.json:game_params",
+        "since_utc": "2026-07-17T17:16:18Z",
+        "version": "config:b52294557e99c06d",
+        "note": "Configured parameters; runtime parameter parity is a separate check.",
+        "observed_utc": null
+      }
     },
     {
       "id": "game_signals",
@@ -32,9 +44,21 @@
       "moves": "the venue / cold signal weights in game odds",
       "source": "data/model_tuning.json",
       "state": "held",
-      "why": "incumbent retained: no candidate cleared the margin \u2014 signals stay at weight 0",
-      "last_run_utc": "2026-07-18T02:47:47Z",
-      "runs": 27
+      "why": "incumbent retained: no family's improvement was large relative to its own fold-clustered uncertainty",
+      "last_run_utc": "2026-10-13T14:53:24Z",
+      "runs": 27,
+      "chronology": {
+        "invalid_timestamps": 0,
+        "latest_conflict": false
+      },
+      "effective": {
+        "state": "active",
+        "source": "data/model_tuning.json:game_params.*.applied",
+        "since_utc": "2026-07-18T20:37:11Z",
+        "version": "config:1ceafdffa4bcee0a",
+        "note": "Configured active families: qb_out",
+        "observed_utc": null
+      }
     },
     {
       "id": "player_signals",
@@ -47,7 +71,19 @@
       "why": "the refit is worse on held-out week(s) [2]",
       "last_run_utc": "2026-10-13T14:53:43Z",
       "runs": 11,
-      "live": "every signal at full strength"
+      "live": "every signal at full strength",
+      "chronology": {
+        "invalid_timestamps": 0,
+        "latest_conflict": false
+      },
+      "effective": {
+        "state": "baseline",
+        "source": "data/model_tuning.json:candidate_signal_weights",
+        "since_utc": null,
+        "version": "config:0e156c59b859d08d",
+        "note": "Effective state is read from the current configuration, not the latest proposal.",
+        "observed_utc": null
+      }
     },
     {
       "id": "weekly_split",
@@ -58,7 +94,15 @@
       "source": "data/weekly_backtest.json",
       "state": "adopted",
       "why": "v2 beats v1 on pooled MAE (6.003 vs 6.050) and pooled rank_corr (0.381 vs 0.369); held-out 2025 MAE 6.079 vs 6.111",
-      "last_run_utc": "2026-10-15T14:54:14Z"
+      "last_run_utc": "2026-10-15T17:52:55Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/weekly_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "kdst_split",
@@ -69,7 +113,15 @@
       "source": "data/kdst_backtest.json",
       "state": "adopted",
       "why": "split beats flat by 0.1191, 95% CI [-0.1624, -0.0758] excludes 0",
-      "last_run_utc": "2026-10-13T14:52:41Z"
+      "last_run_utc": "2026-10-13T14:52:41Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/kdst_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "leg_pool",
@@ -80,7 +132,15 @@
       "source": "data/leg_pool_backtest.json",
       "state": "adopted",
       "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0717, margin 0.005), keeps skill (0.1758 vs 0.1446) and carries information (skill > 0.02)",
-      "last_run_utc": "2026-10-13T14:52:43Z"
+      "last_run_utc": "2026-10-13T14:52:43Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/leg_pool_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "leg_pool_live",
@@ -91,7 +151,15 @@
       "source": "data/leg_pool_backtest.json",
       "state": "held",
       "why": "hold: the layer is worse on held-out week(s) [5]",
-      "last_run_utc": "2026-10-13T14:52:43Z"
+      "last_run_utc": "2026-10-13T14:52:43Z",
+      "effective": {
+        "state": "disabled",
+        "source": "data/leg_pool_backtest.json:live_2026",
+        "since_utc": null,
+        "version": "config:5153dc173a57ad52",
+        "note": "The pool reads this applied flag and adjustment; a held decision is not proof a prior layer remains active.",
+        "observed_utc": "2026-10-13T14:52:43Z"
+      }
     },
     {
       "id": "props_calibration",
@@ -102,7 +170,15 @@
       "source": "data/parlay_backtest.json",
       "state": "adopted",
       "why": "calibrated log-loss <= seed on every fold: 2024: 0.6767 vs 0.6920; 2025: 0.6705 vs 0.6820",
-      "last_run_utc": "2026-10-13T10:18:34Z"
+      "last_run_utc": "2026-10-13T10:18:34Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/parlay_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "spread_model",
@@ -113,7 +189,15 @@
       "source": "data/parlay_backtest.json",
       "state": "held",
       "why": "cover model log-loss 0.7231 vs a coin flip 0.6931 over 797 games \u2014 no edge, spreads stay priced flat",
-      "last_run_utc": "2026-10-13T10:18:34Z"
+      "last_run_utc": "2026-10-13T10:18:34Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/parlay_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "atd_model",
@@ -124,7 +208,15 @@
       "source": "data/atd_backtest.json",
       "state": "adopted",
       "why": "ADOPTED \u2014 beats the position base rate and opportunity-only share on log loss and Brier in every held-out season (2023, 2024, 2025), calibration slope inside [0.9, 1.1] in each; team TDs within 5% over 2024-25",
-      "last_run_utc": "2026-10-13T14:53:58Z"
+      "last_run_utc": "2026-10-13T14:53:58Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/atd_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "joint_pricer",
@@ -135,7 +227,15 @@
       "source": "data/joint_backtest.json",
       "state": "held",
       "why": "held-out log-loss joint 0.091365 vs independent 0.091129 over 43528 cards \u2014 the independent product keeps pricing them",
-      "last_run_utc": "2026-10-13T14:56:55Z"
+      "last_run_utc": "2026-10-13T14:56:55Z",
+      "effective": {
+        "state": "unknown",
+        "source": "data/joint_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This row reports a decision; effective runtime configuration is not established here.",
+        "observed_utc": null
+      }
     },
     {
       "id": "backup_qb",
@@ -146,7 +246,15 @@
       "source": "data/backup_qb_backtest.json",
       "state": "measuring",
       "why": "phase 1 measures only; 2 of 10 candidates clear never-regress (best by pooled MAE: cap_gap_RB)",
-      "last_run_utc": "2026-10-13T14:53:42Z"
+      "last_run_utc": "2026-10-13T14:53:42Z",
+      "effective": {
+        "state": "measure_only",
+        "source": "data/backup_qb_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This experiment cannot adopt a model.",
+        "observed_utc": null
+      }
     },
     {
       "id": "weather",
@@ -157,7 +265,15 @@
       "source": "data/weather_backtest.json",
       "state": "measuring",
       "why": "not powered: 1 of 10 measured effects have the sample to detect the effect of interest; 0 candidate(s) adoptable",
-      "last_run_utc": "2026-10-13T14:53:49Z"
+      "last_run_utc": "2026-10-13T14:53:49Z",
+      "effective": {
+        "state": "measure_only",
+        "source": "data/weather_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This experiment cannot adopt a model.",
+        "observed_utc": null
+      }
     },
     {
       "id": "qb_depth",
@@ -168,7 +284,15 @@
       "source": "data/qb_depth_backtest.json",
       "state": "measuring",
       "why": "verdict none: no candidate clears the one-sided test at alpha 0.05 over 4 families",
-      "last_run_utc": "2026-10-13T14:53:32Z"
+      "last_run_utc": "2026-10-13T14:53:32Z",
+      "effective": {
+        "state": "measure_only",
+        "source": "data/qb_depth_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This experiment cannot adopt a model.",
+        "observed_utc": null
+      }
     },
     {
       "id": "lines",
@@ -179,7 +303,15 @@
       "source": "data/lines_backtest.json",
       "state": "measuring",
       "why": "phase 1 measures only; 0 of 15 variants clear never-regress",
-      "last_run_utc": "2026-10-15T14:54:21Z"
+      "last_run_utc": "2026-10-15T17:53:03Z",
+      "effective": {
+        "state": "measure_only",
+        "source": "data/lines_backtest.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This experiment cannot adopt a model.",
+        "observed_utc": null
+      }
     },
     {
       "id": "replay_lab",
@@ -190,7 +322,15 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 5 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-10-15T14:57:24Z"
+      "last_run_utc": "2026-10-15T17:56:31Z",
+      "effective": {
+        "state": "measure_only",
+        "source": "data/replay_lab.json",
+        "since_utc": null,
+        "version": null,
+        "note": "This experiment cannot adopt a model.",
+        "observed_utc": null
+      }
     }
   ],
   "transitions": [
