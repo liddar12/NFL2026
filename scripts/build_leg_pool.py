@@ -46,7 +46,6 @@ market number reaches model_prob, here or anywhere.
 import argparse
 import datetime as _dt
 import json
-import math
 import os
 import sys
 
@@ -56,10 +55,11 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from scripts.models.parlay_builder import (  # noqa: E402
-    _PROP_SEEDS, _clamp, _sigmoid, playable_this_week, project_prop_yards,
+    _PROP_SEEDS, playable_this_week, project_prop_yards,
     questionable_label,
 )
 from scripts.excluded_games import excluded_ids  # noqa: E402
+from scripts import learning_receipts as receipts  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT = os.path.join(DATA, "leg_pool.json")
@@ -88,12 +88,8 @@ def pool_prob(coef, z, p_team, live=None):
     R100 — `live` is leg_pool_backtest.json live_2026.adjustment when this season's
     graded legs earned it on held-out weeks: p -> sigmoid(a + b*logit(p)). None
     (the default, and every week it has not earned) is the pre-R100 number."""
-    a, b, c = coef["a"], coef["b"], coef["c"]
-    p = _sigmoid(a + b * z + c * (p_team - 0.5))
-    if live:
-        q = min(max(p, 1e-4), 1.0 - 1e-4)
-        p = _sigmoid(live["a"] + live["b"] * math.log(q / (1.0 - q)))
-    return round(_clamp(p, *PROB_CLAMP), 4)
+    p = receipts.base_probability(coef, z, p_team)
+    return receipts.serve_probability(p, live)
 
 
 def _abbrev(name):
@@ -102,7 +98,7 @@ def _abbrev(name):
 
 
 def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=None,
-              live=None):
+              live=None, receipt_context=None):
     """One leg per (player, in-support rung). Returns (legs, counters).
 
     Every input is the one the slate uses: the same project_prop_yards, the same
@@ -158,12 +154,26 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
             if not (lo <= z <= hi):
                 counts["refused_out_of_support"] += 1
                 continue
-            rungs.append({
+            rung = {
                 "line": line, "z": round(z, 4),
                 "selection": "%s %.0f+ %s" % (_abbrev(p.get("name")), line + 0.5,
                                               LABEL_OF[pos]),
                 "model_prob": pool_prob(coef, z, p_team, live),
-            })
+            }
+            if receipt_context is not None:
+                base = receipts.base_probability(coef, z, p_team)
+                identity = {"game_id": str(gp.get("game_id")), "gsis_id": gsis,
+                            "market": MARKET_OF[pos], "line": line, "side": side}
+                features = {"market": MARKET_OF[pos], "line": line, "mu": mu, "sd": s,
+                            "z": z, "p_team": p_team, "calibration": dict(coef),
+                            "correlation_tags": ["game:" + str(gp.get("game_id")),
+                                                 "side:" + side, "market:" + MARKET_OF[pos]]}
+                rung["learning_receipt"] = receipts.make_receipt(identity, base, live,
+                    receipt_context, features=features,
+                    input_context={"availability": rec.get("availability"),
+                                   "eligibility": rec.get("eligibility"),
+                                   "this_week": rec.get("this_week")})
+            rungs.append(rung)
             made += 1
         if made == 0:
             counts["players_with_no_leg"] += 1
@@ -300,7 +310,13 @@ def build(inputs):
     adopted = bool(((bt.get("verdict") or {}).get("adopt")))
     # R100 — this season's correction layer, ONLY when it earned it on held-out weeks.
     live_blk = bt.get("live_2026") or {}
-    live = live_blk.get("adjustment") if live_blk.get("applied") else None
+    version = receipts.base_version(calib, sd)
+    # Legacy decisions used mixed served probabilities. They cannot authorize a
+    # correction on a new base. A receipt-based gate must name this exact base.
+    valid_layer = (live_blk.get("receipt_policy") == receipts.POLICY
+                   and live_blk.get("base_model_version") == version)
+    live = live_blk.get("adjustment") if live_blk.get("applied") and valid_layer else None
+    generated = inputs.get("generated_utc") or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     weekly_by_id = {r["gsis_id"]: r
                     for r in (inputs["player_weekly"] or {}).get("players", []) or []
@@ -313,8 +329,20 @@ def build(inputs):
         pool_week = int(parlays_doc_for_week.get("week"))
     except (TypeError, ValueError):
         pool_week = None
+    try:
+        pool_season = int(parlays_doc_for_week.get("season"))
+    except (TypeError, ValueError):
+        pool_season = None
+    source_names = ("player_weekly", "player_projections", "game_predictions", "pool_backtest")
+    context = {"season": pool_season, "week": pool_week,
+               "base_model_version": version, "forecast_created_utc": generated,
+               "source_snapshot_id": receipts.fingerprint({k: inputs.get(k) for k in source_names}),
+               "source_timestamps": {k: ((inputs.get(k) or {}).get("generated_utc") or
+                                          (inputs.get(k) or {}).get("updated_utc")) for k in source_names},
+               "generation_sha": inputs.get("generation_sha") or os.environ.get("GITHUB_SHA")}
     props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd,
-                              ladder, pool_week, live=live)
+                              ladder, pool_week, live=live,
+                              receipt_context=context if pool_season and pool_week else None)
     game_by_team, side_by_team = {}, {}
     for gp in game_preds:
         for side in ("home", "away"):
@@ -345,12 +373,16 @@ def build(inputs):
     return {
         "season": parlays_doc.get("season"),
         "week": parlays_doc.get("week"),
-        "generated_utc": _dt.datetime.now(_dt.timezone.utc)
-                            .strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_utc": generated,
         "model": bt.get("model"),
         "calibration_adopted": adopted,
         # R100 — the 2026 correction layer in force (None = the 2023-25 fit alone).
         "live_adjustment": live,
+        "base_model_version": version,
+        "learning_receipt_policy": receipts.POLICY,
+        "live_adjustment_status": ("applied: validated base receipts" if live else
+                                   "held: legacy or mismatched base decision" if live_blk.get("applied")
+                                   else "held: no adopted correction"),
         "ladder": ladder,
         "support": {p: list(v) for p, v in support.items()},
         "residual_sd": sd,

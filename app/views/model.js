@@ -902,6 +902,21 @@ const LOOP_GROUPS = Object.freeze([
 const day = (u) => (typeof u === 'string' && u.length >= 10 ? u.slice(0, 10) : null);
 
 /** The LEARNING LOOPS card body. '' never: an absent record is an honest line. */
+/* The producer (build_learning_loops._history_context) emits
+ * chronology: {invalid_timestamps, latest_conflict}; these are its two readings. */
+export function chronologyWarnings(chronology) {
+  const c = chronology && typeof chronology === 'object' ? chronology : {};
+  const out = [];
+  const bad = Number(c.invalid_timestamps);
+  if (Number.isFinite(bad) && bad > 0) {
+    out.push(`${bad} history row${bad === 1 ? '' : 's'} without a valid timestamp ignored`);
+  }
+  if (c.latest_conflict === true) {
+    out.push('the newest history rows disagree, so no decision is shown as latest');
+  }
+  return out;
+}
+
 export function learningLoopsCard(doc) {
   if (!isObj(doc) || !Array.isArray(doc.loops) || !doc.loops.length) {
     return '<div class="state">No learning-loop record on file yet '
@@ -921,11 +936,16 @@ export function learningLoopsCard(doc) {
       day(l.live_since_utc) ? `since ${esc(day(l.live_since_utc))}` : '',
       day(l.last_run_utc) ? `last run ${esc(day(l.last_run_utc))}` : 'no run on file',
       Number.isFinite(Number(l.runs)) && l.runs != null ? `${esc(l.runs)} runs` : '',
+      l.effective && typeof l.effective.state === 'string'
+        ? `effective: ${esc(l.effective.state)}${l.effective.version ? ` (${esc(l.effective.version)})` : ''}` : '',
     ].filter(Boolean).join(' · ');
     return `<div class="ll-row" data-loop="${esc(l.id)}" data-state="${esc(l.state)}">`
       + `<div class="ll-top"><span class="ll-name">${esc(l.name)}</span>`
       + `<span class="${cls}">${label}</span></div>`
       + `<div class="ll-why">${esc(l.why || '')}</div>`
+      + (l.effective?.note ? `<div class="ll-meta">${esc(l.effective.note)}</div>` : '')
+      + (chronologyWarnings(l.chronology).length
+        ? `<div class="gate-note">History warning: ${chronologyWarnings(l.chronology).map(esc).join('; ')}</div>` : '')
       + `<div class="ll-meta">${meta}</div></div>`;
   };
   const groups = LOOP_GROUPS.map(([g, title]) => {

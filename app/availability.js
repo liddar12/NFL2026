@@ -8,7 +8,7 @@
  * pipeline (scripts/availability.py). Here we only decide what a manager SEES.
  *
  * Canonical vocabulary (SOLUTION_DESIGN §1.1):
- *   ACTIVE · QUESTIONABLE · DOUBTFUL · OUT · IR · PUP · NFI · SUSPENDED
+ *   ACTIVE · QUESTIONABLE · DOUBTFUL · OUT · IR · PUP · NFI · SUSPENDED · RETIRED
  *
  * Two mechanic classes ride along with it:
  *   week   — QUESTIONABLE / DOUBTFUL / OUT: this-week shaping, season total kept.
@@ -28,15 +28,15 @@
  */
 
 export const AVAIL_CODES = Object.freeze([
-  'ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED',
+  'ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED',
 ]);
 
 /** Codes whose meaning is "he is not playing" — chip tone `out`. */
-const NOT_PLAYING = Object.freeze(['OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED']);
+const NOT_PLAYING = Object.freeze(['OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED']);
 /** Codes whose meaning is "your call" — chip tone `watch`. */
 const WATCH = Object.freeze(['QUESTIONABLE', 'DOUBTFUL']);
 /** Season-class codes (multi-week absence), mirroring SEASON_CLASS in the pipeline. */
-const SEASON_CODES = Object.freeze(['IR', 'PUP', 'NFI', 'SUSPENDED']);
+const SEASON_CODES = Object.freeze(['IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED']);
 
 const CODE_SET = new Set(AVAIL_CODES);
 const OUT_SET = new Set(NOT_PLAYING);
@@ -47,7 +47,7 @@ const SEASON_SET = new Set(SEASON_CODES);
  * is noise that trains managers to stop reading chips (UX_DESIGN §1). */
 const LABEL = {
   QUESTIONABLE: 'Q', DOUBTFUL: 'D', OUT: 'OUT',
-  IR: 'IR', PUP: 'PUP', NFI: 'NFI', SUSPENDED: 'SUSP',
+  IR: 'IR', PUP: 'PUP', NFI: 'NFI', SUSPENDED: 'SUSP', RETIRED: 'RETIRED',
 };
 
 /* Every abbreviation is spelled out in `title` so the code is never the only
@@ -55,7 +55,7 @@ const LABEL = {
 const FULL = {
   ACTIVE: 'Active', QUESTIONABLE: 'Questionable', DOUBTFUL: 'Doubtful', OUT: 'Out',
   IR: 'Injured Reserve', PUP: 'Physically Unable to Perform',
-  NFI: 'Non-Football Injury', SUSPENDED: 'Suspended',
+  NFI: 'Non-Football Injury', SUSPENDED: 'Suspended', RETIRED: 'Retired',
 };
 
 function esc(v) {
@@ -105,6 +105,20 @@ export function availabilityOf(weeklyPlayerRow, wk, currentWk) {
   const entry = weeks.find((x) => Number(x.wk) === wkNum) || null;
   const blocked = !!(entry && entry.avail === false);
 
+  const eligibility = w && w.eligibility;
+  if (eligibility && eligibility.eligible === false
+      && (eligibility.week == null ? wkNum === Number(currentWk)
+        : wkNum === Number(eligibility.week))) {
+    return {
+      // Offers are withheld by the producer (playable_this_week); LINEUP and GRADE keep the
+      // projection, because `playable:false` is what makes them score 0 and bench.
+      ...healthy(!blocked), applies: true, unverified: true, label: 'STATUS UNVERIFIED', tone: 'watch', glyph: '⚠',
+      title: 'Availability source is stale or incomplete; recommendations withheld, not a prediction of zero points',
+      phrase: 'has unverified availability; recommendations are withheld',
+      evidence: typeof eligibility.detail === 'string' ? eligibility.detail : null,
+    };
+  }
+
   const a = (w && w.availability && typeof w.availability === 'object') ? w.availability : null;
   if (!a) return healthy(!blocked);
 
@@ -135,7 +149,7 @@ export function availabilityOf(weeklyPlayerRow, wk, currentWk) {
     ? a.evidence.trim() : null;
 
   const isCurrent = Number.isFinite(Number(currentWk)) && wkNum === Number(currentWk);
-  const playable = !(blocked || (raw === 'OUT' && isCurrent));
+  const playable = !(blocked || (['OUT', 'RETIRED'].includes(raw) && isCurrent));
 
   // DOES THIS STATUS APPLY TO THE WEEK BEING RENDERED?
   // A three-game suspension is a fact about weeks 1-3, not about week 9. Showing
@@ -190,6 +204,7 @@ function titleFor(code, outForSeason, weeksOut, confidence) {
   if (code === 'QUESTIONABLE') return 'Questionable — game-time decision';
   if (code === 'DOUBTFUL') return 'Doubtful — expected to sit';
   if (code === 'OUT') return 'Ruled out this week';
+  if (code === 'RETIRED') return 'Retired — not eligible for a player recommendation';
   if (outForSeason) return `${full} — reported out for the season`;
   if (weeksOut != null && confidence === 'explicit') {
     return code === 'SUSPENDED'
@@ -211,10 +226,10 @@ function titleFor(code, outForSeason, weeksOut, confidence) {
 function phraseFor(code, outForSeason, weeksOut, confidence) {
   const base = {
     IR: 'is on IR', PUP: 'is on the PUP list', NFI: 'is on the NFI list',
-    SUSPENDED: 'is suspended', OUT: 'is ruled out this week',
+    SUSPENDED: 'is suspended', RETIRED: 'is retired', OUT: 'is ruled out this week',
     QUESTIONABLE: 'is questionable', DOUBTFUL: 'is doubtful',
   }[code] || 'is unavailable';
-  if (code === 'OUT' || code === 'QUESTIONABLE' || code === 'DOUBTFUL') return base;
+  if (code === 'OUT' || code === 'QUESTIONABLE' || code === 'DOUBTFUL' || code === 'RETIRED') return base;
   if (outForSeason) {
     if (code === 'SUSPENDED') return 'is suspended for the season';
     return `is on ${code} for the season`;

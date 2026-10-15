@@ -18,6 +18,7 @@ TWO inherited invariants encoded here:
 """
 
 import datetime as _dt
+import re as _re
 import sys as _sys
 import time as _time
 
@@ -323,7 +324,8 @@ def fetch_game_inactives(game_id):
                          sides["away"][0]: sides["away"][1]}}
 
 
-def fetch_injuries(min_rows=1, carry_positions=False):
+def fetch_injuries(min_rows=1, carry_positions=False, quarantine_unknown=False,
+                   return_document=False):
     """Per-team injury reports, enriched with the canonical availability reading.
 
     Returns list[dict]: {team, player, status, availability, availability_class,
@@ -339,6 +341,11 @@ def fetch_injuries(min_rows=1, carry_positions=False):
     duration fields are scripts/injury_duration.py's conservative parse of `detail`
     (null whenever the text does not state a duration unambiguously — never a guess).
 
+    Default callers refuse an unmapped status. Production explicitly opts into
+    quarantine_unknown + return_document: valid rows continue, while the returned
+    quarantine is consumed by the weekly recommendation gate. Never drop that
+    quarantine when using this mode; an unknown designation is not ACTIVE.
+
     LOUD ON AN UNMAPPED STATUS, exactly as `_team_abbrev` is loud on an unmapped team.
     A drifted availability string mis-attributes a fact the same way a drifted
     abbreviation does: before Rel17 an unrecognised status silently multiplied by 1.0,
@@ -346,6 +353,8 @@ def fetch_injuries(min_rows=1, carry_positions=False):
     feed is already best-effort at the call site, so a refusal here degrades the run
     visibly instead of poisoning it.
     """
+    if quarantine_unknown and not return_document:
+        raise ValueError("quarantine_unknown requires return_document so eligibility evidence is preserved")
     data = _get_json(_INJURIES_URL)
     groups = data.get("injuries") or []
     if not groups:
@@ -353,6 +362,7 @@ def fetch_injuries(min_rows=1, carry_positions=False):
             "ESPN injuries endpoint returned 0 team groups — outage, not 'nobody hurt'."
         )
     out = []
+    quarantine = []
     for grp in groups:
         team = normalize_team((grp.get("team") or {}).get("abbreviation") or grp.get("displayName"))
         for item in grp.get("injuries") or []:
@@ -363,6 +373,15 @@ def fetch_injuries(min_rows=1, carry_positions=False):
                 else item.get("status")
             )
             if availability.normalize_status(status) is None:
+                if quarantine_unknown:
+                    quarantine.append({
+                        "team": team, "player": athlete.get("displayName"),
+                        "athlete_id": _athlete_id(athlete), "status": status,
+                        "reason": "unmapped_status",
+                    })
+                    print(f"[warn] injury row quarantined: {team} "
+                          f"{athlete.get('displayName')!r}: {status!r}", file=_sys.stderr)
+                    continue
                 raise FeedError(
                     f"ESPN injury status {status!r} (for {team} "
                     f"{athlete.get('displayName')!r}) did not map to a canonical "
@@ -392,6 +411,10 @@ def fetch_injuries(min_rows=1, carry_positions=False):
             f"ESPN injuries produced {len(out)} rows (< {min_rows}); treating as an "
             f"outage rather than an empty (and therefore misleading) injury report."
         )
+    if return_document:
+        return {"injuries": out, "quarantine": quarantine,
+                "source_updated_utc": data.get("timestamp"),
+                "received_utc": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     return out
 
 
@@ -408,10 +431,16 @@ def _athlete_position(athlete):
 
 
 def _athlete_id(athlete):
-    """ESPN's athlete id as a string, or None when the payload has none."""
+    """ESPN ID, including its canonical player URL when the id field is absent."""
     aid = (athlete or {}).get("id")
     if aid is None or str(aid).strip() == "":
-        return None
+        ids = set()
+        for link in (athlete or {}).get("links") or []:
+            match = _re.search(r"^https://(?:www\.)?espn\.com/nfl/player/.*?/id/(\d+)(?:/|$)",
+                               str(link.get("href") or ""))
+            if match:
+                ids.add(match.group(1))
+        return next(iter(ids)) if len(ids) == 1 else None
     return str(aid).strip()
 
 

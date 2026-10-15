@@ -239,6 +239,7 @@ export function aiPlusCopy(modelName) {
 const GATE_STATUS = {
   OUT: ['OUT', 'ruled out'], DOUBTFUL: ['D', 'doubtful'], SUSPENDED: ['SUSP', 'suspended'],
   IR: ['IR', 'on injured reserve'], PUP: ['PUP', 'on the PUP list'], NFI: ['NFI', 'on the NFI list'],
+  RETIRED: ['RETIRED', 'retired'],
 };
 export function gateTag(g) {
   if (!g) return null;

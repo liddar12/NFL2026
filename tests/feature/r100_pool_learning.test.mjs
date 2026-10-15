@@ -46,7 +46,7 @@ def season(weeks, lift, n=80, seed=7):
     return rows
 `;
 
-test('R100: the join — one observation per distinct graded leg, game legs never', () => {
+test('R100: legacy probabilities without base receipts are quarantined, not invented', () => {
   const r = py(`
 from scripts import backtest_leg_pool as b
 cards = [{"week": 2, "cards": [
@@ -58,15 +58,13 @@ scores = {"cards": [
   {"week": 2, "legs": [{"selection": "A 60+ rec yds", "result": "hit"}, {"selection": "KC ML", "result": "hit"}]},
   {"week": 2, "legs": [{"selection": "A 60+ rec yds", "result": "hit"}, {"selection": "B 40+ rush yds", "result": "miss"},
                        {"selection": "C 20+ rec yds", "result": "hit"}]}]}
-rows = b.live_rows(cards, scores)
-real = b.load_live_rows()
-print(json.dumps({"rows": rows, "real_n": len(real),
+rows, audit = b.live_rows(cards, scores, return_audit=True)
+real, real_audit = b.load_live_rows(return_audit=True)
+print(json.dumps({"rows": rows, "audit": audit, "real_audit": real_audit, "real_n": len(real),
   "real_ok": all(r["y"] in (0, 1) and 0 < r["p"] < 1 and r["pos"] in ("QB", "RB", "WR") for r in real)}))`);
-  assert.deepEqual(r.rows, [
-    { week: 2, pos: 'RB', p: 0.55, y: 0 },
-    { week: 2, pos: 'WR', p: 0.6, y: 1 },
-  ], 'the repeated leg counts once, the ML leg and the never-offered leg not at all');
-  assert.ok(r.real_n > 0, 'the committed ledger yields graded legs');
+  assert.deepEqual(r.rows, [], 'display-name probabilities cannot establish a pre-correction base');
+  assert.ok(r.audit.quarantined_records > 0);
+  assert.ok(r.real_n + r.real_audit.quarantined_records > 0, 'history is audited, not silently discarded');
   assert.equal(r.real_ok, true);
 });
 
@@ -103,6 +101,7 @@ print(json.dumps({**res, "lift_ok": lift_ok, "better_ok": better_ok,
 test('R100: pricing — no layer is the pre-R100 number; a layer keeps the rungs in order', () => {
   const r = py(`
 from scripts import build_leg_pool as lp
+from scripts import learning_receipts as receipts
 coef = {"a": 0.1, "b": 1.3, "c": 0.8}
 def old(z, pt):
     p = 1.0 / (1.0 + math.exp(-(coef["a"] + coef["b"] * z + coef["c"] * (pt - 0.5))))
@@ -121,13 +120,16 @@ print(json.dumps({"same": same, "ordered": all(x >= y for x, y in zip(seq, seq[1
 test('R100: the builder reads the layer only when applied; the contract refuses a reversing slope', () => {
   const r = py(`
 from scripts import build_leg_pool as lp
+from scripts import learning_receipts as receipts
 from scripts.validate_data import validate_against_schema, ValidationError
 bt = json.load(open("data/leg_pool_backtest.json"))
 inputs = lp.load_inputs()
 def with_live(applied, adj):
     d = json.loads(json.dumps(bt))
     d["live_2026"] = {"weeks": [2, 3, 4], "legs": 300, "offered_mean": 0.55, "hit_rate": 0.66, "per_week": [],
-                      "adjustment": adj, "applied": applied, "reason": "test"}
+                      "adjustment": adj, "applied": applied, "reason": "test",
+                      "receipt_policy": receipts.POLICY,
+                      "base_model_version": receipts.base_version({p:c for p,c in bt["calibration"].items() if c}, bt["residual_sd"])}
     i = dict(inputs); i["pool_backtest"] = d
     return lp.build(i)
 off = with_live(False, {"a": 0.4, "b": 1.1})

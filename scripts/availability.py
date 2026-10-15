@@ -7,7 +7,7 @@ strings ("injury_reserve", "day_to_day"), and nflverse's report statuses
 `build_weekly.INJURY_MULT`, silently multiplied everything it did not recognise by 1.0.
 That is how 11 players who cannot take a snap in 2026 projected as fully healthy.
 
-  ACTIVE  QUESTIONABLE  DOUBTFUL  OUT  IR  PUP  NFI  SUSPENDED
+  ACTIVE  QUESTIONABLE  DOUBTFUL  OUT  IR  PUP  NFI  SUSPENDED  RETIRED
 
 TWO MECHANIC CLASSES, deliberately separated -- conflating them was the defect:
 
@@ -16,7 +16,7 @@ TWO MECHANIC CLASSES, deliberately separated -- conflating them was the defect:
          total is preserved exactly. This is the pre-Rel17 behaviour and it is CORRECT
          for its case: a questionable player is still going to play ~17 games.
 
-  season IR / PUP / NFI / SUSPENDED, or ANY code carrying an unambiguous parsed
+  season IR / PUP / NFI / SUSPENDED / RETIRED, or ANY code carrying an unambiguous parsed
          duration. Long-term absence. The blocked weeks are zeroed and EXCLUDED from
          the renormalization, so the season total ACTUALLY DROPS. A player who will
          not play again this year must not carry 100% of his season points.
@@ -28,14 +28,15 @@ in today's feed (ATL DeAngelo Malone, NO Keeshawn Silver, TB Chase Lucas).
 `normalize_status` returns None for a spelling it does not know. NONE MEANS WE DO NOT
 KNOW; callers MUST NOT read it as ACTIVE. Loudness is split on purpose:
 
-  * LOUD at the scraper boundary -- `espn.fetch_injuries` raises FeedError naming the
-    unmapped value, exactly as `_team_abbrev` does for a drifted team abbreviation. A
-    drifted availability string mis-attributes a fact the same way.
+  * LOUD at the scraper boundary -- strict callers raise FeedError on an unmapped
+    value. The production document mode quarantines that row and preserves its raw
+    identity/status; valid rows continue and the affected player is not offered.
   * LOUD at the gate -- tests/smoke.sh asserts every status in the committed
     data/injuries.json normalizes. This is the single check that stops the bug class.
   * GRACEFUL in the consumer -- `build_weekly` is graceful BY CONTRACT (a missing
     injuries feed means "shape nothing", never "everyone is healthy"), so None there
-    means no shaping AND no unavailability. The degradation stays visible upstream.
+    means no shaping AND no medical unavailability. Source uncertainty separately
+    refuses recommendations through eligibility; it is never treated as ACTIVE.
 
 Stdlib only, pure, no I/O, no network. `--selftest`.
 """
@@ -50,14 +51,14 @@ if _ROOT not in sys.path:
 
 from scripts.injury_duration import parse_duration  # noqa: E402
 
-VOCAB_VERSION = 1
+VOCAB_VERSION = 2
 
-ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED = (
-    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED")
-CODES = (ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED)
+ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED = (
+    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED")
+CODES = (ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED)
 
 WEEK_CLASS = frozenset({QUESTIONABLE, DOUBTFUL, OUT})
-SEASON_CLASS = frozenset({IR, PUP, NFI, SUSPENDED})
+SEASON_CLASS = frozenset({IR, PUP, NFI, SUSPENDED, RETIRED})
 
 # The NFL's own floor, applied as a FLOOR and never as a measurement: a player placed
 # on in-season injured reserve must miss at least four games before he is eligible to
@@ -71,7 +72,7 @@ MIN_WEEKS_OUT = 4
 
 # Severity, worst last. Used when one player carries several report rows.
 _SEVERITY = {ACTIVE: 0, QUESTIONABLE: 1, DOUBTFUL: 2, OUT: 3,
-             SUSPENDED: 4, NFI: 5, PUP: 6, IR: 7}
+             SUSPENDED: 4, NFI: 5, PUP: 6, IR: 7, RETIRED: 8}
 
 # Keys are lower-cased and whitespace-collapsed. Every spelling below is either
 # OBSERVED in a real feed or is that feed's documented value.
@@ -85,14 +86,15 @@ _MAP = {
     "out": OUT,
     "injured reserve": IR,
     "suspension": SUSPENDED,
+    # R125 / week-6 integration -- ESPN's reserve/retired list, first OBSERVED
+    #     2026-10-11 (PHI Lane Johnson). Unmapped, it froze data/injuries.json at
+    #     2026-10-11T20:10Z (every run refused all 800 rows). R125 shipped it as IR
+    #     to unfreeze the feed; RETIRED supersedes that: nonplayable season class, no
+    #     invented IR recovery period, never an injury-training label.
+    "reserve-ret": RETIRED,
+    "retired": RETIRED,
     "physically unable to perform": PUP,
     "non-football injury": NFI,
-    # R125 -- ESPN's reserve/retired list, first OBSERVED 2026-10-11 (PHI Lane
-    #     Johnson). Unmapped, it made fetch_injuries refuse all 800 rows on every run
-    #     from daily #288 on, so data/injuries.json froze at 2026-10-11T20:10Z. A
-    #     player on a reserve list takes no snap: the IR season class (the R77 gate
-    #     blocks him, the rule floor applies), never ACTIVE.
-    "reserve-ret": IR,
     # --- espn_kona (fantasy API -> espn_players.injury_status, already lower-cased)
     "injury_reserve": IR,
     "day_to_day": QUESTIONABLE,
@@ -139,7 +141,7 @@ def status_class(code):
 # and shown with its chip, a Doubtful is treated as sitting. ACTIVE and None
 # (unknown) are playable: unknown is not evidence of absence any more than it is
 # evidence of health, and a WRONG zero is worse than a missed one.
-NOT_PLAYABLE = frozenset({DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED})
+NOT_PLAYABLE = frozenset({DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED})
 
 
 def status_playable(code):
@@ -154,6 +156,88 @@ def norm_name(name):
     has exactly one definition.
     """
     return " ".join(str(name or "").replace(".", "").lower().split())
+
+
+def _espn_id(record):
+    """Canonical ESPN identity, without treating a display name as an ID."""
+    pid = str(record.get("gsis_id") or "")
+    return pid[5:] if pid.startswith("espn-") else str(
+        record.get("athlete_id") or record.get("espn_id") or "")
+
+
+def quarantine_scope(records, quarantine):
+    """Resolve unknown statuses to the smallest defensible recommendation scope.
+
+    IDs win even when names/teams disagree. Without an ID, an exact team/name
+    match wins, then an unambiguous name-only mover match. Ambiguous names do
+    not identify a player: all possible matches are withheld explicitly. A
+    team-only row affects that team, not the league; only a row with no usable
+    identity or team makes the entire source unverified.
+    """
+    players, teams, unidentified = {}, set(), False
+    records = list(records or [])
+    for row in quarantine or []:
+        eid = str(row.get("athlete_id") or "")
+        name, team = norm_name(row.get("player")), row.get("team")
+        if eid:
+            matches = [p for p in records if _espn_id(p) == eid]
+            detail = "quarantined_status"
+        elif name:
+            named = [p for p in records if norm_name(p.get("name")) == name]
+            exact = [p for p in named if team and p.get("team") == team]
+            matches = exact or named
+            # Repeated report rows for one athlete are not distinct identities.
+            identities = {_espn_id(p) or (p.get("team"), norm_name(p.get("name")))
+                          for p in matches}
+            detail = "quarantined_status" if len(identities) <= 1 else "ambiguous_quarantine"
+        elif team:
+            teams.add(team)
+            matches = [p for p in records if p.get("team") == team]
+            detail = "quarantined_team"
+        else:
+            unidentified = True
+            matches = []
+            detail = "unidentified_quarantine"
+        for p in matches:
+            # Team-level uncertainty dominates a row-level explanation, independent
+            # of source ordering. No medical status or projection is fabricated.
+            pid = p.get("gsis_id")
+            if pid is not None and players.get(pid) != "quarantined_team":
+                players[pid] = detail
+    return {"players": players, "teams": teams, "unidentified": unidentified}
+
+
+def quarantine_inputs(records, document):
+    """Return (scope, trustworthy rows) for this exact consumer pool.
+
+    Record-level exclusions are also required: a second, understood name-only
+    row must not reintroduce an OUT/IR discount for an ID-quarantined athlete.
+    The caller retains the full pool for duplicate-name guards when applying
+    the remaining report; it skips scoped records rather than shrinking the pool.
+    """
+    document = document or {}
+    quarantine = document.get("quarantine") or []
+    scope = quarantine_scope(records, quarantine)
+    rows = document.get("injuries") or []
+    report_records = [dict(row, gsis_id="report:%s" % i, name=row.get("player"))
+                      for i, row in enumerate(rows)]
+    report_scope = quarantine_scope(report_records, quarantine)
+    # A canonical-ID quarantine can coexist with an older valid row that lost
+    # its ID. Resolve that row against the full pool, not the quarantined subset:
+    # otherwise filtering would turn a namesake into a false unique match.
+    for i, row in enumerate(rows):
+        if row.get("athlete_id"):
+            continue
+        name = norm_name(row.get("player"))
+        named = [p for p in records if norm_name(p.get("name")) == name]
+        exact = [p for p in named if row.get("team") and p.get("team") == row.get("team")]
+        matches = exact or named
+        if matches and all(p.get("gsis_id") in scope["players"] for p in matches):
+            report_scope["players"]["report:%s" % i] = "quarantined_status"
+    filtered = [] if scope["unidentified"] else [
+        row for i, row in enumerate(rows)
+        if "report:%s" % i not in report_scope["players"]]
+    return scope, filtered
 
 
 def enrich(row):
@@ -171,7 +255,9 @@ def enrich(row):
     """
     code = normalize_status(row.get("status"))
     cls = status_class(code)
-    dur = parse_duration(row.get("detail"), status=code)
+    # Retirement is a distinct nonplayable status. Do not reinterpret commentary
+    # as an injury duration or invent the IR four-game minimum for it.
+    dur = None if code == RETIRED else parse_duration(row.get("detail"), status=code)
     if dur and cls != "season":
         # PROMOTION: an OUT whose own text states a season-ending or N-week absence is
         # a long-term absence wearing a short-term label. Fires on 3 real rows today.
@@ -330,7 +416,7 @@ def lookup_report(index, by_name, team, name, ambiguous=frozenset()):
     return by_name.get(n)
 
 
-def apply_to_records(records, index, by_name=None):
+def apply_to_records(records, index, by_name=None, excluded_ids=frozenset()):
     """Stamp the canonical `injury_status` onto player records IN PLACE.
 
     `records` are espn_players.build_player_records rows ({team, name, ...}); they
@@ -349,6 +435,8 @@ def apply_to_records(records, index, by_name=None):
     n = 0
     ambiguous = dup_names(records) if by_name else frozenset()
     for rec in records or []:
+        if rec.get("gsis_id") in excluded_ids:
+            continue
         view = lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"),
                              ambiguous)
         if not view:
@@ -366,7 +454,7 @@ def apply_to_records(records, index, by_name=None):
 
 def selftest():
     # --- vocabulary ---------------------------------------------------------------
-    assert len(CODES) == 8 and len(set(CODES)) == 8, CODES
+    assert len(CODES) == 9 and len(set(CODES)) == 9, CODES
     assert WEEK_CLASS | SEASON_CLASS | {ACTIVE} == set(CODES)
     assert not (WEEK_CLASS & SEASON_CLASS), "a code cannot be both mechanics"
     for code in CODES:
@@ -381,9 +469,9 @@ def selftest():
     assert normalize_status("Injured Reserve") == IR
     assert normalize_status("  injured   reserve ") == IR      # whitespace-collapsed
     assert normalize_status("Suspension") == SUSPENDED
+    assert normalize_status("Reserve-Ret") == RETIRED
     assert normalize_status("Physically Unable to Perform") == PUP
     assert normalize_status("Non-Football Injury") == NFI
-    assert normalize_status("Reserve-Ret") == IR                # R125
     assert status_class(normalize_status("Reserve-Ret")) == "season"
     assert normalize_status("injury_reserve") == IR            # espn kona
     assert normalize_status("day_to_day") == QUESTIONABLE
@@ -399,7 +487,7 @@ def selftest():
 
     assert norm_name("A.J. Brown") == norm_name("AJ  brown") == "aj brown"
     # --- R77 this-week gate: the vocabulary's own answer to "does he play?" -------
-    assert NOT_PLAYABLE == {DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED}
+    assert NOT_PLAYABLE == {DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED}
     assert status_playable(ACTIVE) and status_playable(QUESTIONABLE)
     assert status_playable(None), "unknown is not a zero"
     for code in NOT_PLAYABLE:
@@ -515,9 +603,41 @@ def selftest():
           f"offseason-mover fallback joins by unique name only")
 
 
+def reenrich_file(path):
+    """Re-apply the CURRENT vocabulary to a committed injuries document, in place.
+
+    For a VOCAB_VERSION bump (week 6: RETIRED): tests/smoke.sh refuses a committed
+    data/injuries.json written under another version, so the change that bumps the
+    vocabulary must regenerate the file with this tool, never by hand. Rows are
+    re-enriched exactly as the producer does (enrich_document), the scraper fields
+    enrich drops (position, athlete_id) are carried back onto the same rows, and every
+    other top-level field (source/received timestamps, week, quarantine) is kept.
+    Writes the producer's convention (ensure_ascii, indent 2, trailing newline).
+    """
+    import json
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    out = enrich_document(doc)
+    for src, dst in zip(doc.get("injuries") or [], out["injuries"]):
+        for k in ("position", "athlete_id"):
+            if k in src:
+                dst[k] = src[k]
+    for k, v in doc.items():
+        if k not in out:
+            out[k] = v
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=True, indent=2, sort_keys=False)
+        fh.write("\n")
+    return out
+
+
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         selftest()
+        sys.exit(0)
+    if "--reenrich" in sys.argv:
+        done = reenrich_file(sys.argv[sys.argv.index("--reenrich") + 1])
+        print(f"re-enriched {len(done['injuries'])} rows at vocab_version {done['vocab_version']}")
         sys.exit(0)
     print(__doc__)
     sys.exit(0)

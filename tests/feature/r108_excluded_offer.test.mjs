@@ -221,6 +221,9 @@ with open(xp, "w") as fh:
 games = [{"game_id": "G%d" % i, "home": "H%d" % i, "away": "A%d" % i,
           "probs": {"home": p, "away": round(1 - p, 4)}}
          for i, p in ((1, 0.62), (2, 0.91), (3, 0.70), (4, 0.58))]
+props={g["game_id"]:[{"market":m,"selection":"P%d %s" % (i,m),"model_prob":.6,
+    "_corr_tag":m,"_side":"home"} for i,m in enumerate(("qb_pass_yds","rb_rush_yds","wr_rec_yds"))]
+    for g in games}
 def shape(ps):
     game = {}
     for p in ps:
@@ -228,8 +231,8 @@ def shape(ps):
             game[p["game_id"]] = game.get(p["game_id"], 0) + 1
     teams = sorted({l["selection"].split(" ")[0] for p in ps for l in p["legs"]})
     return {"game": game, "teams": teams, "week": sum(1 for p in ps if p["scope"] == "week")}
-print(json.dumps({"open": shape(PB.build_parlays(games, excluded_path=none)),
-                  "x": shape(PB.build_parlays(games, excluded_path=xp))}))`);
+print(json.dumps({"open": shape(PB.build_parlays(games, props_by_game=props, excluded_path=none)),
+                  "x": shape(PB.build_parlays(games, props_by_game=props, excluded_path=xp))}))`);
   assert.ok(r.open.game.G2 >= 3 && r.open.teams.includes('H2'),
     'with no list the strongest favorite is on its game cards and in week legs');
   assert.equal(r.x.game.G2, undefined, 'the excluded game gets no game card');

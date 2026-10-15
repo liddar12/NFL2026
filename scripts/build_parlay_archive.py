@@ -368,6 +368,8 @@ def archive_doc(parlays_doc, existing, closed, now, earliest_fn=None):
         return None, "frozen"
     doc = {k: parlays_doc[k] for k in VERBATIM_KEYS if k in parlays_doc}
     for k, v in parlays_doc.items():          # verbatim: any extra top-level key too
+        if k == "candidate_coverage":
+            continue  # describes the live generation, not the mixed frozen archive
         if k not in doc:
             doc[k] = v
     # Every archived card is identified by its legs, and the cards of a game that

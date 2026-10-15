@@ -32,6 +32,11 @@ HONESTY RULES (the ones this file exists to keep)
     build_review.parlay_bucket so the five buckets mean the same thing everywhere.
   * WITH NO GRADED CARD EVERY METRIC IS NULL, NEVER 0. A hit rate of 0.0 says we
     measured and nothing hit; null says we have not measured.
+  * ORIGINAL-CONTRACT CALIBRATION has its own denominator. A void or missing leg
+    changes the contract; its original all-hit probability cannot be scored
+    against that settlement. Calibration requires every recorded leg to resolve
+    hit/miss with a finite recorded probability. Settlement counts/money retain
+    all graded cards, including successful reduced-leg settlements and refunds.
   * Money is display-only and never an input. parlay_money settles a card at the
     card's OWN recorded implied prices (a prop, having no book feed, falls to the
     -110 assumption build_review applies everywhere).
@@ -58,6 +63,7 @@ import argparse
 import datetime as dt
 import glob
 import json
+import math
 import os
 import re
 import sys
@@ -90,7 +96,9 @@ RULE = ("only LOCKED cards are graded; a prop leg hits when the market's yards r
         "exact push void); a card is a hit only when every leg hit, a miss when any leg "
         "missed, void when something voided and nothing missed, and pending while any "
         "leg is unresolved -- an unresolved leg is never a miss; a leg of an "
-        "owner-excluded game is void and a card made only of such legs is dropped (R108)")
+        "owner-excluded game is void and a card made only of such legs is dropped (R108); "
+        "calibration original_contract_v1 scores only complete hit/miss contracts, "
+        "with its denominator and exclusions separate from settlement counts and money")
 
 
 def _r(x, nd=4):
@@ -283,9 +291,19 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
                                                 (atd or {}).get("snaps"))
         else:
             result, actual, reason = "pending", None, "unknown_market"
-        legs_out.append({"selection": leg.get("selection"), "market": market,
-                         "game_id": leg.get("game_id"), "result": result,
-                         "actual": actual, "reason": reason})
+        resolved = {"selection": leg.get("selection"), "market": market,
+                    "game_id": leg.get("game_id"), "result": result,
+                    "actual": actual, "reason": reason}
+        # Carry identity from the original receipt, never infer it from an
+        # abbreviation or today's roster. Consumers can still join legacy
+        # records through card_id plus an unambiguous same-card selection.
+        for key in ("gsis_id", "line", "side", "direction", "season", "comparison_operator"):
+            if key in leg:
+                resolved[key] = leg[key]
+        receipt = leg.get("learning_receipt") or {}
+        if isinstance(receipt, dict) and receipt.get("receipt_id"):
+            resolved["receipt_id"] = receipt["receipt_id"]
+        legs_out.append(resolved)
     results = [l["result"] for l in legs_out]
     pres = parlay_result(results)
     bucket = parlay_bucket(results)
@@ -310,8 +328,7 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
         "model": card.get("model"),
         "result": pres,
         "bucket": bucket,
-        "legs": [{"selection": l["selection"], "market": l["market"],
-                  "result": l["result"], "actual": l["actual"]} for l in legs_out],
+        "legs": [{k: v for k, v in l.items() if k != "reason"} for l in legs_out],
         "money": money,
     }
 
@@ -320,6 +337,71 @@ def grade_card(card, week, by_week, finals, atd=None, excluded=None):
 # scoring (pure)                                                                #
 # --------------------------------------------------------------------------- #
 
+def calibration_block(graded_rows):
+    """Score unchanged complete contracts, independently of settlement policy.
+
+    Exclusions are mutually exclusive and reconcile to the graded population.
+    A miss with a void leg is excluded just like a successful reduced-leg card:
+    filtering only the `push` bucket would leave changed losing contracts in.
+    These are descriptive scores on the recorded offers, not an assertion that
+    overlapping cards constitute independent trials or verified publication.
+    """
+    excluded = {"changed_contract": 0, "incomplete_contract": 0,
+                "invalid_probability": 0, "inconsistent_result": 0}
+    pairs = []
+    for row in graded_rows:
+        legs = row.get("legs")
+        if (not isinstance(legs, list) or not legs
+                or not isinstance(row.get("n_legs"), int)
+                or isinstance(row.get("n_legs"), bool)
+                or len(legs) != row["n_legs"]
+                or not all(isinstance(leg, dict) for leg in legs)):
+            excluded["incomplete_contract"] += 1
+            continue
+        results = [leg.get("result") for leg in legs]
+        if "void" in results:
+            excluded["changed_contract"] += 1
+            continue
+        if any(result not in ("hit", "miss") for result in results):
+            excluded["incomplete_contract"] += 1
+            continue
+        p = row.get("model")
+        if (isinstance(p, bool) or not isinstance(p, (int, float))
+                or not math.isfinite(p) or not 0 <= p <= 1):
+            excluded["invalid_probability"] += 1
+            continue
+        if row.get("bucket") != parlay_bucket(results):
+            excluded["inconsistent_result"] += 1
+            continue
+        pairs.append((float(p), all(result == "hit" for result in results)))
+    n = len(pairs)
+    hits = sum(y for _, y in pairs)
+    return {"version": "original_contract_v1", "n": n, "all_hit": hits,
+            "hit_rate": _r(hits / n) if n else None,
+            "mean_model": _r(sum(p for p, _ in pairs) / n) if n else None,
+            "expected_hits": _r(sum(p for p, _ in pairs)) if n else None,
+            "log_loss": _r(sum(log_loss(p, y) for p, y in pairs) / n) if n else None,
+            "brier": _r(sum(brier(p, y) for p, y in pairs) / n) if n else None,
+            "excluded": excluded}
+
+
+def settlement_counts(cards, graded_rows):
+    """Display outcomes without relabeling reduced-leg successes as full hits."""
+    out = {"all_hit": 0, "reduced_hit": 0, "void": 0, "loss": 0, "pending": 0}
+    for row in graded_rows:
+        bucket = row.get("bucket")
+        if bucket == "all_hit":
+            out["all_hit"] += 1
+        elif bucket == "push":
+            key = "reduced_hit" if any(l.get("result") == "hit"
+                                        for l in row.get("legs") or []) else "void"
+            out[key] += 1
+        elif bucket in ("partial", "all_missed"):
+            out["loss"] += 1
+    out["pending"] = max(0, sum(c.get("locked") is True for c in cards) - len(graded_rows))
+    return out
+
+
 def _block(cards, graded_rows):
     """One slice's record. `cards` is every recorded card in the slice (graded or
     not); `graded_rows` are the graded ones. Every METRIC is null at zero graded --
@@ -327,12 +409,13 @@ def _block(cards, graded_rows):
     n = len(cards)
     graded = len(graded_rows)
     all_hit = sum(1 for r in graded_rows if r["bucket"] == "all_hit")
+    calibration = calibration_block(graded_rows)
+    settlements = settlement_counts(cards, graded_rows)
     if not graded:
         return {"n": n, "graded": 0, "all_hit": 0, "hit_rate": None,
                 "mean_model": None, "log_loss": None, "brier": None,
-                "staked": None, "net_fair": None, "net_vig2": None, "roi_fair": None}
-    pairs = [(r["model"], r["bucket"] == "all_hit") for r in graded_rows
-             if isinstance(r.get("model"), (int, float))]
+                "staked": None, "net_fair": None, "net_vig2": None, "roi_fair": None,
+                "calibration": calibration, "settlements": settlements}
     net_fair = sum((r["money"] or {}).get("net_fair") or 0.0 for r in graded_rows)
     net_vig2 = sum((r["money"] or {}).get("net_vig2") or 0.0 for r in graded_rows)
     staked = STAKE * graded
@@ -341,13 +424,18 @@ def _block(cards, graded_rows):
         "graded": graded,
         "all_hit": all_hit,
         "hit_rate": _r(all_hit / graded),
-        "mean_model": _r(sum(p for p, _ in pairs) / len(pairs)) if pairs else None,
-        "log_loss": _r(sum(log_loss(p, y) for p, y in pairs) / len(pairs)) if pairs else None,
-        "brier": _r(sum(brier(p, y) for p, y in pairs) / len(pairs)) if pairs else None,
+        # Retained aliases use ONLY the explicit calibration cohort. UI callers
+        # must compare calibration.hit_rate with calibration.mean_model, not the
+        # settlement hit_rate above, whose denominator deliberately differs.
+        "mean_model": calibration["mean_model"],
+        "log_loss": calibration["log_loss"],
+        "brier": calibration["brier"],
         "staked": _r(staked, 2),
         "net_fair": _r(net_fair, 2),
         "net_vig2": _r(net_vig2, 2),
         "roi_fair": _r(net_fair / staked) if staked else None,
+        "calibration": calibration,
+        "settlements": settlements,
     }
 
 

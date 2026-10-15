@@ -13,6 +13,24 @@
     "injuries"
   ],
   "properties": {
+    "source_updated_utc": { "type": ["string", "null"] },
+    "received_utc": { "type": "string" },
+    "season": { "type": "integer" },
+    "week": { "type": "integer", "minimum": 1, "maximum": 18 },
+    "quarantine": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["team", "player", "athlete_id", "status", "reason"],
+        "properties": {
+          "team": { "type": ["string", "null"] },
+          "player": { "type": ["string", "null"] },
+          "athlete_id": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "reason": { "enum": ["unmapped_status"] }
+        }
+      }
+    },
     "updated_utc": {
       "type": "string"
     },
@@ -75,6 +93,7 @@
               "PUP",
               "NFI",
               "SUSPENDED",
+              "RETIRED",
               null
             ],
             "description": "Canonical code (scripts/availability.normalize_status). null means the spelling is UNKNOWN - never 'healthy'. A null here is a drift alarm, not a default."

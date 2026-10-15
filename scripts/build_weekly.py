@@ -87,6 +87,7 @@ headline still says how many points the absence cost. Rows under the total rule
 """
 
 import json
+import datetime as dt
 import os
 import sys
 
@@ -98,6 +99,74 @@ if _ROOT not in sys.path:
 from scripts import availability  # noqa: E402
 
 INJURIES_PATH = os.path.join(_ROOT, "data", "injuries.json")
+INJURY_MAX_AGE_HOURS = 12.0  # Week-6 RCA pregame freshness acceptance; not a health claim
+
+
+def read_injury_document(path=INJURIES_PATH):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        return doc if isinstance(doc, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _injury_time(value):
+    try:
+        value = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return value.astimezone(dt.timezone.utc) if value.tzinfo else None
+    except (TypeError, ValueError):
+        return None
+
+
+def injury_source_state(doc, checked_utc, week):
+    """Deterministic source eligibility, separate from a player's medical status.
+
+    Never turn unknown/stale input into a zero projection. The returned state
+    controls recommendation eligibility and whether old injury shaping is usable.
+    The explicit source week prevents even a young prior-week report rolling over.
+    """
+    doc = doc or {}
+    received = doc.get("received_utc") or doc.get("updated_utc")
+    # Legacy receipts predate the provider timestamp field. A NEW receipt with
+    # an explicitly missing provider timestamp is not made fresh by its fetch.
+    source = doc.get("source_updated_utc", received)
+    now, stamp, receipt = map(_injury_time, (checked_utc, source, received))
+    age = round((now - min(stamp, receipt)).total_seconds() / 3600, 3) \
+        if now and stamp and receipt else None
+    reason = None
+    if not doc.get("injuries"):
+        reason = "missing_report"
+    elif age is None:
+        reason = "missing_timestamp"
+    elif stamp > now + dt.timedelta(minutes=5) or receipt > now + dt.timedelta(minutes=5):
+        reason = "future_timestamp"
+    elif doc.get("week") is not None and doc["week"] != week:
+        reason = "wrong_week"
+    elif age >= INJURY_MAX_AGE_HOURS:
+        reason = "stale_report"
+    elif availability.quarantine_scope([], doc.get("quarantine"))["unidentified"]:
+        reason = "unidentified_quarantine"
+    quarantined = len(doc.get("quarantine") or [])
+    return {"verified": reason is None, "reason": reason,
+            "source_updated_utc": source, "received_utc": received,
+            "last_success_utc": received, "checked_utc": checked_utc,
+            "age_hours": max(0, age) if age is not None else None,
+            "max_age_hours": INJURY_MAX_AGE_HOURS,
+            "source_week": doc.get("week"), "week": week,
+            "quarantined_rows": quarantined}
+
+
+def injury_eligibility(projection, doc, state, week, scope=None):
+    """An explicit offer refusal or None; unknown is neither ACTIVE nor OUT."""
+    scope = scope if scope is not None else availability.quarantine_scope(
+        [projection], (doc or {}).get("quarantine"))
+    reason = state.get("reason") or scope["players"].get(projection.get("gsis_id"))
+    if reason:
+        return {"eligible": False, "reason": "source_unverified", "detail": reason,
+                "week": week, "source": "injuries",
+                "source_updated_utc": state.get("source_updated_utc")}
+    return None
 
 WEEKS = 18
 INJURY_WEEKS = 3    # injury shaping horizon: the FIRST 3 PLAYABLE non-bye weeks
@@ -956,7 +1025,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                           completions_by_id=None, components_by_id=None,
                           factors=None, dvp_path=DVP_PATH, env_path=ENV_PATH,
                           forecast_path=FORECAST_PATH, this_week=None,
-                          depth_chart=None, gate_skip_teams=(), inactives=None):
+                          depth_chart=None, gate_skip_teams=(), inactives=None,
+                          injury_document=None):
     """The full player_weekly.json document. Pure given its inputs.
 
     this_week / depth_chart / gate_skip_teams (R77): the THIS-WEEK GATE. When
@@ -986,6 +1056,14 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     Every availability shape is emitted ONLY when non-empty, so an all-healthy
     build is byte-identical to the pre-Rel17 document.
     """
+    source_state = None
+    quarantine = {"players": {}}
+    if injury_document is not None and this_week is not None:
+        source_state = injury_source_state(injury_document, updated_utc, this_week)
+        # Old OUT/IR rows must not create a new week's status, injury shaping or
+        # duration. Unknown input withholds offers separately and preserves points.
+        quarantine, trusted_rows = availability.quarantine_inputs(projections, injury_document)
+        injuries = trusted_rows if source_state["verified"] else []
     if injuries is None:
         injuries = load_injuries(injuries_path)
     if factors is None:
@@ -993,6 +1071,11 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
                                 load_forecast(forecast_path))
     mults = injury_multipliers(projections, injuries)
     unavail = unavailability(projections, injuries)
+    # Duplicate understood rows cannot convert quarantined participation into
+    # a medical zero. Keep independent posted inactives and depth facts intact.
+    for pid in quarantine["players"]:
+        mults.pop(pid, None)
+        unavail.pop(pid, None)
     sched_by_team = team_schedule(schedule_games)
     gates, gate_meta = this_week_gate(projections, unavail, injuries, depth_chart,
                                       this_week, sched_by_team, gate_skip_teams,
@@ -1095,6 +1178,12 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
             row["availability"] = block
         if gate is not None:
             row["this_week"] = gate
+        if source_state is not None and p.get("team") not in set(gate_skip_teams or ()) \
+                and this_week in sched_by_team.get(p.get("team"), {}):
+            eligibility = injury_eligibility(p, injury_document, source_state, this_week,
+                                            scope=quarantine)
+            if eligibility:
+                row["eligibility"] = eligibility
         row["weeks"] = weeks
         players.append(row)
 
@@ -1112,6 +1201,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         model["injury_shape"] = {"applied": True, "statuses_used": len(mults)}
     if this_week is not None:
         model["this_week"] = gate_meta
+    if source_state is not None:
+        model["injury_source"] = source_state
     if n_blocked_players:
         model["availability"] = {
             "applied": True,

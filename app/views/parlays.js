@@ -117,8 +117,11 @@ import {
   getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards, getAtdGameCards,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
+import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
+const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 // Tooltip for a spread leg whose feed predates edge_note; the same measured verdict.
 const SPREAD_NOTE_FALLBACK =
   'NO EDGE — cover model measured below coin-flip on 2023-25 (scripts/backtest_parlay.py); '
@@ -558,6 +561,25 @@ export function propQChip(leg) {
     : null;
 }
 
+/** Explain a smaller eligible offer set without padding it with repeated bets. */
+export function renderCandidateCoverage(coverage, scope, matchupById = new Map()) {
+  if (!coverage || coverage.version !== 'distinct_cards_v1') return '';
+  if (scope === 'game') {
+    const rows = Array.isArray(coverage.game_shortfalls) ? coverage.game_shortfalls : [];
+    return rows.map((row) => '<div class="state">LIMITED PICKS · '
+      + `${esc(matchupById.get(String(row.game_id)) || `Game ${row.game_id}`)}: `
+      + `${esc(row.distinct_cards)} of the usual ${esc(row.target)} distinct picks available. `
+      + (row.reason === 'prop_inputs_not_supplied'
+        ? 'Player-prop selections are not included in this slate. '
+        : 'Eligible player props are unavailable. ')
+      + 'Repeated picks are withheld.</div>').join('');
+  }
+  const row = scope === 'week' ? coverage.week_shortfall : null;
+  return row ? '<div class="state">LIMITED PICKS · '
+    + `${esc(row.distinct_cards)} distinct cross-game picks available from ${esc(row.slate_games)} ${row.slate_games === 1 ? 'game' : 'games'}. `
+    + 'Repeated picks are withheld.</div>' : '';
+}
+
 /**
  * R51 — stamp each painted .leg with its pricing honesty. renderParlayCard
  * (app/render.js) paints the contract's four leg fields; the annotations live
@@ -877,16 +899,24 @@ export default async function mountParlays(el) {
       ? filtered.slice().sort((a, b) =>
         cmp(a, b) || String(a.parlay_id).localeCompare(String(b.parlay_id)))
       : filtered;
+    const riskHost = el.querySelector('#portfolio-risk');
+    if (riskHost) {
+      riskHost.hidden = active !== 'week';
+      riskHost.innerHTML = active === 'week'
+        ? renderPortfolioRisk(summarizePortfolio(shown, sched?.games || [], selWeek)) : '';
+    }
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
     listEl.dataset.parlayWeek = String(selWeek);
-    listEl.innerHTML = shown.length
+    const coverageNote = selWeek === curWeek && parlays === curParlays
+      ? renderCandidateCoverage(data.candidate_coverage, active, matchupById) : '';
+    listEl.innerHTML = coverageNote + (shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'
         : (activeTier !== 'all'
           ? '<div class="state">No parlays in that tier at this scope and leg count.</div>'
-          : '<div class="state">No parlays at this leg count.</div>'));
+          : '<div class="state">No parlays at this leg count.</div>')));
     if (shown.length) annotateLegs(listEl, shown);
     betShown.list = selWeek === curWeek ? shown : [];
     if (betShown.list.length) addBetButtons(listEl, betShown.list);
@@ -934,6 +964,10 @@ export default async function mountParlays(el) {
     activeBucket = null;
     activeTier = 'all';   // R75 — the tier chips are per-week, like the leg chips
     syncWeekChrome(week, archivedFor(week));
+    // The risk panel describes the cards on screen; paintList repaints it when a
+    // week's cards land, so a failed or empty week must not keep the last one.
+    const riskHost = el.querySelector('#portfolio-risk');
+    if (riskHost) { riskHost.innerHTML = ''; riskHost.hidden = true; }
     const seq = ++paintSeq;
     if (week === curWeek) {
       parlays = curParlays;
@@ -1015,7 +1049,7 @@ export default async function mountParlays(el) {
   // per scope: undefined = not loaded yet; null = unavailable
   const atdDocs = { week: undefined, game: undefined };
   const ATD_LOAD = { week: getAtdCards, game: getAtdGameCards };
-  const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list',
+  const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list', '#portfolio-risk',
     '.rv-strip--parlay'];
   const tdEligible = () => (active === 'week' || active === 'game') && selWeek === curWeek;
   const atdActive = () => tdEligible() && td && td.mode !== 'any';
@@ -1080,6 +1114,7 @@ export default async function mountParlays(el) {
     filtersPanel(readFiltersOpen()) +
     legend() +
     retroPanel(readRetroOpen()) +
+    '<div id="portfolio-risk" hidden></div>' +
     '<div id="parlays-list" class="card-list"></div>' +
     '<div id="atd-list" class="card-list" hidden></div>' +
     '<div id="myparlays-host" hidden></div>' +
@@ -1123,7 +1158,7 @@ export default async function mountParlays(el) {
   // the hosts stay on the list so each one is provably hidden whether or not
   // the panel happens to be open when MY is tapped.
   const myChrome = ['.pw-wkbar', '#parlay-filters', '#leg-controls', '#tier-controls',
-    '#sort-controls', '#parlay-retro', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list',
+    '#sort-controls', '#parlay-retro', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list', '#portfolio-risk',
     '.rv-strip--parlay'];
   let myMounted = false;
   // The leg pool's week, once mountMyParlays has read it (null until then).

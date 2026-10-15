@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "my_card_scores.schema.json",
   "title": "Graded MY PARLAYS cards (R87) - data/my_card_scores.json",
-  "description": "The LOCKED cards recorded in data/my_cards/ resolved: prop legs against nflverse stats_player_week yards (hit = yards >= the recorded line), game legs against FINAL results when a finals source is reachable (`finals_source` names which, or that none was). Per week: the counts, the five outcome buckets, and the record per dial and per leg count - hit rate, mean conviction, log-loss and Brier of the recorded model against whether the whole card hit, plus a display-only $100 flat stake. HONESTY: weeks_resolved 0 is a valid document that says so (`skipped`) with null metrics; an unresolved leg is pending, never a miss; with nothing graded every metric is null, never 0. `cards[]` holds the GRADED cards - the complete record of what was offered is data/my_cards/. Written by scripts/resolve_my_cards.py; read by app/views/myparlays.js (the RECORD line). Optional feed.",
+  "description": "The LOCKED cards recorded in data/my_cards/ resolved: prop legs against nflverse stats_player_week yards (hit = yards >= the recorded line), game legs against FINAL results when a finals source is reachable (`finals_source` names which, or that none was). Per week: the counts, the five outcome buckets, and the record per dial and per leg count - hit rate, mean conviction, log-loss and Brier of the recorded model against whether the whole card hit, plus a display-only $100 flat stake. HONESTY: weeks_resolved 0 is a valid document that says so (`skipped`) with null metrics; an unresolved leg is pending, never a miss; with nothing graded every metric is null, never 0. `cards[]` holds the GRADED cards - the complete record of what was offered is data/my_cards/. Written by scripts/resolve_my_cards.py; read by app/views/myparlays.js (the RECORD line). Optional feed. Week 6: settlement counts and money retain all settled cards; calibration is restricted to complete original binary contracts with an explicit n and exclusions. Optional additions preserve older archived documents.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -164,14 +164,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -179,7 +181,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -205,6 +208,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -253,14 +388,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -268,7 +405,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -294,6 +432,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -342,14 +612,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -357,7 +629,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -383,6 +656,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -444,14 +849,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -459,7 +866,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -485,6 +893,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -533,14 +1073,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -548,7 +1090,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -574,6 +1117,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -622,14 +1297,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -637,7 +1314,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -663,6 +1341,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -711,14 +1521,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -726,7 +1538,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -752,6 +1565,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -800,14 +1745,16 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.mean_model when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "log_loss": {
                     "type": [
                       "number",
                       "null"
                     ],
-                    "minimum": 0
+                    "minimum": 0,
+                    "description": "Alias for calibration.log_loss when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "brier": {
                     "type": [
@@ -815,7 +1762,8 @@
                       "null"
                     ],
                     "minimum": 0,
-                    "maximum": 1
+                    "maximum": 1,
+                    "description": "Alias for calibration.brier when calibration is present; older documents may use a settlement-inclusive denominator."
                   },
                   "staked": {
                     "type": [
@@ -841,6 +1789,138 @@
                       "number",
                       "null"
                     ]
+                  },
+                  "calibration": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Only complete unchanged binary contracts; changed/void legs, incomplete records and invalid probabilities are excluded. The denominator is n, not settlement graded.",
+                    "required": [
+                      "version",
+                      "n",
+                      "all_hit",
+                      "hit_rate",
+                      "mean_model",
+                      "expected_hits",
+                      "log_loss",
+                      "brier",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "version": {
+                        "type": "string",
+                        "enum": [
+                          "original_contract_v1"
+                        ]
+                      },
+                      "n": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "hit_rate": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "mean_model": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "expected_hits": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "log_loss": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "brier": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "excluded": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "changed_contract",
+                          "incomplete_contract",
+                          "invalid_probability",
+                          "inconsistent_result"
+                        ],
+                        "properties": {
+                          "changed_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "incomplete_contract": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "invalid_probability": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "inconsistent_result": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "settlements": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "all_hit",
+                      "reduced_hit",
+                      "void",
+                      "loss",
+                      "pending"
+                    ],
+                    "properties": {
+                      "all_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "reduced_hit": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "void": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "loss": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "pending": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "description": "Full original-card hits, successful reduced contracts, complete void/refund, losses and locked pending cards. Reduced hits are not full-card accuracy."
                   }
                 },
                 "description": "Null - never 0 - on every metric when nothing is graded: 0.0 claims a measurement that was not made."
@@ -996,6 +2076,48 @@
                     "null"
                   ],
                   "description": "Prop: the yards. Game: the final scores, or the winning side. Null when the leg did not resolve - never zero-filled."
+                },
+                "game_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "gsis_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "line": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "side": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "direction": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "season": {
+                  "type": "integer",
+                  "minimum": 2026
+                },
+                "receipt_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "comparison_operator": {
+                  "type": "string",
+                  "enum": ["gte"]
                 }
               }
             }

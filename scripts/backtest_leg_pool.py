@@ -52,6 +52,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 import scripts.backtest_parlay as bp  # noqa: E402
+from scripts import learning_receipts as receipts  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT = os.path.join(DATA, "leg_pool_backtest.json")
@@ -283,6 +284,23 @@ def build(rows=None, corpus=None, sd=None, support=None, live=None):
     refit, shipped, per_fold = walk_forward(rows, shipped_coef)
     v = verdict(refit, shipped)
     final = fit_wide(rows)
+    calibration = {p: (None if c is None else
+                       {"a": round(c[0], 6), "b": round(c[1], 6), "c": round(c[2], 6)})
+                   for p, c in final.items()}
+    version = receipts.base_version({p: c for p, c in calibration.items() if c}, sd or {})
+    if live is None:
+        live_rows_for_fit, audit = load_live_rows(return_audit=True)
+    else:
+        live_rows_for_fit, audit = live, {"source": "explicit caller rows"}
+    eligible = [r for r in live_rows_for_fit if r.get("base_model_version") == version]
+    audit["different_base_version"] = len(live_rows_for_fit) - len(eligible)
+    audit["joined_unique_legs"] = len(live_rows_for_fit)
+    audit["eligible_unique_legs"] = len(eligible)
+    audit["quarantined_records"] = audit.get("quarantined_records", 0) + audit["different_base_version"]
+    if audit["different_base_version"]:
+        audit.setdefault("quarantine_reasons", {})["different_base_version"] = audit["different_base_version"]
+    live_block = live_recalibration(eligible, base_model_version=version)
+    live_block["lineage"] = audit
     return {
         "generated_utc": _dt.datetime.now(_dt.timezone.utc)
                             .strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -295,12 +313,10 @@ def build(rows=None, corpus=None, sd=None, support=None, live=None):
                    "players": len({(r["pos"], r["pid"]) for r in rows})},
         "verdict": v,
         "per_fold_coefficients": per_fold,
-        "calibration": {p: (None if c is None else
-                            {"a": round(c[0], 6), "b": round(c[1], 6), "c": round(c[2], 6)})
-                        for p, c in final.items()},
+        "calibration": calibration,
         "reliability": reliability(refit),
         # R100 — this season's graded MY legs, as a held-out-gated correction layer.
-        "live_2026": live_recalibration(load_live_rows() if live is None else live),
+        "live_2026": live_block,
         "narrow_guard": (narrow_guard(corpus, sd, final, shipped_coef)
                          if corpus is not None else None),
         "note": "The MY PARLAYS leg pool only. data/parlays.json keeps the shipped "
@@ -319,8 +335,9 @@ def build(rows=None, corpus=None, sd=None, support=None, live=None):
 # 2026 legs beside a 41k-row corpus move nothing -- so this season's evidence
 # enters as a SECOND, two-number layer fit on 2026 legs alone:
 #       p_live = sigmoid(a + b * logit(p_pool))
-# using the exact probability each leg was OFFERED at (its as-made model_prob),
-# so the layer learns "we said X, it happened Y". Measured first, 2026-09-24,
+# using the immutable pre-correction base, NOT the already-corrected served
+# model_prob. Legacy mixed rows without that receipt are quarantined. Measured
+# first, 2026-09-24,
 # week 2: 166 legs offered at 54.5 % on average hit 68.1 % -- every band ran low.
 # One week of correlated legs is not proof; the layer ships only when it wins on
 # held-out weeks, exactly like the player signals (R100):
@@ -339,30 +356,97 @@ def _logit(p):
     return math.log(p / (1.0 - p))
 
 
-def live_rows(card_docs, scores_doc):
-    """(week, pos, p_as_made, y) for every DISTINCT graded prop leg the app offered.
-    Pure. A leg offered on many cards is one observation, not many."""
-    offered = {}
-    for d in card_docs or []:
-        wk = d.get("week")
-        for c in d.get("cards") or []:
-            for leg in c.get("legs") or []:
-                if leg.get("mu") is None or leg.get("model_prob") is None:
-                    continue           # game legs and unpriced legs are not the pool's
-                offered.setdefault((wk, leg["selection"]),
-                                   (leg.get("position"), float(leg["model_prob"])))
-    rows, seen = [], set()
-    for c in (scores_doc or {}).get("cards") or []:
-        wk = c.get("week")
-        for leg in c.get("legs") or []:
-            key = (wk, leg.get("selection"))
-            if key in seen or key not in offered or leg.get("result") not in ("hit", "miss"):
+def live_rows(card_docs, scores_doc, return_audit=False):
+    """Join exact cards, then canonical events. Legacy bases are never invented.
+
+    A leg on several cards contributes once, choosing its earliest valid internal
+    pre-event receipt deterministically. Public availability is a separate audit.
+    Old score shapes may join by an UNAMBIGUOUS label inside the exact card only.
+    """
+    from collections import Counter, defaultdict
+    offered, conflicted_cards = {}, set()
+    rejected = Counter()
+    for doc in card_docs or []:
+        for card in doc.get("cards") or []:
+            key = (doc.get("season"), doc.get("week"), card.get("card_id"))
+            if not key[2]:
+                rejected["missing_card_identity"] += 1
                 continue
-            seen.add(key)
-            pos, p = offered[key]
-            rows.append({"week": wk, "pos": pos, "p": p, "y": 1 if leg["result"] == "hit" else 0})
-    rows.sort(key=lambda r: (r["week"], r["pos"] or "", r["p"]))
-    return rows
+            if key in offered and offered[key] != card:
+                conflicted_cards.add(key)
+            offered[key] = card
+    candidates, outcomes = defaultdict(list), defaultdict(set)
+    for scored in (scores_doc or {}).get("cards") or []:
+        season = scored.get("season", (scores_doc or {}).get("season"))
+        week = scored.get("week")
+        card_key = (season, week, scored.get("card_id"))
+        card = offered.get(card_key)
+        if not card or card_key in conflicted_cards:
+            rejected["missing_or_conflicting_source_card"] += 1
+            continue
+        seen = receipts.instant(card.get("first_seen_utc"))
+        kickoff = receipts.instant(card.get("earliest_kickoff_utc"))
+        for scored_leg in scored.get("legs") or []:
+            if scored_leg.get("market") not in receipts.PROP_MARKETS:
+                continue
+            if scored_leg.get("result") not in ("hit", "miss"):
+                continue
+            explicit = receipts.canonical_key(scored_leg, season)
+            choices = [leg for leg in card.get("legs") or []
+                       if ((receipts.canonical_key(leg, season) == explicit) if explicit else
+                           (leg.get("market"), leg.get("selection")) ==
+                           (scored_leg.get("market"), scored_leg.get("selection")))]
+            if len(choices) != 1:
+                rejected["ambiguous_or_missing_leg_join"] += 1
+                continue
+            leg = choices[0]
+            # Older scores may omit identity, but a partially supplied identity
+            # must never contradict the source card and silently fall back to a
+            # display-name join.
+            identity_fields = ("game_id", "gsis_id", "market", "line", "side", "direction", "comparison_operator", "season")
+            defaults = {"direction": "over", "comparison_operator": "gte"}
+            if any(field in scored_leg and scored_leg[field] !=
+                   (season if field == "season" else leg.get(field, defaults.get(field)))
+                   for field in identity_fields):
+                rejected["score_identity_mismatch"] += 1
+                continue
+            receipt = leg.get("learning_receipt")
+            problem = receipts.receipt_problem(receipt, leg, season, week)
+            if problem:
+                rejected[problem] += 1
+                continue
+            created = receipts.instant(receipt["forecast_created_utc"])
+            if card.get("locked") is not True or seen is None or kickoff is None or not created <= seen < kickoff:
+                rejected["not_internal_pregame_receipt"] += 1
+                continue
+            if scored_leg.get("receipt_id") and scored_leg["receipt_id"] != receipt["receipt_id"]:
+                rejected["score_receipt_mismatch"] += 1
+                continue
+            event = receipts.canonical_key(leg, season)
+            y = 1 if scored_leg["result"] == "hit" else 0
+            outcomes[event].add(y)
+            candidates[event].append({"week": week, "pos": leg.get("position"),
+                "p": receipt["base_prob"], "served_prob": receipt["served_prob"], "y": y,
+                "base_model_version": receipt["base_model_version"],
+                "contract_id": receipt["contract_id"], "receipt_id": receipt["receipt_id"],
+                "forecast_created_utc": receipt["forecast_created_utc"]})
+    rows = []
+    for event, versions in candidates.items():
+        if len(outcomes[event]) != 1:
+            rejected["conflicting_event_outcomes"] += len(versions)
+            continue
+        versions.sort(key=lambda r: (receipts.instant(r["forecast_created_utc"]), r["receipt_id"]))
+        earliest = receipts.instant(versions[0]["forecast_created_utc"])
+        same_time = [r for r in versions if receipts.instant(r["forecast_created_utc"]) == earliest]
+        if len({(r["base_model_version"], r["p"], r["served_prob"]) for r in same_time}) != 1:
+            rejected["conflicting_first_forecast"] += len(versions)
+            continue
+        rows.append(versions[0])
+    rows.sort(key=lambda r: (r["week"], r["contract_id"]))
+    audit = {"eligible_unique_legs": len(rows), "quarantined_records": sum(rejected.values()),
+             "quarantine_reasons": dict(sorted(rejected.items())),
+             "eligibility": "validated internal pre-event receipts; public availability unverified"}
+    return (rows, audit) if return_audit else rows
 
 
 def recal_fit(rows):
@@ -376,26 +460,46 @@ def recal_apply(ab, p):
     return bp._sigmoid(a + b * _logit(p))
 
 
-def live_recalibration(rows):
+def live_recalibration(rows, base_model_version=None):
     """The whole R100 pool rule, pure. Returns the live_2026 block."""
     weeks = sorted({r["week"] for r in rows})
     block = {"weeks": weeks, "legs": len(rows),
-             "offered_mean": None if not rows else round(sum(r["p"] for r in rows) / len(rows), 4),
+             "offered_mean": None if not rows else round(sum(
+                 r["served_prob"] if base_model_version is not None else r["p"] for r in rows) / len(rows), 4),
              "hit_rate": None if not rows else round(sum(r["y"] for r in rows) / len(rows), 4),
              "per_week": [], "adjustment": None, "applied": False, "reason": ""}
+    if base_model_version is not None:
+        block.update({"receipt_policy": receipts.POLICY, "base_model_version": base_model_version,
+                      "base_mean": None if not rows else round(sum(r["p"] for r in rows) / len(rows), 4)})
     held_raw, held_adj = [], []
+    held_served, exact_losses = [], []
     for w in weeks[1:]:
         fit = [r for r in rows if r["week"] < w]
         score = [r for r in rows if r["week"] == w]
         ab = recal_fit(fit)
-        raw = [(r["p"], r["y"]) for r in score]
-        adj = [(recal_apply(ab, r["p"]), r["y"]) for r in score]
+        if base_model_version is not None:
+            # Same rounded coefficients, clamp and output precision as serving.
+            correction = {"a": round(ab[0], 6), "b": round(ab[1], 6)}
+            if correction["b"] <= 0:
+                block["reason"] = "hold: a held-out fold has a nonpositive fitted slope"
+                return block
+            raw = [(receipts.serve_probability(r["p"]), r["y"]) for r in score]
+            adj = [(receipts.serve_probability(r["p"], correction), r["y"]) for r in score]
+            served = [(r["served_prob"], r["y"]) for r in score]
+            held_served += served
+        else:
+            # ATD and pure experiments explicitly supply their own raw p values.
+            raw = [(r["p"], r["y"]) for r in score]
+            adj = [(recal_apply(ab, r["p"]), r["y"]) for r in score]
         held_raw += raw
         held_adj += adj
         block["per_week"].append({"week": w, "n": len(score), "fit_weeks": sorted({r["week"] for r in fit}),
                                   "raw_log_loss": round(_ll(raw), 4),
                                   "adjusted_log_loss": round(_ll(adj), 4),
                                   "raw_ece": round(ece(raw), 4), "adjusted_ece": round(ece(adj), 4)})
+        if base_model_version is not None:
+            block["per_week"][-1]["served_log_loss"] = round(_ll(served), 4)
+        exact_losses.append((w, _ll(raw), _ll(adj), _ll(served) if base_model_version is not None else None))
     if len(rows) < LIVE_MIN_LEGS:
         block["reason"] = "hold: %d graded legs, the layer needs >= %d" % (len(rows), LIVE_MIN_LEGS)
         return block
@@ -404,14 +508,16 @@ def live_recalibration(rows):
                            "only on >= %d" % (len(block["per_week"]), weeks, LIVE_MIN_HELD_OUT))
         return block
     raw_ll, adj_ll = _ll(held_raw), _ll(held_adj)
-    worse = [p["week"] for p in block["per_week"] if p["adjusted_log_loss"] > p["raw_log_loss"]]
+    worse = [w for w, raw_loss, adjusted_loss, _ in exact_losses if adjusted_loss > raw_loss]
     final = recal_fit(rows)
     if worse:
         block["reason"] = "hold: the layer is worse on held-out week(s) %s" % worse
+    elif held_served and any(adjusted > incumbent for _, _, adjusted, incumbent in exact_losses):
+        block["reason"] = "hold: the candidate is worse than the as-served incumbent on a held-out week"
     elif adj_ll >= raw_ll:
         block["reason"] = ("hold: pooled held-out log-loss %.4f is not better than the pool's "
                            "own %.4f" % (adj_ll, raw_ll))
-    elif final[1] <= 0:
+    elif round(final[1], 6) <= 0:
         block["reason"] = "hold: fitted slope %.4f <= 0 would reverse the legs' order" % final[1]
     else:
         block["adjustment"] = {"a": round(final[0], 6), "b": round(final[1], 6)}
@@ -421,7 +527,7 @@ def live_recalibration(rows):
     return block
 
 
-def load_live_rows():
+def load_live_rows(return_audit=False):
     import glob
     docs = []
     for f in sorted(glob.glob(MY_CARDS_GLOB)):
@@ -433,7 +539,7 @@ def load_live_rows():
         scores = bp._load(MY_SCORES)
     except (OSError, ValueError):
         scores = None
-    return live_rows(docs, scores)
+    return live_rows(docs, scores, return_audit=return_audit)
 
 
 def gate(doc):

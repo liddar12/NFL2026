@@ -91,15 +91,15 @@ print(json.dumps({
 }))
 `);
     assert.deepEqual(out.codes,
-      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED'],
+      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED'],
       'the canonical vocabulary drifted');
     assert.deepEqual(out.week, ['DOUBTFUL', 'OUT', 'QUESTIONABLE'],
       'week class = the short-term designations, season total preserved');
-    assert.deepEqual(out.season, ['IR', 'NFI', 'PUP', 'SUSPENDED'],
+    assert.deepEqual(out.season, ['IR', 'NFI', 'PUP', 'RETIRED', 'SUSPENDED'],
       'season class = the long-term absences, season total reduced');
     assert.deepEqual(out.espn_site,
-      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'SUSPENDED', 'PUP', 'NFI', 'IR'],
-      'R125: ESPN Reserve-Ret (reserve/retired list) is a season-class absence, never unmapped');
+      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'SUSPENDED', 'PUP', 'NFI', 'RETIRED'],
+      'R125: ESPN Reserve-Ret (reserve/retired list) is RETIRED, a season-class absence, never unmapped');
     assert.deepEqual(out.espn_kona, ['IR', 'QUESTIONABLE', 'ACTIVE']);
     assert.deepEqual(out.nflverse, ['OUT', 'DOUBTFUL', 'QUESTIONABLE']);
     // The defect this release exists to fix: an unrecognised status used to become

@@ -67,6 +67,23 @@
             }
           }
         },
+        "injury_source": {
+          "type": "object", "additionalProperties": false,
+          "required": ["verified", "reason", "source_updated_utc", "received_utc", "last_success_utc", "checked_utc", "age_hours", "max_age_hours", "source_week", "week", "quarantined_rows"],
+          "properties": {
+            "verified": { "type": "boolean" },
+            "reason": { "type": ["string", "null"] },
+            "source_updated_utc": { "type": ["string", "null"] },
+            "received_utc": { "type": ["string", "null"] },
+            "last_success_utc": { "type": ["string", "null"] },
+            "checked_utc": { "type": "string" },
+            "age_hours": { "type": ["number", "null"], "minimum": 0 },
+            "max_age_hours": { "type": "number", "minimum": 0 },
+            "source_week": { "type": ["integer", "null"] },
+            "week": { "type": "integer", "minimum": 1, "maximum": 18 },
+            "quarantined_rows": { "type": "integer", "minimum": 0 }
+          }
+        },
         "availability": {
           "type": "object",
           "additionalProperties": false,
@@ -271,6 +288,18 @@
             "type": "string",
             "description": "Same key and order as player_projections.json."
           },
+          "eligibility": {
+            "type": "object", "additionalProperties": false,
+            "required": ["eligible", "reason", "detail", "week", "source", "source_updated_utc"],
+            "properties": {
+              "eligible": { "enum": [false] },
+              "reason": { "enum": ["source_unverified"] },
+              "detail": { "type": "string" },
+              "week": { "type": "integer", "minimum": 1, "maximum": 18 },
+              "source": { "enum": ["injuries"] },
+              "source_updated_utc": { "type": ["string", "null"] }
+            }
+          },
           "receptions_prior": {
             "type": "number",
             "minimum": 0,
@@ -322,7 +351,8 @@
                   "IR",
                   "PUP",
                   "NFI",
-                  "SUSPENDED"
+                  "SUSPENDED",
+                  "RETIRED"
                 ]
               },
               "class": {
@@ -404,7 +434,8 @@
                   "IR",
                   "PUP",
                   "NFI",
-                  "SUSPENDED"
+                  "SUSPENDED",
+                  "RETIRED"
                 ],
                 "description": "reason status only: the code that gated him (availability.NOT_PLAYABLE)."
               },

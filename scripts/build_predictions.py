@@ -54,6 +54,36 @@ def _hours_since(iso):
     return round((dt.datetime.now(dt.timezone.utc) - t).total_seconds() / 3600.0, 1)
 
 
+def injury_feed_record(document, now, week, failure=None):
+    """Source health retains real age/last success even when this fetch fails."""
+    state = build_weekly.injury_source_state(document, now, week)
+    if not state["last_success_utc"] or state["reason"] == "missing_report":
+        status = "down"
+    elif state["reason"] in ("stale_report", "wrong_week"):
+        status = "stale"
+    elif failure or not state["verified"] or state["quarantined_rows"]:
+        status = "degraded"
+    else:
+        status = "ok"
+    note = ("fetch failed; retained last-good report: " + str(failure)) if failure else \
+        ("%s row(s) quarantined; recommendation policy max age %gh" %
+         (state["quarantined_rows"], state["max_age_hours"]))
+    if state["reason"]:
+        note += "; eligibility unverified: " + state["reason"]
+    return {"rows": len((document or {}).get("injuries") or []),
+            "age_hours": state["age_hours"] if state["age_hours"] is not None else 999.0,
+            "last_success_utc": state["last_success_utc"], "status": status,
+            "note": note}
+
+
+def week_game_rows(predicted, week):
+    """The published slate and prop caller share this event-week-bearing shape."""
+    return [{"game_id": p["game_id"], "home": p["home"], "away": p["away"],
+             "week": p["week"], "kickoff_utc": p["kickoff_utc"], "roof": p["roof"],
+             "probs": p["probs"], "model": p["model"], "estimate": p["estimate"]}
+            for p in predicted if p["week"] == week]
+
+
 def market_feed_record(src, now):
     """pipeline_status feed record for one market source (kalshi / polymarket),
     from the source block build_markets stamps into market_prices.json.
@@ -520,7 +550,7 @@ def _stamp_prior_seasons(records, history_path=None):
     return stamped
 
 
-def _stamp_absence(records, index, by_name):
+def _stamp_absence(records, index, by_name, excluded_ids=frozenset()):
     """R49 — stamp the DOCUMENTED expected absence (`absence_weeks`, and
     `absence_confidence` when non-zero) from the injury report onto the pool
     records, through the SAME join (availability.lookup_report) and the SAME
@@ -533,6 +563,8 @@ def _stamp_absence(records, index, by_name):
     ambiguous = availability.dup_names(records)
     n = 0
     for rec in records:
+        if rec.get("gsis_id") in excluded_ids:
+            continue
         view = availability.lookup_report(index, by_name or {}, rec.get("team"),
                                           rec.get("name"), ambiguous)
         weeks, confidence = 0, None
@@ -551,6 +583,24 @@ def _stamp_absence(records, index, by_name):
         else:
             rec.pop("absence_confidence", None)
     return n
+
+
+def _apply_injury_report(records, document, checked_utc, week):
+    """Actual second-pass boundary: only verified, identity-resolved source facts.
+
+    Quarantined records retain pre-existing fantasy/history inputs; this pass
+    neither stamps a conflicting site status nor invents an absence for them.
+    Keep the full record pool so filtering cannot erase a duplicate-name guard.
+    """
+    if not build_weekly.injury_source_state(document, checked_utc, week)["verified"]:
+        return 0, 0
+    scope, rows = availability.quarantine_inputs(records, document)
+    index, by_name = availability.index_report(rows), availability.index_report_by_name(rows)
+    excluded = set(scope["players"])
+    overridden = availability.apply_to_records(records, index, by_name=by_name,
+                                               excluded_ids=excluded)
+    absent = _stamp_absence(records, index, by_name, excluded_ids=excluded)
+    return overridden, absent
 
 
 def _backtest_from_disk(key):
@@ -868,14 +918,7 @@ def main():
 
     # The single-week contract the slate reads = the current (upcoming) week.
     wk = current_week(schedule)
-    week_games = [
-        {
-            "game_id": p["game_id"], "home": p["home"], "away": p["away"],
-            "kickoff_utc": p["kickoff_utc"], "roof": p["roof"],
-            "probs": p["probs"], "model": p["model"], "estimate": p["estimate"],
-        }
-        for p in predicted if p["week"] == wk
-    ]
+    week_games = week_game_rows(predicted, wk)
     _write(os.path.join(DATA, "game_predictions.json"), {
         "season": SEASON, "week": wk, "updated_utc": now, "games": week_games,
     })
@@ -1001,11 +1044,17 @@ def main():
     # split — where the season-total reduction actually happens — has always seen the
     # fresh file. Hoisting the fetch above the N2 block would buy only the projection
     # band below and would cost the whole run's degrade-don't-die semantics.
+    injury_document = build_weekly.read_injury_document(os.path.join(DATA, "injuries.json"))
     try:
-        inj = espn.fetch_injuries(carry_positions=True)   # R70: + position / athlete_id
-        feeds["injuries"] = {"rows": len(inj), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
-        _inj_doc = availability.enrich_document({"updated_utc": now, "source": "espn",
+        fetched = espn.fetch_injuries(carry_positions=True, quarantine_unknown=True,
+                                     return_document=True)
+        inj = fetched["injuries"]
+        received = fetched["received_utc"]
+        _inj_doc = availability.enrich_document({"updated_utc": received, "source": "espn",
                                                  "injuries": inj})
+        _inj_doc.update({"source_updated_utc": fetched["source_updated_utc"],
+                         "received_utc": received, "season": SEASON, "week": wk,
+                         "quarantine": fetched["quarantine"]})
         # R70 — enrich_document re-shapes every row to the Rel17 key set, which
         # drops the scraper's `position` / `athlete_id`. Carry them back onto the
         # same rows (enrich preserves order; null when the payload had none) so
@@ -1014,6 +1063,12 @@ def main():
             _dst["position"] = _src.get("position")
             _dst["athlete_id"] = _src.get("athlete_id")
         _write(os.path.join(DATA, "injuries.json"), _inj_doc)
+        injury_document = _inj_doc
+        feeds["injuries"] = injury_feed_record(_inj_doc, received, wk)
+        # A successful HTTP/parser response can still contain an old or undated
+        # provider snapshot. Preserve it as evidence, not as projection input.
+        if not build_weekly.injury_source_state(_inj_doc, received, wk)["verified"]:
+            inj = []
 
         # REL17 (F6) — SECOND, BAND-ONLY PROJECTION PASS. The first pass at the N2
         # block above ran before this feed existed, so `injury_status` was whatever
@@ -1039,14 +1094,10 @@ def main():
             # report's every August, so the (team, name) join dropped exactly
             # the players who changed teams — Questionable stars rendered
             # healthy five days before the owner's draft).
-            _idx, _by_name = (availability.index_report(inj),
-                              availability.index_report_by_name(inj))
-            n_overridden = availability.apply_to_records(players_in, _idx,
-                                                         by_name=_by_name)
             # R49 — the documented absence rides the same join; it moves
             # projected_games / candidate_points on every rule, and proj_points
             # only under the games-normalized shipped rule.
-            n_absent = _stamp_absence(players_in, _idx, _by_name)
+            n_overridden, n_absent = _apply_injury_report(players_in, _inj_doc, received, wk)
             if n_overridden or n_absent:
                 reprojected = [p for p in project_players(players_in,
                                                           ctx={"teams": teams_fixture},
@@ -1092,8 +1143,7 @@ def main():
         # null here makes an injuries OUTAGE fail schema validation for the whole
         # run — turning a feed this builder deliberately degrades around into a
         # total publish failure (run 166). Same convention as market_feed_record.
-        feeds["injuries"] = {"rows": 0, "age_hours": 999.0,
-                             "last_success_utc": None, "status": "down"}
+        feeds["injuries"] = injury_feed_record(injury_document, _utc_now(), wk, failure=exc)
         print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
 
     # R49 — record the baseline rule, where it applies, and the walk-forward gate
@@ -1457,10 +1507,11 @@ def main():
                               "status": "ok",
                               "note": "no game inside the inactives window this run"}
     weekly_doc = build_weekly.build_weekly_document(
-        projected[:300], predicted, ratings, receptions_by_id, SEASON, now,
+        projected[:300], predicted, ratings, receptions_by_id, SEASON, _utc_now(),
         first_week=wk, completions_by_id=completions_by_id,
         components_by_id=components_by_id, this_week=wk, depth_chart=depth_doc,
-        gate_skip_teams=gate_skip, inactives=inact_doc)
+        gate_skip_teams=gate_skip, inactives=inact_doc,
+        injury_document=injury_document)
     _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
     _tw = weekly_doc["model"].get("this_week") or {}
     print(f"this-week gate (wk {wk}): {_tw.get('gated', 0)} player(s) not playable "

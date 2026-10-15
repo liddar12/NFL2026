@@ -263,16 +263,12 @@ def build_parlays(game_pred_doc, updated_utc):
     week = game_pred_doc.get("week", 1)
     games = game_pred_doc.get("games", [])
 
-    # PREFERRED PATH: the real engine (correlation-aware, conformal tier, >=3/game & week).
+    # The publication wrapper owns uniqueness and evidenced thin-slate counts.
+    # An unavailable engine must not fall back to fabricated duplicate cards.
     engine = _try_import("scripts.models.parlay_builder")
-    ok, res = _call_first(engine, ("build_parlays",), games)
-    if ok and isinstance(res, list) and res:
-        parlays = [p for p in res if isinstance(p, dict)]
-    else:
-        # DEGRADED PATH: deterministic parlays that still satisfy the >=3 invariants.
-        parlays = _baseline_parlays(games)
-
-    return {"season": _SEASON, "week": week, "updated_utc": updated_utc, "parlays": parlays}
+    if engine is None or not hasattr(engine, "build_parlays_document"):
+        raise RuntimeError("parlay publication engine unavailable; refusing duplicate scaffold cards")
+    return engine.build_parlays_document(games, _SEASON, week, updated_utc)
 
 
 def _baseline_parlays(games):

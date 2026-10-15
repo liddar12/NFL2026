@@ -92,12 +92,12 @@ def emit(obj):
 
 /* 1 — the vocabulary ------------------------------------------------------- */
 
-test('R77: NOT_PLAYABLE is exactly D/OUT/IR/PUP/NFI/SUSP; Q and unknown stay playable', () => {
+test('R77: NOT_PLAYABLE is exactly D/OUT/IR/PUP/NFI/SUSP/RETIRED; Q and unknown stay playable', () => {
   const out = runPy(`${SETUP}
 emit({"np": sorted(av.NOT_PLAYABLE),
       "q": av.status_playable(av.QUESTIONABLE), "a": av.status_playable(av.ACTIVE),
       "none": av.status_playable(None), "d": av.status_playable(av.DOUBTFUL)})`);
-  assert.deepEqual(out.np, ['DOUBTFUL', 'IR', 'NFI', 'OUT', 'PUP', 'SUSPENDED']);
+  assert.deepEqual(out.np, ['DOUBTFUL', 'IR', 'NFI', 'OUT', 'PUP', 'RETIRED', 'SUSPENDED']);
   assert.equal(out.q, true, 'owner rule: Q is priced + labelled, never gated');
   assert.equal(out.a, true);
   assert.equal(out.none, true, 'unknown is not a zero');

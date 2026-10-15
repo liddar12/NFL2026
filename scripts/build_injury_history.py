@@ -96,13 +96,17 @@ REPORT_STATUS = {
     availability.PUP: "Out",
     availability.NFI: "Out",
 }
-REPORT_IGNORED = frozenset([availability.ACTIVE, availability.SUSPENDED])
+# RETIRED (ESPN "Reserve-Ret") is ignored like SUSPENDED: a retirement is not an
+# injury, so it must never become an injury-training label for the cascades.
+REPORT_IGNORED = frozenset([availability.ACTIVE, availability.SUSPENDED,
+                            availability.RETIRED])
 # The full status vocabulary of the committed data/injuries.json, pinned so a
 # spelling ESPN has not used before reds the selftest here rather than being
 # dropped silently by a filter (the G07 failure).
 # R125 — "Suspension" (3 rows in the first report after the 2026-10-11..15 freeze;
 # REPORT_IGNORED by design) and "Reserve-Ret" (ESPN's reserve/retired list, observed
-# 2026-10-11 and the word that froze the feed; availability maps it to IR -> "Out").
+# 2026-10-11 and the word that froze the feed; availability maps it to RETIRED, which
+# this file ignores — never an injury label).
 OBSERVED_REPORT_STATUSES = frozenset(
     ["Active", "Out", "Doubtful", "Questionable", "Injured Reserve",
      "Suspension", "Reserve-Ret"])
