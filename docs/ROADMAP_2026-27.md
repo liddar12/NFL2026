@@ -76,6 +76,18 @@
   comes first; REL17's forced-start fixture took the feed's first two RBs, and Gibbs (DET) is on
   bye in the week Lineup opens on — a bye is not a forced start — so it now takes the first two with
   a game that week. No app change. **Locked by** the same four tests. · **LOE** 0.1 d
+- **R125 · The injury feed reads ESPN's reserve/retired list (P0) — 2026-10-14.** Found by the
+  parlay-accuracy RCA: from daily #288 (2026-10-11 22:04Z) every run's `fetch_injuries` refused
+  all 800 rows on one unmapped status, "Reserve-Ret" (PHI Lane Johnson), so `data/injuries.json`
+  froze at 2026-10-11T20:10Z and every week-6 card and this-week gate read a 3-day-old report while
+  the stage table said ok. The spelling now maps to the IR season class (no snap, never ACTIVE);
+  the loud-on-unknown rule stays. Today's live ESPN payload replays to all 800 rows. **Locked by**
+  `availability.py --selftest`, `availability.test.mjs` (red without the line). · **LOE** 0.05 d
+  **Follow-up 2026-10-15 (data-ci #168):** the first fresh report (01:29Z, 800 rows, feed ok) carried
+  three "Suspension" rows, a word `build_injury_history`'s pinned vocabulary had not met while the
+  file was frozen; its selftest (smoke) and r91 G07 went red. Both "Suspension" (ignored by design,
+  not an injury) and "Reserve-Ret" (IR -> Out) are now pinned. The fresh report moved week 6's
+  status-gated players from 34 to 18: the stale report had been sitting players who are back.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses

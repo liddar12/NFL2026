@@ -82,7 +82,7 @@ print(json.dumps({
   # every spelling observed in a real feed, across all three feeds
   "espn_site": [av.normalize_status(s) for s in
       ["Active", "Questionable", "Doubtful", "Out", "Injured Reserve", "Suspension",
-       "Physically Unable to Perform", "Non-Football Injury"]],
+       "Physically Unable to Perform", "Non-Football Injury", "Reserve-Ret"]],
   "espn_kona": [av.normalize_status(s) for s in
       ["injury_reserve", "day_to_day", "probable"]],
   "nflverse":  [av.normalize_status(s) for s in ["Out", "Doubtful", "Questionable"]],
@@ -98,7 +98,8 @@ print(json.dumps({
     assert.deepEqual(out.season, ['IR', 'NFI', 'PUP', 'RETIRED', 'SUSPENDED'],
       'season class = the long-term absences, season total reduced');
     assert.deepEqual(out.espn_site,
-      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'SUSPENDED', 'PUP', 'NFI']);
+      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'SUSPENDED', 'PUP', 'NFI', 'RETIRED'],
+      'R125: ESPN Reserve-Ret (reserve/retired list) is RETIRED, a season-class absence, never unmapped');
     assert.deepEqual(out.espn_kona, ['IR', 'QUESTIONABLE', 'ACTIVE']);
     assert.deepEqual(out.nflverse, ['OUT', 'DOUBTFUL', 'QUESTIONABLE']);
     // The defect this release exists to fix: an unrecognised status used to become

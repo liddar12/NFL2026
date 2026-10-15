@@ -86,6 +86,11 @@ _MAP = {
     "out": OUT,
     "injured reserve": IR,
     "suspension": SUSPENDED,
+    # R125 / week-6 integration -- ESPN's reserve/retired list, first OBSERVED
+    #     2026-10-11 (PHI Lane Johnson). Unmapped, it froze data/injuries.json at
+    #     2026-10-11T20:10Z (every run refused all 800 rows). R125 shipped it as IR
+    #     to unfreeze the feed; RETIRED supersedes that: nonplayable season class, no
+    #     invented IR recovery period, never an injury-training label.
     "reserve-ret": RETIRED,
     "retired": RETIRED,
     "physically unable to perform": PUP,
@@ -383,6 +388,7 @@ def selftest():
     assert normalize_status("Reserve-Ret") == RETIRED
     assert normalize_status("Physically Unable to Perform") == PUP
     assert normalize_status("Non-Football Injury") == NFI
+    assert status_class(normalize_status("Reserve-Ret")) == "season"
     assert normalize_status("injury_reserve") == IR            # espn kona
     assert normalize_status("day_to_day") == QUESTIONABLE
     assert normalize_status("probable") == ACTIVE

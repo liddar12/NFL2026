@@ -100,8 +100,12 @@ REPORT_IGNORED = frozenset([availability.ACTIVE, availability.SUSPENDED])
 # The full status vocabulary of the committed data/injuries.json, pinned so a
 # spelling ESPN has not used before reds the selftest here rather than being
 # dropped silently by a filter (the G07 failure).
+# R125 — "Suspension" (3 rows in the first report after the 2026-10-11..15 freeze;
+# REPORT_IGNORED by design) and "Reserve-Ret" (ESPN's reserve/retired list, observed
+# 2026-10-11 and the word that froze the feed; availability maps it to IR -> "Out").
 OBSERVED_REPORT_STATUSES = frozenset(
-    ["Active", "Out", "Doubtful", "Questionable", "Injured Reserve"])
+    ["Active", "Out", "Doubtful", "Questionable", "Injured Reserve",
+     "Suspension", "Reserve-Ret"])
 
 
 def _assert_canonical_vocab():
