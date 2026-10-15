@@ -91,15 +91,25 @@
 - **R126 · A game card is the pair most likely to hit; the flat spread is a fallback (P0, week 6) —
   2026-10-15.** Owner: "fix to improve parlay accuracy" before TNF, then validate on the results.
   From the parlay-accuracy RCA: `build_game_parlays` ranked pairs by |rho| first, which after R74
-  filled the slot with opposite-side pairs (a favourite's ML + the underdog's back: 7/34 hit vs
-  19/45 same-side), and it shipped the spread leg priced at exactly 0.5 on the model's favourite
-  (covered 48/119 legs in 2026, 382/797 games in 2023-25). Pairs now rank by joint model probability
-  (correlation included), and the spread is a candidate only when a game cannot field three
-  distinct pairs without it. Replayed on the frozen pre-kickoff game cards of weeks 1-5 (same
-  candidate legs, real results): 74/235 = 0.315 as built -> 83/233 = 0.356 (wk1 15/47 -> 11/44,
-  wk2-5 59/188 -> 72/185; within noise, so week 6 is the prospective test). On the week-6 slate:
-  12 spread legs and 7 negative-correlation cards leave; expected game-card hits by the model's
-  own prices 13.0 -> 14.2 of 42. Week cards are unchanged (already most-likely-first). **Locked
+  filled the slot with opposite-side pairs (a favourite's ML + the underdog's back: 7/34 hit in
+  weeks 2-5 vs 13/29 same-side), and it shipped the spread leg priced at exactly 0.5 on the model's
+  favourite. That spread covered 48/119 ledger legs in 2026 (29/68 games = 42.6% [31.6, 54.5]); in
+  2023-25 the favourite covered 402/797 = 50.4%, so the 0.5 price is not shown to be wrong. The
+  case is that a coin-flip leg lowers the joint probability against the ML and prop legs on offer.
+  (The commit message's "382/797" is the retired cover model's side, not the favourite.) Pairs now
+  rank by joint model probability (correlation included), and the spread is a candidate only when
+  a game cannot field three distinct pairs without it. Replayed on the frozen pre-kickoff game
+  cards of weeks 2-5 (post-R74, same on-card legs, real results, push winners counted): 59/188 =
+  0.314 as built -> 72/189 = 0.381, at least as many winners every week (12->20, 20->21, 14->16,
+  13->15); within noise (z = 1.37). Week 1 is not comparable: its cards predate R74, and R126
+  scores 12/46 vs 15/47 as built (13/45 for the R74-consistent |rho| control). On the week-6 slate
+  (old-policy `bb6ae6ed`, 02:07Z, vs the deployed R126 slate `6e8cd143`, 02:31Z, same leg prices):
+  all 12 spread legs leave; negative-correlation game cards go from 7 to 11 (2 leave, 6 arrive),
+  because the ranking is now joint probability and a negative-rho pair stays when its legs are
+  likely enough; expected game-card hits by the model's own prices 13.0 -> 14.6 of 42. Week 6
+  starts the prospective record; keep or revert is decided on the pooled paired difference over
+  weeks 6+ (RCA section 7). Week cards are unchanged (already most-likely-first).
+  **Prod-verified:** daily #311 built the slate; data-ci #170 green. **Locked
   by** `r126_game_card_ranking` (red without the change), `r74` (fallback demonstration),
   `parlay_props`. · **LOE** 0.2 d
 - **R127-R132 · Parlay-accuracy RCA roadmap (proposed, 2026-10-15).** From
@@ -107,15 +117,24 @@
   `build/week6-correctness-20261014`; hand-off in `docs/WEEK6_CLAUDE_TO_CODEX_HANDOFF.md`).
   The week-1-to-5 "decline" is mostly hindsight cards and accounting; these items lift the level:
   - **R127** prop `mu` from the training-shaped feature (live log loss 0.6293 vs 0.6598 on 212
-    legs): shadow on week 6, promote on prospective evidence, no per-position regression.
+    legs): shadow from week 6; promote when it has lower live prop log loss over at least 2 graded
+    weeks, with a game-clustered 95% interval of the difference below 0 and no position worse.
   - **R128** offer the model-favoured prop side (unders, or a lower rung where p >= 0.5): grader
-    support for unders first; 141/218 curated props shipped below 0.5 (they hit 44%).
-  - **R129** injury report beyond ESPN's 25-row cap, and a did-not-play-last-FINAL guard.
+    support for unders first; 141/218 curated props shipped below 0.5 (overs hit 62/141 = 44.0%
+    against mean p 0.380; unders would have hit 56.0% against the model's 0.62). Pass = replay on
+    weeks 2-5 frozen candidates is not below R126 in any week, judged on realised hit rate.
+  - **R129** injury report beyond ESPN's 25-row cap, and a did-not-play-last-FINAL guard. Target:
+    0 curated did-not-play voids in weeks 7-8 unless a post-build inactive (weeks 1-5: 4, 14, 4,
+    3, 3).
   - **R130** honest record: pre-kickoff-only headline, push winners counted, voids out of the
-    leg denominator, post-kickoff exclusions flagged.
+    leg denominator, post-kickoff exclusions flagged. Headline = as-offered cohort, weeks 1-5 =
+    17/66, 13/66, 21/66, 22/65, 14/63; a separate settlement view shows the archive's week 5 as 1
+    full + 3 reduced + 19 losses on 23 week cards (16/65 incl. push).
   - **R131** week cards: an explicit choice between highest-hit and diversified objectives
-    (owner decision; SF is on 18/18 week-6 cards).
-  - **R132** a slate-level backtest gate that reselects from frozen candidates.
+    (owner decision; SF is on 18/18 week-6 cards). The panel shows expected winners and P(0
+    winners) at model prices (week 6: 6.33 and 16.98%).
+  - **R132** a slate-level backtest gate that reselects from frozen candidates; it fails when
+    replay all-hit incl. push is lower than the control in any post-R74 week.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
