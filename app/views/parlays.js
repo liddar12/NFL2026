@@ -117,6 +117,7 @@ import {
   getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards, getAtdGameCards,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
+import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 // Tooltip for a spread leg whose feed predates edge_note; the same measured verdict.
@@ -877,6 +878,12 @@ export default async function mountParlays(el) {
       ? filtered.slice().sort((a, b) =>
         cmp(a, b) || String(a.parlay_id).localeCompare(String(b.parlay_id)))
       : filtered;
+    const riskHost = el.querySelector('#portfolio-risk');
+    if (riskHost) {
+      riskHost.hidden = active !== 'week';
+      riskHost.innerHTML = active === 'week'
+        ? renderPortfolioRisk(summarizePortfolio(shown, sched?.games || [], selWeek)) : '';
+    }
     const listEl = el.querySelector('#parlays-list');
     if (!listEl) return;
     listEl.dataset.parlayWeek = String(selWeek);
@@ -1015,7 +1022,7 @@ export default async function mountParlays(el) {
   // per scope: undefined = not loaded yet; null = unavailable
   const atdDocs = { week: undefined, game: undefined };
   const ATD_LOAD = { week: getAtdCards, game: getAtdGameCards };
-  const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list',
+  const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list', '#portfolio-risk',
     '.rv-strip--parlay'];
   const tdEligible = () => (active === 'week' || active === 'game') && selWeek === curWeek;
   const atdActive = () => tdEligible() && td && td.mode !== 'any';
@@ -1080,6 +1087,7 @@ export default async function mountParlays(el) {
     filtersPanel(readFiltersOpen()) +
     legend() +
     retroPanel(readRetroOpen()) +
+    '<div id="portfolio-risk" hidden></div>' +
     '<div id="parlays-list" class="card-list"></div>' +
     '<div id="atd-list" class="card-list" hidden></div>' +
     '<div id="myparlays-host" hidden></div>' +
@@ -1123,7 +1131,7 @@ export default async function mountParlays(el) {
   // the hosts stay on the list so each one is provably hidden whether or not
   // the panel happens to be open when MY is tapped.
   const myChrome = ['.pw-wkbar', '#parlay-filters', '#leg-controls', '#tier-controls',
-    '#sort-controls', '#parlay-retro', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list',
+    '#sort-controls', '#parlay-retro', '#parlay-buckets', '#parlay-pnl', '.legend', '#parlays-list', '#portfolio-risk',
     '.rv-strip--parlay'];
   let myMounted = false;
   // The leg pool's week, once mountMyParlays has read it (null until then).

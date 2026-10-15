@@ -731,6 +731,14 @@ def playable_this_week(weekly_rec, wk=None):
     game had gone FINAL). Pass the week and the builder agrees with the
     validator; omit it and the R77 behaviour is unchanged.
     """
+    # Source uncertainty is a recommendation gate, not a measured absence and
+    # not a reason to erase projected/actual points. It applies only to the
+    # indicated week; a new-week stale report must not retroactively bench a
+    # player in a historical game.
+    eligibility = (weekly_rec or {}).get("eligibility") or {}
+    if (eligibility.get("eligible") is False
+            and (wk is None or eligibility.get("week") in (None, wk))):
+        return False
     tw = (weekly_rec or {}).get("this_week")
     if isinstance(tw, dict) and tw.get("playable") is False:
         return False

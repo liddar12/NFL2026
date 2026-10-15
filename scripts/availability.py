@@ -7,7 +7,7 @@ strings ("injury_reserve", "day_to_day"), and nflverse's report statuses
 `build_weekly.INJURY_MULT`, silently multiplied everything it did not recognise by 1.0.
 That is how 11 players who cannot take a snap in 2026 projected as fully healthy.
 
-  ACTIVE  QUESTIONABLE  DOUBTFUL  OUT  IR  PUP  NFI  SUSPENDED
+  ACTIVE  QUESTIONABLE  DOUBTFUL  OUT  IR  PUP  NFI  SUSPENDED  RETIRED
 
 TWO MECHANIC CLASSES, deliberately separated -- conflating them was the defect:
 
@@ -16,7 +16,7 @@ TWO MECHANIC CLASSES, deliberately separated -- conflating them was the defect:
          total is preserved exactly. This is the pre-Rel17 behaviour and it is CORRECT
          for its case: a questionable player is still going to play ~17 games.
 
-  season IR / PUP / NFI / SUSPENDED, or ANY code carrying an unambiguous parsed
+  season IR / PUP / NFI / SUSPENDED / RETIRED, or ANY code carrying an unambiguous parsed
          duration. Long-term absence. The blocked weeks are zeroed and EXCLUDED from
          the renormalization, so the season total ACTUALLY DROPS. A player who will
          not play again this year must not carry 100% of his season points.
@@ -28,14 +28,15 @@ in today's feed (ATL DeAngelo Malone, NO Keeshawn Silver, TB Chase Lucas).
 `normalize_status` returns None for a spelling it does not know. NONE MEANS WE DO NOT
 KNOW; callers MUST NOT read it as ACTIVE. Loudness is split on purpose:
 
-  * LOUD at the scraper boundary -- `espn.fetch_injuries` raises FeedError naming the
-    unmapped value, exactly as `_team_abbrev` does for a drifted team abbreviation. A
-    drifted availability string mis-attributes a fact the same way.
+  * LOUD at the scraper boundary -- strict callers raise FeedError on an unmapped
+    value. The production document mode quarantines that row and preserves its raw
+    identity/status; valid rows continue and the affected player is not offered.
   * LOUD at the gate -- tests/smoke.sh asserts every status in the committed
     data/injuries.json normalizes. This is the single check that stops the bug class.
   * GRACEFUL in the consumer -- `build_weekly` is graceful BY CONTRACT (a missing
     injuries feed means "shape nothing", never "everyone is healthy"), so None there
-    means no shaping AND no unavailability. The degradation stays visible upstream.
+    means no shaping AND no medical unavailability. Source uncertainty separately
+    refuses recommendations through eligibility; it is never treated as ACTIVE.
 
 Stdlib only, pure, no I/O, no network. `--selftest`.
 """
@@ -50,14 +51,14 @@ if _ROOT not in sys.path:
 
 from scripts.injury_duration import parse_duration  # noqa: E402
 
-VOCAB_VERSION = 1
+VOCAB_VERSION = 2
 
-ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED = (
-    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED")
-CODES = (ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED)
+ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED = (
+    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED")
+CODES = (ACTIVE, QUESTIONABLE, DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED)
 
 WEEK_CLASS = frozenset({QUESTIONABLE, DOUBTFUL, OUT})
-SEASON_CLASS = frozenset({IR, PUP, NFI, SUSPENDED})
+SEASON_CLASS = frozenset({IR, PUP, NFI, SUSPENDED, RETIRED})
 
 # The NFL's own floor, applied as a FLOOR and never as a measurement: a player placed
 # on in-season injured reserve must miss at least four games before he is eligible to
@@ -71,7 +72,7 @@ MIN_WEEKS_OUT = 4
 
 # Severity, worst last. Used when one player carries several report rows.
 _SEVERITY = {ACTIVE: 0, QUESTIONABLE: 1, DOUBTFUL: 2, OUT: 3,
-             SUSPENDED: 4, NFI: 5, PUP: 6, IR: 7}
+             SUSPENDED: 4, NFI: 5, PUP: 6, IR: 7, RETIRED: 8}
 
 # Keys are lower-cased and whitespace-collapsed. Every spelling below is either
 # OBSERVED in a real feed or is that feed's documented value.
@@ -85,6 +86,8 @@ _MAP = {
     "out": OUT,
     "injured reserve": IR,
     "suspension": SUSPENDED,
+    "reserve-ret": RETIRED,
+    "retired": RETIRED,
     "physically unable to perform": PUP,
     "non-football injury": NFI,
     # --- espn_kona (fantasy API -> espn_players.injury_status, already lower-cased)
@@ -133,7 +136,7 @@ def status_class(code):
 # and shown with its chip, a Doubtful is treated as sitting. ACTIVE and None
 # (unknown) are playable: unknown is not evidence of absence any more than it is
 # evidence of health, and a WRONG zero is worse than a missed one.
-NOT_PLAYABLE = frozenset({DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED})
+NOT_PLAYABLE = frozenset({DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED})
 
 
 def status_playable(code):
@@ -165,7 +168,9 @@ def enrich(row):
     """
     code = normalize_status(row.get("status"))
     cls = status_class(code)
-    dur = parse_duration(row.get("detail"), status=code)
+    # Retirement is a distinct nonplayable status. Do not reinterpret commentary
+    # as an injury duration or invent the IR four-game minimum for it.
+    dur = None if code == RETIRED else parse_duration(row.get("detail"), status=code)
     if dur and cls != "season":
         # PROMOTION: an OUT whose own text states a season-ending or N-week absence is
         # a long-term absence wearing a short-term label. Fires on 3 real rows today.
@@ -360,7 +365,7 @@ def apply_to_records(records, index, by_name=None):
 
 def selftest():
     # --- vocabulary ---------------------------------------------------------------
-    assert len(CODES) == 8 and len(set(CODES)) == 8, CODES
+    assert len(CODES) == 9 and len(set(CODES)) == 9, CODES
     assert WEEK_CLASS | SEASON_CLASS | {ACTIVE} == set(CODES)
     assert not (WEEK_CLASS & SEASON_CLASS), "a code cannot be both mechanics"
     for code in CODES:
@@ -375,6 +380,7 @@ def selftest():
     assert normalize_status("Injured Reserve") == IR
     assert normalize_status("  injured   reserve ") == IR      # whitespace-collapsed
     assert normalize_status("Suspension") == SUSPENDED
+    assert normalize_status("Reserve-Ret") == RETIRED
     assert normalize_status("Physically Unable to Perform") == PUP
     assert normalize_status("Non-Football Injury") == NFI
     assert normalize_status("injury_reserve") == IR            # espn kona
@@ -391,7 +397,7 @@ def selftest():
 
     assert norm_name("A.J. Brown") == norm_name("AJ  brown") == "aj brown"
     # --- R77 this-week gate: the vocabulary's own answer to "does he play?" -------
-    assert NOT_PLAYABLE == {DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED}
+    assert NOT_PLAYABLE == {DOUBTFUL, OUT, IR, PUP, NFI, SUSPENDED, RETIRED}
     assert status_playable(ACTIVE) and status_playable(QUESTIONABLE)
     assert status_playable(None), "unknown is not a zero"
     for code in NOT_PLAYABLE:

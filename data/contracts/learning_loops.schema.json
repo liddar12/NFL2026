@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "learning_loops.schema.json",
   "title": "Learning loops (R105) - data/learning_loops.json",
-  "description": "Every learning loop's live state as its OWN record decided it (scripts/build_learning_loops.py): adopted / held / reverted / measuring / absent, the loop's reason verbatim, what it learns from and what it can move. `transitions` is append-only: one row each time a loop's state changed between builds. Read by the MODEL tab's LEARNING LOOPS card only.",
+  "description": "Latest unambiguous timestamped decision for every learning loop, separately from the effective configuration where it is established. A held proposal does not disable an adopted model. Reasons are verbatim; transitions is the append-only decision-state history. Optional effective/chronology additions preserve older records.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -106,7 +106,8 @@
               "reverted",
               "measuring",
               "absent"
-            ]
+            ],
+            "description": "Latest decision, not whether a previously adopted configuration remains active."
           },
           "why": {
             "type": "string"
@@ -129,6 +130,71 @@
               "string",
               "null"
             ]
+          },
+          "chronology": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "invalid_timestamps",
+              "latest_conflict"
+            ],
+            "properties": {
+              "invalid_timestamps": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "latest_conflict": {
+                "type": "boolean"
+              }
+            }
+          },
+          "effective": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "source",
+              "since_utc",
+              "version",
+              "note",
+              "observed_utc"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "baseline",
+                  "disabled",
+                  "unknown",
+                  "measure_only"
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "since_utc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "observed_utc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
           }
         }
       }

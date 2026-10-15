@@ -61,6 +61,7 @@ from scripts.models.my_cards import (  # noqa: E402
     upcoming_legs,
 )
 from scripts.models.parlay_builder import _correlation_table  # noqa: E402
+from scripts import learning_receipts as receipts  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_DIR = os.path.join(DATA, "my_cards")
@@ -128,7 +129,21 @@ def offered_cards(pool, games, corr, as_of):
     vary. dial_legs compares rungs by identity, so every seed at one dial searches
     the same leg objects the view would have searched.
     """
-    eligible = upcoming_legs(pool_legs(pool), games, as_of)
+    # The browser's pure selection module need not know learning metadata. Attach
+    # the immutable receipt to its flattened legs without changing any score.
+    lineage = {}
+    for player in (pool or {}).get("players") or []:
+        for rung in player.get("rungs") or []:
+            receipt = rung.get("learning_receipt")
+            key = receipts.canonical_key({**player, **rung}, pool.get("season"))
+            if key and receipt:
+                lineage[key] = receipt
+    flat = pool_legs(pool)
+    for leg in flat:
+        key = receipts.canonical_key(leg, pool.get("season"))
+        if key in lineage:
+            leg["learning_receipt"] = lineage[key]
+    eligible = upcoming_legs(flat, games, as_of)
     seeds = [s for s in seed_options(pool) if s.get("kind") == SEED_KIND]
     out = []
     for dial in DIAL_ORDER:
@@ -144,7 +159,7 @@ def _leg_record(leg):
     check it against the screen. mu and line are the projection and the threshold
     the why-line printed; model_prob / implied_prob are the two numbers the leg
     showed, rounded once, here."""
-    return {
+    row = {
         "market": leg.get("market"),
         "selection": leg.get("selection"),
         "game_id": leg.get("game_id"),
@@ -160,6 +175,13 @@ def _leg_record(leg):
         "price_source": leg.get("price_source"),
         "priced": bool(leg.get("priced")),
     }
+    if leg.get("learning_receipt") is not None:
+        receipt = json.loads(json.dumps(leg["learning_receipt"]))
+        row["learning_receipt"] = receipt
+        row["season"] = receipt["season"]
+        row["direction"] = receipt["direction"]
+        row["comparison_operator"] = receipt["comparison_operator"]
+    return row
 
 
 def card_record(dial, seed, rank, card, kickoffs):

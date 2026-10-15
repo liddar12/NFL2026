@@ -91,11 +91,11 @@ print(json.dumps({
 }))
 `);
     assert.deepEqual(out.codes,
-      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED'],
+      ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED'],
       'the canonical vocabulary drifted');
     assert.deepEqual(out.week, ['DOUBTFUL', 'OUT', 'QUESTIONABLE'],
       'week class = the short-term designations, season total preserved');
-    assert.deepEqual(out.season, ['IR', 'NFI', 'PUP', 'SUSPENDED'],
+    assert.deepEqual(out.season, ['IR', 'NFI', 'PUP', 'RETIRED', 'SUSPENDED'],
       'season class = the long-term absences, season total reduced');
     assert.deepEqual(out.espn_site,
       ['ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'SUSPENDED', 'PUP', 'NFI']);

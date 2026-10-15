@@ -921,11 +921,16 @@ export function learningLoopsCard(doc) {
       day(l.live_since_utc) ? `since ${esc(day(l.live_since_utc))}` : '',
       day(l.last_run_utc) ? `last run ${esc(day(l.last_run_utc))}` : 'no run on file',
       Number.isFinite(Number(l.runs)) && l.runs != null ? `${esc(l.runs)} runs` : '',
+      l.effective && typeof l.effective.state === 'string'
+        ? `effective: ${esc(l.effective.state)}${l.effective.version ? ` (${esc(l.effective.version)})` : ''}` : '',
     ].filter(Boolean).join(' · ');
     return `<div class="ll-row" data-loop="${esc(l.id)}" data-state="${esc(l.state)}">`
       + `<div class="ll-top"><span class="ll-name">${esc(l.name)}</span>`
       + `<span class="${cls}">${label}</span></div>`
       + `<div class="ll-why">${esc(l.why || '')}</div>`
+      + (l.effective?.note ? `<div class="ll-meta">${esc(l.effective.note)}</div>` : '')
+      + (Array.isArray(l.chronology_warnings) && l.chronology_warnings.length
+        ? `<div class="gate-note">History warning: ${l.chronology_warnings.map(esc).join('; ')}</div>` : '')
       + `<div class="ll-meta">${meta}</div></div>`;
   };
   const groups = LOOP_GROUPS.map(([g, title]) => {

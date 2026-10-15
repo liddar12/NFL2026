@@ -37,9 +37,9 @@ test('availability self-check passes', () => {
   assert.equal(__selftest(), true);
 });
 
-test('the canonical vocabulary is exactly the eight codes', () => {
+test('the canonical vocabulary includes an explicit retired designation', () => {
   assert.deepEqual([...AVAIL_CODES], [
-    'ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED',
+    'ACTIVE', 'QUESTIONABLE', 'DOUBTFUL', 'OUT', 'IR', 'PUP', 'NFI', 'SUSPENDED', 'RETIRED',
   ]);
 });
 

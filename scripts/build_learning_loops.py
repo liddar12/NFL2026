@@ -15,6 +15,13 @@ per loop:
   why     the loop's OWN reason string, verbatim
   learns  what evidence it learns from; moves: what shipped number it can change
   last_run_utc / runs / live_since_utc where the record carries them
+  effective  current configured regime, independently of the latest decision:
+             a held proposal does not disable a previously adopted model.
+
+History writers both prepend and append. Decisions are selected by a valid,
+timezone-aware generated_utc, never array position. Invalid timestamps and
+conflicting newest decisions are surfaced; ambiguous history cannot prove an
+adoption. Current parameter blocks remain the authority for effective state.
 
 `transitions` is APPEND-ONLY: every time a loop's state differs from the last
 build's, one row {utc, loop, from, to, why} is added. That is the learning made
@@ -28,6 +35,7 @@ pipelines do not churn it on every run.
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import sys
@@ -44,9 +52,56 @@ SOURCES = ("model_tuning.json", "weekly_backtest.json", "kdst_backtest.json",
            "qb_depth_backtest.json", "lines_backtest.json", "replay_lab.json")
 
 
-def _last(history, kind):
+def _timestamp(value):
+    """Comparable UTC instant, or None; never guess the timezone of a receipt."""
+    if not isinstance(value, str):
+        return None
+    try:
+        stamp = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if stamp.tzinfo is None or stamp.utcoffset() is None:
+        return None
+    return stamp.astimezone(dt.timezone.utc)
+
+
+def _history_context(history, kind):
     rows = [h for h in history or [] if isinstance(h, dict) and h.get("kind") == kind]
-    return rows[-1] if rows else None, len(rows)
+    dated = [(_timestamp(h.get("generated_utc")), h) for h in rows]
+    valid = [(stamp, row) for stamp, row in dated if stamp is not None]
+    chronology = {"invalid_timestamps": len(rows) - len(valid), "latest_conflict": False}
+    if not valid:
+        return None, len(rows), chronology
+    newest = max(stamp for stamp, _ in valid)
+    candidates = [row for stamp, row in valid if stamp == newest]
+    canonical = {json.dumps(row, sort_keys=True, ensure_ascii=True): row for row in candidates}
+    if len(canonical) != 1:
+        chronology["latest_conflict"] = True
+        return None, len(rows), chronology
+    return next(iter(canonical.values())), len(rows), chronology
+
+
+def _last(history, kind):
+    last, n, _ = _history_context(history, kind)
+    return last, n
+
+
+def _version(config):
+    return "config:" + hashlib.sha256(json.dumps(config, sort_keys=True, ensure_ascii=True,
+                                                separators=(",", ":")).encode()).hexdigest()[:16]
+
+
+def _effective(state, source, config=None, since=None, note=None, observed=None):
+    return {"state": state, "source": source,
+            "since_utc": since if _timestamp(since) is not None else None,
+            "version": _version(config) if config is not None else None,
+            "note": note or "Effective state is read from the current configuration, not the latest proposal.",
+            "observed_utc": observed if _timestamp(observed) is not None else None}
+
+
+def _no_decision(n):
+    return ("no unambiguous timestamped decision on file" if n
+            else "no decision archived yet")
 
 
 def _f(v, d=4):
@@ -68,43 +123,68 @@ def game_params(src):
     mt = src.get("model_tuning.json")
     if not mt:
         return None
-    last, n = _last(mt.get("history"), "game_params")
+    last, n, chronology = _history_context(mt.get("history"), "game_params")
     gp = mt.get("game_params") or {}
     live = ("hfa %s · revert %s · k %s" % (gp.get("hfa_elo"), gp.get("revert"), gp.get("k"))
             if gp else None)
+    effective = _effective("active" if _timestamp(gp.get("adopted_utc")) else "baseline" if gp else "unknown",
+                           "data/model_tuning.json:game_params", gp or None,
+                           since=gp.get("adopted_utc"),
+                           note="Configured parameters; runtime parameter parity is a separate check.")
     if not last:
-        return _row("held", "no refit archived yet", None, live=live)
+        return _row("held", _no_decision(n), None, live=live, runs=n,
+                    chronology=chronology, effective=effective)
     return _row("adopted" if last.get("adopted") else "held", last.get("reason"),
                 last.get("generated_utc"), runs=n, live=live,
-                live_since_utc=gp.get("adopted_utc"))
+                live_since_utc=gp.get("adopted_utc"), chronology=chronology, effective=effective)
 
 
 def game_signals(src):
     mt = src.get("model_tuning.json")
     if not mt:
         return None
-    last, n = _last(mt.get("history"), "signal_promotion")
+    last, n, chronology = _history_context(mt.get("history"), "signal_promotion")
+    gp = mt.get("game_params")
+    blocks = {key: value for key, value in (gp or {}).items()
+              if isinstance(value, dict) and isinstance(value.get("applied"), bool)}
+    active = {key: value for key, value in blocks.items() if value["applied"]}
+    dates = [value.get("adopted_utc") for value in active.values()
+             if _timestamp(value.get("adopted_utc")) is not None]
+    effective = _effective("active" if active else "baseline" if isinstance(gp, dict) else "unknown",
+                           "data/model_tuning.json:game_params.*.applied", blocks if gp is not None else None,
+                           since=max(dates, key=_timestamp) if dates else None,
+                           note=("Configured active families: " + ", ".join(sorted(active))) if active
+                           else "No active signal-family block is configured." if isinstance(gp, dict)
+                           else "Current signal parameters are not on file.")
     if not last:
-        return _row("held", "the promotion gate has not archived a run", None)
+        return _row("held", _no_decision(n), None, runs=n, chronology=chronology, effective=effective)
     return _row("adopted" if last.get("adopted") else "held", last.get("reason"),
-                last.get("generated_utc"), runs=n)
+                last.get("generated_utc"), runs=n, chronology=chronology, effective=effective)
 
 
 def player_signals(src):
     mt = src.get("model_tuning.json")
     if not mt:
         return None
-    last, n = _last(mt.get("history"), "player_signal_fit")
-    if not last:
-        return _row("held", "no player-signal fit archived yet", None)
-    auto = last.get("auto") or {}
+    last, n, chronology = _history_context(mt.get("history"), "player_signal_fit")
+    auto = (last or {}).get("auto") or {}
     action = auto.get("action")
-    state = {"adopt": "adopted", "revert": "reverted"}.get(action, "held")
-    why = auto.get("reason") or last.get("reason")
+    # A proposed action is not an executed adoption/revert. --propose archives
+    # action while auto.applied remains false; --adopt stamps the application.
+    state = ({"adopt": "adopted", "revert": "reverted"}.get(action, "held")
+             if auto.get("applied") is True else "adopted" if (last or {}).get("adopted") else "held")
+    why = auto.get("reason") or (last or {}).get("reason") or _no_decision(n)
     live = mt.get("candidate_signal_weights") or {}
-    return _row(state, why, last.get("generated_utc"), runs=n,
+    weights = live.get("weights")
+    live_state = ("active" if live.get("kind") == "adopt" and isinstance(weights, dict) and weights
+                  else "baseline" if not live or live.get("kind") == "revert" else "unknown")
+    effective = _effective(live_state, "data/model_tuning.json:candidate_signal_weights",
+                           live or {"weights": "full_strength"}, since=live.get("adopted_utc"))
+    return _row(state, why, (last or {}).get("generated_utc"), runs=n,
                 live_since_utc=live.get("adopted_utc"),
-                live=("learned weights" if live.get("kind") == "adopt" else "every signal at full strength"))
+                live=("learned weights" if live_state == "active" else "every signal at full strength"
+                      if live_state == "baseline" else "effective weights unknown"),
+                chronology=chronology, effective=effective)
 
 
 def weekly_split(src):
@@ -136,7 +216,14 @@ def leg_pool_live(src):
     if not d or not isinstance(d.get("live_2026"), dict):
         return None
     lv = d["live_2026"]
-    return _row("adopted" if lv.get("applied") else "held", lv.get("reason"), d.get("generated_utc"))
+    active = lv.get("applied") is True and isinstance(lv.get("adjustment"), dict) and bool(lv["adjustment"])
+    effective = _effective("active" if active else "disabled" if lv.get("applied") is False else "unknown",
+                           "data/leg_pool_backtest.json:live_2026", lv.get("adjustment") if active
+                           else {"applied": lv.get("applied")}, since=lv.get("adopted_utc"),
+                           observed=d.get("generated_utc"),
+                           note="The pool reads this applied flag and adjustment; a held decision is not proof a prior layer remains active.")
+    return _row("adopted" if lv.get("applied") else "held", lv.get("reason"), d.get("generated_utc"),
+                effective=effective)
 
 
 def props_calibration(src):
@@ -281,6 +368,11 @@ def derive_loops(sources):
         row = fn(sources)
         if row is None:
             row = _row("absent", "data/%s is not on file" % src, None)
+        if "effective" not in row:
+            row["effective"] = _effective("measure_only" if row["state"] == "measuring" else "unknown",
+                                           "data/" + src,
+                                           note="This experiment cannot adopt a model." if row["state"] == "measuring"
+                                           else "This row reports a decision; effective runtime configuration is not established here.")
         out.append(dict({"id": lid, "group": group, "name": name, "learns": learns,
                           "moves": moves, "source": "data/" + src}, **row))
     return out
@@ -301,9 +393,10 @@ def build(sources, previous, now):
             transitions.append({"utc": now, "loop": l["id"], "name": l["name"],
                                 "from": p["state"], "to": l["state"], "why": l["why"]})
     doc = {"kind": "learning_loops", "generated_utc": now,
-           "policy": ("Each loop decides on its own record whether a candidate clears its "
-                      "gate; this file only reports those decisions, verbatim. transitions "
-                      "is append-only."),
+           "policy": ("state is the latest unambiguous timestamped decision; effective separately "
+                      "reports the current configuration where established. Holds do not undo an "
+                      "earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; "
+                      "transitions records decision-state changes and is append-only."),
            "summary": summarize(loops), "loops": loops, "transitions": transitions}
     same = previous is not None and all(
         previous.get(k) == doc[k] for k in ("summary", "loops", "transitions", "policy"))
@@ -350,9 +443,9 @@ def run(data_dir=DATA, out_path=OUT_PATH, now=None):
 
 def selftest():
     mt = {"history": [
-        {"kind": "game_params", "generated_utc": "t1", "adopted": False, "reason": "NEVER REGRESS: kept"},
-        {"kind": "player_signal_fit", "generated_utc": "t2", "auto": {"action": "hold", "reason": "worse on week 2"}}],
-        "game_params": {"hfa_elo": 45.0, "revert": 0.45, "k": 25.0, "adopted_utc": "t0"}}
+        {"kind": "game_params", "generated_utc": "2026-09-29T00:00:00Z", "adopted": False, "reason": "NEVER REGRESS: kept"},
+        {"kind": "player_signal_fit", "generated_utc": "2026-09-30T00:00:00Z", "auto": {"action": "hold", "reason": "worse on week 2"}}],
+        "game_params": {"hfa_elo": 45.0, "revert": 0.45, "k": 25.0, "adopted_utc": "2026-09-01T00:00:00Z"}}
     src = {"model_tuning.json": mt,
            "weekly_backtest.json": {"generated_utc": "t3", "verdict": {"adopted": True, "reason": "v2 wins"}},
            "joint_backtest.json": {"generated_utc": "t4", "pricer": "independent",
@@ -362,7 +455,7 @@ def selftest():
     by = {l["id"]: l for l in d1["loops"]}
     assert ch1 and d1["transitions"] == [], "the first build records no transition"
     assert by["game_params"]["state"] == "held" and by["game_params"]["why"] == "NEVER REGRESS: kept"
-    assert by["game_params"]["live_since_utc"] == "t0" and by["game_params"]["runs"] == 1
+    assert by["game_params"]["live_since_utc"] == "2026-09-01T00:00:00Z" and by["game_params"]["runs"] == 1
     assert by["player_signals"]["state"] == "held" and by["player_signals"]["why"] == "worse on week 2"
     assert by["weekly_split"]["state"] == "adopted"
     assert by["joint_pricer"]["state"] == "held" and "independent product" in by["joint_pricer"]["why"]
@@ -373,14 +466,14 @@ def selftest():
     d1b, ch1b = build(src, d1, "2026-10-02T00:00:00Z")
     assert not ch1b and d1b is d1
     # the player loop adopts, then reverts: two transitions, append-only, reasons verbatim
-    mt["history"].append({"kind": "player_signal_fit", "generated_utc": "t6",
-                          "auto": {"action": "adopt", "reason": "beats by 0.2"}})
+    mt["history"].append({"kind": "player_signal_fit", "generated_utc": "2026-10-03T00:00:00Z",
+                          "auto": {"action": "adopt", "applied": True, "reason": "beats by 0.2"}})
     d2, ch2 = build(src, d1, "2026-10-03T00:00:00Z")
     assert ch2 and d2["transitions"] == [{"utc": "2026-10-03T00:00:00Z", "loop": "player_signals",
                                           "name": "Player signal weights", "from": "held",
                                           "to": "adopted", "why": "beats by 0.2"}], d2["transitions"]
-    mt["history"].append({"kind": "player_signal_fit", "generated_utc": "t7",
-                          "auto": {"action": "revert", "reason": "now loses to full strength"}})
+    mt["history"].append({"kind": "player_signal_fit", "generated_utc": "2026-10-10T00:00:00Z",
+                          "auto": {"action": "revert", "applied": True, "reason": "now loses to full strength"}})
     d3, _ = build(src, d2, "2026-10-10T00:00:00Z")
     assert [t["to"] for t in d3["transitions"]] == ["adopted", "reverted"]
     assert d3["transitions"][0] == d2["transitions"][0], "append-only"

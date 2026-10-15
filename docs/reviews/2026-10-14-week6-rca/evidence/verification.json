@@ -1,0 +1,43 @@
+{
+  "audit_baseline": "fb8830ae35f1e11d3f589b435e303b719886e3e7",
+  "date_local": "2026-10-14",
+  "timezone": "America/Chicago",
+  "ci": {
+    "run_id": "38586365537",
+    "url": "https://github.com/liddar12/NFL2026/actions/runs/38586365537",
+    "conclusion": "success",
+    "head_sha": "fb8830ae35f1e11d3f589b435e303b719886e3e7",
+    "feature_tests_passed": 2063,
+    "feature_tests_failed": 0,
+    "data_gate": "PASS",
+    "browser_tests_passed": 355,
+    "evidence_kind": "GitHub run metadata and logs inspected; full suites not rerun locally"
+  },
+  "local": {
+    "data_validation": "scripts/validate_data.py passed on pinned checkout",
+    "focused_feature_tests": "18 focused learning/reporting/settlement tests passed; zero failed",
+    "focused_feature_command": "node --test tests/feature/r100_pool_learning.test.mjs tests/feature/r100_self_learning.test.mjs tests/feature/r105_learning_loops.test.mjs tests/feature/r106_parlay_settle.test.mjs",
+    "diagnostics": "metrics, Git provenance, learning-chain and portfolio calculations rerun from delivered scripts",
+    "live_assets": "9 HTTP 200 files; SHA-256 matches pinned checkout",
+    "limitations": "No local browser suite, no implementation changes, no causal full-candidate historical replay"
+  },
+  "source_failure": {
+    "first_run_id": "38180920617",
+    "first_exception_utc": "2026-10-11T22:35:58Z",
+    "latest_audited_producer_run_id": "38585561479",
+    "exception": "ESPN injury status Reserve-Ret for PHI Lane Johnson did not map to a canonical availability code",
+    "source_last_success_utc": "2026-10-11T20:10:35Z"
+  },
+  "peer_review": {
+    "local_claude_code": "Read-only source/evidence review completed; final reconciled response saved",
+    "user_separate_claude_conversation": "Not accessed",
+    "independent_portfolio_check": "Shared-event arithmetic and distinct underlying games independently verified"
+  },
+  "changes": {
+    "application_code": false,
+    "prediction_data": false,
+    "cloud_or_database": false,
+    "commit_push_deploy": false,
+    "local_review_package": true
+  }
+}

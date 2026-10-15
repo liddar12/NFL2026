@@ -37,6 +37,7 @@ message otherwise. The gate (tests/run_gate.sh) keys on this exit code.
 """
 
 import json
+import datetime as dt
 import math
 import os
 import re
@@ -817,6 +818,10 @@ def check_no_unplayable_legs(weekly, parlays, leg_pool=None):
         if rec is None:
             problems.append("%s: %s names %r, not in player_weekly.json" % (label, sel, gsis))
             return
+        eligibility = rec.get("eligibility") or {}
+        if eligibility.get("eligible") is False and eligibility.get("week") in (None, wk):
+            problems.append("%s: %s is offered with unverified source eligibility (%s)"
+                            % (label, sel, eligibility.get("detail")))
         tw = rec.get("this_week")
         if isinstance(tw, dict) and tw.get("playable") is False:
             problems.append("%s: %s is priced on a player who does not play this week "
@@ -1672,14 +1677,14 @@ def _norm_name(name):
     return " ".join(str(name or "").replace(".", "").lower().split())
 
 
-# The eight canonical availability codes (scripts/availability.CODES), mirrored as
+# The canonical availability codes (scripts/availability.CODES), mirrored as
 # a literal for the same reason as EXPECTED_SIGNALS above.
 _AVAIL_CODES = frozenset([
-    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED",
+    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED",
 ])
 # R77 — scripts/availability.NOT_PLAYABLE, mirrored as a literal for the same
 # reason. QUESTIONABLE is deliberately absent (priced + labelled, never gated).
-_NOT_PLAYABLE = frozenset(["DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED"])
+_NOT_PLAYABLE = frozenset(["DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED"])
 _PROP_MARKETS = frozenset(["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"])
 
 
@@ -1743,6 +1748,76 @@ def _absence_in_total(projection_row):
             and int(projection_row.get("absence_weeks") or 0) > 0)
 
 
+def check_injury_source_eligibility(weekly, projections, injuries):
+    """Independent source/offer check; legacy documents without metadata remain readable."""
+    meta = (weekly.get("model") or {}).get("injury_source")
+    if meta is None:
+        if any(p.get("eligibility") for p in weekly.get("players", [])):
+            raise ValidationError("eligibility refusal has no injury_source receipt")
+        return True
+    doc = injuries or {}
+    problems = []
+    tw = (weekly.get("model") or {}).get("this_week") or {}
+    week = tw.get("wk")
+    received = doc.get("received_utc") or doc.get("updated_utc")
+    source = doc.get("source_updated_utc", received)
+    def stamp(value):
+        try:
+            parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return parsed.astimezone(dt.timezone.utc) if parsed.tzinfo else None
+        except (ValueError, TypeError):
+            return None
+    now, sourced, fetched = map(stamp, (weekly.get("updated_utc"), source, received))
+    age = round((now - min(sourced, fetched)).total_seconds() / 3600, 3) \
+        if now and sourced and fetched else None
+    reason = None
+    if not doc.get("injuries"):
+        reason = "missing_report"
+    elif age is None:
+        reason = "missing_timestamp"
+    elif sourced > now + dt.timedelta(minutes=5) or fetched > now + dt.timedelta(minutes=5):
+        reason = "future_timestamp"
+    elif doc.get("week") is not None and doc["week"] != week:
+        reason = "wrong_week"
+    elif age > 24.0:
+        reason = "stale_report"
+    elif any(not q.get("athlete_id") and not (q.get("team") and q.get("player"))
+             for q in doc.get("quarantine") or []):
+        reason = "unidentified_quarantine"
+    expected = {"verified": reason is None, "reason": reason,
+                "source_updated_utc": source, "received_utc": received,
+                "last_success_utc": received, "checked_utc": weekly.get("updated_utc"),
+                "age_hours": max(0, age) if age is not None else None,
+                "max_age_hours": 24.0, "source_week": doc.get("week"), "week": week,
+                "quarantined_rows": len(doc.get("quarantine") or [])}
+    if meta != expected:
+        problems.append("injury_source does not reproduce from report timestamps/week")
+    lookup = {p.get("gsis_id"): p for p in projections.get("players", [])}
+    for player in weekly.get("players", []):
+        p = lookup.get(player.get("gsis_id"), {})
+        row = next((r for r in player.get("weeks", []) if r.get("wk") == week), None)
+        applicable = row is not None and not row.get("bye") \
+            and p.get("team") not in set(tw.get("skipped_final_teams") or [])
+        refusal = reason
+        pid = str(player.get("gsis_id") or "")
+        eid = pid[5:] if pid.startswith("espn-") else None
+        for q in doc.get("quarantine") or []:
+            matches = (str(q.get("athlete_id")) == eid if q.get("athlete_id") and eid
+                       else q.get("team") == p.get("team") and
+                       _norm_name(q.get("player")) == _norm_name(p.get("name")))
+            if matches:
+                refusal = "quarantined_status"
+                break
+        expected_gate = ({"eligible": False, "reason": "source_unverified", "detail": refusal,
+                          "week": week, "source": "injuries", "source_updated_utc": source}
+                         if applicable and refusal else None)
+        if player.get("eligibility") != expected_gate:
+            problems.append("%s: eligibility differs from injury source evidence" % pid)
+    if problems:
+        raise ValidationError("injury source invariant: " + "; ".join(problems))
+    return reason is None
+
+
 def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
                               inactives=None):
     """Rel17: player_weekly.json's availability story must agree with itself.
@@ -1783,6 +1858,11 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
     `injuries` may be None (feed never fetched). That is not a failure in itself —
     but it makes ANY availability flag an orphan, which rule 4 then reports.
     """
+    source_verified = check_injury_source_eligibility(weekly, projections, injuries)
+    if not source_verified:
+        # Stale rows are withheld from shaping, not silently reclassified healthy.
+        # The independent check above requires explicit current-week offer refusals.
+        injuries = {"injuries": []}
     problems = []
     proj = {p["gsis_id"]: p for p in projections.get("players", [])}
 

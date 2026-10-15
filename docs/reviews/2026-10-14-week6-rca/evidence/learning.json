@@ -1,0 +1,763 @@
+{
+  "promotion_reporting": {
+    "reported": {
+      "state": "held",
+      "why": "incumbent retained: no candidate cleared the margin — signals stay at weight 0",
+      "last_run_utc": "2026-07-18T02:47:47Z",
+      "runs": 27
+    },
+    "latest_actual": {
+      "generated_utc": "2026-10-13T14:53:24Z",
+      "adopted": false,
+      "write_mode": "propose",
+      "reason": "incumbent retained: no family's improvement was large relative to its own fold-clustered uncertainty",
+      "would_adopt": null,
+      "families_runnable": 14,
+      "market_baseline": {
+        "policy": "measurement only - never an input (owner rule)",
+        "games": 1084,
+        "our_log_loss": 0.6345,
+        "market_log_loss": 0.60819,
+        "gap": 0.02631
+      }
+    },
+    "in_season_adoptions": []
+  },
+  "historical_pool_layers": [
+    {
+      "commit": "c4e308cd",
+      "generated_utc": "2026-09-21T02:00:09Z",
+      "live_2026": null
+    },
+    {
+      "commit": "d0e2c88b",
+      "generated_utc": "2026-09-29T13:51:55Z",
+      "live_2026": {
+        "weeks": [
+          2,
+          3
+        ],
+        "legs": 420,
+        "offered_mean": 0.5234,
+        "hit_rate": 0.6667,
+        "per_week": [
+          {
+            "week": 3,
+            "n": 254,
+            "fit_weeks": [
+              2
+            ],
+            "raw_log_loss": 0.6616,
+            "adjusted_log_loss": 0.6194,
+            "raw_ece": 0.1503,
+            "adjusted_ece": 0.0448
+          }
+        ],
+        "adjustment": null,
+        "applied": false,
+        "reason": "hold: 1 held-out week(s) so far (weeks [2, 3] graded); the layer ships only on >= 2"
+      }
+    },
+    {
+      "commit": "b685eb40",
+      "generated_utc": "2026-10-06T13:03:23Z",
+      "live_2026": {
+        "weeks": [
+          2,
+          3,
+          4
+        ],
+        "legs": 656,
+        "offered_mean": 0.514,
+        "hit_rate": 0.6463,
+        "per_week": [
+          {
+            "week": 3,
+            "n": 262,
+            "fit_weeks": [
+              2
+            ],
+            "raw_log_loss": 0.6587,
+            "adjusted_log_loss": 0.627,
+            "raw_ece": 0.1365,
+            "adjusted_ece": 0.0568
+          },
+          {
+            "week": 4,
+            "n": 222,
+            "fit_weeks": [
+              2,
+              3
+            ],
+            "raw_log_loss": 0.6628,
+            "adjusted_log_loss": 0.6297,
+            "raw_ece": 0.1254,
+            "adjusted_ece": 0.0407
+          }
+        ],
+        "adjustment": {
+          "a": 0.580223,
+          "b": 0.969067
+        },
+        "applied": true,
+        "reason": "applied: held-out log-loss 0.6282 vs the pool's 0.6606 over 2 week(s), none worse"
+      }
+    },
+    {
+      "commit": "7d2c4fec",
+      "generated_utc": "2026-10-13T14:52:43Z",
+      "live_2026": {
+        "weeks": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "legs": 974,
+        "offered_mean": 0.5043,
+        "hit_rate": 0.5945,
+        "per_week": [
+          {
+            "week": 3,
+            "n": 262,
+            "fit_weeks": [
+              2
+            ],
+            "raw_log_loss": 0.6587,
+            "adjusted_log_loss": 0.627,
+            "raw_ece": 0.1365,
+            "adjusted_ece": 0.0568
+          },
+          {
+            "week": 4,
+            "n": 222,
+            "fit_weeks": [
+              2,
+              3
+            ],
+            "raw_log_loss": 0.6628,
+            "adjusted_log_loss": 0.6297,
+            "raw_ece": 0.1254,
+            "adjusted_ece": 0.0407
+          },
+          {
+            "week": 5,
+            "n": 318,
+            "fit_weeks": [
+              2,
+              3,
+              4
+            ],
+            "raw_log_loss": 0.6671,
+            "adjusted_log_loss": 0.7044,
+            "raw_ece": 0.0423,
+            "adjusted_ece": 0.1311
+          }
+        ],
+        "adjustment": null,
+        "applied": false,
+        "reason": "hold: the layer is worse on held-out week(s) [5]"
+      }
+    }
+  ],
+  "real_probability_chain": {
+    "commit": "7344a76d",
+    "pool_generated": "2026-10-06T22:08:43Z",
+    "pool_keys": [
+      "season",
+      "week",
+      "generated_utc",
+      "model",
+      "calibration_adopted",
+      "live_adjustment",
+      "ladder",
+      "support",
+      "residual_sd",
+      "counts",
+      "players",
+      "game_legs",
+      "atd_legs",
+      "atd_status",
+      "atd_correlations",
+      "notes"
+    ],
+    "live_adjustment": {
+      "a": 0.580223,
+      "b": 0.969067
+    },
+    "matching_examples": 159,
+    "examples": [
+      {
+        "selection": "E. Demercado 40+ rush yds",
+        "first_seen_utc": "2026-10-06T17:52:46Z",
+        "raw_base_reconstructed": 0.237541,
+        "pool_probability": 0.3659,
+        "ledger_probability": 0.3659,
+        "once_reconstructed": 0.365884,
+        "gate_applies_second_layer": 0.511844
+      },
+      {
+        "selection": "J. Williams 80+ rush yds",
+        "first_seen_utc": "2026-10-06T17:52:46Z",
+        "raw_base_reconstructed": 0.233657,
+        "pool_probability": 0.361,
+        "ledger_probability": 0.361,
+        "once_reconstructed": 0.361049,
+        "gate_applies_second_layer": 0.506715
+      },
+      {
+        "selection": "S. Tucker 30+ rush yds",
+        "first_seen_utc": "2026-10-06T17:52:46Z",
+        "raw_base_reconstructed": 0.24998,
+        "pool_probability": 0.3812,
+        "ledger_probability": 0.3812,
+        "once_reconstructed": 0.381188,
+        "gate_applies_second_layer": 0.527659
+      },
+      {
+        "selection": "C. Lamb 100+ rec yds",
+        "first_seen_utc": "2026-10-06T17:52:46Z",
+        "raw_base_reconstructed": 0.238745,
+        "pool_probability": 0.3674,
+        "ledger_probability": 0.3674,
+        "once_reconstructed": 0.367379,
+        "gate_applies_second_layer": 0.513408
+      },
+      {
+        "selection": "C. Godwin Jr. 60+ rec yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.26445,
+        "pool_probability": 0.3987,
+        "ledger_probability": 0.3987,
+        "once_reconstructed": 0.398649,
+        "gate_applies_second_layer": 0.545387
+      },
+      {
+        "selection": "E. Egbuka 70+ rec yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.23186,
+        "pool_probability": 0.3588,
+        "ledger_probability": 0.3588,
+        "once_reconstructed": 0.358803,
+        "gate_applies_second_layer": 0.504401
+      },
+      {
+        "selection": "J. Hurts 225+ pass yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.247807,
+        "pool_probability": 0.3785,
+        "ledger_probability": 0.3785,
+        "once_reconstructed": 0.378535,
+        "gate_applies_second_layer": 0.52489
+      },
+      {
+        "selection": "T. Lawrence 275+ pass yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.267541,
+        "pool_probability": 0.4023,
+        "ledger_probability": 0.4023,
+        "once_reconstructed": 0.402331,
+        "gate_applies_second_layer": 0.548987
+      },
+      {
+        "selection": "C. Rodriguez Jr. 30+ rush yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.410469,
+        "pool_probability": 0.5571,
+        "ledger_probability": 0.5571,
+        "once_reconstructed": 0.557098,
+        "gate_applies_second_layer": 0.690515
+      },
+      {
+        "selection": "B. Thomas Jr. 70+ rec yds",
+        "first_seen_utc": "2026-10-06T13:14:09Z",
+        "raw_base_reconstructed": 0.251144,
+        "pool_probability": 0.3826,
+        "ledger_probability": 0.3826,
+        "once_reconstructed": 0.382606,
+        "gate_applies_second_layer": 0.529092
+      },
+      {
+        "selection": "D. Smith 50+ rec yds",
+        "first_seen_utc": "2026-10-09T02:00:10Z",
+        "raw_base_reconstructed": 0.486786,
+        "pool_probability": 0.6293,
+        "ledger_probability": 0.6293,
+        "once_reconstructed": 0.629248,
+        "gate_applies_second_layer": 0.748959
+      },
+      {
+        "selection": "D. Smith 60+ rec yds",
+        "first_seen_utc": "2026-10-06T22:08:43Z",
+        "raw_base_reconstructed": 0.374058,
+        "pool_probability": 0.5203,
+        "ledger_probability": 0.5203,
+        "once_reconstructed": 0.520314,
+        "gate_applies_second_layer": 0.659025
+      }
+    ]
+  },
+  "pool_observed_by_week": [
+    {
+      "week": 2,
+      "n": 172,
+      "mean_p": 0.541827,
+      "hits": 117,
+      "log_loss": 0.662922
+    },
+    {
+      "week": 3,
+      "n": 262,
+      "mean_p": 0.507018,
+      "hits": 168,
+      "log_loss": 0.658712
+    },
+    {
+      "week": 4,
+      "n": 222,
+      "mean_p": 0.500769,
+      "hits": 139,
+      "log_loss": 0.662755
+    },
+    {
+      "week": 5,
+      "n": 318,
+      "mean_p": 0.484219,
+      "hits": 155,
+      "log_loss": 0.667113
+    }
+  ],
+  "week5_first_recorded_unique_props": {
+    "pre_layer": 210,
+    "after_layer_adoption": 212
+  },
+  "artifact_metrics": {
+    "weekly_backtest": {
+      "season": 2026,
+      "weeks": 5,
+      "weeks_resolved": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "rows": 1288,
+      "ledger": "data/estimates/2026.json",
+      "scores": "data/estimate_scores.json",
+      "shipped": {
+        "mae": 5.5584,
+        "rank_corr": 0.5057,
+        "topk": 0.7431
+      },
+      "gated": {
+        "mae": 5.6023,
+        "rank_corr": 0.4868,
+        "topk": 0.7226
+      },
+      "candidate": {
+        "mae": 5.5584,
+        "rank_corr": 0.5057,
+        "topk": 0.7431
+      },
+      "per_week": [
+        {
+          "week": 1,
+          "n": 249,
+          "shipped": {
+            "mae": 6.0865,
+            "rank_corr": 0.479,
+            "topk": 0.7437
+          },
+          "gated": {
+            "mae": 6.1265,
+            "rank_corr": 0.4439,
+            "topk": 0.7301
+          },
+          "candidate": {
+            "mae": 6.0865,
+            "rank_corr": 0.479,
+            "topk": 0.7437
+          }
+        },
+        {
+          "week": 2,
+          "n": 250,
+          "shipped": {
+            "mae": 5.3504,
+            "rank_corr": 0.5204,
+            "topk": 0.7898
+          },
+          "gated": {
+            "mae": 5.3881,
+            "rank_corr": 0.5029,
+            "topk": 0.7482
+          },
+          "candidate": {
+            "mae": 5.3504,
+            "rank_corr": 0.5204,
+            "topk": 0.7898
+          }
+        },
+        {
+          "week": 3,
+          "n": 264,
+          "shipped": {
+            "mae": 5.169,
+            "rank_corr": 0.5246,
+            "topk": 0.7584
+          },
+          "gated": {
+            "mae": 5.2005,
+            "rank_corr": 0.505,
+            "topk": 0.7483
+          },
+          "candidate": {
+            "mae": 5.169,
+            "rank_corr": 0.5246,
+            "topk": 0.7584
+          }
+        },
+        {
+          "week": 4,
+          "n": 263,
+          "shipped": {
+            "mae": 5.5179,
+            "rank_corr": 0.5195,
+            "topk": 0.7184
+          },
+          "gated": {
+            "mae": 5.5427,
+            "rank_corr": 0.5062,
+            "topk": 0.7074
+          },
+          "candidate": {
+            "mae": 5.5179,
+            "rank_corr": 0.5195,
+            "topk": 0.7184
+          }
+        },
+        {
+          "week": 5,
+          "n": 262,
+          "shipped": {
+            "mae": 5.6881,
+            "rank_corr": 0.4842,
+            "topk": 0.709
+          },
+          "gated": {
+            "mae": 5.7732,
+            "rank_corr": 0.4744,
+            "topk": 0.6812
+          },
+          "candidate": {
+            "mae": 5.6881,
+            "rank_corr": 0.4842,
+            "topk": 0.709
+          }
+        }
+      ],
+      "note": "LIVE 2026: the shipped weekly estimate per player-week as made and locked before kickoff (data/estimates/2026.json) scored against resolved actual PPR (data/estimate_scores.json), not the 2023-25 corpus; measured only — the never-regress verdict above stays on the corpus"
+    },
+    "parlay_backtest": {
+      "weeks": 5,
+      "legs_resolved": 218,
+      "seed": {
+        "log_loss": 0.6819,
+        "hit_rate": 0.5229
+      },
+      "calibrated": {
+        "log_loss": 0.6661,
+        "hit_rate": 0.5229
+      },
+      "refit": {
+        "applied": true,
+        "fit_weeks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "reason": "refit adopted under never-regress — 2025 held-out fold: refit 0.6702 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6650 <= current 0.6667"
+      },
+      "note": "218 locked prop leg(s) resolved over week(s) [1, 2, 3, 4, 5]; seed vs calibrated on the 218 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
+    }
+  },
+  "pregame_slate_calibration": [
+    {
+      "week": 1,
+      "commit": "7dcbc868",
+      "generated_utc": "2026-09-02T16:45:35Z",
+      "live_refit": null,
+      "calibration": {
+        "QB": {
+          "a": -0.127713,
+          "b": 1.146601,
+          "c": 0.936247,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "RB": {
+          "a": -0.235873,
+          "b": 1.123922,
+          "c": 1.004332,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "WR": {
+          "a": -0.218547,
+          "b": 0.948201,
+          "c": 0.561142,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        }
+      }
+    },
+    {
+      "week": 2,
+      "commit": "a86a5fc5",
+      "generated_utc": "2026-09-15T18:48:38Z",
+      "live_refit": null,
+      "calibration": {
+        "QB": {
+          "a": -0.127713,
+          "b": 1.146601,
+          "c": 0.936247,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "RB": {
+          "a": -0.235873,
+          "b": 1.123922,
+          "c": 1.004332,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "WR": {
+          "a": -0.218547,
+          "b": 0.948201,
+          "c": 0.561142,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        }
+      }
+    },
+    {
+      "week": 3,
+      "commit": "67e40053",
+      "generated_utc": "2026-09-22T22:13:55Z",
+      "live_refit": null,
+      "calibration": {
+        "QB": {
+          "a": -0.127713,
+          "b": 1.146601,
+          "c": 0.936247,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "RB": {
+          "a": -0.235873,
+          "b": 1.123922,
+          "c": 1.004332,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "WR": {
+          "a": -0.218547,
+          "b": 0.948201,
+          "c": 0.561142,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        }
+      }
+    },
+    {
+      "week": 4,
+      "commit": "7815098e",
+      "generated_utc": "2026-09-29T10:18:26Z",
+      "live_refit": {
+        "applied": false,
+        "fit_weeks": [
+          1,
+          2,
+          3
+        ],
+        "reason": "never-regress keeps the current coefficients — 2026 legs walk-forward by week: refit log-loss 0.6776 > current 0.6774; 2025 held-out fold: refit 0.6704 <= current 0.6705"
+      },
+      "calibration": {
+        "QB": {
+          "a": -0.127713,
+          "b": 1.146601,
+          "c": 0.936247,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "RB": {
+          "a": -0.235873,
+          "b": 1.123922,
+          "c": 1.004332,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        },
+        "WR": {
+          "a": -0.218547,
+          "b": 0.948201,
+          "c": 0.561142,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025
+          ]
+        }
+      }
+    },
+    {
+      "week": 5,
+      "commit": "be5e4643",
+      "generated_utc": "2026-10-06T10:18:35Z",
+      "live_refit": {
+        "applied": true,
+        "fit_weeks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "reason": "refit adopted under never-regress — 2025 held-out fold: refit 0.6704 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6663 <= current 0.6665"
+      },
+      "calibration": {
+        "QB": {
+          "a": -0.103754,
+          "b": 1.059823,
+          "c": 1.026293,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        },
+        "RB": {
+          "a": -0.222053,
+          "b": 1.137518,
+          "c": 1.046457,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        },
+        "WR": {
+          "a": -0.196554,
+          "b": 0.959903,
+          "c": 0.513068,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        }
+      }
+    },
+    {
+      "week": 6,
+      "commit": "fb8830ae",
+      "generated_utc": "2026-10-13T10:18:34Z",
+      "live_refit": {
+        "applied": true,
+        "fit_weeks": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "reason": "refit adopted under never-regress — 2025 held-out fold: refit 0.6702 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6650 <= current 0.6667"
+      },
+      "calibration": {
+        "QB": {
+          "a": -0.084335,
+          "b": 0.990786,
+          "c": 1.082753,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        },
+        "RB": {
+          "a": -0.222784,
+          "b": 1.137172,
+          "c": 1.063283,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        },
+        "WR": {
+          "a": -0.207173,
+          "b": 1.006454,
+          "c": 0.474597,
+          "fit_seasons": [
+            2023,
+            2024,
+            2025,
+            2026
+          ]
+        }
+      }
+    }
+  ],
+  "slate_week5_same_legs_coefficient_counterfactual": {
+    "n": 45,
+    "hits": 23,
+    "probability_change_abs_max": 0.02148374454796742,
+    "probability_change_abs_mean": 0.006490420036186966,
+    "sides_crossing_half": 0,
+    "log_loss": {
+      "old": 0.6672904554423954,
+      "new": 0.6600117518164608,
+      "served": 0.6643964054341683
+    },
+    "note": "Same locked W5 z/p_team and fixed offered legs; excludes selection changes and whole-card joint outcomes. Historic clamp checked separately."
+  }
+}

@@ -727,8 +727,17 @@ export function renderRecord(scores, dial) {
   if (num(b.all_hit) != null && hitRate != null) {
     parts.push(`${b.all_hit} all hit (${pct(hitRate)})`);
   }
-  const mean = num(b.mean_model);
-  if (mean != null) parts.push(`mean conviction ${pct(mean)}`);
+  // Only unchanged, fully resolved contracts can be compared with the original
+  // all-hit prediction. Legacy mixed-settlement means are not calibration.
+  const calibration = b.calibration;
+  if (calibration && Number(calibration.n) > 0) {
+    const actual = num(calibration.hit_rate);
+    const mean = num(calibration.mean_model);
+    if (actual != null && mean != null) {
+      parts.push(`unchanged contracts ${calibration.n}: actual ${pct(actual)} vs predicted ${pct(mean)}`);
+    }
+  } else if (calibration) parts.push('no unchanged-contract calibration sample');
+  else parts.push('legacy calibration cohort not verified');
   const net = num(b.net_fair);
   if (net != null) parts.push(`$100 flat net ${money(net)}`);
   // `.mp-record` carries no style — it is the handle paint() removes the line by.

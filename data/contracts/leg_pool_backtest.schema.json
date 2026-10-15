@@ -272,6 +272,20 @@
         "reason"
       ],
       "properties": {
+        "receipt_policy": {"type": "string", "enum": ["base_receipt_v1"]},
+        "base_model_version": {"type": "string", "minLength": 1},
+        "base_mean": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "lineage": {
+          "type": "object",
+          "properties": {
+            "eligible_unique_legs": {"type": "integer", "minimum": 0},
+            "joined_unique_legs": {"type": "integer", "minimum": 0},
+            "quarantined_records": {"type": "integer", "minimum": 0},
+            "quarantine_reasons": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+            "different_base_version": {"type": "integer", "minimum": 0},
+            "eligibility": {"type": "string"}
+          }
+        },
         "weeks": {
           "type": "array",
           "items": {
@@ -325,6 +339,7 @@
               "raw_log_loss": {
                 "type": "number"
               },
+              "served_log_loss": {"type": "number"},
               "adjusted_log_loss": {
                 "type": "number"
               },
