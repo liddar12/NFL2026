@@ -102,6 +102,20 @@
   own prices 13.0 -> 14.2 of 42. Week cards are unchanged (already most-likely-first). **Locked
   by** `r126_game_card_ranking` (red without the change), `r74` (fallback demonstration),
   `parlay_props`. · **LOE** 0.2 d
+- **R127-R132 · Parlay-accuracy RCA roadmap (proposed, 2026-10-15).** From
+  `docs/qa/RCA_2026-10-15_PARLAY_ACCURACY.md` (reconciled with the Codex RCA on
+  `build/week6-correctness-20261014`; hand-off in `docs/WEEK6_CLAUDE_TO_CODEX_HANDOFF.md`).
+  The week-1-to-5 "decline" is mostly hindsight cards and accounting; these items lift the level:
+  - **R127** prop `mu` from the training-shaped feature (live log loss 0.6293 vs 0.6598 on 212
+    legs): shadow on week 6, promote on prospective evidence, no per-position regression.
+  - **R128** offer the model-favoured prop side (unders, or a lower rung where p >= 0.5): grader
+    support for unders first; 141/218 curated props shipped below 0.5 (they hit 44%).
+  - **R129** injury report beyond ESPN's 25-row cap, and a did-not-play-last-FINAL guard.
+  - **R130** honest record: pre-kickoff-only headline, push winners counted, voids out of the
+    leg denominator, post-kickoff exclusions flagged.
+  - **R131** week cards: an explicit choice between highest-hit and diversified objectives
+    (owner decision; SF is on 18/18 week-6 cards).
+  - **R132** a slate-level backtest gate that reselects from frozen candidates.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses
