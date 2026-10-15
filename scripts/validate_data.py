@@ -765,8 +765,8 @@ def check_parlay_one_leg_per_side(parlays, label="parlays.json"):
     and 'BUF -5.5' name their side.
 
     Owner rule, 2026-09-16. It shipped on 16 of 66 week-2 parlays before this
-    existed, because the builder ranks pairs by |rho| and this pair is the
-    strongest correlation in the table.
+    existed, because the builder then ranked pairs by |rho| (R126: joint
+    probability now) and this pair is the strongest correlation in the table.
     """
     problems = []
     for parlay in (parlays or {}).get("parlays", []) or []:

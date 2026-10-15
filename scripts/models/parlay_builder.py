@@ -314,9 +314,9 @@ def same_side_game_pair(a, b):
     outright guarantees the cover on any non-negative handicap, so stacking them
     sells a single view as a multi-leg parlay and quotes a payout for risk the
     bettor never took. The correlation table measures the pair at rho 0.71 — the
-    strongest in the book — and `build_game_parlays` ranks pairs by |rho|, so the
-    ranking actively SELECTED this pair as the flagship. It shipped on 16 of 66
-    week-2 parlays before this rule existed.
+    strongest in the book — and `build_game_parlays` then ranked pairs by |rho| (R126
+    replaced that with joint probability), so the ranking actively SELECTED this pair
+    as the flagship. It shipped on 16 of 66 week-2 parlays before this rule existed.
 
     Owner rule (2026-09-16): one leg per game side. Pricing the correlation was
     considered and rejected — honest arithmetic on a parlay that should not be
@@ -884,51 +884,73 @@ def build_game_parlays(game_pred, market=None, props=None,
                        calibration_path=DEFAULT_CALIBRATION_PATH):
     """Build >=3 correlation-aware parlays for a single game.
 
-    Uses distinct 2-leg combinations of the candidate legs, favoring pairs with the
-    strongest (signed) correlation first so the flagship same-game parlays are the most
-    correlation-sensitive ones. Deterministic (stable ordering).
+    Uses distinct 2-leg combinations of the candidate legs, most likely to hit first:
+    ranked by the pair's joint model probability (correlation included), then by
+    combined EV. Deterministic (stable ordering).
+
+    R126 (2026-10-15, owner: highest likelihood of hitting) — two changes, measured on
+    the frozen pre-kickoff game cards of weeks 1-5 (same candidate legs, graded on the
+    real results): as built 74/235 all-hit = 0.315; this rule 83/233 = 0.356.
+      * The ranking was |rho| first. That favoured the most correlated pair whatever its
+        odds, and after R74 it filled the slot with OPPOSITE-side pairs (a favourite's
+        moneyline + the underdog's back) whose joint chance is the lowest on the board:
+        7/34 hit, against 19/45 for the same-side ML + back.
+      * The spread leg is priced at exactly 0.5 (no cover model; R51) on the model's
+        favourite, which covered 48/119 legs in 2026 and 382/797 games in 2023-25. It is
+        now a FALLBACK candidate only: used when a game cannot field three distinct pairs
+        without it, so the >=3 invariant never pays for a coin flip it does not need and
+        never duplicates a card.
     """
     game_id = game_pred.get("game_id", "GAME")
     corr = _correlation_table(load_calibration(calibration_path))
     legs = derive_candidate_legs(game_pred, market=market, props=props,
                                  calibration_path=calibration_path)
-
-    # Enumerate all unordered 2-leg combinations, rank by |rho| desc (most correlated
-    # first) then by combined EV desc, both deterministic tie-breaks by index.
-    combos = []
-    for i in range(len(legs)):
-        for j in range(i + 1, len(legs)):
-            pair = [legs[i], legs[j]]
-            # ONE LEG PER GAME SIDE. Skipped before ranking, so the flagship
-            # same-game parlay becomes the strongest pair that is genuinely two
-            # opinions (ML + a prop from that game), not the same one twice.
-            if same_side_game_pair(legs[i], legs[j]):
-                continue
-            rho = _pair_rho(legs[i], legs[j], corr)
-            model_p, implied_p = _combined_probs(pair, correlated=True, corr=corr)
-            ev = (model_p / implied_p - 1.0) if implied_p > 0 else -1.0
-            combos.append((-abs(rho), -ev, i, j, pair))
-    combos.sort()
+    pool = [leg for leg in legs if leg.get("market") != "spread"]
+    combos = _rank_game_pairs(pool, corr)
+    if len(combos) < 3 and len(pool) < len(legs):
+        pool = legs
+        combos = _rank_game_pairs(pool, corr)
 
     parlays = []
     # Take the top distinct combos; guarantee at least 3. With a real slate the candidate
-    # set is the favorite ML + a priced spread + three prop legs, so there are plenty of
-    # pairs; a game with no handicap and no eligible props yields only the ML leg and the
-    # top-up loop below carries the >=3 invariant instead.
-    for k, (_, _, i, j, pair) in enumerate(combos[:max(3, 3)]):
+    # set is the favorite ML + three prop legs, so there are plenty of pairs; a game with
+    # no eligible props yields only the ML (+ spread) legs and the top-up loop below
+    # carries the >=3 invariant instead.
+    for k, (_, _, i, j, pair) in enumerate(combos[:3]):
         pid = "%s-g%d" % (game_id, k + 1)
         parlays.append(_make_parlay(pid, "game", pair, game_id=game_id, corr=corr))
 
     # If fewer than 3 combos existed, top up with single-leg parlays so the >=3 invariant
     # still holds. (Only reached when a game has fewer than 3 candidate legs.)
     idx = len(parlays)
-    while len(parlays) < 3 and legs:
+    while len(parlays) < 3 and pool:
         pid = "%s-g%d" % (game_id, idx + 1)
-        parlays.append(_make_parlay(pid, "game", [legs[idx % len(legs)]],
+        parlays.append(_make_parlay(pid, "game", [pool[idx % len(pool)]],
                                     game_id=game_id, corr=corr))
         idx += 1
 
     return parlays
+
+
+def _rank_game_pairs(legs, corr):
+    """Every unordered 2-leg pair of `legs` that is two opinions, most likely first.
+
+    Sort key: joint model probability desc (correlation included), combined EV desc,
+    then leg indices — fully deterministic.
+    """
+    combos = []
+    for i in range(len(legs)):
+        for j in range(i + 1, len(legs)):
+            pair = [legs[i], legs[j]]
+            # ONE LEG PER GAME SIDE (R74). Skipped before ranking, so a card is always
+            # two opinions (ML + a prop from that game), never the same one twice.
+            if same_side_game_pair(legs[i], legs[j]):
+                continue
+            model_p, implied_p = _combined_probs(pair, correlated=True, corr=corr)
+            ev = (model_p / implied_p - 1.0) if implied_p > 0 else -1.0
+            combos.append((-model_p, -ev, i, j, pair))
+    combos.sort(key=lambda c: c[:4])
+    return combos
 
 
 def build_week_parlays(game_preds, markets_by_game=None, max_parlays=6):
