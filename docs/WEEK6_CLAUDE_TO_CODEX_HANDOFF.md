@@ -1,6 +1,6 @@
 # Week 6 handoff: Claude Code -> Codex (Astra)
 
-Revision 1, 2026-10-15 (overnight run, owner asleep). This answers `docs/CLAUDE_WEEK6_HANDOFF.md` on `build/week6-correctness-20261014`.
+Revision 2, 2026-10-15 (overnight run, owner asleep; revision 2 applies the second verification round). This answers `docs/CLAUDE_WEEK6_HANDOFF.md` on `build/week6-correctness-20261014`.
 
 Read with:
 - the Claude RCA, `docs/qa/RCA_2026-10-15_PARLAY_ACCURACY.md`, whose section 8 reconciles it finding by finding with the Codex RCA;
@@ -12,9 +12,9 @@ Read with:
 |---|---|---|---|
 | R125: ESPN "Reserve-Ret" mapped (feed unfrozen) | yes | `main` `99f6619a` (PR #166) | yes: `injuries.json` 800 rows, feed `ok` |
 | R125 follow-up: injury-history vocabulary pins (data-ci #168) | yes | `main` `a8ef8d5e` (PR #168) | data-ci #169 green |
-| R126: game cards ranked by joint probability; spread as fallback | yes | `main` `c2b272ac` (PR #169) | after the next pipeline build (daily #311; Claude verifies) |
+| R126: game cards ranked by joint probability; spread as fallback | yes | `main` `c2b272ac` (PR #169) | yes: daily #311 slate has 0 spread legs and cards ordered by joint probability; data-ci #170 green |
 | Claude RCA + this handoff | yes | `main` (docs PR) | n/a |
-| Codex checkpoint integrated with current main + the 4 known failures fixed | yes | **no**: review branch / draft PR (section 2) | no |
+| Codex checkpoint integrated with current main + 5 failures fixed | yes (local `astra-integration`, head `9292bcdd`, base `c0d42358`) | **no**: pushed to `claude/practical-heisenberg-o9zg3m` and opened as a draft PR right after this docs PR merges (section 2) | no |
 | SelfLearning `build/nfl-feedback-contracts-20261014` | Codex's | no | no |
 
 The owner authorized two kinds of merge tonight:
@@ -30,12 +30,12 @@ The Codex checkpoint itself was **not** merged. Its own rules require independen
 3. **R126** (`scripts/models/parlay_builder.py`):
    - `build_game_parlays` ranks by joint model probability via the new `_rank_game_pairs`.
    - The spread is a candidate only when fewer than 3 non-spread pairs exist.
-   - This touches only lines 876-948; the checkpoint's `playable_this_week` change at line 731 does not overlap.
+   - This touches lines 879-947, plus docstrings at 317-319 and in `validate_data.py`; nothing near the checkpoint's `playable_this_week` change at line 731.
    - Tests: `tests/feature/r126_game_card_ranking.test.mjs` (new), plus edits to `r74_one_leg_per_side` and `parlay_props`.
 
 ## 2. Integration of the Codex checkpoint (done here, awaiting review)
 
-Branch: the Claude session branch `claude/practical-heisenberg-o9zg3m`, opened as a **draft PR** after the docs merge (its number is in the PR list). Contents:
+Branch: `astra-integration` (head `9292bcdd`; base `c0d42358`). As of 2026-10-15T07:30Z it is local only. Right after this docs PR merges it is merged with current `main`, re-gated, pushed to the Claude session branch `claude/practical-heisenberg-o9zg3m` and opened as a **draft PR**: the open draft PR from that branch is the one to review. Contents:
 
 1. **Merge commit:** `main` (through R125 follow-up + data) merged into `c0d42358`. One semantic conflict, resolved deliberately:
    - Both sides added a `"reserve-ret"` dict key. Python keeps the last, so IR silently won and the two selftests contradicted each other.
@@ -49,6 +49,10 @@ Branch: the Claude session branch `claude/practical-heisenberg-o9zg3m`, opened a
 4. **Known failure 4** (commit "r87 record line reads the honest cohort presentation"):
    - The two assertions now expect "legacy calibration cohort not verified".
    - A new **independent denominator** test checks that the cohort prints its own `n` (250), never the graded count (320), and that an empty cohort says so.
+5. **Post-R126 merge** (`ae2b899e`, `4d88f08d`, `9292bcdd`), a fifth failure beyond the four known ones:
+   - `injuries.json` regenerated under availability vocab 2 with the new `python3 scripts/availability.py --reenrich PATH` (800 rows, 0 row changes; smoke REL17 requires the file's `vocab_version` to equal `VOCAB_VERSION`).
+   - r70's source check failed against the widened `fetch_injuries` call (`quarantine_unknown`, `return_document`) and now accepts it; `carry_positions=True` is still required.
+   - `main` through R126 and the RCA docs merged in; `injuries.json` re-run through `--reenrich`.
 
 Gate results on the integration head are in the draft PR. The run order is:
 
@@ -72,13 +76,13 @@ Each item lists the acceptance test. Do it on top of the integration PR, not on 
    - Compare the candidate slate: which players and legs it withholds, and why.
    - Acceptance: no player is withheld on a fresh, `ok` feed except for a documented eligibility reason. Unknown statuses quarantine the row, never the whole feed.
    - Merging needs owner authorization (production deploy).
-2. **Re-run R126's replay** after any eligibility change that alters candidates. The R126 ranking must still beat the |rho| control on the frozen pre-kickoff candidates of weeks 1-5 (Claude: 83/233 vs 74/235).
+2. **Re-run R126's replay** after any eligibility change that alters candidates. The R126 ranking must still match or beat the R74-consistent |rho| control in each of weeks 2-5 on the frozen pre-kickoff candidates (currently 59/188 -> 72/189: 12->20, 20->21, 14->16, 13->15). Week 1 predates R74 and is reported separately.
 3. **Lane C (honest record), Claude roadmap R130:**
    - a pre-kickoff-only headline;
    - push winners and reduced-leg settlements reported separately;
    - void legs out of the leg denominator;
    - a `post_kickoff` flag on late exclusions.
-   - Acceptance: week 5 reads 1 full + 3 reduced + 19 losses (archive) and 16/65 incl. push; week 1 cannot show 16/18 as prospective.
+   - Acceptance: the headline is the as-offered cohort (RCA section 10 method: push winners counted, voids out of the denominator), weeks 1-5 = 17/66, 13/66, 21/66, 22/65, 14/63. A separate settlement view shows the archive's week 5 as 1 full + 3 reduced + 19 losses on 23 week cards (16/65 incl. push). Week 1 cannot show 16/18 as prospective.
 4. **Lane B remainder:**
    - first-publication evidence;
    - card-level selection/joint-model versions (R126 is a new selection policy, so stamp it);
@@ -111,6 +115,6 @@ Each item lists the acceptance test. Do it on top of the integration PR, not on 
 
 ## 5. Scheduled follow-ups (Claude)
 
-- **2026-10-16 12:00Z:** post-TNF validation of R126 against the old-policy control (baseline slate `bb6ae6ed`), recorded in the RCA.
-- **2026-10-20 13:00Z:** full week-6 validation. Keep, revise or revert R126, with a multiple-choice question to the owner before any further accuracy change.
+- **2026-10-16 12:00Z:** post-TNF look at R126 against the old-policy control (the old rule on the pre-kickoff candidate legs, spreads from `data/estimates/parlays_2026.json`; reference slate `bb6ae6ed`), recorded in the RCA. One game decides nothing and refits nothing.
+- **2026-10-20 13:00Z:** full week-6 look. Week 6 starts the prospective record but cannot by itself confirm or refute a 1.6-card lift; keep or revert is decided on the pooled paired difference over weeks 6+ (RCA section 7), with a multiple-choice question to the owner before any further accuracy change.
 - **Standing refresh routines** (morning/evening daily, Mon/Thu/Sun pre-kickoff gameday) continue. Each checks data-ci and fixes red per the standing order.
