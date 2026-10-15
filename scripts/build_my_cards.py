@@ -62,6 +62,7 @@ from scripts.models.my_cards import (  # noqa: E402
 )
 from scripts.models.parlay_builder import _correlation_table  # noqa: E402
 from scripts import learning_receipts as receipts  # noqa: E402
+from scripts import learning_journal  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_DIR = os.path.join(DATA, "my_cards")
@@ -285,7 +286,8 @@ def write(doc, path):
 
 
 def run(pool_path=POOL_PATH, schedule_path=SCHEDULE_PATH,
-        calibration_path=CALIBRATION_PATH, out_dir=OUT_DIR, now=None):
+        calibration_path=CALIBRATION_PATH, out_dir=OUT_DIR, now=None,
+        snapshot_dir=None):
     if not os.path.exists(pool_path):
         print("my cards: no leg pool at %s yet -- scripts/build_leg_pool.py writes it "
               "on the daily run; nothing to record"
@@ -298,13 +300,8 @@ def run(pool_path=POOL_PATH, schedule_path=SCHEDULE_PATH,
         raise ValueError("leg_pool.json has no generated_utc")
     path = os.path.join(out_dir, "%d_wk%02d.json" % (season, week))
     prev = _load(path) if os.path.exists(path) else None
-    if prev and any(r.get("pool_generated_utc") == as_of
-                    for r in prev.get("runs") or []):
-        print("my cards: pool as-of %s already recorded -> no change (%s)"
-              % (as_of, os.path.relpath(path, _ROOT)))
-        return prev, False
-
-    games = (_load(schedule_path).get("games") or []) if os.path.exists(schedule_path) else []
+    schedule = _load(schedule_path) if os.path.exists(schedule_path) else {}
+    games = schedule.get("games") or []
     calib = _load(calibration_path) if os.path.exists(calibration_path) else None
     corr = _correlation_table(calib)
     offered, n_seeds = offered_cards(pool, games, corr, as_of)
@@ -312,6 +309,19 @@ def run(pool_path=POOL_PATH, schedule_path=SCHEDULE_PATH,
     records = [card_record(dial, seed, rank, card, kickoffs)
                for dial, seed, rank, card in offered]
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # This must precede BOTH display de-duplication boundaries. A known card can
+    # contain a genuinely new pre-event forecast, without rewriting its first sight.
+    snapshots = snapshot_dir or os.path.join(os.path.dirname(os.path.abspath(out_dir)), "snapshots")
+    journal, journal_added = learning_journal.record(pool, schedule, calib, records, now, snapshots)
+    audit = journal["generations"][0]["audit"]
+    print("my learning journal: %s; %d eligible unique receipts, %d quarantined; public availability unverified"
+          % ("new generation" if journal_added else "existing generation",
+             audit["eligible_receipts"], audit["quarantined_records"]))
+    if prev and any(r.get("pool_generated_utc") == as_of
+                    for r in prev.get("runs") or []):
+        print("my cards: pool as-of %s already recorded -> no change (%s)"
+              % (as_of, os.path.relpath(path, _ROOT)))
+        return prev, False
     doc = append(prev, records, season, week, as_of, now)
     write(doc, path)
     last = doc["runs"][-1]
