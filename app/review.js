@@ -584,13 +584,36 @@ export function renderParlayBuckets(week, buckets, active) {
   );
 }
 
-export function renderParlaySummary(week, summary) {
+export function renderAsOfferedRecord(record) {
+  const h = record?.provenance_status === 'available' ? record.headline : null;
+  if (!h || !Number.isInteger(h.decided_cards) || h.decided_cards < 1) {
+    return '<div class="rv-summary">PRE-KICKOFF RECORD UNAVAILABLE · '
+      + 'complete Git evidence or decided outcomes are not available; settlement is not prospective accuracy.</div>';
+  }
+  return '<div class="rv-summary">PRE-KICKOFF · ALL CURATED CARDS: '
+    + `${esc(h.successful_cards)}/${esc(h.decided_cards)} successful `
+    + `(${esc(h.full_hits)} full-contract wins + ${esc(h.reduced_successes)} reduced-leg successes)`
+    + ` · decided legs ${esc(h.legs.hit)}/${esc(h.decided_legs)}`
+    + ` · ${esc(h.legs.void)} void legs excluded · ${esc(h.refunds)} refunds · ${esc(h.pending)} pending`
+    + '<br>Last Git-committed Game picks before each kickoff; Week picks before the first kickoff. '
+    + 'Public serving is not verified. Later owner exclusions do not rewrite this cohort.</div>';
+}
+
+export function renderParlaySummary(week, summary, record = null) {
   const p = summary && summary.parlays;
   if (!p || !p.n) return '';
+  const st = record?.settlement?.summary?.all;
+  const settlement = st
+    ? `RETROSPECTIVE SETTLEMENT · ${esc(st.full_hits)} full-contract wins · `
+      + `${esc(st.reduced_successes)} reduced-leg successes · ${esc(st.refunds)} refunds · `
+      + `${esc(st.losses)} losses · ${esc(st.pending)} pending · decided legs `
+      + `${esc(st.legs.hit)}/${esc(st.decided_legs)} (voids excluded)`
+    : 'LEGACY SETTLEMENT · pregame cohort not verified; leg instances may include voids/pending. '
+      + `WK ${esc(week)} PARLAYS: ${esc(p.hit)}/${esc(p.n)} hit · legs ${esc(p.legs_hit)}/${esc(p.legs_n)}`
+      + (p.pending ? ` · ${esc(p.pending)} pending` : '');
   return (
     `<div class="rv-strip rv-strip--parlay" role="status" data-week="${esc(week)}">` +
-      `WK ${esc(week)} PARLAYS: ${esc(p.hit)}/${esc(p.n)} hit · legs ${esc(p.legs_hit)}/${esc(p.legs_n)}` +
-      (p.pending ? ` · ${esc(p.pending)} pending` : '') +
+      renderAsOfferedRecord(record) + settlement +
     '</div>'
   );
 }
@@ -780,7 +803,7 @@ export async function applyParlayReview(listEl, week, sourceCards = []) {
       node.dataset.rvResult = leg.result;
     });
   });
-  placeStrip(listEl, '.rv-strip--parlay', renderParlaySummary(week, blk.summary));
+  placeStrip(listEl, '.rv-strip--parlay', renderParlaySummary(week, blk.summary, blk.as_offered));
 }
 
 /** Reprice legacy review money from the actual displayed card, never old -110 totals.
