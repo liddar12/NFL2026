@@ -36,21 +36,33 @@ results=[]
 with tempfile.TemporaryDirectory() as tmp:
  root=pathlib.Path(tmp).resolve()
  for mode in ('held_stdout','closed_stdout'):
-  marker=root/(mode+'.pid');effect=root/(mode+'.effect')
-  grandchild="import pathlib,time;time.sleep(.35);pathlib.Path(%r).write_text('escaped');time.sleep(20)"%str(effect)
+  marker=root/(mode+'.pid');effect=root/(mode+'.effect');arm=root/(mode+'.arm')
+  # Side effects are armed only AFTER the supervisor returns. A fixed sleep
+  # from process birth confounds cleanup with Python startup under gate load.
+  grandchild="import pathlib,time\\narm=pathlib.Path(%r)\\nwhile not arm.exists():time.sleep(.01)\\npathlib.Path(%r).write_text('escaped')\\ntime.sleep(20)"%(str(arm),str(effect))
   kwargs='' if mode=='held_stdout' else ',stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL'
   script="import subprocess,sys,pathlib; c=subprocess.Popen([sys.executable,'-c',%r],stdin=subprocess.DEVNULL%s);pathlib.Path(%r).write_text(str(c.pid));print('{}',flush=True)"%(grandchild,kwargs,str(marker))
   original=p.subprocess.Popen;leaders=[];pid=None
   def spawn(*args,**kwargs):
-   process=original(*args,**kwargs);leaders.append(process);return process
+   assert kwargs['start_new_session']is True
+   return leaders[0]
   try:
+   # Prepare the exact exited-leader/live-descendant boundary before starting
+   # the supervisor's unchanged150ms held-pipe budget. This is a real process,
+   # not a fake poll/wait object; the factory still verifies group ownership.
+   leaders.append(original([sys.executable,'-c',script],cwd=p.ROOT,env={'PYTHONDONTWRITEBYTECODE':'1'},
+    stdin=p.subprocess.PIPE,stdout=p.subprocess.PIPE,stderr=p.subprocess.DEVNULL,start_new_session=True))
+   ready=time.monotonic()+5
+   while(not marker.exists()or leaders[0].poll()is None)and time.monotonic()<ready:time.sleep(.01)
+   assert marker.exists()and leaders[0].poll()is not None,'fixture must reach exited leader before cleanup is evaluated'
+   pid=int(marker.read_text())
    with patch.object(p.subprocess,'Popen',side_effect=spawn):
     try:code,value=p._run_json([sys.executable,'-c',script],b'',cwd=p.ROOT,env={'PYTHONDONTWRITEBYTECODE':'1'},timeout=.15 if mode=='held_stdout' else 2,owned_group=True)
     except ValueError as exc:
      assert mode=='held_stdout' and str(exc)=='preview_process_deadline'
     else:assert mode=='closed_stdout' and (code,value)==(0,{})
    assert marker.exists() and len(leaders)==1 and leaders[0].poll() is not None
-   pid=int(marker.read_text())
+   arm.write_text('check cleanup now')
    time.sleep(.45)
    assert not effect.exists(),mode+' descendant executed after supervisor completion'
    results.append(mode)
@@ -92,6 +104,33 @@ with tempfile.TemporaryDirectory() as tmp:
  assert sorted(x.name for x in parent.iterdir())==['preview.json']
 print(json.dumps({'redirect_empty':True,'original_unchanged':True}))
 `),{redirect_empty:true,original_unchanged:true});
+});
+
+test('the deadline still includes real worker startup and kills a late-starting owned group',()=>{
+  const result=py(`
+import json,pathlib,signal,os,sys,tempfile,time
+from unittest.mock import patch
+from scripts import build_review_parity as p
+with tempfile.TemporaryDirectory()as tmp:
+ effect=pathlib.Path(tmp)/'late.effect';leaders=[];original=p.subprocess.Popen
+ script="import pathlib,time;time.sleep(.5);pathlib.Path(%r).write_text('escaped');time.sleep(20)"%str(effect)
+ def slow_start(*args,**kwargs):
+  time.sleep(.2)
+  process=original(*args,**kwargs);leaders.append(process);return process
+ try:
+  with patch.object(p.subprocess,'Popen',side_effect=slow_start):
+   try:p._run_json([sys.executable,'-c',script],b'',cwd=p.ROOT,env={'PYTHONDONTWRITEBYTECODE':'1'},timeout=.05,owned_group=True)
+   except ValueError as exc:assert str(exc)=='preview_process_deadline'
+   else:raise AssertionError('startup must not reset the work deadline')
+  assert len(leaders)==1 and leaders[0].poll()is not None
+  time.sleep(.65);assert not effect.exists(),'late-starting worker survived its expired budget'
+ finally:
+  if leaders:
+   try:os.killpg(leaders[0].pid,signal.SIGKILL)
+   except ProcessLookupError:pass
+print(json.dumps({'deadline_held':True,'side_effect':False}))
+`);
+  assert.deepEqual(result,{deadline_held:true,side_effect:false});
 });
 
 test('bounded actual child responses reject duplicate JSON, overgrowth and cancellation without publication',()=>{

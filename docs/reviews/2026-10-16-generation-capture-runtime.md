@@ -115,6 +115,18 @@ fallback/pool/publisher-race/preview cases subsequently pass with their original
 timeouts, zero skips, exit 0. The combined gate must still be rerun; neither
 focused success nor an environment explanation makes that failed run green.
 
+The next frozen run, `27b43fd5`, passed all 2,446 feature tests plus contracts,
+smoke and four model gates, exit 0; browser skipped. After adding the newer-main
+fixtures, `41a56a09` passed 2,449/2,450 feature cases and the other executable
+gate steps, but remained red on the process-cleanup fixture. Its failing line
+required a worker startup marker inside a 150 ms deadline; it did not report a
+surviving descendant. The fixture now prepares a real exited leader with a live
+descendant first, retains the same 150 ms held-pipe deadline, and arms the
+forbidden side effect only after supervisor return. A separate real-startup
+test proves startup still consumes the budget and a late worker is killed.
+All six focused cases pass, zero skips; no production supervisor code or
+timeout was changed. A fresh combined gate on that test revision is required.
+
 The printed focused trace is AST-statement coverage, not branch, browser or
 network coverage. The 12-case run reached 401/418 statements; do not call it the
 engine's executable-line metric. No native/hosted/browser, source completeness,
