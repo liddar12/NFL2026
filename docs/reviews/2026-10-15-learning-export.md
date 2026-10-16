@@ -374,7 +374,7 @@ task, measured accuracy improvement or future hit-count credit is awarded here.
 
 ## Recovered on-card reference: verified, not a full-pool backtest
 
-October 15, 2026, 10:18 p.m. CDT (America/Chicago). Local runtime **`bed4a3b4`**
+October 15, 2026, 10:17 p.m. CDT (America/Chicago). Local runtime **`bed4a3b4`**
 adds `scripts/replay_on_card_reference.py` and its independent fixture tests.
 The generated [reference report](2026-10-15-on-card-reference.json) is copied
 unchanged from the explicit CLI output outside repository authority. Report ID:
