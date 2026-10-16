@@ -1,6 +1,6 @@
 # Sunday NFL parlay learning pilot
 
-Revision 4 · October 16, 2026, 1:50 p.m. America/Chicago (CDT).
+Revision 5 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
 An NFL-only operational pilot is a plausible target in the remaining roughly
@@ -25,9 +25,24 @@ recovery. The first full NFL gate found integration failures; all 66 focused
 checks and the corrected full gate pass: 2,468 NFL features, zero failures/skips,
 contracts/smoke/four model gates; browser step 8 skips. The paired engine run
 passes 1,363 core/API tests, zero skips, with all 48 critical files above 90%
-line coverage. Adoption/UI/live acceptance remain unfinished. Operational
+line coverage. Adoption/complete UI/live acceptance remain unfinished. Operational
 instructions and remaining release requirements are in
 [Parlay feedback pilot](PARLAY_FEEDBACK_PILOT.md).
+
+Local follow-up `49bcd2ac` verifies the exact Git data selected for publication,
+retains original raw captures for replay, and adds MODEL's saved shadow metrics,
+cohort counts, hold reasons and evaluation age. A checkout-shaped regression also
+fixes the controller's outcome-save path while preserving the standalone
+exporter's sports-data write refusal. Twenty-nine focused tests pass with no
+skips. Full reruns on frozen NFL `49bcd2ac` and engine `9738ead` both finish exit
+0: **2,482 NFL features** pass with zero failed/skipped, plus contracts/smoke/four
+model gates; **1,363 core/API** pass with zero skips and stable **48/48 targets
+above 90%** line coverage. Browser step 8 skips. These changes do not activate a
+candidate or establish a served generation.
+
+Next priority is the actual future-generation consumer and rollback, plus Game/
+MY shared-leg and shared-game warnings. Week exposure already exists. Approval
+scope remains an owner choice; do not infer authorization from a saved report.
 
 ## What Sunday should deliver
 

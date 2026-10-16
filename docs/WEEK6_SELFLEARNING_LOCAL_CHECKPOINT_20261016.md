@@ -1,6 +1,6 @@
 # Week 6 self-learning local checkpoint
 
-Revision 7 · October 16, 2026, 1:50 p.m. America/Chicago (CDT).
+Revision 8 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
 
 Local branches only. No push, merge, deployment, cloud migration or model
 activation has occurred. The owner-requested 7 a.m. target was **not met**.
@@ -25,8 +25,32 @@ failed/skipped, contracts/smoke/four model gates, exit **0**; browser step 8 ski
 Paired engine `1468da7` passes **1,363 core/API**, zero skips, **48/48 critical
 files >90%**, **96.4183%** executable-line coverage, stable hashes/heads, exit 0.
 See [pilot operations and remaining work](PARLAY_FEEDBACK_PILOT.md).
-The default is off; no serving consumer, owner activation, dashboard hookup,
-production dispatch or new accuracy gain is accepted by this slice.
+The default is off; no serving consumer, owner activation, production dispatch
+or new accuracy gain is accepted by this slice.
+
+### Latest committed feedback and MODEL status
+
+NFL `49bcd2ac532f0714b1a8723fdb0be2dfee182a19` adds exact-commit data checks
+before every publisher push, including concurrent working-tree pointer removal;
+uncommitted repairs cannot approve committed missing evidence. Original capture
+bytes are mirrored into the immutable repository store and checked on replay.
+A checkout-shaped controller test catches and fixes the previously refusing
+outcome-save path without changing the standalone exporter's protection.
+
+MODEL's new measure-only row separates receipt vintages, unique graded contracts
+and held-out comparisons. Missing metrics remain unavailable. Failed/skipped
+attempts do not refresh an old report's evaluation timestamp, and passing a
+numeric gate does not become approval/adoption. Focused tests: **29 passed**, zero
+failed/skipped, exit 0; committed guard 109/109 and status reader 103/103
+executable lines, not branch/browser acceptance. Full NFL/engine reruns on
+`49bcd2ac` / `9738ead` both finish exit **0**: **2,482 NFL features**, zero
+failed/skipped, contracts/smoke/four model gates; **1,363 core/API**, zero skips,
+**48/48 engine targets >90%**, stable **96.4183%** executable-line coverage.
+Browser step 8 skips. Engine evidence:
+`docs/reviews/2026-10-16-critical48-committed-status-coverage.json`; NFL log:
+`/private/tmp/nfl-committed-feedback-status-full-gate-root-20261016.log`.
+No data files were hand-edited. Review/Parlay integration, actual future-serving
+activation/rollback and live acceptance remain unfinished.
 
 ## Current checkpoint
 

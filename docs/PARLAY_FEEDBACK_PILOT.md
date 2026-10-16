@@ -1,14 +1,14 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 3 · October 16, 2026, 1:50 p.m. America/Chicago (CDT).
+Revision 4 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
 shared SelfLearning evaluator through the existing Actions pipeline. It saves
 complete records in Git-backed files; it does not require the new Supabase
 migrations or a working Vercel connection. It remains disabled and does not
-activate a model. Adoption/rollback and the visible Model/Review integration
-remain required Sunday work.
+activate a model. MODEL now has a saved shadow-evaluation row; adoption/rollback,
+Review integration and Parlay exposure remain required Sunday work.
 
 ## Current implementation
 
@@ -30,8 +30,38 @@ NFL branch `build/week6-learning-runtime-20261015`, `903d5ff6` plus `92b2b5a0`:
   feedback stage before review/data publication. Default-off runs record a skip.
 - Read-only `--check-records`: the pointer must join its immutable files and
   original frozen source graph, without loading the engine or fitting again.
-  Daily validation, the feature gate and every final publisher attempt check it.
+  Daily validation and the feature gate check it.
   The independently reviewed injury validator remains byte-identical.
+
+NFL `49bcd2ac` adds three locally tested corrections:
+
+- Every publisher attempt checks the exact selected Git commit with
+  `scripts/feedback_commit_guard.py`, not mutable working-tree data. It verifies
+  bounded blob identities, frozen sources and retained raw captures in a private
+  temporary directory. Removing a working-tree pointer after commit cannot skip
+  the check, and an uncommitted repair cannot approve a broken commit.
+- The controller saves exact raw evidence in its fixed repository namespace.
+  The standalone capture exporter still refuses sports-data writes. A
+  checkout-shaped test exposed that using its generic save function would have
+  refused a real pipeline run; the dedicated controller sink fixes that path
+  without weakening the standalone protection. External captures are mirrored
+  so later replay does not depend on the original scratch directory.
+- MODEL distinguishes receipt vintages, unique graded legs and held-out
+  comparison legs. It shows Brier/log loss only when available, preserves the
+  saved evaluation timestamp after failed/skipped attempts, and keeps even a
+  passing numeric gate in measure-only state. A report is not activation.
+
+The latest focused run passes **29 tests**, zero failures/skips, exit 0. The
+committed-data guard and saved-status reader reach 109/109 and 103/103 executable
+lines in those local tests; this is not branch, browser or live acceptance.
+Full regressions on frozen NFL `49bcd2ac` and engine `9738ead` both finish exit
+**0**: **2,482 NFL feature tests** pass, zero failed/skipped, plus contracts,
+smoke and all four model gates; browser step 8 skips. **1,363 core/API tests**
+pass, zero skips; all **48 critical engine files exceed 90%**, with stable
+source/test/tool/head identities and **8,372/8,683 = 96.4183%** executable lines.
+The engine report is `docs/reviews/2026-10-16-critical48-committed-status-coverage.json`;
+NFL log: `/private/tmp/nfl-committed-feedback-status-full-gate-root-20261016.log`.
+The earlier baseline and red run below remain historical evidence.
 
 The ten core tests and fifteen NFL pilot tests pass locally. They include
 real NFL receipt production, zero versus missing values, incomplete-history
@@ -94,6 +124,10 @@ proof that Netlify served a forecast.
 The current file profile limits JSON documents/complete input graph to 128 MiB,
 raw captures per run to 128 MiB, receipts to 50,000 and captures to 32. Exceeding
 a limit fails visibly without advancing success; it never drops history.
+All historical captures referenced by the current state must remain verifiable;
+their aggregate raw replay budget is 512 MiB. The committed-tree checker has a
+separate 1 GiB materialization, 20,000-file and 300-second wall budget, with at
+most 128 MiB per file and tighter capture metadata/raw limits.
 Indexed hosted storage remains the long-term path before this bounded pilot
 outgrows its capacity. The CLI has process CPU/file-growth limits; Actions owns
 the 15-minute stage wall timeout. These are not global memory or cost ceilings.
@@ -126,6 +160,20 @@ sources for every period in the frozen journals and save exact raw evidence.
 It introduces no credential or caller-provided source URL. Unavailable/nonfinal
 or ambiguous evidence stays pending/withheld, never a repaired zero or loss.
 Do not point a rehearsal at real production data or invent production outcomes.
+
+To check a selected local commit without loading the shared engine or changing
+checkout files:
+
+```bash
+python3 -I -S -B scripts/feedback_commit_guard.py \
+  --checkout /absolute/NFL2026 \
+  --expected-head EXACT_FULL_40_CHARACTER_NFL_COMMIT
+```
+
+This command writes and removes a private temporary materialization. It checks
+Git data integrity, not provider authentication, public offering time or the
+Netlify deployment. `--check-records` remains the working-file check used before
+the pipeline commits generated records.
 
 ## Owner release steps after remaining acceptance passes
 
@@ -160,16 +208,19 @@ evidence.
 
 1. Actual future-generation consumer plus explicit owner approval and rollback;
    candidate files/materialization drafts alone do not count. Preserve old
-   receipts and the exact base/correction order.
+   receipts and the exact base/correction order. Approval scope is still an
+   open owner choice: one pinned candidate for eligible Week 6 refreshes versus
+   one exact generation. Neither option authorizes activation by itself.
 2. Model/Review display of last success/failure, source/generation age, cohort
    size, metrics, exclusions and held/adopted state. No old success shown as a
-   fresh run after failure.
+   fresh run after failure. MODEL's saved shadow row is implemented; Review,
+   subgroup comparison, manifest navigation and browser acceptance remain.
 3. Shared-leg/game exposure on visible recommendations; no duplicate filler or
    claim that overlapping cards are independent.
 4. Complete fresh-input pipeline/served-generation acceptance, including current
    eligibility, stale feeds, missing stats, correction recovery and rollback.
-   Feedback validation currently reads local files under a stable HEAD check;
-   do not treat it as independent committed-tree/Netlify publication attestation.
+   Committed-tree data validation is implemented; it does not attest that
+   Netlify served that generation or authenticate the upstream provider.
 
 Shared calibration supports MY player-yardage props only. Do not apply those
 coefficients to moneyline/spread, anytime TD or joint probability. Keep R126,
