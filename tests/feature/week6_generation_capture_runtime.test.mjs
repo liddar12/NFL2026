@@ -74,11 +74,15 @@ with tempfile.TemporaryDirectory()as tmp:
  same=C.persist(binding,out,checkout=root).samefile(path)
  print(json.dumps({'pass':report['supported_consumer_pass'],'players':report['semantic_report']['coverage']['supported_players'],
   'claims':report['claims'],'same':same,'private':stat.S_IMODE(path.stat().st_mode)==0o600,
-  'missing':session.loader['read_observations']['inactives'],'stage_inputs':sorted(binding['my_stage_reads']['inputs'])}))
+  'missing':session.loader['read_observations']['inactives'],'stage_inputs':sorted(binding['my_stage_reads']['inputs']),
+  'duration':session.loader['extra_code']['scripts/injury_duration.py']['raw_sha256']==C._hash((root/'scripts/injury_duration.py').read_bytes()),
+  'python':sorted(p for p in session.loader['extra_code']if p.startswith('scripts/')and p.endswith('.py')),
+  'expected_python':sorted(p.relative_to(root).as_posix()for p in(root/'scripts').rglob('*.py'))}))
 `);
  assert.equal(r.pass,true);assert.equal(r.players,4);assert.equal(r.same,true);assert.equal(r.private,true);
  assert.ok(Object.values(r.claims).every(v=>v===false));assert.equal(r.missing.state,'absent_optional');assert.equal(r.missing.raw_sha256,null);
  assert.deepEqual(r.stage_inputs,['parlay_calibration','previous_my_cards','schedule']);
+ assert.equal(r.duration,true);assert.deepEqual(r.python,r.expected_python);
 });
 
 test('missing optional is not JSON null; malformed optional, required absence, same-parser mutation and repeated stages hold',()=>{
@@ -142,11 +146,12 @@ with tempfile.TemporaryDirectory()as tmp:
  assert.equal(r.holds.length,6);assert.ok(r.holds.every(Boolean));assert.equal(r.target,'untouched');assert.equal(r.untouched,true);assert.equal(r.cancel,true);
 });
 
-test('final committed source/output/browser differences and malformed or spoofed loader evidence hold',()=>{
+test('final committed source/output/browser and transitive Python dependency differences hold, as does spoofed evidence',()=>{
  const r=py(String.raw`
 with tempfile.TemporaryDirectory()as tmp:
  root,out,s,binding,path,archive=generated(pathlib.Path(tmp));base=C.head_identity(root);results=[]
- for relative in('data/player_weekly.json','data/leg_pool.json','app/views/myparlays.js','app/NEW.js'):
+ for relative in('data/player_weekly.json','data/leg_pool.json','app/views/myparlays.js','app/NEW.js',
+                 'scripts/injury_duration.py','scripts/NEW.py'):
   old=(root/relative).read_bytes()if(root/relative).exists()else None;save(root/relative,(old or b'')+b'\n')
   git(root,'add','.');git(root,'-c','commit.gpgsign=false','commit','-qm','synthetic changed dependency')
   try:
@@ -165,7 +170,95 @@ with tempfile.TemporaryDirectory()as tmp:
  results.append(bool(rejected(lambda:C.verify_head(binding,checkout=root,clock=lambda:CHECKED,expected_head=base))))
  print(json.dumps(results))
 `,{timeout:90000});
- assert.equal(r.length,11);assert.ok(r.every(Boolean));
+ assert.equal(r.length,13);assert.ok(r.every(Boolean));
+});
+
+test('Python inventory binds empty modules and omissions while rejecting unsafe paths, symlinks and the exact unchanged file cap',()=>{
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory()as tmp:
+ root,docs=workspace(pathlib.Path(tmp),optional_absent=True)
+ empty=root/'scripts/empty_module.py';save(empty,b'');git(root,'add','.');git(root,'-c','commit.gpgsign=false','commit','-qm','empty module')
+ s=C.begin(root,generation_sha=C.head_identity(root),clock=lambda:CAPTURE)
+ root=s.checkout
+ assert s.loader['extra_code']['scripts/empty_module.py']=={'raw_utf8':'','raw_sha256':C._hash(b'')}
+ assert C._loader(s.loader)[0]['loader_id']==s.loader['loader_id']
+ assert 'scripts/injury_duration.py'in s.loader['extra_code']
+ holds=[]
+ for path in('scripts/../outside.py','scripts//double.py','scripts/./dot.py','/scripts/absolute.py','scripts/tool.txt'):
+  value=copy.deepcopy(s.loader);value['extra_code'][path]={'raw_utf8':'x','raw_sha256':C._hash(b'x')};reseal(value,'loader_id')
+  holds.append(rejected(lambda:C._loader(value)))
+ save(root/'outside.py',b'untouched');(root/'scripts/linked.py').symlink_to(root/'outside.py')
+ holds.append(rejected(lambda:C.begin(root,generation_sha='synthetic',clock=lambda:CAPTURE)))
+ (root/'scripts/linked.py').unlink()
+ original=C.os.walk
+ extra=1024-len(C.EXTRA_FIXED)
+ def inventory(directory,followlinks=False):
+  if pathlib.Path(directory).name=='scripts':yield str(directory),[],['file%d.py'%n for n in range(extra)]
+ C.os.walk=inventory
+ try:
+  assert len(C._extra_paths(root))==1024
+  def too_many(directory,followlinks=False):
+   if pathlib.Path(directory).name=='scripts':yield str(directory),[],['file%d.py'%n for n in range(extra+1)]
+  C.os.walk=too_many;cap=rejected(lambda:C._extra_paths(root))
+ finally:C.os.walk=original
+ # Final HEAD, not uploaded inventory, is authoritative: a rehashed omission
+ # cannot remove even an otherwise-unused helper from the pinned tree.
+ s.clock=lambda:GENERATED;pool=P.build(P.load_inputs(s));raw=G.encoded(pool);save(root/'data/leg_pool.json',raw)
+ s.record_pool_bytes(raw);s.clock=lambda:BOUND
+ with contextlib.redirect_stdout(io.StringIO()):
+  M.run(root/'data/leg_pool.json',root/'data/schedule_full.json',root/'data/parlay_backtest.json',root/'data/my_cards',capture_runtime=s,capture_out_dir=pathlib.Path(tmp)/'private')
+ binding=next(json.loads(p.read_bytes())for p in(pathlib.Path(tmp)/'private').glob('*.json')if json.loads(p.read_bytes()).get('kind')=='nfl.generation_runtime_binding.v1')
+ git(root,'add','data');git(root,'-c','commit.gpgsign=false','commit','-qm','synthetic generation')
+ assert C.verify_head(binding,checkout=root,clock=lambda:CHECKED)['supported_consumer_pass']is True
+ # Same blob bytes with a symlink Git mode must not pass as a regular source.
+ oid=git(root,'rev-parse','HEAD:scripts/empty_module.py')
+ git(root,'update-index','--cacheinfo','120000,'+oid+',scripts/empty_module.py')
+ git(root,'-c','commit.gpgsign=false','commit','-qm','same bytes but symlink mode')
+ mode=rejected(lambda:C.verify_head(binding,checkout=root,clock=lambda:CHECKED))
+ git(root,'update-index','--cacheinfo','100644,'+oid+',scripts/empty_module.py')
+ git(root,'-c','commit.gpgsign=false','commit','-qm','restore regular source mode')
+ del binding['loader']['extra_code']['scripts/injury_duration.py'];reseal(binding['loader'],'loader_id');reseal(binding,'runtime_binding_id')
+ omitted=rejected(lambda:C.verify_head(binding,checkout=root,clock=lambda:CHECKED))
+ print(json.dumps({'holds':holds,'cap':cap,'omitted':omitted,'mode':mode,'empty':empty.read_bytes()==b''}))
+`);
+ assert.deepEqual(r.holds.slice(0,5),Array(5).fill('invalid_capture_code_inventory'));
+ assert.equal(r.holds[5],'capture_symlink_rejected');assert.equal(r.cap,'capture_code_inventory_limit');
+ assert.equal(r.omitted,'capture_dependency_inventory_changed');assert.equal(r.empty,true);
+ assert.equal(r.mode,'capture_head_not_regular_file');
+});
+
+test('bounded batch Git reads preserve exact binary/empty/quoted-path bytes and refuse inconsistent framing or duplicate tree rows',()=>{
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory()as tmp:
+ root,docs=workspace(pathlib.Path(tmp),optional_absent=True);root=C._checkout(root)
+ unusual='scripts/tab\tnewline\nname_é.py';save(root/unusual,b"VALUE = 'unchanged'\n")
+ save(root/'scripts/empty.py',b'');save(root/'data/binary.dat',b'\x00\xff\n\x00')
+ git(root,'add','.');git(root,'-c','commit.gpgsign=false','commit','-qm','framing controls')
+ head=C.head_identity(root);tree=C._head_tree(root,head)
+ names={p for p in tree if C._extra_path(p)}|{'data/binary.dat'}
+ original=C._git;calls=[]
+ def counted(root,args,**kw):
+  if args[0]=='show':calls.append(args)
+  return original(root,args,**kw)
+ C._git=counted
+ try:blobs=C._head_blobs(root,head,tree,names)
+ finally:C._git=original
+ assert all(blobs[p]==(root/p).read_bytes()for p in names)
+ assert len(calls)<len(names)and all(len(a[3:])<=32 and sum(len(x.encode())for x in a[3:])<=8192 for a in calls)
+ def truncated(root,args,**kw):return b'x'if args[0]=='show'else original(root,args,**kw)
+ C._git=truncated
+ try:short=rejected(lambda:C._head_blobs(root,head,tree,{'scripts/injury_duration.py'}))
+ finally:C._git=original
+ row=b'100644 blob '+b'f'*40+b' 0\tsame.py\x00'
+ def duplicate(root,args,**kw):return row+row
+ C._git=duplicate
+ try:duplicate_reason=rejected(lambda:C._head_tree(root,head))
+ finally:C._git=original
+ print(json.dumps({'files':len(names),'calls':len(calls),'binary':blobs['data/binary.dat']==b'\x00\xff\n\x00',
+  'empty':blobs['scripts/empty.py']==b'','unusual':unusual in blobs,'short':short,'duplicate':duplicate_reason}))
+`);
+ assert.ok(r.files>100);assert.ok(r.calls<10);assert.equal(r.binary,true);assert.equal(r.empty,true);assert.equal(r.unusual,true);
+ assert.equal(r.short,'capture_git_blob_size_mismatch');assert.equal(r.duplicate,'invalid_capture_git_tree');
 });
 
 test('scores-only N/A checks every unpublished commit from the fetched base, never a caller claim or old generation PASS',()=>{

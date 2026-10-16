@@ -48,7 +48,7 @@ CLAIMS = {"execution_authenticated": False, "filesystem_read_order_authenticated
     "publication_authorized": False, "workflow_enabled": False}
 SAFE_ERRORS = frozenset("""invalid_capture_clock capture_symlink_rejected invalid_capture_checkout
 invalid_capture_relative_path capture_not_regular_file capture_file_size_limit invalid_capture_period
-capture_clock_regressed required_capture_input_absent missing_capture_browser_tree capture_code_inventory_limit
+capture_clock_regressed required_capture_input_absent missing_capture_browser_tree missing_capture_python_tree capture_code_inventory_limit
 capture_code_unavailable_or_oversized invalid_capture_code_inventory invalid_capture_raw_shape
 capture_raw_hash_mismatch capture_raw_work_limit capture_output_overlaps_authority capture_output_inside_checkout
 capture_artifact_size_limit immutable_capture_artifact_conflict invalid_capture_loader_shape
@@ -59,8 +59,9 @@ capture_MY_stage_order_invalid capture_pool_changed_between_stages capture_MY_in
 invalid_capture_MY_read_chronology capture_input_work_limit capture_checkpoint_absent invalid_capture_checkpoint
 capture_checkpoint_changed capture_git_deadline_exceeded capture_git_output_limit capture_git_object_unavailable
 invalid_runtime_capture_binding runtime_capture_binding_mismatch invalid_runtime_MY_read_evidence
-runtime_MY_read_input_mismatch invalid_capture_git_head capture_browser_dependency_inventory_changed
+runtime_MY_read_input_mismatch invalid_capture_git_head capture_dependency_inventory_changed
 capture_head_input_absent capture_head_input_presence_changed capture_head_runtime_or_browser_changed
+capture_head_not_regular_file invalid_capture_git_tree capture_git_blob_size_mismatch
 capture_head_changed_during_check generation_capture_unavailable capture_semantic_work_limit
 capture_semantics_unavailable capture_generated_clock_changed invalid_capture_journal_source
 capture_journal_history_limit capture_journal_history_absent capture_journal_target_conflict
@@ -149,7 +150,7 @@ def _relative(root, relative):
     return _no_links(root.joinpath(*relative.split("/")))
 
 
-def _read(path, limit=gate.MAX_FILE):
+def _read(path, limit=gate.MAX_FILE, *, allow_empty=False):
     """One open/read, no exists-then-open or permissive malformed-JSON fallback."""
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
@@ -159,7 +160,7 @@ def _read(path, limit=gate.MAX_FILE):
     with os.fdopen(fd, "rb") as handle:
         _need(stat.S_ISREG(os.fstat(handle.fileno()).st_mode), "capture_not_regular_file")
         raw = handle.read(limit + 1)
-    _need(0 < len(raw) <= limit, "capture_file_size_limit")
+    _need((0 if allow_empty else 1) <= len(raw) <= limit, "capture_file_size_limit")
     return raw
 
 
@@ -192,25 +193,34 @@ def _read_input(root, name, relative, clock):
     return consumed, document, observation
 
 
+def _extra_path(name):
+    # Conservatively bind the whole local Python tree rather than trying to
+    # infer dynamic/transitive imports (e.g. availability -> injury_duration).
+    # This is code-byte identity, NOT proof that any file was executed.
+    return type(name) is str and not any(p in ("", ".", "..") for p in name.split("/")) and (
+        name in EXTRA_FIXED or name.startswith("app/") and name.endswith((".js", ".mjs", ".css"))
+        or name.startswith("scripts/") and name.endswith(".py"))
+
+
 def _extra_paths(root):
-    # Conservative browser dependency inventory, NOT proof of browser execution.
-    app = _relative(root, "app")
-    _need(app.is_dir(), "missing_capture_browser_tree")
     paths = set(EXTRA_FIXED)
-    for directory, dirs, files in os.walk(app, followlinks=False):
-        _need(len(paths) <= 1024, "capture_code_inventory_limit")
-        for name in dirs:
-            _no_links(Path(directory) / name)
-        for name in files:
-            path = Path(directory) / name
-            _no_links(path)
-            if path.suffix in (".js", ".mjs", ".css"):
-                paths.add(path.relative_to(root).as_posix())
+    for tree, reason in (("app", "missing_capture_browser_tree"), ("scripts", "missing_capture_python_tree")):
+        directory_root = _relative(root, tree)
+        _need(directory_root.is_dir(), reason)
+        for directory, dirs, files in os.walk(directory_root, followlinks=False):
+            for name in dirs:
+                _no_links(Path(directory) / name)
+            for name in files:
+                path = _no_links(Path(directory) / name)
+                relative = path.relative_to(root).as_posix()
+                if _extra_path(relative):
+                    paths.add(relative)
+                    _need(len(paths) <= 1024, "capture_code_inventory_limit")
     return frozenset(paths)
 
 
 def _code(root, names):
-    result = {name: _read(_relative(root, name)) for name in sorted(names)}
+    result = {name: _read(_relative(root, name), allow_empty=True) for name in sorted(names)}
     _need(all(raw is not None for raw in result.values()) and sum(map(len, result.values())) <= gate.MAX_BYTES,
           "capture_code_unavailable_or_oversized")
     return result
@@ -220,14 +230,15 @@ def _freeze_raw(raw):
     return {key: {"raw_utf8": value.decode("utf-8"), "raw_sha256": _hash(value)} for key, value in raw.items()}
 
 
-def _thaw_raw(values):
+def _thaw_raw(values, *, allow_empty=False):
     _need(type(values) is dict and 0 < len(values) <= 1024, "invalid_capture_code_inventory")
     result = {}
     for key, row in values.items():
         _need(type(key) is str and type(row) is dict and set(row) == {"raw_utf8", "raw_sha256"}
               and type(row["raw_utf8"]) is str, "invalid_capture_raw_shape")
         raw = row["raw_utf8"].encode("utf-8")
-        _need(0 < len(raw) <= gate.MAX_FILE and row["raw_sha256"] == _hash(raw), "capture_raw_hash_mismatch")
+        _need((0 if allow_empty else 1) <= len(raw) <= gate.MAX_FILE
+              and row["raw_sha256"] == _hash(raw), "capture_raw_hash_mismatch")
         result[key] = raw
     _need(sum(map(len, result.values())) <= gate.MAX_BYTES, "capture_raw_work_limit")
     return result
@@ -298,9 +309,10 @@ def _loader(value):
                    and (row["state"] == "present_json_null") == (documents[name] is None)), "invalid_capture_read_state")
         _need(gate._time(row["read_started_utc_claim"]) <= gate._time(row["read_completed_utc_claim"])
               <= gate._time(capture["captured_utc_claim"]), "invalid_capture_read_chronology")
-    extra = _thaw_raw(value["extra_code"])
-    _need(EXTRA_FIXED <= set(extra) and all(k in EXTRA_FIXED or k.startswith("app/")
-          and k.endswith((".js", ".mjs", ".css")) and ".." not in k.split("/") for k in extra), "invalid_capture_code_inventory")
+    # Empty __init__.py files are valid dependencies; pool/output documents still
+    # use the nonempty default of _thaw_raw and their strict JSON validators.
+    extra = _thaw_raw(value["extra_code"], allow_empty=True)
+    _need(EXTRA_FIXED <= set(extra) and all(_extra_path(k) for k in extra), "invalid_capture_code_inventory")
     return value, documents
 
 
@@ -502,6 +514,49 @@ def _git(root, args, *, limit=gate.MAX_FILE, seconds=10):
         process.wait();process.stdout.close()
 
 
+def _head_tree(root, head):
+    """NUL-framed metadata; do not let quoting or symlink modes hide a change."""
+    raw = _git(root, ["ls-tree", "-r", "-l", "-z", head], limit=1024 * 1024)
+    tree = {}
+    for row in raw.split(b"\0"):
+        if not row:continue
+        metadata, name = row.split(b"\t", 1);mode, kind, _oid, size = metadata.split()
+        path = name.decode("utf-8")
+        _need(path not in tree and kind in (b"blob", b"commit"), "invalid_capture_git_tree")
+        tree[path] = (mode, int(size) if size != b"-" else -1)
+    return tree
+
+
+def _head_blobs(root, head, tree, names):
+    # git show emits raw blobs concatenated in argument order. Frame them using
+    # the same immutable tree's byte lengths, not delimiters that may occur in
+    # source text. Small argument batches avoid one subprocess per dependency;
+    # no archive/export-subst, textconv, temporary file or worktree reads.
+    names = sorted(names);total = 0
+    for name in names:
+        mode, size = tree[name]
+        _need(mode in (b"100644", b"100755"), "capture_head_not_regular_file")
+        _need(0 <= size <= gate.MAX_FILE, "capture_file_size_limit")
+        total += size
+    _need(total <= gate.MAX_BYTES, "capture_raw_work_limit")
+    result = {};batch = [];arg_bytes = 0
+    def read_batch():
+        expected = sum(tree[p][1] for p in batch)
+        raw = _git(root, ["show", "--no-textconv", "--no-ext-diff", *[head + ":" + p for p in batch]], limit=expected)
+        _need(len(raw) == expected, "capture_git_blob_size_mismatch")
+        offset = 0
+        for path in batch:
+            size = tree[path][1];result[path] = raw[offset:offset + size];offset += size
+    for name in names:
+        length = len((head + ":" + name).encode())
+        _need(length <= 8192, "invalid_capture_git_tree")
+        if batch and (len(batch) == 32 or arg_bytes + length > 8192):
+            read_batch();batch = [];arg_bytes = 0
+        batch.append(name);arg_bytes += length
+    if batch:read_batch()
+    return result
+
+
 @_safe
 def head_identity(checkout):
     result = _git(_checkout(checkout), ["rev-parse", "--verify", "HEAD"], limit=100).decode().strip()
@@ -552,15 +607,17 @@ this local preflight cannot lock an external writer or authenticate git clocks.
     head = _git(root, ["rev-parse", "--verify", "HEAD"], limit=100).decode().strip()
     _need(re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head), "invalid_capture_git_head")
     _need(expected_head is None or expected_head == head, "capture_checked_head_changed")
-    tracked = _git(root, ["ls-tree", "-r", "--name-only", head], limit=1024 * 1024).decode().splitlines()
-    extra_names = set(EXTRA_FIXED) | {p for p in tracked if p.startswith("app/") and p.endswith((".js", ".mjs", ".css"))}
-    _need(extra_names == set(loader["extra_code"]), "capture_browser_dependency_inventory_changed")
+    tracked = _head_tree(root, head)
+    extra_names = set(EXTRA_FIXED) | {p for p in tracked if _extra_path(p)}
+    _need(extra_names == set(loader["extra_code"]), "capture_dependency_inventory_changed")
+    capture = loader["capture"];paths = _input_paths(capture["season"], capture["week"])
+    names = extra_names | gate.CODE_NAMES | set(gate._paths(capture)) | {paths[p] for p in gate.CURRENT_INPUT_NAMES}
+    head_bytes = _head_blobs(root, head, tracked, names & set(tracked))
     def blob(path, *, missing=False):
         if path not in tracked:
             _need(missing, "capture_head_input_absent")
             return None
-        return _git(root, ["show", head + ":" + path])
-    capture = loader["capture"];paths = _input_paths(capture["season"], capture["week"])
+        return head_bytes[path]
     current = {}
     for name in gate.CURRENT_INPUT_NAMES:
         raw = blob(paths[name], missing=name in OPTIONAL)

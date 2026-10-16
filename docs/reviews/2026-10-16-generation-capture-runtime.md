@@ -1,6 +1,6 @@
 # Opt-in exact-generation capture and publisher integration
 
-Revision 1 · October 16, 2026, 9:27 a.m. America/Chicago (CDT).
+Revision 2 · October 16, 2026, 11:10 a.m. America/Chicago (CDT).
 Local implementation only. No workflow enabled, production publish, serving
 policy promotion or permission to run a release is implied by this guide.
 
@@ -8,8 +8,9 @@ policy promotion or permission to run a release is implied by this guide.
 
 The pool builder's explicit capture option reads each of 14 fixed inputs once,
 records the original UTF-8 bytes and distinct missing/null states, and gives the
-same parsed values to the actual pool producer. Original code and conservative
-browser dependency bytes are pinned as well. It persists the loader observation
+same parsed values to the actual pool producer. Original code, every local
+`scripts/**/*.py` file and conservative browser dependency bytes are pinned as
+well. It persists the loader observation
 before producer execution and the exact output writer buffer afterward.
 
 The separate MY stage resumes that immutable pool checkpoint. Its actual single
@@ -27,6 +28,23 @@ worktree. It runs after each rebase/fallback and before **every** push attempt.
 HEAD must stay unchanged through the check, and the push ref uses that exact
 verified SHA. A changed tree holds; no silent rebind or old-PASS authorization
 exists. The verifier does not itself push, fetch, rebase or authorize publication.
+
+Coordinator review found that the first runtime inventory omitted transitive
+Python helpers, including `availability -> injury_duration`. Capturing only the
+16 semantic entry points was insufficient to identify all local implementation
+bytes. The conservative whole-Python-tree inventory now rejects modified,
+added or rehashed-away helpers at final HEAD. This is dependency-byte identity,
+not an assertion that every file executed. The 1,024-file cap is enforced on
+each addition, including the last directory. Empty Python modules are valid
+code bytes; data/artifact documents still require nonempty, valid JSON.
+
+The final check also requires regular Git blob modes: changing a source to a
+symlink with identical content is not accepted. NUL-framed tree metadata pins
+file modes and lengths. Raw Git blob reads are batched in at most 32 arguments /
+8,192 argument bytes and framed by those immutable lengths; they do not use
+archives, export substitutions, textconv, worktree reads or temporary files.
+Existing per-command deadlines and file/aggregate byte limits were not raised.
+Unexpected framing or changed dependency membership holds.
 
 Injury/depth/inactive inputs here are validation witnesses for already-derived
 weekly output, not original bytes consumed by the earlier weekly/ESPN HTTP
@@ -126,6 +144,17 @@ forbidden side effect only after supervisor return. A separate real-startup
 test proves startup still consumes the budget and a late worker is killed.
 All six focused cases pass, zero skips; no production supervisor code or
 timeout was changed. A fresh combined gate on that test revision is required.
+
+The subsequent Python-inventory revision passes 14 focused cases, zero skips,
+exit 0, plus a separate actual Git batch/framing case, exit 0. The latter checks
+all enumerated code bytes against the clean synthetic checkout, binary/empty/
+tab/newline/Unicode paths, bounded batching, truncated replies and duplicate
+tree rows. Other cases now include the previously omitted injury-duration
+helper, new Python dependencies, exact inventory cap, rehashed omissions and
+same-byte symlink modes. The 14-case trace is 440/458 AST statements (96.07%),
+not executable-line/branch or independent acceptance coverage. A new frozen
+combined gate must include all 15 cases; focused passes do not change the
+earlier full gate's red result or establish production readiness.
 
 The printed focused trace is AST-statement coverage, not branch, browser or
 network coverage. The 12-case run reached 401/418 statements; do not call it the
