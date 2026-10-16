@@ -59,6 +59,14 @@ The new mixed-status regressions use genuine weaker-source producer output,
 not malformed totals or deliberately stale metadata. They test the relevant
 semantic failure rather than an unrelated parser error.
 
+The first combined gate also found an old smoke selftest expressly accepting a
+missing badge for mixed ACTIVE/QUESTIONABLE. It was not removed or skipped: it
+now accepts the genuine winning Questionable badge and rejects omission. That
+older expectation is preserved verbatim in the pinned original source fixture.
+An independent environment error omitted `/usr/local/bin` from the gate PATH,
+so Node did not execute in that first run. Exit 1 is retained as a failed run,
+not reported as a feature pass; the corrected rerun is separate evidence.
+
 ## Implemented local correction
 
 - One ID-first producer resolver binds canonical `espn-N`, `athlete_id` and
@@ -111,6 +119,10 @@ replay is a separate limited regression, not a substitute for missing full-pool
 history. Provider completeness/authentication, real browser/mobile layout,
 hosted/native persistence and a controlled active learning consumer remain
 separate acceptance requirements. No postgame refit or history rewrite occurred.
+The raw original ESPN source fixture includes its original terminal blank line;
+the all-fixture whitespace check reports that one immutable-byte warning. It
+was not normalized because doing so would break its source identity. Changed
+runtime source, tests and authored docs pass the whitespace check separately.
 
 ## Prevention and follow-through
 

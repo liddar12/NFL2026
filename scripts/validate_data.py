@@ -2544,13 +2544,15 @@ def _selftest():
     del w["players"][0]["availability"]
     i["injuries"][0].update({"status": "Active", "availability": "ACTIVE"})
     ok(w, p, i, why="ACTIVE report, no block — rule 6 must not fire")
-    # A mixed ACTIVE + non-ACTIVE set is producer-duration-dependent
-    # (availability._worse merges duration-first), so rule 6 stays silent.
+    # A mixed set must reproduce its independent canonical winner. With no
+    # competing duration, QUESTIONABLE beats ACTIVE and still requires a badge;
+    # the old blanket mixed-set exemption codified the dropped-report bug.
     w, p, i = _fixture(blocked=0, klass="week")
-    del w["players"][0]["availability"]
     i["injuries"].append({"team": "SF", "player": "AJ Hurt",
                           "status": "Active", "availability": "ACTIVE"})
-    ok(w, p, i, why="mixed ACTIVE+QUESTIONABLE set is not enforced")
+    ok(w, p, i, why="mixed ACTIVE+QUESTIONABLE retains the winning QUESTIONABLE badge")
+    del w["players"][0]["availability"]
+    red(w, p, i, "mixed ACTIVE cannot conceal the winning QUESTIONABLE report")
 
     # ---- QA-D7: pipeline health honesty, fixture-driven (not merely the
     # committed file happening to be consistent) --------------------------------

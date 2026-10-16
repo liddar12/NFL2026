@@ -12,7 +12,7 @@ const REVIEWED={
  'scripts/availability.py':'c79089797329a145e3eda3e86296cc45e316f7aae0b1f6a6225747a3e792c3e7',
  'scripts/build_predictions.py':'1d9a40409a19dc2a9bacf3e2d351ab660267dc36e59016b59a4649ca317c823e',
  'scripts/build_weekly.py':'a5ceaa45a1df70c1ddb12a0aaae8ac012c5e10d0308375d4a5b8d788a03870bc',
- 'scripts/validate_data.py':'095f21ec01fa418abb5db253868f27b3800143bbb770a7c2da1b9a351b6c1b41',
+ 'scripts/validate_data.py':'725bb89e4c7cb44936afada537b18e94173a2072f9c6a33310720b053a8758bf',
 };
 const hash=path=>createHash('sha256').update(readFileSync(ROOT+path)).digest('hex');
 function checkPins(){

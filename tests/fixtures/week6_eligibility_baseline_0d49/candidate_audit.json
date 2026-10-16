@@ -12,7 +12,7 @@
     "scripts/availability.py": "c79089797329a145e3eda3e86296cc45e316f7aae0b1f6a6225747a3e792c3e7",
     "scripts/build_predictions.py": "1d9a40409a19dc2a9bacf3e2d351ab660267dc36e59016b59a4649ca317c823e",
     "scripts/build_weekly.py": "a5ceaa45a1df70c1ddb12a0aaae8ac012c5e10d0308375d4a5b8d788a03870bc",
-    "scripts/validate_data.py": "095f21ec01fa418abb5db253868f27b3800143bbb770a7c2da1b9a351b6c1b41"
+    "scripts/validate_data.py": "725bb89e4c7cb44936afada537b18e94173a2072f9c6a33310720b053a8758bf"
   },
   "common_context": {
     "code_scope": "frozen original consumer code vs local candidate; not a complete transitive runtime source snapshot (injury_duration remains a common helper)",
@@ -41,7 +41,7 @@
   "full_pipeline_replayed": false,
   "review_follow_up": {
     "scope": "Root completed the interrupted source review; the unchanged controlled 300-player replay and all original independent scenarios are reexecuted against these exact candidate hashes.",
-    "duplicate_status_validation": "Independent canonical duration/season/severity winner replaces permissive mixed-code membership, so ACTIVE or QUESTIONABLE cannot hide a stronger OUT/IR/RETIRED winner. Legacy duration-first winning ACTIVE remains a no-op.",
+    "duplicate_status_validation": "Independent canonical duration/season/severity winner replaces permissive mixed-code membership, so ACTIVE or QUESTIONABLE cannot hide a stronger OUT/IR/RETIRED winner. Legacy duration-first winning ACTIVE remains a no-op. The old smoke selftest that explicitly exempted mixed ACTIVE/QUESTIONABLE was strengthened to accept the genuine winning badge and reject its omission.",
     "damaged_pool_identity": "All recognizable aliases remain collision targets even when the containing pool row has contradictory identity fields; affected identities are locally refused rather than medically zeroed.",
     "independent_author_review_checkpoint": "Original 9-case independent acceptance preceded these follow-ups; subsequent coordinator additions and reruns are not represented as a new independent-agent signoff."
   },
