@@ -22,18 +22,18 @@ function run(source){
   return JSON.parse(p.stdout);
 }
 
-test('pinned current-main source matches local eligibility consumers, without declaring provider completeness',()=>{
+test('pinned main source remains exact in historical baseline, without declaring candidate/provider completeness',()=>{
   const o=run(String.raw`
 codes={}
 for name,expected in f['source_code_blobs'].items():
- raw=(root/name).read_bytes()
+ raw=(root/'tests/fixtures/week6_eligibility_baseline_0d49'/name).read_bytes()
  codes[name]=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==expected
 state=bw.injury_source_state(doc,now,week)
 emit({'codes':codes,'state':state,'rows':len(doc['injuries']),'players':len(players),
  'vocab':doc['vocab_version'],'limitations':f['limitations']})
 `);
   assert.equal(Object.keys(o.codes).length,4);
-  assert.ok(Object.values(o.codes).every(Boolean),'Changed eligibility code requires a fresh current-input comparison');
+  assert.ok(Object.values(o.codes).every(Boolean),'Historical main code must remain byte-exact; candidate changes require the separate full-input comparison');
   assert.equal(o.rows,800);assert.equal(o.players,300);assert.equal(o.vocab,2);
   assert.equal(o.state.verified,true);assert.equal(o.state.reason,null);
   assert.ok(o.state.age_hours>=0&&o.state.age_hours<12);

@@ -1793,6 +1793,99 @@ def _quarantine_refusals(records, quarantined):
     return refusals
 
 
+def _trusted_injury_rows(records, document):
+    """Independent quarantine filtering; do not import the producer resolver."""
+    rows = (document or {}).get("injuries") or []
+    quarantine = (document or {}).get("quarantine") or []
+    if not quarantine:
+        return rows
+    refused = _quarantine_refusals(records, quarantine)
+    report_records = [dict(r, gsis_id="report:%s" % i, name=r.get("player"))
+                      for i, r in enumerate(rows)]
+    excluded = _quarantine_refusals(report_records, quarantine)
+    for i, row in enumerate(rows):
+        if row.get("athlete_id"):
+            continue
+        candidates = [p for p in records if _norm_name(p.get("name")) == _norm_name(row.get("player"))]
+        local = [p for p in candidates if row.get("team") and p.get("team") == row["team"]]
+        candidates = local or candidates
+        if candidates and all(p.get("gsis_id") in refused for p in candidates):
+            excluded["report:%s" % i] = "quarantined_status"
+    return [r for i, r in enumerate(rows) if "report:%s" % i not in excluded]
+
+
+def _injury_identity_audit(records, rows):
+    """Independent ID/name authority audit, not the producer's view/merger.
+
+    Resolve the medical winner independently: explicit season duration, then
+    stated weeks, then canonical severity. An ACTIVE duplicate is not a blanket
+    exemption from an OUT row, but a genuine duration-first winner is preserved.
+    An explicit different ESPN ID can never justify another player's badge.
+    """
+    def identity(row, pool):
+        fields = [row.get(k) for k in ("athlete_id", "espn_id") if row.get(k) not in (None, "")]
+        gid = row.get("gsis_id")
+        if pool and isinstance(gid, str) and gid.startswith("espn-"):
+            fields.append(gid[5:])
+        tokens, damaged = set(), False
+        for value in fields:
+            if type(value) is int and value >= 0:
+                value = str(value)
+            if type(value) is str and re.fullmatch(r"[0-9]+", value):
+                tokens.add(value)
+            else:
+                damaged = True
+        return tokens, damaged or len(tokens) > 1
+    pool = [(p, *identity(p, True)) for p in records]
+    report = [(r, *identity(r, False)) for r in rows]
+    codes, refusals = {}, {}
+    for p, ids, damaged in pool:
+        pid, team, name = p.get("gsis_id"), p.get("team"), _norm_name(p.get("name"))
+        eid = next(iter(ids)) if len(ids) == 1 else None
+        selected, refusal = [], "conflicting_injury_identity" if damaged else None
+        exact = [(r, bad) for r, tokens, bad in report if eid and eid in tokens]
+        if not refusal and eid and len({q.get("gsis_id") for q, qids, bad in pool if eid in qids}) > 1:
+            refusal = "ambiguous_injury_identity"
+        if not refusal and exact:
+            if any(bad for _, bad in exact):
+                refusal = "conflicting_injury_identity"
+            elif any(not r.get("team") or r.get("team") != team for r, _ in exact):
+                refusal = "injury_identity_team_conflict"
+            else:
+                selected = [r for r, _ in exact]
+        elif not refusal:
+            named = [(r, tokens, bad) for r, tokens, bad in report
+                     if name and _norm_name(r.get("player")) == name]
+            possible = [(r, tokens, bad) for r, tokens, bad in named if not eid or not tokens or bad]
+            local = [x for x in possible if team and x[0].get("team") == team]
+            selected_rows = local or possible
+            duplicate_name = sum(_norm_name(q.get("name")) == name for q in records) > 1
+            if not local and (duplicate_name or len({r.get("team") for r, _, _ in selected_rows}) > 1):
+                selected_rows = []
+            known = set().union(*(tokens for _, tokens, _ in selected_rows)) if selected_rows else set()
+            named_ids = set().union(*(tokens for r, tokens, bad in named
+                if not bad and (not local or r.get("team") == team))) if named else set()
+            twins = sum(q.get("team") == team and _norm_name(q.get("name")) == name for q in records)
+            represented = any(tokens & known for q, tokens, bad in pool) if not eid else False
+            if selected_rows and (any(bad for _, _, bad in selected_rows) or len(known) > 1 or twins > 1
+                    or eid and any(token != eid for token in named_ids) or represented):
+                refusal = "ambiguous_injury_identity"
+            else:
+                selected = [r for r, _, _ in selected_rows]
+        if not refusal and selected:
+            if any(not r.get("availability") for r in selected):
+                refusal = "quarantined_status"
+            else:
+                severity = {code: rank for rank, code in enumerate(
+                    ("ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "SUSPENDED", "NFI", "PUP", "IR", "RETIRED"))}
+                winner = max(selected, key=lambda r: (bool(r.get("out_for_season")),
+                    r.get("weeks_out") or 0, severity.get(r["availability"], -1)))
+                codes[pid] = {winner["availability"]}
+        if refusal:
+            refusals[pid] = refusal
+    return codes, refusals
+
+
 def check_injury_source_eligibility(weekly, projections, injuries):
     """Independent source/offer check; legacy documents without metadata remain readable."""
     meta = (weekly.get("model") or {}).get("injury_source")
@@ -1839,6 +1932,10 @@ def check_injury_source_eligibility(weekly, projections, injuries):
         problems.append("injury_source does not reproduce from report timestamps/week")
     lookup = {p.get("gsis_id"): p for p in projections.get("players", [])}
     quarantined = _quarantine_refusals(list(lookup.values()), doc.get("quarantine"))
+    if reason is None:
+        _, identity_refusals = _injury_identity_audit(list(lookup.values()),
+            _trusted_injury_rows(list(lookup.values()), doc))
+        quarantined.update(identity_refusals)
     for player in weekly.get("players", []):
         p = lookup.get(player.get("gsis_id"), {})
         row = next((r for r in player.get("weeks", []) if r.get("wk") == week), None)
@@ -1909,55 +2006,14 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
         # Stale rows are withheld from shaping, not silently reclassified healthy.
         # The independent check above requires explicit current-week offer refusals.
         injuries = {"injuries": []}
-    elif (injuries or {}).get("quarantine"):
-        # Audit trustworthy report rows independently too, so an ID quarantine
-        # cannot contaminate another player's name fallback through a duplicate.
-        rows = injuries.get("injuries") or []
-        report_records = [dict(r, gsis_id="report:%s" % i, name=r.get("player"))
-                          for i, r in enumerate(rows)]
-        excluded_rows = _quarantine_refusals(report_records, injuries["quarantine"])
-        for i, r in enumerate(rows):
-            if r.get("athlete_id"):
-                continue
-            candidates = [p for p in projections.get("players", [])
-                          if _norm_name(p.get("name")) == _norm_name(r.get("player"))]
-            local = [p for p in candidates if r.get("team") and p.get("team") == r["team"]]
-            candidates = local if local else candidates
-            if candidates and all(p.get("gsis_id") in quarantined_players for p in candidates):
-                excluded_rows["report:%s" % i] = "quarantined_status"
-        injuries = dict(injuries, injuries=[r for i, r in enumerate(rows)
-                                           if "report:%s" % i not in excluded_rows])
+    else:
+        injuries = dict(injuries or {}, injuries=_trusted_injury_rows(projections.get("players", []), injuries))
     problems = []
     proj = {p["gsis_id"]: p for p in projections.get("players", [])}
 
-    # (team, normalized name) -> {canonical codes on that player's report rows}
-    report = {}
-    # R33 — the validator's copy of the R32 offseason-mover fallback: name ->
-    # codes, for report names on exactly ONE team. build_weekly stamps an
-    # availability block through availability.lookup_report (exact (team, name),
-    # else unique name), so rule 4 must accept the same join or it reds the gate
-    # precisely when the safety net works — an honest block would be called an
-    # orphan whenever the pool's team lags the report's (a mover mid-drift).
-    # Same guards as the producer: a report name on two teams never matches by
-    # name, and a pool-duplicated name never falls back.
-    report_by_name = {}
-    _name_teams = {}
-    for row in (injuries or {}).get("injuries", []):
-        code = row.get("availability")
-        if not code:
-            continue  # unmapped rows are the smoke check's business, not ours
-        nm = _norm_name(row.get("player"))
-        report.setdefault((row.get("team"), nm), set()).add(code)
-        _name_teams.setdefault(nm, set()).add(row.get("team"))
-        report_by_name.setdefault(nm, set()).add(code)
-    report_by_name = {n: c for n, c in report_by_name.items()
-                      if len(_name_teams[n]) == 1}
-    _seen, proj_dup_names = set(), set()
-    for p in projections.get("players", []):
-        nm = _norm_name(p.get("name"))
-        if nm in _seen:
-            proj_dup_names.add(nm)
-        _seen.add(nm)
+    report_by_player, identity_refusals = _injury_identity_audit(list(proj.values()),
+                                                               (injuries or {}).get("injuries", []))
+    quarantined_players.update(identity_refusals)
 
     season_players = 0
     season_ending = 0
@@ -2143,11 +2199,7 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
 
         # --- rule 4 -----------------------------------------------------------
         if record is not None:
-            key = (record.get("team"), _norm_name(record.get("name")))
-            codes = report.get(key)
-            if codes is None and key[1] not in proj_dup_names:
-                # R33: the R32 name-only fallback, mirrored (see the map above).
-                codes = report_by_name.get(key[1])
+            codes = report_by_player.get(pid)
             if codes is None:
                 problems.append(
                     "%s (%s %s): flagged %s with NO matching row in "
@@ -2256,25 +2308,23 @@ def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
     # audit went looking for: a non-ACTIVE report row whose pool player never
     # received a block — a reserve-list player projected fully healthy (the
     # pre-Rel17 incident, and R32's offseason join gap, as a standing
-    # invariant instead of fixture pins). Mirrors the producer exactly
-    # (build_weekly -> availability.lookup_report: exact (team, name), else
-    # the unique-name fallback under the same guards; a view resolving ACTIVE
-    # stamps nothing). A key whose report rows MIX ACTIVE with a non-ACTIVE
-    # code is not enforced: the producer merges duplicate rows duration-first
-    # (availability._worse), so which code wins there depends on parsed
-    # durations this validator does not re-derive — enforcing only the
-    # unambiguous sets keeps this red only when a report was truly dropped.
+    # invariant instead of fixture pins). The independent identity audit above
+    # binds exact ESPN IDs before guarded legacy names and resolves duplicates
+    # from canonical duration, season flag and severity without importing the
+    # producer's resolver. A mixed ACTIVE/OUT or QUESTIONABLE/OUT set must not
+    # hide its stronger winning status. A genuinely winning ACTIVE duration
+    # retains the legacy no-block rule; an identity conflict is source refusal,
+    # not evidence for a medical zero.
     # Measured at introduction: 317 non-ACTIVE rows, 54 joinable to the
-    # pool, 54 blocked (54/54).
+    # pool, 54 blocked (54/54). The independent identity audit now resolves the
+    # duration-first winner before this check; mixed ACTIVE/OUT is not skipped
+    # merely because an ACTIVE row also appeared in the source.
     weekly_avail = {pl.get("gsis_id"): pl.get("availability")
                     for pl in weekly.get("players", [])}
     for p in projections.get("players", []):
         if p.get("gsis_id") in quarantined_players:
             continue  # explicit source refusal was independently required above
-        nm = _norm_name(p.get("name"))
-        codes = report.get((p.get("team"), nm))
-        if codes is None and nm not in proj_dup_names:
-            codes = report_by_name.get(nm)
+        codes = report_by_player.get(p.get("gsis_id"))
         if not codes or "ACTIVE" in codes:
             continue
         pid = p.get("gsis_id")

@@ -1,0 +1,62 @@
+{
+  "R126_changed": false,
+  "baseline_commit": "0d49a94868142b4e6e888b927363d42270ed23c0",
+  "baseline_source_git_blob_sha1": {
+    "scripts/availability.py": "b498971c98b8b8f3cc496ce569365df49479d002",
+    "scripts/build_predictions.py": "858deebf4190c98bac0c5f43ca4ec5af158f5e88",
+    "scripts/build_weekly.py": "952c0ec3f4321fb77b192ff41886eb3189c4f35b",
+    "scripts/validate_data.py": "889fe93483105ff50c7e65c7f0b4c305a265c9a5"
+  },
+  "candidate_pool_rebuilt": false,
+  "candidate_source_sha256": {
+    "scripts/availability.py": "c79089797329a145e3eda3e86296cc45e316f7aae0b1f6a6225747a3e792c3e7",
+    "scripts/build_predictions.py": "1d9a40409a19dc2a9bacf3e2d351ab660267dc36e59016b59a4649ca317c823e",
+    "scripts/build_weekly.py": "a5ceaa45a1df70c1ddb12a0aaae8ac012c5e10d0308375d4a5b8d788a03870bc",
+    "scripts/validate_data.py": "095f21ec01fa418abb5db253868f27b3800143bbb770a7c2da1b9a351b6c1b41"
+  },
+  "common_context": {
+    "code_scope": "frozen original consumer code vs local candidate; not a complete transitive runtime source snapshot (injury_duration remains a common helper)",
+    "elo_basis": "same empty map uses documented1500 fallback in BOTH controlled splits; original runtime ratings unavailable",
+    "elo_ratings": {},
+    "full_original_projections": true,
+    "full_original_report": true,
+    "full_original_schedule_depth_inactives_and_factor_documents": true,
+    "receptions_basis": "same already-rounded values copied from original weekly output, not original fantasy source"
+  },
+  "controlled_same_input_comparison": {
+    "added_refusals": [
+      "espn-3126486"
+    ],
+    "candidate_held": 34,
+    "changed_player_ids": [
+      "espn-3126486"
+    ],
+    "independent_validator_passed": true,
+    "new_status": {
+      "espn-3126486": "OUT"
+    },
+    "old_held": 33,
+    "removed_refusals": []
+  },
+  "full_pipeline_replayed": false,
+  "review_follow_up": {
+    "scope": "Root completed the interrupted source review; the unchanged controlled 300-player replay and all original independent scenarios are reexecuted against these exact candidate hashes.",
+    "duplicate_status_validation": "Independent canonical duration/season/severity winner replaces permissive mixed-code membership, so ACTIVE or QUESTIONABLE cannot hide a stronger OUT/IR/RETIRED winner. Legacy duration-first winning ACTIVE remains a no-op.",
+    "damaged_pool_identity": "All recognizable aliases remain collision targets even when the containing pool row has contradictory identity fields; affected identities are locally refused rather than medically zeroed.",
+    "independent_author_review_checkpoint": "Original 9-case independent acceptance preceded these follow-ups; subsequent coordinator additions and reruns are not represented as a new independent-agent signoff."
+  },
+  "kind": "nfl.injury_identity_candidate_audit.v1",
+  "model_refit": false,
+  "original_point_exact_weekly_reproduction": false,
+  "original_weekly_baseline": {
+    "depth": 14,
+    "held_players": 33,
+    "status": 19,
+    "unchanged_raw_git_blob": "250699dc6a13fac318bfd8b785b81d691a96fc24"
+  },
+  "provider_authenticated": false,
+  "provider_completeness_verified": false,
+  "public_serving_changed": false,
+  "published_tickets_audited": false,
+  "version": 1
+}

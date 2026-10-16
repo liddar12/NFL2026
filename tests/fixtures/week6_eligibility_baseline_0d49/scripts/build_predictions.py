@@ -1,0 +1,1603 @@
+"""Generate REAL 2026 prediction data from ESPN + Elo priors.
+
+Pipeline: ESPN 2025 FINAL results -> Elo priors (reverted to mean) -> attach ratings to
+the real 2026 schedule -> game_model full-vector probabilities -> write the JSON
+contracts the PWA reads. Market/composite sources join later (odds needs a key); until
+then the game model is Elo-only and every row is honestly `estimate: true`.
+
+Run in the pipeline runner (has network + `requests`): python -m scripts.build_predictions
+The fast gate never runs this; it validates the committed output.
+"""
+
+import datetime as dt
+import json
+import os
+import sys
+
+_THIS = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.abspath(os.path.join(_THIS, ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from scripts.scrape import espn  # noqa: E402
+from scripts.scrape import espn_players  # noqa: E402
+from scripts import availability  # noqa: E402
+from scripts import build_weekly  # noqa: E402
+from scripts.models import elo as elo_mod  # noqa: E402
+from scripts.models import game_model  # noqa: E402
+from scripts.models import parlay_builder  # noqa: E402
+from scripts.models import player_projection as pp_mod  # noqa: E402
+from scripts.models.player_projection import project_players  # noqa: E402
+from scripts import meta_record  # noqa: E402
+from scripts.harness import snapshot as snap  # noqa: E402
+from scripts.pipeline_status import read_schedules  # noqa: E402
+
+SEASON = 2026
+PRIOR_SEASON = 2025
+DATA = os.path.join(_ROOT, "data")
+
+
+def _utc_now():
+    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _write(path, obj):
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=True, indent=2, sort_keys=False)
+        fh.write("\n")
+
+
+def _hours_since(iso):
+    if not iso:
+        return None
+    t = dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)
+    return round((dt.datetime.now(dt.timezone.utc) - t).total_seconds() / 3600.0, 1)
+
+
+def injury_feed_record(document, now, week, failure=None):
+    """Source health retains real age/last success even when this fetch fails."""
+    state = build_weekly.injury_source_state(document, now, week)
+    if not state["last_success_utc"] or state["reason"] == "missing_report":
+        status = "down"
+    elif state["reason"] in ("stale_report", "wrong_week"):
+        status = "stale"
+    elif failure or not state["verified"] or state["quarantined_rows"]:
+        status = "degraded"
+    else:
+        status = "ok"
+    note = ("fetch failed; retained last-good report: " + str(failure)) if failure else \
+        ("%s row(s) quarantined; recommendation policy max age %gh" %
+         (state["quarantined_rows"], state["max_age_hours"]))
+    if state["reason"]:
+        note += "; eligibility unverified: " + state["reason"]
+    return {"rows": len((document or {}).get("injuries") or []),
+            "age_hours": state["age_hours"] if state["age_hours"] is not None else 999.0,
+            "last_success_utc": state["last_success_utc"], "status": status,
+            "note": note}
+
+
+def week_game_rows(predicted, week):
+    """The published slate and prop caller share this event-week-bearing shape."""
+    return [{"game_id": p["game_id"], "home": p["home"], "away": p["away"],
+             "week": p["week"], "kickoff_utc": p["kickoff_utc"], "roof": p["roof"],
+             "probs": p["probs"], "model": p["model"], "estimate": p["estimate"]}
+            for p in predicted if p["week"] == week]
+
+
+def market_feed_record(src, now):
+    """pipeline_status feed record for one market source (kalshi / polymarket),
+    from the source block build_markets stamps into market_prices.json.
+
+    R30: the old inline mapping collapsed the source's own three-state status to
+    a binary and HARDCODED "ok" without ever reading the row count, so kalshi
+    shipped {rows: 0, status: "ok"} and the MODEL tab's freshness card counted
+    an empty feed among "feeds ok". House rule: a 0-row write is never silently
+    ok. Now the builder's status is carried through verbatim, with a belt-and-
+    braces guard for older market_prices documents that predate the builder fix:
+
+      * "ok" with rows == 0  -> degraded (a configured feed delivered nothing);
+      * "degraded"           -> degraded, keeping the real row count (a partial
+                                 pull is still a pull — rows 15 is a fact);
+      * "down" / absent      -> down, rows 0, no fabricated success timestamp.
+
+    Kalshi and Polymarket are keyless, so "unconfigured" (odds_api's awaiting-
+    config idiom for a missing API key) is deliberately NOT a state this
+    function can produce: these feeds are always configured.
+    """
+    status = src.get("status") or "down"
+    rows = int(src.get("rows") or 0)
+    note = src.get("note")
+    if status == "ok" and rows == 0:
+        status = "degraded"
+        # Belt-and-braces path (older market_prices doc, no builder note): the
+        # downgrade must SAY WHY, or the MODEL tab shows a wordless red.
+        note = note or ("0 rows from a configured feed downgraded to degraded — "
+                        "a 0-row write is never ok (R30)")
+    if status == "down":
+        rec = {"rows": 0, "age_hours": 999.0,
+               "last_success_utc": None, "status": "down"}
+    else:
+        rec = {"rows": rows, "age_hours": 0.0,
+               "last_success_utc": now, "status": status}
+    # The builder's own explanation (e.g. kalshi's "listed events matched none of
+    # our markets") rides through to pipeline_status so the health card can show
+    # the reason, not just the color. Optional in the contract; omitted when empty.
+    if note:
+        rec["note"] = str(note)
+    return rec
+
+
+def current_week(schedule):
+    """The earliest week not entirely FINAL — the one to surface on the slate."""
+    by_week = {}
+    for g in schedule:
+        by_week.setdefault(g["week"], []).append(g)
+    for wk in sorted(by_week):
+        if not all(g.get("status") in espn.FINAL_STATUSES for g in by_week[wk]):
+            return wk
+    return max(by_week)
+
+
+def _stamp_rookies(projected, fetch=None):
+    """Stamp `rookie` (nflverse roster years_exp == 0) onto projection records
+    IN PLACE, joined by canonical name. R41 (owner ask): the PLAYERS/TEAM
+    rookies-only filter needs an authoritative flag, and the pool's
+    prior-production sort cannot supply one honestly.
+
+    Honesty rules: an AMBIGUOUS name (two roster rows, different experience)
+    is left unstamped — unknown, never guessed; on ANY feed failure every
+    record stays unstamped (absent means "rookie status unknown", never
+    false), and the UI hides the filter when no record carries the field.
+    Returns (stamped, rookies) for the log line."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    fetch = fetch or (lambda: nflverse.fetch_roster_release(SEASON))
+    try:
+        rows = fetch()
+    except Exception as exc:  # noqa: BLE001 — degrade to unstamped, loudly
+        print(f"[warn] rookie stamp skipped — nflverse rosters unreachable: {exc}",
+              file=sys.stderr)
+        return 0, 0
+    exp = {}
+    ambiguous = set()
+    for r in rows:
+        n = canonical_player_name(r.get("full_name") or r.get("player_name") or "")
+        if not n:
+            continue
+        try:
+            ye = int(float(r.get("years_exp")))
+        except (TypeError, ValueError):
+            continue
+        if n in exp and exp[n] != ye:
+            ambiguous.add(n)
+        exp[n] = ye
+    stamped = rookies = 0
+    for p in projected:
+        n = canonical_player_name(p.get("name") or "")
+        if n in exp and n not in ambiguous:
+            p["rookie"] = exp[n] == 0
+            stamped += 1
+            rookies += int(p["rookie"])
+    return stamped, rookies
+
+
+_BONUS_THRESHOLDS = (
+    # (weekly stat field, threshold, Sleeper bonus key). Thresholds are
+    # CUMULATIVE, matching Sleeper's semantics: a 425-yard passing game counts
+    # for both the 300 and the 400 bonus.
+    ("passing_yards", 300.0, "bonus_pass_yd_300"),
+    ("passing_yards", 400.0, "bonus_pass_yd_400"),
+    ("rushing_yards", 100.0, "bonus_rush_yd_100"),
+    ("rushing_yards", 200.0, "bonus_rush_yd_200"),
+    ("receiving_yards", 100.0, "bonus_rec_yd_100"),
+    ("receiving_yards", 200.0, "bonus_rec_yd_200"),
+)
+
+
+def _bonus_games_by_name(fetch=None):
+    """{canonical player name: {sleeper bonus key: game count}} measured from
+    PRIOR_SEASON regular-season weekly stat lines (nflverse). R44: a per-game
+    yardage bonus cannot be priced from a season total — only from the games.
+
+    Honesty rules match _stamp_rookies: an AMBIGUOUS name (two players) is
+    dropped — never guessed; ANY feed failure returns {} so every player ships
+    without bonus counts (absent = unmeasured, never zero games)."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    # R44b — the RELEASE CSV, not nfl_data_py: the daily runner installs only
+    # requests, and run 81 proved the heavy path degrades every single run
+    # ("nfl_data_py is not installed"), which made this counter dead code.
+    fetch = fetch or (lambda: nflverse.fetch_player_stats_week_release(PRIOR_SEASON))
+    try:
+        rows = fetch()
+    except Exception as exc:  # noqa: BLE001 — degrade to unmeasured, loudly
+        print(f"[warn] bonus-game counts skipped — nflverse weekly stats "
+              f"unreachable: {exc}", file=sys.stderr)
+        return {}
+    by_name = {}
+    ids_by_name = {}
+    ambiguous = set()
+    for r in rows:
+        if str(r.get("season_type") or "REG") != "REG":
+            continue
+        n = canonical_player_name(r.get("player_display_name")
+                                  or r.get("player_name") or "")
+        if not n:
+            continue
+        pid = str(r.get("player_id") or "")
+        if n in ids_by_name and ids_by_name[n] != pid:
+            ambiguous.add(n)
+        ids_by_name[n] = pid
+        counts = by_name.setdefault(n, {})
+        for field, threshold, key in _BONUS_THRESHOLDS:
+            try:
+                v = float(r.get(field) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if v >= threshold:
+                counts[key] = counts.get(key, 0) + 1
+    for n in ambiguous:
+        by_name.pop(n, None)
+    return {n: c for n, c in by_name.items() if c}
+
+
+def _components_by_id(players_in, bonus_by_name=None):
+    """{gsis_id: {components, base_applied_pts[, bonus_games]}} for the weekly
+    feed. Only records whose kona entry passed extract_components() appear —
+    a player without a verified component line ships NOTHING (the client falls
+    back to the R29 pass_cmp path, which is honest but narrower)."""
+    from scripts.scrape.renames import canonical_player_name  # noqa: PLC0415
+    out = {}
+    for r in players_in:
+        comp = r.get("components")
+        if not comp:
+            continue
+        entry = {"components": dict(comp["components"]),
+                 "base_applied_pts": comp["base_applied_pts"]}
+        if bonus_by_name:
+            bg = bonus_by_name.get(canonical_player_name(r.get("name") or ""))
+            if bg:
+                entry["bonus_games"] = dict(bg)
+        out[r["gsis_id"]] = entry
+    return out
+
+
+_DC_STARTER_POSITIONS = ("QB", "RB", "WR", "TE", "K")
+# Mirrors app/team-logic.js SOS_ELO_PER_POINT — the 1..5 schedule-difficulty
+# scale every player card uses. Kept in sync by the R45 gate test.
+_SOS_ELO_PER_POINT = 25.0
+
+
+def _team_sos_and_bye(schedule_games, ratings):
+    """{team: {sos, bye_week}} on the same 1..5 scale the player cards show.
+    Pure; a team with no rated opponents carries sos None (unknown, never 3)."""
+    opps = {}
+    weeks_played = {}
+    for g in schedule_games:
+        wk = g.get("week")
+        for me, them in ((g.get("home"), g.get("away")),
+                         (g.get("away"), g.get("home"))):
+            if not me or not them:
+                continue
+            opps.setdefault(me, []).append(them)
+            if isinstance(wk, int):
+                weeks_played.setdefault(me, set()).add(wk)
+    out = {}
+    for team, opp_list in opps.items():
+        rated = [float(ratings[o]) for o in opp_list if o in ratings]
+        sos = None
+        if rated:
+            raw = 3.0 + ((sum(rated) / len(rated)) - 1500.0) / _SOS_ELO_PER_POINT
+            sos = round(max(1.0, min(5.0, raw)), 1)
+        bye = next((w for w in range(1, 19) if w not in weeks_played.get(team, set())),
+                   None)
+        out[team] = {"sos": sos, "bye_week": bye}
+    return out
+
+
+INACTIVES_WINDOW_HOURS = 3.0
+
+
+def _parse_kick(iso):
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return dt.datetime.strptime(str(iso), fmt).replace(tzinfo=dt.timezone.utc)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def games_in_inactive_window(games, now_utc, hours=INACTIVES_WINDOW_HOURS):
+    """The week's games whose inactive list is worth reading NOW: kickoff is
+    within `hours` ahead (the NFL posts inactives ~90 minutes out), or the game
+    has kicked off and is not yet FINAL (the list stays true while it plays).
+    A FINAL game is skipped: the split never retro-zeroes a played week. Pure."""
+    out = []
+    for g in games or []:
+        if g.get("status") in espn.FINAL_STATUSES:
+            continue
+        kick = _parse_kick(g.get("kickoff_utc"))
+        if kick is None:
+            continue
+        if kick - dt.timedelta(hours=hours) <= now_utc:
+            out.append(g)
+    return out
+
+
+def _inactives_doc(now, week_games, week, now_utc=None, fetch=None):
+    """data/inactives.json for the current week: one entry per game in the
+    window, each carrying the two posted lists. A game whose fetch fails is
+    recorded under `failed` (loud), never invented. None when no game is in
+    the window (nothing to state)."""
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
+    fetch = fetch or espn.fetch_game_inactives
+    todo = games_in_inactive_window(week_games, now_utc)
+    if not todo:
+        return None
+    games, failed = [], []
+    for g in todo:
+        try:
+            r = fetch(str(g["game_id"]))
+        except Exception as exc:  # noqa: BLE001 -- degrade, never fabricate
+            failed.append({"game_id": str(g["game_id"]), "error": str(exc)[:200]})
+            print(f"[warn] inactives for game {g['game_id']} unreachable: {exc}",
+                  file=sys.stderr)
+            continue
+        if {r["home"], r["away"]} != {g["home"], g["away"]}:
+            failed.append({"game_id": str(g["game_id"]),
+                           "error": f"ESPN teams {r['home']}/{r['away']} != schedule "
+                                    f"{g['home']}/{g['away']}"})
+            continue
+        games.append({"game_id": str(g["game_id"]), "home": g["home"], "away": g["away"],
+                      "kickoff_utc": g.get("kickoff_utc"), "status": g.get("status"),
+                      "fetched_utc": now, "inactive": r["inactive"]})
+    return {
+        "season": SEASON, "week": week, "updated_utc": now,
+        "source": "espn core competitors/<team>/roster didNotPlay (game-day inactives)",
+        "window_hours": INACTIVES_WINDOW_HOURS,
+        "counts": {"games": len(games), "failed": len(failed),
+                   "players": sum(len(v) for g in games for v in g["inactive"].values())},
+        "games": games, "failed": failed,
+    }
+
+
+def _depth_chart_doc(now, fetch_dc=None):
+    """R77 -- data/depth_chart.json: each team's LATEST nflverse depth-chart
+    snapshot, for the positions the this-week gate reads (QB). Facts only:
+    rank, name and ids as listed. Per-TEAM latest `dt`, not the file's, so a
+    team missing from the newest snapshot day keeps its last chart instead of
+    vanishing. Returns None on any feed failure (the caller degrades to the
+    last-good file, loudly) -- never an invented chart."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    from scripts.build_line_report import normalize_depth_rows  # noqa: PLC0415
+    fetch_dc = fetch_dc or (lambda: nflverse.fetch_depth_charts_release(SEASON))
+    try:
+        raw = fetch_dc()
+    except Exception as exc:  # noqa: BLE001 -- degrade, never fabricate
+        print(f"[warn] depth chart skipped -- nflverse feed unreachable: {exc}",
+              file=sys.stderr)
+        return None
+    rows = [r for r in normalize_depth_rows(raw)
+            if r.get("pos") in build_weekly.DEPTH_GATED_POSITIONS]
+    latest = {}
+    for r in rows:
+        snap = str(r.get("snap"))
+        if snap > latest.get(r["team"], ""):
+            latest[r["team"]] = snap
+    teams = {}
+    for r in rows:
+        if str(r.get("snap")) != latest.get(r["team"]):
+            continue
+        slot = teams.setdefault(r["team"], {"snapshot": latest[r["team"]]})
+        lst = slot.setdefault(r["pos"], [])
+        # one entry per listed player; the BEST (lowest) rank wins a duplicate
+        nm = r["name"]
+        dup = next((x for x in lst if x["name"] == nm), None)
+        if dup is not None:
+            dup["rank"] = min(dup["rank"], int(r["rank"]))
+            continue
+        lst.append({"rank": int(r["rank"]), "name": nm,
+                    "gsis_id": r.get("gsis_id"), "espn_id": r.get("espn_id")})
+    for slot in teams.values():
+        for pos in build_weekly.DEPTH_GATED_POSITIONS:
+            if pos in slot:
+                slot[pos].sort(key=lambda x: (x["rank"], x["name"]))
+    if not teams:
+        print("[warn] depth chart skipped -- no rows for the gated positions",
+              file=sys.stderr)
+        return None
+    return {
+        "season": SEASON, "updated_utc": now,
+        "source": f"nflverse_depth_charts_{SEASON} (per-team latest snapshot; "
+                  f"positions {', '.join(build_weekly.DEPTH_GATED_POSITIONS)})",
+        "positions": list(build_weekly.DEPTH_GATED_POSITIONS),
+        "counts": {"teams": len(teams),
+                   "rows": sum(len(v) for t in teams.values()
+                               for k, v in t.items() if k != "snapshot")},
+        "teams": dict(sorted(teams.items())),
+    }
+
+
+def _rookie_starters(schedule_games, ratings, fetch_dc=None, fetch_roster=None):
+    """FACTS-ONLY rookie starters (R45, owner's pick): rookies (roster
+    years_exp == 0) listed at pos_rank 1 in the LATEST nflverse depth-chart
+    snapshot, with their team's SOS and bye — and NO point estimate of any
+    kind. An RB is marked role_unsettled per the owner's committee/handcuff
+    rule: a listed RB1 is a fact about the depth chart, not a workload claim.
+
+    Guarded like every enrichment: any feed failure returns None (the caller
+    keeps the last-good file and marks the feed degraded, loudly)."""
+    from scripts.scrape import nflverse  # noqa: PLC0415 (guarded feature import)
+    fetch_dc = fetch_dc or (lambda: nflverse.fetch_depth_charts_release(SEASON))
+    fetch_roster = fetch_roster or (lambda: nflverse.fetch_roster_release(SEASON))
+    try:
+        dc_rows = fetch_dc()
+        roster_rows = fetch_roster()
+    except Exception as exc:  # noqa: BLE001 — degrade, never fabricate
+        print(f"[warn] rookie starters skipped — nflverse feed unreachable: {exc}",
+              file=sys.stderr)
+        return None
+    rookies = {}
+    for r in roster_rows:
+        gid = (r.get("gsis_id") or "").strip()
+        try:
+            if gid and int(float(r.get("years_exp"))) == 0:
+                rookies[gid] = r
+        except (TypeError, ValueError):
+            continue
+    latest = max((r.get("dt") or "" for r in dc_rows), default="")
+    if not latest:
+        print("[warn] rookie starters skipped — depth-chart snapshot carries no dt",
+              file=sys.stderr)
+        return None
+    team_facts = _team_sos_and_bye(schedule_games, ratings)
+    players = []
+    for r in dc_rows:
+        if r.get("dt") != latest or r.get("pos_abb") not in _DC_STARTER_POSITIONS:
+            continue
+        if str(r.get("pos_rank")) != "1":
+            continue
+        gid = (r.get("gsis_id") or "").strip()
+        if gid not in rookies:
+            continue
+        team = (r.get("team") or "").strip()
+        facts = team_facts.get(team, {})
+        players.append({
+            "gsis_id": gid,
+            "name": r.get("player_name") or gid,
+            "team": team,
+            "position": r.get("pos_abb"),
+            "slot": r.get("pos_slot") or r.get("pos_abb"),
+            # The owner's rule: RB depth listings are committee/handcuff
+            # territory — the card must state the role is UNSETTLED rather
+            # than implying a locked starter's workload.
+            "role_unsettled": r.get("pos_abb") == "RB",
+            "sos": facts.get("sos"),
+            "bye_week": facts.get("bye_week"),
+        })
+    players.sort(key=lambda p: (p["position"], p["team"], p["gsis_id"]))
+    return {"snapshot_utc": latest, "players": players}
+
+
+def _carry_rookie_flags(src_records, dst_records):
+    """Copy `rookie` flags from one record list onto another, by gsis_id, IN
+    PLACE on dst. R41b (2026-09-01 incident): the injury re-projection pass
+    rebuilds every record through project_players — fresh dicts with no
+    `rookie` key — and rewrites player_projections.json, so the run whose log
+    said "349 of 395 stamped" shipped a file with ZERO flags. The rewrite's
+    order guard already proves the two lists carry identical gsis_ids, so
+    carrying the same run's stamp across is honest and costs no second fetch.
+    A dst record whose id has no flag in src stays unstamped (unknown, never
+    false). Returns how many flags were carried."""
+    flags = {p["gsis_id"]: p["rookie"] for p in src_records if "rookie" in p}
+    carried = 0
+    for p in dst_records:
+        if p["gsis_id"] in flags:
+            p["rookie"] = flags[p["gsis_id"]]
+            carried += 1
+    return carried
+
+
+# R49 — the candidate inputs the live pipeline feeds project_player today, named
+# so meta.projection_baseline can state them before a run has produced rows.
+CANDIDATE_INPUTS_FED = ("age_curve", "injury_status", "injury_history", "indoor_outdoor")
+
+
+def _stamp_prior_seasons(records, history_path=None):
+    """R49 — stamp `prior_seasons` ([{yr, pts, games}], every season <= PRIOR_SEASON)
+    and the injury_history candidate input `games_missed_rate` onto the pool
+    records from the committed data/player_history.json.
+
+    Prior seasons are closed books, so the previous run's history file is as
+    current as today's; the PRIOR_SEASON line itself comes from the pool's own
+    fresh prior_season_points + prior_games (the history's 2025 line is merged
+    from that same pool, so the two cannot disagree) and older seasons from the
+    file. A record with no history keeps a single-season rate; a record whose
+    pool entry lacked statId 210 borrows the history's game count for that
+    season (same statId, same feed). Nothing is invented. Returns the number of
+    records that received >= 1 older season.
+    """
+    path = history_path or os.path.join(DATA, "player_history.json")
+    hist = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            hist = (json.load(fh).get("players") or {})
+    except (OSError, ValueError) as exc:
+        print(f"[warn] player_history.json unreadable ({exc}); R49 baseline inputs "
+              f"fall back to the single prior season", file=sys.stderr)
+    stamped = 0
+    for rec in records:
+        seasons = []
+        h = hist.get(rec.get("gsis_id")) or {}
+        last_hist = next((sn for sn in (h.get("seasons") or [])
+                          if sn.get("yr") == PRIOR_SEASON), None)
+        games = rec.get("prior_games")
+        if games is None and last_hist and last_hist.get("games"):
+            games = int(last_hist["games"])
+            rec["prior_games"] = games
+        seasons.append({"yr": PRIOR_SEASON, "pts": float(rec["prior_season_points"]),
+                        "games": games})
+        older = [{"yr": int(sn["yr"]), "pts": float(sn["pts"]), "games": sn.get("games")}
+                 for sn in (h.get("seasons") or [])
+                 if sn.get("yr") is not None and int(sn["yr"]) < PRIOR_SEASON]
+        if older:
+            stamped += 1
+        seasons.extend(older)
+        rec["prior_seasons"] = seasons
+        b = pp_mod.baseline_inputs(seasons)
+        if b["games_missed_rate"] is not None:
+            rec["games_missed_rate"] = b["games_missed_rate"]
+    return stamped
+
+
+def _stamp_absence(records, index, by_name, excluded_ids=frozenset()):
+    """R49 — stamp the DOCUMENTED expected absence (`absence_weeks`, and
+    `absence_confidence` when non-zero) from the injury report onto the pool
+    records, through the SAME join (availability.lookup_report) and the SAME
+    week rule (build_weekly.blocked_week_count) the weekly split uses, so the
+    season baseline and the zeroed weeks can never disagree about how long a
+    player is out. No report row, or a week-class tag, or a suspension of
+    unstated length -> 0: unknown is not a discount. Returns how many records
+    carry a non-zero absence.
+    """
+    ambiguous = availability.dup_names(records)
+    n = 0
+    for rec in records:
+        if rec.get("gsis_id") in excluded_ids:
+            continue
+        view = availability.lookup_report(index, by_name or {}, rec.get("team"),
+                                          rec.get("name"), ambiguous)
+        weeks, confidence = 0, None
+        if view:
+            weeks, confidence = build_weekly.blocked_week_count({
+                "status": view.get("availability"),
+                "class": view.get("availability_class"),
+                "weeks_out": view.get("weeks_out"),
+                "out_for_season": bool(view.get("out_for_season")),
+            })
+        weeks = min(pp_mod.SEASON_GAMES, int(weeks or 0))
+        rec["absence_weeks"] = weeks
+        if weeks:
+            rec["absence_confidence"] = confidence
+            n += 1
+        else:
+            rec.pop("absence_confidence", None)
+    return n
+
+
+def _apply_injury_report(records, document, checked_utc, week):
+    """Actual second-pass boundary: only verified, identity-resolved source facts.
+
+    Quarantined records retain pre-existing fantasy/history inputs; this pass
+    neither stamps a conflicting site status nor invents an absence for them.
+    Keep the full record pool so filtering cannot erase a duplicate-name guard.
+    """
+    if not build_weekly.injury_source_state(document, checked_utc, week)["verified"]:
+        return 0, 0
+    scope, rows = availability.quarantine_inputs(records, document)
+    index, by_name = availability.index_report(rows), availability.index_report_by_name(rows)
+    excluded = set(scope["players"])
+    overridden = availability.apply_to_records(records, index, by_name=by_name,
+                                               excluded_ids=excluded)
+    absent = _stamp_absence(records, index, by_name, excluded_ids=excluded)
+    return overridden, absent
+
+
+def _backtest_from_disk(key):
+    """data/player_backtest.json[key] (`baseline_gate` — the walk-forward verdict —
+    or `candidate_2025`), or None."""
+    try:
+        with open(os.path.join(DATA, "player_backtest.json"), encoding="utf-8") as fh:
+            return json.load(fh).get(key)
+    except (OSError, ValueError):
+        return None
+
+
+def _nflverse_reached(ol_src):
+    """Did the o-line build actually reach nflverse snap counts? Keyed on the
+    PRECISE writer token, not bare substrings. R41 (2026-09-01): the old check
+    ("nflverse" in src and "unreachable" not in src) broke the moment R40's
+    per-team skip note added "roster page unreachable" to a source whose snap
+    counts had refined FINE — nflverse reported degraded on a healthy run.
+    The refined path always carries "nflverse_snap_counts_2025"; the ESPN-only
+    fallback never does (it reads "espn_roster only (nflverse snap counts
+    unreachable ...)")."""
+    return "nflverse_snap_counts_2025" in (ol_src or "")
+
+
+def main():
+    now = _utc_now()
+    feeds = {}
+
+    teams = espn.fetch_teams()
+    feeds["espn_teams"] = {"rows": len(teams), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
+
+    priors_src = espn.fetch_final_results(PRIOR_SEASON)
+    ratings = elo_mod.preseason_priors(priors_src) if priors_src else {}
+    feeds["espn_results_2025"] = {
+        "rows": len(priors_src), "age_hours": 0.0, "last_success_utc": now,
+        "status": "ok" if priors_src else "down",
+    }
+
+    # === LEARNING LOOP (scripts/resolve_locks.py + scripts/refit.py) — two hooks ==
+    # 1) ADOPTED GAME PARAMS. refit.py writes model_tuning.json:"game_params" ONLY
+    #    when a candidate clears the NEVER-REGRESS margin on resolved locks. Absent
+    #    (day zero, today) => the incumbent elo.py defaults and every prob below is
+    #    byte-identical. This is the single read-point of the live game params.
+    try:
+        with open(os.path.join(DATA, "model_tuning.json"), encoding="utf-8") as fh:
+            _adopted = json.load(fh).get("game_params") or {}
+    except (OSError, ValueError):
+        _adopted = {}
+    hfa_live = float(_adopted.get("hfa_elo", elo_mod.HFA_ELO))
+    revert_live = float(_adopted.get("revert", elo_mod.REVERT))
+    if _adopted and priors_src:
+        # Re-derive the priors under the adopted params (rate at the adopted hfa,
+        # revert by the adopted fraction) — the only path that moves game probs,
+        # and it is NEVER-REGRESS gated upstream in refit.py.
+        ratings = elo_mod.revert_to_mean(
+            elo_mod.rate_season(priors_src, hfa=hfa_live), revert=revert_live)
+        print(f"adopted game params in effect: hfa_elo={hfa_live} revert={revert_live}")
+
+    # 2) IN-SEASON ELO CHAINING. FINAL 2026 games to date move the ratings
+    #    game-by-game, STARTING FROM the 2025 priors (rate_season's initial_ratings).
+    #    STATUS-gated by the scraper, so a live/0-0 stub can never move a rating.
+    #    Zero finals (preseason, today) => ratings unchanged, output identical.
+    finals_cur = espn.fetch_final_results(SEASON)
+    if finals_cur:
+        ratings = elo_mod.rate_season(finals_cur, hfa=hfa_live, initial_ratings=ratings)
+        print(f"in-season Elo chain: {len(finals_cur)} FINAL {SEASON} games applied "
+              f"on top of the {PRIOR_SEASON} priors")
+    else:
+        print(f"in-season Elo chain: no FINAL {SEASON} games yet -> "
+              f"ratings = {PRIOR_SEASON} priors (no-op)")
+    feeds[f"espn_results_{SEASON}"] = {
+        # rows=0 before kickoff is reality, not an outage (outages raise upstream).
+        "rows": len(finals_cur), "age_hours": 0.0, "last_success_utc": now,
+        "status": "ok",
+    }
+    if not finals_cur:
+        # A bare ok/0 during August reads as silence — say WHY it is zero. This
+        # feed counts REGULAR-SEASON finals only (fetch_final_results pages
+        # seasontype=2, weeks 1-18): preseason games are excluded BY DESIGN and
+        # must never feed Elo, actuals, or scoring (the status-gating rule).
+        feeds[f"espn_results_{SEASON}"]["note"] = (
+            "0 regular-season finals: the %d season has not started. Preseason "
+            "games are excluded by design (seasontype=2 only) and never feed "
+            "Elo or scoring." % SEASON)
+    # === end LEARNING LOOP hooks ==================================================
+
+    schedule = espn.fetch_season_schedule(SEASON)
+    feeds["espn_schedule"] = {"rows": len(schedule), "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
+
+    # PROMOTED SIGNAL APPLICATION (scripts/promote_signals.py). A venue/cold
+    # signal that cleared the NEVER-REGRESS promotion backtest lands in
+    # game_params.venue_hfa / cold_hfa with applied=true and per-team Elo
+    # deltas; unadopted (today: the 2025 promotion run RETAINED the incumbent —
+    # every candidate scale was worse out-of-sample) means both blocks are
+    # absent and hfa_eff == hfa_live for every game, byte-identical output.
+    _venue_hfa = _adopted.get("venue_hfa") or {}
+    _venue_deltas = _venue_hfa.get("deltas") or {} if _venue_hfa.get("applied") else {}
+    _cold_hfa = _adopted.get("cold_hfa") or {}
+    _cold_delta = float(_cold_hfa.get("delta_elo", 0.0)) if _cold_hfa.get("applied") else 0.0
+    if _venue_deltas or _cold_delta:
+        from scripts.promote_signals import is_cold_game  # noqa: PLC0415 (guarded)
+        print(f"promoted signals in effect: venue deltas for {len(_venue_deltas)} teams, "
+              f"cold delta {_cold_delta:+.1f}")
+    # rest_hfa (Elo per day of clamped rest advantage) — schedule order gives
+    # each team's previous kickoff, exactly like the promotion walk.
+    _rest_hfa = _adopted.get("rest_hfa") or {}
+    _rest_scale = float(_rest_hfa.get("scale_per_day", 0.0)) if _rest_hfa.get("applied") else 0.0
+    _rest_diff_by_gid = {}
+    if _rest_scale:
+        from scripts.promote_signals import rest_diffs  # noqa: PLC0415 (guarded)
+        _sched_sorted = sorted(schedule, key=lambda g: g.get("kickoff_utc") or "")
+        for _g, _d in zip(_sched_sorted, rest_diffs(_sched_sorted)):
+            _rest_diff_by_gid[_g["game_id"]] = _d
+        print(f"promoted rest signal in effect: {_rest_scale} Elo/day")
+    # epa_blend (adopted elo_epa family): per-team additive deltas from the
+    # EPA-driven parallel rating track, replayed over all resolved seasons.
+    _epa_blend = _adopted.get("epa_blend") or {}
+    _blend_deltas = {}
+    if _epa_blend.get("applied"):
+        from scripts.promote_signals import epa_blend_deltas  # noqa: PLC0415 (guarded)
+        _blend_deltas = epa_blend_deltas(float(_epa_blend["weight"])) or {}
+        if _blend_deltas:
+            print(f"promoted epa_blend in effect: w={_epa_blend['weight']} "
+                  f"({len(_blend_deltas)} team deltas)")
+        else:
+            print("WARNING: epa_blend adopted but epa_history unavailable — not applied")
+    # qb_depth (R92 family, PROPOSAL-ONLY until the weekly gate adopts it): the
+    # owner's QB cascade — a drop when QB1 is listed Out/Doubtful, a further
+    # drop when QB2 is out too, and a term proportional to the measured
+    # EPA/dropback gap to whoever is actually expected to start.
+    #
+    # NEVER DOUBLE-COUNT QB1: qb_depth's first term IS the qb_out drop (same
+    # condition, same sign, a depth-chart substrate instead of a dropback-leader
+    # one), so when qb_depth is applied the qb_out term below is SKIPPED and the
+    # QB1 absence is priced once. promote_signals._incumbent_family_fns applies
+    # the identical rule, so the gate's incumbent and this builder agree.
+    _qb_depth = _adopted.get("qb_depth") or {}
+    _qd_orders, _qd_outs, _qd_cap, _qd_rep = {}, {}, {}, None
+    _qd_params = None
+    if _qb_depth.get("applied"):
+        from scripts.promote_signals import qb_depth_current  # noqa: PLC0415 (guarded)
+        _qd = qb_depth_current(SEASON)
+        if _qd is None:
+            print("WARNING: qb_depth adopted but the depth chart or passer history "
+                  "is unavailable — not applied")
+        else:
+            _qd_orders, _qd_outs, _qd_cap, _qd_rep = _qd
+            _qd_params = (float(_qb_depth.get("qb1_scale") or 0.0),
+                          float(_qb_depth.get("qb2_extra") or 0.0),
+                          float(_qb_depth.get("cap_scale") or 0.0))
+            print(f"promoted qb_depth in effect: qb1={_qd_params[0]:g} "
+                  f"qb2_extra={_qd_params[1]:g} cap={_qd_params[2]:g} "
+                  f"({len(_qd_orders)} depth orders, {len(_qd_outs)} team-weeks "
+                  f"with QB listings, replacement "
+                  f"{'n/a' if _qd_rep is None else format(_qd_rep, '+.4f')} EPA/db) "
+                  "— qb_out is folded in and not applied separately")
+    # qb_out (adopted family): expected primary passer listed Out/Doubtful on
+    # the current week's report — pregame availability, refreshed daily.
+    _qb_out = _adopted.get("qb_out") or {}
+    _qb_primary, _qb_outs, _qb_scale = {}, {}, 0.0
+    if _qb_out.get("applied") and _qd_params is not None:
+        print("qb_out adopted but folded into the applied qb_depth family "
+              "(its QB1 term is the same drop) — not applied separately")
+    elif _qb_out.get("applied"):
+        from scripts.promote_signals import qb_out_current  # noqa: PLC0415 (guarded)
+        _cur = qb_out_current(SEASON)
+        if _cur is None:
+            print("WARNING: qb_out adopted but passer data unavailable — not applied")
+        else:
+            _qb_primary, _qb_outs = _cur
+            _qb_scale = float(_qb_out["scale"])
+            _listed = sum(1 for k in _qb_outs)
+            print(f"promoted qb_out in effect: scale={_qb_scale} "
+                  f"({len(_qb_primary)} primaries, {_listed} team-weeks with QB listings)")
+    # skill_out (adopted family): RB/WR/TE starters listed Out/Doubtful, weighted
+    # by their prior-season within-team opportunity share (pregame, refreshed
+    # daily via injury_history). Dormant until usage history is bootstrapped.
+    _skill = _adopted.get("skill_out") or {}
+    _skill_share, _skill_outs, _skill_scale = {}, {}, 0.0
+    if _skill.get("applied"):
+        from scripts.promote_signals import skill_out_current  # noqa: PLC0415 (guarded)
+        _sc = skill_out_current(SEASON)
+        if _sc is None:
+            print("WARNING: skill_out adopted but usage history unavailable — not applied")
+        else:
+            _skill_share, _skill_outs = _sc
+            _skill_scale = float(_skill["scale"])
+            print(f"promoted skill_out in effect: scale={_skill_scale} "
+                  f"({len(_skill_share)} usage shares, {len(_skill_outs)} team-weeks listed)")
+    # weather_wind (adopted family): windy open-roof games get an Elo nudge in
+    # the adopted direction. Prediction-time wind comes from weather_forecast.json
+    # (upcoming open-roof homes, refreshed daily) — dormant offseason, no
+    # fabricated wind for games outside the forecast horizon.
+    _wind = _adopted.get("wind_hfa") or {}
+    _wind_map, _wind_scale, _wind_thr = {}, 0.0, 30.0
+    if _wind.get("applied"):
+        from scripts.promote_signals import wind_current  # noqa: PLC0415 (guarded)
+        _wm = wind_current(SEASON)
+        if not _wm:
+            print("WARNING: weather_wind adopted but no forecast wind available — not applied"
+                  if _wm is None else
+                  "weather_wind adopted; no upcoming windy games in forecast horizon yet")
+        else:
+            _wind_map = _wm
+            _wind_scale = float(_wind["scale"])
+            _wind_thr = float(_wind.get("threshold_kph", 30.0))
+            _windy = sum(1 for v in _wind_map.values() if v >= _wind_thr)
+            print(f"promoted weather_wind in effect: scale={_wind_scale:+g} "
+                  f"threshold={_wind_thr}kph ({_windy}/{len(_wind_map)} upcoming games windy)")
+    # divisional (adopted family): same-division matchups take a fixed Elo
+    # delta, with an extra term on the in-season rematch. Both fields are
+    # SCHEDULE facts, so they are derived straight from this season's slate
+    # when game_context.json does not yet carry the season being played.
+    _div = _adopted.get("divisional") or {}
+    _div_ctx, _div_scale, _div_extra = {}, 0.0, 0.0
+    if _div.get("applied"):
+        from scripts.promote_signals import divisional_current  # noqa: PLC0415 (guarded)
+        _dc = divisional_current(SEASON, schedule=schedule)
+        if not _dc:
+            print("WARNING: divisional adopted but neither game_context.json nor the "
+                  "schedule could supply div_game/meeting_no — not applied")
+        else:
+            _div_ctx = _dc
+            _div_scale = float(_div.get("scale") or 0.0)
+            _div_extra = float(_div.get("rematch_extra") or 0.0)
+            _ndiv = sum(1 for v in _div_ctx.values() if v.get("div_game"))
+            # COVERAGE, not just presence. A non-empty map is truthy, so the
+            # "not applied" warning above can never fire for a PARTIAL map —
+            # and a game with no row prices at exactly 0.0, indistinguishable
+            # from a non-divisional game. Count the misses out loud.
+            _dmiss = sum(1 for g in schedule
+                         if f"{SEASON}|{g.get('week')}|{g['home']}|{g['away']}"
+                         not in _div_ctx)
+            if _dmiss:
+                print(f"WARNING: divisional context covers only "
+                      f"{len(schedule) - _dmiss}/{len(schedule)} scheduled games "
+                      f"— {_dmiss} game(s) will price at 0.0 (not applied there)")
+            print(f"promoted divisional in effect: base={_div_scale:+g} "
+                  f"rematch={_div_extra:+g} ({_ndiv}/{len(_div_ctx)} games divisional)")
+    # epa_hfa (Elo per unit rolling EPA-margin differential) — needs the
+    # runner-built epa_history.json; absent data means no delta, loudly.
+    _epa_hfa = _adopted.get("epa_hfa") or {}
+    _epa_feats = None
+    if _epa_hfa.get("applied"):
+        from scripts.promote_signals import load_epa_features  # noqa: PLC0415 (guarded)
+        _epa_feats = load_epa_features(_epa_hfa.get("kind") or "total")
+        if _epa_feats is None:
+            print("WARNING: epa_hfa adopted but epa_history.json absent/incomplete — "
+                  "EPA delta not applied this run")
+        else:
+            print(f"promoted EPA signal in effect: kind={_epa_hfa.get('kind')} "
+                  f"scale={_epa_hfa.get('scale')}")
+
+    # Attach Elo priors and predict every game with the full-vector game model.
+    predicted = []
+    for g in schedule:
+        row = dict(g)
+        row["home_elo"] = ratings.get(g["home"], elo_mod.INIT)
+        row["away_elo"] = ratings.get(g["away"], elo_mod.INIT)
+        # Learning-loop hook: prediction-time HFA = adopted flat params plus any
+        # PROMOTED family deltas (all no-ops until the gate adopts them).
+        hfa_eff = hfa_live + float(_venue_deltas.get(g["home"], 0.0))
+        if _cold_delta and is_cold_game(g):
+            hfa_eff += _cold_delta
+        if _rest_scale:
+            hfa_eff += _rest_scale * _rest_diff_by_gid.get(g["game_id"], 0.0)
+        if _epa_feats is not None:
+            hfa_eff += float(_epa_hfa["scale"]) * _epa_feats.diff(g, SEASON)
+        if _blend_deltas:
+            hfa_eff += _blend_deltas.get(g["home"], 0.0) - _blend_deltas.get(g["away"], 0.0)
+        if _qd_params is not None:
+            from scripts.promote_signals import (  # noqa: PLC0415 (guarded)
+                qb_depth_delta, qb_depth_row)
+            _wkd = int(g.get("week") or 0)
+            hfa_eff += qb_depth_delta(
+                qb_depth_row(g["home"], _wkd, _qd_orders, _qd_outs, _qd_cap, _qd_rep),
+                qb_depth_row(g["away"], _wkd, _qd_orders, _qd_outs, _qd_cap, _qd_rep),
+                *_qd_params)
+        if _qb_scale:
+            _wk = int(g.get("week") or 0)
+            _hp = _qb_primary.get(g["home"])
+            if _hp and _hp in _qb_outs.get((g["home"], _wk), ()):
+                hfa_eff -= _qb_scale
+            _ap = _qb_primary.get(g["away"])
+            if _ap and _ap in _qb_outs.get((g["away"], _wk), ()):
+                hfa_eff += _qb_scale
+        if _wind_scale:
+            _w = _wind_map.get(f"{SEASON}|{g.get('week')}|{g['home']}|{g['away']}")
+            if _w is not None and _w >= _wind_thr:
+                hfa_eff += _wind_scale
+        if _skill_scale:
+            _wk2 = int(g.get("week") or 0)
+            _lost_h = sum(_skill_share.get(pid, 0.0)
+                          for pid in _skill_outs.get((g["home"], _wk2), ()))
+            _lost_a = sum(_skill_share.get(pid, 0.0)
+                          for pid in _skill_outs.get((g["away"], _wk2), ()))
+            hfa_eff += _skill_scale * (_lost_a - _lost_h)
+        if _div_ctx:
+            from scripts.signals.divisional import (  # noqa: PLC0415 (guarded)
+                divisional_delta, context_key)
+            hfa_eff += divisional_delta(_div_ctx.get(context_key(SEASON, g)),
+                                        _div_scale, _div_extra)
+        row["hfa_elo"] = hfa_eff
+        pred = game_model.predict_game(row, teams=None, model="elo_prior")
+        pred["week"] = g["week"]
+        pred["venue"] = g.get("venue")
+        pred["status"] = g.get("status")
+        predicted.append(pred)
+
+    # Full season (all weeks) for later use.
+    _write(os.path.join(DATA, "schedule_full.json"), {
+        "season": SEASON, "updated_utc": now, "source": "espn", "model": "elo_prior",
+        "games": predicted,
+    })
+
+    # The single-week contract the slate reads = the current (upcoming) week.
+    wk = current_week(schedule)
+    week_games = week_game_rows(predicted, wk)
+    _write(os.path.join(DATA, "game_predictions.json"), {
+        "season": SEASON, "week": wk, "updated_utc": now, "games": week_games,
+    })
+
+    # TEAM STRENGTH — per-team Elo (the SAME ratings that drove every game prob
+    # above), published so the client can compute a per-player strength-of-
+    # schedule (mean opponent Elo -> a 1.0=easiest .. 5.0=hardest scale). This is
+    # the measured 2025-reverted prior (plus any in-season chaining), NOT a new
+    # model: it is exactly `ratings`, so SoS can never disagree with the game
+    # predictions. min/max are emitted so the client's 1-5 normalization is stable
+    # across deploys (it maps the observed rating span, not a hard-coded range).
+    rating_vals = sorted(ratings.values())
+    _write(os.path.join(DATA, "team_strength.json"), {
+        "season": SEASON, "updated_utc": now,
+        "source": "elo_prior_2025_reverted", "estimate": True,
+        "elo_min": round(rating_vals[0], 2) if rating_vals else elo_mod.INIT,
+        "elo_max": round(rating_vals[-1], 2) if rating_vals else elo_mod.INIT,
+        "ratings": {t: round(r, 2) for t, r in sorted(ratings.items())},
+    })
+
+    # P1 — POINT-IN-TIME SNAPSHOT LOCK. The week's predictions are archived as
+    # measurable (estimate=False) snapshot rows the harness later resolves against
+    # FINAL scores. A lock is immutable: if this week's opening lock already exists
+    # we do NOT rewrite it — re-running the pipeline must never launder a newer
+    # prediction into an older lock (the whole point of point-in-time archiving).
+    lock_name = f"{SEASON}_wk{wk:02d}_games_open"
+    lock_path = os.path.join(DATA, "snapshots", lock_name + ".json")
+    existing = snap.load_snapshot(lock_name) if os.path.exists(lock_path) else []
+    rows, skipped_locks = snap.append_game_locks(
+        existing, [p for p in predicted if p["week"] == wk], now)
+    if len(rows) != len(existing):
+        snap.write_snapshot(lock_name, rows)
+    print(f"locks: {len(existing)} preserved, {len(rows)-len(existing)} appended; "
+          f"{len(skipped_locks)} non-pregame/missing-cutoff events refused: {skipped_locks}")
+
+    # N4 (real-slate wiring) — parlays are built at the END of this run (see the
+    # PARLAYS block below): the prop legs need player_weekly + player_projections
+    # in hand, and real odds (when ODDS_API_KEY is set) need the slate. Moving the
+    # write does not change the contract — every run still writes parlays.json.
+
+    # N2 — REAL player projections. ESPN fantasy pool (real prior-season PPR totals)
+    # + roster ages -> the projection engine. At day-zero weights every signal is
+    # neutral, so proj == prior-season production: the honest baseline every future
+    # signal must beat through the optimizer.
+    # R33 — current_season=SEASON stamps each record's `team` from the DRAFT
+    # season's rosters (measured stats still come from PRIOR_SEASON). This is the
+    # root cause behind R32: the prior-season kona freezes proTeamId at last
+    # season's rosters, so every offseason mover showed his old team in the app,
+    # got the wrong 2026 bye/schedule split, seeded props for the wrong slate —
+    # and broke the (team, name) injury join that R32's name fallback papers
+    # over. With teams current, that fallback is a safety net again, not the join.
+    players_in = espn_players.build_player_records(PRIOR_SEASON, teams,
+                                                   current_season=SEASON)
+    feeds["espn_fantasy"] = {"rows": len(players_in), "age_hours": 0.0,
+                             "last_success_utc": now, "status": "ok"}
+    # R49 — prior seasons (games-normalized baseline inputs) + the injury_history
+    # candidate input, from the committed history. See _stamp_prior_seasons.
+    n_hist = _stamp_prior_seasons(players_in)
+    n_games = sum(1 for r in players_in if r.get("prior_games"))
+    print(f"R49 baseline inputs: {n_games} of {len(players_in)} records carry a "
+          f"prior game count; {n_hist} carry older seasons from player_history.json "
+          f"(shipped rule: {pp_mod.SHIPPED_BASELINE_RULE}; candidate always uses "
+          f"{pp_mod.BASELINE_RULE_PPG})")
+    try:
+        with open(os.path.join(DATA, "fixtures", "teams.json"), encoding="utf-8") as fh:
+            teams_fixture = json.load(fh)
+    except (OSError, ValueError):
+        teams_fixture = None
+    # R100 — the LEARNED candidate weights. scripts/fit_player_signals.py --adopt
+    # writes model_tuning.json:"candidate_signal_weights" ONLY when a refit beats
+    # the number that ships on >= 2 held-out weeks by the margin, no week worse.
+    # Absent => every signal at full strength, byte-identical to pre-R100.
+    try:
+        with open(os.path.join(DATA, "model_tuning.json"), encoding="utf-8") as fh:
+            _cw_rec = json.load(fh).get("candidate_signal_weights") or {}
+    except (OSError, ValueError):
+        _cw_rec = {}
+    cand_weights = _cw_rec.get("weights") or None
+    print("player signals: candidate weights %s" % (
+        "LEARNED %s (adopted %s)" % (cand_weights, _cw_rec.get("adopted_utc"))
+        if cand_weights else "all 1.0 (full strength; nothing adopted yet)"))
+    projected = project_players(players_in, ctx={"teams": teams_fixture},
+                                candidate_weights=cand_weights)
+    projected = [p for p in projected if p["proj_points"] > 0]
+    projected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
+    n_stamped, n_rookies = _stamp_rookies(projected)
+    print(f"rookie flags: {n_stamped} of {len(projected)} stamped from nflverse "
+          f"rosters ({n_rookies} rookies); unstamped = unknown, never false")
+    _write(os.path.join(DATA, "player_projections.json"), {
+        "season": SEASON, "updated_utc": now, "players": projected[:300],
+    })
+
+    # 5-year history (2021-2025) -> player_history.json (trajectory / regression
+    # detection for the Fit Engine and future signals). GUARDED: a history failure
+    # degrades loudly — stderr + a degraded feed row — but must never kill the core
+    # pipeline; games/players/parlays above are already written by this point.
+    try:
+        from scripts import build_history  # noqa: PLC0415 (guarded feature import)
+        hist_summary = build_history.run(projected[:300], players_in, now)
+        feeds["espn_history"] = {"rows": hist_summary["players"], "age_hours": 0.0,
+                                 "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["espn_history"] = {"rows": 0, "age_hours": 999.0,
+                                 "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] player history build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+
+    # Refresh the teams fixture with real ESPN identity (name/location/colors).
+    teams_fixture = {
+        ab: {
+            "abbrev": ab, "name": t["name"], "location": t["location"],
+            "display": t["display"], "color": t["color"], "alt_color": t["alt_color"],
+        }
+        for ab, t in sorted(teams.items())
+    }
+    _write(os.path.join(DATA, "fixtures", "teams_espn.json"), {
+        "season": SEASON, "updated_utc": now, "source": "espn", "teams": teams_fixture,
+    })
+
+    # Injuries (display + availability + future signal). Best-effort — don't fail the
+    # whole run. NOT HOISTED, deliberately (Rel17 C1): this is a guarded feed, and
+    # build_weekly already runs after it (see the WEEKLY block below), so the weekly
+    # split — where the season-total reduction actually happens — has always seen the
+    # fresh file. Hoisting the fetch above the N2 block would buy only the projection
+    # band below and would cost the whole run's degrade-don't-die semantics.
+    injury_document = build_weekly.read_injury_document(os.path.join(DATA, "injuries.json"))
+    try:
+        fetched = espn.fetch_injuries(carry_positions=True, quarantine_unknown=True,
+                                     return_document=True)
+        inj = fetched["injuries"]
+        received = fetched["received_utc"]
+        _inj_doc = availability.enrich_document({"updated_utc": received, "source": "espn",
+                                                 "injuries": inj})
+        _inj_doc.update({"source_updated_utc": fetched["source_updated_utc"],
+                         "received_utc": received, "season": SEASON, "week": wk,
+                         "quarantine": fetched["quarantine"]})
+        # R70 — enrich_document re-shapes every row to the Rel17 key set, which
+        # drops the scraper's `position` / `athlete_id`. Carry them back onto the
+        # same rows (enrich preserves order; null when the payload had none) so
+        # build_line_report.py can tell a lineman from a skill player.
+        for _src, _dst in zip(inj, _inj_doc["injuries"]):
+            _dst["position"] = _src.get("position")
+            _dst["athlete_id"] = _src.get("athlete_id")
+        _write(os.path.join(DATA, "injuries.json"), _inj_doc)
+        injury_document = _inj_doc
+        feeds["injuries"] = injury_feed_record(_inj_doc, received, wk)
+        # A successful HTTP/parser response can still contain an old or undated
+        # provider snapshot. Preserve it as evidence, not as projection input.
+        if not build_weekly.injury_source_state(_inj_doc, received, wk)["verified"]:
+            inj = []
+
+        # REL17 (F6) — SECOND, BAND-ONLY PROJECTION PASS. The first pass at the N2
+        # block above ran before this feed existed, so `injury_status` was whatever
+        # ESPN's FANTASY api said (a different vocabulary with different coverage) and
+        # the site-API injury REPORT — the only feed carrying free-text duration — had
+        # no say at all. Re-stamp the canonical status from the report and re-project.
+        #
+        # Nothing here can move proj_points while every signal weight is 0.0; what
+        # changes is `low`/`high` widening for genuinely uncertain players. That is the
+        # honest, weight-0-safe half of the fix, and exactly why the season-total
+        # reduction lives in build_weekly instead: how many weeks a player misses is a
+        # FACT from a feed, not a learned effect, so it must not sit behind the
+        # promotion gate.
+        #
+        # Guarded separately from the fetch ON PURPOSE: by this line the feed has
+        # already succeeded and been written, so a fault in OUR re-projection is a
+        # code bug, not an outage. Rolling it into the outer handler would stamp
+        # feeds["injuries"] = "down" for a feed that is demonstrably up — a false
+        # statement about a feed, which is the one thing pipeline_status may never be.
+        try:
+            # R30c — by_name switches on the offseason-mover fallback (see
+            # availability.index_report_by_name: the pool's team column lags the
+            # report's every August, so the (team, name) join dropped exactly
+            # the players who changed teams — Questionable stars rendered
+            # healthy five days before the owner's draft).
+            # R49 — the documented absence rides the same join; it moves
+            # projected_games / candidate_points on every rule, and proj_points
+            # only under the games-normalized shipped rule.
+            n_overridden, n_absent = _apply_injury_report(players_in, _inj_doc, received, wk)
+            if n_overridden or n_absent:
+                reprojected = [p for p in project_players(players_in,
+                                                          ctx={"teams": teams_fixture},
+                                                          candidate_weights=cand_weights)
+                               if p["proj_points"] > 0]
+                reprojected.sort(key=lambda p: (-p["proj_points"], p["gsis_id"]))
+                # ORDER GUARD, mandatory. weekly_contract.test.mjs locks that
+                # player_weekly.json mirrors player_projections.json id-for-id AND in
+                # order, and build_weekly runs later off projected[:300]. At weight 0
+                # the order CANNOT change (proj_points is untouched; only low/high
+                # move), so this guard should never fire — and if it ever does, that
+                # is a real regression and refusing the rewrite is the honest response.
+                # R49: under the games-normalized SHIPPED rule a documented absence
+                # legitimately moves proj_points (a FACT from a feed), so the
+                # reorder is accepted there — build_weekly still runs later off
+                # this same `projected`, so the id-for-id mirror holds regardless.
+                reorder_ok = (pp_mod.SHIPPED_BASELINE_RULE == pp_mod.BASELINE_RULE_PPG
+                              or pp_mod.SHIPPED_ESTIMATE == "candidate")
+                if reorder_ok or [p["gsis_id"] for p in reprojected[:300]] == \
+                        [p["gsis_id"] for p in projected[:300]]:
+                    # R41b — project_players built these records fresh, so the
+                    # rookie stamp from the N2 block is not on them; without
+                    # this carry the rewrite below ships a flagless file.
+                    _carry_rookie_flags(projected, reprojected)
+                    projected = reprojected
+                    _write(os.path.join(DATA, "player_projections.json"), {
+                        "season": SEASON, "updated_utc": now,
+                        "players": projected[:300],
+                    })
+                    print(f"injury re-projection: {n_overridden} records "
+                          f"overridden, {n_absent} carry a documented absence "
+                          f"(candidate projected_games < 17)")
+                else:
+                    print("[warn] injury re-projection changed the top-300 ordering "
+                          "— skipped (player_projections.json left as first-pass)",
+                          file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 — degrade, never mask
+            print(f"[warn] injury re-projection failed (projections left as "
+                  f"first-pass; the injuries feed itself is fine): {exc}",
+                  file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001
+        # age_hours 999.0, never None: the contract types it as a number, and a
+        # null here makes an injuries OUTAGE fail schema validation for the whole
+        # run — turning a feed this builder deliberately degrades around into a
+        # total publish failure (run 166). Same convention as market_feed_record.
+        feeds["injuries"] = injury_feed_record(injury_document, _utc_now(), wk, failure=exc)
+        print(f"[warn] injuries feed failed: {exc}", file=sys.stderr)
+
+    # R49 — record the baseline rule, where it applies, and the walk-forward gate
+    # verdict in data/meta.json (a RECORD; weights are never touched here).
+    try:
+        meta_record.set_record(
+            "projection_baseline",
+            pp_mod.projection_baseline_record(
+                projected[:300], now, gate=_backtest_from_disk("baseline_gate"),
+                fed_default=CANDIDATE_INPUTS_FED,
+                backtest_2025=_backtest_from_disk("candidate_2025")))
+    except Exception as exc:  # noqa: BLE001 — a record, never the pipeline
+        print(f"[warn] meta.projection_baseline not written: {exc}", file=sys.stderr)
+
+    # === ENVIRONMENT MODEL (separate block from the history one above) ===========
+    # Measured 2021-2025 venue/cold/international splits -> environment_model.json.
+    # GUARDED: an environment build failure must never kill the core pipeline — loud
+    # stderr, feed marked degraded, core contracts already written by this point.
+    # refresh=False reuses the committed file when it already covers the CLOSED
+    # 2021-2025 window (a rebuild is ~190 identical API calls for identical history);
+    # a missing/invalid file triggers a real build.
+    try:
+        from scripts import build_environment  # noqa: PLC0415 (guarded feature import)
+        env = build_environment.build(refresh=False)
+        env_age = _hours_since(env.get("updated_utc")) if env.get("reused") else 0.0
+        # Age here is REAL and can be weeks (refresh=False reuses the committed
+        # file, see the block comment above) — that is by design, not staleness:
+        # the artifact measures the CLOSED 2021-2025 window, so its content
+        # cannot go stale until the window definition changes. "ok" is honest
+        # only because of that; a zero-row build is still degraded, per the
+        # 0-row-is-never-ok house rule.
+        feeds["environment"] = {
+            "rows": env["rows"],
+            "age_hours": env_age if env_age is not None else 0.0,
+            "last_success_utc": env.get("updated_utc") or now,
+            "status": "ok" if int(env.get("rows") or 0) > 0 else "degraded",
+        }
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["environment"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] environment model build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end ENVIRONMENT MODEL block ==============================================
+
+    # === AI INSIGHTS (Fit Engine v2 estimation layer — scripts/ai_estimates.py) ==
+    # Deterministic, DOCUMENTED estimation rules (authored by generative AI this
+    # build; regenerable via the quarantined P10 workflow — see the module
+    # docstring) join the fresh history + environment outputs above into
+    # data/ai_insights.json for the TEAM tab's opt-in AI+ toggle (default off;
+    # game probabilities and meta.json weights untouched). Runs AFTER both blocks
+    # on purpose: it reads player_history.json and environment_model.json from
+    # disk. GUARDED like them: a failure degrades loudly, never kills the core.
+    try:
+        from scripts import ai_estimates  # noqa: PLC0415 (guarded feature import)
+        ai_summary = ai_estimates.run(now)
+        feeds["ai_insights"] = {"rows": ai_summary["players"], "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["ai_insights"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] ai insights build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end AI INSIGHTS block ====================================================
+
+    # === GAME SCRIPT (measured run/pass splits — scripts/build_gamescript.py) ====
+    # Winner/loser rush-pass volume, blowout vs one-score rush share, and the
+    # trailing-team Q4 (garbage-time) uplift, measured from FINAL 2025 boxscores.
+    # DESCRIPTIVE, weight-0 / applied=false — game probabilities untouched. The
+    # raw rows are cached (data/fixtures/gamestats_2025.json), so this is a cheap
+    # re-analysis per run, not a 272-call refetch. GUARDED like the blocks above.
+    try:
+        from scripts import build_gamescript  # noqa: PLC0415 (guarded feature import)
+        build_gamescript.main()
+        with open(os.path.join(DATA, "game_script.json"), encoding="utf-8") as fh:
+            gs_rows = json.load(fh)["games_analyzed"]
+        feeds["game_script"] = {"rows": gs_rows, "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["game_script"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] game-script build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end GAME SCRIPT block ====================================================
+
+    # === NFLVERSE AGGREGATES (combine bench, pbp score-state) =====================
+    # Release CSVs 403 through some sandbox proxies but fetch fine on the GH
+    # runner; the builder leaves any existing file untouched on failure and the
+    # o-line composite below consumes the combine bench when the file exists.
+    try:
+        from scripts import build_nflverse_aggregates  # noqa: PLC0415 (guarded)
+        build_nflverse_aggregates.main()
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        print(f"[warn] nflverse aggregates failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end NFLVERSE AGGREGATES block ============================================
+
+    # === O-LINE COMPOSITE (scripts/build_oline.py) ================================
+    # Per-team OL weight/age/experience/continuity from live ESPN rosters (32
+    # calls), refined with nflverse snap counts when that host is reachable.
+    # Context for the registered weight-0 ol_composite_vs_dl signal — weekly
+    # refresh matters here (personnel churn), so it runs every pipeline pass.
+    try:
+        from scripts import build_oline  # noqa: PLC0415 (guarded feature import)
+        build_oline.main()
+        with open(os.path.join(DATA, "oline_composite.json"), encoding="utf-8") as fh:
+            ol_rows = len(json.load(fh)["teams"])
+        feeds["oline"] = {"rows": ol_rows, "age_hours": 0.0,
+                          "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["oline"] = {"rows": 0, "age_hours": 999.0,
+                          "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] o-line composite build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # nflverse feed row mirrors what the o-line build ACTUALLY reached: its
+    # `source` field says whether snap counts refined continuity or the build
+    # fell back to ESPN-only (proxy-blocked here; reachable on the GH runner).
+    try:
+        with open(os.path.join(DATA, "oline_composite.json"), encoding="utf-8") as fh:
+            ol_src = json.load(fh).get("source", "")
+        nv_ok = _nflverse_reached(ol_src)
+        feeds["nflverse"] = (
+            {"rows": 32, "age_hours": 0.0, "last_success_utc": now, "status": "ok"}
+            if nv_ok else
+            {"rows": 0, "age_hours": 999.0, "last_success_utc": None, "status": "degraded"})
+    except (OSError, ValueError):
+        feeds["nflverse"] = {"rows": 0, "age_hours": 999.0,
+                             "last_success_utc": None, "status": "degraded"}
+    # === end O-LINE COMPOSITE block ===============================================
+
+    # === ADP (drafter consensus — draft-simulator opponent model ONLY) ===========
+    # POLICY: models the simulated draft room + value flags; never blended into
+    # projections or probabilities. Keyless FantasyFootballCalculator API.
+    try:
+        from scripts.scrape import adp as adp_mod  # noqa: PLC0415 (guarded)
+        adp_rows, adp_join = adp_mod.join_to_pool(
+            adp_mod.fetch_adp(SEASON), projected[:300])
+        # AUCTION VALUE (ESPN kona ownership.auctionValueAverage) — the room's
+        # observed price, joined onto the same rows. SAME POLICY AS ADP: display
+        # + value flags only, never an input (validate_data MARKET_PRICE_FIELDS).
+        # It needs its OWN pull: the pool request above is for PRIOR_SEASON, and
+        # ESPN zeroes auctionValueAverage for a season already played, so the
+        # draft season (SEASON) is the only place the price exists. Guarded on its
+        # own so a dead auction feed costs the auction field, not the ADP board.
+        auction_join = None
+        try:
+            _auc = espn_players.fetch_auction_values(SEASON)
+            _by_gid = {f"espn-{r['espn_id']}": r["auction_value"] for r in _auc}
+            _by_name = {}
+            for r in _auc:                      # secondary key for board rows we
+                _by_name.setdefault(              # do not project (gsis_id None)
+                    (adp_mod.norm_name(r["name"]), r["position"]), r["auction_value"])
+            _hit = 0
+            for r in adp_rows:
+                val = _by_gid.get(r.get("gsis_id")) if r.get("gsis_id") else None
+                if val is None:
+                    val = _by_name.get((adp_mod.norm_name(r["name"]), r["position"]))
+                # Absent stays ABSENT: ESPN not pricing a player is not a $0 price.
+                r["auction_value"] = val
+                if val is not None:
+                    _hit += 1
+            auction_join = round(_hit / len(adp_rows), 3) if adp_rows else 0.0
+            print(f"auction: {len(_auc)} priced by ESPN, {_hit} joined onto the "
+                  f"ADP board (join rate {auction_join})")
+        except Exception as exc:  # noqa: BLE001 — loud, and the ADP board still ships
+            for r in adp_rows:
+                r.pop("auction_value", None)
+            print(f"[warn] ESPN auction values unavailable (ADP board still ships "
+                  f"WITHOUT prices, not with fabricated ones): {exc}", file=sys.stderr)
+        _write(os.path.join(DATA, "adp.json"), {
+            "updated_utc": now,
+            "source": "fantasyfootballcalculator ppr 12-team",
+            "format": "ppr", "league_size": 12, "join_rate": adp_join,
+            "auction_source": ("espn kona ownership.auctionValueAverage"
+                               if auction_join is not None else None),
+            "auction_budget": 200 if auction_join is not None else None,
+            "auction_join_rate": auction_join,
+            "players": adp_rows,
+        })
+        feeds["adp"] = {"rows": len(adp_rows), "age_hours": 0.0,
+                        "last_success_utc": now, "status": "ok"}
+        print(f"adp: {len(adp_rows)} players, join rate {adp_join}")
+        # ADP TIME-SERIES: one bounded snapshot per calendar day — market
+        # movement (risers/fallers) + a moving benchmark for beat-ADP grading.
+        _hist_path = os.path.join(DATA, "adp_history.json")
+        _today = now[:10]
+        _hist = {"snapshots": []}
+        if os.path.exists(_hist_path):
+            with open(_hist_path, encoding="utf-8") as fh:
+                _hist = json.load(fh)
+        _snaps = _hist.get("snapshots") or []
+        if not _snaps or _snaps[-1].get("date") != _today:
+            _snaps.append({"date": _today,
+                           "players": [{"gsis_id": r.get("gsis_id"),
+                                        "name": r["name"], "adp": r["adp"]}
+                                       for r in adp_rows[:200]]})
+            _write(_hist_path, {"updated_utc": now,
+                                "source": "daily FFC ADP snapshots",
+                                "snapshots": _snaps[-150:]})
+            print(f"adp_history: snapshot {_today} appended ({len(_snaps[-150:])} kept)")
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["adp"] = {"rows": 0, "age_hours": 999.0,
+                        "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] adp feed failed (core pipeline continues): {exc}", file=sys.stderr)
+    # === end ADP block ============================================================
+
+    # === DEFENSIVE COMPOSITE (scripts/build_defense.py) ===========================
+    # The OL-vs-DL signal's defensive half — weight-0 context, weekly refresh
+    # (roster churn matters). GUARDED like the o-line block above.
+    try:
+        from scripts import build_defense  # noqa: PLC0415 (guarded feature import)
+        build_defense.main()
+        with open(os.path.join(DATA, "defense_composite.json"), encoding="utf-8") as fh:
+            def_rows = len(json.load(fh)["teams"])
+        feeds["defense"] = {"rows": def_rows, "age_hours": 0.0,
+                            "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["defense"] = {"rows": 0, "age_hours": 999.0,
+                            "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] defense composite failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end DEFENSIVE COMPOSITE block ============================================
+
+    # === MARKET PRICES (Kalshi + Polymarket — DISPLAY ONLY) =======================
+    # The scoreboard we measure ourselves against: keyless public prices joined
+    # to OUR schedule. USER POLICY: never an input — no model, optimizer, or
+    # parlay probability reads this file (validate_data MARKET_DISPLAY_ONLY).
+    try:
+        from scripts import build_markets  # noqa: PLC0415 (guarded feature import)
+        mdoc = build_markets.main()
+        # R30: the source's own honest status (ok/degraded/down) carries through
+        # — see market_feed_record. Never "ok" off a zero-row write.
+        for src_name in ("kalshi", "polymarket"):
+            feeds[src_name] = market_feed_record(
+                mdoc["sources"].get(src_name, {}), now)
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        for src_name in ("kalshi", "polymarket"):
+            feeds[src_name] = {"rows": 0, "age_hours": 999.0,
+                               "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] market prices build failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end MARKET PRICES block ==================================================
+
+    # === PLAYOFF ODDS (season simulator — OUR MODEL ONLY) =========================
+    # Deterministic Monte Carlo from the schedule probs + Elo written above.
+    # No market input anywhere; the MODEL tab shows markets NEXT TO these odds.
+    try:
+        from scripts import simulate_season  # noqa: PLC0415 (guarded feature import)
+        podds = simulate_season.main()
+        feeds["playoff_sim"] = {"rows": len(podds["teams"]), "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    except Exception as exc:  # noqa: BLE001 — degrade, never mask (stderr is loud)
+        feeds["playoff_sim"] = {"rows": 0, "age_hours": 999.0,
+                                "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] playoff simulation failed (core pipeline continues): {exc}",
+              file=sys.stderr)
+    # === end PLAYOFF ODDS block ===================================================
+
+    # Weekly split (weekly_split_v2) — pure math lives in scripts.build_weekly;
+    # this call just feeds it the artifacts already in hand. Player order mirrors
+    # player_projections.json (same projected[:300] slice), elos are the SAME
+    # priors the game model used, receptions ride the N2 feed (kona statId 53).
+    # R51: the v2 factor feeds (data/dvp_positional_history.json,
+    # data/environment_model.json, data/weather_forecast.json — all written
+    # earlier in this run or by their own crons) are loaded ONCE inside
+    # build_weekly_document from its DATA-path defaults; the projection rows carry
+    # `position`, which selects the QB-only Elo tilt and the weather rule. The
+    # split is measured walk-forward by scripts/backtest_weekly.py (never-regress).
+    # Injury-aware since Rel4: build_weekly reads data/injuries.json (written
+    # fresh above) and shapes the first weeks of injured players' splits.
+    # first_week=wk is MANDATORY, not cosmetic (Rel17): an absence blocks weeks
+    # forward from the current week. Left at its default of 1, an in-season IR
+    # placement would zero weeks 1-4 — games already played, which no surface
+    # reads — and leave the weeks he will actually miss fully projected, so the
+    # season-total reduction and the Lineup demotion would both silently no-op
+    # from Week 2 onward. In preseason current_week() is 1, so this is a no-op
+    # today and correct the moment real football starts.
+    # R49 OWNER OVERRIDE — the shipped number is the scenario candidate, so every
+    # prior-season pricing line (receptions, completions, the R44 component line
+    # and its base_applied_pts) is scaled by the same per-player ratio
+    # proj_points / prior_season_points; league extras move with the shipped
+    # number and the client's sum(base x qty) == base_applied_pts check still
+    # holds (linear). bonus_games is a count and stays. Ratio 1.0 for a player
+    # whose prior total is unknown, and exactly 1.0 for everyone in "gated" mode.
+    _shipped_by_id = {p["gsis_id"]: p for p in projected[:300]}
+    ratio_by_id = {
+        r["gsis_id"]: build_weekly.shipped_ratio(_shipped_by_id.get(r["gsis_id"], {}),
+                                                 r.get("prior_season_points"))
+        for r in players_in}
+    n_scaled = sum(1 for v in ratio_by_id.values() if abs(v - 1.0) > 1e-9)
+    print(f"R49 shipped={pp_mod.SHIPPED_ESTIMATE}: prior pricing lines scaled for "
+          f"{n_scaled} of {len(players_in)} players (ratio = proj_points / "
+          f"prior_season_points; bonus_games untouched)")
+    receptions_by_id = {r["gsis_id"]: r.get("receptions", 0.0) for r in players_in}
+    # R28 — completions ride the SAME N2 feed (kona statId 1, beside the statId
+    # 53 receptions read just above), so a league scoring Sleeper's `pass_cmp`
+    # can be priced exactly instead of having ~0.5 x 350 points a season quietly
+    # omitted from every starting quarterback.
+    completions_by_id = {r["gsis_id"]: r.get("completions", 0.0) for r in players_in}
+    # R44 — the FULL component stat line (kona, self-verified against ESPN's
+    # own appliedStats arithmetic) plus measured per-game yardage-bonus counts
+    # (nflverse weekly lines), so the client can price EVERY league scoring
+    # rule a component feeds instead of receptions + pass_cmp alone. Both
+    # halves degrade to absence, never to zero-filled claims.
+    bonus_by_name = _bonus_games_by_name()
+    components_by_id = _components_by_id(players_in, bonus_by_name)
+    for pid, ratio in ratio_by_id.items():
+        rec, cmp, comp = build_weekly.scale_prior_lines(
+            ratio, receptions_by_id.get(pid), completions_by_id.get(pid),
+            components_by_id.get(pid))
+        if rec is not None:
+            receptions_by_id[pid] = rec
+        if cmp is not None:
+            completions_by_id[pid] = cmp
+        if comp is not None:
+            components_by_id[pid] = comp
+    n_bonus = sum(1 for v in components_by_id.values() if v.get("bonus_games"))
+    print(f"league components: {len(components_by_id)} of {len(players_in)} "
+          f"players carry a verified stat line ({n_bonus} with measured "
+          f"bonus-game counts); absent = unverified, never zero")
+    # R77 -- THE THIS-WEEK GATE. The depth chart is fetched fresh (and written
+    # to data/depth_chart.json so the validator and the app read the same
+    # chart the split used); on a feed failure the last-good file stands in,
+    # its age visible in feed health. Teams whose game this week is already
+    # FINAL are never gated: a played week is not retro-zeroed.
+    depth_doc = _depth_chart_doc(now)
+    if depth_doc is not None:
+        _write(os.path.join(DATA, "depth_chart.json"), depth_doc)
+        feeds["depth_chart"] = {"rows": depth_doc["counts"]["rows"], "age_hours": 0.0,
+                                "last_success_utc": now, "status": "ok"}
+    else:
+        depth_doc = build_weekly.load_depth_chart()
+        _age = _hours_since(depth_doc.get("updated_utc")) if depth_doc else None
+        feeds["depth_chart"] = {"rows": (depth_doc or {}).get("counts", {}).get("rows", 0),
+                                "age_hours": _age if depth_doc else 999.0,
+                                "last_success_utc": (depth_doc or {}).get("updated_utc"),
+                                "status": "degraded" if depth_doc else "down"}
+        print(f"[warn] depth chart: {'last-good file' if depth_doc else 'NONE'} -> "
+              f"{'stale' if depth_doc else 'no'} QB depth gate this run", file=sys.stderr)
+    gate_skip = sorted({t for g in predicted if g.get("week") == wk
+                        and g.get("status") in espn.FINAL_STATUSES
+                        for t in (g.get("home"), g.get("away")) if t})
+    # R79 -- GAME-DAY INACTIVES, the gate's first source. Read only for games
+    # inside the window (kickoff-3h until FINAL); outside it the file is
+    # removed so a stale list from an earlier window can never gate a later
+    # game. A fetch failure keeps that game out of the file for the run (feed
+    # health says so) -- the status and depth sources still gate.
+    _inact_path = os.path.join(DATA, "inactives.json")
+    inact_doc = _inactives_doc(now, [g for g in predicted if g.get("week") == wk], wk)
+    if inact_doc is not None:
+        _write(_inact_path, inact_doc)
+        _c = inact_doc["counts"]
+        feeds["inactives"] = {"rows": _c["players"], "age_hours": 0.0,
+                              "last_success_utc": now,
+                              "status": "ok" if not _c["failed"] else "degraded",
+                              "note": f"{_c['games']} game(s) in the {INACTIVES_WINDOW_HOURS:g}h "
+                                      f"window, {_c['failed']} fetch failure(s)"}
+    else:
+        if os.path.exists(_inact_path):
+            os.remove(_inact_path)
+        feeds["inactives"] = {"rows": 0, "age_hours": 0.0, "last_success_utc": now,
+                              "status": "ok",
+                              "note": "no game inside the inactives window this run"}
+    weekly_doc = build_weekly.build_weekly_document(
+        projected[:300], predicted, ratings, receptions_by_id, SEASON, _utc_now(),
+        first_week=wk, completions_by_id=completions_by_id,
+        components_by_id=components_by_id, this_week=wk, depth_chart=depth_doc,
+        gate_skip_teams=gate_skip, inactives=inact_doc,
+        injury_document=injury_document)
+    _write(os.path.join(DATA, "player_weekly.json"), weekly_doc)
+    _tw = weekly_doc["model"].get("this_week") or {}
+    print(f"this-week gate (wk {wk}): {_tw.get('gated', 0)} player(s) not playable "
+          f"({_tw.get('by_reason')}), {_tw.get('promoted', 0)} backup QB(s) promoted, "
+          f"depth snapshot {_tw.get('depth_snapshot')}, inactives "
+          f"{_tw.get('inactives_fetched')}, final teams skipped {gate_skip}")
+
+    # R45 — FACTS-ONLY rookie starters (owner's pick: facts, never invented
+    # points). Guarded enrichment: a feed failure keeps the last-good file and
+    # marks the feed degraded, loudly.
+    rs = _rookie_starters(predicted, ratings)
+    if rs is not None:
+        _write(os.path.join(DATA, "rookie_starters.json"), {
+            "season": SEASON, "updated_utc": now,
+            "snapshot_utc": rs["snapshot_utc"],
+            "source": f"nflverse_depth_charts_{SEASON} (latest snapshot, pos_rank 1) "
+                      f"+ nflverse_rosters_{SEASON} (years_exp == 0)",
+            "players": rs["players"],
+        })
+        feeds["rookie_starters"] = {"rows": len(rs["players"]), "age_hours": 0.0,
+                                    "last_success_utc": now, "status": "ok"}
+        if not rs["players"]:
+            feeds["rookie_starters"]["note"] = (
+                "0 rookies hold a depth-chart rank-1 slot in the latest "
+                "snapshot — a fact about the league, not an outage.")
+        unsettled = sum(1 for p in rs["players"] if p["role_unsettled"])
+        print(f"rookie starters: {len(rs['players'])} depth-chart rank-1 rookies "
+              f"({unsettled} RB role-unsettled) — facts only, no invented points")
+    else:
+        feeds["rookie_starters"] = {"rows": 0, "age_hours": 999.0,
+                                    "last_success_utc": None, "status": "degraded"}
+
+    # === PARLAYS (moved from the early slot — needs weekly + projections) ========
+    # Real odds when ODDS_API_KEY is set; graceful model-seeded fallback when not.
+    markets_by_game = None
+    try:
+        from scripts.scrape import odds_api  # noqa: PLC0415 (guarded feature import)
+        try:
+            markets_by_game = odds_api.fetch_markets(week_games)
+            feeds["odds_api"] = {"rows": len(markets_by_game), "age_hours": 0.0,
+                                 "last_success_utc": now, "status": "ok"}
+            print(f"odds: real lines for {len(markets_by_game)} slate games")
+        except odds_api.OddsKeyMissing as exc:
+            # No key = the owner hasn't turned this feed on. A fact, not a
+            # failure: 'unconfigured' is excluded from the health roll-up and
+            # surfaced as "awaiting config" instead of dragging DEGRADED.
+            feeds["odds_api"] = {"rows": 0, "age_hours": 999.0,
+                                 "last_success_utc": None, "status": "unconfigured"}
+            print(f"[info] odds feed unconfigured: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 — a real failure degrades, loudly
+        feeds["odds_api"] = {"rows": 0, "age_hours": 999.0,
+                             "last_success_utc": None, "status": "degraded"}
+        print(f"[warn] odds feed unavailable (model-seeded lines in use): {exc}",
+              file=sys.stderr)
+
+    # Player-prop legs (top QB/RB/WR per game, seeded lines, labeled estimates)
+    # diversify the same-game parlay candidate pool. Pure function, no network.
+    props_by_game = parlay_builder.build_props_by_game(
+        week_games,
+        weekly_doc,
+        {"season": SEASON, "updated_utc": now, "players": projected[:300]},
+    )
+    _write(os.path.join(DATA, "parlays.json"),
+           parlay_builder.build_parlays_document(
+               week_games, SEASON, wk, now,
+               markets_by_game=markets_by_game,
+               props_by_game=props_by_game))
+
+    # Overall health mirrors the WORST CONFIGURED feed — never rosier than
+    # reality; 'unconfigured' feeds are excluded (not turned on ≠ broken) and
+    # surfaced separately by the UI as "awaiting config". Written LAST so every
+    # feed above (odds, markets, game-script, o-line, sim) is in.
+    order = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
+    configured = [f["status"] for f in feeds.values() if f["status"] != "unconfigured"]
+    health = max(configured, key=lambda s: order[s]) if configured else "degraded"
+    # `schedules` is parsed from .github/workflows/*.yml so the cadence the MODEL
+    # tab shows is the cadence that actually runs — it cannot drift from the YAML.
+    _write(os.path.join(DATA, "pipeline_status.json"), {
+        "generated_utc": now, "health": health, "feeds": feeds,
+        "schedules": read_schedules(),
+    })
+
+    print(f"OK  teams={len(teams)} elo_teams={len(ratings)} schedule={len(schedule)} "
+          f"week={wk} week_games={len(week_games)} "
+          f"weekly_players={len(weekly_doc['players'])} health={health}")
+
+
+if __name__ == "__main__":
+    main()

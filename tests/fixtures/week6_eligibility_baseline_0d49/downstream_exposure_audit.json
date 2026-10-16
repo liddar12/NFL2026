@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "kind": "nfl.injury_identity_downstream_exposure.v1",
+  "repository": "liddar12/NFL2026",
+  "commit": "0d49a94868142b4e6e888b927363d42270ed23c0",
+  "player_id": "espn-3126486",
+  "read_basis": "Read-only GitHub blob API responses; aggregate projection only, raw downstream blobs are not duplicated in this fixture.",
+  "current_pool": {
+    "path": "data/leg_pool.json",
+    "git_blob_sha1": "e12f2b92b5ea2a3f38df2697dce175f66dd651b9",
+    "generated_utc": "2026-10-16T01:58:13Z",
+    "rows": 1,
+    "rungs": 7,
+    "lines": [
+      19.5,
+      29.5,
+      39.5,
+      49.5,
+      59.5,
+      69.5,
+      79.5
+    ],
+    "null_input_context_rungs": 7,
+    "basis": "Contemporaneous generated receiving-yard candidate rungs after the latest injury receipt; not proof of public publication or placed bets."
+  },
+  "retained_my_archive": {
+    "path": "data/my_cards/2026_wk06.json",
+    "git_blob_sha1": "d3ff4124b25761f9d4fef74d0f332ab61650cd0b",
+    "total_cards": 3059,
+    "matching_cards": 149,
+    "by_dial": {
+      "even": 141,
+      "safe": 8
+    },
+    "cards_with_matching_leg_receipt": 38,
+    "matching_leg_lines": [
+      29.5
+    ],
+    "latest_injury_receipt_utc": "2026-10-16T01:57:09Z",
+    "first_seen_before_latest_injury_receipt": 149,
+    "missing_or_invalid_first_seen": 0,
+    "basis": "Retained historical membership across generations, NOT 149 simultaneous published tickets, placed bets, losses, or evidence this OUT designation existed at each earlier first-seen time."
+  },
+  "historical_reprice_performed": false,
+  "public_serving_verified": false,
+  "placed_bets_verified": false,
+  "provider_authenticated": false
+}

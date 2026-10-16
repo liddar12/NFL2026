@@ -1,0 +1,3676 @@
+#!/usr/bin/env python3
+"""Contract validator for every data/*.json file — the first gate step.
+
+Stdlib only (Python 3.11). No jsonschema, no pip. We implement just enough of
+JSON Schema draft-07 to actually check the contracts in data/contracts/:
+
+    type, required, properties, additionalProperties (bool OR subschema),
+    items (array element schema), enum, minimum, maximum, exclusiveMinimum,
+    exclusiveMaximum, minItems, maxItems, minProperties, maxProperties,
+    minLength, pattern.
+
+That subset is exactly what the contracts use; anything richer is out of
+scope on purpose (a validator you can read top-to-bottom is worth more here than
+a general one you can't audit). The keywords $schema/$id/title/description are
+metadata and ignored. `$ref` is NOT supported and is a HARD ERROR, never a
+silent skip: R30 found market_prices.schema.json validating nothing below its
+top level because six $refs fell through this validator as no-ops. A contract
+must inline its definitions (see player_backtest.schema.json's note).
+
+Beyond per-file schema validation we assert three CROSS-FILE invariants that no
+single schema can express:
+
+  1. meta.json's `weights` map contains EVERY registry signal name, each at
+     exactly 0.0 (the day-zero "started at 0" rule), and nothing extra.
+  2. pipeline_status.json is HONEST: the overall `health` equals the worst
+     per-feed status (ok < stale < degraded < down). You may not claim "ok"
+     while a feed is broken — the silent-scraper-404 lesson, enforced.
+  3. player_weekly.json's AVAILABILITY story agrees with itself and with its two
+     sources (Rel17): the weekly points really are reduced by the blocked weeks,
+     a stated duration equals the applied one, and no player is flagged
+     unavailable without a matching row in data/injuries.json. See
+     check_weekly_availability — that last rule is the honest-data rule made
+     mechanical: the app may never show an IR badge no feed backs.
+
+Exit code 0 iff everything passes; non-zero with a clear, single-line-per-error
+message otherwise. The gate (tests/run_gate.sh) keys on this exit code.
+"""
+
+import json
+import datetime as dt
+import math
+import os
+import re
+import sys
+
+# Repo root = parent of this scripts/ directory. All paths resolved from here so
+# the validator works regardless of the caller's cwd.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(_HERE)
+CONTRACTS = os.path.join(ROOT, "data", "contracts")
+DATA = os.path.join(ROOT, "data")
+
+
+def snapshot_schema_for(filename):
+    """Route a data/snapshots/ file to the contract that matches its SHAPE.
+
+    Two families coexist under data/snapshots/: point-in-time LOCK arrays
+    (e.g. 2026_wk01_games_open.json) and the archived game_predictions.<ts>.json
+    copies the gameday cron drops there (byte copies of game_predictions.json —
+    a dict, not the lock array). A single blanket schema failed the gameday cron
+    with "expected type array, got dict"; route each family to its own schema."""
+    if filename.startswith("game_predictions."):
+        return "game_predictions.schema.json"
+    return "snapshot.schema.json"
+
+# Which schema validates which data file. snapshot.schema.json validates every
+# array file dropped into data/snapshots/ (there are none at scaffold time, and
+# that is fine — we simply skip an empty directory).
+SCHEMA_TO_DATA = {
+    "player_projections.schema.json": "player_projections.json",
+    "player_history.schema.json": "player_history.json",
+    "player_weekly.schema.json": "player_weekly.json",
+    "game_predictions.schema.json": "game_predictions.json",
+    "team_strength.schema.json": "team_strength.json",
+    "game_script.schema.json": "game_script.json",
+    "oline_composite.schema.json": "oline_composite.json",
+    "market_prices.schema.json": "market_prices.json",
+    "playoff_odds.schema.json": "playoff_odds.json",
+    "defense_composite.schema.json": "defense_composite.json",
+    "adp.schema.json": "adp.json",
+    "parlays.schema.json": "parlays.json",
+    "pipeline_status.schema.json": "pipeline_status.json",
+    "meta.schema.json": "meta.json",
+    "environment_model.schema.json": "environment_model.json",
+    "ai_insights.schema.json": "ai_insights.json",
+    "epa_history.schema.json": "epa_history.json",
+    "weather_history.schema.json": "weather_history.json",
+    "weather_forecast.schema.json": "weather_forecast.json",
+    "market_baseline.schema.json": "market_baseline.json",
+    "injury_history.schema.json": "injury_history.json",
+    "injuries.schema.json": "injuries.json",
+    "player_usage.schema.json": "player_usage.json",
+    "player_usage_history.schema.json": "player_usage_history.json",
+    "player_usage_weekly.schema.json": "player_usage_weekly.json",
+    "ros_backtest.schema.json": "ros_backtest.json",
+    "player_backtest.schema.json": "player_backtest.json",
+    "adp_history.schema.json": "adp_history.json",
+    "kdst_projections.schema.json": "kdst_projections.json",
+    # R55 — the resolved D/ST week corpus the split's gate reads OFFLINE, and
+    # the gate's own verdict. Both are runner-built (network), so both are
+    # OPTIONAL: a fresh clone has them, but a clone that has never run the
+    # builder must not go red for a file no test needs to exist.
+    "kdst_weekly_history.schema.json": "kdst_weekly_history.json",
+    "kdst_backtest.schema.json": "kdst_backtest.json",
+    # R76 — the MY PARLAYS candidate leg pool and the calibration verdict behind
+    # it. Both are runner-built from the same nflverse corpus the parlay gate
+    # reads, so both are OPTIONAL: present on a normal clone, absent on one that
+    # has never run the builder, and strictly validated whenever present.
+    "leg_pool.schema.json": "leg_pool.json",
+    "leg_pool_backtest.schema.json": "leg_pool_backtest.json",
+    "game_context.schema.json": "game_context.json",
+    "scheme_history.schema.json": "scheme_history.json",
+    "dvp_positional_history.schema.json": "dvp_positional_history.json",
+    # R30: was the ONE contract missing from this map, so the crons never checked
+    # it (only tests/feature/preseason.test.mjs did). The builder is standalone
+    # and unwired (see its docstring), but the committed artifact still gets the
+    # same gate as every other data/ file.
+    "preseason_form.schema.json": "preseason_form.json",
+    # R45 — facts-only rookie starters (no projection field by contract).
+    "rookie_starters.schema.json": "rookie_starters.json",
+    # R49 — Sleeper's own weekly projections, DISPLAY-ONLY (never a model input;
+    # check_market_price_fields scans it like every other doc). Runner-built.
+    "sleeper_projections.schema.json": "sleeper_projections.json",
+    # R98 — the compact Sleeper player index LINEUP's automatic roster sync
+    # reads. Runner-built from the same dump; never a model input.
+    "sleeper_index.schema.json": "sleeper_index.json",
+    # R99 E1 — the anytime-TD model's walk-forward verdict. Runner-built from
+    # nflverse releases; its `adopted` gates every ATD leg (recomputed below).
+    "atd_backtest.schema.json": "atd_backtest.json",
+    # R101 — this week's ATD probabilities (empty unless the verdict is adopted).
+    "atd_week.schema.json": "atd_week.json",
+    # R101c — this week's WEEK-scope ATD cards and their graded record.
+    "atd_cards.schema.json": "atd_cards.json",
+    "atd_card_scores.schema.json": "atd_card_scores.json",
+    # R101b — the same-game joint pricer's held-out verdict (weekly backtest) and
+    # this week's GAME-scope ATD cards priced by it.
+    "joint_backtest.schema.json": "joint_backtest.json",
+    "atd_game_cards.schema.json": "atd_game_cards.json",
+    # R49 — the learning ledger's resolved scores (0 resolved weeks is a valid,
+    # honest document; an invented MAE is not).
+    "estimate_scores.schema.json": "estimate_scores.json",
+    # R51 — the weekly-split and parlay never-regress backtest records the
+    # MODEL tab's WEEKLY SPLIT GATE / PARLAY GATE cards render. Runner-built
+    # (scripts/backtest_weekly.py, scripts/backtest_parlay.py); every market
+    # number inside is a measurement yardstick, never a model input.
+    "weekly_backtest.schema.json": "weekly_backtest.json",
+    "parlay_backtest.schema.json": "parlay_backtest.json",
+    # R58 — the parlay-leg ledger's resolved scores (scripts/resolve_parlay_legs.py).
+    # 0 resolved weeks is a valid, honest document; implied_prob inside is the
+    # yardstick the leg was measured beside, never an input.
+    "parlay_leg_scores.schema.json": "parlay_leg_scores.json",
+    # R70 — the OL / DL-front LINE REPORT: facts (depth-chart starters x injury
+    # report) read by the LINEUP / GRADE / PLAYERS chips; changes no number.
+    # Runner-built; the honest available:false document is also valid.
+    "line_report.schema.json": "line_report.json",
+    # R71 — the post-game review (scripts/build_review.py): measured attribution
+    # over lock receipts, finals, the calibrated band and the stat line.
+    "review.schema.json": "review.json",
+    # R73 — the parlay-archive index (scripts/build_parlay_archive.py).
+    "parlays_index.schema.json": "parlays/index.json",
+    # R77 — each team's latest depth chart (QB), the source the this-week gate
+    # reads. Runner-built (nflverse); the last-good file stands in on a failure.
+    "depth_chart.schema.json": "depth_chart.json",
+    # R79 — the posted game-day inactive lists inside the window; absent by
+    # design outside it (build_predictions removes the file).
+    "inactives.schema.json": "inactives.json",
+    # R81 — the PARLAY REPLAY LAB (scripts/replay_lab.py): candidate parlay
+    # rules replayed against the weeks already played. MEASURE ONLY — nothing
+    # in it is adopted and nothing in it writes a shipped number. Runner-built
+    # after the leg resolver, so OPTIONAL like its neighbours; a 0-resolved-week
+    # document is valid and carries nulls, never zeros.
+    "replay_lab.schema.json": "replay_lab.json",
+    # R105 — every learning loop's live state (scripts/build_learning_loops.py),
+    # read by the MODEL tab only. Runner-built, OPTIONAL like its neighbours.
+    "learning_loops.schema.json": "learning_loops.json",
+    # R110 — the facts MY BETS grades the owner's on-device bets with
+    # (scripts/build_bet_facts.py), read by the PARLAYS BETS mode only.
+    # Runner-built, OPTIONAL like its neighbours, strict when present.
+    "bet_facts.schema.json": "bet_facts.json",
+    # R92 - the QB DEPTH CASCADE backtest (scripts/backtest_qb_depth.py): the
+    # walk-forward measurement behind the `qb_depth` candidate family. MEASURE
+    # ONLY - it adopts nothing and writes no model parameter, and the family it
+    # describes stays applied=false until the weekly promotion run adopts it.
+    # Runner-built (the substrate needs the nflverse depth-chart releases), so
+    # OPTIONAL like its neighbours and strict whenever present.
+    "qb_depth_backtest.schema.json": "qb_depth_backtest.json",
+    # R92 - the BACKUP-QB CASCADE backtest (scripts/backtest_backup_qb.py): what a
+    # team's receivers and backs do when the starting quarterback is out, measured
+    # walk-forward on the shipped weekly number. MEASURE ONLY - it adopts nothing
+    # and no builder reads it. Runner-built (the substrate needs the nflverse
+    # depth-chart releases), so OPTIONAL like its neighbours, strict when present.
+    "backup_qb_backtest.schema.json": "backup_qb_backtest.json",
+    # R87 - the graded MY PARLAYS cards (scripts/resolve_my_cards.py). The offered
+    # cards themselves live per week under data/my_cards/ and are walked below.
+    # 0 graded cards is a valid, honest document; every metric in it is null.
+    "my_card_scores.schema.json": "my_card_scores.json",
+    # R88 (F17) - the PER-STAGE pipeline record (scripts/stage_status.py, written
+    # through the scripts/stage.sh wrapper every pipeline step now runs under).
+    # pipeline_status.json is written INSIDE build_predictions, so it describes
+    # the lock half of the graph only; this one carries a row per STEP with its
+    # status, exit code and last success, which is how a continue-on-error
+    # resolver outage becomes visible instead of staying in the Actions log.
+    "pipeline_stages.schema.json": "pipeline_stages.json",
+    # R94 - the WEATHER EFFECT measurement (scripts/backtest_weather.py). MEASURE
+    # ONLY: verdict.adopted is pinned to the literal false and families_registered
+    # is pinned empty by the contract, so the document cannot record an adoption
+    # even if a future edit to the script tried to claim one. No builder reads it
+    # and no shipped number depends on it. Runner-built (backtest.yml, after the
+    # promotion gate), so OPTIONAL like its R92 neighbours and strict when present.
+    "weather_backtest.schema.json": "weather_backtest.json",
+    # R94 - the play-level rate substrate the measurement's mechanism arm needs
+    # (scripts/build_wet_rates.py). MEASURE ONLY - it is a denominator corpus, not
+    # a model input. It lives under data/fixtures/ because that is where the
+    # builder writes it, and the SAME contract also validates its team_week sibling
+    # in that directory (one schema, two units); build_wet_rates' own --selftest
+    # validates both on every run, and this map checks the player document the
+    # within-player pairing reads. OPTIONAL: the pull is an nflverse release the
+    # sandbox proxy can refuse, and a clone that has never run the builder must not
+    # go red for a file no shipped number reads.
+    "wet_rates.schema.json": "fixtures/wet_rates/player_week_rates.json",
+    # R94 - the append-only pre-kickoff forecast archive (scripts/archive_weather_
+    # forecast.py). MEASURE ONLY, and read by NOTHING: it exists so a later,
+    # leakage-free measurement has a pre-kickoff series to fit on. The daily cron
+    # creates it on its first run and appends to it thereafter, so it is absent on
+    # a fresh clone by design - OPTIONAL - and strictly validated whenever present.
+    "weather_forecast_archive.schema.json": "weather_forecast_archive.json",
+}
+
+def check_ledger_locks(doc, label):
+    """R105b — every player's locks match the ledger's own rule exactly
+    (build_estimate_ledger.lock_eligible): a lock for each week whose kickoff fell
+    while he was projected on both sides of it, none inside a recorded absence.
+    A missing lock is a deleted receipt (the R103 defect); an extra one grades a
+    claim the model had stopped making (the stale-estimate lock R105b closed).
+    WARN-only here: a schedule correction (reconcile_schedule moving a kickoff)
+    can disagree with a lock made under the old time, and a red validate step
+    would stop the pipeline's data commit. tests/feature/r105b_ledger_heal
+    enforces it on CI and data-ci, which open an issue instead of blocking data."""
+    from scripts.build_estimate_ledger import kickoffs_by_week, lock_violations  # noqa: PLC0415
+    sched_path = os.path.join(DATA, "schedule_full.json")
+    if not os.path.exists(sched_path):
+        return
+    bad = lock_violations(doc, kickoffs_by_week(_load(sched_path).get("games") or []))
+    if bad:
+        print("WARN  %s: %d player-week lock(s) disagree with the lock rule, e.g. %s"
+              % (label, len(bad), bad[:5]))
+    else:
+        print("ok    %-36s locks match the lock rule" % label)
+
+
+# R49 — the estimate ledger lives per season under data/estimates/ (one file a
+# season, compact) and is validated like the snapshot directory below.
+ESTIMATES_DIR = os.path.join(DATA, "estimates")
+ESTIMATES_SCHEMA = "estimate_ledger.schema.json"
+# R58 — the parlay-leg ledger shares the directory (parlays_<season>.json) and
+# has its own contract; routed by filename prefix below.
+PARLAY_LEDGER_PREFIX = "parlays_"
+PARLAY_LEDGER_SCHEMA = "parlay_ledger.schema.json"
+# R73 — the per-week parlay archive (data/parlays/<season>_wk<NN>.json, one file a
+# week, frozen once the week is FINAL) is walked like the ledger directory; its
+# index (data/parlays/index.json) is a registered OPTIONAL file below.
+PARLAY_ARCHIVE_DIR = os.path.join(DATA, "parlays")
+PARLAY_ARCHIVE_SCHEMA = "parlays_archive.schema.json"
+# R87 - the MY PARLAYS offered-card record (data/my_cards/<season>_wk<NN>.json, one
+# file a week, appended on first sight and never rewritten) is walked the same way.
+MY_CARDS_DIR = os.path.join(DATA, "my_cards")
+MY_CARDS_SCHEMA = "my_cards.schema.json"
+# R101c - the ATD card record (data/atd_cards/<season>_wk<NN>.json), same shape of walk.
+ATD_CARDS_DIR = os.path.join(DATA, "atd_cards")
+ATD_CARDS_RECORD_SCHEMA = "atd_cards_record.schema.json"
+ATD_GAME_CARDS_DIR = os.path.join(DATA, "atd_game_cards")
+ATD_MY_CARDS_DIR = os.path.join(DATA, "atd_my_cards")          # R101d — MY TD cards
+
+# Files whose FIRST build happens on a GitHub runner (the sandbox proxy blocks
+# their upstream): validated strictly when present, but absence is not a
+# failure until the bootstrap workflow has run.
+OPTIONAL_DATA = frozenset([
+    # R55 — both are built from nflverse releases on a runner.
+    "kdst_weekly_history.json", "kdst_backtest.json",
+    # R76 — the leg pool and its calibration verdict.
+    "leg_pool.json", "leg_pool_backtest.json",
+    "epa_history.json", "weather_history.json", "weather_forecast.json",
+    "market_baseline.json", "injury_history.json", "player_usage.json",
+    "player_usage_history.json", "player_usage_weekly.json",
+    "ros_backtest.json", "player_backtest.json",
+    "adp_history.json", "game_context.json",
+    # All three Rel18 artifacts are runner-built and refreshed by the same
+    # weekly workflow (.github/workflows/backtest.yml), so they belong to this
+    # set together — game_context.json shipped here alone while its two
+    # siblings were treated as required, which reds a fresh clone.
+    "scheme_history.json", "dvp_positional_history.json",
+    # Written only by the standalone, unwired scripts/build_preseason.py —
+    # validated strictly when present, but its absence cannot red a clone.
+    "preseason_form.json",
+    # R49 — produced by the daily runner (network: api.sleeper.app). Deliberately
+    # NOT committed from the fixture: that would be fabricated provenance.
+    "sleeper_projections.json",
+    # R98 — same runner, same network, same reason: absent until the first run.
+    "sleeper_index.json",
+    # R99 E1 — weekly runner, nflverse network; absent until the first run.
+    "atd_backtest.json",
+    # R101 — daily runner, nflverse network; absent until the first run.
+    "atd_week.json",
+    # R101c — built / graded by the daily runner; absent until the first run.
+    "atd_cards.json", "atd_card_scores.json",
+    # R101b — weekly / daily runner; absent until the first run.
+    "joint_backtest.json", "atd_game_cards.json",
+    # R51 — both backtest records are produced by the gate / daily runner. A
+    # clone without them is not red; a present file is validated strictly.
+    "weekly_backtest.json", "parlay_backtest.json",
+    # R58 — written by the daily runner after the parlay ledger append; absent
+    # on a fresh clone until the first resolve, validated strictly when present.
+    "parlay_leg_scores.json",
+    # R70 — runner-built line report; absent on a fresh clone, strict when present.
+    "line_report.json",
+    # R71 — runner-built (finals + nflverse stats); a clone without it is not red.
+    "review.json",
+    # R73 — written by the archive step (daily + gameday); absent until the first
+    # run, validated strictly when present.
+    "parlays/index.json",
+    # R77 — the depth chart behind the QB gate (nflverse, runner-built).
+    "depth_chart.json",
+    # R79 — present only while a game is inside the inactives window.
+    "inactives.json",
+    # R81 — the replay lab, written by the daily runner right after the parlay-leg
+    # resolver; absent on a clone that has never run it, strict when present.
+    "replay_lab.json",
+    # R105 — the learning-loop record; absent until the first runner build.
+    "learning_loops.json",
+    # R110 — the MY BETS facts; absent until the first runner build.
+    "bet_facts.json",
+    # R87 — the graded MY cards, written right after the parlay-leg resolver;
+    # absent until the first run, validated strictly when present.
+    "my_card_scores.json",
+    # R88 — the per-stage record is written BY the runner, one row per step as
+    # each step finishes. A fresh clone has never run a stage, so its absence is
+    # the honest state and may not red the gate; when present it is strict.
+    "pipeline_stages.json",
+    # R92 — the QB depth cascade measurement. Its substrate needs the nflverse
+    # depth-chart releases, which the sandbox proxy can refuse, so a clone that
+    # has never run it must not go red for a file no shipped number reads.
+    "qb_depth_backtest.json",
+    "backup_qb_backtest.json",
+    # R94 - all three weather artifacts are runner-built and none is read by any
+    # builder, so absence is the honest state of a fresh clone rather than a
+    # fault. The backtest is written by backtest.yml after the promotion gate;
+    # the rate substrate needs an nflverse release pull (the committed file is a
+    # synthetic placeholder the measurement itself refuses to measure on); the
+    # forecast archive does not exist until the daily cron appends to it for the
+    # first time. Each one is validated STRICTLY the moment it is present.
+    "weather_backtest.json",
+    "fixtures/wet_rates/player_week_rates.json",
+    "weather_forecast_archive.json",
+])
+
+# The signal registry, imported from its single source of truth (QA-D5,
+# 2026-08-26). This was a pasted literal, with a stated rationale of "zero
+# local imports — runs even if the signals package is mid-edit". That property
+# was a blind spot, not robustness: renaming or reordering a signal in
+# registry.py redded nothing anywhere (this mirror and the one in
+# signal_registry.test.mjs were both order-blind and both hand-maintained).
+# If this import fails, the registry package is broken and the gate SHOULD
+# be red.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts.signals.registry import SIGNALS as _REGISTRY_SIGNALS  # noqa: E402
+
+EXPECTED_SIGNALS = list(_REGISTRY_SIGNALS)
+
+# Ordered severity for the pipeline-health honesty check.
+_STATUS_SEVERITY = {"ok": 0, "stale": 1, "degraded": 2, "down": 3}
+
+
+class ValidationError(Exception):
+    """A single contract or invariant violation, with a human-readable path."""
+
+
+# ---------------------------------------------------------------------------
+# Minimal draft-07 subset validator.
+# ---------------------------------------------------------------------------
+
+def _type_ok(value, type_name):
+    """Return True if `value` matches a single JSON Schema `type` name.
+
+    Note the bool/int trap: in Python `True`/`False` are ints, but JSON Schema
+    treats booleans and numbers as distinct. We exclude bool from integer/number
+    and vice-versa so a stray boolean can never masquerade as a count.
+    """
+    if type_name == "object":
+        return isinstance(value, dict)
+    if type_name == "array":
+        return isinstance(value, list)
+    if type_name == "string":
+        return isinstance(value, str)
+    if type_name == "boolean":
+        return isinstance(value, bool)
+    if type_name == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if type_name == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if type_name == "null":
+        return value is None
+    raise ValidationError("unknown schema type %r" % (type_name,))
+
+
+def _check_type(value, schema, path, errors):
+    """Validate the `type` keyword, which may be a string or a list of strings."""
+    if "type" not in schema:
+        return True
+    t = schema["type"]
+    types = t if isinstance(t, list) else [t]
+    if not any(_type_ok(value, tn) for tn in types):
+        errors.append("%s: expected type %s, got %s"
+                      % (path, "|".join(types), type(value).__name__))
+        return False
+    return True
+
+
+def _validate(value, schema, path, errors):
+    """Recursively validate `value` against `schema`, collecting error strings.
+
+    Returns nothing; appends to `errors`. We keep going after a failure so one
+    run reports as many problems as possible instead of one-at-a-time.
+    """
+    # $ref: NOT resolved here, and never silently skipped. A schema node holding
+    # only a $ref has no type/required/properties, so before R30 it validated
+    # NOTHING — six of them left market_prices.schema.json a no-op below the top
+    # level. Failing loudly turns the next $ref into a red gate instead of a hole.
+    if "$ref" in schema:
+        errors.append(
+            "%s: schema uses $ref %r — this validator does not resolve $ref "
+            "(it would be an unvalidated hole); inline the definition instead, "
+            "as player_backtest/ros_backtest/player_usage_weekly already do"
+            % (path, schema["$ref"]))
+        return
+
+    # R101 — the combinators and `const` are NOT implemented either, and a node
+    # that uses one validates nothing for that keyword. atd_backtest.schema.json
+    # shipped `oneOf` and `const` in R99 and neither was checked; now they red.
+    unsupported = sorted(k for k in ("const", "oneOf", "anyOf", "allOf", "not")
+                         if k in schema)
+    if unsupported:
+        errors.append("%s: schema uses %s — this validator does not implement it (it "
+                      "would be an unvalidated hole); use enum / a nullable type instead"
+                      % (path, ", ".join(unsupported)))
+        return
+
+    # type (gate the rest on it: e.g. don't check `properties` on a non-object)
+    if not _check_type(value, schema, path, errors):
+        return
+
+    # enum
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append("%s: value %r not in enum %r" % (path, value, schema["enum"]))
+
+    # numeric bounds (only meaningful for numbers; skip bools)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            errors.append("%s: %r < minimum %r" % (path, value, schema["minimum"]))
+        if "maximum" in schema and value > schema["maximum"]:
+            errors.append("%s: %r > maximum %r" % (path, value, schema["maximum"]))
+        # draft-07 numeric form: the bound itself is excluded.
+        if "exclusiveMinimum" in schema and value <= schema["exclusiveMinimum"]:
+            errors.append("%s: %r <= exclusiveMinimum %r"
+                          % (path, value, schema["exclusiveMinimum"]))
+        if "exclusiveMaximum" in schema and value >= schema["exclusiveMaximum"]:
+            errors.append("%s: %r >= exclusiveMaximum %r"
+                          % (path, value, schema["exclusiveMaximum"]))
+
+    # string: minLength, pattern (re.search — draft-07 patterns are unanchored)
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            errors.append("%s: string length %d < minLength %d"
+                          % (path, len(value), schema["minLength"]))
+        if "pattern" in schema and re.search(schema["pattern"], value) is None:
+            errors.append("%s: %r does not match pattern %r"
+                          % (path, value, schema["pattern"]))
+
+    # object: required, properties, additionalProperties
+    if isinstance(value, dict):
+        if "minProperties" in schema and len(value) < schema["minProperties"]:
+            errors.append("%s: object has %d properties, minProperties %d"
+                          % (path, len(value), schema["minProperties"]))
+        if "maxProperties" in schema and len(value) > schema["maxProperties"]:
+            errors.append("%s: object has %d properties, maxProperties %d"
+                          % (path, len(value), schema["maxProperties"]))
+        for req in schema.get("required", []):
+            if req not in value:
+                errors.append("%s: missing required property '%s'" % (path, req))
+        props = schema.get("properties", {})
+        addl = schema.get("additionalProperties", True)
+        for key, sub in value.items():
+            child = "%s.%s" % (path, key)
+            if key in props:
+                _validate(sub, props[key], child, errors)
+            elif addl is False:
+                errors.append("%s: additional property '%s' not allowed" % (path, key))
+            elif isinstance(addl, dict):
+                # additionalProperties as a subschema (used by meta.weights,
+                # meta.models, pipeline feeds) — validate the value against it.
+                _validate(sub, addl, child, errors)
+            # addl is True (or missing) => anything goes; nothing to check.
+
+    # array: items, minItems, maxItems
+    if isinstance(value, list):
+        if "minItems" in schema and len(value) < schema["minItems"]:
+            errors.append("%s: array has %d items, minItems %d"
+                          % (path, len(value), schema["minItems"]))
+        if "maxItems" in schema and len(value) > schema["maxItems"]:
+            errors.append("%s: array has %d items, maxItems %d"
+                          % (path, len(value), schema["maxItems"]))
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for i, elem in enumerate(value):
+                _validate(elem, item_schema, "%s[%d]" % (path, i), errors)
+
+
+def validate_against_schema(data, schema, label):
+    """Validate `data` against `schema`; raise ValidationError listing all misses."""
+    errors = []
+    _validate(data, schema, label, errors)
+    if errors:
+        raise ValidationError("%s failed schema validation:\n  - %s"
+                              % (label, "\n  - ".join(errors)))
+
+
+# ---------------------------------------------------------------------------
+# Cross-file invariants.
+# ---------------------------------------------------------------------------
+
+# MARKET INDEPENDENCE (user policy, PERMANENT): market-price signals are
+# DISPLAY ONLY. They are pinned to weight 0.0 forever — even after the day-zero
+# rule relaxes for earned signals, these may never be fitted. Any optimizer
+# that writes a non-zero weight here reds the gate and nothing deploys.
+MARKET_DISPLAY_ONLY = frozenset([
+    "market_spread", "market_moneyline", "market_total",
+    "odds_api", "kalshi", "polymarket",
+])
+
+# The DATA-FIELD half of the same permanent policy. MARKET_DISPLAY_ONLY above pins
+# market SIGNAL WEIGHTS at 0.0; these are the market PRICE FIELDS carried in data/
+# for display and value flags only — the drafter market (`adp`) and the ESPN draft
+# room's average winning bid (`auction_value`, kona ownership.auctionValueAverage).
+#
+# They are named here, not in MARKET_DISPLAY_ONLY, because that set is a SIGNAL
+# registry mirror (app/views/model.js MARKET_SIGNALS badges it name-for-name); a
+# data field is not a signal and must not appear in the weight table. Same policy,
+# enforced on the surface it actually has: check_market_price_fields() below fails
+# the gate if one of these ever turns up as a fitted weight, a registry signal, or
+# a field on a projection record — i.e. if a market price becomes an INPUT.
+MARKET_PRICE_FIELDS = frozenset(["adp", "auction_value"])
+
+
+def check_meta_weights(meta):
+    """Every registry signal present at exactly 0.0, and no unexpected extras.
+
+    When signals start earning weight the blanket 0.0 assertion will relax —
+    but the MARKET_DISPLAY_ONLY subset stays pinned at 0.0 permanently (the
+    dedicated loop below stands on its own so relaxing day-zero cannot
+    accidentally unpin the market signals)."""
+    weights = meta.get("weights", {})
+    problems = []
+    for name in EXPECTED_SIGNALS:
+        if name not in weights:
+            problems.append("missing signal '%s'" % name)
+        elif weights[name] != 0.0:
+            problems.append("signal '%s' is %r, expected 0.0 (day-zero rule)"
+                            % (name, weights[name]))
+    for name in MARKET_DISPLAY_ONLY:
+        if weights.get(name, 0.0) != 0.0:
+            problems.append(
+                "signal '%s' is %r — MARKET DISPLAY-ONLY POLICY: market prices "
+                "are never weighted into predictions" % (name, weights[name]))
+    extra = set(weights) - set(EXPECTED_SIGNALS)
+    if extra:
+        problems.append("unexpected weight(s): %s" % ", ".join(sorted(extra)))
+    if len(weights) != len(EXPECTED_SIGNALS):
+        problems.append("weight count %d != expected %d"
+                        % (len(weights), len(EXPECTED_SIGNALS)))
+    if problems:
+        raise ValidationError("meta.json weights invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+def market_price_keys_deep(node, _parent_key=None):
+    """Every MARKET_PRICE_FIELDS name used as a KEY anywhere inside `node`.
+
+    Recursive because the surfaces this guards are nested: a parlay leg is a
+    dict inside a list inside a dict, and a JSON-Schema declares its fields two
+    or three `properties` levels down. A top-level `set(doc)` check would miss
+    both, which is exactly how a price field would get in unnoticed.
+
+    JSON-Schema `required` arrays are string LISTS, not keys, so they are read
+    too — but only under `required`, so an ordinary data value that happens to
+    read "adp" is not mistaken for a field name.
+    """
+    found = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in MARKET_PRICE_FIELDS:
+                found.add(key)
+            found |= market_price_keys_deep(value, key)
+    elif isinstance(node, list):
+        for item in node:
+            if _parent_key == "required" and item in MARKET_PRICE_FIELDS:
+                found.add(item)
+            found |= market_price_keys_deep(item, _parent_key)
+    return found
+
+
+# ---------------------------------------------------------------------------
+# R30 — the same policy, generalised past the two feeds that were caught.
+# ---------------------------------------------------------------------------
+# MARKET_PRICE_FIELDS names PRICES ("adp", "auction_value"). The parlay defect
+# was a market PROBABILITY: a de-vigged sportsbook number, which carries none of
+# those names. check_parlay_model_independence() now recomputes parlay legs from
+# our own model and catches it there — but only there, on one file.
+#
+# This is the general boundary, and it is deliberately a NAME scan rather than a
+# recomputation: the names below only ever originate in scripts/scrape/odds_api.py
+# (or a future book scraper), so their PRESENCE inside a document we produce as a
+# model output is itself the defect, whatever value they hold. A name scan also
+# keeps working for a feed that has no model to recompute against — which is
+# every feed we have not written a model for yet, and therefore exactly the case
+# a market number is most tempting to borrow for.
+#
+# `implied_prob` is the one legitimate carrier: it IS the display column, and
+# parlays.json is the one document allowed to hold it. Anywhere else, and any
+# other name from this set anywhere at all, is a market number that has reached
+# an artifact the app presents as ours.
+MARKET_DERIVED_PROB_FIELDS = frozenset([
+    "home_cover_prob", "away_cover_prob", "over_prob", "under_prob",
+    "devig_prob", "vig_free_prob", "book_prob", "implied_prob",
+])
+# Documents whose every number the app presents as OUR model's.
+MODEL_OUTPUT_DOCS = ("player_projections.json", "player_weekly.json",
+                     "game_predictions.json", "ai_insights.json")
+
+
+def keys_deep(node, names, _parent_key=None):
+    """Every name in `names` used as a KEY (or listed under `required`) inside."""
+    found = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in names:
+                found.add(key)
+            found |= keys_deep(value, names, key)
+    elif isinstance(node, list):
+        for item in node:
+            if _parent_key == "required" and item in names:
+                found.add(item)
+            found |= keys_deep(item, names, _parent_key)
+    return found
+
+
+def check_market_probabilities(docs, parlay_doc=None):
+    """No book-derived PROBABILITY may sit on a model-output artifact.
+
+    `docs` is (label, document) pairs for the model outputs; `parlay_doc` is
+    parlays.json, which may carry `implied_prob` and nothing else from the set.
+    """
+    problems = []
+    for label, doc in docs:
+        leaked = keys_deep(doc, MARKET_DERIVED_PROB_FIELDS)
+        if leaked:
+            problems.append(
+                "%s carries book-derived probability field(s): %s — every number "
+                "in this document is presented as OUR model's, so a sportsbook "
+                "probability may not appear in it at any depth"
+                % (label, ", ".join(sorted(leaked))))
+    if parlay_doc is not None:
+        leaked = keys_deep(parlay_doc, MARKET_DERIVED_PROB_FIELDS) - {"implied_prob"}
+        if leaked:
+            problems.append(
+                "parlays.json carries book-derived probability field(s) beyond the "
+                "display column: %s — implied_prob is the ONLY market number a "
+                "parlay leg may hold, and it is display-only"
+                % ", ".join(sorted(leaked)))
+    if problems:
+        raise ValidationError(
+            "MARKET PRICES ARE DISPLAY-ONLY (CLAUDE.md, owner policy):\n  - %s"
+            % "\n  - ".join(problems))
+
+
+def check_market_price_fields(meta, projections, proj_schema, extra_docs=()):
+    """No market PRICE FIELD may become an input (permanent user policy).
+
+    A market price is allowed to be displayed and to flag value; it is never
+    allowed to move a number we produce. The doors it could walk through:
+
+      1. data/meta.json `weights` — a fitted weight on a price field;
+      2. EXPECTED_SIGNALS — a price field registered as a signal at all;
+      3. a player_projections record (or its contract) carrying the field,
+         which is how a price would ride into the engine as a covariate;
+      4. any OTHER produced artifact carrying the field — `extra_docs` is
+         `[(label, document), ...]`, deep-scanned by market_price_keys_deep().
+
+    Door 4 exists because the policy names parlay probability explicitly, and
+    doors 1-3 covered neither data/parlays.json nor data/game_predictions.json:
+    a price landing on a parlay leg or a game prediction is a price that has
+    reached an output, and nothing red. The call site passes both files AND
+    their contracts, so declaring the field is caught as well as carrying it.
+
+    All of it is shut here so the boundary is mechanical, not conventional.
+    ADP shipped protected by contract prose alone; auction_value joins it with
+    this check, and ADP is retro-fitted into it by the same pass.
+    """
+    problems = []
+    weights = meta.get("weights", {})
+    for name in sorted(MARKET_PRICE_FIELDS):
+        if name in weights:
+            problems.append(
+                "'%s' has a weight (%r) — MARKET PRICES ARE DISPLAY ONLY: a market "
+                "price may never be a fitted input" % (name, weights[name]))
+        if name in EXPECTED_SIGNALS:
+            problems.append(
+                "'%s' is registered as a signal — market prices are display only"
+                % name)
+    declared = set((proj_schema.get("properties", {})
+                    .get("players", {}).get("items", {})
+                    .get("properties", {}) or {}))
+    leaked_schema = MARKET_PRICE_FIELDS & declared
+    if leaked_schema:
+        problems.append(
+            "player_projections.schema.json declares market price field(s): %s"
+            % ", ".join(sorted(leaked_schema)))
+    for row in projections.get("players", []):
+        leaked = MARKET_PRICE_FIELDS & set(row)
+        if leaked:
+            problems.append(
+                "projection record %s carries market price field(s): %s"
+                % (row.get("gsis_id"), ", ".join(sorted(leaked))))
+            break  # one example is enough; the whole build is wrong
+    for label, doc in extra_docs or ():
+        leaked = market_price_keys_deep(doc)
+        if leaked:
+            problems.append(
+                "%s carries market price field(s) at some depth: %s — a market "
+                "price may be DISPLAYED, never carried on a produced artifact"
+                % (label, ", ".join(sorted(leaked))))
+    if problems:
+        raise ValidationError("market price fields must stay DISPLAY ONLY:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+_PARLAY_MODELLED_MARKETS = ("moneyline", "spread")
+_PARLAY_BANNED_MARKETS = {
+    "total": ("no scoring/total model exists in this repo, so P(over) could only be "
+              "the book's price or a seed"),
+}
+_SPREAD_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ([+-]?\d+(?:\.\d+)?)$")
+_ML_SELECTION_RE = re.compile(r"^([A-Z]{2,3}) ML$")
+
+
+def check_parlay_one_leg_per_side(parlays, label="parlays.json"):
+    """No parlay may carry two bets on the SAME TEAM'S OUTCOME in one game.
+
+    A moneyline on a team and that team's spread are one opinion: winning
+    outright guarantees the cover on any non-negative handicap, so stacking them
+    quotes a payout for risk the bettor never took. The builder refuses the pair
+    (parlay_builder.same_side_game_pair); this checks the SHIPPED document, so a
+    hand-edited file or a future writer cannot reintroduce it.
+
+    The written legs carry no side field — it is stripped before write — so the
+    team is read off the selection's leading token, which is how both 'BUF ML'
+    and 'BUF -5.5' name their side.
+
+    Owner rule, 2026-09-16. It shipped on 16 of 66 week-2 parlays before this
+    existed, because the builder then ranked pairs by |rho| (R126: joint
+    probability now) and this pair is the strongest correlation in the table.
+    """
+    problems = []
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+        sides = {}
+        for leg in parlay.get("legs", []) or []:
+            if leg.get("market") not in _PARLAY_MODELLED_MARKETS:
+                continue
+            token = str(leg.get("selection", "")).split(" ")[0].strip()
+            if not token:
+                continue
+            sides.setdefault(token, []).append(str(leg.get("selection", "")))
+        for team, sels in sorted(sides.items()):
+            if len(sels) > 1:
+                problems.append(
+                    "%s stacks %d bets on %s's own outcome (%s)"
+                    % (pid, len(sels), team, ", ".join(sorted(sels))))
+    if problems:
+        raise ValidationError(
+            "%s: one leg per game side — a moneyline and that team's spread are "
+            "one opinion, not two legs:\n  - %s"
+            % (label, "\n  - ".join(problems)))
+
+
+def check_parlay_coverage(parlays, games, weekly, projections, excluded_ids=()):
+    """Current publication only: distinct cards or an exact candidate shortfall."""
+    from scripts.models.parlay_builder import parlay_coverage_problems, build_props_by_game
+    excluded = {str(x) for x in excluded_ids}
+    ids = {str(g["game_id"]) for g in games.get("games", [])
+           if str(g["game_id"]) not in excluded}
+    props = None
+    if (parlays.get("candidate_coverage") or {}).get("game_shortfalls"):
+        props = build_props_by_game(games.get("games", []), weekly, projections)
+    problems = parlay_coverage_problems(parlays, ids, props)
+    if problems:
+        raise ValidationError("parlay candidate coverage: " + "; ".join(problems))
+
+
+def check_no_unplayable_legs(weekly, parlays, leg_pool=None):
+    """R77: no shipped prop leg is priced on a player who does not play this week.
+
+    weekly   : data/player_weekly.json (the gate lives on its rows).
+    parlays  : data/parlays.json — every prop leg (qb_pass_yds / rb_rush_yds /
+               wr_rec_yds) must name its player (`gsis_id`), that player's row
+               must not say this_week.playable false, and his row for
+               parlays.week must not be avail:false. A leg's `availability`
+               may only be QUESTIONABLE and only when his row says so.
+    leg_pool : data/leg_pool.json (optional) — the same three rules per pooled
+               player, plus counts.not_playable must be stated.
+
+    Applies only to a document built WITH the gate (model.this_week present);
+    an older weekly file has no fact to check against and is not faked green
+    or red — the schema gate still covers it.
+    """
+    gate_meta = (weekly.get("model") or {}).get("this_week")
+    if not isinstance(gate_meta, dict):
+        return
+    rows = {p.get("gsis_id"): p for p in weekly.get("players", []) or []}
+    problems = []
+
+    def judge(label, gsis, sel, avail_label, wk):
+        rec = rows.get(gsis)
+        if rec is None:
+            problems.append("%s: %s names %r, not in player_weekly.json" % (label, sel, gsis))
+            return
+        eligibility = rec.get("eligibility") or {}
+        if eligibility.get("eligible") is False and eligibility.get("week") in (None, wk):
+            problems.append("%s: %s is offered with unverified source eligibility (%s)"
+                            % (label, sel, eligibility.get("detail")))
+        tw = rec.get("this_week")
+        if isinstance(tw, dict) and tw.get("playable") is False:
+            problems.append("%s: %s is priced on a player who does not play this week "
+                            "(%s%s)" % (label, sel, tw.get("reason"),
+                                       " " + str(tw.get("status") or tw.get("depth") or "")))
+        row = next((w for w in rec.get("weeks", []) if w.get("wk") == wk), None)
+        if row is not None and row.get("avail") is False:
+            problems.append("%s: %s is priced on a zeroed week (wk%s avail:false)"
+                            % (label, sel, wk))
+        st = (rec.get("availability") or {}).get("status")
+        if avail_label is not None:
+            if avail_label != "QUESTIONABLE":
+                problems.append("%s: %s carries availability %r; only QUESTIONABLE is "
+                                "priced" % (label, sel, avail_label))
+            elif st != "QUESTIONABLE":
+                problems.append("%s: %s labelled QUESTIONABLE but his row says %r"
+                                % (label, sel, st))
+        elif st == "QUESTIONABLE":
+            problems.append("%s: %s is QUESTIONABLE but the leg does not say so"
+                            % (label, sel))
+
+    wk = (parlays or {}).get("week")
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+        for leg in parlay.get("legs", []) or []:
+            if leg.get("market") not in _PROP_MARKETS:
+                continue
+            sel = leg.get("selection")
+            if not leg.get("gsis_id"):
+                problems.append("parlays.json %s: prop leg %r names no gsis_id, so the "
+                                "gate cannot be checked" % (pid, sel))
+                continue
+            judge("parlays.json %s" % pid, leg["gsis_id"], sel, leg.get("availability"), wk)
+
+    if leg_pool is not None:
+        counts = leg_pool.get("counts") or {}
+        if "not_playable" not in counts:
+            problems.append("leg_pool.json: counts.not_playable is not stated — a pool "
+                            "built without the gate")
+        for row in leg_pool.get("players", []) or []:
+            judge("leg_pool.json", row.get("gsis_id"), row.get("player"),
+                  row.get("availability"), leg_pool.get("week"))
+        # R101 — an anytime-TD leg is a prop leg too.
+        for row in leg_pool.get("atd_legs", []) or []:
+            judge("leg_pool.json atd_legs", row.get("gsis_id"), row.get("player"),
+                  row.get("availability"), leg_pool.get("week"))
+    if problems:
+        raise ValidationError(
+            "no unplayable legs — a player who sits this week is not a bet:\n  - %s"
+            % "\n  - ".join(problems))
+
+
+def check_parlay_model_independence(parlays, predictions, label="parlays.json",
+                                    tol=1.5e-3):
+    """Every parlay leg's `model_prob` is OURS, recomputed, for the team it names.
+
+    parlays     : data/parlays.json document.
+    predictions : data/game_predictions.json document (the slate whose probabilities
+                  the parlays are built from).
+
+    Three rules, all of them the same policy — market prices are DISPLAY ONLY:
+
+      1. A moneyline leg's model_prob equals the game model's win probability for the
+         team the selection names.
+      2. A spread leg's model_prob equals OUR margin model evaluated at the handicap
+         the selection names, for the team the selection names. This is the rule that
+         reds the shipped-before-R30 data, where model_prob was the book's de-vigged
+         cover probability (e.g. TEN -3 at 0.4783, NYG +2.5 at 0.4892, MIN -1.5 at
+         0.4826 — all book numbers, none of them producible by any model here).
+      3. No leg carries a market whose model we do not have (currently: `total`).
+
+    Plus a mechanical tripwire: on a leg that carries a real book price, model_prob
+    and implied_prob must not be the identical number, because after R30 the IMPL
+    column IS the market feed's probability for that game and the MODEL column may
+    never be the same value. Rules 1-2 are the real proof; this one states the policy
+    where a future market has no recomputable model. (A genuine 4-decimal coincidence
+    between our number and the book's would red the gate — ~1 in 10,000 per leg. That
+    is the deliberate trade: a false red is a conversation, a market price wearing our
+    label is the failure this whole check exists to prevent.)
+
+    Legs whose game cannot be resolved on the slate are reported, never skipped
+    quietly — an unresolvable leg is a leg nobody is checking.
+    """
+    problems = []
+    by_team = {}   # team -> (game_id, p_home, is_home)
+    for g in (predictions or {}).get("games", []) or []:
+        gid = g.get("game_id")
+        p_home = (g.get("probs") or {}).get("home")
+        if p_home is None:
+            continue
+        by_team[g.get("home")] = (gid, float(p_home), True)
+        by_team[g.get("away")] = (gid, float(p_home), False)
+
+    for parlay in (parlays or {}).get("parlays", []) or []:
+        pid = parlay.get("parlay_id", "?")
+
+        for leg in parlay.get("legs", []) or []:
+            market = leg.get("market")
+            sel = str(leg.get("selection", ""))
+            mp = leg.get("model_prob")
+            ip = leg.get("implied_prob")
+
+            if market in _PARLAY_BANNED_MARKETS:
+                problems.append(
+                    "%s leg '%s' has market '%s' — %s. Dropping the leg is the "
+                    "honest outcome; re-enable it only with a real model."
+                    % (pid, sel, market, _PARLAY_BANNED_MARKETS[market]))
+                continue
+
+            # R51: a spread leg is pinned to exactly 0.5 below (NO EDGE), so a
+            # book cover price that happens to be 0.5000 is coincidence, not a
+            # copy — the equality rule guards the moneyline column only.
+            if market == "moneyline" and mp is not None \
+                    and ip is not None and float(mp) == float(ip):
+                problems.append(
+                    "%s leg '%s' has model_prob == implied_prob (%.4f) — the IMPL "
+                    "column carries the market feed's probability, so the MODEL "
+                    "column may never equal it" % (pid, sel, float(mp)))
+
+            if market == "moneyline":
+                m = _ML_SELECTION_RE.match(sel)
+                if not m:
+                    problems.append("%s moneyline leg has unparseable selection %r"
+                                    % (pid, sel))
+                    continue
+                team = m.group(1)
+                if team not in by_team:
+                    problems.append("%s leg '%s' names team %s, which is not on the "
+                                    "slate in game_predictions.json" % (pid, sel, team))
+                    continue
+                _gid, p_home, is_home = by_team[team]
+                expected = p_home if is_home else 1.0 - p_home
+                if mp is None or abs(float(mp) - expected) > tol:
+                    problems.append(
+                        "%s leg '%s' model_prob %r != our model's win probability "
+                        "%.4f for %s" % (pid, sel, mp, expected, team))
+
+            elif market == "spread":
+                m = _SPREAD_SELECTION_RE.match(sel)
+                if not m:
+                    problems.append("%s spread leg has unparseable selection %r "
+                                    "(expected e.g. 'KC -3.5')" % (pid, sel))
+                    continue
+                team, point = m.group(1), float(m.group(2))
+                if team not in by_team:
+                    problems.append("%s leg '%s' names team %s, which is not on the "
+                                    "slate in game_predictions.json" % (pid, sel, team))
+                    continue
+                # R51: the Elo-margin cover model measured BELOW a coin flip at
+                # the book's number (log-loss 0.7196 vs 0.6931, 796 games
+                # 2023-25; scripts/backtest_parlay.py), so a spread leg prices
+                # at exactly 0.5 — NO EDGE — until a margin model clears
+                # never-regress. Anything else is either the retired inversion
+                # or a market number wearing the MODEL column.
+                if mp is None or abs(float(mp) - 0.5) > tol:
+                    problems.append(
+                        "%s leg '%s' model_prob %r != 0.5 for %s at %+g — a spread "
+                        "leg carries NO EDGE (R51) and never the book's cover price"
+                        % (pid, sel, mp, team, point))
+
+    if problems:
+        raise ValidationError(
+            "%s: parlay legs must carry OUR probability, never a market price:\n  - %s"
+            % (label, "\n  - ".join(problems)))
+
+
+# The eight betting columns nflverse `nfldata` games.csv ships. Kept as a
+# LITERAL here and never imported from scripts/build_game_context.py: a checker
+# that imports the producer's constants grades the pipeline with the pipeline's
+# own marking scheme. This is the DATA-layer backstop that still fires when the
+# producer and its unit test were both edited.
+BETTING_COLUMNS = frozenset([
+    "away_moneyline", "home_moneyline", "spread_line", "total_line",
+    "over_odds", "under_odds", "away_spread_odds", "home_spread_odds",
+])
+
+
+def _walk_json_keys(node, path="$"):
+    """Yield (json_path, key) for EVERY key at EVERY depth."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = "%s.%s" % (path, key)
+            yield child, key
+            yield from _walk_json_keys(value, child)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _walk_json_keys(value, "%s[%d]" % (path, i))
+
+
+def check_game_context_no_market_columns(context, label="game_context.json"):
+    """No betting column may appear as a key anywhere in the enrichment join.
+
+    MARKET PRICES ARE DISPLAY ONLY (permanent owner policy). data/game_context
+    .json is built from the same games.csv that carries the eight betting
+    columns, so it is the one artifact where a price could ride into a model
+    input. The builder guards this with a positive allow-list; this walks the
+    SHIPPED bytes and fails the gate regardless of what the builder claims.
+    """
+    hits = ["%s (key '%s')" % (p, k) for p, k in _walk_json_keys(context)
+            if k in BETTING_COLUMNS]
+    if hits:
+        raise ValidationError(
+            "%s carries market column(s) — MARKET PRICES ARE DISPLAY ONLY and "
+            "may never reach a model input path:\n  - %s"
+            % (label, "\n  - ".join(hits)))
+
+
+def check_game_context_join(context, corpus_dir, label="game_context.json"):
+    """Every completed corpus game must have a context row.
+
+    A join that silently loses games is the failure mode this artifact exists
+    to avoid: five signal families read it, and a missing row degrades each of
+    them to "neutral" without anything going red. Verified 7,276/7,276 at build
+    time; re-verified here against the SHIPPED file.
+
+    Also asserts the label-only declaration is present and honest — referee and
+    the two QB records are post-game ground truth, never a live model input.
+    """
+    problems = []
+    games = context.get("games") or {}
+
+    declared = context.get("label_only_fields")
+    if declared != ["away_qb", "home_qb", "referee"]:
+        problems.append(
+            "label_only_fields is %r — it must name exactly the three POST-GAME "
+            "fields ['away_qb', 'home_qb', 'referee'] so no family can mistake "
+            "them for live inputs" % (declared,))
+    if context.get("join_key") != "{season}|{week}|{home}|{away}":
+        problems.append("join_key is %r — the one flat key is "
+                        "'{season}|{week}|{home}|{away}'"
+                        % (context.get("join_key"),))
+
+    if os.path.isdir(corpus_dir):
+        covered = {int(k.split("|", 1)[0]) for k in games}
+        compared = missing = 0
+        examples = []
+        for fname in sorted(os.listdir(corpus_dir)):
+            if not (fname.startswith("finals_") and fname.endswith(".json")):
+                continue
+            with open(os.path.join(corpus_dir, fname), encoding="utf-8") as fh:
+                doc = json.load(fh)
+            season = int(doc["season"])
+            if season not in covered:
+                continue
+            for g in doc["games"]:
+                compared += 1
+                key = "%d|%d|%s|%s" % (season, g["week"], g["home"], g["away"])
+                if key not in games:
+                    missing += 1
+                    if len(examples) < 5:
+                        examples.append(key)
+        if missing:
+            problems.append(
+                "%d of %d backtest-corpus games have no context row (e.g. %s) — "
+                "a silent join miss degrades every family that reads this file"
+                % (missing, compared, ", ".join(examples)))
+
+    if problems:
+        raise ValidationError("%s join/label invariant:\n  - %s"
+                              % (label, "\n  - ".join(problems)))
+
+
+# QA-D7 (2026-08-26): feeds allowed to report `ok` with rows == 0 — each entry
+# must be a documented FACT, not a tolerated outage, and the check below demands
+# the row carry a `note` saying so.
+_ZERO_ROW_OK = frozenset({
+    # 0 regular-season finals before kickoff is a fact about the calendar
+    # (scripts/build_predictions.py stamps the explaining note).
+    "espn_results_2026",
+    # R45 — 0 rookies at depth-chart rank 1 is a fact about the league's depth
+    # charts, not an outage (the writer stamps the explaining note).
+    "rookie_starters",
+    # R79 — 0 inactive players is the normal state of every run outside an
+    # inactives window (kickoff-3h until FINAL): the feed was not consulted
+    # because no list could exist yet. The writer stamps the explaining note
+    # ("no game inside the inactives window this run"); inside a window a
+    # posted list with 0 names would be the same honest zero.
+    "inactives",
+})
+# Feeds whose recorded age may exceed _MAX_OK_AGE_HOURS while still honestly
+# `ok`: environment measures the CLOSED 2021-2025 window and is deliberately
+# reused rather than rebuilt (build_predictions.py's ENVIRONMENT MODEL block) —
+# its content cannot go stale until the window definition changes.
+_STALE_OK = frozenset({"environment"})
+_MAX_OK_AGE_HOURS = 48.0
+
+
+CANDIDATE_WEIGHT_GRID = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+
+def check_atd_backtest(doc):
+    """R99 E1 — `adopted` on the anytime-TD verdict must follow from its receipts.
+
+    Recomputed here, independently of scripts/backtest_atd.py: adopted is true
+    only if, in EVERY held-out season, the model's log loss and Brier are both
+    lower than the position base rate's and the opportunity-only share's, its
+    calibration slope is inside slope_band, and the pooled 2024-25 team-TD
+    ratio (mean lambda / mean realised) is inside team_td_band. A document that
+    says adopted without those numbers would let an ATD leg be offered on an
+    unearned model, so it is refused. None (file absent) passes.
+    """
+    if doc is None:
+        return
+    fails = []
+    lo, hi = doc["slope_band"]
+    for season in doc["held_out_seasons"]:
+        rep = doc["seasons"].get(str(season))
+        if not rep:
+            fails.append("%s not measured" % season)
+            continue
+        m = rep["model"]
+        for base in ("position_base_rate", "opportunity_only"):
+            for metric in ("log_loss", "brier"):
+                if not m[metric] < rep[base][metric]:
+                    fails.append("%s %s vs %s" % (season, metric, base))
+        if not lo <= m["calibration_slope"] <= hi:
+            fails.append("%s slope %s" % (season, m["calibration_slope"]))
+    pooled = doc.get("team_td_pooled") or {}
+    t_lo, t_hi = doc["team_td_band"]
+    if pooled.get("ratio") is None or not t_lo <= pooled["ratio"] <= t_hi:
+        fails.append("team TD ratio %s" % pooled.get("ratio"))
+    # R101 — the season in progress can demote the model once it has enough weeks.
+    ins = doc.get("in_season") or {}
+    if len(ins.get("weeks") or []) >= int(doc.get("in_season_min_weeks") or 10 ** 6):
+        if not ins["model"]["log_loss"] < ins["position_base_rate"]["log_loss"]:
+            fails.append("%s in-season log_loss vs position base rate" % ins.get("season"))
+    earned = not fails
+    if doc["adopted"] and not earned:
+        raise ValidationError("atd_backtest.json says adopted but its receipts do not "
+                              "support it: " + "; ".join(fails))
+    if not doc["adopted"] and earned:
+        raise ValidationError("atd_backtest.json says not adopted but every receipt passes "
+                              "- the verdict and the numbers disagree")
+    if doc["adopted"] != doc["verdict"].startswith("ADOPTED"):
+        raise ValidationError("atd_backtest.json verdict text disagrees with adopted")
+
+
+def check_atd_offered(leg_pool, atd_week, atd_backtest):
+    """R101 — an anytime-TD leg exists only on an adopted model, for its own week,
+    at the ATD model's own number.
+
+    leg_pool.atd_legs non-empty requires atd_backtest.json adopted, atd_week.json
+    adopted and for the pool's season/week, and every leg's model_prob equal to
+    atd_week's for that player (one pricing path, never two). atd_week.json
+    players non-empty requires atd_backtest.json adopted. Absent files pass
+    only when there is nothing on offer."""
+    problems = []
+    adopted = bool((atd_backtest or {}).get("adopted"))
+    wk_players = (atd_week or {}).get("players") or []
+    if wk_players and not adopted:
+        problems.append("atd_week.json prices %d player(s) but atd_backtest.json is not "
+                        "adopted" % len(wk_players))
+    if wk_players and not (atd_week or {}).get("adopted"):
+        problems.append("atd_week.json prices players but says adopted: false")
+    legs = (leg_pool or {}).get("atd_legs") or []
+    if legs:
+        if not adopted:
+            problems.append("leg_pool.json offers %d ATD leg(s) on a model that is not "
+                            "adopted" % len(legs))
+        if not atd_week or (atd_week.get("season"), atd_week.get("week")) != \
+                (leg_pool.get("season"), leg_pool.get("week")):
+            problems.append("leg_pool.json offers ATD legs without an atd_week.json for "
+                            "its week")
+        price = {r["gsis_id"]: r["model_prob"] for r in wk_players}
+        for leg in legs:
+            got = leg["rungs"][0]["model_prob"]
+            want = price.get(leg["gsis_id"])
+            if want is None or abs(got - want) > 1e-9:
+                problems.append("leg_pool.json ATD leg %s priced %s, atd_week.json says %s"
+                                % (leg.get("player"), got, want))
+    if problems:
+        raise ValidationError("ATD legs only on an adopted model, at its own number:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+def check_atd_cards(cards_doc, leg_pool):
+    """R101c — every ATD card is honest about its own legs.
+
+    For every card in data/atd_cards.json: its legs are data/leg_pool.json legs
+    at the pool's own model_prob (one pricing path — atd_legs, the yardage rungs,
+    the copied moneylines); no two legs share a game (so the product IS the joint
+    chance, and model_prob must equal it); n_legs / n_atd match the legs; and the
+    mode's rule holds (all_td: every leg ATD; majority_td: more than half;
+    scorers_50: every leg ATD at >= 0.5). A card on a model that is not adopted is
+    refused. None (file absent) passes."""
+    if not cards_doc or not cards_doc.get("modes"):
+        return
+    problems = []
+    if not cards_doc.get("adopted"):
+        problems.append("atd_cards.json carries cards but says adopted: false")
+    price = {}
+    for r in (leg_pool or {}).get("atd_legs") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for r in (leg_pool or {}).get("players") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for g in (leg_pool or {}).get("game_legs") or []:
+        price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
+    if (cards_doc.get("season"), cards_doc.get("week")) != \
+            ((leg_pool or {}).get("season"), (leg_pool or {}).get("week")):
+        problems.append("atd_cards.json is for %s wk %s, the pool for %s wk %s"
+                        % (cards_doc.get("season"), cards_doc.get("week"),
+                           (leg_pool or {}).get("season"), (leg_pool or {}).get("week")))
+    for mode, blk in cards_doc["modes"].items():
+        for size, cards in blk.get("cards", {}).items():
+            for c in cards:
+                legs, tag = c["legs"], "%s %s-leg %s" % (mode, size, c["card_id"])
+                prod = 1.0
+                for leg in legs:
+                    prod *= leg["model_prob"]
+                    want = price.get((leg["selection"], leg["game_id"]))
+                    if want is None or abs(want - leg["model_prob"]) > 1e-9:
+                        problems.append("%s: leg %r priced %s, the pool says %s"
+                                        % (tag, leg["selection"], leg["model_prob"], want))
+                if len({l["game_id"] for l in legs}) != len(legs):
+                    problems.append("%s: two legs share a game" % tag)
+                if abs(prod - c["model_prob"]) > 1e-6:
+                    problems.append("%s: model_prob %s is not the product %s"
+                                    % (tag, c["model_prob"], round(prod, 8)))
+                n_atd = sum(1 for l in legs if l["market"] == "anytime_td")
+                if c["n_legs"] != len(legs) or str(len(legs)) != str(size) or c["n_atd"] != n_atd:
+                    problems.append("%s: counts disagree with the legs" % tag)
+                if mode in ("all_td", "scorers_50") and n_atd != len(legs):
+                    problems.append("%s: a non-TD leg on an all-TD card" % tag)
+                if mode == "scorers_50" and any(l["model_prob"] < 0.5 for l in legs):
+                    problems.append("%s: a leg under 50%% on a 50%%+ card" % tag)
+                if mode == "majority_td" and not n_atd * 2 > len(legs):
+                    problems.append("%s: %d of %d legs are TD — not a majority"
+                                    % (tag, n_atd, len(legs)))
+    if problems:
+        raise ValidationError("ATD cards honest about their legs:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
+
+
+def _pool_prices(leg_pool):
+    price = {}
+    for r in (leg_pool or {}).get("atd_legs") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for r in (leg_pool or {}).get("players") or []:
+        for rung in r.get("rungs") or []:
+            price[(rung["selection"], str(r.get("game_id")))] = rung["model_prob"]
+    for g in (leg_pool or {}).get("game_legs") or []:
+        price[(g["selection"], str(g.get("game_id")))] = g["model_prob"]
+    return price
+
+
+def check_bet_facts(doc):
+    """R110 — status gating and fact shapes the schema cannot say: a score is a
+    PAIR (both or neither) and never sits beside a winner-only mark; yards are
+    exactly [pass, rush, rec]; the only string a fact may hold is 'dnp'; a week
+    key is an NFL week."""
+    if not doc:
+        return
+    problems = []
+    for wk, blk in (doc.get("weeks") or {}).items():
+        if not str(wk).isdigit() or not 1 <= int(wk) <= 22:
+            problems.append("week key %r is not an NFL week" % wk)
+        for gid, g in (blk.get("games") or {}).items():
+            if ("hs" in g) != ("as" in g):
+                problems.append("wk %s game %s: half a score" % (wk, gid))
+            if "w" in g and "hs" in g:
+                problems.append("wk %s game %s: a score AND a winner-only mark" % (wk, gid))
+        for pid, f in (blk.get("players") or {}).items():
+            y, td = f.get("y"), f.get("td")
+            if isinstance(y, str) and y != "dnp":
+                problems.append("wk %s %s: y is %r (only 'dnp' may be a string)" % (wk, pid, y))
+            if isinstance(y, list) and len(y) != 3:
+                problems.append("wk %s %s: y holds %d values, not [pass, rush, rec]" % (wk, pid, len(y)))
+            if isinstance(td, str) and td != "dnp":
+                problems.append("wk %s %s: td is %r (only 'dnp' may be a string)" % (wk, pid, td))
+            if isinstance(td, int) and td < 0:
+                problems.append("wk %s %s: negative TDs" % (wk, pid))
+    if problems:
+        raise ValidationError("bet_facts.json:\n  - %s" % "\n  - ".join(problems[:20]))
+
+
+def check_learning_loops(doc):
+    """R105 — the summary counts the loops it summarizes, ids are unique, and
+    every transition names a loop on file and records a real change of state."""
+    if not doc:
+        return
+    loops = doc.get("loops") or []
+    problems = []
+    counts = {}
+    for l in loops:
+        counts[l.get("state")] = counts.get(l.get("state"), 0) + 1
+    for state, n in (doc.get("summary") or {}).items():
+        if counts.get(state, 0) != n:
+            problems.append("summary.%s = %s but %d loop(s) are %s"
+                            % (state, n, counts.get(state, 0), state))
+    ids = [l.get("id") for l in loops]
+    if len(set(ids)) != len(ids):
+        problems.append("duplicate loop id")
+    for t in doc.get("transitions") or []:
+        if t.get("loop") not in ids:
+            problems.append("transition for unknown loop %r" % t.get("loop"))
+        if t.get("from") == t.get("to"):
+            problems.append("transition %r records no change" % t.get("loop"))
+    if problems:
+        raise ValidationError("learning_loops.json:\n  - %s" % "\n  - ".join(problems))
+
+
+def check_joint_backtest(doc):
+    """R101b — the same-game pricer's verdict must follow from its receipts.
+
+    Recomputed here: pricer is "joint" iff the pooled held-out log loss of the
+    joint model is lower than the product's; a (mode, size) is offered iff its
+    held-out cards were measured, their all-but-one expectation reaches
+    min_expected_tail, and both Poisson p-values (all hit, all but one) are at or
+    above alpha; offered_sizes lists exactly those sizes. None passes."""
+    if doc is None:
+        return
+    problems = []
+    pooled = doc["pooled"]
+    want = "joint" if pooled["log_loss_joint"] < pooled["log_loss_independent"] else "independent"
+    if doc["pricer"] != want:
+        problems.append("pricer %s but the pooled log loss says %s" % (doc["pricer"], want))
+    suffix = doc["pricer"]
+    for mode in ("all_td", "majority_td", "scorers_50"):
+        listed = sorted(doc["offered_sizes"].get(mode) or [])
+        earned = []
+        for size, r in sorted(((doc.get("sizes") or {}).get(mode) or {}).items(),
+                              key=lambda kv: int(kv[0])):
+            ok = (r.get("n", 0) > 0 and r.get("tail_expected_" + suffix, 0) >=
+                  doc["min_expected_tail"] and r.get("p_all", 0) >= doc["alpha"]
+                  and r.get("p_tail", 0) >= doc["alpha"])
+            if bool(r.get("offered")) != ok:
+                problems.append("%s %s-leg says offered=%s, its receipts say %s"
+                                % (mode, size, r.get("offered"), ok))
+            if ok:
+                earned.append(int(size))
+        if listed != earned:
+            problems.append("%s offered_sizes %s, the receipts earn %s" % (mode, listed, earned))
+    if problems:
+        raise ValidationError("joint_backtest.json verdict follows from its receipts:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
+
+
+def check_atd_game_cards(cards_doc, leg_pool, joint_backtest):
+    """R101b — every GAME ATD card is honest about its legs and its price.
+
+    Every leg is a data/leg_pool.json leg at the pool's own model_prob; all legs
+    share ONE game; no player carries two legs and there is at most one
+    moneyline; the mode's rule holds; the size is one joint_backtest.json
+    offers for the mode; the card's pricer is the backtest's; and model_prob
+    re-prices to the same number under that pricer (scripts/models/joint.py).
+    None / no modes passes."""
+    if not cards_doc or not cards_doc.get("modes"):
+        return
+    from scripts.models import joint as J                  # noqa: PLC0415
+    problems = []
+    jb = joint_backtest or {}
+    if not cards_doc.get("adopted"):
+        problems.append("atd_game_cards.json carries cards but says adopted: false")
+    if cards_doc.get("pricer") != jb.get("pricer"):
+        problems.append("atd_game_cards.json priced %s, joint_backtest.json chose %s"
+                        % (cards_doc.get("pricer"), jb.get("pricer")))
+    if (cards_doc.get("season"), cards_doc.get("week")) != \
+            ((leg_pool or {}).get("season"), (leg_pool or {}).get("week")):
+        problems.append("atd_game_cards.json is for %s wk %s, the pool for %s wk %s"
+                        % (cards_doc.get("season"), cards_doc.get("week"),
+                           (leg_pool or {}).get("season"), (leg_pool or {}).get("week")))
+    price = _pool_prices(leg_pool)
+    loadings = {t: tuple(v) for t, v in (jb.get("loadings") or {}).items()}
+    offered = jb.get("offered_sizes") or {}
+    for mode, blk in cards_doc["modes"].items():
+        for size, cards in blk.get("cards", {}).items():
+            if int(size) not in (offered.get(mode) or []):
+                problems.append("%s %s-leg cards on a size joint_backtest.json does not offer"
+                                % (mode, size))
+            for c in cards:
+                legs, tag = c["legs"], "%s %s-leg %s" % (mode, size, c["card_id"])
+                for leg in legs:
+                    want = price.get((leg["selection"], leg["game_id"]))
+                    if want is None or abs(want - leg["model_prob"]) > 1e-9:
+                        problems.append("%s: leg %r priced %s, the pool says %s"
+                                        % (tag, leg["selection"], leg["model_prob"], want))
+                if len({l["game_id"] for l in legs}) != 1:
+                    problems.append("%s: legs from more than one game" % tag)
+                ids = [l["gsis_id"] for l in legs if l["gsis_id"]]
+                if len(ids) != len(set(ids)):
+                    problems.append("%s: a player carries two legs" % tag)
+                if sum(1 for l in legs if l["market"] == "moneyline") > 1:
+                    problems.append("%s: two moneylines" % tag)
+                if cards_doc.get("pricer") == "joint":
+                    p = J.joint_prob([{"p": l["model_prob"], "side": l["side"],
+                                       "type": J.leg_type(l)} for l in legs], loadings)
+                else:
+                    p = 1.0
+                    for l in legs:
+                        p *= l["model_prob"]
+                if abs(p - c["model_prob"]) > 1e-6:
+                    problems.append("%s: model_prob %s, the %s pricer says %s"
+                                    % (tag, c["model_prob"], cards_doc.get("pricer"), round(p, 8)))
+                n_atd = sum(1 for l in legs if l["market"] == "anytime_td")
+                if c["n_legs"] != len(legs) or str(len(legs)) != str(size) or c["n_atd"] != n_atd:
+                    problems.append("%s: counts disagree with the legs" % tag)
+                if mode in ("all_td", "scorers_50") and n_atd != len(legs):
+                    problems.append("%s: a non-TD leg on an all-TD card" % tag)
+                if mode == "scorers_50" and any(l["model_prob"] < 0.5 for l in legs):
+                    problems.append("%s: a leg under 50%% on a 50%%+ card" % tag)
+                if mode == "majority_td" and not n_atd * 2 > len(legs):
+                    problems.append("%s: %d of %d legs are TD — not a majority"
+                                    % (tag, n_atd, len(legs)))
+    if problems:
+        raise ValidationError("GAME ATD cards honest about their legs and price:\n  - %s"
+                              % "\n  - ".join(problems[:20]))
+
+
+def check_candidate_signal_weights(tuning):
+    """R100 — a LEARNED weight on the shipped number must carry the receipt that earned it.
+
+    scripts/fit_player_signals.py --adopt writes model_tuning.json
+    "candidate_signal_weights" and scripts/build_predictions.py multiplies it into
+    every shipped projection. Absent is the pre-R100 number (all 1.0) and passes.
+    Present, it must be one of the two things the loop is allowed to write:
+      adopt  : >= 2 held-out weeks, the refit beating what shipped by the margin
+               pooled AND on every one of those weeks;
+      revert : all weights back at 1.0, because full strength beat the learned
+               weights on held-out weeks.
+    Anything else — a hand-edited weight, a thin fold count, a receipt whose own
+    numbers do not support it — is refused.
+    """
+    rec = (tuning or {}).get("candidate_signal_weights")
+    if rec is None:
+        return
+    problems = []
+    w = rec.get("weights")
+    if not isinstance(w, dict) or not w:
+        raise ValidationError("model_tuning.json candidate_signal_weights has no weights map")
+    for k, v in w.items():
+        if not isinstance(v, (int, float)) or float(v) not in CANDIDATE_WEIGHT_GRID:
+            problems.append("weight %s=%r is not on the fit grid %s" % (k, v, CANDIDATE_WEIGHT_GRID))
+    kind = rec.get("kind")
+    per = rec.get("per_fold") or []
+    num = lambda x: isinstance(x, (int, float))
+    if kind == "adopt":
+        if not (isinstance(rec.get("folds"), int) and rec["folds"] >= 2 and len(per) == rec["folds"]):
+            problems.append("adopt needs >= 2 held-out weeks with a per-week record (folds=%r, "
+                            "per_fold=%d)" % (rec.get("folds"), len(per)))
+        inc, cand, margin = rec.get("incumbent_mae"), rec.get("candidate_mae"), rec.get("margin")
+        if not (num(inc) and num(cand) and num(margin) and inc - cand >= margin - 1e-9):
+            problems.append("adopt receipt does not clear its own margin (incumbent %r, "
+                            "candidate %r, margin %r)" % (inc, cand, margin))
+        for f in per:
+            if not (num(f.get("candidate_mae")) and num(f.get("incumbent_mae"))
+                    and f["candidate_mae"] <= f["incumbent_mae"]):
+                problems.append("adopt receipt is worse on held-out week %r" % f.get("week"))
+    elif kind == "revert":
+        if any(float(v) != 1.0 for v in w.values() if num(v)):
+            problems.append("a revert must put every weight back at 1.0")
+        full, inc = rec.get("full_strength_mae"), rec.get("incumbent_mae")
+        if not (num(full) and num(inc) and full < inc):
+            problems.append("revert receipt does not show full strength beating the learned "
+                            "weights (full %r, learned %r)" % (full, inc))
+    else:
+        problems.append("kind %r is neither 'adopt' nor 'revert' — only the loop may write "
+                        "this key" % kind)
+    if not rec.get("adopted_utc"):
+        problems.append("no adopted_utc")
+    if problems:
+        raise ValidationError("model_tuning.json candidate_signal_weights (R100):\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+def check_pipeline_health(status):
+    """The health panel may not be rosier than the feeds it summarizes.
+
+    Three rules:
+      1. Overall `health` equals the worst CONFIGURED feed status. Honesty, not
+         optics — with one carve-out: a feed that is 'unconfigured' (needs a
+         key / integration the owner has not turned on) is excluded from the
+         roll-up, because "not set up" is a fact, not a failure. A feed that
+         WAS working and broke is degraded/down and still drags health.
+      2. QA-D7: a feed with `rows: 0` may not report `ok` unless it is on the
+         explicit _ZERO_ROW_OK allowlist AND carries a `note` saying why zero
+         is a fact rather than an outage. Before this rule the committed file
+         shipped kalshi at rows 0, status "ok" under a green gate (R30 fixed
+         the writer; this is the validator's half, so the class stays dead).
+      3. QA-D7: a feed whose recorded `age_hours` exceeds _MAX_OK_AGE_HOURS
+         may not report `ok` (the staleness half of P8-S5-AC1), _STALE_OK
+         excepted. The age is the WRITER's recorded age at generation time —
+         no wall-clock read here, so the check is deterministic."""
+    feeds = status.get("feeds", {})
+    if not feeds:
+        raise ValidationError("pipeline_status.json has no feeds")
+    configured = {k: f for k, f in feeds.items() if f["status"] != "unconfigured"}
+    if not configured:
+        raise ValidationError("pipeline_status.json: every feed unconfigured?")
+    worst = max(_STATUS_SEVERITY[f["status"]] for f in configured.values())
+    worst_label = next(k for k, v in _STATUS_SEVERITY.items() if v == worst)
+    health = status.get("health")
+    problems = []
+    if _STATUS_SEVERITY.get(health) != worst:
+        problems.append(
+            "health %r is dishonest: worst configured feed status is %r; health "
+            "must reflect the worst configured feed (you cannot report 'ok' "
+            "while a feed is broken)" % (health, worst_label))
+    for name, f in sorted(configured.items()):
+        if f.get("rows") == 0 and f["status"] == "ok":
+            if name not in _ZERO_ROW_OK:
+                problems.append(
+                    "%s: rows=0 but status 'ok' — a feed that delivered nothing "
+                    "may not count among the healthy (allowlist a documented "
+                    "fact in _ZERO_ROW_OK, or fix the writer)" % name)
+            elif not f.get("note"):
+                problems.append(
+                    "%s: zero rows is allowlisted 'ok' ONLY with a note stating "
+                    "why zero is a fact and not an outage" % name)
+        age = f.get("age_hours")
+        if (f["status"] == "ok" and isinstance(age, (int, float))
+                and age > _MAX_OK_AGE_HOURS and name not in _STALE_OK):
+            problems.append(
+                "%s: age_hours=%s exceeds %s but status is 'ok' — stale data "
+                "may not report healthy (add a reasoned _STALE_OK entry only "
+                "for content that genuinely cannot go stale)"
+                % (name, age, _MAX_OK_AGE_HOURS))
+    if problems:
+        raise ValidationError("pipeline_status.json health invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+def check_kdst_honesty(kdst, projections):
+    """R20-A1: the K/DST contract must not lie about what it scores, and must
+    not have crept into player_projections.json.
+
+    Five rules, each one a failure mode this release was built to avoid:
+
+      1. NO SILENT ZEROES. Every key listed in `unmodelled_keys` must be ABSENT
+         from every row's `stats`. Emitting it as 0.0 would make a knowingly
+         partial total look complete — the exact dishonesty the list exists to
+         prevent.
+      2. `partial_scoring[pos]` is true iff `unmodelled_keys` names a key for
+         that position. The UI's PARTIAL SCORING marker keys off this flag, so
+         it may not disagree with the list beneath it.
+      3. Every row's `stats` key set equals `modelled_keys[position]` exactly.
+         A row that quietly gains or drops a key would make the declared
+         coverage a fiction.
+      4. NO K/DST IN player_projections.json. That file publishes projected[:300];
+         kickers project well above the 38.8-point 300th offensive player, so
+         a merge would silently EVICT ~74 offensive players from Players, the
+         draft board and every VOR pool. This makes the separation mechanical
+         instead of a comment someone can undo.
+      5. A projected-points RANGE quoted in any note must equal the range the
+         file's own rows span. R20 shipped "kickers project 130-195, D/ST
+         100-185. Measured, not assumed." against rows spanning 53.4-188.7 and
+         71.0-145.5 — a hardcoded guess labelled "measured". Quoting no range
+         is fine; quoting one the rows contradict is not.
+    """
+    problems = []
+
+    unmodelled = kdst.get("unmodelled_keys", [])
+    by_pos_unmodelled = {}
+    for entry in unmodelled:
+        by_pos_unmodelled.setdefault(entry.get("position"), set()).add(entry.get("key"))
+    every_unmodelled = set()
+    for keys in by_pos_unmodelled.values():
+        every_unmodelled |= keys
+
+    modelled = kdst.get("modelled_keys", {})
+    partial = kdst.get("partial_scoring", {})
+
+    # --- rule 2 ------------------------------------------------------------
+    for pos in ("K", "DEF"):
+        expected = bool(by_pos_unmodelled.get(pos))
+        if bool(partial.get(pos)) != expected:
+            problems.append(
+                "partial_scoring[%s] is %r but unmodelled_keys %s a %s key — the "
+                "PARTIAL SCORING marker must match the list beneath it"
+                % (pos, partial.get(pos),
+                   "names" if expected else "names no", pos))
+
+    # --- rules 1 and 3 -----------------------------------------------------
+    for field in ("kickers", "defenses"):
+        for row in kdst.get(field, []):
+            pos = row.get("position")
+            stats = row.get("stats", {})
+            leaked = sorted(set(stats) & every_unmodelled)
+            if leaked:
+                problems.append(
+                    "%s %r scores unmodelled key(s) %s — an unmodelable key must "
+                    "be ABSENT, never emitted as a zero that makes a partial "
+                    "total look complete" % (field, row.get("player_id"), leaked))
+            declared = set(modelled.get(pos, []))
+            if set(stats) != declared:
+                problems.append(
+                    "%s %r stats keys %s != modelled_keys[%s] %s"
+                    % (field, row.get("player_id"),
+                       sorted(set(stats) - declared) or "(none extra)", pos,
+                       sorted(declared - set(stats)) or "(none missing)"))
+
+    # --- rule 4 ------------------------------------------------------------
+    kdst_ids = {r.get("player_id") for r in kdst.get("kickers", [])}
+    kdst_ids |= {r.get("player_id") for r in kdst.get("defenses", [])}
+    for p in (projections or {}).get("players", []):
+        if p.get("position") in ("K", "DEF", "DST"):
+            problems.append(
+                "player_projections.json contains %s %r at position %s — K/DST "
+                "live in kdst_projections.json ON PURPOSE: merging them into the "
+                "projected[:300] cut evicts ~74 offensive players"
+                % (p.get("position"), p.get("name"), p.get("position")))
+        if p.get("gsis_id") in kdst_ids:
+            problems.append(
+                "player id %r appears in BOTH player_projections.json and "
+                "kdst_projections.json" % (p.get("gsis_id"),))
+
+    # --- rule 5 ------------------------------------------------------------
+    # Any projected-points range a note QUOTES must be the range the rows in the
+    # same file actually span. R20 shipped notes[0] claiming "kickers project
+    # 130-195, D/ST 100-185. Measured, not assumed." while its own rows spanned
+    # 53.4-188.7 and 71.0-145.5 — a hardcoded guess wearing the word "measured".
+    # Quoting no range is allowed; quoting a wrong one is not.
+    _quoted = {
+        "K": (re.compile(r"kickers project ([0-9]+(?:\.[0-9]+)?)-"
+                         r"([0-9]+(?:\.[0-9]+)?)", re.I), "kickers"),
+        "DEF": (re.compile(r"D/ST ([0-9]+(?:\.[0-9]+)?)-"
+                           r"([0-9]+(?:\.[0-9]+)?)", re.I), "defenses"),
+    }
+    for note in kdst.get("notes", []):
+        for pos, (pattern, field) in _quoted.items():
+            m = pattern.search(str(note))
+            if not m:
+                continue
+            vals = [r.get("proj_points") for r in kdst.get(field, [])
+                    if r.get("proj_points") is not None]
+            if not vals:
+                problems.append(
+                    "a note quotes a %s projection range but %s is empty — a "
+                    "range cannot be 'measured' off no rows" % (pos, field))
+                continue
+            lo, hi = float(m.group(1)), float(m.group(2))
+            if abs(lo - min(vals)) > 0.05 or abs(hi - max(vals)) > 0.05:
+                problems.append(
+                    "a note claims %s project %s-%s but %s actually span "
+                    "%.1f-%.1f — a shipped note may not quote a range its own "
+                    "rows contradict" % (pos, m.group(1), m.group(2), field,
+                                         min(vals), max(vals)))
+
+    if problems:
+        raise ValidationError("kdst_projections.json honesty invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+# Mirrors scripts/availability.norm_name ("A.J. Brown" == "AJ Brown"). Duplicated
+# rather than imported ON PURPOSE: this validator keeps ZERO local imports so it
+# still runs while the scripts/ package is mid-edit, and — more importantly — a
+# cross-file checker that imported the producer's own helpers would be grading the
+# pipeline with the pipeline's own marking scheme. Two independent spellings of
+# the join key is the point.
+def _norm_name(name):
+    return " ".join(str(name or "").replace(".", "").lower().split())
+
+
+# The canonical availability codes (scripts/availability.CODES), mirrored as
+# a literal for the same reason as EXPECTED_SIGNALS above.
+_AVAIL_CODES = frozenset([
+    "ACTIVE", "QUESTIONABLE", "DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED",
+])
+# R77 — scripts/availability.NOT_PLAYABLE, mirrored as a literal for the same
+# reason. QUESTIONABLE is deliberately absent (priced + labelled, never gated).
+_NOT_PLAYABLE = frozenset(["DOUBTFUL", "OUT", "IR", "PUP", "NFI", "SUSPENDED", "RETIRED"])
+_PROP_MARKETS = frozenset(["qb_pass_yds", "rb_rush_yds", "wr_rec_yds"])
+
+
+def check_component_lines(weekly):
+    """R44: the component stat lines in player_weekly.json must agree with
+    themselves. Four rules:
+
+      1. league_components and base_applied_pts travel TOGETHER — one without
+         the other is an unusable half-claim the client cannot price honestly.
+      2. bonus_games rides only on a row that carries a component line.
+      3. completions_prior and league_components.pass_cmp come from the SAME
+         kona entry, so when both are present they must agree (+/-0.6) — a
+         drift here means the two extraction paths have diverged.
+      4. pass_cmp <= pass_att when both are present, and every counting stat
+         (td/int/2pt/cmp/att/tgt) is non-negative. Yardage may legitimately
+         be negative and is not sign-checked.
+    """
+    problems = []
+    counting = ("pass_td", "pass_int", "pass_2pt", "pass_cmp", "pass_att",
+                "rush_att", "rush_td", "rush_2pt", "rec_td", "rec_2pt",
+                "rec_tgt", "fum_lost")
+    for row in weekly.get("players", []):
+        pid = row.get("gsis_id")
+        comps = row.get("league_components")
+        base = row.get("base_applied_pts")
+        if (comps is None) != (base is None):
+            problems.append(f"{pid}: league_components and base_applied_pts "
+                            "must both be present or both absent")
+            continue
+        if comps is None:
+            if row.get("bonus_games") is not None:
+                problems.append(f"{pid}: bonus_games without a component line")
+            continue
+        cmp_prior = row.get("completions_prior")
+        cmp_comp = comps.get("pass_cmp")
+        if cmp_prior is not None and cmp_comp is not None \
+                and abs(float(cmp_prior) - float(cmp_comp)) > 0.6:
+            problems.append(f"{pid}: completions_prior {cmp_prior} != "
+                            f"components.pass_cmp {cmp_comp} — same source, "
+                            "diverged extraction")
+        if comps.get("pass_cmp") is not None and comps.get("pass_att") is not None \
+                and float(comps["pass_cmp"]) > float(comps["pass_att"]) + 0.01:
+            problems.append(f"{pid}: pass_cmp {comps['pass_cmp']} exceeds "
+                            f"pass_att {comps['pass_att']}")
+        for key in counting:
+            v = comps.get(key)
+            if v is not None and float(v) < 0:
+                problems.append(f"{pid}: counting stat {key} is negative ({v})")
+    if problems:
+        raise ValidationError("player_weekly.json component-line invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+# R49 — mirrors build_weekly.absence_in_total exactly (kept local so this
+# validator stays import-light and the rule is visible where it is enforced).
+_ABSENCE_IN_TOTAL_RULE = "prior_ppg_x_projected_games"
+
+
+def _absence_in_total(projection_row):
+    return (projection_row.get("baseline_rule") == _ABSENCE_IN_TOTAL_RULE
+            and int(projection_row.get("absence_weeks") or 0) > 0)
+
+
+def _quarantine_refusals(records, quarantined):
+    """Independent identity audit: never import the producer's resolver here."""
+    def espn_id(p):
+        key = str(p.get("gsis_id") or "")
+        return key[5:] if key.startswith("espn-") else str(
+            p.get("athlete_id") or p.get("espn_id") or "")
+    refusals = {}
+    for q in quarantined or []:
+        name, team = _norm_name(q.get("player")), q.get("team")
+        if q.get("athlete_id"):
+            candidates = [p for p in records if espn_id(p) == str(q["athlete_id"])]
+            detail = "quarantined_status"
+        elif name:
+            candidates = [p for p in records if _norm_name(p.get("name")) == name]
+            local = [p for p in candidates if team and team == p.get("team")]
+            candidates = local if local else candidates
+            identities = {espn_id(p) or (p.get("team"), _norm_name(p.get("name")))
+                          for p in candidates}
+            detail = "ambiguous_quarantine" if len(identities) > 1 else "quarantined_status"
+        elif team:
+            candidates = [p for p in records if p.get("team") == team]
+            detail = "quarantined_team"
+        else:
+            candidates = []  # global source refusal is independently checked below
+            detail = None
+        for p in candidates:
+            if refusals.get(p.get("gsis_id")) != "quarantined_team":
+                refusals[p.get("gsis_id")] = detail
+    return refusals
+
+
+def check_injury_source_eligibility(weekly, projections, injuries):
+    """Independent source/offer check; legacy documents without metadata remain readable."""
+    meta = (weekly.get("model") or {}).get("injury_source")
+    if meta is None:
+        if any(p.get("eligibility") for p in weekly.get("players", [])):
+            raise ValidationError("eligibility refusal has no injury_source receipt")
+        return True
+    doc = injuries or {}
+    problems = []
+    tw = (weekly.get("model") or {}).get("this_week") or {}
+    week = tw.get("wk")
+    received = doc.get("received_utc") or doc.get("updated_utc")
+    source = doc.get("source_updated_utc", received)
+    def stamp(value):
+        try:
+            parsed = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return parsed.astimezone(dt.timezone.utc) if parsed.tzinfo else None
+        except (ValueError, TypeError):
+            return None
+    now, sourced, fetched = map(stamp, (weekly.get("updated_utc"), source, received))
+    age = round((now - min(sourced, fetched)).total_seconds() / 3600, 3) \
+        if now and sourced and fetched else None
+    reason = None
+    if not doc.get("injuries"):
+        reason = "missing_report"
+    elif age is None:
+        reason = "missing_timestamp"
+    elif sourced > now + dt.timedelta(minutes=5) or fetched > now + dt.timedelta(minutes=5):
+        reason = "future_timestamp"
+    elif doc.get("week") is not None and doc["week"] != week:
+        reason = "wrong_week"
+    elif age >= 12.0:
+        reason = "stale_report"
+    elif any(not q.get("athlete_id") and not q.get("team") and not _norm_name(q.get("player"))
+             for q in doc.get("quarantine") or []):
+        reason = "unidentified_quarantine"
+    expected = {"verified": reason is None, "reason": reason,
+                "source_updated_utc": source, "received_utc": received,
+                "last_success_utc": received, "checked_utc": weekly.get("updated_utc"),
+                "age_hours": max(0, age) if age is not None else None,
+                "max_age_hours": 12.0, "source_week": doc.get("week"), "week": week,
+                "quarantined_rows": len(doc.get("quarantine") or [])}
+    if meta != expected:
+        problems.append("injury_source does not reproduce from report timestamps/week")
+    lookup = {p.get("gsis_id"): p for p in projections.get("players", [])}
+    quarantined = _quarantine_refusals(list(lookup.values()), doc.get("quarantine"))
+    for player in weekly.get("players", []):
+        p = lookup.get(player.get("gsis_id"), {})
+        row = next((r for r in player.get("weeks", []) if r.get("wk") == week), None)
+        applicable = row is not None and not row.get("bye") \
+            and p.get("team") not in set(tw.get("skipped_final_teams") or [])
+        refusal = reason or quarantined.get(player.get("gsis_id"))
+        pid = str(player.get("gsis_id") or "")
+        expected_gate = ({"eligible": False, "reason": "source_unverified", "detail": refusal,
+                          "week": week, "source": "injuries", "source_updated_utc": source}
+                         if applicable and refusal else None)
+        if player.get("eligibility") != expected_gate:
+            problems.append("%s: eligibility differs from injury source evidence" % pid)
+        # This assertion is independent of producer equality: refusing an offer
+        # must not simultaneously assert a certain medical absence from the
+        # conflicting report, even when a duplicate valid OUT row remains.
+        if (reason or pid in quarantined) and (player.get("availability") is not None
+                or (player.get("this_week") or {}).get("reason") == "status"):
+            problems.append("%s: unverified injury evidence created medical unavailability" % pid)
+    if problems:
+        raise ValidationError("injury source invariant: " + "; ".join(problems))
+    return reason is None
+
+
+def check_weekly_availability(weekly, projections, injuries, depth_chart=None,
+                              inactives=None):
+    """Rel17: player_weekly.json's availability story must agree with itself.
+
+    R77 adds the THIS-WEEK GATE (rules 6-8, below the five): a `this_week`
+    block is the applied "he does not play this week" fact, and it must agree
+    with the week row it zeroed, with the status or depth chart that justified
+    it, and — the strongest rule — every player whose status says he sits
+    MUST carry one when his team plays that week. `depth_chart` is the
+    data/depth_chart.json document (None when absent; a depth-reason block is
+    then an orphan).
+
+    Five rules, each one a bug this release fixed:
+
+      1. sum(non-bye pts) == proj_points * available_non_bye / total_non_bye
+         (+/-0.1) for EVERY player. This is F2: before Rel17 the weekly split
+         renormalized the blocked weeks away, so an injury only RESHAPED the
+         curve and the season total never moved. A player who will not take a
+         snap must not carry 100% of his season points — and equally, a merely
+         QUESTIONABLE player's total must still be preserved exactly.
+         R49: a projection row whose baseline_rule is the games-normalized rule
+         WITH a documented absence_weeks > 0 already excludes those games from
+         proj_points, so for that row the playable weeks must sum to proj_points
+         itself (build_weekly.absence_in_total) — subtracting the absence twice
+         would be the mirror-image defect.
+      2. out_for_season => every non-bye pts is exactly 0.0.
+      3. count(weeks with avail:false) == weeks_out, or every non-bye week when
+         out_for_season. `weeks_out` is a DURATION STATEMENT and `avail:false` is
+         its APPLIED CONSEQUENCE; this is what lets weeks[].avail stay the single
+         carrier for blocked weeks instead of a second, driftable array.
+      4. NO ORPHAN FLAGS: every player carrying an `availability` block has a
+         matching (team, normalized name) row in data/injuries.json whose
+         canonical code equals the flagged status. The honest-data rule made
+         mechanical — the app can never show an IR badge that no feed backs.
+      5. model.availability.unavailable == the count of class "season" players,
+         and season_points_removed == sum(season_points_lost) (+/-0.05).
+
+    `injuries` may be None (feed never fetched). That is not a failure in itself —
+    but it makes ANY availability flag an orphan, which rule 4 then reports.
+    """
+    source_verified = check_injury_source_eligibility(weekly, projections, injuries)
+    quarantined_players = _quarantine_refusals(projections.get("players", []),
+                                              (injuries or {}).get("quarantine"))
+    if not source_verified:
+        # Stale rows are withheld from shaping, not silently reclassified healthy.
+        # The independent check above requires explicit current-week offer refusals.
+        injuries = {"injuries": []}
+    elif (injuries or {}).get("quarantine"):
+        # Audit trustworthy report rows independently too, so an ID quarantine
+        # cannot contaminate another player's name fallback through a duplicate.
+        rows = injuries.get("injuries") or []
+        report_records = [dict(r, gsis_id="report:%s" % i, name=r.get("player"))
+                          for i, r in enumerate(rows)]
+        excluded_rows = _quarantine_refusals(report_records, injuries["quarantine"])
+        for i, r in enumerate(rows):
+            if r.get("athlete_id"):
+                continue
+            candidates = [p for p in projections.get("players", [])
+                          if _norm_name(p.get("name")) == _norm_name(r.get("player"))]
+            local = [p for p in candidates if r.get("team") and p.get("team") == r["team"]]
+            candidates = local if local else candidates
+            if candidates and all(p.get("gsis_id") in quarantined_players for p in candidates):
+                excluded_rows["report:%s" % i] = "quarantined_status"
+        injuries = dict(injuries, injuries=[r for i, r in enumerate(rows)
+                                           if "report:%s" % i not in excluded_rows])
+    problems = []
+    proj = {p["gsis_id"]: p for p in projections.get("players", [])}
+
+    # (team, normalized name) -> {canonical codes on that player's report rows}
+    report = {}
+    # R33 — the validator's copy of the R32 offseason-mover fallback: name ->
+    # codes, for report names on exactly ONE team. build_weekly stamps an
+    # availability block through availability.lookup_report (exact (team, name),
+    # else unique name), so rule 4 must accept the same join or it reds the gate
+    # precisely when the safety net works — an honest block would be called an
+    # orphan whenever the pool's team lags the report's (a mover mid-drift).
+    # Same guards as the producer: a report name on two teams never matches by
+    # name, and a pool-duplicated name never falls back.
+    report_by_name = {}
+    _name_teams = {}
+    for row in (injuries or {}).get("injuries", []):
+        code = row.get("availability")
+        if not code:
+            continue  # unmapped rows are the smoke check's business, not ours
+        nm = _norm_name(row.get("player"))
+        report.setdefault((row.get("team"), nm), set()).add(code)
+        _name_teams.setdefault(nm, set()).add(row.get("team"))
+        report_by_name.setdefault(nm, set()).add(code)
+    report_by_name = {n: c for n, c in report_by_name.items()
+                      if len(_name_teams[n]) == 1}
+    _seen, proj_dup_names = set(), set()
+    for p in projections.get("players", []):
+        nm = _norm_name(p.get("name"))
+        if nm in _seen:
+            proj_dup_names.add(nm)
+        _seen.add(nm)
+
+    season_players = 0
+    season_ending = 0
+    points_lost = 0.0
+    # R77 — the gate's own bookkeeping
+    gate_meta = (weekly.get("model") or {}).get("this_week")
+    gate_wk = gate_meta.get("wk") if isinstance(gate_meta, dict) else None
+    skip_teams = set((gate_meta or {}).get("skipped_final_teams") or [])
+    depth_teams = (depth_chart or {}).get("teams") if isinstance(depth_chart, dict) else None
+    gate_counts = {"inactive": 0, "status": 0, "depth": 0, "promoted": 0}
+    # R79 — {espn athlete id: (team, game_id)} the posted lists name this week.
+    # An inactive-reason block must be backed by it, and (rule 9, NO SILENT
+    # INACTIVE) every projected player it names must be gated.
+    inact_ids = {}
+    if isinstance(inactives, dict) and inactives.get("week") in (None, gate_wk):
+        for _g in inactives.get("games") or []:
+            for _team, _rows in (_g.get("inactive") or {}).items():
+                for _r in _rows or []:
+                    if _r.get("espn_id"):
+                        inact_ids[str(_r["espn_id"])] = (_team, str(_g.get("game_id")))
+
+    for pl in weekly.get("players", []):
+        pid = pl.get("gsis_id")
+        weeks = pl.get("weeks", [])
+        non_bye = [w for w in weeks if not w.get("bye")]
+        # An absence blocks weeks FORWARD from the current week: build_weekly is
+        # called with first_week = model.this_week.wk, because a game already
+        # played is history and must not be rewritten (build_predictions' Rel17
+        # note). So the weeks an out-for-the-season ruling can speak for are the
+        # non-bye weeks from that week on — never the ones already in the books.
+        # gate_wk absent (a document with no this-week meta) means week 1, where
+        # the two sets are the same thing.
+        record = proj.get(pid)
+        # R103 mirror (build_weekly's own_first): a team whose game this week is
+        # already FINAL has PLAYED it, so an absence ruled now starts NEXT week and
+        # the played week keeps its points (daily #288, 2026-10-11, refused that).
+        own_first = None if gate_wk is None else (
+            gate_wk + 1 if (record or {}).get("team") in skip_teams else gate_wk)
+        blockable_non_bye = non_bye if own_first is None else [
+            w for w in non_bye if (w.get("wk") or 0) >= own_first]
+        blocked_all = [w for w in non_bye if w.get("avail") is False]
+        avail = pl.get("availability")
+        tw = pl.get("this_week")
+
+        # --- R77: rules 6-8, the this-week gate -------------------------------
+        season_block = bool(avail and avail.get("class") == "season"
+                            and (avail.get("weeks_out") or avail.get("out_for_season")))
+        gated = []
+        if tw is not None:
+            if gate_meta is None:
+                problems.append("%s: carries this_week but model.this_week is absent" % pid)
+            elif tw.get("wk") != gate_wk:
+                problems.append("%s: this_week.wk %r != model.this_week.wk %r"
+                                % (pid, tw.get("wk"), gate_wk))
+            row = next((w for w in weeks if w.get("wk") == tw.get("wk")), None)
+            if row is None or row.get("bye"):
+                problems.append("%s: this_week names wk %r, which is a bye or absent — "
+                                "nothing is gated on a bye" % (pid, tw.get("wk")))
+            elif tw.get("playable") is False and row.get("avail") is not False:
+                problems.append("%s: this_week says not playable but wk%s is not "
+                                "avail:false" % (pid, tw.get("wk")))
+            elif tw.get("playable") is not False and row.get("avail") is False \
+                    and not season_block:
+                problems.append("%s: this_week says playable but wk%s is avail:false"
+                                % (pid, tw.get("wk")))
+            if record is not None and record.get("team") in skip_teams:
+                problems.append("%s: gated although %s's game was already FINAL"
+                                % (pid, record.get("team")))
+            reason = tw.get("reason")
+            if reason == "inactive":
+                eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+                hit = inact_ids.get(eid) if eid else None
+                if hit is None:
+                    problems.append("%s: this_week reason inactive but data/inactives.json "
+                                    "does not name him — a game-day claim needs its list"
+                                    % pid)
+                elif tw.get("game_id") != hit[1] or (record or {}).get("team") != hit[0]:
+                    problems.append("%s: this_week.game_id %r / team %r disagree with the "
+                                    "list (%r, %r)" % (pid, tw.get("game_id"),
+                                                       (record or {}).get("team"),
+                                                       hit[1], hit[0]))
+                gate_counts["inactive"] += 1
+            elif reason == "status":
+                st = tw.get("status")
+                if st not in _NOT_PLAYABLE:
+                    problems.append("%s: this_week.status %r is not a not-playable code"
+                                    % (pid, st))
+                if not avail or avail.get("status") != st:
+                    problems.append("%s: this_week.status %r but availability says %r"
+                                    % (pid, st, (avail or {}).get("status")))
+                gate_counts["status"] += 1
+            elif reason in ("depth", "depth_promoted"):
+                team = (record or {}).get("team")
+                chart = (depth_teams or {}).get(team) or {}
+                listed = chart.get("QB") or []
+                if not listed:
+                    problems.append("%s: this_week reason %s but data/depth_chart.json "
+                                    "lists no QB for %s — a depth claim needs its chart"
+                                    % (pid, reason, team))
+                else:
+                    eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+                    mine = [r for r in listed
+                            if (eid and str(r.get("espn_id")) == eid)
+                            or str(r.get("gsis_id")) == str(pid)
+                            or _norm_name(r.get("name")) == _norm_name((record or {}).get("name"))]
+                    rank = mine[0].get("rank") if mine else None
+                    if tw.get("depth") != rank:
+                        problems.append("%s: this_week.depth %r but the chart ranks him %r"
+                                        % (pid, tw.get("depth"), rank))
+                    named = tw.get("starter") if reason == "depth" else tw.get("starter_out")
+                    if named not in {r.get("name") for r in listed}:
+                        problems.append("%s: this_week names %r, who is not on %s's chart"
+                                        % (pid, named, team))
+                gate_counts["promoted" if reason == "depth_promoted" else "depth"] += 1
+            else:
+                problems.append("%s: this_week.reason %r unknown" % (pid, reason))
+            if tw.get("playable") is False and row is not None and not season_block:
+                gated = [w for w in blocked_all if w.get("wk") == tw.get("wk")]
+        # Rule 9 (R79) — NO SILENT INACTIVE: a projected player the posted list
+        # names, whose team plays this week and is not FINAL, must be gated.
+        _eid = str(pid)[5:] if str(pid).startswith("espn-") else None
+        if gate_wk is not None and _eid in inact_ids and record is not None \
+                and record.get("team") not in skip_teams \
+                and inact_ids[_eid][0] == record.get("team"):
+            row = next((w for w in weeks if w.get("wk") == gate_wk), None)
+            if row is not None and not row.get("bye") and \
+                    (tw is None or tw.get("playable") is not False):
+                problems.append("%s (%s %s): on the posted inactive list but wk%s is not "
+                                "gated" % (pid, record.get("team"), record.get("name"),
+                                           gate_wk))
+        # Rule 8 — NO SILENT SITTER: a not-playable status with a game this week
+        # must have been gated (unless the game was already FINAL).
+        if gate_wk is not None and avail and avail.get("status") in _NOT_PLAYABLE \
+                and record is not None and record.get("team") not in skip_teams:
+            row = next((w for w in weeks if w.get("wk") == gate_wk), None)
+            if row is not None and not row.get("bye") and \
+                    (tw is None or tw.get("playable") is not False):
+                problems.append("%s (%s %s): status %s but wk%s is not gated — a player "
+                                "who sits may not carry points or a leg"
+                                % (pid, record.get("team"), record.get("name"),
+                                   avail.get("status"), gate_wk))
+        blocked = [w for w in blocked_all if not any(w is g for g in gated)]
+
+        # A blocked week with no availability block is a flag with no story.
+        if blocked and not avail:
+            problems.append("%s: %d week(s) marked avail:false with no availability "
+                            "block" % (pid, len(blocked)))
+        if any(w.get("avail") is False for w in weeks if w.get("bye")):
+            problems.append("%s: a bye week is marked avail:false (bye and "
+                            "unavailable are deliberately distinguishable)" % pid)
+        for w in blocked:
+            if w.get("pts") != 0.0:
+                problems.append("%s: wk%s is avail:false but scores %r"
+                                % (pid, w.get("wk"), w.get("pts")))
+
+        # --- rule 1 -----------------------------------------------------------
+        if record is None:
+            problems.append("%s: in player_weekly.json but not in "
+                            "player_projections.json" % pid)
+        elif non_bye:
+            if _absence_in_total(record) and blocked:
+                target = record["proj_points"]
+                law = "proj %.2f (R49: absence already excluded from the total)" \
+                    % record["proj_points"]
+            else:
+                target = record["proj_points"] * (len(non_bye) - len(blocked)) / len(non_bye)
+                law = "proj %.2f * %d playable / %d non-bye" % (
+                    record["proj_points"], len(non_bye) - len(blocked), len(non_bye))
+            if gated:
+                # R77 — the gate week takes its pro-rata share of what remained
+                # (build_weekly.player_weeks, mechanic (c)).
+                n_av = len(non_bye) - len(blocked) - len(gated)
+                target = target * n_av / (n_av + len(gated))
+                law += ", then x %d / %d for the this-week gate" % (n_av, n_av + len(gated))
+            total = sum(w.get("pts", 0.0) for w in non_bye)
+            if abs(total - target) > 0.1:
+                problems.append(
+                    "%s: non-bye weeks sum to %.2f, expected %.2f (%s)"
+                    % (pid, total, target, law))
+
+        if not avail:
+            continue
+
+        # --- rule 4 -----------------------------------------------------------
+        if record is not None:
+            key = (record.get("team"), _norm_name(record.get("name")))
+            codes = report.get(key)
+            if codes is None and key[1] not in proj_dup_names:
+                # R33: the R32 name-only fallback, mirrored (see the map above).
+                codes = report_by_name.get(key[1])
+            if codes is None:
+                problems.append(
+                    "%s (%s %s): flagged %s with NO matching row in "
+                    "data/injuries.json — you may not mark a player unavailable "
+                    "without a source row"
+                    % (pid, record.get("team"), record.get("name"),
+                       avail.get("status")))
+            elif avail.get("status") not in codes:
+                problems.append(
+                    "%s (%s %s): flagged %s but data/injuries.json says %s"
+                    % (pid, record.get("team"), record.get("name"),
+                       avail.get("status"), sorted(codes)))
+        if avail.get("status") not in _AVAIL_CODES:
+            problems.append("%s: availability.status %r is not a canonical code"
+                            % (pid, avail.get("status")))
+
+        if avail.get("class") != "season":
+            if blocked:
+                problems.append("%s: class %r blocked %d week(s) — only the season "
+                                "class may zero weeks" % (pid, avail.get("class"),
+                                                          len(blocked)))
+            continue
+
+        # --- season class: rules 2, 3, 5 --------------------------------------
+        # FLAG-ONLY ROW. build_weekly emits exactly {status, class} — and NONE of
+        # the five season keys — for a season-class status that blocked nothing:
+        # a suspension whose length was never announced. It states no duration, so
+        # there is nothing to reconcile against `avail:false` and nothing for the
+        # model summary to count. Enforcing rules 3 and 5 on it reds the gate on a
+        # document the producer emits by design (and the schema allows: only
+        # `status` and `class` are required). Deliberately tight — the two-key
+        # shape with zero blocked weeks and nothing else.
+        if set(avail) == {"status", "class"} and not blocked:
+            continue
+
+        season_players += 1
+        points_lost += float(avail.get("season_points_lost") or 0.0)
+        if avail.get("out_for_season"):
+            season_ending += 1
+            if any(w.get("pts") != 0.0 for w in blockable_non_bye):
+                problems.append("%s: out_for_season but some non-bye week from week "
+                                "%s on still scores" % (pid, own_first or 1))
+            if len(blocked) != len(blockable_non_bye):
+                problems.append("%s: out_for_season but only %d of %d remaining "
+                                "non-bye weeks are avail:false"
+                                % (pid, len(blocked), len(blockable_non_bye)))
+            if avail.get("weeks_out") is not None:
+                problems.append("%s: out_for_season must not also state weeks_out "
+                                "(%r)" % (pid, avail.get("weeks_out")))
+        else:
+            if avail.get("weeks_out") != len(blocked):
+                problems.append(
+                    "%s: weeks_out %r != %d week(s) actually marked avail:false — a "
+                    "duration statement and its applied consequence must agree"
+                    % (pid, avail.get("weeks_out"), len(blocked)))
+        if avail.get("confidence") == "explicit" and not avail.get("evidence"):
+            problems.append("%s: confidence 'explicit' with no evidence sentence to "
+                            "quote" % pid)
+        if avail.get("confidence") == "rule" and avail.get("evidence"):
+            problems.append("%s: confidence 'rule' means nothing was stated, so it "
+                            "may not carry evidence" % pid)
+
+    # --- R77 rule 7: the model summary counts what the rows carry -------------
+    if isinstance(gate_meta, dict):
+        got = {"gated": gate_counts["inactive"] + gate_counts["status"] + gate_counts["depth"],
+               "inactive": gate_counts["inactive"],
+               "status": gate_counts["status"], "depth": gate_counts["depth"],
+               "promoted": gate_counts["promoted"]}
+        said = {"gated": gate_meta.get("gated"),
+                # absent on a pre-R79 document: read as 0, which the rows confirm
+                "inactive": (gate_meta.get("by_reason") or {}).get("inactive", 0),
+                "status": (gate_meta.get("by_reason") or {}).get("status"),
+                "depth": (gate_meta.get("by_reason") or {}).get("depth"),
+                "promoted": gate_meta.get("promoted")}
+        if got != said:
+            problems.append("model.this_week says %r but the rows carry %r" % (said, got))
+        if gate_counts["depth"] + gate_counts["promoted"] and not depth_teams:
+            problems.append("depth-chart gates present but data/depth_chart.json is "
+                            "absent or empty")
+    elif any(p.get("this_week") for p in weekly.get("players", [])):
+        problems.append("players carry this_week but model.this_week is absent")
+
+    # --- rule 5 ---------------------------------------------------------------
+    model = (weekly.get("model") or {}).get("availability")
+    if season_players and not model:
+        problems.append("%d season-class player(s) but model.availability is absent"
+                        % season_players)
+    elif model and not season_players:
+        problems.append("model.availability claims %r unavailable but no player "
+                        "carries a season-class block" % model.get("unavailable"))
+    elif model:
+        if model.get("unavailable") != season_players:
+            problems.append("model.availability.unavailable %r != %d season-class "
+                            "player(s)" % (model.get("unavailable"), season_players))
+        if model.get("season_ending") != season_ending:
+            problems.append("model.availability.season_ending %r != %d"
+                            % (model.get("season_ending"), season_ending))
+        removed = float(model.get("season_points_removed") or 0.0)
+        if abs(removed - points_lost) > 0.05:
+            problems.append("model.availability.season_points_removed %.2f != "
+                            "%.2f summed over players" % (removed, points_lost))
+
+    # --- rule 6: NO DROPPED REPORTS (R36) ---------------------------------
+    # The converse of rule 4, added after the 2026-08-26 cutdown-week audit.
+    # Rule 4 stops a badge no feed backs; this stops the quieter failure the
+    # audit went looking for: a non-ACTIVE report row whose pool player never
+    # received a block — a reserve-list player projected fully healthy (the
+    # pre-Rel17 incident, and R32's offseason join gap, as a standing
+    # invariant instead of fixture pins). Mirrors the producer exactly
+    # (build_weekly -> availability.lookup_report: exact (team, name), else
+    # the unique-name fallback under the same guards; a view resolving ACTIVE
+    # stamps nothing). A key whose report rows MIX ACTIVE with a non-ACTIVE
+    # code is not enforced: the producer merges duplicate rows duration-first
+    # (availability._worse), so which code wins there depends on parsed
+    # durations this validator does not re-derive — enforcing only the
+    # unambiguous sets keeps this red only when a report was truly dropped.
+    # Measured at introduction: 317 non-ACTIVE rows, 54 joinable to the
+    # pool, 54 blocked (54/54).
+    weekly_avail = {pl.get("gsis_id"): pl.get("availability")
+                    for pl in weekly.get("players", [])}
+    for p in projections.get("players", []):
+        if p.get("gsis_id") in quarantined_players:
+            continue  # explicit source refusal was independently required above
+        nm = _norm_name(p.get("name"))
+        codes = report.get((p.get("team"), nm))
+        if codes is None and nm not in proj_dup_names:
+            codes = report_by_name.get(nm)
+        if not codes or "ACTIVE" in codes:
+            continue
+        pid = p.get("gsis_id")
+        if pid not in weekly_avail:
+            problems.append(
+                "%s (%s %s): reported %s in data/injuries.json but has no row "
+                "in player_weekly.json at all"
+                % (pid, p.get("team"), p.get("name"), sorted(codes)))
+        elif not weekly_avail.get(pid):
+            problems.append(
+                "%s (%s %s): data/injuries.json reports %s but "
+                "player_weekly.json carries no availability block — the join "
+                "dropped a report and a hurt player is projected healthy"
+                % (pid, p.get("team"), p.get("name"), sorted(codes)))
+
+    if problems:
+        raise ValidationError("player_weekly.json availability invariant:\n  - %s"
+                              % "\n  - ".join(problems))
+
+
+# ---------------------------------------------------------------------------
+# Selftest — a check nobody has watched fail is a check that might do nothing.
+# ---------------------------------------------------------------------------
+
+def _fixture(blocked=0, weeks_out=None, out_for_season=False, klass="season",
+             first_week=None):
+    """A one-player weekly/projections/injuries triple, valid by construction.
+
+    Season 100.0 over 17 non-bye weeks (wk18 is the bye), `blocked` of them zeroed,
+    the rest carrying an equal share of the availability-adjusted target.
+
+    first_week reproduces an IN-SEASON build: build_weekly blocks forward from the
+    current week, so weeks before it keep the points they were already projected —
+    and the document carries model.this_week.wk, which is that same week.
+    """
+    non_bye, share = 17, 0.0
+    playable = non_bye - blocked
+    if playable:
+        share = round(100.0 * playable / non_bye / playable, 2)
+    blocked_weeks = set(range(1, blocked + 1)) if first_week is None else \
+        set(range(first_week, first_week + blocked))
+    weeks = []
+    for wk in range(1, 19):
+        if wk == 18:
+            weeks.append({"wk": wk, "opp": None, "home": False, "bye": True, "pts": 0.0})
+        elif wk in blocked_weeks:
+            weeks.append({"wk": wk, "opp": "SEA", "home": True, "bye": False,
+                          "pts": 0.0, "avail": False})
+        else:
+            weeks.append({"wk": wk, "opp": "SEA", "home": True, "bye": False,
+                          "pts": share})
+    avail = {"status": "IR" if klass == "season" else "QUESTIONABLE", "class": klass}
+    if klass == "season":
+        avail.update({"weeks_out": weeks_out, "out_for_season": out_for_season,
+                      "confidence": "rule", "evidence": None,
+                      "season_points_lost": round(100.0 * blocked / non_bye, 2)})
+    model = {"name": "weekly_split_v1"}
+    if klass == "season" and blocked:
+        model["availability"] = {
+            "applied": True, "vocab_version": 1, "unavailable": 1,
+            "season_ending": 1 if out_for_season else 0, "min_weeks_rule": 4,
+            "season_points_removed": avail["season_points_lost"]}
+    row = {"gsis_id": "espn-1", "availability": avail, "weeks": weeks}
+    if first_week is not None:
+        # In season the same ruling shows up twice, and rule 8 (NO SILENT SITTER)
+        # insists on it: the season block on the card, and the this-week gate on
+        # the week being played.
+        gate_on = klass == "season" and first_week in blocked_weeks
+        model["this_week"] = {
+            "wk": first_week, "gated": 1 if gate_on else 0,
+            "by_reason": {"inactive": 0, "status": 1 if gate_on else 0, "depth": 0},
+            "promoted": 0}
+        if gate_on:
+            row["this_week"] = {"wk": first_week, "playable": False,
+                                "reason": "status", "status": avail["status"]}
+    weekly = {"model": model, "players": [row]}
+    projections = {"players": [{"gsis_id": "espn-1", "name": "A.J. Hurt",
+                                "team": "SF", "proj_points": 100.0}]}
+    injuries = {"injuries": [{"team": "SF", "player": "AJ Hurt",
+                              "status": "Injured Reserve" if klass == "season"
+                              else "Questionable",
+                              "availability": "IR" if klass == "season"
+                              else "QUESTIONABLE"}]}
+    return weekly, projections, injuries
+
+
+def _selftest():
+    def ok(w, p, i, why):
+        check_weekly_availability(w, p, i)  # must not raise
+
+    def red(w, p, i, why):
+        try:
+            check_weekly_availability(w, p, i)
+        except ValidationError:
+            return
+        raise AssertionError("check_weekly_availability did NOT catch: " + why)
+
+    # Healthy baselines pass: a season-class block with the rule floor, a week-class
+    # ding that blocks nothing, and a full season-ending absence.
+    ok(*_fixture(blocked=4, weeks_out=4), why="rule-floor IR")
+    ok(*_fixture(blocked=0, klass="week"), why="questionable, nothing blocked")
+    ok(*_fixture(blocked=17, out_for_season=True), why="out for the year")
+
+    # F2 — the defect this release exists to kill: an unavailable player whose weeks
+    # were renormalized back up to the full season total.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    for wk in w["players"][0]["weeks"]:
+        if not wk["bye"] and wk["pts"]:
+            wk["pts"] = round(100.0 / 13, 2)
+    red(w, p, i, "blocked weeks renormalized away (season total never dropped)")
+
+    # Rule 2 — out_for_season while still scoring.
+    w, p, i = _fixture(blocked=17, out_for_season=True)
+    w["players"][0]["weeks"][0]["pts"] = 5.0
+    red(w, p, i, "out_for_season with a scoring week")
+
+    # R103 mirror — ruled out for the year AFTER his week-5 game went FINAL: week
+    # 5 is history and keeps its points, the block starts in week 6, exactly what
+    # build_weekly writes (own_first). Daily #288 (2026-10-11) died here: rule 2
+    # still read week 5 as blockable and refused a correct document.
+    w, p, i = _fixture(blocked=12, out_for_season=True, first_week=6)
+    w["model"]["this_week"].update({"wk": 5, "gated": 0, "skipped_final_teams": ["SF"],
+                                    "by_reason": {"inactive": 0, "status": 0, "depth": 0}})
+    w["players"][0].pop("this_week", None)
+    ok(w, p, i, why="team's wk5 game FINAL, out for the year from wk6")
+    # ...and only for a team whose game is FINAL: the same rows otherwise red.
+    w["model"]["this_week"]["skipped_final_teams"] = []
+    red(w, p, i, "game not FINAL: week 5 must be blocked too")
+
+    # R97 — THE IN-SEASON SHAPE, which the week-1 fixtures above never reach.
+    # build_weekly blocks forward from model.this_week.wk, so a player ruled out
+    # for the year in week 5 keeps weeks 1-4 exactly as they were projected: those
+    # games have been played and rewriting them would be a lie about the past.
+    # Read against every non-bye week, rule 2 reds a correct document and the
+    # pipeline cannot publish at all (run 166) — so it is read against the weeks
+    # the ruling can actually speak for.
+    ok(*_fixture(blocked=13, out_for_season=True, first_week=5),
+       why="out for the year from week 5 — weeks 1-4 are history, not a defect")
+    w, p, i = _fixture(blocked=13, out_for_season=True, first_week=5)
+    w["players"][0]["weeks"][8]["pts"] = 5.0          # week 9, after the ruling
+    red(w, p, i, "out_for_season but a REMAINING week still scores")
+    w, p, i = _fixture(blocked=12, out_for_season=True, first_week=5)
+    red(w, p, i, "out_for_season but week 5 itself was left playable")
+
+    # Rule 3 — the duration statement and its applied consequence disagree.
+    w, p, i = _fixture(blocked=4, weeks_out=6)
+    red(w, p, i, "weeks_out 6 but only 4 weeks blocked")
+
+    # Rule 4 — an IR badge no feed backs, and one the feed contradicts.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    red(w, p, {"injuries": []}, "availability flag with no source row")
+    red(w, p, None, "availability flag with no injuries feed at all")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    i["injuries"][0]["availability"] = "QUESTIONABLE"
+    red(w, p, i, "flagged IR while the report says QUESTIONABLE")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    i["injuries"][0]["player"] = "Someone Else"
+    red(w, p, i, "join on the wrong player")
+
+    # R33 — rule 4 honors the R32 offseason-mover name fallback, with BOTH of the
+    # producer's guards. The incident shape: the pool's team lags the report's
+    # (record says TB, the report's current team says SF) — the availability
+    # block is honest, built through the same fallback, and must not be called
+    # an orphan.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"          # pool lags; the SF report row stands
+    ok(w, p, i, why="mover matched by unique report name (R32 fallback)")
+    # Guard 1: a report name on TWO teams is ambiguous — matching either would
+    # stamp a guess, so the name fallback must refuse and the flag stays an orphan.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"
+    i["injuries"].append({"team": "DAL", "player": "AJ Hurt",
+                          "status": "Questionable", "availability": "QUESTIONABLE"})
+    red(w, p, i, "report name on two teams must not match by name")
+    # Guard 2: a pool-duplicated name never falls back — a wrong injury is worse
+    # than a missed one.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    p["players"][0]["team"] = "TB"
+    p["players"].append({"gsis_id": "espn-2", "name": "A.J. Hurt",
+                         "team": "GB", "proj_points": 50.0})
+    red(w, p, i, "pool-duplicated name must not take a name-only report row")
+
+    # Rule 5 — the headline must equal what happened.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    w["model"]["availability"]["season_points_removed"] = 0.0
+    red(w, p, i, "model claims 0.0 points removed while a player lost 23.53")
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    del w["model"]["availability"]
+    red(w, p, i, "season-class player with no model.availability summary")
+
+    # A week-class ding may shape, never block.
+    w, p, i = _fixture(blocked=4, weeks_out=4, klass="week")
+    i["injuries"][0]["availability"] = "QUESTIONABLE"
+    red(w, p, i, "week-class status zeroing weeks")
+
+    # A blocked week with no story at all.
+    w, p, i = _fixture(blocked=4, weeks_out=4)
+    del w["players"][0]["availability"]
+    red(w, p, i, "avail:false week with no availability block")
+
+    # Rule 6 (R36) — the converse of rule 4: a report the join dropped.
+    # Nothing is blocked and no orphan flag exists, so ONLY rule 6 can see it.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    red(w, p, i, "QUESTIONABLE report dropped — hurt player projected healthy")
+    # ...through the R32 name fallback as well (pool team lags the report's).
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    p["players"][0]["team"] = "TB"
+    red(w, p, i, "dropped report must be caught through the name fallback too")
+    # ...and for a hurt pool player with no weekly row at all.
+    w, p, i = _fixture(blocked=0, klass="week")
+    w["players"] = []
+    red(w, p, i, "hurt pool player absent from player_weekly entirely")
+    # An ACTIVE-only report stamps nothing — no block is the correct state.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    i["injuries"][0].update({"status": "Active", "availability": "ACTIVE"})
+    ok(w, p, i, why="ACTIVE report, no block — rule 6 must not fire")
+    # A mixed ACTIVE + non-ACTIVE set is producer-duration-dependent
+    # (availability._worse merges duration-first), so rule 6 stays silent.
+    w, p, i = _fixture(blocked=0, klass="week")
+    del w["players"][0]["availability"]
+    i["injuries"].append({"team": "SF", "player": "AJ Hurt",
+                          "status": "Active", "availability": "ACTIVE"})
+    ok(w, p, i, why="mixed ACTIVE+QUESTIONABLE set is not enforced")
+
+    # ---- QA-D7: pipeline health honesty, fixture-driven (not merely the
+    # committed file happening to be consistent) --------------------------------
+    def mk_status(**feeds):
+        worst = max((_STATUS_SEVERITY[f["status"]] for f in feeds.values()
+                     if f["status"] != "unconfigured"), default=0)
+        return {"generated_utc": "2026-08-26T00:00:00Z",
+                "health": next(k for k, v in _STATUS_SEVERITY.items() if v == worst),
+                "feeds": feeds}
+
+    def health_red(doc, why):
+        try:
+            check_pipeline_health(doc)
+        except ValidationError:
+            return
+        raise AssertionError("check_pipeline_health did NOT catch: " + why)
+
+    fresh = {"rows": 10, "age_hours": 1.0, "last_success_utc": "x", "status": "ok"}
+    # Dishonest roll-up: a degraded feed under an 'ok' health.
+    doc = mk_status(a=dict(fresh), b={"rows": 10, "age_hours": 1.0,
+                                      "last_success_utc": "x", "status": "degraded"})
+    doc["health"] = "ok"
+    health_red(doc, "health 'ok' over a degraded feed")
+    # Zero rows may not be 'ok'...
+    health_red(mk_status(kalshi={"rows": 0, "age_hours": 0.0,
+                                 "last_success_utc": "x", "status": "ok"}),
+               "rows=0 reported 'ok' off the allowlist")
+    # ...unless allowlisted AND explained.
+    check_pipeline_health(mk_status(espn_results_2026={
+        "rows": 0, "age_hours": 0.0, "last_success_utc": "x", "status": "ok",
+        "note": "0 regular-season finals: the season has not started."}))
+    health_red(mk_status(espn_results_2026={"rows": 0, "age_hours": 0.0,
+                                            "last_success_utc": "x", "status": "ok"}),
+               "allowlisted zero-row feed with no note")
+    # Stale data may not be 'ok'...
+    health_red(mk_status(adp={"rows": 200, "age_hours": 500.0,
+                              "last_success_utc": "x", "status": "ok"}),
+               "age 500h reported 'ok'")
+    # ...except the closed-window environment artifact, by documented design.
+    check_pipeline_health(mk_status(environment={
+        "rows": 1359, "age_hours": 970.0, "last_success_utc": "x", "status": "ok"}))
+
+    # FLAG-ONLY: a suspension of unannounced length blocks nothing and claims
+    # nothing. build_weekly emits exactly {status, class} here, so the validator
+    # must accept it — and must still red the moment it blocks a week or half-
+    # states a duration.
+    w, p, i = _fixture(blocked=0, weeks_out=None)
+    w["players"][0]["availability"] = {"status": "SUSPENDED", "class": "season"}
+    w["model"].pop("availability", None)
+    i["injuries"][0]["availability"] = "SUSPENDED"
+    i["injuries"][0]["status"] = "Suspension"
+    ok(w, p, i, why="season-class flag that blocked nothing")
+    w["players"][0]["availability"]["weeks_out"] = 3
+    red(w, p, i, "a duration stated while nothing was blocked")
+
+    # The join must survive punctuation ("A.J." vs "AJ") — it did above, in every
+    # passing case; assert the negative so a no-op _norm_name cannot hide.
+    assert _norm_name("A.J. Brown") == _norm_name("AJ  brown") == "aj brown"
+
+    # --- R30: a market price in a parlay leg's MODEL column -------------------
+    # KC hosts DEN; OUR model has DEN ahead (p_home 0.406). The book has KC -3
+    # (de-vigged home cover 0.4892 / away cover 0.5108).
+    _preds = {"games": [{"game_id": "g1", "home": "KC", "away": "DEN",
+                         "probs": {"home": 0.406, "away": 0.594}}]}
+
+    def _parlay(legs):
+        return {"parlays": [{"parlay_id": "p1", "scope": "game", "game_id": "g1",
+                             "legs": legs}]}
+
+    def _red(doc, why):
+        try:
+            check_parlay_model_independence(doc, _preds)
+        except ValidationError:
+            return
+        raise AssertionError("check_parlay_model_independence did NOT catch: " + why)
+
+    # Exactly the shape that shipped: the book's de-vigged cover probability in
+    # model_prob, the IMPL column fabricated off it by the hold, home-only label.
+    _red(_parlay([{"market": "spread", "selection": "KC -3",
+                   "model_prob": 0.5108, "implied_prob": 0.5338}]),
+         "the book's cover price sitting in model_prob")
+    # R51: the retired Elo-margin inversion (0.6771 for DEN +3) is the number a
+    # pre-R51 builder would ship; it measured below a coin flip, so it is red now.
+    _red(_parlay([{"market": "spread", "selection": "DEN +3",
+                   "model_prob": 0.6771, "implied_prob": 0.5217}]),
+         "the retired margin-inversion cover probability sitting in model_prob")
+    # A market with no model of ours coming back.
+    _red(_parlay([{"market": "total", "selection": "Over 44.5",
+                   "model_prob": 0.52, "implied_prob": 0.5238}]),
+         "a total leg with no scoring model behind it")
+    # The market feed's number in both columns.
+    _red(_parlay([{"market": "moneyline", "selection": "DEN ML",
+                   "model_prob": 0.45, "implied_prob": 0.45}]),
+         "model_prob identical to the market feed's probability")
+    # --- R30: the SAME policy on every other model output ---------------------
+    # The check above recomputes parlay legs. It cannot cover a feed we have not
+    # written a model for, which is precisely where borrowing a book number is
+    # most tempting — so the general boundary is a NAME scan, and these pin it.
+    def _red_prob(docs, parlay, why):
+        try:
+            check_market_probabilities(docs, parlay)
+        except ValidationError:
+            return
+        raise AssertionError("check_market_probabilities did NOT catch: " + why)
+
+    _red_prob([("player_projections.json",
+                {"players": [{"gsis_id": "x", "home_cover_prob": 0.52}]})], None,
+              "a book cover probability on a projection record")
+    _red_prob([("game_predictions.json",
+                {"games": [{"meta": {"nested": {"over_prob": 0.5}}}]})], None,
+              "a book total probability buried three levels down")
+    _red_prob([("player_weekly.json", {"players": [{"implied_prob": 0.5}]})], None,
+              "implied_prob outside parlays.json — it is the parlay DISPLAY "
+              "column, not a field a projection may carry")
+    _red_prob([], {"parlays": [{"legs": [{"implied_prob": 0.5,
+                                          "home_cover_prob": 0.52}]}]},
+              "a parlay leg carrying a book number beyond the display column")
+    # And the shapes that must PASS: a clean projection, and a parlay leg holding
+    # exactly the one market number it is allowed to display.
+    check_market_probabilities(
+        [("player_projections.json", {"players": [{"gsis_id": "x", "proj_points": 1}]})],
+        {"parlays": [{"legs": [{"model_prob": 0.6, "implied_prob": 0.5}]}]})
+
+    # The fixed shape passes: OUR margin model for the team named, book in IMPL.
+    # R74 — the one-leg-per-side rule: catches the stack, allows the honest pair.
+    _stacked = {"parlays": [{"parlay_id": "p1", "legs": [
+        {"market": "moneyline", "selection": "DEN ML", "model_prob": 0.6, "implied_prob": 0.62},
+        {"market": "spread", "selection": "DEN +3", "model_prob": 0.5, "implied_prob": 0.52}]}]}
+    try:
+        check_parlay_one_leg_per_side(_stacked)
+        raise AssertionError("check_parlay_one_leg_per_side did NOT catch a DEN ML + DEN +3 stack")
+    except ValidationError:
+        pass
+    check_parlay_one_leg_per_side({"parlays": [{"parlay_id": "p2", "legs": [
+        {"market": "moneyline", "selection": "DEN ML", "model_prob": 0.6, "implied_prob": 0.62},
+        {"market": "spread", "selection": "KC -3", "model_prob": 0.5, "implied_prob": 0.52},
+        {"market": "qb_pass_yds", "selection": "DEN QB 225+", "model_prob": 0.55, "implied_prob": 0.57}]}]})
+    print("ok    selftest: one leg per game side (stack caught, opposite side and props allowed)")
+
+    check_parlay_model_independence(_parlay([
+        {"market": "spread", "selection": "DEN +3",
+         "model_prob": 0.5, "implied_prob": 0.5108},
+        {"market": "moneyline", "selection": "DEN ML",
+         "model_prob": 0.594, "implied_prob": 0.45},
+    ]), _preds)
+
+    # --- R30b: the six formerly-decorative schema keywords now BITE ----------
+    # Each of these appeared in committed contracts (minProperties in 11 of
+    # them, market_baseline's pattern/exclusive bounds, preseason_form's
+    # minLength) while _validate silently ignored it. A keyword that has never
+    # failed is not a constraint, so every one gets a negative case here.
+    def _schema_red(value, schema, why):
+        try:
+            validate_against_schema(value, schema, "selftest")
+        except ValidationError:
+            return
+        raise AssertionError("validate_against_schema did NOT catch: " + why)
+
+    _schema_red({"a": 1}, {"type": "object", "minProperties": 30},
+                "an object below minProperties (the partial-ESPN-pull hole: a "
+                "2-team team_strength.json shipping as valid)")
+    _schema_red({"a": 1, "b": 2, "c": 3}, {"type": "object", "maxProperties": 2},
+                "an object above maxProperties")
+    _schema_red("advisory", {"type": "string", "pattern": "MEASUREMENT ONLY"},
+                "a policy string that dropped its mandatory phrase")
+    _schema_red(0.0, {"type": "number", "exclusiveMinimum": 0},
+                "a probability of exactly 0 against exclusiveMinimum 0")
+    _schema_red(1.0, {"type": "number", "exclusiveMaximum": 1},
+                "a probability of exactly 1 against exclusiveMaximum 1")
+    _schema_red("too short", {"type": "string", "minLength": 40},
+                "a caveat shorter than minLength")
+    # And the happy path: a document sitting exactly ON every bound passes.
+    validate_against_schema(
+        {"policy": "MEASUREMENT ONLY - display", "probs": {"a": 0.5, "b": 0.5}},
+        {"type": "object", "minProperties": 2, "maxProperties": 2,
+         "properties": {
+             "policy": {"type": "string", "pattern": "MEASUREMENT ONLY",
+                        "minLength": 5},
+             "probs": {"type": "object", "minProperties": 2,
+                       "additionalProperties": {
+                           "type": "number",
+                           "exclusiveMinimum": 0, "exclusiveMaximum": 1}}}},
+        "selftest")
+
+    # --- R30b: $ref is a HARD ERROR, never a silent no-op ---------------------
+    # The exact hole that shipped: a subschema holding only a $ref used to fall
+    # through every keyword branch and validate nothing.
+    _schema_red({"sources": {"kalshi": {"status": "nonsense", "rows": -5}}},
+                {"type": "object",
+                 "properties": {"sources": {"type": "object",
+                                            "additionalProperties": {
+                                                "$ref": "#/definitions/source"}}},
+                 "definitions": {"source": {"type": "object"}}},
+                "a $ref subschema (must red loudly, not skip silently)")
+    # R101 — and so is every keyword the walker does not implement.
+    for _kw, _sub in (("const", {"const": 1}), ("oneOf", {"oneOf": [{"type": "null"}]}),
+                      ("anyOf", {"anyOf": [{"type": "null"}]})):
+        _schema_red({"x": 2}, {"type": "object", "properties": {"x": _sub}},
+                    "an unimplemented %s (must red loudly, not skip silently)" % _kw)
+
+    # --- R30b: market_prices.schema.json really validates BELOW the top level -
+    # Before the inlining, corrupting anything under sources/games/futures
+    # passed. Prove the coverage on the REAL contract with the REAL committed
+    # document: corrupt a nested value in a deep copy and the gate must go red.
+    import copy
+    _mp_schema = _load(os.path.join(CONTRACTS, "market_prices.schema.json"))
+    _mp_doc = _load(os.path.join(DATA, "market_prices.json"))
+    validate_against_schema(_mp_doc, _mp_schema, "market_prices.json")  # baseline
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["sources"]["kalshi"]["bogus_key"] = 123
+    _schema_red(_bad, _mp_schema,
+                "an undeclared key inside sources.kalshi (the injected-garbage "
+                "repro from the R30 finding)")
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["futures"]["polymarket"].append({"team": "KC", "prob": 7.5})
+    _schema_red(_bad, _mp_schema,
+                "a 750% future probability nested under futures.polymarket")
+    _bad = copy.deepcopy(_mp_doc)
+    _bad["sources"]["polymarket"]["status"] = "fine"
+    _schema_red(_bad, _mp_schema,
+                "an off-enum source status below the top level")
+    # And what build_markets actually emits on a half-broken source — degraded
+    # plus a note — is now DECLARED, so enforcing the contract cannot re-run the
+    # R29 failure (the daily cron dying on a shape the builder writes by design).
+    _ok_degraded = copy.deepcopy(_mp_doc)
+    _ok_degraded["sources"]["polymarket"] = {
+        "status": "degraded", "rows": 15, "dropped_unmapped": 0,
+        "note": "futures: champion event renamed"}
+    validate_against_schema(_ok_degraded, _mp_schema, "market_prices.json")
+
+    # --- R49: absence already in the total must NOT be pro-rated again ---------
+    w, pr, inj = _fixture(blocked=4, weeks_out=4)
+    pr["players"][0].update({"baseline_rule": "prior_ppg_x_projected_games",
+                             "absence_weeks": 4, "projected_games": 13})
+    # The fixture's weeks sum to 100 * 13/17 (the old law); under the R49 rule
+    # the playable weeks must sum to the full 100.0, so this must be REJECTED...
+    try:
+        check_weekly_availability(w, pr, inj)
+        raise AssertionError("R49 row summing pro-rata must fail rule 1")
+    except ValidationError as exc:
+        assert "absence already excluded" in str(exc), exc
+    # ...and pass once the playable weeks carry the whole total.
+    share = round(100.0 / 13, 2)
+    for wk in w["players"][0]["weeks"]:
+        if not wk.get("bye") and wk.get("avail") is not False:
+            wk["pts"] = share
+    check_weekly_availability(w, pr, inj)
+    # A total-rule row with the same absence fields still takes the old law.
+    w2, pr2, inj2 = _fixture(blocked=4, weeks_out=4)
+    pr2["players"][0].update({"baseline_rule": "prior_season_points",
+                              "absence_weeks": 4})
+    check_weekly_availability(w2, pr2, inj2)
+
+    # --- R58: the two parlay-ledger contracts red on the shapes that matter -----
+    _led_schema = _load(os.path.join(CONTRACTS, "parlay_ledger.schema.json"))
+    _leg = {"season": 2026, "week": 1, "game_id": "401872656", "home": "SEA", "away": "NE",
+            "kickoff_utc": "2026-09-10T00:20Z", "market": "rb_rush_yds",
+            "selection": "T. Henderson 60+ rush yds", "position": "RB",
+            "player": "TreVeyon Henderson", "gsis_id": "espn-4432710", "team": "NE",
+            "side": "away", "line": 59.5, "mu": 44.49, "sd": 38.87, "z": -0.3862,
+            "p_team": 0.39, "model_prob": 0.3142, "implied_prob": 0.3283,
+            "pricing": "calibrated", "seen_utc": "2026-09-08T10:39:10Z", "locked": True,
+            "locked_utc": "2026-09-08T10:39:10Z"}
+    _led = {"season": 2026, "generated_utc": "t", "as_of_utc": "2026-09-08T10:39:10Z",
+            "source": "s", "runs": [{"as_of_utc": "2026-09-08T10:39:10Z", "week": 1,
+                                     "legs_seen": 1, "legs_added": 1, "locked_added": 1,
+                                     "unlocked_added": 0, "skipped": {"no_game": 0}}],
+            "legs": [_leg]}
+    validate_against_schema(_led, _led_schema, "parlay_ledger selftest")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["locked"] = "yes"
+    _schema_red(_bad, _led_schema, "a ledger leg whose locked flag is a string")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["model_prob"] = 1.5
+    _schema_red(_bad, _led_schema, "a ledger leg with model_prob above 1")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["market"] = "total"
+    _schema_red(_bad, _led_schema, "a ledger leg on a market the builder never emits")
+    _bad = copy.deepcopy(_led)
+    _bad["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _led_schema, "an undeclared field on a ledger leg")
+    _sc_schema = _load(os.path.join(CONTRACTS, "parlay_leg_scores.schema.json"))
+    _nullm = {"n": 0, "hit_rate": None, "log_loss": None, "brier": None}
+    _blocks = {"props": {"n": 0, "hit_rate": None, "model": {"log_loss": None, "brier": None},
+                         "seed": {"log_loss": None, "brier": None}, "by_pricing": {}},
+               "moneyline": dict(_nullm), "spread": dict(_nullm)}
+    _sc = {"season": 2026, "generated_utc": "t", "source": "s", "finals_source": "none",
+           "ledger": "data/estimates/parlays_2026.json", "rule": "r", "weeks_resolved": 0,
+           "legs": {"on_file": 1, "locked": 1, "unlocked": 0, "resolved": 0,
+                    "unresolved": 0},
+           "skipped": "offline run", "pooled": _blocks, "by_position": {}, "weeks": [],
+           "unresolved": [], "resolved": []}
+    validate_against_schema(_sc, _sc_schema, "parlay_leg_scores selftest (0 resolved)")
+    _bad = copy.deepcopy(_sc)
+    _bad["pooled"]["props"]["hit_rate"] = "n/a"
+    _schema_red(_bad, _sc_schema, "a hit rate that is a string rather than number/null")
+    _bad = copy.deepcopy(_sc)
+    _bad["unresolved"].append({"week": 1, "game_id": "g", "market": "rb_rush_yds",
+                               "selection": "x", "reason": "miss"})
+    _schema_red(_bad, _sc_schema, "an unresolved reason outside the declared set "
+                "(an unresolved leg is never a miss)")
+    _bad = copy.deepcopy(_sc)
+    del _bad["finals_source"]
+    _schema_red(_bad, _sc_schema, "a score document that does not say where finals came from")
+
+    # R73 — the parlay archive + index contracts (scripts/build_parlay_archive.py).
+    _ar_schema = _load(os.path.join(CONTRACTS, PARLAY_ARCHIVE_SCHEMA))
+    _ar = {"season": 2026, "week": 1, "updated_utc": "2026-09-14T16:44:55Z",
+           "parlays": [{"parlay_id": "G1-g1", "card_id": "0123456789ab",
+                        "scope": "game", "game_id": "G1",
+                        "legs": [{"market": "moneyline", "selection": "AAA ML",
+                                  "implied_prob": 0.55, "model_prob": 0.6}],
+                        "model_ev": 0.05, "confidence_tier": "low",
+                        "correlation_note": "same-game"}],
+           "archived_utc": "2026-09-14T17:00:00Z", "closed": False,
+           "history": [{"updated_utc": "2026-09-14T16:44:55Z",
+                        "archived_utc": "2026-09-14T17:00:00Z"}]}
+    validate_against_schema(_ar, _ar_schema, "parlay archive selftest")
+    _bad = copy.deepcopy(_ar)
+    _bad["closed"] = "yes"
+    _schema_red(_bad, _ar_schema, "an archive whose closed flag is a string")
+    _bad = copy.deepcopy(_ar)
+    del _bad["history"]
+    _schema_red(_bad, _ar_schema, "an archive without its history")
+    _bad = copy.deepcopy(_ar)
+    _bad["parlays"][0]["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _ar_schema, "an undeclared field on an archived leg")
+    _ix_schema = _load(os.path.join(CONTRACTS, "parlays_index.schema.json"))
+    _ix = {"season": 2026, "generated_utc": "t", "current_week": 1,
+           "weeks": [{"week": 1, "path": "data/parlays/2026_wk01.json",
+                      "updated_utc": "2026-09-14T16:44:55Z", "archived_utc": "2026-09-14T17:00:00Z",
+                      "closed": False, "n_parlays": 1, "n_week_scope": 0, "n_game_scope": 1}]}
+    validate_against_schema(_ix, _ix_schema, "parlay index selftest")
+    _bad = copy.deepcopy(_ix)
+    _bad["weeks"][0]["path"] = "parlays/2026_wk01.json"
+    _schema_red(_bad, _ix_schema, "an index path that is not repo-relative data/parlays/...")
+    _bad = copy.deepcopy(_ix)
+    _bad["current_week"] = None
+    _schema_red(_bad, _ix_schema, "an index without a current week")
+
+    # R87 — the MY-card contracts. The offered-card record is what everything
+    # downstream grades, so a shape error has to red HERE rather than turn into a
+    # score for a card nobody was offered.
+    _mc_schema = _load(os.path.join(CONTRACTS, "my_cards.schema.json"))
+    _mc_leg = {"market": "wr_rec_yds", "selection": "M. Wilson 20+ rec yds",
+               "game_id": "401872943", "team": "ARI", "side": "home",
+               "player": "Michael Wilson", "gsis_id": "espn-4360761", "position": "WR",
+               "line": 19.5, "mu": 47.02, "model_prob": 0.6995, "implied_prob": 0.731,
+               "price_source": "assumed", "priced": False}
+    _mc_card = {"card_id": "60f562423ee1", "dial": "safe", "seed": "ARI", "rank": 1,
+                "n_legs": 2, "same_game": False, "mixed_game": False, "model": 0.5353,
+                "implied": 0.6308, "ev": -0.1515, "tier": "low", "payout": 58.52,
+                "assumed": 2, "earliest_kickoff_utc": "2026-09-20T20:25Z",
+                "legs": [_mc_leg, dict(_mc_leg, market="moneyline", selection="SF ML",
+                                       team="SF", player=None, gsis_id=None,
+                                       position=None, line=None, mu=None)],
+                "first_seen_utc": "2026-09-18T10:11:22Z", "locked": True,
+                "locked_utc": "2026-09-18T10:11:22Z"}
+    _mc = {"season": 2026, "week": 2, "generated_utc": "t",
+           "pool_generated_utc": "2026-09-18T10:11:22Z", "source": "s",
+           "dials": ["safe", "even", "longshot"], "seeds": "team", "rule": "r",
+           "note": "n",
+           "runs": [{"pool_generated_utc": "2026-09-18T10:11:22Z", "week": 2,
+                     "cards_seen": 1, "cards_added": 1, "locked_added": 1,
+                     "unlocked_added": 0}],
+           "cards": [_mc_card]}
+    validate_against_schema(_mc, _mc_schema, "my_cards selftest")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["locked"] = "yes"
+    _schema_red(_bad, _mc_schema, "an offered card whose locked flag is a string")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["dial"] = "medium"
+    _schema_red(_bad, _mc_schema, "an offered card on a dial the view does not have")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["legs"][0]["model_prob"] = 1.4
+    _schema_red(_bad, _mc_schema, "an offered leg with model_prob above 1")
+    _bad = copy.deepcopy(_mc)
+    _bad["cards"][0]["legs"][0]["book_prob"] = 0.5
+    _schema_red(_bad, _mc_schema, "an undeclared field on an offered leg")
+    _bad = copy.deepcopy(_mc)
+    _bad["seeds"] = "player"
+    _schema_red(_bad, _mc_schema, "a record claiming a seed kind that is not swept")
+
+    _mcs_schema = _load(os.path.join(CONTRACTS, "my_card_scores.schema.json"))
+    _mcs_block = {"n": 0, "graded": 0, "all_hit": 0, "hit_rate": None,
+                  "mean_model": None, "log_loss": None, "brier": None, "staked": None,
+                  "net_fair": None, "net_vig2": None, "roi_fair": None}
+    _mcs = {"season": 2026, "generated_utc": "t", "source": "s", "finals_source": "none",
+            "rule": "r", "weeks_resolved": 0,
+            "weeks": [{"week": 2, "n_cards": 900, "locked": 900, "graded": 0,
+                       "pending": 900,
+                       "buckets": {"all_hit": 0, "push": 0, "partial": 0,
+                                   "all_missed": 0, "pending": 900},
+                       "by_dial": {d: dict(_mcs_block)
+                                   for d in ("safe", "even", "longshot")},
+                       "by_legs": {str(k): dict(_mcs_block) for k in (2, 3, 4, 5, 6)}}],
+            "cards": [], "skipped": "offline run: stats not fetched"}
+    validate_against_schema(_mcs, _mcs_schema, "my_card_scores selftest (0 graded)")
+    _bad = copy.deepcopy(_mcs)
+    _bad["weeks"][0]["by_dial"]["even"]["hit_rate"] = "n/a"
+    _schema_red(_bad, _mcs_schema, "a MY hit rate that is a string rather than number/null")
+    _bad = copy.deepcopy(_mcs)
+    _bad["cards"].append({"card_id": "60f562423ee1", "week": 2, "dial": "even",
+                          "seed": "ARI", "n_legs": 2, "model": 0.3,
+                          "result": "pending", "bucket": "pending",
+                          "legs": [{"selection": "x", "market": "moneyline",
+                                    "result": "pending", "actual": None},
+                                   {"selection": "y", "market": "spread",
+                                    "result": "pending", "actual": None}],
+                          "money": None})
+    _schema_red(_bad, _mcs_schema, "a PENDING card in the graded list (weeks[] counts "
+                "it; a card with an unresolved leg has no result to record)")
+    _bad = copy.deepcopy(_mcs)
+    del _bad["weeks"][0]["by_legs"]["6"]
+    _schema_red(_bad, _mcs_schema, "a week record missing a leg-count block")
+
+    # R88 (F17) — the per-stage record. Its two load-bearing fields are the exit
+    # code (a NUMBER: a string "0" would read as success to anything comparing it)
+    # and the status enum (ok / failed / skipped — "did not run" and "ran and
+    # failed" are different facts, and an invented fourth word erases that).
+    _st_schema = _load(os.path.join(CONTRACTS, "pipeline_stages.schema.json"))
+    _st_stage = {"name": "Resolve parlay legs against nflverse weekly yards",
+                 "status": "failed", "exit_code": 1,
+                 "started_utc": "2026-09-19T10:07:31Z",
+                 "finished_utc": "2026-09-19T10:07:44Z", "duration_s": 13.0,
+                 "continue_on_error": True,
+                 "last_success_utc": "2026-09-18T10:07:40Z",
+                 "note": "failed under continue-on-error — the workflow stayed green"}
+    _st = {"generated_utc": "2026-09-19T10:07:44Z",
+           "workflows": {"daily": {"run_id": "18231144",
+                                   "run_started_utc": "2026-09-19T10:05:00Z",
+                                   "run_finished_utc": "2026-09-19T10:07:44Z",
+                                   "last_success": {
+                                       "Resolve parlay legs against nflverse weekly yards":
+                                           "2026-09-18T10:07:40Z"},
+                                   "stages": [_st_stage,
+                                              dict(_st_stage, name="Replay lab",
+                                                   status="skipped", exit_code=None,
+                                                   started_utc=None, finished_utc=None,
+                                                   duration_s=None,
+                                                   continue_on_error=False,
+                                                   note="scores mode: not re-priced")]}}}
+    validate_against_schema(_st, _st_schema, "pipeline_stages selftest")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["daily"]["stages"][0]["exit_code"] = "1"
+    _schema_red(_bad, _st_schema, "a stage exit code that is a string rather than an integer")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["daily"]["stages"][0]["status"] = "degraded"
+    _schema_red(_bad, _st_schema, "a stage status outside ok/failed/skipped")
+    _bad = copy.deepcopy(_st)
+    _bad["workflows"]["nightly"] = _bad["workflows"]["daily"]
+    _schema_red(_bad, _st_schema, "a stage record for a workflow that does not exist")
+
+    # R92 — the QB DEPTH CASCADE contract. The measurement is only worth having
+    # if a document cannot quietly claim more than it measured, so the reds are
+    # the three ways that could happen: a verdict naming a family that was never
+    # a candidate, a lag of 0 (a week reading its own depth chart, which is the
+    # whole leak this substrate exists to avoid), and a would_adopt that is a
+    # string rather than a boolean ("false" is truthy to a careless reader).
+    _qd_schema = _load(os.path.join(CONTRACTS, "qb_depth_backtest.schema.json"))
+    _qd_cand = {
+        "name": "qb1_qb2",
+        "description": "a second drop when QB2 is listed out as well",
+        "params": {"qb1_scale": 75.0, "qb2_extra": 50.0, "cap_scale": 0.0},
+        "trials": 20,
+        "grid": [{"params": {"qb1_scale": 75.0, "qb2_extra": 50.0, "cap_scale": 0.0},
+                  "pooled_log_loss": 0.63554}],
+        "heldout_log_loss_by_fold": {"2022": 0.63549, "2023": 0.66606,
+                                     "2024": 0.60183, "2025": 0.63851},
+        "pooled_log_loss": 0.63554, "n": 1084, "delta_vs_shipped": -0.00104,
+        "improvement": -0.00104, "se": 0.000578, "t_stat": -1.8,
+        "ci95": [-0.002811, 0.000869], "folds_positive": 0,
+        "threshold": 0.00241, "would_adopt": False, "n_fired": 118,
+    }
+    _qd = {
+        "generated_utc": "2026-09-20T12:00:00Z",
+        "kind": "qb_depth_backtest",
+        "seasons_scored": ["2022", "2023", "2024", "2025"],
+        "substrate": {
+            "seasons_requested": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_fetched": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_unavailable": {}, "seasons_scored": ["2022", "2023", "2024", "2025"],
+            "starter_lag_weeks": 1, "min_dropbacks": 100,
+            "out_statuses": ["Out", "Doubtful"],
+            "replacement_epa_per_db": {"2022": -0.06974, "2021": None},
+            "depth_source": "nflverse depth_charts_{season} releases",
+            "injury_source": "data/injury_history.json (final weekly report)",
+            "capability_source": "data/epa_history.json seasons[yr][team][wk].passers",
+            "rule": ("QB1/QB2 are the rank-1 and rank-2 QBs of the latest depth-chart "
+                     "snapshot whose week is <= wk - 1; the expected starter is the "
+                     "highest-ranked QB not listed Out/Doubtful"),
+        },
+        "conditions": {k: {"2022": 1, "2023": 1, "2024": 1, "2025": 1}
+                       for k in ("team_games", "depth_known", "depth_unknown",
+                                 "qb1_out", "qb2_also_out",
+                                 "qb3_or_deeper_started", "cap_gap_measured")},
+        "baseline": {
+            "name": "shipped",
+            "params": {"hfa_elo": 45.0, "revert": 0.45, "k": 25.0,
+                       "families": ["qb_out"], "qb_out_scale": 75.0},
+            "unavailable": [],
+            "heldout_log_loss_by_fold": {"2022": 0.63533, "2023": 0.66551,
+                                         "2024": 0.60135, "2025": 0.63582},
+            "pooled_log_loss": 0.6345, "n": 1084,
+        },
+        "candidates": [_qd_cand],
+        "adoption_rule": {
+            "method": "paired per-game log-loss, CR1 cluster-robust over the "
+                      "walk-forward folds, one-sided Student-t",
+            "alpha": 0.05, "tests": 4, "effect_floor": 0.0015,
+            "double_count_rule": ("a qb_depth walk DROPS the shipped qb_out builder: "
+                                  "qb_depth's first term is the QB1 drop, so running "
+                                  "both would price one absence twice"),
+        },
+        "verdict": "none",
+        "policy": ["MEASUREMENT ONLY. This run writes no model parameter.",
+                   "Every input is restricted to what was knowable before kickoff.",
+                   "Absent data is COUNTED, never invented.",
+                   "No market number reaches any probability in this document."],
+        "limits": ["The depth-chart release is a listing, not a lineup card.",
+                   "The legacy release lists two QBs for most team-weeks.",
+                   "Capability is raw EPA per dropback, unadjusted."],
+    }
+    validate_against_schema(_qd, _qd_schema, "qb_depth_backtest selftest")
+    _bad = copy.deepcopy(_qd)
+    _bad["verdict"] = "qb_depth"
+    _schema_red(_bad, _qd_schema, "a verdict naming a family that was never a candidate")
+    _bad = copy.deepcopy(_qd)
+    _bad["substrate"]["starter_lag_weeks"] = 0
+    _schema_red(_bad, _qd_schema, "a starter lag of 0 — a week reading its own depth chart")
+    _bad = copy.deepcopy(_qd)
+    _bad["candidates"][0]["would_adopt"] = "false"
+    _schema_red(_bad, _qd_schema, "would_adopt as the string 'false' rather than a boolean")
+    _bad = copy.deepcopy(_qd)
+    del _bad["conditions"]["qb2_also_out"]
+    _schema_red(_bad, _qd_schema, "a conditions block with no qb2_also_out count")
+
+    # R94 - the three WEATHER contracts. All three documents are MEASURE ONLY and
+    # none is read by a builder, which is exactly why their contracts have to bite:
+    # a document nobody consumes is a document nobody would notice going wrong, and
+    # the one thing it must never do is claim more than it measured. The reds below
+    # are the five ways the backtest could quietly claim an adoption or hide a
+    # missing number, plus one red each for the rate substrate and the forecast
+    # archive on the field that makes each of those honest.
+    _wb_schema = _load(os.path.join(CONTRACTS, "weather_backtest.schema.json"))
+    _wb_term = {
+        "name": "rain_completion_rate",
+        "arm": "MECHANISM",
+        "position": "QB",
+        "unit": "player_week",
+        "outcome": "completion_rate",
+        "form": "rate ~ 1[precip >= 1 mm], within passer-season, attempt-weighted",
+        "hypothesis": ("A wet ball costs completion percentage. The owner's 8% on a "
+                       "~64.5% base is 5.2 percentage points."),
+        "pre_registered_sign": -1,
+        "effect_of_interest": 0.052,
+        "analysis_sample": "stratified",
+        "stratum_rule": "wind < 20 kph and temp > 5 C",
+        "available": True,
+        "unavailable_reason": "",
+        # powered is the CONJUNCTION of the modelled MDE and the realized one
+        # (mde_z * max(se_fold, se_stadium)). Both n's below are the SCORED-fold
+        # counts, because that is the sample the coefficient is fitted on.
+        "mde_realized": 0.096437,
+        "powered": False,
+        "n_wet": 786, "n_dry": 3235,
+        "n_treated_rows": 23, "n_control_rows": 109,
+        "marginal_estimate": -0.03441,
+        "stratified_estimate": -0.047264,
+        "heldout_estimate": -0.03503,
+        "confounded": False,
+        # Tabulated on the SCORED rows, so the five n's sum to
+        # n_treated_rows + n_control_rows (23 + 109 = 132).
+        "dose_response": [{"band": "precip_dry", "n": 95, "value": 0.663124},
+                          {"band": "precip_trace", "n": 9, "value": 0.602996},
+                          {"band": "precip_light", "n": 5, "value": 0.703448},
+                          {"band": "precip_moderate", "n": 20, "value": 0.634361},
+                          {"band": "precip_heavy", "n": 3, "value": 0.580952}],
+        "monotone": False,
+        "ci95": [-0.236087, 0.166027],
+        "se_fold": 0.034422, "se_stadium": 0.026723,
+        "binding_threshold": 0.201057, "binding_df": 3,
+        "folds_sign": 3,
+        "fold_estimates": {"2022": -0.041, "2023": -0.028,
+                           "2024": 0.006, "2025": -0.035},
+        "rows_moved": 132,
+        "would_adopt": False,
+        "refused_reasons": ["underpowered", "too_few_fired", "below_threshold",
+                            "non_monotone"],
+    }
+    _wb = {
+        "generated_utc": "2026-09-20T12:00:00Z",
+        "kind": "weather_backtest",
+        "seasons_scored": ["2022", "2023", "2024", "2025"],
+        "substrate": {
+            "seasons_requested": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_fetched": ["2021", "2022", "2023", "2024", "2025"],
+            "seasons_unavailable": {},
+            "column_contract": ["attempts", "completions", "targets", "receptions"],
+            "feeds": {"weather": "data/weather_history.json",
+                      "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
+                      "game_context": "data/game_context.json",
+                      "epa": "data/epa_history.json",
+                      "dvp": "data/dvp_positional_history.json",
+                      "rates": "data/fixtures/wet_rates"},
+            "weather_role": "label",
+            "perfect_foresight": True,
+            "rule": ("Fold Y is scored on season Y and fits only seasons strictly "
+                     "before it; the first fold fits nothing, is neutral and is "
+                     "counted."),
+            "folds": [{"season": 2021, "fit_seasons": [], "scored": False,
+                       "neutral": True},
+                      {"season": 2022, "fit_seasons": [2021], "scored": True,
+                       "neutral": False}],
+            "training_seasons": ["2021", "2022", "2023", "2024"],
+            "holdout_season": "2025",
+            "power_seasons": ["2022", "2023", "2024", "2025"],
+            "power_training_seasons": ["2022", "2023", "2024"],
+        },
+        "corpus_filter": {
+            "source": "open-meteo historical archive (kickoff hour, open-roof homes)",
+            "rows_read": 893, "rows_joined": 893, "rows_unjoined": 0,
+            "dropped_relocations": 19, "rows_kept": 874,
+            "roof_check": "all survivors outdoors", "roof_check_ok": True,
+            "rule": ("the neutral flag in games_meta drops relocations; "
+                     "data/weather_history.json is never rewritten or refetched"),
+        },
+        "roof_census": {
+            "seasons": [2021, 2022, 2023, 2024, 2025], "game_type": "REG",
+            "vocabulary": {"treated": ["outdoors"],
+                           "placebo": ["dome", "closed"],
+                           "reported_only": ["open"]},
+            "games": {"treated": 874, "placebo": 427, "open": 32, "unknown": 0},
+            "team_games": {"treated": 1748, "placebo": 854, "open": 64,
+                           "unknown": 0},
+            "dropped_neutral": 26,
+            "pooling_rule": ("'open' is a retractable roof that was open at "
+                             "kickoff: reported in its own bucket, never pooled"),
+        },
+        "conditions": {"total": {"2022": 344, "2025": 350},
+                       "precip_ge_1p0": {"2022": 16, "2025": 8}},
+        "conditions_unit": "team_game",
+        "band_edges": {"precip": {"precip_dry": "exactly 0.0 mm",
+                                  "precip_trace": "0.0 < mm < 0.25",
+                                  "precip_light": "0.25 <= mm < 1.0",
+                                  "precip_moderate": "1.0 <= mm < 2.5",
+                                  "precip_heavy": "mm >= 2.5"},
+                       "wind": {"wind_calm": "kph < 8",
+                                "wind_light": "8 <= kph < 16",
+                                "wind_moderate": "16 <= kph < 24",
+                                "wind_strong": "24 <= kph < 30",
+                                "wind_extreme": "kph >= 30"}},
+        "weather_history_sha256": ("1244c436273ee0810b0d671c0f981fe57fd09b92e8f8"
+                                   "f6c52bc3e3864b59c5ad"),
+        "power": {"rain_completion_rate": {
+            "analysis_sample": "stratified", "n_treated": 786, "n_control": 3235,
+            "baseline_rate": 0.650659, "measured_icc": 0.007055, "deff": 1.244986,
+            "se": 0.020744, "mde": 0.058115, "effect_of_interest": 0.052,
+            "powered": False}},
+        "terms": [_wb_term],
+        "arms": {
+            "control": {"available": True, "reason": "",
+                        "seasons_scored": ["2022", "2023", "2024", "2025"],
+                        "rows": 8279,
+                        "series": {"shipped_v2": {"pooled_mae": 6.003032,
+                                                  "rank_corr": 0.381358},
+                                   "v2_no_weather": {"pooled_mae": 6.008667,
+                                                     "rank_corr": 0.380102}},
+                        "weather_earns_its_place": True,
+                        "note": ("the deployed split re-priced with its weather "
+                                 "inputs removed; build_weekly.py is unchanged")},
+            "reach": {"available": True, "reason": "", "slate": "2026 week 2",
+                      "rungs": 1229, "rungs_moved_beyond_ece": 0,
+                      "rungs_crossing_support": 0, "mean_abs_delta_p": 0.0,
+                      "p90_abs_delta_p": 0.0, "max_abs_delta_p": 0.0,
+                      "games_triggering": 0, "ece": 0.0066,
+                      "effect_ratio": 0.946163,
+                      "note": ("computed on ONE live slate, named above; never a "
+                               "season-long frequency")},
+        },
+        "placebo": {
+            "rule": ("the identical estimator on roofed team-games handed the "
+                     "weather of a matched outdoor game in the same season-week"),
+            "note": ("A DIAGNOSTIC WITH AN INTERVAL, never a pass/fail threshold: "
+                     "a placebo-over-treated ratio is two noisy estimates divided."),
+            "terms": [{"term": "rain_completion_rate", "n_rows": 56,
+                       "n_treated": 13, "estimate": -0.050199, "se": 0.014257,
+                       "df": 10, "clusters": 11,
+                       "ci95": [-0.081966, -0.018432]}],
+        },
+        "verdict": {"name": "not_powered", "adopted": False,
+                    "families_registered": [], "oracle_only": True,
+                    "adoptable_candidates": []},
+        "adoption_rule": {
+            "clauses": ["1 powered: the modelled MDE on the term's OWN scored "
+                        "analysis sample AND the realized MDE from its own "
+                        "clustered error, both no larger than the bar",
+                        "2 n_fired >= 30 treated observations and treated rows",
+                        "3 the fitted sign equals the pre-registered sign",
+                        "4 the dose-response is monotone across the bands that "
+                        "clear min_band_n",
+                        "5 confounded is false (marginal vs stratified)",
+                        "6 rows_moved > 0 - the R92 no-op clause",
+                        "7 the sign agrees in at least 3 of the 4 held-out folds",
+                        "8 the held-out estimate exceeds the binding threshold"],
+            "tests": 10, "alpha": 0.05, "min_fired": 30, "fold_sign_min": 3,
+            "min_band_n": 10, "mde_z": 2.8016,
+            "power_rule": ("powered = the modelled MDE and the realized MDE "
+                           "mde_z * max(se_fold, se_stadium) are BOTH no larger "
+                           "than the effect of interest"),
+            "effect_floor": {"completion_rate": 0.005, "catch_rate": 0.005},
+            "binding_rule": ("max(threshold_fold, threshold_stadium), NEVER "
+                             "max(se): at 3 df against 20 the larger SE can "
+                             "carry the lower bar"),
+            "primary_term": "rain_completion_rate",
+        },
+        "policy": ["MEASUREMENT ONLY. This run adopts nothing and registers no family.",
+                   "The power stage runs BEFORE any coefficient is fitted.",
+                   "A wind term is never stratified on its own predictor.",
+                   "The binding threshold is the larger THRESHOLD, not the larger SE.",
+                   "No market number is read anywhere in this document."],
+        "limits": ["precip_mm is one hourly value at the kickoff hour.",
+                   "Snow enters only as liquid-water equivalent, so it is invisible.",
+                   "The neutral flag marks a venue, never a roof state.",
+                   "Open retractable roofs are reported and never pooled.",
+                   "Eight stadiums supply about three quarters of the windy games."],
+    }
+    validate_against_schema(_wb, _wb_schema, "weather_backtest selftest")
+    # (1) the adoption the document exists to make impossible.
+    _bad = copy.deepcopy(_wb)
+    _bad["verdict"]["adopted"] = True
+    _schema_red(_bad, _wb_schema,
+                "a MEASURE-ONLY weather document claiming verdict.adopted true")
+    # (2) the same claim by the back door - a family recorded as registered.
+    _bad = copy.deepcopy(_wb)
+    _bad["verdict"]["families_registered"] = ["weather_wind"]
+    _schema_red(_bad, _wb_schema,
+                "a weather document registering a signal family (maxItems 0)")
+    # (3) the string 'false' is truthy everywhere a reader would use it, so a
+    # powered flag that is a string is a gate that reads as passed.
+    _bad = copy.deepcopy(_wb)
+    _bad["terms"][0]["powered"] = "false"
+    _schema_red(_bad, _wb_schema,
+                "powered as the string 'false' rather than a boolean")
+    # (4) a term with no wet count cannot be checked against its own power row.
+    _bad = copy.deepcopy(_wb)
+    del _bad["terms"][0]["n_wet"]
+    _schema_red(_bad, _wb_schema, "a terms row with no n_wet")
+    # (5) an invented refusal reason would let a term refuse for a clause that
+    # is not one of the eight, which is a refusal nobody can audit.
+    _bad = copy.deepcopy(_wb)
+    _bad["terms"][0]["refused_reasons"] = ["because"]
+    _schema_red(_bad, _wb_schema,
+                "a refused_reasons entry outside the eight-clause enum")
+
+    # R94 - the rate substrate. provenance is the field that stops a consumer
+    # measuring on hand-made numbers, so an invented third value must red.
+    _wr_schema = _load(os.path.join(CONTRACTS, "wet_rates.schema.json"))
+    _wr_row = {"team": "AAA", "opp": "BBB", "week": 1, "completions": 20,
+               "attempts": 32, "passing_yards": 241.0,
+               "passing_interceptions": 1, "sacks": 2, "carries": 3,
+               "targets": 0, "receptions": 0, "receiving_yards": 0.0,
+               "receiving_air_yards": 0.0, "sack_fumbles": 0,
+               "sack_fumbles_lost": 0, "rushing_fumbles": 0,
+               "rushing_fumbles_lost": 0, "receiving_fumbles": 0,
+               "receiving_fumbles_lost": 0, "name": "A Passer", "pos": "QB"}
+    _wr = {"kind": "wet_rates", "unit": "player_week",
+           "provenance": "synthetic_fixture",
+           "source": "hand-made fixture, not an nflverse release",
+           "policy": ("MEASURE ONLY: numerators and denominators are stored "
+                      "separately and never pre-divided."),
+           "generated_utc": "2026-09-20T12:00:00Z",
+           "seasons_requested": [2021], "seasons_fetched": [2021],
+           "seasons_unavailable": {},
+           "required_columns": sorted(["attempts", "carries", "completions",
+                                       "name", "opp", "passing_interceptions",
+                                       "passing_yards", "pid", "pos",
+                                       "receiving_air_yards", "receiving_fumbles",
+                                       "receiving_fumbles_lost", "receiving_yards",
+                                       "receptions", "rushing_fumbles",
+                                       "rushing_fumbles_lost", "sack_fumbles",
+                                       "sack_fumbles_lost", "sacks", "season",
+                                       "season_type", "targets", "team", "week"]),
+           "rows": {"2021": {"1|AAA|00-0000001": _wr_row}}}
+    validate_against_schema(_wr, _wr_schema, "wet_rates selftest")
+    _bad = copy.deepcopy(_wr)
+    _bad["provenance"] = "looks_real"
+    _schema_red(_bad, _wr_schema,
+                "a rate corpus claiming a provenance outside "
+                "nflverse_release/synthetic_fixture")
+    _bad = copy.deepcopy(_wr)
+    _bad["rows"]["2021"] = {}
+    _schema_red(_bad, _wr_schema,
+                "a season mapping to an empty object - a hole belongs in "
+                "seasons_unavailable, never in rows")
+
+    # R94 - the forecast archive. Its one job is to hold PRE-KICKOFF forecast
+    # rows, so the source enum and the fetch stamp are what the contract pins:
+    # a climatology row carries no precip_mm at all, and a row with no stamp has
+    # no honest observation time.
+    _wfa_schema = _load(os.path.join(CONTRACTS,
+                                     "weather_forecast_archive.schema.json"))
+    _wfa = {"generated_utc": "2026-09-20T12:00:00Z",
+            "kind": "weather_forecast_archive",
+            "source": "data/weather_forecast.json games rows (source=forecast)",
+            "rule": ("append (key, fetched_utc) once; an entry already archived "
+                     "is never rewritten, reordered or dropped"),
+            "counts": {"observations": 1, "games": 1, "appended": 1,
+                       "refused": {"not_forecast": 0, "no_fetched_utc": 0,
+                                   "malformed_row": 0, "duplicate": 0,
+                                   "conflict": 0}},
+            "observations": [{"key": "2026|2|BUF|NYJ",
+                              "fetched_utc": "2026-09-20T11:00:00Z",
+                              "precip_mm": 1.4, "temp_c": 12.0,
+                              "wind_kph": 18.5, "source": "forecast"}]}
+    validate_against_schema(_wfa, _wfa_schema, "weather_forecast_archive selftest")
+    _bad = copy.deepcopy(_wfa)
+    _bad["observations"][0]["source"] = "climatology"
+    _schema_red(_bad, _wfa_schema,
+                "a climatology row in the pre-kickoff forecast archive")
+    _bad = copy.deepcopy(_wfa)
+    del _bad["observations"][0]["fetched_utc"]
+    _schema_red(_bad, _wfa_schema,
+                "an archived observation with no fetch stamp")
+    _bad = copy.deepcopy(_wfa)
+    _bad["observations"][0]["fetched_utc"] = "tuesday"
+    _schema_red(_bad, _wfa_schema,
+                "a fetch stamp that is not an ISO-8601 UTC instant")
+    _bad = copy.deepcopy(_wfa)
+    del _bad["counts"]["refused"]["conflict"]
+    _schema_red(_bad, _wfa_schema,
+                "a refusal tally missing the conflict reason - a reason that "
+                "never fired must read 0, never go missing")
+
+    print("selftest OK: availability cross-file invariant catches renormalized "
+          "blocked weeks, duration/consequence drift, orphan flags, dropped "
+          "reports (a hurt pool player with no block) and a dishonest "
+          "model summary; parlay legs reject a market price in model_prob, a "
+          "mislabelled side, a total leg and a model/market collision; the six "
+          "R30b keywords (minProperties/maxProperties/pattern/exclusiveMinimum/"
+          "exclusiveMaximum/minLength) each fail a violating document; $ref is "
+          "a hard error; market_prices is validated below the top level; the R58 "
+          "parlay ledger / leg-score contracts red on a string flag, a >1 "
+          "probability, an off-enum market or reason, an undeclared leg field and "
+          "a missing finals_source; the R87 MY-card contracts red on a string "
+          "locked flag, an invented dial, a >1 leg probability, an undeclared leg "
+          "field, a seed kind that is not swept, a string hit rate, a pending card "
+          "in the graded list and a missing leg-count block; the R88 per-stage "
+          "record reds on a string exit code, a status outside "
+          "ok/failed/skipped and a workflow key that does not exist; the R92 "
+          "qb-depth backtest contract reds on a verdict naming a family that "
+          "never ran, a starter lag of 0, a string would_adopt and a missing "
+          "qb2_also_out count; the R94 weather-backtest contract reds on all "
+          "five ways a MEASURE-ONLY document could claim more than it measured "
+          "(verdict.adopted true, a registered signal family, powered as the "
+          "string 'false', a terms row with no n_wet, and a refused_reasons "
+          "entry outside the eight-clause enum), the R94 rate corpus reds on an "
+          "invented provenance and a season mapping to an empty object, and the "
+          "R94 forecast archive reds on a climatology row, a missing fetch "
+          "stamp, a fetch stamp that is not an ISO-8601 UTC instant and a "
+          "refusal tally missing the conflict reason")
+
+
+# ---------------------------------------------------------------------------
+# Driver.
+# ---------------------------------------------------------------------------
+
+def _load(path):
+    with open(path, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def main():
+    failures = []
+
+    # 1) Per-file schema validation.
+    for schema_name, data_name in SCHEMA_TO_DATA.items():
+        schema_path = os.path.join(CONTRACTS, schema_name)
+        data_path = os.path.join(DATA, data_name)
+        if data_name in OPTIONAL_DATA and not os.path.exists(data_path):
+            print("skip  %-28s (runner-built, not present yet)" % data_name)
+            continue
+        try:
+            schema = _load(schema_path)
+        except (OSError, ValueError) as exc:
+            failures.append("cannot load schema %s: %s" % (schema_name, exc))
+            continue
+        try:
+            data = _load(data_path)
+        except (OSError, ValueError) as exc:
+            failures.append("cannot load data %s: %s" % (data_name, exc))
+            continue
+        try:
+            validate_against_schema(data, schema, data_name)
+            print("ok    %-28s vs %s" % (data_name, schema_name))
+        except ValidationError as exc:
+            failures.append(str(exc))
+
+    # 1b) Snapshot files. Two families live under data/snapshots/, each with its
+    # own shape — route each to the RIGHT schema (a single blanket schema fails the
+    # gameday cron, which archives game_predictions copies alongside the locks):
+    #   * point-in-time LOCKS (e.g. 2026_wk01_games_open.json) -> snapshot.schema.json
+    #     (an array of locked prediction rows the harness grades against FINAL).
+    #   * archived game_predictions.<ts>.json -> game_predictions.schema.json
+    #     (byte copies of data/game_predictions.json, a dict — NOT the lock array).
+    snap_dir = os.path.join(DATA, "snapshots")
+    _schema_cache = {}
+    if os.path.isdir(snap_dir):
+        snap_files = [f for f in sorted(os.listdir(snap_dir)) if f.endswith(".json")]
+        if snap_files:
+            try:
+                for f in snap_files:
+                    schema_name = snapshot_schema_for(f)
+                    if schema_name not in _schema_cache:
+                        _schema_cache[schema_name] = _load(os.path.join(CONTRACTS, schema_name))
+                    data = _load(os.path.join(snap_dir, f))
+                    validate_against_schema(data, _schema_cache[schema_name], "snapshots/" + f)
+                    print("ok    snapshots/%-30s vs %s" % (f, schema_name))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+        else:
+            print("ok    no snapshot files to validate (data/snapshots/ empty)")
+
+    # 1b2) R108 — the owner's excluded-games list (config/excluded_games.json):
+    # hand-edited, so it is validated strictly when present.
+    _xg = os.path.join(ROOT, "config", "excluded_games.json")
+    if os.path.exists(_xg):
+        try:
+            validate_against_schema(_load(_xg), _load(os.path.join(CONTRACTS,
+                                    "excluded_games.schema.json")), "config/excluded_games.json")
+            print("ok    config/excluded_games.json           vs excluded_games.schema.json")
+        except (OSError, ValueError, ValidationError) as exc:
+            failures.append(str(exc))
+
+    # 1c) R49 — estimate ledger files (data/estimates/<season>.json), when present.
+    # R58 — the parlay-leg ledger (parlays_<season>.json) lives beside them with
+    # its own contract (OPTIONAL: absent until the first daily append).
+    if os.path.isdir(ESTIMATES_DIR):
+        led_files = [f for f in sorted(os.listdir(ESTIMATES_DIR)) if f.endswith(".json")]
+        if led_files:
+            try:
+                schemas = {}
+                for f in led_files:
+                    schema_name = (PARLAY_LEDGER_SCHEMA if f.startswith(PARLAY_LEDGER_PREFIX)
+                                   else ESTIMATES_SCHEMA)
+                    if schema_name not in schemas:
+                        schemas[schema_name] = _load(os.path.join(CONTRACTS, schema_name))
+                    led_doc = _load(os.path.join(ESTIMATES_DIR, f))
+                    validate_against_schema(led_doc, schemas[schema_name], "estimates/" + f)
+                    print("ok    estimates/%-30s vs %s" % (f, schema_name))
+                    if schema_name == ESTIMATES_SCHEMA:
+                        check_ledger_locks(led_doc, "estimates/" + f)
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 1d) R73 — the per-week parlay archive (data/parlays/<season>_wk<NN>.json),
+    # when present. OPTIONAL directory: absent on a fresh clone until the first
+    # archive run; every file present is validated strictly (index.json is a
+    # registered file above, not part of this walk).
+    if os.path.isdir(PARLAY_ARCHIVE_DIR):
+        arch_files = [f for f in sorted(os.listdir(PARLAY_ARCHIVE_DIR))
+                      if f.endswith(".json") and "_wk" in f]
+        if arch_files:
+            try:
+                arch_schema = _load(os.path.join(CONTRACTS, PARLAY_ARCHIVE_SCHEMA))
+                for f in arch_files:
+                    validate_against_schema(_load(os.path.join(PARLAY_ARCHIVE_DIR, f)),
+                                            arch_schema, "parlays/" + f)
+                    print("ok    parlays/%-30s vs %s" % (f, PARLAY_ARCHIVE_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 1e) R87 — the MY PARLAYS offered-card record (data/my_cards/<season>_wk<NN>.json),
+    # when present. OPTIONAL directory: absent on a fresh clone until the first
+    # record run; every file present is validated strictly. These are what
+    # data/my_card_scores.json grades, so a malformed card must red here, before
+    # anything is scored against it.
+    if os.path.isdir(MY_CARDS_DIR):
+        my_files = [f for f in sorted(os.listdir(MY_CARDS_DIR))
+                    if f.endswith(".json") and "_wk" in f]
+        if my_files:
+            try:
+                my_schema = _load(os.path.join(CONTRACTS, MY_CARDS_SCHEMA))
+                for f in my_files:
+                    validate_against_schema(_load(os.path.join(MY_CARDS_DIR, f)),
+                                            my_schema, "my_cards/" + f)
+                    print("ok    my_cards/%-30s vs %s" % (f, MY_CARDS_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 1f) R101c — the ATD card record, walked exactly like the MY card record;
+    # R101b — and the GAME-scope record beside it, against the same contract.
+    for rec_dir in (ATD_CARDS_DIR, ATD_GAME_CARDS_DIR, ATD_MY_CARDS_DIR):
+        if not os.path.isdir(rec_dir):
+            continue
+        atd_files = [f for f in sorted(os.listdir(rec_dir))
+                     if f.endswith(".json") and "_wk" in f]
+        if atd_files:
+            try:
+                atd_schema = _load(os.path.join(CONTRACTS, ATD_CARDS_RECORD_SCHEMA))
+                for f in atd_files:
+                    tag = os.path.basename(rec_dir) + "/" + f
+                    validate_against_schema(_load(os.path.join(rec_dir, f)), atd_schema, tag)
+                    print("ok    %-39s vs %s" % (tag, ATD_CARDS_RECORD_SCHEMA))
+            except (OSError, ValueError, ValidationError) as exc:
+                failures.append(str(exc))
+
+    # 2) Cross-file invariants.
+    try:
+        check_meta_weights(_load(os.path.join(DATA, "meta.json")))
+        print("ok    meta.json signal-registry invariant (32 signals @ 0.0)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_candidate_signal_weights(_load(os.path.join(DATA, "model_tuning.json")))
+        print("ok    model_tuning.json learned candidate weights carry a passing receipt (R100)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        atd_path = os.path.join(DATA, "atd_backtest.json")
+        check_atd_backtest(_load(atd_path) if os.path.exists(atd_path) else None)
+        print("ok    atd_backtest.json adopted follows from its receipts (R99 E1)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        _opt = lambda n: (_load(os.path.join(DATA, n))            # noqa: E731
+                          if os.path.exists(os.path.join(DATA, n)) else None)
+        check_atd_offered(_opt("leg_pool.json"), _opt("atd_week.json"),
+                          _opt("atd_backtest.json"))
+        print("ok    ATD legs only on an adopted model, for its week, at its own number (R101)")
+        check_atd_cards(_opt("atd_cards.json"), _opt("leg_pool.json"))
+        print("ok    ATD cards: pool legs at pool prices, one per game, product, mode rules (R101c)")
+        check_bet_facts(_opt("bet_facts.json"))
+        print("ok    bet_facts.json scores are FINAL pairs; facts are numbers, 'dnp' or null (R110)")
+        check_learning_loops(_opt("learning_loops.json"))
+        print("ok    learning_loops.json summary counts its loops; transitions are real changes (R105)")
+        check_joint_backtest(_opt("joint_backtest.json"))
+        print("ok    joint_backtest.json pricer and offered sizes follow from its receipts (R101b)")
+        check_atd_game_cards(_opt("atd_game_cards.json"), _opt("leg_pool.json"),
+                             _opt("joint_backtest.json"))
+        print("ok    GAME ATD cards: one game, pool prices, re-priced, validated sizes (R101b)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_pipeline_health(_load(os.path.join(DATA, "pipeline_status.json")))
+        print("ok    pipeline_status.json health honesty invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        inj_path = os.path.join(DATA, "injuries.json")
+        dc_path = os.path.join(DATA, "depth_chart.json")
+        in_path = os.path.join(DATA, "inactives.json")
+        check_weekly_availability(
+            _load(os.path.join(DATA, "player_weekly.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+            _load(inj_path) if os.path.exists(inj_path) else None,
+            depth_chart=_load(dc_path) if os.path.exists(dc_path) else None,
+            inactives=_load(in_path) if os.path.exists(in_path) else None,
+        )
+        print("ok    player_weekly.json availability cross-file invariant (+ R77/R79 gate)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_component_lines(_load(os.path.join(DATA, "player_weekly.json")))
+        print("ok    player_weekly.json component-line invariant (R44)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        check_kdst_honesty(
+            _load(os.path.join(DATA, "kdst_projections.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+        )
+        print("ok    kdst_projections.json partial-scoring honesty invariant")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        # The policy names parlay probability explicitly, so the two produced
+        # artifacts a price would most plausibly ride on are scanned too — the
+        # data AND its contract, so declaring the field reds as well as
+        # carrying it. Absent files are skipped, not faked green.
+        _extra = []
+        for _name in ("parlays.json", "game_predictions.json"):
+            _dp = os.path.join(DATA, _name)
+            if os.path.exists(_dp):
+                _extra.append((_name, _load(_dp)))
+            _sp = os.path.join(CONTRACTS, _name.replace(".json", ".schema.json"))
+            if os.path.exists(_sp):
+                _extra.append((os.path.basename(_sp), _load(_sp)))
+        check_market_price_fields(
+            _load(os.path.join(DATA, "meta.json")),
+            _load(os.path.join(DATA, "player_projections.json")),
+            _load(os.path.join(CONTRACTS, "player_projections.schema.json")),
+            extra_docs=_extra,
+        )
+        print("ok    market price fields display-only invariant (%s)"
+              % ", ".join(sorted(MARKET_PRICE_FIELDS)))
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        # The other half of the same policy, on the surface the policy names
+        # explicitly: a parlay leg's MODEL column. The field-name scan above cannot
+        # see a de-vigged book probability sitting in `model_prob`, so this one
+        # recomputes every moneyline and spread leg from OUR model and requires a
+        # match. Both files are pipeline outputs and always present; a missing one
+        # is a failure, not a skip.
+        check_parlay_model_independence(
+            _load(os.path.join(DATA, "parlays.json")),
+            _load(os.path.join(DATA, "game_predictions.json")),
+        )
+        print("ok    parlays.json legs carry OUR probability (no market price in "
+              "model_prob)")
+        # R74 — and no parlay sells one opinion as two legs.
+        check_parlay_one_leg_per_side(_load(os.path.join(DATA, "parlays.json")))
+        print("ok    parlays.json keeps one leg per game side")
+        _exclusions = os.path.join(ROOT, "config", "excluded_games.json")
+        _excluded = [g["game_id"] for g in (_load(_exclusions).get("games") or [])] \
+            if os.path.exists(_exclusions) else []
+        check_parlay_coverage(_load(os.path.join(DATA, "parlays.json")),
+                              _load(os.path.join(DATA, "game_predictions.json")),
+                              _load(os.path.join(DATA, "player_weekly.json")),
+                              _load(os.path.join(DATA, "player_projections.json")), _excluded)
+        print("ok    parlays.json distinct cards / evidence-bound shortfall")
+        # R77 — and no leg is priced on a player who sits this week.
+        _lp = os.path.join(DATA, "leg_pool.json")
+        check_no_unplayable_legs(
+            _load(os.path.join(DATA, "player_weekly.json")),
+            _load(os.path.join(DATA, "parlays.json")),
+            _load(_lp) if os.path.exists(_lp) else None)
+        print("ok    no prop leg on a player who does not play this week (slate + pool)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        # R30 — and the same boundary on EVERY model output, by name rather than
+        # by recomputation, so a feed we have not modelled yet is covered too.
+        _model_docs = []
+        for _name in MODEL_OUTPUT_DOCS:
+            _dp = os.path.join(DATA, _name)
+            if os.path.exists(_dp):
+                _model_docs.append((_name, _load(_dp)))
+        _pp = os.path.join(DATA, "parlays.json")
+        check_market_probabilities(
+            _model_docs, _load(_pp) if os.path.exists(_pp) else None)
+        print("ok    no book-derived probability on any model output (%d docs)"
+              % len(_model_docs))
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    # game_context.json is runner-built (network); validated strictly when present.
+    ctx_path = os.path.join(DATA, "game_context.json")
+    if os.path.exists(ctx_path):
+        try:
+            ctx = _load(ctx_path)
+            check_game_context_no_market_columns(ctx)
+            print("ok    game_context.json carries no market column at any depth")
+            check_game_context_join(ctx,
+                                    os.path.join(DATA, "fixtures", "backtest_corpus"))
+            print("ok    game_context.json corpus join + label-only declaration")
+        except (OSError, ValueError, ValidationError) as exc:
+            failures.append(str(exc))
+
+    if failures:
+        print("\nVALIDATION FAILED (%d):" % len(failures), file=sys.stderr)
+        for f in failures:
+            print("  * %s" % f, file=sys.stderr)
+        return 1
+    print("\nAll data contracts valid.")
+    return 0
+
+
+if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        _selftest()
+        sys.exit(0)
+    sys.exit(main())
