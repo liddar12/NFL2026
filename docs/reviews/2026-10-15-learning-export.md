@@ -319,3 +319,55 @@ The full candidate universe/correlation vintages for historical weeks 2–5 are
 not established by these observations. Claude's earlier R126 replay used an
 on-card-leg union; it must not be relabeled a complete-candidate prospective
 backtest. The next local replay tool must report missing inputs explicitly.
+
+## Frozen-candidate source audit and explicit replay tool
+
+October 15, 2026, 9:57 p.m. CDT (America/Chicago). Local runtime **`5a4b057b`**,
+independently reviewed, not pushed or activated. New `scripts/replay_r126.py`
+and `tests/feature/week6_r126_replay.test.mjs` do not change the existing builder,
+injuries, calibration, data or workflows.
+
+The default CLI audits retained card archives, game snapshots, shipped-leg
+ledger and correlation artifacts without network, Git fetch, credentials or
+writes. The generated
+[source audit](2026-10-15-r126-source-audit.json) binds actual hashes and reports
+**null/unavailable complete-candidate historical metrics for weeks 2–5**.
+Those source classes do not establish the original full candidate pool or
+independent pre-kickoff public availability.
+
+Explicit supplied experiments preserve actual R126 non-spread-first/fallback,
+protected builder singleton behavior and actual-contract dedupe. The separately
+implemented R74 control uses its original legal-pair/absolute-correlation/EV
+ordering and full-pool singleton behavior. Synthetic inputs and local-Git
+content are explicitly labeled; mutable Git clocks never qualify independent
+historical availability. Frozen source probabilities are never refitted or
+re-priced. No output can be persisted inside repository/custom data authority
+or through selected output symlinks.
+
+Reports separate full-contract hits, reduced settlement wins, all-VOID refunds,
+pending exclusions and distinct selected-card denominators. A changed label,
+metadata or whitespace cannot manufacture another actual bet; same-label bets
+with genuinely different player/line/side remain distinct.
+
+Root checks, exit **0**:
+
+- New replay plus existing R126 suites: **10 passed**; independent new-suite
+  replay **8 passed**, source-bound executable coverage **323/342 = 94.4444%**.
+  Source SHA256 `9196125a39b7d0eae5d39e020fb179e5bbff6e086e2d02fb51ffd856c2e7e24d`.
+- Python 3.12 full dependency-free gate: data, smoke, **2,243 feature tests**
+  and all four model-regression gates passed; **browser step 8 skipped**.
+- Real-data default audit succeeds without source changes. Each required week
+  has four hashed source artifacts, but no complete original candidate authority.
+
+```sh
+python3 scripts/replay_r126.py
+node --test tests/feature/week6_r126_replay.test.mjs \
+  tests/feature/r126_game_card_ranking.test.mjs
+```
+
+Original S018-AC1 still requires the separately labeled on-card reference
+reconstruction. Retained history has 366 slate revisions with a shallow August
+16 boundary before the required weeks, so that narrower available-history
+calculation is now being attempted. It must not be represented as the full-pool
+comparison or forced to match the earlier 59/188 → 72/189 claim. No new whole
+task, measured accuracy improvement or future hit-count credit is awarded here.
