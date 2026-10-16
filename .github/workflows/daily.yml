@@ -285,6 +285,38 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error daily "Replay lab (candidate parlay rules vs shipped, measure only)" -- python3 scripts/replay_lab.py
         continue-on-error: true   # a measure-only bench never degrades the run
 
+      # Sunday pilot A: shared code runs in Actions, not a new hosted service.
+      # DEFAULT OFF. After owner-authorized release, set the enabled variable
+      # to 1 and the engine variable to a REVIEWED full 40-character commit SHA.
+      # SelfLearning is public; no new Supabase/Vercel/cross-repo secret needed.
+      - name: Checkout pinned SelfLearning pilot engine (optional)
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: liddar12/SelfLearning
+          ref: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+          path: .selflearn-engine
+          persist-credentials: false
+        continue-on-error: true
+
+      - name: Shared parlay feedback pilot (raw outcomes, corrections, evaluation)
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        timeout-minutes: 15
+        env:
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: >-
+          bash scripts/stage.sh --continue-on-error daily "Shared parlay feedback pilot" --
+          python3 -I -S -B scripts/run_parlay_feedback.py --execute --fetch-outcomes
+          --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_NFL_ENGINE_COMMIT"
+        continue-on-error: true
+
+      - name: Record disabled shared parlay feedback pilot
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED != '1'
+        run: >-
+          python3 scripts/stage_status.py skip --workflow daily
+          --stage "Shared parlay feedback pilot"
+          --reason "Default-off pilot; no shared evaluation or adoption ran"
+
       # R71 — post-game review over resolved estimates + the parlay-leg ledger.
       - name: Build post-game review (data/review.json)
         run: bash scripts/stage.sh daily "Build post-game review (data/review.json)" -- python3 scripts/build_review.py

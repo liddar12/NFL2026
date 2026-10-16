@@ -3425,8 +3425,27 @@ def _load(path):
         return json.load(fh)
 
 
+def check_repository_feedback(data_dir):
+    """Optional pilot pointer must join complete immutable files, never fit."""
+    if not os.path.lexists(os.path.join(data_dir,"learning_feedback.json")):
+        return False
+    if ROOT not in sys.path:
+        sys.path.insert(0,ROOT)
+    from scripts.run_parlay_feedback import validate_records
+    try:
+        return validate_records(data_dir)
+    except (ValueError,OSError,KeyError,TypeError,AttributeError,RecursionError):
+        raise ValidationError("learning_feedback.json: immutable state/report/pointer integrity failed") from None
+
+
 def main():
     failures = []
+
+    try:
+        if check_repository_feedback(DATA):
+            print("ok    learning_feedback.json immutable state/report/pointer integrity (not model adoption)")
+    except ValidationError as exc:
+        failures.append(str(exc))
 
     # 1) Per-file schema validation.
     for schema_name, data_name in SCHEMA_TO_DATA.items():
