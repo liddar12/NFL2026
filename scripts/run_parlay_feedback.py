@@ -29,6 +29,7 @@ from scripts import export_learning as export, capture_outcome_evidence as captu
 
 MAX_BYTES=128*1024*1024
 MAX_CAPTURES=32
+MAX_CAPTURE_HISTORY_BYTES=512*1024*1024
 PROFILE={"version":1,"kind":"nfl.repository_feedback_profile.v1","population":"eligible_pool",
          "bootstrap_replicates":200,"maximum_json_bytes":MAX_BYTES,"maximum_raw_bytes":MAX_BYTES,
          "cpu_seconds":180,"regular_file_bytes":MAX_BYTES+1,"wall_clock_owner":"Actions step timeout (15 minutes)"}
@@ -91,6 +92,7 @@ def save(root,folder,oid,value):
 
 
 def pointer(data):
+    data=selected(data)
     return export._delivery_path(data,"learning_feedback.json")
 
 
@@ -142,7 +144,21 @@ def validate_records(data_dir):
         need(set(state["source_object_ids"])<=source_ids,"feedback_frozen_sources_missing")
         need(all(r["object_id"]in generations and export._same_json(r["payload"],generations[r["object_id"]])
                  for r in state["generation_records"]),"feedback_frozen_generations_missing")
+        validate_capture_history(data,state)
     return value is not None
+
+
+def validate_capture_history(data,state):
+    """Every recorded capture remains reproducible from exact repository bytes."""
+    records=state["capture_records"]
+    need(type(records) is list and len(records)<=4096,"feedback_capture_history_limit")
+    raw_bytes=0
+    for cid in sorted({export._hash(row["capture_id"])for row in records}):
+        path=export._delivery_path(data,"snapshots","learning_outcomes","captures",cid[7:]+".json")
+        bundle=capture.load_capture(path)
+        need(bundle["manifest"]["capture_id"]==cid,"feedback_capture_history_mismatch")
+        raw_bytes+=sum(map(len,bundle["raw_objects"].values()))
+        need(raw_bytes<=MAX_CAPTURE_HISTORY_BYTES,"feedback_capture_history_limit")
 
 
 def publish_pointer(data,value,expected):
@@ -193,20 +209,43 @@ def raw_capture(path):
     def chunks(key):
         value=raw[key]
         return(value[i:i+1024*1024]for i in range(0,len(value),1024*1024))
-    return envelope,chunks,sum(map(len,raw.values()))
+    return envelope,chunks,sum(map(len,raw.values())),bundle
 
 
-def fetch_captures(snapshot_dir,out_dir):
+def persist_repository_capture(bundle,data_dir):
+    """Explicit controller-owned immutable sink, never a standalone export path.
+
+    The standalone capture tool keeps refusing sports-data writes. This sink
+    is limited to the repository pilot's fixed namespace, validates exact raw
+    evidence first and preserves every observation byte and original clock.
+    """
+    capture.verify_capture(bundle)
+    data=selected(data_dir);need(data!=ROOT,"feedback_output_overlaps_code")
+    root=export._delivery_path(data,"snapshots","learning_outcomes")
+    for oid,raw in bundle["raw_objects"].items():
+        capture._immutable(capture._safe_path(root,"objects",oid,".bin"),raw)
+    for oid,doc in bundle["observations"].items():
+        capture._immutable(capture._safe_path(root,"observations",oid,".json"),capture._encoded(doc)+b"\n")
+    path=capture._safe_path(root,"captures",bundle["manifest"]["capture_id"],".json")
+    capture._immutable(path,capture._encoded(bundle["manifest"])+b"\n")
+    return path
+
+
+def fetch_captures(snapshot_dir,data_dir):
     """Explicit public-source observation of EVERY frozen forecast period."""
     exported=export.plan(snapshot_dir);periods={}
+    need(len(export.encoded({k:exported[k]for k in("source_objects","generations")}))<=MAX_BYTES,"feedback_record_limit")
     for entry in exported["generations"]:
         doc=entry["request"]["payload"]
         periods.setdefault(doc["season"],set()).add(doc["week"])
     need(periods and len(periods)<=MAX_CAPTURES,"feedback_empty_or_excessive_periods")
-    paths=[]
+    paths=[];raw_bytes=0
     for season,weeks in sorted(periods.items()):
         bundle=capture.capture(season,sorted(weeks),fetcher=capture.http_fetcher)
-        paths.append(capture.save_capture(bundle,out_dir))
+        need(export._same_json([bundle["manifest"]["season"],bundle["manifest"]["weeks"]],[season,sorted(weeks)]),"feedback_capture_period_mismatch")
+        raw_bytes+=sum(map(len,bundle["raw_objects"].values()))
+        need(raw_bytes<=MAX_BYTES,"feedback_raw_limit")
+        paths.append(persist_repository_capture(bundle,data_dir))
     return paths
 
 
@@ -216,6 +255,7 @@ def now():return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00","
 def run(*,data_dir,snapshot_dir,captures,engine_checkout,engine_commit,observed_utc,evaluation_clock=now):
     data,snapshots=selected(data_dir),selected(snapshot_dir)
     need(data!=ROOT and data!=selected(engine_checkout),"feedback_output_overlaps_code")
+    need(snapshots==export._delivery_path(data,"snapshots"),"feedback_forecast_authority_outside_repository_store")
     need(type(captures) in(list,tuple)and len(captures)<=MAX_CAPTURES,"feedback_capture_limit")
     artifacts=export._delivery_path(data,"snapshots","learning_feedback")
     paths=[selected(path)for path in captures]
@@ -231,10 +271,13 @@ def run(*,data_dir,snapshot_dir,captures,engine_checkout,engine_commit,observed_
         need(len(export.encoded(graph))<=MAX_BYTES,"feedback_record_limit")
         bound=[];raw_bytes=0
         for path in paths:
-            envelope,reader,size=raw_capture(path);raw_bytes+=size
-            need(raw_bytes<=MAX_BYTES,"feedback_raw_limit");bound.append((envelope,reader))
+            envelope,reader,size,bundle=raw_capture(path);raw_bytes+=size
+            need(raw_bytes<=MAX_BYTES,"feedback_raw_limit")
+            persist_repository_capture(bundle,data)
+            bound.append((envelope,reader))
         prepared=core.prepare(graph,previous=old_state,captures=bound,observed_utc=observed_utc)
         state=prepared["state"];evaluated_utc=evaluation_clock()
+        validate_capture_history(data,state)
         need(capture._instant(evaluated_utc)>=capture._instant(observed_utc),"feedback_evaluation_clock_regressed")
         evaluation=core.evaluate(state,graph,as_of_utc=evaluated_utc,bootstrap_replicates=PROFILE["bootstrap_replicates"])
         need(identity()==code_id,"feedback_engine_changed")
@@ -263,6 +306,8 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute",action="store_true")
     parser.add_argument("--check-records",action="store_true",help="read-only publication integrity; never engine import or fitting")
+    parser.add_argument("--check-committed",action="store_true",help="validate pinned Git data via private temporary materialization")
+    parser.add_argument("--expected-head")
     parser.add_argument("--data-dir",default=str(ROOT/"data"))
     parser.add_argument("--snapshots")
     parser.add_argument("--capture",action="append",default=[])
@@ -270,22 +315,28 @@ def main(argv=None):
     parser.add_argument("--engine-checkout")
     parser.add_argument("--engine-commit")
     args=parser.parse_args(argv)
-    if not args.execute and not args.check_records:
+    if not args.execute and not args.check_records and not args.check_committed:
         print(json.dumps({"version":1,"status":"disabled_dry_run","writes":False,"network_used":False,**FLAGS},sort_keys=True));return 0
     try:
+        if args.check_committed:
+            need(not(args.execute or args.check_records or args.fetch_outcomes or args.capture or args.engine_checkout or args.engine_commit or args.snapshots))
+            need(selected(args.data_dir)==ROOT/"data")
+            from scripts.feedback_commit_guard import check_committed
+            print(json.dumps(check_committed(ROOT,args.expected_head),sort_keys=True));return 0
         if args.check_records:
-            need(not(args.execute or args.fetch_outcomes or args.capture or args.engine_checkout or args.engine_commit or args.snapshots))
+            need(not(args.execute or args.fetch_outcomes or args.capture or args.engine_checkout or args.engine_commit or args.snapshots or args.expected_head))
             present=validate_records(args.data_dir)
             print(json.dumps({"version":1,"status":"local_records_valid"if present else"no_feedback_record",
                 "writes":False,"network_used":False,**FLAGS},sort_keys=True));return 0
         need(args.engine_checkout and args.engine_commit,"feedback_exact_engine_commit_required")
+        need(args.expected_head is None)
         limits()
         snapshots=args.snapshots or str(Path(args.data_dir)/"snapshots")
         paths=list(args.capture)
         if args.fetch_outcomes:
             # Refuse a floating/dirty/missing engine BEFORE public retrieval.
             engine(args.engine_checkout,args.engine_commit)
-            paths.extend(fetch_captures(snapshots,Path(args.data_dir)/"snapshots/learning_outcomes"))
+            paths.extend(fetch_captures(snapshots,args.data_dir))
         result=run(data_dir=args.data_dir,snapshot_dir=snapshots,captures=paths,
             engine_checkout=args.engine_checkout,engine_commit=args.engine_commit,
             observed_utc=now())

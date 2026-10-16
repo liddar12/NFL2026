@@ -917,7 +917,19 @@ export function chronologyWarnings(chronology) {
   return out;
 }
 
-export function learningLoopsCard(doc) {
+export function feedbackEvaluationStamp(value, nowMs = Date.now()) {
+  if (typeof value !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return 'no verified evaluation timestamp';
+  const time = Date.parse(value);
+  if (!Number.isFinite(time) || !Number.isFinite(nowMs)) return 'no verified evaluation timestamp';
+  let stamp;
+  try {
+    stamp = new Intl.DateTimeFormat('en-US', {timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZoneName:'short'}).format(new Date(time));
+  } catch (_) { stamp = `${new Date(time).toISOString()} (local timezone unavailable)`; }
+  return `saved evaluation ${stamp} · ${time > nowMs ? 'future timestamp; age unverified' : ago(value, nowMs)}`;
+}
+
+export function learningLoopsCard(doc, nowMs = Date.now()) {
   if (!isObj(doc) || !Array.isArray(doc.loops) || !doc.loops.length) {
     return '<div class="state">No learning-loop record on file yet '
       + '(data/learning_loops.json) — the next pipeline run writes it.</div>';
@@ -932,9 +944,10 @@ export function learningLoopsCard(doc) {
     const meta = [
       l.learns ? `learns from ${esc(l.learns)}` : '',
       l.moves ? `moves ${esc(l.moves)}` : '',
-      l.live ? `live: ${esc(l.live)}` : '',
+      l.live ? `${l.id === 'shared_nfl_feedback' ? 'saved record' : 'live'}: ${esc(l.live)}` : '',
       day(l.live_since_utc) ? `since ${esc(day(l.live_since_utc))}` : '',
-      day(l.last_run_utc) ? `last run ${esc(day(l.last_run_utc))}` : 'no run on file',
+      l.id === 'shared_nfl_feedback' ? esc(feedbackEvaluationStamp(l.last_run_utc, nowMs))
+        : day(l.last_run_utc) ? `last run ${esc(day(l.last_run_utc))}` : 'no run on file',
       Number.isFinite(Number(l.runs)) && l.runs != null ? `${esc(l.runs)} runs` : '',
       l.effective && typeof l.effective.state === 'string'
         ? `effective: ${esc(l.effective.state)}${l.effective.version ? ` (${esc(l.effective.version)})` : ''}` : '',

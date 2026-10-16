@@ -341,10 +341,10 @@ main() {
     fi
     # Optional feedback records must still join their immutable source graph in
     # the FINAL tree, including a rebase/fallback. Never reset a semantic pin.
-    if [ -e "data/learning_feedback.json" ] || [ -L "data/learning_feedback.json" ]; then
+    if git cat-file -e "${push_ref}:data/learning_feedback.json" 2>/dev/null || [ -e "data/learning_feedback.json" ] || [ -L "data/learning_feedback.json" ]; then
       if [ "$push_ref" = "HEAD" ]; then push_ref="$(git rev-parse HEAD)"; fi
       [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed before its feedback integrity check. Nothing was published."
-      if ! python3 "$HERE/run_parlay_feedback.py" --check-records --data-dir "$PWD/data"; then
+      if ! python3 "$HERE/feedback_commit_guard.py" --checkout "$PWD" --expected-head "$push_ref"; then
         die "feedback immutable records/source graph do not join. Nothing was published."
       fi
       [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its feedback integrity check. Nothing was published."

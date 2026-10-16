@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 const ROOT=fileURLToPath(new URL('../..',import.meta.url));
 const ENGINE=process.env.SELFLEARN_CHECKOUT;
 const FIXTURE=String.raw`
-import copy,importlib.util,io,json,os,pathlib,subprocess,sys,tempfile
+import copy,importlib.util,io,json,os,pathlib,shutil,subprocess,sys,tempfile
 from contextlib import redirect_stdout,redirect_stderr
 from unittest.mock import patch
 from scripts import run_parlay_feedback as I
@@ -184,12 +184,17 @@ with tempfile.TemporaryDirectory() as tmp:
  data,snapshots,captured=setup(pathlib.Path(tmp));calls=[];original=f.bundle()
  def fake(season,weeks,*,fetcher):
   calls.append([season,weeks,fetcher is I.capture.http_fetcher]);return original
- with patch.object(I.capture,'capture',side_effect=fake):paths=I.fetch_captures(snapshots,snapshots/'learning_outcomes')
+ with patch.object(I.capture,'capture',side_effect=fake):paths=I.fetch_captures(snapshots,data)
  verified=I.capture.load_capture(paths[0]);empty=pathlib.Path(tmp)/'empty';empty.mkdir()
- with patch.object(I.export,'plan',return_value={'generations':[]}):no_empty=refused(lambda:I.fetch_captures(empty,empty/'out'))
- print(json.dumps({'calls':calls,'same':verified['manifest']==f.bundle()['manifest'],'count':len(paths),'no_empty':no_empty}))
+ with patch.object(I.export,'plan',return_value={'source_objects':[],'generations':[]}):no_empty=refused(lambda:I.fetch_captures(empty,empty/'data'))
+ with patch.object(I,'MAX_BYTES',1),patch.object(I.capture,'capture',side_effect=AssertionError('must not fetch oversize graph')):
+  no_oversize=refused(lambda:I.fetch_captures(snapshots,data))
+ bad=copy.deepcopy(original);bad['manifest']['weeks']=[7]
+ with patch.object(I.capture,'capture',return_value=bad):wrong_period=refused(lambda:I.fetch_captures(snapshots,data))
+ print(json.dumps({'calls':calls,'same':verified['manifest']==f.bundle()['manifest'],'count':len(paths),'no_empty':no_empty,
+  'no_oversize':no_oversize,'wrong_period':wrong_period}))
 `);
- assert.deepEqual(r,{calls:[[2026,[6],true]],same:true,count:1,no_empty:true});
+ assert.deepEqual(r,{calls:[[2026,[6],true]],same:true,count:1,no_empty:true,no_oversize:true,wrong_period:true});
 });
 
 test('data validator verifies durable pointer links without loading engine or refitting',t=>{
@@ -259,16 +264,58 @@ with tempfile.TemporaryDirectory() as tmp:
  I.git(work,'config','user.email','synthetic@example.invalid');I.git(work,'config','user.name','Synthetic Fixture');I.git(work,'config','gc.auto','0')
  (work/'README').write_text('synthetic local publisher fixture\n');I.git(work,'add','README');I.git(work,'-c','commit.gpgsign=false','commit','-m','fixture initial');I.git(work,'branch','-M','main');I.git(work,'push','origin','main')
  before=I.git(origin,'rev-parse','refs/heads/main');data,snapshots,captured=setup(work);run(data,snapshots,[captured])
+ saved_pointer=(data/'learning_feedback.json').read_bytes()
  source=next((snapshots/'learning_sources').glob('*.json'));park=source.with_suffix('.park');source.rename(park)
  env={**os.environ,'PUBLISH_VALIDATE_CMD':'true','PUBLISH_ATTEMPTS':'1','PUBLISH_BACKOFF_S':'0','GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+ # Simulate another local writer hiding the working-tree pointer AFTER the
+ # data commit. Only the committed tree can decide whether a guard is needed.
+ fake=root/'fake-bin';fake.mkdir();wrapper=fake/'git';real=shutil.which('git')
+ wrapper.write_text('#!'+sys.executable+'\nimport os,sys,subprocess,pathlib\nreal='+repr(real)+'\n'
+  'if len(sys.argv)>1 and sys.argv[1]=="fetch":\n code=subprocess.run([real,*sys.argv[1:]]).returncode\n'
+  ' path=pathlib.Path.cwd()/"data/learning_feedback.json"\n if code==0 and path.is_file():path.unlink()\n sys.exit(code)\n'
+  'os.execv(real,[real,*sys.argv[1:]])\n');wrapper.chmod(0o700)
  command=['bash',str(I.ROOT/'scripts/publish_data.sh'),'data: synthetic feedback fixture']
- bad=subprocess.run(command,cwd=work,env=env,text=True,capture_output=True,timeout=30)
+ bad=subprocess.run(command,cwd=work,env={**env,'PATH':str(fake)+os.pathsep+env['PATH']},text=True,capture_output=True,timeout=30)
  stopped=I.git(origin,'rev-parse','refs/heads/main')==before
+ hidden=not(data/'learning_feedback.json').exists();(data/'learning_feedback.json').write_bytes(saved_pointer)
  park.rename(source)
  good=subprocess.run(command,cwd=work,env=env,text=True,capture_output=True,timeout=30)
- print(json.dumps({'bad':bad.returncode,'stopped':stopped,'good':good.returncode,
+ print(json.dumps({'bad':bad.returncode,'stopped':stopped,'pointer_hidden_after_commit':hidden,'good':good.returncode,
   'updated':I.git(origin,'rev-parse','refs/heads/main')==I.git(work,'rev-parse','HEAD'),'valid':I.validate_records(data),
   'message':bad.stderr if bad.returncode==0 or good.returncode else ''}))
 `);
- assert.equal(r.bad,1);assert.equal(r.stopped,true);assert.equal(r.good,0,r.message);assert.equal(r.updated,true);assert.equal(r.valid,true);
+ assert.equal(r.bad,1);assert.equal(r.stopped,true);assert.equal(r.pointer_hidden_after_commit,true);
+ assert.equal(r.good,0,r.message);assert.equal(r.updated,true);assert.equal(r.valid,true);
+});
+
+test('actual checkout-shaped fetch uses the narrow repository sink while standalone sports-data protection remains',t=>{
+ if(!requireEngine(t))return;
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);data,snapshots,captured=setup(root);bundle=f.bundle();engine=pathlib.Path(os.environ['SELFLEARN_CHECKOUT']);pin=I.git(engine,'rev-parse','HEAD')
+ with patch.object(I.capture,'_ROOT',root.resolve()):
+  standalone=refused(lambda:I.capture.save_capture(bundle,data/'snapshots/learning_outcomes'))
+  out=io.StringIO()
+  with patch.object(I,'limits'),patch.object(I.capture,'capture',return_value=bundle),redirect_stdout(out):
+   code=I.main(['--execute','--fetch-outcomes','--data-dir',str(data),'--engine-checkout',str(engine),'--engine-commit',pin])
+  result=json.loads(out.getvalue());valid=I.validate_records(data)
+ print(json.dumps({'standalone_held':standalone,'code':code,'result':result,'valid':valid}))
+`);
+ assert.equal(r.standalone_held,true);assert.equal(r.code,0);assert.equal(r.valid,true);
+ assert.equal(r.result.cohort_n,2);assert.equal(r.result.network_used,true);assert.equal(r.result.model_adoption,false);
+});
+
+test('raw outcomes remain reproducible in the repository after original external capture disappears',t=>{
+ if(!requireEngine(t))return;
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory() as tmp:
+ data,snapshots,captured=setup(pathlib.Path(tmp));bundle=f.capture.load_capture(captured);run(data,snapshots,[captured]);canonical=data/'snapshots/learning_outcomes/captures'/(bundle['manifest']['capture_id'][7:]+'.json')
+ original=captured.parent.parent;park=original.with_name('parked-external-capture');original.rename(park)
+ mirrored=I.capture.load_capture(canonical);valid=I.validate_records(data)
+ raw=next((canonical.parent.parent/'objects').glob('*.bin'));raw.rename(raw.with_suffix('.park'))
+ missing=refused(lambda:I.validate_records(data));before=(data/'learning_feedback.json').read_bytes()
+ refused_run=refused(lambda:run(data,snapshots,[]))
+ print(json.dumps({'same':mirrored==bundle,'valid':valid,'missing':missing,'refused_run':refused_run,'kept':before==(data/'learning_feedback.json').read_bytes()}))
+`);
+ assert.deepEqual(r,{same:true,valid:true,missing:true,refused_run:true,kept:true});
 });
