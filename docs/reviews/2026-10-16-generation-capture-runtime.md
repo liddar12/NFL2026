@@ -1,6 +1,6 @@
 # Opt-in exact-generation capture and publisher integration
 
-Revision 2 · October 16, 2026, 11:10 a.m. America/Chicago (CDT).
+Revision 3 · October 16, 2026, 11:18 a.m. America/Chicago (CDT).
 Local implementation only. No workflow enabled, production publish, serving
 policy promotion or permission to run a release is implied by this guide.
 
@@ -155,6 +155,17 @@ same-byte symlink modes. The 14-case trace is 440/458 AST statements (96.07%),
 not executable-line/branch or independent acceptance coverage. A new frozen
 combined gate must include all 15 cases; focused passes do not change the
 earlier full gate's red result or establish production readiness.
+
+The frozen combined run on `6aafdfcf4b321f1085837766f3489c6340818c11` now
+passes **2,453 feature tests, zero failed/skipped**, data contracts, smoke and
+all four model-regression gates, terminal exit **0**. It includes all 15 runtime
+cases; the printed trace remains 440/458 AST statements. Browser step 8 is
+explicitly skipped. Log:
+`/private/tmp/nfl-injury-capture-full-gate-root-r5-20261016.log`.
+The runtime/tests/data and HEAD did not change during that run. Subsequent
+handoff-only documentation is not a new exact-tested release SHA. Current-main
+data reconciliation, browser/hosted acceptance and publication authorization
+remain required. Earlier red runs are retained as historical failures.
 
 The printed focused trace is AST-statement coverage, not branch, browser or
 network coverage. The 12-case run reached 401/418 statements; do not call it the

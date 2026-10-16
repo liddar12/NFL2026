@@ -1,6 +1,6 @@
 # Injury identity join and validator RCA
 
-Revision 2 · October 16, 2026, 10:43 a.m. America/Chicago (CDT).
+Revision 3 · October 16, 2026, 11:18 a.m. America/Chicago (CDT).
 Local candidate only; no push, data regeneration, deployment or accuracy claim.
 
 ## Confirmed failure
@@ -113,7 +113,7 @@ Root reruns at the four hashes in `candidate_audit.json`:
   signoff. No completed full gate for the combined hook/source revision is
   claimed in this report yet.
 
-The pool was not regenerated, tickets were not regraded, and a complete
+The committed pool was not regenerated, tickets were not regraded, and a complete
 historical-candidate R126 replay is unavailable. A retained on-card control
 replay is a separate limited regression, not a substitute for missing full-pool
 history. Provider completeness/authentication, real browser/mobile layout,
@@ -184,3 +184,25 @@ the four newest fixture tests, which require a new combined run before any
 release. The on-card R126 control rerun passed, retaining 59/188→72/189 settlement
 wins (weeks 2–5: 12→20, 20→21, 14→16, 13→15). Its limited historical authority
 and full-vs-reduced win distinction are unchanged.
+
+## Combined verification follow-up — October 16, 11:18 a.m. CDT
+
+All 29 current/frozen/identity/adversarial cases pass, zero skips, exit 0;
+the four injury-runtime hashes remain unchanged. S016-T1 is reaccepted only as
+a local current-eligibility task; complete provider/clearance, original upstream
+inputs, full historical candidate and publication authority remain unverified.
+
+The newer `41a56a09` combined run initially failed one of 2,450 feature cases:
+an exited-worker cleanup fixture required a startup marker inside 150 ms.
+Its failing assertion did not demonstrate a surviving descendant. The fixture
+now prepares the actual exited leader/live descendant before the same deadline,
+retains the forbidden-side-effect assertion, and separately tests late startup.
+Production supervisor code and timeouts did not change.
+
+After conservative transitive-Python capture and regular-Git-mode checks, the
+frozen full run on `6aafdfcf4b321f1085837766f3489c6340818c11` passes **2,453
+feature tests, zero failed/skipped**, contracts, smoke and all four model gates,
+terminal exit **0**. Browser step 8 skips, not passes. Log:
+`/private/tmp/nfl-injury-capture-full-gate-root-r5-20261016.log`.
+Later handoff-only edits are outside that exact tested SHA. No release, current
+main/data replacement, outcome refit, active learning or accuracy claim follows.
