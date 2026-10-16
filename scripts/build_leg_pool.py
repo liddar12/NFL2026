@@ -426,7 +426,11 @@ def _optional(path):
         return None
 
 
-def load_inputs():
+def load_inputs(capture_runtime=None):
+    if capture_runtime is not None:
+        # Opt-in loader returns exactly the parsed values whose bytes it froze;
+        # do not reread them, or fall back to the global exclusions cache.
+        return capture_runtime.pool_inputs()
     return {
         "excluded_games": excluded_ids(),     # R108 — config/excluded_games.json
         "atd_week": _optional(ATD_WEEK),
@@ -584,18 +588,37 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--generation-capture-dir", help="opt-in private immutable capture directory outside all checkouts")
     args = ap.parse_args(argv)
     if args.selftest:
+        if args.generation_capture_dir:ap.error("--selftest cannot capture a generation")
         selftest()
         return 0
-    doc = build(load_inputs())
+    capture = None
+    if args.generation_capture_dir:
+        from scripts import generation_capture_runtime as runtime
+        try:
+            capture = runtime.begin(_ROOT, generation_sha=runtime.head_identity(_ROOT))
+            original = runtime.persist(capture.loader, args.generation_capture_dir, checkout=_ROOT)
+            print("generation input observation (not upstream/public proof): %s" % original)
+        except runtime.CaptureError:
+            print("generation capture held before pool generation", file=sys.stderr)
+            return 1
+    doc = build(load_inputs(capture))
     if not doc["calibration_adopted"]:
         print("[warn] the pool calibration is NOT adopted by its gate — refusing to "
               "write a pool priced by coefficients that did not clear", file=sys.stderr)
         return 1
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, ensure_ascii=True, indent=2)
-        fh.write("\n")
+    raw = (json.dumps(doc, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+    with open(OUT, "wb") as fh:
+        fh.write(raw)
+    if capture is not None:
+        try:
+            checkpoint = runtime.persist(capture.record_pool_bytes(raw), args.generation_capture_dir, checkout=_ROOT)
+            print("generation pool checkpoint: %s" % checkpoint)
+        except runtime.CaptureError:
+            print("generation capture held; pool remains local, not approved for publication", file=sys.stderr)
+            return 1
     c = doc["counts"]
     print("wrote %s: %d prop legs (%d players) + %d game legs; refused %d rung(s), "
           "%d player(s) with no leg"

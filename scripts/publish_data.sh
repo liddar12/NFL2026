@@ -263,11 +263,20 @@ replay_onto() {
 }
 
 main() {
+  local generation_binding="" semantic_no_generation=0
+  if [ "${1:-}" = "--generation-binding" ]; then
+    [ "$#" -ge 3 ] && [ -n "$2" ] || { echo "generation binding requires a path and commit message" >&2; exit 2; }
+    generation_binding="$2"
+    shift 2
+  elif [ "${1:-}" = "--no-new-generation" ]; then
+    semantic_no_generation=1
+    shift
+  fi
   if [ "$#" -ne 1 ] || [ -z "$1" ]; then
-    echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
+    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --no-new-generation] \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote replayed
+  local message="$1" attempt remote replayed push_ref="HEAD"
 
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
@@ -312,7 +321,25 @@ main() {
       fi
     fi
 
-    if git push origin HEAD:main; then
+    # Explicit opt-in only. Recheck the FINAL committed tree before EVERY push,
+    # including each clean/conflicted rebase and R111 fallback. Never rebind the
+    # original capture to a different tree or treat an old PASS as permission.
+    # Pin the verified SHA in the push ref, eliminating a HEAD-switch gap.
+    push_ref="HEAD"
+    if [ -n "$generation_binding" ] || [ "$semantic_no_generation" -eq 1 ]; then
+      push_ref="$(git rev-parse HEAD)"
+      if [ -n "$generation_binding" ]; then
+        if ! python3 "$HERE/generation_capture_runtime.py" verify-head --checkout "$PWD" \
+               --binding "$generation_binding" --expected-head "$push_ref"; then
+          die "exact-generation semantic check held this tree. Nothing was published; keep the local capture and regenerate from original reads after the tree is settled."
+        fi
+      elif ! python3 "$HERE/generation_capture_runtime.py" no-new-generation --checkout "$PWD" \
+                 --expected-head "$push_ref" --base-head "$remote"; then
+        die "scores-only semantic check could not prove no forecast dependency changed. Nothing was published."
+      fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its semantic check. Nothing was published."
+    fi
+    if git push origin "$push_ref:main"; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
       if [ "$FELL_BACK" -eq 1 ]; then
         echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"

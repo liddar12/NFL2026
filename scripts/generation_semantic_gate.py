@@ -11,6 +11,7 @@ import functools
 import hashlib
 import json
 import math
+import re
 
 from scripts import availability, build_leg_pool, build_weekly
 from scripts import learning_journal, learning_receipts as lr, prepublication_semantics as sem
@@ -18,6 +19,11 @@ from scripts import validate_data
 from scripts.scrape.renames import canonical_player_name, normalize_team
 
 MAX_BYTES, MAX_FILE, MAX_ROWS = 64 * 1024 * 1024, 16 * 1024 * 1024, 10000
+# All ordinary documents/graphs keep the 500k-node ceiling. Only the named MY
+# archive preimage/output and the bounded 14-document runtime calculation get
+# 750k. Pinned main0d49 archive: 533,560 nodes; mixed size-only aggregate:
+# 660,460. Neither a larger budget nor that mixed profile is a semantic PASS.
+MAX_JSON_NODES, RUNTIME_DOCUMENT_NODES, ARCHIVE_DOCUMENT_NODES = 500000, 750000, 750000
 INPUT_NAMES = frozenset(("player_weekly", "player_projections", "game_predictions", "pool_backtest",
     "parlays", "atd_week", "atd_backtest", "excluded_games", "schedule", "parlay_calibration",
     "injuries", "depth_chart", "inactives", "previous_my_cards"))
@@ -54,12 +60,13 @@ def fingerprint(value):
     return "sha256:" + hashlib.sha256(encoded(value)).hexdigest()
 
 
-def _plain(value):
+def _plain(value, *, max_nodes=MAX_JSON_NODES):
+    need(type(max_nodes) is int and max_nodes in (MAX_JSON_NODES, RUNTIME_DOCUMENT_NODES), "generation_binding_work_limit")
     nodes, used = 0, 0
     def visit(item, depth):
         nonlocal nodes, used
         nodes += 1
-        need(nodes <= 500000 and depth <= 32, "generation_binding_work_limit")
+        need(nodes <= max_nodes and depth <= 32, "generation_binding_work_limit")
         kind = type(item)
         if kind is dict:
             need(all(type(k) is str for k in item), "invalid_plain_json")
@@ -101,7 +108,7 @@ def _hashed(value, field):
     need(value.get(field) == fingerprint({k: v for k, v in value.items() if k != field}), "generation_binding_hash_mismatch")
 
 
-def _json(raw):
+def _json(raw, *, max_nodes=MAX_JSON_NODES):
     def unique(pairs):
         result = {}
         for key, value in pairs:
@@ -109,7 +116,13 @@ def _json(raw):
         return result
     def constant(_value):
         raise GateError("nonfinite_generation_input")
-    return _plain(json.loads(raw, object_pairs_hook=unique, parse_constant=constant))
+    return _plain(json.loads(raw, object_pairs_hook=unique, parse_constant=constant), max_nodes=max_nodes)
+
+
+def _document(raw, name):
+    """Only original/current MY archives have the measured larger row budget."""
+    archive = name == "previous_my_cards" or type(name) is str and re.fullmatch(r"data/my_cards/[0-9]{4}_wk[0-9]{2}\.json", name)
+    return _json(raw, max_nodes=ARCHIVE_DOCUMENT_NODES if archive else MAX_JSON_NODES)
 
 
 def _freeze_bytes(values, names, *, documents):
@@ -120,7 +133,7 @@ def _freeze_bytes(values, names, *, documents):
     for name, raw in values.items():
         text = raw.decode("utf-8")
         entry = {"raw_utf8": text, "raw_sha256": "sha256:" + hashlib.sha256(raw).hexdigest()}
-        if documents:entry["content_id"] = fingerprint(_json(raw))
+        if documents:entry["content_id"] = fingerprint(_document(raw, name))
         result[name] = entry
     return result
 
@@ -163,7 +176,7 @@ def _static_errors(function):
 @_static_errors
 def runtime_binding(code_bytes, input_documents):
     """Compute source/parameter identities from explicit bytes, not execution proof."""
-    input_documents = _plain(input_documents)
+    input_documents = _plain(input_documents, max_nodes=RUNTIME_DOCUMENT_NODES)
     _keys(input_documents, INPUT_NAMES)
     frozen = _freeze_bytes(code_bytes, CODE_NAMES, documents=False)
     code = {k: v["raw_utf8"].encode() for k, v in frozen.items()}
@@ -198,7 +211,7 @@ claim and this trusted-caller boundary are explicitly not authenticated here.
     need(type(generation_sha) is str and 0 < len(generation_sha) <= 256, "missing_generation_revision_claim")
     inputs = _freeze_bytes(input_bytes, INPUT_NAMES, documents=True)
     code = _freeze_bytes(code_bytes, CODE_NAMES, documents=False)
-    docs = {k: _json(v["raw_utf8"]) for k, v in inputs.items()}
+    docs = {k: _document(v["raw_utf8"], k) for k, v in inputs.items()}
     value = {"version": 1, "kind": "nfl.original_generation_inputs.v1", "season": season, "week": week,
         "captured_utc_claim": captured_utc, "generation_sha_claim": generation_sha,
         "capture_basis": "explicit_bytes_supplied_before_producer_by_trusted_caller_not_authenticated",
@@ -216,7 +229,7 @@ def _capture(value):
     expected = capture_inputs(raw, code, season=value["season"], week=value["week"], captured_utc=value["captured_utc_claim"],
         generation_sha=value["generation_sha_claim"], policy=value["policy"])
     _same(value, expected, "unsupported_or_changed_capture_contract")
-    return value, {k: _json(v) for k, v in raw.items()}
+    return value, {k: _document(v, k) for k, v in raw.items()}
 
 
 def _paths(capture):
@@ -453,7 +466,7 @@ it never blocks/rewrites historical grading by itself or authorizes publication.
               _freeze_bytes(current_input_bytes, CURRENT_INPUT_NAMES, documents=True), "current_input_bytes_changed")
         _same(capture["code"], _freeze_bytes(current_code_bytes, CODE_NAMES, documents=False), "current_runtime_code_changed")
         _same(value["outputs"], _freeze_bytes(current_output_bytes, _paths(capture), documents=True), "current_output_bytes_changed")
-        outputs = {k: _json(raw) for k, raw in output.items()}
+        outputs = {k: _document(raw, k) for k, raw in output.items()}
         pool = outputs["data/leg_pool.json"]
         need(type(pool) is dict and type(pool.get("season")) is int and type(pool.get("week")) is int
              and (pool["season"], pool["week"]) == (capture["season"], capture["week"])
