@@ -1,6 +1,6 @@
 # Week 6 self-learning local checkpoint
 
-Revision 5 · October 16, 2026, 12:50 p.m. America/Chicago (CDT).
+Revision 7 · October 16, 2026, 1:50 p.m. America/Chicago (CDT).
 
 Local branches only. No push, merge, deployment, cloud migration or model
 activation has occurred. The owner-requested 7 a.m. target was **not met**.
@@ -11,9 +11,22 @@ Owner priority update October 16: focus a working NFL parlay feedback pilot for
 Sunday, October 18 at 10:00 a.m. CDT. The [Sunday delivery plan](SUNDAY10AM_PARLAY_PILOT_20261018.md)
 maps the functional vertical slice, estimates 16–24 focused engineering hours,
 and separates operating capture/grading/evaluation/controlled adoption from
-proven accuracy gains. The recommended Actions-first scope awaits the owner's
-choice; the full hosted engine has additional access/migration dependencies.
+proven accuracy gains. The owner selected **A, Actions first**. The full hosted
+engine follows later and has additional access/migration dependencies.
 This does not change the 99-task ledger or grant production authorization.
+
+The first A slice is local NFL `903d5ff6` / `92b2b5a0` plus engine `0e5b697` / `8460a71`:
+complete frozen-source feedback preparation, independent raw grading and
+corrections, actual shared evaluation, immutable repository state/report/run
+publication, final source/pointer integrity validation and an opt-in daily Actions step.
+Ten core and fifteen pilot tests pass; 66 focused integration checks pass after
+the first red combined gate. Full NFL `92b2b5a0` passes **2,468 features**, zero
+failed/skipped, contracts/smoke/four model gates, exit **0**; browser step 8 skips.
+Paired engine `1468da7` passes **1,363 core/API**, zero skips, **48/48 critical
+files >90%**, **96.4183%** executable-line coverage, stable hashes/heads, exit 0.
+See [pilot operations and remaining work](PARLAY_FEEDBACK_PILOT.md).
+The default is off; no serving consumer, owner activation, dashboard hookup,
+production dispatch or new accuracy gain is accepted by this slice.
 
 ## Current checkpoint
 
@@ -95,10 +108,19 @@ their Storage transport is fake and their execution remains local.
 
 ## Shared-engine checkpoint
 
+Current Sunday pilot: engine runtime `0e5b697`, tests `8460a71`, frozen rerun
+`1468da7` paired with NFL `92b2b5a0`. Core/API **1,363 pass**, zero skips;
+critical coverage **8,372/8,683 = 96.4183%**, **48/48** files >90%, exit 0.
+The two new pure modules reach 100% line coverage. Separate full SQL reruns:
+**93 Node pass**, zero skips, and **101 Python pass / seven native-only skips**,
+both exit 0. No hosted/native/browser/live adoption is established by these.
+
+### Earlier bounded worker checkpoint
+
 Engine branch: `build/nfl-feedback-runtime-20261015`, local worktree
 `/Users/jliddar/code/SelfLearning-feedback-runtime`.
 
-Latest engine runtime `419c73a`, resource-test hardening `e087541`, evidence
+Bounded worker runtime `419c73a`, resource-test hardening `e087541`, evidence
 `605afd4`: immutable v2 job policies run the actual shadow fitter in credential-free
 isolated Python with CPU/wall/pipe bounds, owned-group cleanup, cancellation and
 checkpoint-preserving recovery. The hardened CPU test requires a started-loop

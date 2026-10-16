@@ -1,6 +1,6 @@
 # Sunday NFL parlay learning pilot
 
-Revision 1 · October 16, 2026, 12:58 p.m. America/Chicago (CDT).
+Revision 4 · October 16, 2026, 1:50 p.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
 An NFL-only operational pilot is a plausible target in the remaining roughly
@@ -16,6 +16,18 @@ defer broader hardening without exposing credentials or changing old forecasts.
 No production push, migration, deployment or model activation is authorized by
 this planning document. Reuse the existing R1 architecture; no new diagram or
 hosting provider is needed.
+
+**Owner selected A: NFL first, shared engine running in Actions.** The first
+implementation slice is committed locally: engine `0e5b697` / `8460a71` and
+NFL `903d5ff6` / `92b2b5a0`. Ten shared-core feedback tests and fifteen pilot tests pass,
+including the real NFL producer, raw grading, corrections and persistence
+recovery. The first full NFL gate found integration failures; all 66 focused
+checks and the corrected full gate pass: 2,468 NFL features, zero failures/skips,
+contracts/smoke/four model gates; browser step 8 skips. The paired engine run
+passes 1,363 core/API tests, zero skips, with all 48 critical files above 90%
+line coverage. Adoption/UI/live acceptance remain unfinished. Operational
+instructions and remaining release requirements are in
+[Parlay feedback pilot](PARLAY_FEEDBACK_PILOT.md).
 
 ## What Sunday should deliver
 
@@ -116,17 +128,17 @@ selection/coverage, not a guaranteed higher hit rate.
   seven native-only skips. These are component/regression checkpoints, not
   acceptance of the proposed Sunday pipeline or a live accuracy improvement.
 
-## One scope decision for the owner
+## Accepted delivery scope
 
-**A. NFL-first operational pilot, shared engine running in Actions
-(recommended).** LOE: 16–24 focused engineering hours plus release time. Risk:
+**A selected. NFL-first operational pilot, shared engine running in Actions.**
+Planning LOE: 16–24 focused engineering hours plus release time. Risk:
 the fully hosted shared service follows later; a candidate may correctly remain
 held, and actual gains cannot be guaranteed by Sunday.
 
-**B. Require the fully hosted Vercel/Supabase learning loop first.** LOE:
+**Deferred alternative B. Fully hosted Vercel/Supabase learning loop first.** LOE:
 several additional days or more, including hosted/schema/credential integration.
 Risk: Sunday is unlikely; current Vercel access and unapplied migrations are
 additional dependencies. This is distinct from the still larger complete
 multi-domain platform roadmap.
 
-Choosing either path sets priority; it does not authorize a production release.
+The A selection sets priority; it does not authorize a production release.
