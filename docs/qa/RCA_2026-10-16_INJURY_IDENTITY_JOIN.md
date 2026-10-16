@@ -1,6 +1,6 @@
 # Injury identity join and validator RCA
 
-Revision 1 · October 16, 2026, 9:24 a.m. America/Chicago (CDT).
+Revision 2 · October 16, 2026, 10:43 a.m. America/Chicago (CDT).
 Local candidate only; no push, data regeneration, deployment or accuracy claim.
 
 ## Confirmed failure
@@ -134,3 +134,53 @@ committed tree; a green old test run must not authorize changed data. Retain
 shared-leg exposure reporting separately: correct eligibility prevents this
 bad leg entering new candidates, while portfolio policy controls the blast
 radius of an otherwise legitimate leg losing. Neither guarantees a parlay win.
+
+## Newer-main revalidation — October 16, 10:43 a.m. CDT
+
+A read-only branch check found main advanced to
+`45b3cac4a0356b7e91b11121265ae1b84067fe93`, committed `14:49:41Z`. Its four
+commits since `0d49a948` change 55 data paths and this week's RCA document,
+**no runtime code or workflow**. SelfLearning main remains `aa5bbaedd`.
+The exact comparison is retained in
+`tests/fixtures/week6_eligibility_baseline_45b3/remote_comparison.json`.
+No remote data was merged into local data/ and no production deploy was checked.
+
+Thirteen exact new input/config blobs are frozen separately with Git blob,
+SHA-256 and byte-length checks. Unchanged DvP/environment and legacy runtime
+sources are explicitly reused from the original fixture. The newly removed
+`data/inactives.json` is **absent**, not replaced with yesterday's TNF document.
+The actual 300-player output has **32** documented holds. On identical common
+inputs, legacy code also yields 32; candidate code yields **33**, adding only
+`espn-3126486` OUT and removing no prior refusal. DEN/SEA FINAL exclusions remain
+intact. This later 32→33 result does not replace the earlier 33→34 snapshot.
+
+The later pool blob `4ce29d2b4847dd0669b3082674721ca50b412ce7`, generated
+`14:48:03Z`, still contains seven receiving rungs **and one anytime-TD leg** for
+the same OUT identity. Its full raw API body was inspected and its Git identity
+verified; the fixture records thin aggregates rather than duplicating that
+2.68 MB downstream blob. It is not proof of public publication or placed bets.
+
+Four new tests pass, zero skips, exit 0. They check all 13 original blobs, the
+full 300-player comparison, target-only unknown quarantine and the actual pool
+producer on common frozen inputs. The paired pool run removes seven receiving
+rungs and the one ATD leg, changes no other numerical prices or copied game legs,
+and changes no coefficients. Its component/completion/reception intermediates
+come from the already rounded original weekly output; both sides use neutral
+Elo. This remains a controlled eligibility/pool comparison, **not original
+point-exact weekly generation or a complete historical candidate backtest**.
+
+Rebuilding the original pool on this local runtime reproduced every rounded
+offered price and count but not every receipt byte: one of 1,081 rungs had base
+probability `0.39304132258302343` versus stored `0.3930413225830235`, changing its
+content-derived receipt ID. The cause of that one-ULP arithmetic difference was
+not established; cross-platform math is only a hypothesis. No stored receipt
+was rounded, replaced or relabeled. Exact hash identity is not inferred from
+numerical closeness. The paired control/candidate test uses the same runtime
+and preserves exact non-target numeric values.
+
+The combined gate on local `27b43fd5` passed **2,446 feature tests**, contracts,
+smoke and four model gates, exit 0; browser step 8 skipped. That gate preceded
+the four newest fixture tests, which require a new combined run before any
+release. The on-card R126 control rerun passed, retaining 59/188→72/189 settlement
+wins (weeks 2–5: 12→20, 20→21, 14→16, 13→15). Its limited historical authority
+and full-vs-reduced win distinction are unchanged.

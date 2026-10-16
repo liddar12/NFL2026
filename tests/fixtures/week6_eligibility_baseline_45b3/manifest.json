@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "kind": "nfl.injury_identity_latest_frozen_baseline.v1",
+  "repository": "liddar12/NFL2026",
+  "commit": "45b3cac4a0356b7e91b11121265ae1b84067fe93",
+  "retrieved_utc": "2026-10-16T15:31:47Z",
+  "files": {
+    "data/injuries.json": {
+      "git_blob_sha1": "365ed17a33d2f8ff0ba733c03dac19ffbccb6862",
+      "raw_sha256": "cba8134b955259f55588a1c0f8d2706604f0d66dcbffa6213523e91e2b242f9c",
+      "raw_bytes": 518834
+    },
+    "data/player_weekly.json": {
+      "git_blob_sha1": "cff32a6db23d52e78d4e0f5d33a33a388b6dfec5",
+      "raw_sha256": "9fe2334755dd46f21b1d248cb8b729c8c6203993093043bd9ba6bbcb4e7515f9",
+      "raw_bytes": 849738
+    },
+    "data/player_projections.json": {
+      "git_blob_sha1": "46693fbd1822a56d2cb195765257d7ea3caffadc",
+      "raw_sha256": "1a1e1ae03b0d6dd81154121ed3ac496565290126fe38b175a628e4d4dc13fb95",
+      "raw_bytes": 259569
+    },
+    "data/depth_chart.json": {
+      "git_blob_sha1": "f041558286eaf14cda4f16d1f071372339724d81",
+      "raw_sha256": "c945d0550d3e09715cc89817c51fc775e1fd1b597a3be1f3d95d1b5530ef7981",
+      "raw_bytes": 15991
+    },
+    "data/schedule_full.json": {
+      "git_blob_sha1": "2b435a161e33d7c1aa6d476f36e1e90334ca7559",
+      "raw_sha256": "d67de9c23baf5701f746fafe4368ca553d55318a4780fab41db57702dae8300b",
+      "raw_bytes": 98821
+    },
+    "data/game_predictions.json": {
+      "git_blob_sha1": "cbc17615c955c7d4264ba50916b5494b60d15186",
+      "raw_sha256": "ab99e5880bf7ea07633b1f64c7ce1f330e8ea850613c929d502091c2429a0dc2",
+      "raw_bytes": 4184
+    },
+    "data/weather_forecast.json": {
+      "git_blob_sha1": "86ce64d004960e75b15d97bc0e1561143e966195",
+      "raw_sha256": "cfafbe45b4df86e30cb68e3e9ed2f3fdeab553387ba25a3575fdac2b811ffc03",
+      "raw_bytes": 20017
+    },
+    "data/meta.json": {
+      "git_blob_sha1": "fbf2819cddb0a2c131eb9f3329d3da280e397a57",
+      "raw_sha256": "db9ef84e19279e4ef2b77410092a47b686692c82325d45e0014d64d1f1000042",
+      "raw_bytes": 6166
+    },
+    "data/leg_pool_backtest.json": {
+      "git_blob_sha1": "d6c0654e02ea8cf99e4c5f94d5d91586c45aaa53",
+      "raw_sha256": "1892f512490443a92b55de6a7da07807e810d1fff538cbc6d12fd35329b25598",
+      "raw_bytes": 5332
+    },
+    "data/parlays.json": {
+      "git_blob_sha1": "98446ce81f211d828951971e4bfd27bc3e8f807b",
+      "raw_sha256": "7ef30a0f58d95881ac85268c7a9b5aa96db3d8125a84a5f3625fcb917735519b",
+      "raw_bytes": 70937
+    },
+    "data/atd_week.json": {
+      "git_blob_sha1": "322a8b048b34e2e080629eafe252c72fb96b724b",
+      "raw_sha256": "98cc0376b6e8e16bf3f72fe75a725a30b245ce9adb6dbbda37b4262b77d88dcc",
+      "raw_bytes": 99269
+    },
+    "data/atd_backtest.json": {
+      "git_blob_sha1": "f55d65287c62776651bfd4a08cb35b66289e0e3d",
+      "raw_sha256": "260b0b98a8a33773f22acc2548cfca8f0b2c826b96fc9d85fee38e5ddb66570d",
+      "raw_bytes": 20534
+    },
+    "config/excluded_games.json": {
+      "git_blob_sha1": "3fd293e7ee9f64b9c14494f0e877ff3f4b780fe1",
+      "raw_sha256": "82d00103dadd0bcc9f44102857dd24cb8d41fc3938611f10a1b4d17548bf3301",
+      "raw_bytes": 870
+    }
+  },
+  "reused_fixture": "../week6_eligibility_baseline_0d49",
+  "reused_data_files": [
+    "data/dvp_positional_history.json",
+    "data/environment_model.json"
+  ],
+  "inactives": {
+    "state": "absent_in_exact_commit",
+    "basis": "remote comparison lists data/inactives.json removed; no older inactive feed is carried forward"
+  },
+  "runtime_code_unchanged_from": "0d49a94868142b4e6e888b927363d42270ed23c0",
+  "limits": {
+    "provider_authenticated": false,
+    "provider_completeness_verified": false,
+    "original_point_exact_pipeline_reproduction": false,
+    "production_verified": false
+  },
+  "current_pool_observation": {
+    "path": "data/leg_pool.json",
+    "git_blob_sha1": "4ce29d2b4847dd0669b3082674721ca50b412ce7",
+    "raw_bytes": 2677506,
+    "generated_utc": "2026-10-16T14:48:03Z",
+    "players": 184,
+    "prop_legs": 1081,
+    "atd_legs": 233,
+    "deebo_receiving_rungs": 7,
+    "deebo_anytime_td_legs": 1,
+    "raw_fixture_included": false,
+    "read_basis": "exact GitHub blob API body was inspected; these are thin recorded aggregates, not independently verified public publication or bets"
+  }
+}

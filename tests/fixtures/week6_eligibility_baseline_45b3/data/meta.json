@@ -1,0 +1,164 @@
+{
+  "season": 2026,
+  "updated_utc": "2026-07-15T12:00:00Z",
+  "models": {
+    "elo": "0.1.0",
+    "market": "0.1.0",
+    "j5l_composite": "0.1.0",
+    "hybrid": "0.1.0",
+    "stacker": "0.1.0",
+    "conformal": "0.1.0",
+    "player_projection": "0.1.0"
+  },
+  "weights": {
+    "prior_perf": 0.0,
+    "age_curve": 0.0,
+    "injury_status": 0.0,
+    "injury_history": 0.0,
+    "ol_composite_vs_dl": 0.0,
+    "target_competition": 0.0,
+    "qb_accuracy_delta": 0.0,
+    "qb_coaching": 0.0,
+    "coordinator_change": 0.0,
+    "head_coach_change": 0.0,
+    "scheme_fit": 0.0,
+    "supporting_cast_delta": 0.0,
+    "one_on_one_matchup": 0.0,
+    "schedule_strength": 0.0,
+    "home_away": 0.0,
+    "indoor_outdoor": 0.0,
+    "weather": 0.0,
+    "rest_days": 0.0,
+    "off_field": 0.0,
+    "elo": 0.0,
+    "market_spread": 0.0,
+    "market_moneyline": 0.0,
+    "market_total": 0.0,
+    "j5l_composite": 0.0,
+    "home_field": 0.0,
+    "rest_differential": 0.0,
+    "travel": 0.0,
+    "weather_game": 0.0,
+    "injury_impact": 0.0,
+    "odds_api": 0.0,
+    "kalshi": 0.0,
+    "polymarket": 0.0
+  },
+  "optimizer": {
+    "objective": "log_loss",
+    "margin": 0.0015,
+    "shrinkage": 0.5
+  },
+  "notes": "Day zero. Every signal weight is 0.0 (the 'Dominance started at 0' rule): nothing has earned weight until the walk-forward optimizer proves it beats the incumbent by the NEVER-REGRESS margin on leak-safe held-out log-loss. Names mirror scripts/signals/registry.py byte-for-byte.",
+  "projection_baseline": {
+    "rule": "prior_ppg_x_projected_games",
+    "season_games": 17,
+    "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
+    "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
+    "changed_utc": "2026-10-16T14:46:13Z",
+    "shipped_rule": "prior_season_points",
+    "applies_to": [
+      "proj_points",
+      "candidate_points"
+    ],
+    "shipped": {
+      "mode": "candidate",
+      "owner_override": true,
+      "decided_utc": "2026-09-02T00:00:00Z",
+      "reason": "owner: ship the scenario estimate now; gate keeps scoring gated vs candidate",
+      "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every record; the ledger scores shipped, candidate and gated",
+      "band_multiplier": 2.25,
+      "backtest_2025": {
+        "gated_mae": 56.118,
+        "candidate_mae": 53.113,
+        "band_coverage_after_calibration": 0.688
+      }
+    },
+    "recency_weights": [
+      2.0,
+      1.0
+    ],
+    "gate": {
+      "adopted_for_shipped": false,
+      "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5926 -> 0.6188, pooled MAE 59.8186 -> 60.4625 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
+      "pooled_rho_total_rule": 0.5926,
+      "pooled_rho_ppg_rule": 0.6188,
+      "pooled_mae_total_rule": 59.8186,
+      "pooled_mae_ppg_rule": 60.4625,
+      "measured_utc": "2026-10-16T14:46:13Z"
+    },
+    "candidate": {
+      "signals_applied": [
+        "age_curve",
+        "injury_history",
+        "injury_status"
+      ],
+      "signals_not_computable": [
+        "indoor_outdoor",
+        "ol_composite_vs_dl",
+        "target_competition"
+      ],
+      "sd_rule": "+/- 2.25 x band around candidate_points, band = position volatility (QB .14 / RB .22 / WR .20 / TE .24) + 0.06 for an unresolved or long-term injury tag + 0.04 for a >25% missed-games history + half the age-curve move, clamped to [0.05, 0.60]; the multiplier is calibrated so the 2024->2025 backtest band covers ~0.68 of actuals (one sd) \u2014 an estimate of spread, not a measurement"
+    }
+  },
+  "learning_record": {
+    "weeks_resolved": 6,
+    "players_scored": 269,
+    "mae_ppr": 5.767,
+    "bias_ppr": 0.688,
+    "candidate_mae_ppr": 5.767,
+    "candidate_bias_ppr": 0.688,
+    "gated_mae_ppr": 5.772,
+    "gated_bias_ppr": 0.371,
+    "band_coverage": 0.4169,
+    "signals_with_weight": [],
+    "ledger": "data/estimates/2026.json",
+    "objective_ready": true,
+    "adoption_margin_mae": 0.1,
+    "note": "shipped, candidate and gated scored on locked pre-kickoff estimates; the never-regress comparison is candidate vs gated on the walk-forward player objective (scripts/fit_player_signals.py) \u2014 shipped == candidate under the R49 owner override",
+    "updated_utc": "2026-10-16T14:49:13Z",
+    "last_proposal": {
+      "generated_utc": "2026-10-13T14:53:43Z",
+      "verdict": "retain",
+      "would_adopt": false,
+      "folds": 4,
+      "weeks_resolved": 5,
+      "candidate_mae": 5.4318,
+      "gated_mae": 5.4766,
+      "reason": "NEVER REGRESS: candidate does not beat the incumbent by the 0.10-point margin; weights unchanged"
+    },
+    "backtest_2025": {
+      "baseline_mae": 57.856,
+      "candidate_mae": 52.771,
+      "gated_mae": 55.76,
+      "shipped_mae": 52.771,
+      "band_coverage": 0.7039,
+      "players": 233,
+      "sleeper_mae": 21.849,
+      "sleeper_players": 232,
+      "sleeper_note": "Sleeper 2025 weekly projections (category 'proj', Rotowire) summed over weeks 1-18, 329 history players matched by {'espn_id': 103, 'name_position': 194, 'team_def': 32} \u2014 DISPLAY-ONLY reference, never an input. NOT LIKE-FOR-LIKE: each week's number was made that week, so injuries, benchings and role changes are already known to it; a preseason season-long projection cannot know them, and the gap flatters Sleeper by construction.",
+      "signals_evaluated": [
+        "injury_history"
+      ],
+      "signals_not_evaluable": [
+        "age_curve",
+        "coordinator_change",
+        "head_coach_change",
+        "home_away",
+        "indoor_outdoor",
+        "injury_status",
+        "off_field",
+        "ol_composite_vs_dl",
+        "one_on_one_matchup",
+        "qb_accuracy_delta",
+        "qb_coaching",
+        "rest_days",
+        "schedule_strength",
+        "scheme_fit",
+        "supporting_cast_delta",
+        "target_competition",
+        "weather"
+      ]
+    }
+  }
+}
