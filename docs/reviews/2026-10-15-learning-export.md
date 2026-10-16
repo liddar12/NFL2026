@@ -6,6 +6,11 @@ Status: implemented locally, not released. This exporter transports evidence; it
 does not fit, activate, rank, publish or change any prediction. The production
 operator token is not the ingestion identity and is not copied into this code.
 
+Latest local checkpoint, October 15, 2026, 11:25 p.m. CDT: generation export
+below is unchanged; the separate opt-in **outcome-capture exporter** is committed
+at `8561210c`. The paired shared-engine API/trace checkpoint is `44895b9`, not a
+deployed or activated backend. See the bounded outcome section at the end.
+
 ## Components and authority
 
 - Producer: `scripts/learning_journal.py` records prospective pool-rung receipts
@@ -420,3 +425,86 @@ node --test tests/feature/week6_on_card_reference.test.mjs
 
 No builders, generated sports data, workflow or live ranking changes. The
 original complete-candidate audit remains null/unavailable for weeks 2–5.
+
+## Bounded outcome exporter checkpoint — October 15, 11:25 p.m. CDT
+
+Local source `8561210c`: `scripts/export_outcome_capture.py`, paired with
+SelfLearning `44895b9`. This is a **separate, opt-in outcome transport**, not a
+change to the generation exporter, scheduled workflow, card ranking or data.
+No runtime was pushed, deployed or activated.
+
+- Default CLI verifies a saved immutable capture and prints a dry-run summary;
+  it does not read credentials, write an outbox or use the network.
+- Explicit `--prepare` persists the immutable destination-specific intent,
+  without sending. Explicit `--send` uses only the distinct
+  `SELFLEARN_NFL_OUTCOME_INGEST_TOKEN`, never the owner/generation credential.
+- The code-owned approved origin is `https://self-learning-beige.vercel.app`.
+  The transport additionally allows only the exact chunk POST, delivery POST
+  and canonical delivery-result GET routes, before constructing a credentialed
+  request. Arbitrary URLs, userinfo/authority overrides, redirects and proxy
+  forwarding are refused. Configuring an approved origin does not prove it
+  currently hosts or enables these routes.
+- Canonical raw chunks are at most 1 MiB, each wire body at most 3 MiB, aggregate
+  capture at most 64 MiB. The saved loader is memory-backed; no streaming-RSS
+  or hosted-performance claim is made.
+- The presend intent is frozen before HTTP. Original result GET precedes
+  staging; a lost delivery response checks that same original result before
+  retrying. Old ACKs retain their original cohort after new vintages/corrections.
+- A staging response remains `learning_accepted:false` / `durable_ack:false`.
+  Only a fully validated immutable result can become a local delivery ACK;
+  withheld/empty/partial results remain explicit holds, not whole-capture success.
+- Unknown transport failures become sanitized pending records without hidden
+  retries or exception text. KeyboardInterrupt/SystemExit still propagate.
+  Existing path/root/ancestor symlinks and overlap with capture authority or
+  generated sports data cannot redirect outbox writes.
+
+The receiver independently pins its producer/destination, reserves durable
+quota before private Storage writes, rebinds complete frozen journal membership
+and verifies raw bytes. A sender does **not** prove provider authenticity or
+complete server membership by declaring it. Receiver runtime is still default
+disabled with explicit factory injection; production wiring/activation is not
+established merely by setting the new token.
+
+The v1 executor holds complete captures above **500 members**, rather than
+fragmenting player/stat groups. Shared-engine `b8a70e3` can preview a 1,088-rung
+synthetic actual-producer workload as 496/496/96 capacity batches, but the
+sealed multi-batch executor/RPC and durable application recovery are **not
+implemented**. Do not send those preview batches to the old whole-capture RPC.
+
+Root verification, all exit **0**:
+
+- Focused exporter: **14 passed**, zero skips with `SELFLEARNING_CHECKOUT` set;
+  source **324/329 = 98.4802%** executable-line coverage.
+- NFL dependency-free gate: **2,277 feature tests**, contracts, smoke and four
+  model gates pass. **Browser step 8 skips**; full browser/release acceptance
+  remains unverified.
+- Shared engine: **808 core/API**, **37 Python-to-SQL**, **43 SQL** and **15 DOM**
+  tests pass. All **24** measured critical Python files exceed 90% line coverage,
+  **4,936/5,166 = 95.5478%**. These are separate suite populations, not a single
+  accuracy or acceptance percentage.
+- Five actual saved NFL sender → in-process API → PostgreSQL-WASM quota/ledger
+  tests verify initial 4/4, lost reply, later six-member correction and original
+  four-member ACK recovery without history reversal. Storage is a named fake;
+  native concurrent sessions, real HTTP/Storage and hosted credentials were not
+  verified. Missing local dependencies fail these integration tests, not skip.
+
+```sh
+SELFLEARNING_CHECKOUT=/Users/jliddar/code/SelfLearning-feedback-runtime \
+node --test tests/feature/week6_outcome_export.test.mjs
+```
+
+Source SHA-256 at the verified exporter checkpoint:
+`070b835147a11642f12635b20abfdc079432e1c1941e52c780a6195601745e0b`.
+Ordinary-exception secret leakage and a direct exported-transport `@host`
+authority override were independently reproduced, fixed and regression-tested
+before this final gate. The CLI previously used only safe fixed paths; no live
+credential disclosure or production exploit is claimed.
+
+## Archive semantic diagnostic correction — local only
+
+`ca18132f` corrects S006's application of live R77 Q-chip rules to closed MY
+archive records. No archive/schema/history was changed. Actual live pool
+rendering verified **155 Questionable legs / 155 Q chips**. Missing sparse
+weekly eligibility fields stay **unknown**, not inferred injuries or a green
+prepublication result. Source/code/publication/freshness authority is still
+incomplete; the diagnostic is not a wired production release gate.
