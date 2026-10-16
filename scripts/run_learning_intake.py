@@ -36,8 +36,8 @@ class IntakeError(ValueError):
     """Static machine code only; untrusted callback text is never reported."""
 
 
-class IntakeBudgetExceeded(RuntimeError):
-    """Not TimeoutError/ExportError: legacy per-item catches cannot swallow it."""
+class IntakeBudgetExceeded(forecast.ExportAborted):
+    """Typed caller abort: delivery must not turn the deadline into item writes."""
 
 
 def need(condition, reason="invalid_intake_plan"):

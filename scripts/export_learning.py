@@ -34,6 +34,66 @@ class ExportError(ValueError):
     """A safe machine code: no response body, token, or untrusted URL is exposed."""
 
 
+class ExportAborted(RuntimeError):
+    """Trusted caller control flow: stop delivery without per-item writes/retry."""
+
+
+_SAFE_ERRORS = frozenset("""duplicate_json_key nonfinite_json invalid_json missing_or_unreadable_object
+invalid_object_id object_body_exceeds_3_mib missing_snapshot_directory journal_path_outside_snapshot_root
+invalid_generation_envelope envelope_hash_mismatch invalid_generation_manifest generation_hash_or_filename_mismatch
+generation_period_mismatch invalid_source_references source_path_outside_snapshot_root source_hash_mismatch
+invalid_receipt_references invalid_https_base_url redirect_rejected ack_body_too_large transport_retry_exhausted
+invalid_http_status invalid_ack_body invalid_retry_configuration invalid_durable_ack invalid_object_ack_status
+invalid_generation_ack unknown_or_duplicate_receipt_ack duplicate_generic_receipt_ack invalid_receipt_ack_status
+invalid_rejection_reason missing_receipt_ack delivery_symlink_rejected invalid_delivery_path
+delivery_path_outside_output_root immutable_delivery_conflict missing_or_invalid_ingest_token
+delivery_directory_overlaps_sports_data plan_changed_since_validation send_requires_base_url_and_out_dir
+credential_echo_refused transport_failed export_failed""".split())
+
+
+def _safe_error(error, credentials=()):
+    """Class identity/regex-shaped arbitrary text is not a redaction boundary."""
+    value = error.args[0] if type(error) is ExportError and len(error.args) == 1 else None
+    if type(value) is str and any(type(token) is str and token and token in value for token in credentials):
+        return "export_failed"
+    return value if type(value) is str and (value in _SAFE_ERRORS or re.fullmatch(
+        r"http_[0-9]{3}(?:_retry_exhausted)?", value)) else "export_failed"
+
+
+def _reject_credentials(value, credentials):
+    """Refuse literal echoes, never rewrite hashed IDs or original payloads."""
+    pending = [value]
+    while pending:
+        node = pending.pop()
+        if type(node) is str:
+            if any(token in node for token in credentials):
+                raise ExportError("credential_echo_refused")
+        elif type(node) is dict:
+            pending.extend(node.keys()); pending.extend(node.values())
+        elif type(node) in (list, tuple):
+            pending.extend(node)
+
+
+def _credential_guarded_transport(transport, credentials):
+    """Scan bounded valid outcome JSON before ANY sender can persist it.
+
+    Malformed/non-success responses retain the existing protocol validators and
+    static error behavior. This is literal-echo protection, not proof that an
+    arbitrary server cannot encode data in an otherwise opaque identifier.
+    """
+    def guarded(*args, **kwargs):
+        result = transport(*args, **kwargs)
+        status, raw = result
+        if type(status) is int and 200 <= status < 300 and type(raw) is bytes and len(raw) <= MAX_BODY_BYTES:
+            try:
+                value = _json(raw)
+            except ExportError:
+                return result
+            _reject_credentials(value, credentials)
+        return result
+    return guarded
+
+
 def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=True, allow_nan=False).encode("utf-8")
@@ -248,9 +308,15 @@ def _post(transport, route, request, attempts, sleep):
     for attempt in range(attempts):
         try:
             status, raw = transport(route, body)
+        except ExportAborted:
+            raise
         except (urllib.error.URLError, TimeoutError, OSError):
             if attempt + 1 == attempts:
                 raise ExportError("transport_retry_exhausted") from None
+        except ExportError as error:
+            raise ExportError(_safe_error(error)) from None
+        except Exception:
+            raise ExportError("transport_failed") from None
         else:
             if type(status) is not int:
                 raise ExportError("invalid_http_status")
@@ -382,6 +448,7 @@ repeat a POST, whose stable content ID lets the server return a duplicate ACK.
         raise ExportError("missing_or_invalid_ingest_token")
     if type(attempts) is not int or not 1 <= attempts <= 5:
         raise ExportError("invalid_retry_configuration")
+    _reject_credentials(export_plan, (token,))
     output = Path(out_dir).resolve()
     snapshots = Path(export_plan["snapshot_dir"]).resolve()
     sports_data = Path(__file__).resolve().parent.parent / "data"
@@ -437,12 +504,16 @@ repeat a POST, whose stable content ID lets the server return a duplicate ACK.
                     raise ExportError("immutable_delivery_conflict")
                 ack = stored.get("ack")
                 _validate_ack(ack, operation, expected)
+                _reject_credentials(ack, (token,))
                 summary["cached_acks"] += 1
             else:
                 route = OBJECT_ROUTE if phase == "object" else GENERATION_ROUTE
                 ack = _post(transport, route, request, attempts, sleep)
                 _validate_ack(ack, operation, expected)
                 ack = _safe_ack(ack, phase)
+                # Preserve discarded remote diagnostics and legitimate partial
+                # ACKs; only strings that would actually be retained are gated.
+                _reject_credentials(ack, (token,))
                 # First valid durable response wins, even if concurrent requests
                 # differ only in recorded/duplicate. Conflicting receipts fail.
                 try:
@@ -454,6 +525,7 @@ repeat a POST, whose stable content ID lets the server return a duplicate ACK.
                     if not isinstance(stored, dict) or not _same_json(stored.get("operation"), operation):
                         raise
                     _validate_ack(stored.get("ack"), operation, expected)
+                    _reject_credentials(stored["ack"], (token,))
                     a, b = json.loads(encoded(ack)), json.loads(encoded(stored["ack"]))
                     for value in (a, b):
                         value.pop("status", None)
@@ -467,11 +539,12 @@ repeat a POST, whose stable content ID lets the server return a duplicate ACK.
                     ack = stored["ack"]
             return ack
         except ExportError as error:
-            failure = {"operation": operation, "reason": str(error)}
+            reason = _safe_error(error, (token,))
+            failure = {"operation": operation, "reason": reason}
             # All errors above are local machine codes, not untrusted bodies.
             _immutable(_delivery_path(output, target.name, "failures",
                                       fingerprint(failure).split(":")[1] + ".json"), failure, root=output)
-            failures.append({"object_id": request["object_id"], "phase": phase, "reason": str(error)})
+            failures.append({"object_id": request["object_id"], "phase": phase, "reason": reason})
             return None
 
     for request in export_plan["source_objects"]:
@@ -512,7 +585,10 @@ def main(argv=None):
     parser.add_argument("--base-url", help="HTTPS API origin; credentials must never be in this URL")
     parser.add_argument("--out-dir", help="explicit durable delivery directory outside generated sports data")
     args = parser.parse_args(argv)
+    token = None
     try:
+        if args.send:
+            token = os.environ.get("SELFLEARN_NFL_INGEST_TOKEN")
         export_plan = plan(args.snapshots)
         if not args.send:
             print(json.dumps({"version": 1, "mode": "dry_run", "source_objects": len(export_plan["source_objects"]),
@@ -522,11 +598,11 @@ def main(argv=None):
             return 0
         if not args.base_url or not args.out_dir:
             raise ExportError("send_requires_base_url_and_out_dir")
-        result = send(export_plan, args.base_url, args.out_dir, os.environ.get("SELFLEARN_NFL_INGEST_TOKEN"))
+        result = send(export_plan, args.base_url, args.out_dir, token)
         print(json.dumps(result, sort_keys=True))
         return 0 if result["ok"] else 1
-    except (ExportError, OSError) as error:
-        reason = str(error) if isinstance(error, ExportError) else "local_io_failure"
+    except Exception as error:
+        reason = _safe_error(error, (token,)) if type(error) is ExportError else "local_io_failure" if isinstance(error, OSError) else "export_failed"
         print(json.dumps({"version": 1, "ok": False, "reason": reason}), file=sys.stderr)
         return 1
 

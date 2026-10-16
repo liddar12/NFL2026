@@ -317,6 +317,7 @@ def send(value, out_dir, token, *, transport=None, attempts=3, sleep=time.sleep)
     value, bundle = _validated(value)  # Origin/capture checks precede credentials/writes.
     _require(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token), "invalid_outcome_ingest_token")
     _require(type(attempts) is int and 1 <= attempts <= 5, "invalid_outcome_retry_configuration")
+    ex._reject_credentials(value, (token,))
     root, target = _output(value, out_dir)
     _write(root, target / "outbox" / "delivery.json", {"version": 1, "request": value["request"]})
     request = value["request"]
@@ -327,7 +328,7 @@ def send(value, out_dir, token, *, transport=None, attempts=3, sleep=time.sleep)
         ex._delivery_path(root, *path.relative_to(root).parts)
     _require(not conflict_path.exists(), "known_outcome_result_conflict")
     try:
-        transport = transport or http_transport(value["destination"], token)
+        transport = ex._credential_guarded_transport(transport or http_transport(value["destination"], token), (token,))
         result = _exchange(transport, "GET", route, None, attempts, sleep, missing=True)
         if result is None:
             staged = set()

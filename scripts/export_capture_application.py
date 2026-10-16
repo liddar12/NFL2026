@@ -589,6 +589,7 @@ def read_application(request, transport, attempts, sleep, check):
 def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max_run_seconds=240, sleep=time.sleep, monotonic=time.monotonic):
     value = validate_plan(value)  # Fixed origin before token checks or writes.
     need(type(token) is str and 32 <= len(token) <= 8192 and all(0x21 <= ord(c) <= 0x7e for c in token))
+    ex._reject_credentials(value, (token,))
     integer(attempts, 1, 5);integer(max_steps, 1, MAX_GROUPS)
     need(type(max_run_seconds) in (int, float) and math.isfinite(max_run_seconds) and 0 < max_run_seconds <= 300 and callable(monotonic))
     end = monotonic() + max_run_seconds
@@ -640,7 +641,8 @@ def send(value, out_dir, token, *, transport=None, attempts=3, max_steps=16, max
         same(claimed, actual)
         return original
     try:
-        channel = transport or http_transport(value["capture_plan"]["destination"], token, deadline=end, monotonic=monotonic)
+        channel = ex._credential_guarded_transport(transport or http_transport(
+            value["capture_plan"]["destination"], token, deadline=end, monotonic=monotonic), (token,))
         report = fetch()  # Before loading raw bytes, current source clocks or staging.
         if report is None:
             _, bundle = O._validated(value["capture_plan"]);check()
