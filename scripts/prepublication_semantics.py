@@ -236,13 +236,15 @@ def _upstream(bundle, target, pool, output, members):
     # The legacy checker treats absent per-player metadata as no negative. Do
     # not turn that into a PASS. Still check every present row, including an
     # explicit refusal beside an unknown neighbor; absence remains row-local.
+    # R77's parlays argument is a LIVE-card contract, not the closed MY archive
+    # schema: archives intentionally lack a top-level Q annotation. _authority
+    # and _membership already bind each supported archive prop's exact original
+    # receipt/contract/probability to its own frozen pool and offered generation.
+    # Check that pool, never invent archive labels or borrow a newer vintage.
     present = {p.get("gsis_id") for p in pool["players"] if p.get("gsis_id") in known}
     scoped_pool = {**pool, "players": [p for p in pool["players"] if p.get("gsis_id") in present], "atd_legs": []}
-    target_locations = {(row["card_id"], row["leg_index"]) for row in members if row["lineage_class"] == "target_generation"}
-    cards = [{"legs": [leg for index, leg in enumerate(card["legs"]) if (card["card_id"], index) in target_locations and leg.get("gsis_id") in present]}
-             for card in output.get("cards", [])]
     try:
-        validators.check_no_unplayable_legs(weekly, {"week": target["week"], "parlays": cards}, scoped_pool)
+        validators.check_no_unplayable_legs(weekly, {"week": target["week"], "parlays": []}, scoped_pool)
     except validators.ValidationError:
         raise SemanticError("frozen_eligibility_validation_failed") from None
     coverage = {"pool_players": len(pool["players"]), "unknown_players": unknown, "known_metadata_players": len(pool["players"]) - unknown}
@@ -261,6 +263,7 @@ content/reference integrity, not signatures, actual execution or public serving.
         "membership": [], "unsupported": [], "failures": [],
         "scope": "exact supported target-generation MY yardage props only; not whole cards, joint prices, Game/Week/ATD or a full release",
         "consumer_check_scope": "receipt identity, captured features/context, once-serving and target-card membership; excludes unknown upstream/model/code authority",
+        "eligibility_check_scope": "exact target-generation frozen pool consumer eligibility only; MY archive Q annotations are outside its schema; live Q rendering is not checked; non-target vintages are not checked",
         "original_receipts_mutated": False, "network_used": False, "writes": False}
     try:
         checked = _clock(checked_utc)
@@ -297,7 +300,8 @@ content/reference integrity, not signatures, actual execution or public serving.
             consumer_checks_passed=target_members > 0, status="incomplete")
         report["checks"].extend([
             {"name": "supported_target_output_membership", "status": "pass" if target_members else "unknown", "authority": "exact original receipt/card mappings; no generated-pool publication inference"},
-            {"name": "upstream_consumer_eligibility", "status": eligibility_status, "reason": eligibility_basis},
+            {"name": "upstream_consumer_eligibility", "status": eligibility_status, "reason": eligibility_basis,
+             "authority": report["eligibility_check_scope"]},
             {"name": "unsupported_output_or_retained_vintages", "status": "unknown" if non_target or unsupported else "pass", "authority": "non-target lineage retained; not promoted to target-generation freshness/policy"},
             {"name": "generation_capture_completeness", "status": "unknown", "reason": "quarantine_and_full_candidate_population_not_independently_rebuilt"},
             {"name": "raw_provider_freshness", "status": "unknown", "reason": "raw_provider_capture_not_bound_by_this_journal_contract"},

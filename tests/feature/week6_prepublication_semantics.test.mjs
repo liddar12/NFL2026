@@ -41,25 +41,41 @@ def produce(pool,schedule,calibration):
   'generations':[{'request':ex._request('generation',doc['envelope_id'],doc),'expected_receipt_ids':doc['generations'][0]['receipt_ids']}]}
  archive=cards.append(None,records,2026,6,pool['generated_utc'],'2026-09-01T12:01:00Z');raw=ex.encoded(archive)
  return graph,raw,expected(doc,raw),doc
-def bundle_fixture(root,bad=False,metadata=True,period=6,clock_mismatch=False,row_mode=None):
+def bundle_fixture(root,bad=False,metadata=True,period=6,clock_mismatch=False,row_mode=None,questionable=False,sparse_count=None):
  graph,raw,e,doc,s,p=fixture(root);src=sources(graph);refs=doc['generations'][0]['source_snapshots']
  pool=copy.deepcopy(src[refs['leg_pool']]);schedule=copy.deepcopy(src[refs['schedule']]);calibration=src[refs['parlay_calibration']]
  pool['counts']={'not_playable':0}
+ if sparse_count is not None:
+  # Explicitly synthetic cardinality/shape regression, NOT today's population.
+  for index in range(len(pool['players']),sparse_count):
+   pool['players'].append({**copy.deepcopy(pool['players'][0]),'gsis_id':'synthetic-unpriced-'+str(index),'player':'Synthetic Unpriced '+str(index),'rungs':[]})
  rows=[{'gsis_id':x['gsis_id'],'weeks':[{'wk':6,'avail':True}], 'this_week':{'playable':True}} for x in pool['players']]
+ if questionable:
+  pool['players'][0]['availability']='QUESTIONABLE';rows[0]['availability']={'status':'QUESTIONABLE','class':'week'}
+  if row_mode=='missing_pool_q':pool['players'][0].pop('availability')
+  if row_mode=='wrong_pool_q':rows[0]['availability']['status']='ACTIVE'
+ if sparse_count is not None:
+  for row in rows:
+   row.pop('this_week')
+   for week in row['weeks']:week.pop('avail')
  if bad:rows[0]['this_week']['playable']=False
- if row_mode in ('all_missing','one_missing','unknown_and_bad'):
+ if row_mode in ('all_missing','one_missing','unknown_and_bad','unknown_and_ineligible','unknown_and_unavailable'):
   for row in (rows if row_mode=='all_missing' else rows[:1]):row.pop('this_week');row.pop('weeks')
  if row_mode=='one_absent':rows.pop(0)
  if row_mode=='unknown_and_bad':rows[1]['this_week']['playable']=False
+ if row_mode=='unknown_and_ineligible':rows[1]['eligibility']={'eligible':False,'week':6,'detail':'unverified'}
+ if row_mode=='unknown_and_unavailable':rows[1]['weeks'][0]['avail']=False
  if row_mode=='conflicting_week':rows[0]['weeks'].append({'wk':6,'avail':False})
  weekly={'updated_utc':f['CREATED'],'players':rows}
  if metadata:weekly['model']={'this_week':{'wk':period}}
  docs={'player_weekly':weekly,'player_projections':{'updated_utc':f['CREATED'],'players':[]},
   'game_predictions':{'updated_utc':f['CREATED'],'games':schedule['games']},'pool_backtest':{'generated_utc':f['CREATED']}}
  bundle={'version':1,'documents':docs};digest=ex.fingerprint(docs);clocks={name:x.get('generated_utc') or x.get('updated_utc') for name,x in docs.items()}
+ by_id={row['gsis_id']:row for row in rows}
  for player in pool['players']:
   for rung in player['rungs']:
    receipt=rung['learning_receipt'];receipt['source_snapshot_id']=digest;receipt['source_timestamps']={**clocks}
+   if questionable:receipt['input_context']={key:by_id[player['gsis_id']].get(key) for key in ('availability','eligibility','this_week')}
    if clock_mismatch:receipt['source_timestamps']['player_weekly']='2026-09-01T11:00:00Z'
    receipt['receipt_id']=ex.fingerprint({k:v for k,v in receipt.items() if k!='receipt_id'})
  return (*produce(pool,schedule,calibration),bundle)
@@ -202,6 +218,52 @@ print(json.dumps({'reports':results,'redacted':'private-sentinel' not in json.du
   assert.equal(out.redacted, true);
 });
 
+test('Questionable eligibility checks the exact frozen pool, not a nonexistent MY archive annotation', () => {
+  const out = py(`
+results={}
+with tempfile.TemporaryDirectory() as tmp:
+ for mode in ('bound','missing_pool_q','wrong_pool_q'):
+  root=pathlib.Path(tmp)/mode;root.mkdir();g,b,e,d,bundle=bundle_fixture(root,questionable=True,row_mode=mode)
+  original=copy.deepcopy((g,b,e,bundle));report=verify(g,b,e,frozen_inputs=bundle);output=json.loads(b)
+  qlegs=[leg for card in output['cards'] for leg in card['legs'] if ((leg.get('learning_receipt') or {}).get('input_context',{}).get('availability') or {}).get('status')=='QUESTIONABLE']
+  results[mode]={'report':report,'q_occurrences':len(qlegs),'archive_has_no_top_q':all('availability' not in leg for card in output['cards'] for leg in card['legs']),
+   'q_context_intact':all(leg['learning_receipt']['input_context']=={'availability':{'status':'QUESTIONABLE','class':'week'},'eligibility':None,'this_week':{'playable':True}} for leg in qlegs),
+   'unchanged':original==(g,b,e,bundle),'sealed':report_ok(report)}
+ print(json.dumps(results))
+`);
+  assert.ok(out.bound.q_occurrences > 0); assert.equal(out.bound.archive_has_no_top_q, true);
+  assert.equal(out.bound.q_context_intact, true); assert.equal(out.bound.unchanged, true);
+  assert.equal(out.bound.sealed, true); assert.equal(out.bound.report.status, 'incomplete');
+  assert.equal(out.bound.report.consumer_checks_passed, true); assert.equal(out.bound.report.release_ready, false);
+  const check = out.bound.report.checks.find(c => c.name === 'upstream_consumer_eligibility');
+  assert.equal(check.status, 'pass'); assert.match(check.authority, /exact target-generation frozen pool/);
+  assert.match(check.authority, /archive Q annotations are outside its schema/);
+  assert.match(check.authority, /live Q rendering is not checked/);
+  assert.match(check.authority, /non-target vintages are not checked/);
+  for (const mode of ['missing_pool_q', 'wrong_pool_q']) {
+    assert.equal(out[mode].report.status, 'failed'); assert.equal(out[mode].unchanged, true);
+    assert.equal(out[mode].report.failures[0].reason, 'frozen_eligibility_validation_failed');
+  }
+});
+
+test('synthetic185-player sparse legacy shape retains nested Q context and remains UNKNOWN, not error or eligibility PASS', () => {
+  const out = py(`
+with tempfile.TemporaryDirectory() as tmp:
+ g,b,e,d,bundle=bundle_fixture(pathlib.Path(tmp),questionable=True,sparse_count=185);original=copy.deepcopy((g,b,e,bundle))
+ report=verify(g,b,e,frozen_inputs=bundle);output=json.loads(b)
+ qlegs=[leg for card in output['cards'] for leg in card['legs'] if ((leg.get('learning_receipt') or {}).get('input_context',{}).get('availability') or {}).get('status')=='QUESTIONABLE']
+ print(json.dumps({'basis':'synthetic sparse-shape regression, not measured production population','report':report,'q_occurrences':len(qlegs),
+  'q_context_intact':all(leg['learning_receipt']['input_context']=={'availability':{'status':'QUESTIONABLE','class':'week'},'eligibility':None,'this_week':None} for leg in qlegs),
+  'no_archive_annotation':all('availability' not in leg for card in output['cards'] for leg in card['legs']),'unchanged':original==(g,b,e,bundle)}))
+`);
+  assert.equal(out.report.status, 'incomplete'); assert.equal(out.report.consumer_checks_passed, true);
+  assert.equal(out.report.release_ready, false); assert.deepEqual(out.report.failures, []);
+  assert.deepEqual(out.report.upstream_eligibility_coverage, { pool_players: 185, unknown_players: 185, known_metadata_players: 0 });
+  assert.equal(out.report.checks.find(c => c.name === 'upstream_consumer_eligibility').status, 'unknown');
+  assert.ok(out.q_occurrences > 0); assert.equal(out.q_context_intact, true);
+  assert.equal(out.no_archive_annotation, true); assert.equal(out.unchanged, true);
+});
+
 test('newer/non-target and ambiguous lineage are not mislabeled older or silently promoted; future output evidence fails', () => {
   const out = py(`
 with tempfile.TemporaryDirectory() as tmp:
@@ -223,7 +285,7 @@ test('missing per-player eligibility stays row-local unknown and cannot hide a k
   const out = py(`
 results={}
 with tempfile.TemporaryDirectory() as tmp:
- for mode in ('all_missing','one_missing','one_absent','unknown_and_bad','conflicting_week'):
+ for mode in ('all_missing','one_missing','one_absent','unknown_and_bad','unknown_and_ineligible','unknown_and_unavailable','conflicting_week'):
   root=pathlib.Path(tmp)/mode;root.mkdir();g,b,e,d,bundle=bundle_fixture(root,row_mode=mode);results[mode]=verify(g,b,e,frozen_inputs=bundle)
  empty_bundle={'version':1,'documents':{key:{} for key in sem.UPSTREAM_NAMES}}
  results['empty_target']=sem._upstream(empty_bundle,{'week':6,'receipts':[]},{'players':[]},{'cards':[]},[])
@@ -235,7 +297,11 @@ print(json.dumps(results))
     assert.ok(out[mode].upstream_eligibility_coverage.unknown_players > 0);
   }
   assert.ok(out.one_missing.upstream_eligibility_coverage.known_metadata_players > 0);
-  assert.equal(out.unknown_and_bad.status, 'failed'); assert.equal(out.conflicting_week.status, 'failed');
+  for (const mode of ['unknown_and_bad', 'unknown_and_ineligible', 'unknown_and_unavailable']) {
+    assert.equal(out[mode].status, 'failed'); assert.equal(out[mode].failures[0].reason, 'frozen_eligibility_validation_failed');
+    assert.equal(out[mode].consumer_checks_passed, false); assert.deepEqual(out[mode].membership, []);
+  }
+  assert.equal(out.conflicting_week.status, 'failed');
   assert.equal(out.empty_target[1], 'unknown');
 });
 
