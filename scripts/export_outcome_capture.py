@@ -34,7 +34,9 @@ RESULT_KEYS = {"version", "kind", "delivery_id", "request_id", "capture_id", "me
 GROUP_KEYS = {"group_id", "scope", "receipt_ids", "source_receipt_ids", "generation_object_ids", "membership_id",
               "status", "reason_codes", "observation_ids", "revision_ids"}
 _FAILURES = frozenset("""outcome_http_refused outcome_http_retry_exhausted outcome_transport_retry_exhausted
+outcome_transport_failed
 outcome_redirect_rejected invalid_outcome_http_status invalid_outcome_response_bound invalid_outcome_response_json
+invalid_outcome_route invalid_outcome_request_body
 invalid_staging_ack invalid_outcome_delivery_wrapper invalid_original_delivery_result original_result_identity_mismatch
 invalid_original_result_clock original_result_clock_mismatch invalid_result_ids noncanonical_result_ids
 invalid_result_sequence invalid_result_groups invalid_result_group invalid_result_scope invalid_group_membership
@@ -262,6 +264,13 @@ def http_transport(destination, token):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), ex._NoRedirect())
 
     def exchange(method, path, body):
+        # Check BEFORE constructing a URL or attaching the bearer credential:
+        # origin + '@host/path' would otherwise reinterpret origin as userinfo.
+        _require(type(method) is str and type(path) is str and (
+            method == "POST" and path in (CHUNK_ROUTE, DELIVERY_ROUTE) or method == "GET"
+            and re.fullmatch(re.escape(DELIVERY_ROUTE) + r"/sha256%3A[0-9a-f]{64}", path)), "invalid_outcome_route")
+        _require(body is None if method == "GET" else type(body) is bytes and 0 < len(body) <= BODY_BYTES,
+                 "invalid_outcome_request_body")
         request = urllib.request.Request(destination + path, data=body, method=method,
             headers={"Authorization": "Bearer " + token, "Content-Type": "application/json", "Accept": "application/json"})
         try:
@@ -281,6 +290,10 @@ def _exchange(transport, method, route, body, attempts, sleep, *, missing=False)
         except (urllib.error.URLError, TimeoutError, OSError):
             if attempt + 1 == attempts:
                 raise OutcomeExportError("outcome_transport_retry_exhausted") from None
+        except Exception:
+            # Protocol/parser/custom transport errors are not safe diagnostics
+            # and are not evidence of a retryable network outage.
+            raise OutcomeExportError("outcome_transport_failed") from None
         else:
             _require(type(status) is int, "invalid_outcome_http_status")
             if status == 404 and missing:
@@ -306,7 +319,6 @@ def send(value, out_dir, token, *, transport=None, attempts=3, sleep=time.sleep)
     _require(type(attempts) is int and 1 <= attempts <= 5, "invalid_outcome_retry_configuration")
     root, target = _output(value, out_dir)
     _write(root, target / "outbox" / "delivery.json", {"version": 1, "request": value["request"]})
-    transport = transport or http_transport(value["destination"], token)
     request = value["request"]
     route = DELIVERY_ROUTE + "/" + urllib.parse.quote(request["delivery_id"], safe="")
     result_path = target / "results" / "original.json"
@@ -315,6 +327,7 @@ def send(value, out_dir, token, *, transport=None, attempts=3, sleep=time.sleep)
         ex._delivery_path(root, *path.relative_to(root).parts)
     _require(not conflict_path.exists(), "known_outcome_result_conflict")
     try:
+        transport = transport or http_transport(value["destination"], token)
         result = _exchange(transport, "GET", route, None, attempts, sleep, missing=True)
         if result is None:
             staged = set()
@@ -360,7 +373,7 @@ def send(value, out_dir, token, *, transport=None, attempts=3, sleep=time.sleep)
                 "durable_result_ack": True, "learning_ack": accepted > 0, "accepted_groups": accepted,
                 "complete_success": result["status"] == "accepted", "current_membership_reverified": False,
                 "source_authentication": "not_performed"}
-    except (OutcomeExportError, ex.ExportError, capture.CaptureError, OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError, RecursionError) as error:
+    except Exception as error:
         reason = _reason(error)
         _write(root, target / "failures" / (ex.fingerprint(reason)[7:] + ".json"), {"version": 1, "reason": reason})
         return {"version": 1, "status": "pending", "delivery_id": request["delivery_id"], "learning_ack": False, "reason": reason}
@@ -388,7 +401,7 @@ def main(argv=None):
         print(ex.encoded(result).decode("ascii"))
         return (1 if result.get("status") == "pending" else 3
                 if result.get("status") == "original_result" and not result["complete_success"] else 0)
-    except (OutcomeExportError, ex.ExportError, OSError, ValueError, TypeError, RuntimeError):
+    except Exception:
         print('{"version":1,"status":"pending","learning_ack":false,"reason":"outcome_export_refused"}', file=sys.stderr)
         return 1
 

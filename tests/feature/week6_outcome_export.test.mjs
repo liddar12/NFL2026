@@ -10,7 +10,7 @@ const SOURCE = ROOT + 'scripts/export_outcome_capture.py';
 const sourceHash = createHash('sha256').update(readFileSync(SOURCE)).digest('hex');
 const covered = new Set();
 const FIXTURE = `
-import base64,copy,hashlib,io,json,os,pathlib,runpy,sys,tempfile,threading,urllib.error
+import base64,copy,hashlib,http.client,io,json,os,pathlib,runpy,sys,tempfile,threading,urllib.error
 from contextlib import redirect_stdout,redirect_stderr
 from unittest import mock
 from concurrent.futures import ThreadPoolExecutor
@@ -190,6 +190,37 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(out.exhausted.status, 'pending');
 });
 
+test('unexpected transport/protocol/factory exceptions are redacted without retry; cancellation still propagates', () => {
+  const out = py(`
+reports=[];cli=[];attempts=[];cancellation=[]
+with tempfile.TemporaryDirectory()as tmp:
+ root=pathlib.Path(tmp);p,b,path=fixture(root)
+ failures=[Exception('SYNTHETIC-SECRET'),RuntimeError('SYNTHETIC-SECRET'),http.client.BadStatusLine('SYNTHETIC-SECRET'),http.client.IncompleteRead(b'SYNTHETIC-SECRET')]
+ for index,failure in enumerate(failures):
+  calls=[]
+  def broken(*args):calls.append(1);raise failure
+  reports.append(send(p,root/str(index),broken,attempts=3));attempts.append(len(calls));stream=io.StringIO();err=io.StringIO()
+  with mock.patch.dict(os.environ,{'SELFLEARN_NFL_OUTCOME_INGEST_TOKEN':TOKEN}),mock.patch.object(O,'http_transport',side_effect=failure),redirect_stdout(stream),redirect_stderr(err):
+   code=O.main(['--capture',str(path),'--base-url',O.ORIGIN,'--send','--out-dir',str(root/('cli'+str(index)))])
+  cli.append({'code':code,'output':stream.getvalue()+err.getvalue()})
+ stream=io.StringIO()
+ with mock.patch.object(O,'plan',side_effect=Exception('SYNTHETIC-SECRET')),redirect_stderr(stream):
+  guard=O.main(['--capture',str(path),'--base-url',O.ORIGIN])
+ for cancel in(KeyboardInterrupt(),SystemExit(7)):
+  def cancelled(*args):raise cancel
+  try:send(p,root/'cancel',cancelled)
+  except BaseException as error:cancellation.append(type(error).__name__)
+ audit=''.join(x.read_text()for x in root.rglob('failures/*.json'))
+ print(json.dumps({'reports':reports,'cli':cli,'attempts':attempts,'guard':guard,'guard_output':stream.getvalue(),
+  'cancellations':cancellation,'redacted':'SYNTHETIC-SECRET'not in json.dumps(reports+cli)and'SYNTHETIC-SECRET'not in audit,
+  'audits':len(list(root.rglob('failures/*.json')))}))
+`);
+  assert.ok(out.reports.every(r => r.status === 'pending' && !r.learning_ack && r.reason === 'outcome_transport_failed'));
+  assert.deepEqual(out.attempts, [1, 1, 1, 1]); assert.ok(out.cli.every(r => r.code === 1));
+  assert.equal(out.guard, 1); assert.ok(!out.guard_output.includes('SYNTHETIC-SECRET'));
+  assert.deepEqual(out.cancellations, ['KeyboardInterrupt', 'SystemExit']); assert.equal(out.redacted, true); assert.equal(out.audits, 8);
+});
+
 test('malformed delivery wrappers and malformed GET originals cannot manufacture an acknowledged result', () => {
   const out = py(`
 reports={}
@@ -312,16 +343,27 @@ class Opener:
 with mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):r=O.http_transport(O.ORIGIN,TOKEN)('POST',O.CHUNK_ROUTE,b'{}')
 class BadResponse(Response):
  def geturl(self):return 'https://evil.invalid'
-with mock.patch.object(Opener,'open',return_value=BadResponse()),mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):redirect=error(lambda:O.http_transport(O.ORIGIN,TOKEN)('GET',O.CHUNK_ROUTE,None))
+get_route=O.DELIVERY_ROUTE+'/sha256%3A'+'a'*64
+with mock.patch.object(Opener,'open',return_value=BadResponse()),mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):redirect=error(lambda:O.http_transport(O.ORIGIN,TOKEN)('GET',get_route,None))
 http_error=urllib.error.HTTPError(O.ORIGIN,503,'SECRET',{},io.BytesIO(b'SECRET'))
-with mock.patch.object(Opener,'open',side_effect=http_error),mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):failure=O.http_transport(O.ORIGIN,TOKEN)('GET',O.CHUNK_ROUTE,None)
+with mock.patch.object(Opener,'open',side_effect=http_error),mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):failure=O.http_transport(O.ORIGIN,TOKEN)('GET',get_route,None)
 invalid=[error(lambda value=value:O._origin(value))for value in('http://bad','https://u:p@self-learning-beige.vercel.app','https://other.invalid','https://self-learning-beige.vercel.app?token=SECRET')]
+opened=[];route_errors=[]
+with mock.patch.object(Opener,'open',side_effect=lambda *args,**kw:opened.append(args)),mock.patch.object(O.urllib.request,'build_opener',return_value=Opener()):
+ transport=O.http_transport(O.ORIGIN,TOKEN)
+ for method,route,body in [('GET','@evil.invalid/collector',None),('GET','https://evil.invalid/collector',None),('GET','//evil.invalid/collector',None),
+  ('POST','/arbitrary',b'{}'),('DELETE',O.CHUNK_ROUTE,b'{}'),('GET',O.CHUNK_ROUTE,None),('POST',get_route,b'{}'),
+  ('GET',get_route+'?token=SECRET',None),('GET',get_route+'#fragment',None),('GET',get_route.replace('%3A',':'),None),
+  ('POST',O.CHUNK_ROUTE,b''),('POST',O.CHUNK_ROUTE,b'x'*(O.BODY_BYTES+1)),('GET',get_route,b'{}')]:
+  route_errors.append(error(lambda:transport(method,route,body)))
 assert calls[0][2]['Authorization']=='Bearer '+TOKEN
-print(json.dumps({'status':r[0],'call':[calls[0][0],calls[0][1],calls[0][3]],'read':calls[1],'redirect':redirect,'http_error':[failure[0],failure[1].decode()],'invalid':invalid}))
+print(json.dumps({'status':r[0],'call':[calls[0][0],calls[0][1],calls[0][3]],'read':calls[1],'redirect':redirect,'http_error':[failure[0],failure[1].decode()],'invalid':invalid,
+ 'route_errors':route_errors,'malicious_open_calls':len(opened)}))
 `);
   assert.equal(out.status, 200); assert.equal(out.call[0], 'POST'); assert.equal(out.call[2], 20);
   assert.equal(out.read[1], 3 * 1024 * 1024 + 1); assert.equal(out.redirect, 'outcome_redirect_rejected');
   assert.deepEqual(out.http_error, [503, '']); assert.ok(out.invalid.every(Boolean));
+  assert.ok(out.route_errors.every(Boolean)); assert.equal(out.malicious_open_calls, 0);
   assert.ok(!out.call[1].includes('synthetic-outcome'));
 });
 
