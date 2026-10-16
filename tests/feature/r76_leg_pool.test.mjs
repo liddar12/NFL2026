@@ -63,7 +63,23 @@ test('the pool builder never writes the slate or its calibration', () => {
   // it may READ parlays.json (game legs are copied from it) but must not open it
   // for writing, and must never touch the slate's calibration artifact.
   assert.ok(!/parlay_backtest\.json["']?\s*,?\s*["']w/.test(src));
-  const writes = [...src.matchAll(/open\(([^)]*?),\s*["']w["']/g)].map((m) => m[1]);
+  // Parse actual write modes rather than requiring the old text-only spelling
+  // "w". Binary writer buffers are needed to capture exact emitted bytes, and
+  // r+/a/x must not become an unexamined second write target either.
+  const checked=spawnSync('python3',['-'],{cwd:ROOT,encoding:'utf8',input:`
+import ast,json,pathlib
+tree=ast.parse(pathlib.Path('scripts/build_leg_pool.py').read_text())
+writes=[]
+for node in ast.walk(tree):
+ if not isinstance(node,ast.Call)or not isinstance(node.func,ast.Name)or node.func.id!='open':continue
+ mode=node.args[1]if len(node.args)>1 else next((k.value for k in node.keywords if k.arg=='mode'),ast.Constant(value='r'))
+ assert isinstance(mode,ast.Constant)and type(mode.value)is str,'dynamic file mode cannot prove read-only safety'
+ if any(flag in mode.value for flag in 'wax+'):
+  writes.append(ast.unparse(node.args[0]))
+print(json.dumps(writes))
+`});
+  assert.equal(checked.status,0,checked.stderr);
+  const writes=JSON.parse(checked.stdout);
   for (const w of writes) {
     assert.ok(/OUT/.test(w), `writes to something other than OUT: ${w}`);
   }

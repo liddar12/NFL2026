@@ -131,12 +131,27 @@ test('build_predictions actually wires current_season into the live pipeline', (
 });
 
 test('R32 name-fallback stays in place as the safety net (not removed by R33)', () => {
-  const bw = read('scripts/build_weekly.py');
-  const bp = read('scripts/build_predictions.py');
-  assert.match(bw, /lookup_report|by_name/,
-    'build_weekly must keep the name-only fallback for the drift window');
-  assert.match(bp, /index_report_by_name/,
-    'the projection path must keep the name-only fallback too');
+  // Drive both real consumer paths. A shared ID-first resolver may retain the
+  // fallback without leaving the old helper name in build_weekly's source.
+  const r = runPy(`
+import copy,json
+from scripts import availability as a,build_weekly as w,build_predictions as p
+record={'gsis_id':'espn-1','team':'TB','name':'Legacy Mover','position':'WR','proj_points':170.0}
+raw={'team':'SF','player':'Legacy Mover','status':'Injured Reserve'}
+row={**raw,**a.enrich(raw)}
+now='2026-10-16T12:00:00Z'
+doc={'season':2026,'week':6,'source':'espn','vocab_version':a.VOCAB_VERSION,
+ 'updated_utc':now,'received_utc':now,'source_updated_utc':now,'injuries':[row],'quarantine':[]}
+weekly=w.unavailability([record],[row]);projection=copy.deepcopy(record)
+p._apply_injury_report([projection],doc,now,6)
+other={**row,'athlete_id':'2'};wrong=copy.deepcopy(record)
+p._apply_injury_report([wrong],{**doc,'injuries':[other]},now,6)
+print(json.dumps({'weekly':weekly['espn-1']['status'],
+ 'projection':projection.get('injury_status'),'wrong_id_status':wrong.get('injury_status')}))
+`);
+  assert.equal(r.weekly,'IR','weekly path must retain guarded ID-absent mover fallback');
+  assert.equal(r.projection,'IR','projection path must retain the same fallback');
+  assert.equal(r.wrong_id_status,null,'an explicit different ID must never borrow a namesake status');
 });
 
 /* ==========================================================================

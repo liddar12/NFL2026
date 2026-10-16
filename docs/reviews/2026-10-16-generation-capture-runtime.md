@@ -102,6 +102,19 @@ changes, named work limits, CLI failures and publisher retry interception.
 A thirteenth actual publisher scores-only range test then passed separately.
 The combined full gate for this source revision is still required.
 
+The corrected-PATH combined run passed contracts, smoke and all four model
+gates, but feature results were **2,433 passed / 13 failed, exit 1**. Two old
+source-pattern tests assumed an inline name fallback and text-only `open(...,
+"w")`. They now drive both real fallback consumers (including a wrong-ID
+negative) and parse every static writing mode with Python AST, retaining the
+single-OUT-target assertion. This is stronger behavioral/mode coverage, not a
+skip or removal. The remaining failed cases included real subprocess deadline
+and process-cleanup assertions. macOS sleep/wake records overlap that run;
+sleep-related timeout attribution is an inference, not a waiver. All 45 focused
+fallback/pool/publisher-race/preview cases subsequently pass with their original
+timeouts, zero skips, exit 0. The combined gate must still be rerun; neither
+focused success nor an environment explanation makes that failed run green.
+
 The printed focused trace is AST-statement coverage, not branch, browser or
 network coverage. The 12-case run reached 401/418 statements; do not call it the
 engine's executable-line metric. No native/hosted/browser, source completeness,
