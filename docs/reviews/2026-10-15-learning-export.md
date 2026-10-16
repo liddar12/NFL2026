@@ -371,3 +371,52 @@ reconstruction. Retained history has 366 slate revisions with a shallow August
 calculation is now being attempted. It must not be represented as the full-pool
 comparison or forced to match the earlier 59/188 → 72/189 claim. No new whole
 task, measured accuracy improvement or future hit-count credit is awarded here.
+
+## Recovered on-card reference: verified, not a full-pool backtest
+
+October 15, 2026, 10:18 p.m. CDT (America/Chicago). Local runtime **`bed4a3b4`**
+adds `scripts/replay_on_card_reference.py` and its independent fixture tests.
+The generated [reference report](2026-10-15-on-card-reference.json) is copied
+unchanged from the explicit CLI output outside repository authority. Report ID:
+`sha256:45d7b947b03cf03e33c8aa40b561d365784be07a52854b3d527a6848b0eb3fe0`.
+
+The pinned RCA tree is `fb8830ae35f1e11d3f589b435e303b719886e3e7`.
+For 63 games, recover the last retained pre-kickoff on-card leg union and that
+tree's own correlation artifact, then grade using the explicit pinned outcome
+tree. No current calibrations, refits, injury replacements or observed weather
+are substituted. Mutable Git clocks and shallow history remain limitations;
+all historical/promotion eligibility flags remain false.
+
+| Week | Recovered games | R74 settlement wins/cards | R126 settlement wins/cards |
+| --- | ---: | ---: | ---: |
+| 2 | 16 | 12/48 | 20/48 |
+| 3 | 16 | 20/48 | 21/48 |
+| 4 | 16 | 14/47 | 16/48 |
+| 5 | 15 | 13/45 | 15/45 |
+| Total | 63 | 59/188 | 72/189 |
+
+As-built snapshots reproduce the same 59/188 control result. Full-contract hits
+are separately **48 → 61**; reduced wins are **11 → 11**. One all-VOID control
+card explains the different settlement denominators. Legacy no-stat-line VOID
+is a reproduction convention, not independently proven DNP. There are zero
+exclusions or pending games in this reference. This is retrospective on-card
+evidence, not a causal gain, complete-candidate test or future accuracy promise.
+
+Root checks, exit **0**:
+
+- New on-card, full-pool-audit and existing R126 tests: **19 passed**.
+- New source executable-line coverage: **320/337 = 94.9555%**; frozen source
+  `37fdc28e397c176c5e1f5de512f75ffa7124ff7cdf34e2984bf9db65baebfc09`.
+- Explicit `--gate` succeeds on the real report; planted losing selections,
+  missing required weeks and pending/incomplete evidence fail it. It is an
+  opt-in diagnostic, not wired as a production acceptance bypass.
+- Full Python 3.12 gate: data, smoke, **2,252 feature tests** and four model
+  gates pass. Browser step 8 is **skipped**; full release acceptance is unverified.
+
+```sh
+python3 scripts/replay_on_card_reference.py --gate
+node --test tests/feature/week6_on_card_reference.test.mjs
+```
+
+No builders, generated sports data, workflow or live ranking changes. The
+original complete-candidate audit remains null/unavailable for weeks 2–5.
