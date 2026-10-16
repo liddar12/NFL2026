@@ -76,9 +76,10 @@ with tempfile.TemporaryDirectory() as tmp:
  fifo=root/'fifo';os.mkfifo(fifo);checks.append(refused(lambda:I.read_json(fifo)))
  with I.lock(root):checks.append(refused(lambda:I.lock(root)))
  checks.append(refused(lambda:I.publish_pointer(root,{'next':1},{'not_current':1})))
+ with patch.object(I,'MAX_BYTES',len(I.export.encoded(None))):checks.append(refused(lambda:I.save(root,'limit',I.export.fingerprint(None),None)))
  print(json.dumps(checks))
 `);
- assert.deepEqual(r,[true,true,true,true,true]);
+ assert.deepEqual(r,[true,true,true,true,true,true]);
 });
 
 test('engine requires exact immutable commit, not a floating ref or wrong checkout',()=>{
@@ -194,13 +195,11 @@ with tempfile.TemporaryDirectory() as tmp:
 test('data validator verifies durable pointer links without loading engine or refitting',t=>{
  if(!requireEngine(t))return;
  const r=py(String.raw`
-from scripts import validate_data as V
 with tempfile.TemporaryDirectory() as tmp:
- data,snapshots,captured=setup(pathlib.Path(tmp));absent=V.check_repository_feedback(str(data));run(data,snapshots,[captured])
- with patch.object(I,'engine',side_effect=AssertionError('must_not_load_engine')):valid=V.check_repository_feedback(str(data))
+ data,snapshots,captured=setup(pathlib.Path(tmp));absent=I.validate_records(data);run(data,snapshots,[captured])
+ with patch.object(I,'engine',side_effect=AssertionError('must_not_load_engine')):valid=I.validate_records(data)
  current=state(data);path=I.artifact(artifacts(data),'states',current['state_id']);changed=copy.deepcopy(current);changed['sequence']+=1;path.write_text(json.dumps(changed))
- try:V.check_repository_feedback(str(data));bad=False
- except V.ValidationError as error:bad=str(error)=='learning_feedback.json: immutable state/report/pointer integrity failed'
+ bad=refused(lambda:I.validate_records(data))
  print(json.dumps([absent,valid,bad]))
 `);
  assert.deepEqual(r,[false,true,true]);
@@ -210,15 +209,66 @@ test('Actions pilot is opt-in, pins shared source, bounds runtime and uses exist
  const source=readFileSync(ROOT+'.github/workflows/daily.yml','utf8');
  const start=source.indexOf('- name: Checkout pinned SelfLearning pilot engine');
  const end=source.indexOf('# R71 — post-game review',start);
- const pilot=source.slice(start,end);
+ const pilot=source.slice(source.indexOf('- name: Shared parlay feedback pilot',start),end);
+ const checkout=source.slice(start,source.indexOf('- name: Install pipeline dependencies',start));
  assert.ok(start>=0&&end>start);
  assert.match(pilot,/if: vars\.SELFLEARN_NFL_PILOT_ENABLED == '1'/);
- assert.match(pilot,/ref: \$\{\{ vars\.SELFLEARN_NFL_ENGINE_COMMIT \}\}/);
- assert.match(pilot,/persist-credentials: false/);
+ assert.match(checkout,/ref: \$\{\{ vars\.SELFLEARN_NFL_ENGINE_COMMIT \}\}/);
+ assert.match(checkout,/persist-credentials: false/);
  assert.match(pilot,/timeout-minutes: 15/);
  assert.match(pilot,/stage\.sh --continue-on-error daily "Shared parlay feedback pilot"/);
  assert.match(pilot,/python3 -I -S -B scripts\/run_parlay_feedback\.py --execute --fetch-outcomes/);
  assert.match(pilot,/if: vars\.SELFLEARN_NFL_PILOT_ENABLED != '1'/);
  assert.ok(end<source.indexOf('- name: Commit data/'));
  assert.ok(!pilot.includes('SELFLEARN_OPERATOR_TOKEN')&&!pilot.includes('supabase'));
+ assert.match(source,/run: python3 -I -S -B scripts\/run_parlay_feedback\.py --check-records/);
+});
+
+test('committed optional feedback files pass read-only integrity without installing or loading engine',()=>{
+ const r=py(String.raw`
+out=io.StringIO()
+with patch.object(I,'engine',side_effect=AssertionError('engine import')),patch.object(I,'limits',side_effect=AssertionError('limits')),redirect_stdout(out):code=I.main(['--check-records'])
+print(json.dumps({'code':code,'result':json.loads(out.getvalue())}))
+`);
+ assert.equal(r.code,0);assert.ok(['local_records_valid','no_feedback_record'].includes(r.result.status));
+ assert.equal(r.result.writes,false);assert.equal(r.result.model_adoption,false);
+});
+
+test('publication checker requires original frozen source and generation files, not just valid state hashes',t=>{
+ if(!requireEngine(t))return;
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory() as tmp:
+ data,snapshots,captured=setup(pathlib.Path(tmp));run(data,snapshots,[captured]);checks=[]
+ for folder in ('learning_sources','learning_journal'):
+  path=next((snapshots/folder).rglob('*.json'));park=path.with_suffix('.park');path.rename(park)
+  checks.append(refused(lambda:I.validate_records(data)));park.rename(path)
+ checks.append(I.validate_records(data));out=io.StringIO()
+ with redirect_stderr(out):code=I.main(['--check-records','--execute','--data-dir',str(data)])
+ print(json.dumps({'checks':checks,'mixed_mode':code,'static':json.loads(out.getvalue())['error']}))
+`);
+ assert.deepEqual(r,{checks:[true,true,true],mixed_mode:2,static:'parlay_feedback_refused'});
+});
+
+test('real local Git publisher refuses broken feedback and pushes a complete repaired tree only',t=>{
+ if(!requireEngine(t))return;
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory() as tmp:
+ root=pathlib.Path(tmp);origin=root/'origin.git';work=root/'work'
+ os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
+ I.git(root,'init','--bare',str(origin));I.git(root,'clone',str(origin),str(work))
+ I.git(work,'config','user.email','synthetic@example.invalid');I.git(work,'config','user.name','Synthetic Fixture');I.git(work,'config','gc.auto','0')
+ (work/'README').write_text('synthetic local publisher fixture\n');I.git(work,'add','README');I.git(work,'-c','commit.gpgsign=false','commit','-m','fixture initial');I.git(work,'branch','-M','main');I.git(work,'push','origin','main')
+ before=I.git(origin,'rev-parse','refs/heads/main');data,snapshots,captured=setup(work);run(data,snapshots,[captured])
+ source=next((snapshots/'learning_sources').glob('*.json'));park=source.with_suffix('.park');source.rename(park)
+ env={**os.environ,'PUBLISH_VALIDATE_CMD':'true','PUBLISH_ATTEMPTS':'1','PUBLISH_BACKOFF_S':'0','GIT_CONFIG_GLOBAL':os.devnull,'GIT_CONFIG_NOSYSTEM':'1'}
+ command=['bash',str(I.ROOT/'scripts/publish_data.sh'),'data: synthetic feedback fixture']
+ bad=subprocess.run(command,cwd=work,env=env,text=True,capture_output=True,timeout=30)
+ stopped=I.git(origin,'rev-parse','refs/heads/main')==before
+ park.rename(source)
+ good=subprocess.run(command,cwd=work,env=env,text=True,capture_output=True,timeout=30)
+ print(json.dumps({'bad':bad.returncode,'stopped':stopped,'good':good.returncode,
+  'updated':I.git(origin,'rev-parse','refs/heads/main')==I.git(work,'rev-parse','HEAD'),'valid':I.validate_records(data),
+  'message':bad.stderr if bad.returncode==0 or good.returncode else ''}))
+`);
+ assert.equal(r.bad,1);assert.equal(r.stopped,true);assert.equal(r.good,0,r.message);assert.equal(r.updated,true);assert.equal(r.valid,true);
 });

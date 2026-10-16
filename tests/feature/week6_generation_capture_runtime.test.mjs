@@ -16,6 +16,10 @@ const HELPERS=String.raw`
 import contextlib,io,os,shutil,subprocess,tempfile,sys,stat
 from scripts import generation_capture_runtime as C
 ROOT=pathlib.Path.cwd()
+# Synthetic repos must not inherit background maintenance/hooks from the
+# operator's global Git configuration. The failed cleanup left info/refs and
+# objects/info/packs after all framing assertions had succeeded.
+os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
 def cmd(root,*args,check=True):
  p=subprocess.run(args,cwd=root,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
  if check:assert p.returncode==0,(args,p.stderr.decode())
@@ -35,6 +39,7 @@ def workspace(parent,*,optional_absent=False):
   if optional_absent and name in C.OPTIONAL:continue
   save(root/relative,G.encoded(docs[name]))
  git(root,'init','-q');git(root,'config','user.email','synthetic@example.invalid');git(root,'config','user.name','Synthetic Fixture')
+ git(root,'config','gc.auto','0');git(root,'config','maintenance.auto','false');git(root,'config','core.fsmonitor','false')
  git(root,'add','.');git(root,'-c','commit.gpgsign=false','commit','-qm','synthetic original inputs')
  return root,docs
 def generated(parent,*,commit=True,previous=False):

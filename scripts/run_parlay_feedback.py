@@ -86,7 +86,7 @@ def artifact(root,folder,oid):
 
 
 def save(root,folder,oid,value):
-    need(len(export.encoded(value))<=MAX_BYTES,"feedback_record_limit")
+    need(len(export.encoded(value))+1<=MAX_BYTES,"feedback_record_limit")
     export._immutable(artifact(root,folder,oid),value,root=root)
 
 
@@ -132,7 +132,16 @@ def previous(data,artifacts):
 def validate_records(data_dir):
     """Publication integrity only; no fitting, network or shared engine load."""
     data=selected(data_dir)
-    value,_state=previous(data,export._delivery_path(data,"snapshots","learning_feedback"))
+    value,state=previous(data,export._delivery_path(data,"snapshots","learning_feedback"))
+    if value is not None:
+        full=export.plan(data/"snapshots")
+        graph={k:full[k]for k in("source_objects","generations")}
+        need(len(export.encoded(graph))<=MAX_BYTES,"feedback_record_limit")
+        generations={r["request"]["object_id"]:r["request"]["payload"]for r in graph["generations"]}
+        source_ids={r["object_id"]for r in graph["source_objects"]}
+        need(set(state["source_object_ids"])<=source_ids,"feedback_frozen_sources_missing")
+        need(all(r["object_id"]in generations and export._same_json(r["payload"],generations[r["object_id"]])
+                 for r in state["generation_records"]),"feedback_frozen_generations_missing")
     return value is not None
 
 
@@ -253,6 +262,7 @@ def run(*,data_dir,snapshot_dir,captures,engine_checkout,engine_commit,observed_
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute",action="store_true")
+    parser.add_argument("--check-records",action="store_true",help="read-only publication integrity; never engine import or fitting")
     parser.add_argument("--data-dir",default=str(ROOT/"data"))
     parser.add_argument("--snapshots")
     parser.add_argument("--capture",action="append",default=[])
@@ -260,9 +270,14 @@ def main(argv=None):
     parser.add_argument("--engine-checkout")
     parser.add_argument("--engine-commit")
     args=parser.parse_args(argv)
-    if not args.execute:
+    if not args.execute and not args.check_records:
         print(json.dumps({"version":1,"status":"disabled_dry_run","writes":False,"network_used":False,**FLAGS},sort_keys=True));return 0
     try:
+        if args.check_records:
+            need(not(args.execute or args.fetch_outcomes or args.capture or args.engine_checkout or args.engine_commit or args.snapshots))
+            present=validate_records(args.data_dir)
+            print(json.dumps({"version":1,"status":"local_records_valid"if present else"no_feedback_record",
+                "writes":False,"network_used":False,**FLAGS},sort_keys=True));return 0
         need(args.engine_checkout and args.engine_commit,"feedback_exact_engine_commit_required")
         limits()
         snapshots=args.snapshots or str(Path(args.data_dir)/"snapshots")

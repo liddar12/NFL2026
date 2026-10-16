@@ -339,6 +339,16 @@ main() {
       fi
       [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its semantic check. Nothing was published."
     fi
+    # Optional feedback records must still join their immutable source graph in
+    # the FINAL tree, including a rebase/fallback. Never reset a semantic pin.
+    if [ -e "data/learning_feedback.json" ] || [ -L "data/learning_feedback.json" ]; then
+      if [ "$push_ref" = "HEAD" ]; then push_ref="$(git rev-parse HEAD)"; fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed before its feedback integrity check. Nothing was published."
+      if ! python3 "$HERE/run_parlay_feedback.py" --check-records --data-dir "$PWD/data"; then
+        die "feedback immutable records/source graph do not join. Nothing was published."
+      fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its feedback integrity check. Nothing was published."
+    fi
     if git push origin "$push_ref:main"; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
       if [ "$FELL_BACK" -eq 1 ]; then
