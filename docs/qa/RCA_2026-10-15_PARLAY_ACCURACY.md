@@ -114,6 +114,25 @@ The model expected 24-27% all-hit every week (27.2, 23.7, 25.8, 27.3, 26.6%). A 
   - Validation runs are scheduled after TNF (2026-10-16 12:00Z, after nflverse stats land) and after MNF (2026-10-20 13:00Z). No coefficient is refit on one game.
   - **Control:** the old rule applied per game to the pre-kickoff candidate legs. Spreads come from `data/estimates/parlays_2026.json` (18 week-6 spread legs recorded before R126), with their seen time stated. The deployed R126 cards carry no spread, so re-ranking their own legs cannot reproduce the old slate.
   - **Power:** week 6 starts the prospective record. With 18 differing cards it cannot confirm or refute a 1.6-card lift (paired z of about 0.6 even at the model's own prices). Keep or revert is decided on the pooled paired difference over weeks 6+, with a game-clustered interval defined before the results are seen.
+- **Post-TNF look (2026-10-16, SEA @ DEN, game 401872995):**
+  - Result: DEN 17, SEA 14; FINAL and graded in `parlay_leg_scores.json`.
+  - Leg results:
+    - J. Smith-Njigba 60+ rec yds hit;
+    - SEA ML missed (model 0.5011, a coin flip);
+    - B. Nix 225+ pass yds missed (0.38);
+    - R. Harvey 60+ rush yds missed (0.26);
+    - SEA -2.5 and SEA -3 missed.
+
+  | Cards for this game | Source | All-hit | Model's expected hits |
+  |---|---|---|---|
+  | R126, as offered at kickoff | `0616ca2b`, 23:20Z | 0/3 | 0.75 |
+  | Old policy, as published | `bb6ae6ed`, 02:03Z | 0/3 | 0.73 |
+  | Old \|rho\|-first rule on the same pre-kickoff legs, with the recorded spread | same-inputs control | 0/3 | 0.82 |
+
+  - **Why every card missed:** every card under every policy carried a losing Seattle leg or Nix. Only one leg in the whole pool won, so no ranking could have won here.
+  - **R126 had no choice to make.** This game offered only three non-spread legs, so R126's three cards were the only three pairs. The control's extra expected hits come from swapping the Nix + Smith-Njigba pair (0.26) for spread + Smith-Njigba (0.33). That is the one situation where excluding the flat-0.5 spread costs model probability.
+  - **Never-regress replay**, weeks 2-5 plus TNF, against the R74-consistent control: 59/191 vs 72/192 for R126. R126 still holds.
+  - **What this proves:** nothing. One game of 3 cards is not statistical evidence for or against R126. No coefficient was refit. Keep or revert waits for the pooled week 6+ comparison (2026-10-20).
 - **KPIs** (computed from the committed files):
 
 | KPI | Definition |
