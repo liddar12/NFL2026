@@ -1,6 +1,6 @@
 # Week 6 self-learning local checkpoint
 
-Revision 4 · October 16, 2026, 11:18 a.m. America/Chicago (CDT).
+Revision 5 · October 16, 2026, 12:50 p.m. America/Chicago (CDT).
 
 Local branches only. No push, merge, deployment, cloud migration or model
 activation has occurred. The owner-requested 7 a.m. target was **not met**.
@@ -89,6 +89,31 @@ their Storage transport is fake and their execution remains local.
 
 Engine branch: `build/nfl-feedback-runtime-20261015`, local worktree
 `/Users/jliddar/code/SelfLearning-feedback-runtime`.
+
+Latest engine runtime `419c73a`, resource-test hardening `e087541`, evidence
+`605afd4`: immutable v2 job policies run the actual shadow fitter in credential-free
+isolated Python with CPU/wall/pipe bounds, owned-group cleanup, cancellation and
+checkpoint-preserving recovery. The hardened CPU test requires a started-loop
+marker and CPU-limit signal; file-growth refusal requires EFBIG. No configured
+API, pipeline trigger, automatic model activation or operational live loop is
+enabled. Complete canonical-journal assembly, scalable immutable datasets,
+evaluator authority and namespace alerts remain S027 work.
+
+Frozen core/API on `e087541`: **1,353 passed, zero skips**, exit **0**;
+**46/46 critical files >90%**, **8,181/8,492 = 96.3377%** executable lines, with
+stable source/test/tool/head hashes. Report:
+`SelfLearning/docs/reviews/2026-10-16-critical46-bounded-compute-r2-coverage.json`.
+It pins NFL dependency head `383fbd63`, before this documentation-only revision.
+Complete SQL on engine `419c73a`: **93 Node passed, zero skips**; **101 Python
+passed / seven native-only skipped**, both exit **0**. Runtime, services and
+PostgreSQL tests are byte-identical to `e087541`; SQL was not rerun for test-only
+hardening. The existing dependency warning is unsuppressed. Actual SQLite and
+PostgreSQL-WASM cases persist/recover a synthetic 330-receipt isolated fitter
+report, not authenticated live labels or measured prospective accuracy.
+S027 remains partial and task credit stays **50/99 (50.5%)**. Nothing was pushed,
+migrated or deployed; the NFL runtime/full gate above is unchanged.
+
+### Earlier engine checkpoints
 
 Engine v2 SQL/runtime/recovery commits: `682d400`, `c757b19`, `aa3a558`.
 Full-snapshot comparator: `47ee1e4`; real SQL parity/read-view tests and final
