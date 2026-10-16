@@ -241,11 +241,81 @@ files, not consumer-change/branch coverage, full acceptance, SQL, live source
 verification or an accuracy measurement.
 
 SelfLearning checkpoint `7204ebd` adds a separate pure observed-clock resolver
-and immutable no-change observation records. Current local acceptance still
-does not establish a production index or atomic observation/revision ACK.
-The next local D1 storage work must enumerate complete fenced history and
-commit both streams atomically; D2 must bind raw provenance through bounded
+and immutable no-change observation records. The later local `3ed4cae` D1
+checkpoint implements indexed observations, complete fenced enumeration and
+atomic observation/revision CAS, with a separate adapter port and internal job.
+Its 601 core/API, 32 PostgreSQL-WASM SQL and 14 Python-to-SQL integration tests
+pass; native concurrency and hosted PostgREST remain unverified. The API does
+not select this new path. D2 must still bind raw provenance through bounded
 transport and validate complete underlying-stat groups across rungs/vintages.
 Neither this capture nor the existing exporter implements that hosted outcome
 transport. No synthetic records were sent to a cloud database, and committed
 `data/` and workflows are unchanged.
+
+## Exact public-content observation checkpoint
+
+October 15, 2026, 7:08 p.m. CDT (America/Chicago). Local runtime **`4cd7e1e6`**;
+independently reviewed, not pushed, fetched live, wired into workflows or deployed.
+
+`scripts/publication_observations.py` records a separate immutable observation
+of exact MY-card bytes and their supported served prop-leg receipt membership.
+It never changes original `generated_unverified` receipts or attests an entire
+card, joint probability, generated pool or display-deduped newer vintage.
+Conflicting generation envelopes, unsupported versions, incoherent capture
+clocks and ambiguous membership fail closed or remain explicitly unsupported.
+
+Default CLI is a read-only local plan, with no credentials, network or writes:
+
+```sh
+python3 scripts/publication_observations.py --snapshots data/snapshots \
+  --my-cards data/my_cards/2026_wk06.json --season 2026 --week 6
+```
+
+Only explicit `--observe --out-dir <operator-directory>` permits a fixed-origin
+HTTPS fetch from `https://nfl2026.netlify.app/data/my_cards/2026_wk06.json` and
+immutable raw/event persistence outside `data/` and snapshot authority. The
+fetch is bounded to 16 MiB/12 seconds, identity-encoded JSON, no redirects or
+proxy credentials. Local authority is revalidated before and after retrieval.
+Fetch-completion time is observed locally, never copied from a response header,
+archive timestamp or generated clock. A late observation cannot prove earlier
+availability. Output root/ancestor symlinks and immutable conflicts are refused.
+
+**This is not deployment attestation:** deployment/code identity, observed
+region and actual first-publication time remain unknown. `x-nf-request-id` and
+claimed deployment SHA headers are not treated as proof. Supplied deployment
+identity claims are rejected. S005-T2 is partial, not completed production
+verification. No public observation was performed in this checkpoint.
+
+Root verification, executed with Python 3.12.9 on PATH, exit **0**:
+
+- Publication/journal/exporter regression: **38 passed**. Source-bound
+  executable-line coverage **345/354 = 97.4576%** in the root run; independent
+  focused rerun **344/354 = 97.1751%** (one concurrency branch differs).
+  Source SHA256 `c1ed84442e357fd7c8132d7152e4140bb21d3d0fdccde020844497fb2e4f03ac`.
+  This is line coverage, not branch or hosted acceptance.
+- `bash tests/run_gate.sh`: data validation, smoke, **2,235 feature tests** and
+  all four model-regression gates passed. **Browser step 8 skipped** because
+  Playwright is absent. This is not complete browser/release acceptance.
+- Actual committed Week 6 archive dry-run: **7,006,137 bytes**, raw SHA256
+  `9fcec66cab3d0587c830320c799c5c2fe233fa0e1168934e97d48ef76e754111`.
+  **Zero** verifiable members, **7,817** prop-leg occurrences missing original
+  learning receipts and **4,378** unsupported-market occurrences. These are leg
+  occurrences, not independent bets. No historical basis/publication evidence
+  is reconstructed, and a zero-membership plan is not a working integration.
+- `git diff --exit-code -- data .github/workflows scripts/build_my_cards.py
+  scripts/export_learning.py scripts/learning_receipts.py scripts/learning_journal.py`
+  exited 0: builders, existing export/journal contracts, sports data and
+  workflows were unchanged by this slice.
+
+Reproduce the focused checks with:
+
+```sh
+node --test tests/feature/week6_publication_observations.test.mjs \
+  tests/feature/week6_learning_journal.test.mjs \
+  tests/feature/week6_learning_export.test.mjs
+```
+
+The full candidate universe/correlation vintages for historical weeks 2–5 are
+not established by these observations. Claude's earlier R126 replay used an
+on-card-leg union; it must not be relabeled a complete-candidate prospective
+backtest. The next local replay tool must report missing inputs explicitly.
