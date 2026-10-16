@@ -7,6 +7,14 @@ activation has occurred. The owner-requested 7 a.m. target was **not met**.
 Preserve current main/data and re-gate the exact
 reconciled release revision before requesting production authorization.
 
+Owner priority update October 16: focus a working NFL parlay feedback pilot for
+Sunday, October 18 at 10:00 a.m. CDT. The [Sunday delivery plan](SUNDAY10AM_PARLAY_PILOT_20261018.md)
+maps the functional vertical slice, estimates 16–24 focused engineering hours,
+and separates operating capture/grading/evaluation/controlled adoption from
+proven accuracy gains. The recommended Actions-first scope awaits the owner's
+choice; the full hosted engine has additional access/migration dependencies.
+This does not change the 99-task ledger or grant production authorization.
+
 ## Current checkpoint
 
 Local whole-task progress is **50/99 (50.5%)**, not production or learning-loop
