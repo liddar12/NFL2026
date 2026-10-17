@@ -434,7 +434,7 @@ print(json.dumps(results))
  assert.notEqual(rows[1].exit,0);assert.equal(rows[1].pushes,0);
 });
 
-test('archive-only and combined-runtime budgets are exact and cannot relax other document/graph limits',()=>{
+test('separate named archive/runtime budgets are exact and cannot relax ordinary, file, depth or graph limits',()=>{
  const r=py(String.raw`
 small={k:None for k in G.INPUT_NAMES};small['pool_backtest']={'calibration':{},'residual_sd':{}}
 def nodes(v):
@@ -444,14 +444,42 @@ def nodes(v):
   if type(x)is dict:stack.extend(x.keys());stack.extend(x.values())
   elif type(x)is list:stack.extend(x)
  return n
-base=nodes(small);small['player_weekly']=[None]*400000
-small['previous_my_cards']=[None]*(G.RUNTIME_DOCUMENT_NODES-nodes(small))
-assert nodes(small)==G.RUNTIME_DOCUMENT_NODES
+small['player_weekly']=[None]*400000
+small['previous_my_cards']=[None]*(G.ARCHIVE_DOCUMENT_NODES-1)
+assert nodes(small)>G.RUNTIME_DOCUMENT_NODES
 G.runtime_binding(code_bytes(),small)
 small['previous_my_cards'].append(None)
 try:G.runtime_binding(code_bytes(),small)
 except G.GateError:over=True
 else:over=False
+small['previous_my_cards'].pop()
+ordinary=lambda:{k:v for k,v in small.items()if k!='previous_my_cards'}
+small['player_weekly'].extend([None]*(G.MAX_JSON_NODES-nodes(ordinary())))
+assert nodes(ordinary())==G.MAX_JSON_NODES
+G.runtime_binding(code_bytes(),small)
+small['player_weekly'].append(None)
+try:G.runtime_binding(code_bytes(),small)
+except G.GateError:ordinary_over=True
+else:ordinary_over=False
+small={k:None for k in G.INPUT_NAMES};small['pool_backtest']={'calibration':{},'residual_sd':{}}
+profile_holds=[]
+def refused(value):
+ try:G.runtime_binding(code_bytes(),value)
+ except G.GateError:return True
+ return False
+for key,value in(('player_weekly',float('nan')),('previous_my_cards','x'*(G.MAX_FILE+1))):
+ changed=dict(small);changed[key]=value;profile_holds.append(refused(changed))
+changed=dict(small);changed.pop('schedule');profile_holds.append(refused(changed))
+deep=None
+for _ in range(31):deep=[deep]
+changed=dict(small);changed['previous_my_cards']=deep;G.runtime_binding(code_bytes(),changed)
+changed['previous_my_cards']=[deep];profile_holds.append(refused(changed))
+# Five individually legal <16MiB documents still cannot exceed the unchanged
+# combined 64MiB original-input envelope.
+changed=dict(small)
+for name in ('player_weekly','player_projections','game_predictions','parlays','atd_week'):
+ changed[name]='x'*(G.MAX_FILE-10)
+profile_holds.append(refused(changed))
 archive=b'['+b','.join([b'null']*(G.ARCHIVE_DOCUMENT_NODES-1))+b']'
 assert len(G._document(archive,'previous_my_cards'))==G.ARCHIVE_DOCUMENT_NODES-1
 assert len(G._document(archive,'data/my_cards/2026_wk06.json'))==G.ARCHIVE_DOCUMENT_NODES-1
@@ -464,9 +492,12 @@ assert len(G._json(b'['+b','.join([b'null']*(G.MAX_JSON_NODES-1))+b']'))==G.MAX_
 try:G._plain([None]*G.MAX_JSON_NODES)
 except G.GateError:held.append(True)
 else:held.append(False)
-print(json.dumps({'aggregate_over':over,'holds':held,'default':G.MAX_JSON_NODES,'archive':G.ARCHIVE_DOCUMENT_NODES}))
+print(json.dumps({'archive_over':over,'ordinary_over':ordinary_over,'profile_holds':profile_holds,
+ 'holds':held,'default':G.MAX_JSON_NODES,'archive':G.ARCHIVE_DOCUMENT_NODES}))
 `,{trace:false,timeout:90000});
- assert.equal(r.aggregate_over,true);assert.deepEqual(r.holds,[true,true,true,true]);assert.equal(r.default,500000);assert.equal(r.archive,750000);
+ assert.equal(r.archive_over,true);assert.equal(r.ordinary_over,true);
+ assert.deepEqual(r.profile_holds,[true,true,true,true,true]);
+ assert.deepEqual(r.holds,[true,true,true,true]);assert.equal(r.default,500000);assert.equal(r.archive,750000);
 });
 
 after(()=>{

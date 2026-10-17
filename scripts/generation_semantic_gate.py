@@ -20,9 +20,10 @@ from scripts.scrape.renames import canonical_player_name, normalize_team
 
 MAX_BYTES, MAX_FILE, MAX_ROWS = 64 * 1024 * 1024, 16 * 1024 * 1024, 10000
 # All ordinary documents/graphs keep the 500k-node ceiling. Only the named MY
-# archive preimage/output and the bounded 14-document runtime calculation get
-# 750k. Pinned main0d49 archive: 533,560 nodes; mixed size-only aggregate:
-# 660,460. Neither a larger budget nor that mixed profile is a semantic PASS.
+# archive preimage/output gets 750k. Runtime identity validates the exact 14-file
+# profile with a 500k ordinary aggregate and a separate 750k archive, while
+# retaining the 16MiB/file, 64MiB combined and depth-32 bounds. A 750k mixed
+# aggregate could reject the very next valid refresh after a first append.
 MAX_JSON_NODES, RUNTIME_DOCUMENT_NODES, ARCHIVE_DOCUMENT_NODES = 500000, 750000, 750000
 INPUT_NAMES = frozenset(("player_weekly", "player_projections", "game_predictions", "pool_backtest",
     "parlays", "atd_week", "atd_backtest", "excluded_games", "schedule", "parlay_calibration",
@@ -60,13 +61,14 @@ def fingerprint(value):
     return "sha256:" + hashlib.sha256(encoded(value)).hexdigest()
 
 
-def _plain(value, *, max_nodes=MAX_JSON_NODES):
+def _plain(value, *, max_nodes=MAX_JSON_NODES, max_depth=32):
     need(type(max_nodes) is int and max_nodes in (MAX_JSON_NODES, RUNTIME_DOCUMENT_NODES), "generation_binding_work_limit")
+    need(type(max_depth) is int and 0 <= max_depth <= 32, "generation_binding_work_limit")
     nodes, used = 0, 0
     def visit(item, depth):
         nonlocal nodes, used
         nodes += 1
-        need(nodes <= max_nodes and depth <= 32, "generation_binding_work_limit")
+        need(nodes <= max_nodes and depth <= max_depth, "generation_binding_work_limit")
         kind = type(item)
         if kind is dict:
             need(all(type(k) is str for k in item), "invalid_plain_json")
@@ -176,11 +178,21 @@ def _static_errors(function):
 @_static_errors
 def runtime_binding(code_bytes, input_documents):
     """Compute source/parameter identities from explicit bytes, not execution proof."""
-    input_documents = _plain(input_documents, max_nodes=RUNTIME_DOCUMENT_NODES)
     _keys(input_documents, INPUT_NAMES)
+    # The archive is a retained preimage, not an equation input. Validate it
+    # independently instead of cloning it into the parameter-document budget.
+    # Depth 31 here is depth 32 beneath the exact outer input-profile object.
+    ordinary = _plain({k: v for k, v in input_documents.items() if k != 'previous_my_cards'})
+    _plain(input_documents['previous_my_cards'], max_nodes=ARCHIVE_DOCUMENT_NODES, max_depth=31)
+    size = 2 + len(INPUT_NAMES) - 1
+    for name, document in input_documents.items():
+        length = len(encoded(document))
+        need(length <= MAX_FILE, 'generation_binding_work_limit')
+        size += len(encoded(name)) + 1 + length
+        need(size <= MAX_BYTES, 'generation_binding_work_limit')
     frozen = _freeze_bytes(code_bytes, CODE_NAMES, documents=False)
     code = {k: v["raw_utf8"].encode() for k, v in frozen.items()}
-    bt, calibration = input_documents["pool_backtest"], input_documents["parlay_calibration"]
+    bt, calibration = ordinary["pool_backtest"], ordinary["parlay_calibration"]
     coefficients = {p: v for p, v in (bt.get("calibration") or {}).items() if v}
     pb, receipts = "scripts/models/parlay_builder.py", "scripts/learning_receipts.py"
     seeds = _source(code, pb, "_PROP_SEEDS", constant=True)
