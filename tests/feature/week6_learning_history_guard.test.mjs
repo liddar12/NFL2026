@@ -61,22 +61,30 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(r.same_head, true);
 });
 
-test('deletion, replacement, whitespace rewriting and mode changes hold every immutable family despite worktree repair', () => {
+for (let family = 0; family < 8; family++) test(`immutable family ${family + 1} refuses deletion, replacement, whitespace and mode rewrites despite worktree repair`, () => {
   const r = py(String.raw`
 results=[]
-for path in paths:
- for mutation in('delete','replace','whitespace','mode'):
-  with tempfile.TemporaryDirectory()as tmp:
-   root=pathlib.Path(tmp);repo(root);p=write(root,path);old=commit(root);raw=p.read_bytes()
+# Four mutations per subprocess, one family at a time. Reuse the same original
+# Git base for those cases, not an earlier PASS: every mutation gets a distinct
+# actual commit and uncommitted repair. All eight families remain independently
+# tested, without putting all 32 Git cases inside one 60-second child deadline.
+with tempfile.TemporaryDirectory()as tmp:
+ root=pathlib.Path(tmp);repo(root)
+ for path in paths:write(root,path)
+ old=commit(root)
+ for path in [paths[${family}]]:
+  for mutation in('delete','replace','whitespace','mode'):
+   p=root/path;raw=p.read_bytes()
    if mutation=='delete':p.unlink()
    elif mutation=='replace':p.write_bytes(b'{"synthetic":false}\n')
    elif mutation=='whitespace':p.write_bytes(b'{ "synthetic": true }\n')
    else:p.chmod(0o755)
    head=commit(root);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(raw);p.chmod(0o644)
-   results.append(refused(lambda:G.check_history(root,head,old)))
+   try:G.check_history(root,head,old);raise AssertionError('changed committed history accepted')
+   except ValueError as error:results.append(str(error)=='learning_history_removed_or_changed')
 print(json.dumps(results))
 `);
-  assert.equal(r.length, 32);
+  assert.equal(r.length, 4);
   assert.ok(r.every(Boolean));
 });
 
