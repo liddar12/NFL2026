@@ -21,6 +21,7 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { scopedBuckets, setLegs } from './_legstep.mjs';
 
 const PARLAYS = JSON.parse(readFileSync(new URL('../../data/parlays.json', import.meta.url), 'utf8'));
 const INDEX_FX = JSON.parse(readFileSync(new URL('../fixtures/r73/index.json', import.meta.url), 'utf8'));
@@ -228,7 +229,8 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     const got = collectData(page);
     const review = reviewDoc();
     const pastRows = review.weeks[String(WEEK)].parlays;
-    const counts = review.weeks[String(WEEK)].summary.parlays.buckets;
+    // R133 — the chips count the active scope's (GAME's) cards on the slate shown.
+    const counts = scopedBuckets(pastRows, 'game');
     await routeAll(page, { review });
     await page.goto('/#/parlays');
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
@@ -291,8 +293,10 @@ test.describe('R73 — PARLAYS week chips + history', () => {
     await expect(page.locator('#parlay-pnl .rv-pnl-note')).toContainText('assumed or unverified comparison prices');
     const weekRows = pastRows.filter((p) => p.scope === 'week');
     await expect(page.locator('.card.parlay')).toHaveCount(weekRows.length);
-    await page.waitForSelector('.leg-chip[data-leg="3"]', { timeout: 5000 });
-    await page.click('.leg-chip[data-leg="3"]');
+    // R133 — a past week keeps the − n + stepper (and no bet-type chips: the
+    // record is what was published).
+    await expect(page.locator('#td-controls [data-type]')).toHaveCount(0);
+    await setLegs(page, 3);
     const legsOf = new Map(archiveDoc().parlays.map((p) => [p.parlay_id, p.legs.length]));
     const three = weekRows.filter((p) => legsOf.get(p.parlay_id) === 3);
     await expect(page.locator('.card.parlay')).toHaveCount(three.length);

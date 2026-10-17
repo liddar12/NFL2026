@@ -52,26 +52,43 @@ async function tapTargets(page, sel) {
   }));
 }
 
-test('WEEK: TD pills on WEEK only; ALL TD cards at the chosen size; stepper bounds; 44 pt', async ({ page }) => {
+/* R133 (owner, 2026-10-17) — on WEEK and GAME the TD pills became the BET TYPE
+ * chips (ALL / ANYTIME TD / PASSING / RUSHING / RECEIVING / MONEYLINE) over the
+ * same − n + stepper; MY keeps its pills (the last test here). ANYTIME TD is the
+ * old ALL TD: cards built live from the pool's anytime-TD legs, one per game.
+ * The served schedule keeps every pool game still to come. */
+async function openTypes(page) {
+  await page.addInitScript(() => { try { localStorage.removeItem('nfl2026.parlays.types.v1'); } catch (_) {} });
+  await open(page);
+}
+
+test('WEEK: bet-type chips replace the TD pills; ANYTIME TD cards at the chosen size; stepper bounds; 44 pt', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await open(page);
-  // R101b — GAME carries the TD pills too (its cards are the same-game ones,
-  // tests/web/r101b_game_td.spec.mjs); ANY shows the slate list and no stepper.
-  await expect(page.locator('#td-controls [data-td="all_td"]')).toBeVisible();
+  await openTypes(page);
+  // GAME (the default) carries the chips too; its published cards are all pairs,
+  // so ALL has no stepper there.
+  await expect(page.locator('#td-controls [data-type="atd"]')).toBeVisible();
+  await expect(page.locator('#td-controls [data-td]')).toHaveCount(0);
   await expect(page.locator('#td-controls .td-step')).toHaveCount(0);
   await expect(page.locator('#parlays-list')).toBeVisible();
   await page.click('.scopeseg [data-seg="week"]');
-  await expect(page.locator('#td-controls [data-td="all_td"]')).toBeVisible();
-  await expect(page.locator('#td-controls .td-step')).toHaveCount(0); // ANY: no stepper
-  await page.click('#td-controls [data-td="all_td"]');
-  await expect(page.locator('#atd-list .atd-card').first()).toBeVisible();
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('ALL');
+  await page.click('#td-controls [data-type="atd"]');
+  await expect(page.locator('#td-controls [data-type="atd"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#td-controls [data-type="all"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#atd-list .type-card').first()).toBeVisible();
   await expect(page.locator('#parlays-list')).toBeHidden();
-  const legs4 = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => [...c.querySelectorAll('.leg-nm')].map((n) => n.textContent)));
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('2');
+  for (let i = 0; i < 2; i++) await page.click('#td-controls [data-step="1"]');
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('4');
+  const legs4 = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => [...c.querySelectorAll('.leg-nm')].map((n) => n.textContent)));
+  expect(legs4.length).toBe(3);
   for (const legs of legs4) {
     expect(legs.length).toBe(4);
     for (const l of legs) expect(l).toMatch(/anytime TD$/);
   }
+  await expect(page.locator('#atd-list .type-card').first()).toContainText('not recorded or graded');
   for (const [w, h] of await tapTargets(page, '#td-controls button')) expect(Math.min(w, h)).toBeGreaterThanOrEqual(44);
   for (let i = 0; i < 10; i++) {
     const plus = page.locator('#td-controls [data-step="1"]');
@@ -81,32 +98,43 @@ test('WEEK: TD pills on WEEK only; ALL TD cards at the chosen size; stepper boun
   await expect(page.locator('#td-controls .td-step-n')).toHaveText('10');
   await expect(page.locator('#td-controls [data-step="1"]')).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width);
+  // the type follows the viewer to GAME, where a card is a same-game pair
   await page.click('.scopeseg [data-seg="game"]');
-  // R101b — the TD mode follows the viewer to GAME; ANY brings the slate back.
-  await expect(page.locator('#td-controls .td-step-n')).toHaveText('10');
-  await page.click('#td-controls [data-td="any"]');
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('2');
+  await expect(page.locator('#td-controls .td-step-range')).toContainText('same-game limit');
+  // ALL brings the published slate back
+  await page.click('#td-controls [data-type="all"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
   await expect(page.locator('#atd-list')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
-test('WEEK: 50%+ at a size the week cannot fill says why; MAJORITY cards are a TD majority', async ({ page }) => {
-  await open(page);
+test('WEEK: types combine; every leg is a chosen kind and carries its confidence tag', async ({ page }) => {
+  await openTypes(page);
   await page.click('.scopeseg [data-seg="week"]');
-  await page.click('#td-controls [data-td="scorers_50"]');
-  const offered = Object.keys(cardsDoc.modes.scorers_50.cards).map(Number);
-  const refused = Object.keys(cardsDoc.modes.scorers_50.not_offered).map(Number).sort((a, b) => a - b);
-  if (refused.length) {
-    const target = refused[0];
-    for (let n = 4; n < target; n++) await page.click('#td-controls [data-step="1"]');
-    await expect(page.locator('#atd-list .state')).toContainText(`Not offered at ${target} legs`);
-  } else {
-    expect(offered.length).toBeGreaterThan(0);
+  await page.click('#td-controls [data-type="rush"]');
+  await page.click('#td-controls [data-type="rec"]');
+  await page.click('#td-controls [data-step="1"]');
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('3');
+  await expect(page.locator('#atd-list .type-card .p-head').first()).toContainText('RUSHING + RECEIVING · 3 LEGS');
+  const rows = await page.$$eval('#atd-list .type-card .leg', (ls) => ls.map((l) => ({
+    nm: l.querySelector('.leg-nm').textContent,
+    model: Number(l.querySelector('.mo b').textContent),
+    tag: (l.querySelector('.conf') || {}).className || '',
+  })));
+  expect(rows.length).toBe(9);
+  for (const r of rows) {
+    expect(r.nm).toMatch(/(rush|rec) yds$/);
+    const want = r.model >= 65 ? 'conf--high' : r.model >= 50 ? 'conf--medium' : 'conf--low';
+    // the tag reads the unrounded chance, so a leg AT a line may round onto it
+    if (![49, 50, 64, 65].includes(r.model)) expect(r.tag).toContain(want);
   }
-  await page.click('#td-controls [data-td="majority_td"]');
-  const rows = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => [...c.querySelectorAll('.leg-nm')].map((n) => /anytime TD$/.test(n.textContent))));
-  expect(rows.length).toBeGreaterThan(0);
-  for (const r of rows) expect(r.filter(Boolean).length * 2).toBeGreaterThan(r.length);
+  // unpicking both is ALL again: the published slate, with a tag on its legs too
+  await page.click('#td-controls [data-type="rush"]');
+  await page.click('#td-controls [data-type="rec"]');
+  await expect(page.locator('#td-controls [data-type="all"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#parlays-list')).toBeVisible();
+  await expect(page.locator('#parlays-list .card.parlay .conf').first()).toBeVisible();
 });
 
 test('MY: ALL TD cards are all anytime TD at the chosen size; ANY carries no TD leg', async ({ page }) => {

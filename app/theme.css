@@ -953,11 +953,25 @@ button { font: inherit; color: inherit; }
    and a − n + leg stepper whose buttons are 44 pt squares (HIG). */
 .td-seg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; }
 .td-seg .lbl { margin-right: 4px; }
+/* R133 — six bet-type chips stay on ONE line (it scrolls sideways inside itself)
+ * so the first card keeps its place on the opening screen (F18). */
+.type-seg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.type-seg::-webkit-scrollbar { display: none; }
+.type-seg .leg-chip { flex: 0 0 auto; }
 .td-step { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
 .td-step-btn { min-width: 44px; min-height: 44px; font-size: 18px; }
 .td-step-btn[disabled] { opacity: 0.4; }
 .td-step-n { font-size: 1.4em; min-width: 28px; text-align: center; }
 .td-step-range { margin-left: auto; }
+/* R133 — a leg's confidence tag (its own model chance: HIGH >= 65%, MED >= 50%). */
+.conf {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  font-size: 0.72em; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid var(--border); background: var(--surface-2);
+}
+.conf--low    { color: var(--muted); }
+.conf--medium { color: var(--brand-txt); }
+.conf--high   { color: var(--pos-txt); }
 #atd-list .state { margin-top: 8px; }
 .mp-card .leg-prov { color: var(--muted); }
 

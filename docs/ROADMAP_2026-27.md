@@ -135,6 +135,29 @@
     winners) at model prices (week 6: 6.33 and 16.98%).
   - **R132** a slate-level backtest gate that reselects from frozen candidates; it fails when
     replay all-hit incl. push is lower than the control in any post-R74 week.
+- **R133 · Bet-type filter, one leg stepper, confidence tags; ALL HIT counts what you can see
+  (P1) — 2026-10-17.** Owner (screenshots, week 6): ALL HIT read 1 over "No parlays in that
+  bucket", and the leg control was chips in ANY but − n + in the TD modes. **RCA:** the bucket
+  chips painted `summary.parlays.buckets` (every scope, every review row) while the list showed
+  one scope's slate; the one week-6 all-hit was a GAME card (DEN ML + Smith-Njigba 60+) from a
+  slate replaced before kickoff when the TNF pick flipped to SEA at 0.5011, so no filter could
+  show it (the R130 record problem). **Shipped (owner's choices):**
+  - chips count the active scope's cards on the slate shown, through the same resolver the
+    filter uses; other graded rows of that scope are a separate "not on this slate" line;
+  - on WEEK and GAME the TD pills become BET TYPE chips (ALL / ANYTIME TD / PASSING / RUSHING /
+    RECEIVING / MONEYLINE, multi-select). ALL is the published slate. Types build cards live
+    from the leg pool (`app/bet-types.js`; WEEK: one leg per game, the 3 most likely n-leg
+    cards; GAME: the 3 most likely same-game pairs per game, correlation-priced). They are
+    browser-only, not recorded, not graded. O/U and spread are not offered: no totals model,
+    and the spread is a flat 0.5. MY keeps its own TD pills and dial;
+  - the − n + stepper replaces the 2 LEG … 7 LEG chips everywhere (ALL, then the slate's
+    counts; built cards 2–10 on WEEK, a pair on GAME, since 3+ same-game legs have no validated
+    price);
+  - every leg carries HIGH (≥ 65%) / MED (≥ 50%) / LOW by its own model chance, the MY dial's
+    lines.
+  **Not changed:** the "WK n PARLAYS: x/y hit" strip still counts every review row (R130).
+  **Next:** record and grade built cards. **Locked by** `r133_bet_types` (feature), the R133
+  bucket check in `r90_parlays_ux`, and the converted `r101b`/`r101c` specs.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
 **Author:** product management pass, 2026-09-02 · **Revised:** 2026-09-16 (bulleted, statuses

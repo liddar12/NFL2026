@@ -24,6 +24,7 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { setLegs, scopedBuckets } from './_legstep.mjs';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const POOL = read('../../data/leg_pool.json');
@@ -158,14 +159,15 @@ test('F18: every consolidated control is still reachable, and the shut summary s
   await expect(page.locator('#leg-controls')).toBeHidden();
 
   await panel.locator('summary').click();
-  await expect(page.locator('#leg-controls .leg-chip').first()).toBeVisible();
+  // R133 — the leg count is the − n + stepper above the panel; the chips inside
+  // the panel stay hidden for good.
+  await expect(page.locator('#leg-controls')).toBeHidden();
   await expect(page.locator('#tier-controls .leg-chip').first()).toBeVisible();
   await expect(page.locator('#sort-controls .leg-chip').first()).toBeVisible();
 
   // WEEK scope, so the leg-count buckets are the interesting ones
   await page.click('.scopeseg [data-seg="week"]');
-  await page.waitForSelector('#leg-controls .leg-chip[data-leg="3"]', { timeout: 10000 });
-  await page.click('#leg-controls .leg-chip[data-leg="3"]');
+  await setLegs(page, 3);
   await expect(panel.locator('.pf-sum-t')).toHaveText('FILTERS · 3 LEGS');
   await expect(panel.locator('.pf-sum-n')).toHaveText('1');
   const legCounts = await page.locator('#parlays-list .card.parlay').evaluateAll(
@@ -313,7 +315,15 @@ const gradedIn = (wk) => GRADED_BUCKETS.reduce((n, b) => n + (Number(bucketsOf(w
 const GRADED_WEEK = String((PARLAY_INDEX.weeks || []).map((w) => Number(w.week))
   .filter((w) => w <= Number(CUR_WEEK) && gradedIn(w) > 0)
   .sort((a, b) => b - a)[0] ?? CUR_WEEK);
-const CUR_BUCKETS = bucketsOf(GRADED_WEEK);
+/* R133 — the chips count the ACTIVE scope's cards on the slate shown (GAME on
+ * mount), so the expectation is derived the same way: a review row counts when
+ * a card with its exact legs is on that week's slate. */
+const legKey = (legs) => (legs || []).map((l) => l.selection).sort().join('|');
+const slateOf = (wk) => (String(wk) === CUR_WEEK ? PARLAYS
+  : read(`../../data/parlays/${PARLAYS.season || 2026}_wk${String(wk).padStart(2, '0')}.json`));
+const ON_SLATE = new Set((slateOf(GRADED_WEEK).parlays || []).map((c) => `${c.scope === 'week' ? 'week' : 'game'}#${legKey(c.legs)}`));
+const CUR_BUCKETS = scopedBuckets(((REVIEW.weeks || {})[String(GRADED_WEEK)] || {}).parlays || [], 'game',
+  (r) => ON_SLATE.has(`${r.scope === 'week' ? 'week' : 'game'}#${legKey(r.legs)}`));
 const CUR_GRADED = gradedIn(GRADED_WEEK);
 
 test('F18: on the committed graded week the first card is legible on the opening screen', async ({ page }) => {
@@ -573,4 +583,33 @@ test('F19: data/player_weekly.json is fetched only after a MY tap, never on a co
   await expect(page.locator('.mp-opt--none')).toContainText('no player or team by that name',
     { timeout: 20000 });
   expect(got.filter((f) => f === 'player_weekly.json').length).toBe(1);
+});
+
+/* R133 — owner, 2026-10-17: "ALL HIT 1" over "No parlays in that bucket". A
+ * bucket chip counts only the active scope's cards on the slate shown; every
+ * other graded row of that scope is named on its own line, so chips + that line
+ * always account for the scope's review rows, and the ALL HIT chip never
+ * promises a card the list cannot show. */
+test('R133: bucket chips count what the list can show; off-slate rows are a separate line', async ({ page }) => {
+  const errors = errorsOf(page);
+  await page.setViewportSize(PHONE);
+  await mountGraded(page);
+  await page.evaluate(() => { const d = document.querySelector('#parlay-retro'); if (d) d.open = true; });
+  await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 20000 });
+  const rows = ((REVIEW.weeks || {})[String(GRADED_WEEK)] || {}).parlays || [];
+  for (const scope of ['game', 'week']) {
+    await page.click(`.scopeseg [data-seg="${scope}"]`);
+    await page.waitForTimeout(100);
+    const chips = await page.$$eval('#parlay-buckets .rv-bucket .rv-bucket-n', (ns) => ns.map((n) => Number(n.textContent)));
+    const offText = await page.locator('#parlay-buckets .rv-off-slate').allTextContents();
+    const off = offText.length ? Number(offText[0].match(/^(\d+)/)[1]) : 0;
+    const total = rows.filter((r) => (r.scope === 'week' ? 'week' : 'game') === scope).length;
+    expect(chips.reduce((a, b) => a + b, 0) + off).toBe(total);
+    // ALL HIT, tapped, lists exactly as many cards as its chip says
+    const n = Number(await page.locator('.rv-bucket[data-bucket="all_hit"] .rv-bucket-n').textContent());
+    await page.click('.rv-bucket[data-bucket="all_hit"]');
+    await expect(page.locator('#parlays-list .card.parlay')).toHaveCount(n);
+    await page.click('.rv-bucket[data-bucket="all_hit"]');
+  }
+  expect(errors).toEqual([]);
 });

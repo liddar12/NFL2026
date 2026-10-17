@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { setLegs } from './_legstep.mjs';
 
 const doc = JSON.parse(readFileSync(new URL('../../data/parlays.json', import.meta.url), 'utf8'));
 const week = doc.parlays.filter((c) => c.scope === 'week');
@@ -22,8 +23,7 @@ test('Week shared-risk warning follows shown cards and does not leak into other 
   await page.locator('#portfolio-risk summary').click();
   await expect(page.locator('#portfolio-risk')).toContainText('selection has not been diversified');
   await expect(page.locator('#portfolio-risk')).toContainText('Assumes independent games, not independent cards');
-  await page.locator('#parlay-filters summary').click();
-  await page.locator('#leg-controls [data-leg="2"]').click();
+  await setLegs(page, 2);
   const short = week.filter((c) => c.legs.length === 2).length;
   await expect(page.locator('#parlays-list .card.parlay')).toHaveCount(short);
   await expect(page.locator('#portfolio-risk summary')).toContainText(`/${short} share one game`);

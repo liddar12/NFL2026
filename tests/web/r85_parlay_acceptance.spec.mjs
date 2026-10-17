@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { SEED_TEAM, SKIP_REASON } from './_myseed.mjs';
+import { setLegs } from './_legstep.mjs';
 
 /* The MY tests need a game that has not kicked off; between the last game of a
  * week and the next week's pool there is none, and MY correctly offers nothing.
@@ -44,11 +45,8 @@ for (const mode of ['game', 'week', 'my']) {
     await page.waitForSelector('#parlays-list .card.parlay');
     await page.waitForSelector('.rv-strip--parlay');
     await page.click(`[data-seg="${mode}"]`);
-    // R90 — the leg-count chips are inside the collapsed FILTERS panel.
-    if (mode === 'week') {
-      await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
-      await page.click('[data-leg="5"]');
-    }
+    // R133 — the leg count is the − n + stepper.
+    if (mode === 'week') await setLegs(page, 5);
     if (mode === 'my') {
       await page.fill('#mp-input', SEED_TEAM);
       await page.press('#mp-input', 'Enter');

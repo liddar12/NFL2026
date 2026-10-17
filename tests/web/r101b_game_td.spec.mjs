@@ -49,54 +49,64 @@ async function open(page, doc = gameDoc) {
   await page.waitForSelector('.scopeseg [data-seg="game"]', { timeout: 20000 });
 }
 
-test('GAME: ALL TD cards are one game each, all TD, at the chosen size; 44 pt; no sideways scroll', async ({ page }) => {
+/* R133 (owner, 2026-10-17) — GAME's TD pills became the BET TYPE chips. A
+ * GAME card is now a same-game PAIR built live from the leg pool and priced by
+ * the slate's correlation table: three or more legs from one game have no
+ * validated joint price (RCA F03), so the stepper stays at 2 there. */
+async function openTypes(page) {
+  await page.addInitScript(() => { try { localStorage.removeItem('nfl2026.parlays.types.v1'); } catch (_) {} });
+  await open(page);
+}
+
+test('GAME: ANYTIME TD cards are same-game TD pairs, game by game; 44 pt; no sideways scroll', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await open(page);
-  await page.click('#td-controls [data-td="all_td"]');
-  await page.click('#td-controls [data-step="-1"]');                  // 4 -> 3
-  await expect(page.locator('#td-controls .td-step-n')).toHaveText('3');
-  await expect(page.locator('#atd-list .atd-card[data-scope="game"]').first()).toBeVisible();
+  await openTypes(page);
+  await page.click('#td-controls [data-type="atd"]');
+  await expect(page.locator('#atd-list .type-card').first()).toBeVisible();
   await expect(page.locator('#parlays-list')).toBeHidden();
-  const cards = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => ({
-    head: c.querySelector('.p-head .lbl').textContent,
+  const cards = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => ({
+    head: c.querySelector('.p-head').textContent,
     legs: [...c.querySelectorAll('.leg-nm')].map((n) => n.textContent),
-    note: c.querySelector('.corr').textContent,
   })));
-  const want = gameDoc.modes.all_td.cards['3'];
-  expect(cards.length).toBe(want.length);
-  cards.forEach((c, i) => {
-    expect(c.legs.length).toBe(3);
+  expect(cards.length).toBeGreaterThan(0);
+  const perGame = new Map();
+  for (const c of cards) {
+    expect(c.legs.length).toBe(2);
     for (const l of c.legs) expect(l).toMatch(/anytime TD$/);
-    expect(c.head.startsWith(label.get(String(want[i].legs[0].game_id)))).toBe(true);
-    expect(c.note).toMatch(/same-game model/);
-  });
-  for (const r of await page.$$eval('#td-controls button', (els) => els.map((e) => e.getBoundingClientRect()))) {
-    expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(44);
+    const where = c.head.split(' · ')[0];
+    expect([...label.values()]).toContain(where);
+    perGame.set(where, (perGame.get(where) || 0) + 1);
   }
+  for (const n of perGame.values()) expect(n).toBeLessThanOrEqual(3);
+  for (const [w, h] of await tapTargets(page, '#td-controls button')) expect(Math.min(w, h)).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width);
   expect(errors).toEqual([]);
 });
 
-test('GAME: a size the held-out test did not validate is not offered, and says so', async ({ page }) => {
-  await open(page);
-  await page.click('#td-controls [data-td="all_td"]');
-  await page.click('#td-controls [data-step="1"]');                   // 4 -> 5
-  await expect(page.locator('#atd-list .state')).toContainText('Not offered at 5 legs: not validated on held-out games');
-  await page.click('#td-controls [data-td="majority_td"]');
-  const rows = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => [...c.querySelectorAll('.leg-nm')].map((n) => /anytime TD$/.test(n.textContent))));
-  expect(rows.length).toBeGreaterThan(0);
-  for (const r of rows) {
-    expect(r.length).toBe(5);
-    expect(r.filter(Boolean).length * 2).toBeGreaterThan(r.length);
-  }
+test('GAME: a size beyond a same-game pair is not offered, and says so', async ({ page }) => {
+  await openTypes(page);
+  await page.click('#td-controls [data-type="pass"]');
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('2');
+  await expect(page.locator('#td-controls [data-step="1"]')).toBeDisabled();
+  await expect(page.locator('#td-controls [data-step="-1"]')).toBeDisabled();
+  await expect(page.locator('#td-controls .td-step-range')).toContainText('same-game limit');
 });
 
-test('GAME: no published game cards is an honest empty state, and ANY brings the slate back', async ({ page }) => {
-  await open(page, null);
-  await page.click('#td-controls [data-td="all_td"]');
-  await expect(page.locator('#atd-list .state')).toContainText('No anytime-TD cards are published for this view yet.');
-  await page.click('#td-controls [data-td="any"]');
+test('GAME: a kind no game can pair is an honest empty state, and ALL brings the slate back', async ({ page }) => {
+  await openTypes(page);
+  // one moneyline per side and never both sides of one game: MONEYLINE alone
+  // can never make a same-game pair
+  await page.click('#td-controls [data-type="ml"]');
+  await expect(page.locator('#atd-list .state')).toContainText('No game still to play has two legs of these kinds');
+  await page.click('#td-controls [data-type="all"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
   await expect(page.locator('#atd-list')).toBeHidden();
 });
+
+function tapTargets(page, sel) {
+  return page.$$eval(sel, (els) => els.map((e) => {
+    const r = e.getBoundingClientRect();
+    return [Math.round(r.width), Math.round(r.height)];
+  }));
+}

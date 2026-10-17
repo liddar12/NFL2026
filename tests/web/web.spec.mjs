@@ -11,6 +11,7 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { setLegs } from './_legstep.mjs';
 
 /** Read a committed data contract — the tests derive expectations from the
  * SAME JSON the app serves, so they never hardcode player names or counts. */
@@ -545,23 +546,19 @@ test.describe('team finder filter/sort, reco sort, named byes, QB cap (#/team)',
  * ------------------------------------------------------------------------- */
 
 test.describe('parlay leg-count selector (#/parlays)', () => {
-  test('WEEK scope exposes 2..7 leg chips and filters to the chosen count', async ({ page }) => {
+  test('WEEK scope steps through ALL and 2..7 legs and filters to the chosen count', async ({ page }) => {
     await page.goto('/#/parlays');
     await waitForCards(page, '.card.parlay');
     // Switch to WEEK scope (where 2..7-leg buckets live).
     await page.locator('.scopeseg .seg-btn[data-seg="week"]').click();
     await page.waitForTimeout(50);
-    // R90 — leg count, tier and sort live in the collapsed FILTERS panel now.
-    await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
-    // Leg chips for every bucket present in the data plus ALL.
-    for (const k of [2, 3, 4, 5, 6, 7]) {
-      await expect(page.locator(`.legseg .leg-chip[data-leg="${k}"]`)).toHaveCount(1);
-    }
-    // Selecting "5 LEG" shows only 5-leg parlays (each card's .legs holds 5).
-    await page.locator('.legseg .leg-chip[data-leg="5"]').click();
-    await page.waitForTimeout(50);
-    await expect(page.locator('.legseg .leg-chip[data-leg="5"]'))
-      .toHaveAttribute('aria-pressed', 'true');
+    // R133 — the − n + stepper walks ALL then every count present (2..7 here).
+    await expect(page.locator('#td-controls .td-step-n')).toHaveText('ALL');
+    await expect(page.locator('#td-controls [data-step="-1"]')).toBeDisabled();
+    await setLegs(page, 7);
+    await expect(page.locator('#td-controls [data-step="1"]')).toBeDisabled();
+    // Stepping to 5 shows only 5-leg parlays (each card's .legs holds 5).
+    await setLegs(page, 5);
     const perCard = await page.locator('.card.parlay').evaluateAll(
       (cards) => cards.map((c) => c.querySelectorAll('.legs > *').length));
     expect(perCard.length).toBeGreaterThanOrEqual(1);
