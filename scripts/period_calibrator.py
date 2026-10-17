@@ -22,6 +22,7 @@ PLAN_KEYS={"version","kind","scope_id","candidate_id","artifact_id","owner_head_
 INPUT_FILES={'pool_backtest':'leg_pool_backtest.json','player_weekly':'player_weekly.json',
     'player_projections':'player_projections.json','game_predictions':'game_predictions.json','parlays':'parlays.json',
     'atd_week':'atd_week.json','atd_backtest':'atd_backtest.json','schedule':'schedule_full.json'}
+FRESHNESS_FILES = {'injuries': 'injuries.json', 'depth_chart': 'depth_chart.json', 'inactives': 'inactives.json'}
 CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_receipts.py",
       "scripts/learning_journal.py","scripts/models/my_cards.py","scripts/models/parlay_builder.py",
       "scripts/availability.py","scripts/period_calibrator.py","scripts/build_weekly.py",
@@ -31,7 +32,7 @@ CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_
       "scripts/generation_capture_runtime.py","scripts/period_my_generation.py",
       "scripts/period_my_commit_replay.py","scripts/generation_semantic_gate.py",
       "scripts/period_source_eligibility.py","scripts/scrape/espn.py",
-      "scripts/period_freshness_policy.py")
+      "scripts/period_freshness_policy.py", "scripts/my_freshness.py")
 
 
 class PeriodReturnError(ValueError):pass
@@ -69,7 +70,11 @@ class PeriodCalibrator:
     generations require an explicit call. Nothing here chooses a candidate,
     fits a different equation or grants production release authority.
     """
-    def __init__(self,*,data_dir,engine_checkout,engine_commit,authority_id,actor_ref,clock=files.now):
+    def __init__(self,*,data_dir,engine_checkout,engine_commit,authority_id,actor_ref,clock=files.now,
+                 freshness_profile=None):
+        from scripts import my_freshness
+        need(freshness_profile in (None, my_freshness.PROFILE), 'MY_freshness_profile_unknown')
+        self.freshness_profile = freshness_profile
         self.data=files.selected(data_dir);need(self.data!=files.ROOT,"period_return_output_overlaps_code")
         self.core,self.engine_identity,self.engine_code=files.engine(engine_checkout,engine_commit)
         self.engine_checkout=files.selected(engine_checkout)
@@ -308,6 +313,15 @@ class PeriodCalibrator:
             path=files.export._delivery_path(self.data,name)
             raw[key],docs[key]=self._input_file(path,optional=key in('atd_week','atd_backtest'))
         raw['excluded_games'],exclusions=self._input_file(files.ROOT/'config/excluded_games.json')
+        if self.freshness_profile is not None:
+            from scripts import my_freshness
+            for key, name in FRESHNESS_FILES.items():
+                raw[key], docs[key] = self._input_file(files.export._delivery_path(self.data, name),
+                    optional=key != 'injuries')
+            sources = {name: docs[name] for name in my_freshness.SOURCE_NAMES}
+            for key in FRESHNESS_FILES:
+                docs.pop(key)
+            docs['my_freshness_sources'] = sources
         docs.pop('schedule')  # selector witness; not a build_leg_pool argument
         docs['excluded_games']=self._exclusions(exclusions)
         need(sum(len(r['raw_utf8'].encode())for r in raw.values()if r['raw_utf8']is not None)<=files.MAX_BYTES,
@@ -327,13 +341,15 @@ class PeriodCalibrator:
         need(set(value)=={'version','kind','inputs','files','input_capture_id'}and type(value['version'])is int
              and value['version']==2 and value['kind']=='nfl.period_return_input_capture.v2'
              and value['input_capture_id']==identity,'period_return_input_capture_invalid')
-        need(type(value['files'])is dict and set(value['files'])==set(INPUT_FILES)|{'excluded_games'},
+        core_files = set(INPUT_FILES) | {'excluded_games'}
+        selected = 'my_freshness_sources' in value['inputs']
+        need(type(value['files'])is dict and set(value['files']) == core_files | (set(FRESHNESS_FILES) if selected else set()),
              'period_return_input_capture_invalid')
         decoded={}
         for key,row in value['files'].items():
             need(type(row)is dict and set(row)=={'state','raw_utf8','raw_sha256','content_id'},'period_return_input_capture_invalid')
             if row['state']=='absent_optional':
-                need(key in('atd_week','atd_backtest')and row['raw_utf8']is None and row['raw_sha256']is None)
+                need(key in('atd_week','atd_backtest','depth_chart','inactives')and row['raw_utf8']is None and row['raw_sha256']is None)
                 doc=None
             else:
                 need(row['state']=='present'and type(row['raw_utf8'])is str,'period_return_input_capture_invalid')
@@ -341,6 +357,12 @@ class PeriodCalibrator:
                     'period_return_input_capture_invalid');doc=files.export._json(body)
             need(row['content_id']==lr.fingerprint(doc),'period_return_input_capture_invalid')
             decoded[key]=self._exclusions(doc)if key=='excluded_games'else doc
+        if selected:
+            from scripts import my_freshness
+            sources = {name: decoded[name] for name in my_freshness.SOURCE_NAMES}
+            for key in FRESHNESS_FILES:
+                decoded.pop(key)
+            decoded['my_freshness_sources'] = sources
         decoded.pop('schedule')
         need(files.export._same_json({k:v for k,v in value['inputs'].items()if k not in('generated_utc','generation_sha')},decoded),
              'period_return_input_capture_invalid')
@@ -504,7 +526,7 @@ class PeriodCalibrator:
             # These are the parsed values actually returned by the earlier
             # explicit loader. The repository reads below are REVALIDATION,
             # never relabeled as that earlier original read.
-            inputs=capture_runtime.pool_inputs()
+            inputs=capture_runtime.pool_inputs(freshness_profile=self.freshness_profile)
         with self.journal.lock(NS):
             self._recover()
             actual,raw=self.repository_snapshot()
@@ -598,7 +620,8 @@ class PeriodCalibrator:
             # retained immutable prior pool/application. It never changes the
             # repository's current files or overwrites the owner history.
             view=PeriodCalibrator(data_dir=self.data,engine_checkout=self.engine_checkout,engine_commit=self.engine_commit,
-                authority_id=self.authority_id,actor_ref=self.actor_ref,clock=lambda:app['forecast_created_utc'])
+                authority_id=self.authority_id,actor_ref=self.actor_ref,clock=lambda:app['forecast_created_utc'],
+                freshness_profile=self.freshness_profile)
             view.current=lambda:(previous,prior,before)
             view._generation_inputs=original
             replay=build_leg_pool.build(inputs,calibration_return=view)

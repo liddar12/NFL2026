@@ -14,6 +14,29 @@
     "base_model_version": {"type": "string", "minLength": 1},
     "learning_receipt_policy": {"type": "string", "enum": ["base_receipt_v1"]},
     "live_adjustment_status": {"type": "string", "minLength": 1},
+    "freshness_policy": {
+      "type": "object", "additionalProperties": false,
+      "description": "Explicit provisional MY-yardage policy. Stops offering at the exclusive 90-minute checkpoint; never official inactive confirmation or model approval.",
+      "required": ["version", "profile", "policy_id", "generated_utc", "games"],
+      "properties": {
+        "version": {"type": "integer", "enum": [1]},
+        "profile": {"type": "string", "enum": ["provisional_before_90m_v1"]},
+        "policy_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "generated_utc": {"type": "string", "minLength": 1},
+        "games": {"type": "array", "maxItems": 32, "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["game_id", "check_due_utc", "source_expires_utc", "state", "blocked_player_ids", "player_source_expires"],
+          "properties": {
+            "game_id": {"type": "string", "minLength": 1},
+            "check_due_utc": {"type": "string", "minLength": 1},
+            "source_expires_utc": {"type": "string", "minLength": 1},
+            "state": {"type": "string", "enum": ["provisional", "held"]},
+            "blocked_player_ids": {"type": "array", "maxItems": 2000, "items": {"type": "string", "minLength": 1}},
+            "player_source_expires": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}}
+          }
+        }}
+      }
+    },
     "calibration_return": {
       "type": "object", "additionalProperties": false,
       "description": "Opt-in period-return v2 saved-generation display metadata. Must match every MY yardage receipt's input_context.calibration_return (plus action). Not current owner authentication, publication authorization or prospective accuracy proof. Absent on ordinary/legacy builds.",

@@ -331,7 +331,7 @@ class GenerationCapture:
         self.last_binding = None
 
     @_safe
-    def pool_inputs(self):
+    def pool_inputs(self, *, freshness_profile=None):
         """Return the same parsed values read once by begin(), without rereading."""
         _same(self.documents, {k: gate._document(v["raw_utf8"], k) for k, v in self.loader["capture"]["inputs"].items()},
               "consumed_capture_documents_mutated")
@@ -344,6 +344,10 @@ class GenerationCapture:
         inputs = {name: self.documents[name] for name in POOL_NAMES if name != "excluded_games"}
         if self.generated_utc is None:self.generated_utc = _clock(self.clock)
         inputs.update(excluded_games=ids, generation_sha=self.loader["capture"]["generation_sha_claim"], generated_utc=self.generated_utc)
+        if freshness_profile is not None:
+            from scripts import my_freshness
+            _need(freshness_profile == my_freshness.PROFILE, 'MY_freshness_profile_unknown')
+            inputs['my_freshness_sources'] = {name: self.documents[name] for name in my_freshness.SOURCE_NAMES}
         _need(gate._time(inputs["generated_utc"]) >= gate._time(self.loader["capture"]["captured_utc_claim"]), "capture_clock_regressed")
         return inputs
 

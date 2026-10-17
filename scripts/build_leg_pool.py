@@ -454,6 +454,9 @@ def build(inputs, *, calibration_return=None):
             'prospective proof of the fixed coefficients. Only scheduled pre-kickoff MY-yardage props are repriced; '
             'previous forecasts, game/TD legs and public serving evidence are not rewritten. '
             'Application context: '+return_plan['application_context_id'])
+    if 'my_freshness_sources' in inputs:
+        from scripts import my_freshness
+        doc = my_freshness.apply(doc, inputs['my_freshness_sources'])
     return doc
 
 
@@ -464,12 +467,12 @@ def _optional(path):
         return None
 
 
-def load_inputs(capture_runtime=None):
+def load_inputs(capture_runtime=None, *, freshness_profile=None):
     if capture_runtime is not None:
         # Opt-in loader returns exactly the parsed values whose bytes it froze;
         # do not reread them, or fall back to the global exclusions cache.
-        return capture_runtime.pool_inputs()
-    return {
+        return capture_runtime.pool_inputs(freshness_profile=freshness_profile)
+    inputs = {
         "excluded_games": excluded_ids(),     # R108 — config/excluded_games.json
         "atd_week": _optional(ATD_WEEK),
         "atd_backtest": _optional(ATD_BACKTEST),
@@ -479,6 +482,18 @@ def load_inputs(capture_runtime=None):
         "game_predictions": _load(os.path.join(DATA, "game_predictions.json")),
         "parlays": _load(os.path.join(DATA, "parlays.json")),
     }
+    if freshness_profile is not None:
+        from scripts import my_freshness
+        if freshness_profile != my_freshness.PROFILE:
+            raise ValueError('MY_freshness_profile_unknown')
+        inputs['my_freshness_sources'] = {k: inputs[k] for k in
+            ('player_weekly', 'player_projections', 'game_predictions')}
+        inputs['my_freshness_sources'].update(
+            schedule=_load(os.path.join(DATA, 'schedule_full.json')),
+            injuries=_load(os.path.join(DATA, 'injuries.json')),
+            depth_chart=_optional(os.path.join(DATA, 'depth_chart.json')),
+            inactives=_optional(os.path.join(DATA, 'inactives.json')))
+    return inputs
 
 
 def selftest():
@@ -627,9 +642,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--generation-capture-dir", help="opt-in private immutable capture directory outside all checkouts")
+    ap.add_argument('--freshness-profile', choices=['provisional_before_90m_v1'],
+        help='Explicit owner-selected provisional MY freshness policy; does not approve a model')
     args = ap.parse_args(argv)
     if args.selftest:
-        if args.generation_capture_dir:ap.error("--selftest cannot capture a generation")
+        if args.generation_capture_dir or args.freshness_profile:ap.error("--selftest cannot capture or select serving policy")
         selftest()
         return 0
     capture = None
@@ -642,7 +659,7 @@ def main(argv=None):
         except runtime.CaptureError:
             print("generation capture held before pool generation", file=sys.stderr)
             return 1
-    doc = build(load_inputs(capture))
+    doc = build(load_inputs(capture, freshness_profile=args.freshness_profile))
     if not doc["calibration_adopted"]:
         print("[warn] the pool calibration is NOT adopted by its gate — refusing to "
               "write a pool priced by coefficients that did not clear", file=sys.stderr)

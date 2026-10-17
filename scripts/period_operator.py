@@ -50,6 +50,8 @@ def main(argv=None, *, clock=period.files.now):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('data-dir', 'engine-checkout', 'engine-commit', 'authority-id', 'actor-ref'):
         parser.add_argument('--' + name, required=True)
+    parser.add_argument('--freshness-profile', choices=['provisional_before_90m_v1'],
+        help='Explicit selected serving policy; separate from model approval and shadow assessments')
     commands = parser.add_subparsers(dest='operation', required=True)
     commands.add_parser('inspect', help='Read saved application and latest intent without approval or fitting')
     prepare = commands.add_parser('prepare', help='Stage independently reexecuted evidence; does not approve')
@@ -78,7 +80,8 @@ def main(argv=None, *, clock=period.files.now):
     args = parser.parse_args(argv)
     try:
         control = period.PeriodCalibrator(data_dir=args.data_dir, engine_checkout=args.engine_checkout,
-            engine_commit=args.engine_commit, authority_id=args.authority_id, actor_ref=args.actor_ref, clock=clock)
+            engine_commit=args.engine_commit, authority_id=args.authority_id, actor_ref=args.actor_ref, clock=clock,
+            freshness_profile=args.freshness_profile)
         if args.operation == 'inspect':
             result = {'status': 'local_state_inspected', 'details': inspect(control)}
         elif args.operation == 'prepare':
