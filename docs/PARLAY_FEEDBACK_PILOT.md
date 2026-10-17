@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 7 · October 16, 2026, 9:50 p.m. America/Chicago (CDT).
+Revision 8 · October 16, 2026, 10:09 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -98,6 +98,23 @@ to release. Preserve old v1 exact-generation events; add a versioned scope
 contract rather than silently broadening their authority.
 
 ### Local fixed candidate consumer
+
+The original-input/replay follow-up is now on local `7414ef07`. Its complete
+Git tree is identical to the tested `cf5babf5` tree
+`af86f5a5f28ac288e6ec9d6f1fac47ee79516431`. It retains exact consumed file bytes
+and schedule evidence, detects even a whitespace-only mid-generation change,
+and can reexecute the saved application without changing source data. A newer
+owner decision invalidates the old application's replay. Tests include nonempty
+game/ATD populations, with their prices unchanged; the refusal matrix now has
+22 cases. All data remains synthetic.
+
+The frozen `cf5babf5`/engine `e1838c7` pair finishes exit **0**: **2,496 NFL
+feature tests**, zero failures/skips, contracts/smoke/four model gates; browser
+8 skips. **1,379 core/API pass**, zero skips; **49/49 critical files >90%**,
+stable **96.4906%** executable lines, 36 NFL source hashes.
+[Exact verification](qa/2026-10-16-period-input-replay-verification.json).
+This does not include the separate in-progress committed-application reader;
+that reader is not the final MY-card publication gate. Publication stays held.
 
 NFL `5c11a6af74ae692faafdd4e86b32c599962b5d98` adds
 `scripts/period_calibrator.py`. An explicitly configured local operator can

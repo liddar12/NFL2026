@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "checked_chicago": "2026-10-16T22:09:00-05:00",
+  "target_chicago": "2026-10-18T10:00:00-05:00",
+  "NFL_tested_head": "cf5babf5e4b852cb0c457616f47575f001a0489e",
+  "NFL_canonical_integrated_head": "7414ef07e8794c6d4a2b493d39e5a93ea6bd4052",
+  "identical_Git_tree": "af86f5a5f28ac288e6ec9d6f1fac47ee79516431",
+  "SelfLearning_tested_head": "e1838c7c20434fd963fa1212aaedead7f8e022c5",
+  "NFL_gate": {
+    "exit_code": 0,
+    "features_passed": 2496,
+    "features_failed": 0,
+    "features_skipped": 0,
+    "contracts_smoke_four_model_gates": "pass",
+    "browser_step_8": "skipped_playwright_unavailable",
+    "log": "/private/tmp/nfl-period-input-replay-full-gate-root-20261016.log",
+    "log_sha256": "2d931760b16e17a94a9e963297d21acc8eef02034d0077b759d66685776e004e"
+  },
+  "engine_gate": {
+    "exit_code": 0,
+    "core_API_passed": 1379,
+    "skipped": 0,
+    "critical_targets_above_90_percent": "49/49",
+    "covered_lines": 8551,
+    "executable_lines": 8862,
+    "percent": 96.4906,
+    "source_test_tool_heads_stable": true,
+    "NFL_provenance_files": 36,
+    "report_in_SelfLearning": "docs/reviews/2026-10-16-critical49-period-input-replay-coverage.json",
+    "log": "/private/tmp/selflearning-critical49-period-input-replay-root-20261016.log",
+    "log_sha256": "0d49c8481fe7e4bcedae741844d62528191af98004c5211d2b53c7d60113fe96"
+  },
+  "verified_local_additions": [
+    "exact consumed input bytes and schedule retained with content identities",
+    "original previous pool and application retained",
+    "mid-generation raw-byte drift is refused",
+    "read-only actual-producer replay reproduces the entire saved pool",
+    "newer owner intent invalidates an old applied result",
+    "22 rejection cases and nonempty unchanged game/ATD populations"
+  ],
+  "not_in_this_full_run": "the separate in-progress period_commit_replay diagnostic",
+  "MY_card_publication_gate_complete": false,
+  "operator_pipeline_and_UI_activation_complete": false,
+  "fixtures_synthetic": true,
+  "actual_candidate_approved": false,
+  "production_authorized": false,
+  "public_serving_verified": false,
+  "accuracy_improvement_verified": false,
+  "pushed_or_deployed": false
+}
