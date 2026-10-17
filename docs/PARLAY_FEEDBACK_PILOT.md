@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 9 · October 16, 2026, 10:34 p.m. America/Chicago (CDT).
+Revision 10 · October 16, 2026, 10:45 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -12,6 +12,26 @@ candidate application/rollback now has end-to-end tests. Exact-tree publication,
 pipeline activation, Review integration and browser/live acceptance remain.
 
 ## Current MY display and retained learning history
+
+The latest full NFL gate, `ffe7fd93`, is **red**: 2,532 feature tests pass and
+one 32-mutation Git fixture reaches its single child's 60-second deadline.
+Contracts/smoke/four model gates pass; browser skips. Paired engine `2483c1e`
+passes 1,379 tests with stable 96.4906% coverage and 42 NFL source hashes.
+Preserve this failure; a focused pass does not authorize release.
+
+Canonical `e7ea3df6` keeps every mutation but bounds work to four cases per
+child across eight families and strengthens the exact refusal assertion.
+Sixteen focused tests pass without increasing a timeout. `738af216` fixes
+future model-held props incorrectly labeled GAME FINAL or a risk-dial issue;
+55 related tests pass. `dee3b5a3` adds `scripts/period_operator.py` commands
+`inspect`, `prepare`, `approve`, `rollback`, `revoke`, `apply`, `reverify`.
+Global required arguments explicitly name the local data directory, pinned
+engine checkout/commit and configured authority/actor. Approve/rollback require
+an expiry and `--ack-retrospective-risk`; prepare/inspect cannot approve.
+Four related tests pass, including actual repository-input apply, separate
+saved/latest inspection and replay. This is local filesystem authority, not an
+authenticated hosted owner or production activation. A new full gate remains.
+[First full failure and follow-up scope](qa/2026-10-16-my-display-history-first-verification.json).
 
 Local `230baa69` shows the base/calibrator/artifact/owner/application versions
 actually recorded in each displayed MY-yardage rung. It does not call a newer
@@ -31,7 +51,7 @@ and feedback pointer conflicts or R111 fallback cannot choose either writer
 automatically. Nine new tests and 21 existing publisher regressions pass in
 temporary repositories; no production repository is published by those tests.
 
-The latest completed full pair is older: engine `98c21ab` / NFL `8bdfd021`,
+The earlier fully passing pair is engine `98c21ab` / NFL `8bdfd021`,
 1,379 core/API tests, 49 critical targets above 90%, stable 96.4906% line
 coverage and 37 NFL source hashes; 2,496 NFL features plus all non-browser
 gates pass. Both exit 0; browser step 8 skips. The newer display/history source
