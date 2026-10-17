@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 12 · October 16, 2026, 11:41 p.m. America/Chicago (CDT).
+Revision 13 · October 16, 2026, 11:47 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -19,8 +19,8 @@ gates; browser 8 skips. **1,379 core/API** pass, zero skips; 49 critical engine
 files above 90%, stable 96.4906% executable-line coverage and 44 NFL source
 hashes. This pair includes actual MY capture/downstream replay and the weekly
 prediction contract correction below. [Exact checkpoint and RCA](qa/2026-10-16-period-MY-full-verification.json).
-Newer exact-commit MY composition is being built separately and is not covered
-by this run. The final upstream eligibility/publication gate remains incomplete.
+Newer exact-commit MY composition below passes focused tests but is not covered
+by this full run. The final upstream eligibility/publication gate remains incomplete.
 
 Real published weekly rows intentionally omit status; the consumer had required
 it to match the full schedule. Synthetic fixtures incorrectly supplied that
@@ -29,6 +29,44 @@ status, while matchup/week/kickoff remain mandatory matches and an explicit
 contradictory or null status still holds. Fixtures use the actual weekly-row
 producer and validate the real schema; 33 focused tests pass with 24 exact
 refusal cases. Existing stored data is not hand-repaired or called regenerated.
+
+## Exact committed MY replay
+
+Local source `dd6ef72f` adds `replay-my-commit` to the explicit operator CLI.
+It reads the selected Git commit, not repaired working files, and checks the
+original capture/code/browser bytes, approved current application, actual
+journal/source objects, full offered population and exact first-sight archive
+append. Retained learning files must survive the fetched base unchanged;
+current application and configured owner heads must descend from that base,
+not just leave old immutable files behind. Expiry, candidate/source age and
+kickoff are rechecked after replay. Invalid bytes/history are rejected before
+spending work on a frozen refit; success still requires the real refit.
+
+Three focused tests pass, zero failures/skips, including the actual CLI, a
+fully retained second refresh, ten real-Git/during-replay refusals and eight
+final-clock refusals. [Focused evidence and earlier attempts](qa/2026-10-16-period-MY-committed-replay-verification.json).
+A new full pair with 45 NFL provenance files is still required. The result
+explicitly leaves upstream eligibility, full MY semantics, authenticated owner,
+publication and public serving false. The publisher's unconditional v2 hold
+is unchanged; this command cannot release a slate.
+
+Use the identities returned by `apply-my` and an explicitly pinned engine:
+
+```sh
+python3 scripts/period_operator.py \
+  --data-dir /path/to/NFL2026/data \
+  --engine-checkout /path/to/SelfLearning \
+  --engine-commit PINNED_ENGINE_SHA \
+  --authority-id CONFIGURED_SHA256_AUTHORITY_ID \
+  --actor-ref CONFIGURED_ACTOR \
+  replay-my-commit \
+  --expected-head EXACT_FINAL_COMMIT \
+  --base-head EXACT_FETCHED_BASE_COMMIT \
+  --period-generation-id SHA256_ID_FROM_APPLY_MY
+```
+
+These are placeholders, not live operator identities. Exit 0 means the
+committed replay passed, not permission to push, adopt a candidate or deploy.
 
 ## Earlier MY display and retained learning history
 
