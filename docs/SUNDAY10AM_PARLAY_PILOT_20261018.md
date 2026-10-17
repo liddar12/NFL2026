@@ -1,6 +1,6 @@
 # Sunday NFL parlay learning pilot
 
-Revision 7 · October 17, 2026, 9:10 a.m. America/Chicago (CDT).
+Revision 8 · October 17, 2026, 9:50 a.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
 The owner resumed implementation and authorized getting the NFL pilot live
@@ -26,24 +26,45 @@ The current registered policy does not yet bind official inactive confirmation:
 after the checkpoint a fresh fetch alone cannot restore yardage props. Completing
 that recheck is still required; do not advertise confirmation or silent recovery.
 
-Ten focused actual-producer/period-return/selected-policy checks pass, including
-the real weekly producer, synthetic weeks 1–3 learning, explicit synthetic owner
-intent, exact captured reads and pool replay. Independent review then reproduced
-three new-policy defects: unbound player/game identity, malformed QB depth
-affecting unrelated players, and wrong-season inactive observations. Their fixes
-and regressions are in progress. This checkpoint is not release certification.
+The selected-policy identity, isolated QB-depth and inactive-period defects are
+fixed locally, with focused regressions. New complete engine reruns pass
+**1,379 tests, zero failures/skips**, with **8,551/8,862 = 96.4906%** executable-line
+coverage across 49 critical engine modules. The latest report binds engine
+`95fc5bb` and NFL `dd8cabfd` with 61 NFL source hashes; it precedes the final
+legacy-equation follow-up. The earlier clock-expiry failure is preserved, not
+hidden or fixed by weakening expiry. Line coverage is not production evidence.
 
-The last completed NFL full run passed 2,555 feature tests plus non-browser
-gates; browser step 8 skipped. Its paired engine run finished **1,378 passed and
-one failed**, correctly refusing a job after a host-clock interruption exceeded
-its five-minute expiry. The unchanged focused test passes; preserve the deadline
-and rerun the full suite without interruption. Later integration changes need
-their own frozen full run.
+Actual main-sized, cached-input rehearsal on source `14570f0d` has regenerated
+weekly projections, MY recommendations and dependent GAME ATD cards, and passed
+the standard data validator. It preserves all 3,211 original MY cards and adds
+50; current pool: 165 players/961 rungs. The weekly ID-first injury join removes
+Deebo Samuel despite the provider's name suffix difference. This is a controlled
+published-component replay, not a point-exact original pipeline reproduction or
+a fresh provider HTTP fetch. Full NFL regression and exact publication checks
+are still running; no final release certificate is claimed.
+
+The first selected-only migration retains old whole cards exactly against source
+Git and the fetched publication base. It does not invent missing journals: 225
+old receipt IDs remain explicitly unverified and training-ineligible. The shared
+engine accepts and persists 961 new forecast receipts, excludes those old IDs,
+and returns HOLD with zero graded outcomes. A repeat leaves the receipt state and
+all prior immutable files unchanged. This proves capture/retry behavior, not
+prediction improvement or real-data model adoption. The approved/fitted route's
+legacy-history migration remains separately unfinished.
+
+A repeated-generation rehearsal exposed a release blocker: the bounded mixed
+14-document calculation exceeds its 750,000-node ceiling on the next refresh.
+The first wrapper is already 52.2 MB of its 64 MiB ceiling. Fix bounded processing
+and prove multiple refreshes; do not delete history or simply waive limits.
 
 Current main `28f7ac3b` is merged locally, including fresh pipeline data and the
 post-TNF RCA update. No runtime changes were present between the prior production
 merge and that main revision. Nothing from this integration has been pushed or
-deployed as of this checkpoint. The whole-roadmap tally remains 50/99 completed
+deployed as of this checkpoint. Direct Git push failed DNS; the connected GitHub
+write was explicitly refused because it requires approval while this session's
+policy is `never`. No remote object or ref was created. Do not try another write
+route around that refusal. An authorized operator must perform publication once
+the final candidate passes. The whole-roadmap tally remains 50/99 completed
 local tasks, not an accuracy score or a live-readiness percentage.
 
 **Owner selected A: NFL first, shared engine running in Actions.** The first
@@ -129,7 +150,10 @@ stats. Additional pre-kickoff refreshes remain necessary after the 10 a.m. targe
 Planning estimate with the coordinator working alone: **16–24 focused engineering
 hours**, plus owner review/release and external pipeline queue/provider time.
 This is a capacity estimate, not a measured completion guarantee. Three parallel
-agents are credit-blocked, and no live Claude collaboration is connected.
+agents are now active on source/producer acceptance, regression/UI acceptance
+and pipeline checks. No live Claude collaboration is connected. Publication
+permissions, final CI/browser evidence and the remaining blockers still govern
+the target; local test counts do not make the requested date a guarantee.
 
 1. **Friday, October 16:** freeze the supported pilot contract, inspect/reconcile
    current main, prepare the minimal correctness release and wire the complete

@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 17 · October 17, 2026, 9:10 a.m. America/Chicago (CDT).
+Revision 18 · October 17, 2026, 9:50 a.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -16,17 +16,40 @@ pipeline activation, Review integration and browser/live acceptance remain.
 The owner resumed work and requested a live NFL pilot before the Sunday target.
 The selected provisional freshness policy now has actual producer/captured-pool
 and UI enforcement in local commits. The UI checks each game and QB deadline,
-including resume, lazy import and an already-open bet sheet. Three independently
-reproduced policy edge cases are being corrected before release. Official
+including resume, lazy import and an already-open bet sheet. The independently
+reproduced identity, isolated-depth and inactive-period defects are fixed with
+focused regressions. Official
 inactive confirmation is not yet bound, so the current 90-minute hold cannot be
 cleared merely by refreshing. Model approval remains separate from release.
 
-Main `28f7ac3b` is merged locally. The newest completed pre-follow-up NFL full
-run passed **2,555 features**, all non-browser gates, and skipped browser step 8.
-Paired engine coverage remained 96.4906%, but that run is **red: 1,378 passed,
-one failed** after a host-clock interruption expired a bounded job. The unchanged
-focused test passes. A new frozen full pair and CI browser run are required.
-No integration branch has been pushed or deployed as of 9:10 a.m. CDT.
+Main `28f7ac3b` is merged locally; its entire parlay-builder source, including
+R126 ranking, is unchanged in this integration. The previous NFL full run passed
+**2,555 features**, non-browser gates, and skipped browser step 8. New complete
+engine reruns pass **1,379 tests**, zero failures/skips, with stable 96.4906%
+critical-module line coverage; latest pair engine `95fc5bb` / NFL `dd8cabfd`
+records 61 NFL source hashes. Preserve the older interrupted red report. Later
+legacy-equation/resource fixes require a new final pair and CI browser run.
+
+Current actual-data rehearsal source `14570f0d`, generated-data commit `8c73f4ae`,
+passes weekly/MY/GAME ATD producers and standard data validation using unchanged
+cached provider inputs. This is a controlled replay, not an original pipeline
+HTTP receipt. It retains 3,211 historical MY cards and adds 50; the pool has 961
+rungs. Missing historical journals are not reconstructed: 225 old receipt IDs
+remain unverified. Actual shared intake persists only the 961 new receipts and
+returns HOLD for zero graded outcomes; repeat intake leaves the state and prior
+immutable files unchanged. No actual candidate is approved or activated.
+
+Release is blocked on repeated-run capacity (14-document aggregate exceeds the
+750k-node ceiling immediately after the first refresh), final NFL regressions,
+publication/browser/served-site verification and the official-list recheck.
+The selected-only pre-journal migration does not yet cover fitted-model
+adoption/rollback on this retained legacy archive. Do not call these complete.
+
+No integration branch has been pushed or deployed as of 9:50 a.m. CDT. Shell Git
+push failed DNS. The first connected GitHub write was explicitly refused:
+approval is required but the session policy is `never`; no remote object/ref was
+created. Do not switch write routes around that refusal. Publish only from a
+normally authorized operator terminal/session after the final gates pass.
 
 The publication boundary and gameday feedback/status changes have focused local
 regressions; actual selected-generation publication, approval-aware workflow
