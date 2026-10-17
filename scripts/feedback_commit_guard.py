@@ -34,13 +34,14 @@ def need(value,reason="invalid_committed_feedback"):
 
 
 class _Snapshot:
+    prefixes=PREFIXES
     def __init__(self,checkout,head,destination):
         need(type(head) is str and SHA.fullmatch(head),"feedback_exact_head_required")
         self.checkout,self.head,self.destination=Path(checkout).resolve(),head,Path(destination).resolve()
         self.deadline=time.monotonic()+PROFILE["wall_seconds"]
         self.files,self.total={},0
         need(self.git(["rev-parse","HEAD"],128).strip().decode()==head,"feedback_committed_head_changed")
-        raw=self.git(["ls-tree","-r","-l","-z",head,"--",*PREFIXES],PROFILE["maximum_metadata_bytes"])
+        raw=self.git(["ls-tree","-r","-l","-z",head,"--",*self.prefixes],PROFILE["maximum_metadata_bytes"])
         self.tree={}
         need(not raw or raw.endswith(b"\0"),"feedback_invalid_tree_framing")
         for row in raw.split(b"\0"):
@@ -48,7 +49,7 @@ class _Snapshot:
             metadata,name=row.split(b"\t",1);mode,kind,oid,size=metadata.split()
             path=name.decode("utf-8")
             need(path not in self.tree and len(self.tree)<PROFILE["maximum_files"])
-            need(any(path==prefix or path.startswith(prefix)for prefix in PREFIXES))
+            need(any(path==prefix or path.startswith(prefix)for prefix in self.prefixes))
             need(all(part not in("",".","..")for part in path.split("/")))
             need(kind==b"blob"and SHA.fullmatch(oid.decode())and size.isdigit())
             self.tree[path]=(mode,oid.decode(),int(size))

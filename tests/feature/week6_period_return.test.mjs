@@ -13,7 +13,7 @@ test('real frozen forecasts/raw outcomes/gated fit/owner journal change only fut
  }
  const r=spawnSync('python3',['-B','-'],{cwd:ROOT,encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024,
   env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'},input:String.raw`
-import copy,json,os,pathlib,tempfile
+import copy,json,os,pathlib,shutil,tempfile
 from scripts import build_leg_pool as B,run_parlay_feedback as F,learning_receipts as L
 from scripts.period_calibrator import PeriodCalibrator
 from tests.fixtures import period_return as fixture
@@ -57,6 +57,69 @@ with tempfile.TemporaryDirectory()as tmp:
  assert proof['application_id']==application['application_id']and proof['source_writes']is False
  assert proof['committed_git_tree_verified']is False and proof['public_serving_verified']is False
  assert all(p.read_bytes()==raw for p,raw in before_replay.items())
+ # The next read-only boundary must consume the exact committed Git tree,
+ # not a correct-looking working directory repaired after a broken commit.
+ from scripts import period_commit_replay as G
+ repo=pathlib.Path(tmp)/'committed-view';repo.mkdir()
+ names={p for p in G.runtime._extra_paths(G.ROOT)if p.startswith('scripts/')and p.endswith('.py')}
+ for name in names|{'config/excluded_games.json'}:
+  target=repo/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(G.ROOT/name,target)
+ shutil.copytree(data,repo/'data')
+ os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
+ F.git(repo,'init');F.git(repo,'config','user.email','synthetic@example.invalid');F.git(repo,'config','user.name','Synthetic Fixture')
+ F.git(repo,'config','gc.auto','0');F.git(repo,'config','maintenance.auto','false')
+ def commit(message):
+  F.git(repo,'add','.');F.git(repo,'-c','commit.gpgsign=false','commit','-m',message);return F.git(repo,'rev-parse','HEAD')
+ def check(head):return G.check_committed(checkout=repo,expected_head=head,engine_checkout=engine,engine_commit=pin,
+  authority_id=control.authority_id,actor_ref=control.actor_ref,clock=lambda:now[0])
+ head=commit('valid synthetic committed application');git_proof=check(head)
+ assert git_proof['committed_data_tree_verified']is True and git_proof['head']==head
+ for key in('MY_card_semantics_verified','whole_release_pass','owner_authenticated','public_serving_verified','production_authorized'):
+  assert git_proof[key]is False
+ import contextlib,io
+ out=io.StringIO()
+ args=['--checkout',str(repo),'--expected-head',head,'--engine-checkout',str(engine),'--engine-commit',pin,
+  '--authority-id',control.authority_id,'--actor-ref',control.actor_ref]
+ with contextlib.redirect_stdout(out):code=G.main(args,clock=lambda:now[0])
+ assert code==0 and json.loads(out.getvalue())['head']==head
+ # A legal file larger than the batch reader's ceiling still uses the
+ # original bounded raw-blob path; nothing is silently skipped for speed.
+ large=repo/'data/synthetic_large.bin';large.write_bytes(b'x'*(G.runtime.gate.MAX_FILE+1))
+ large_head=commit('legal large unreferenced fixture object');large_proof=check(large_head)
+ assert large_proof['bytes']>git_proof['bytes']+G.runtime.gate.MAX_FILE
+ link=repo/'data/untrusted-link.json';link.symlink_to('leg_pool.json');bad=commit('nonregular committed data');link.unlink()
+ try:check(bad);raise AssertionError('committed symlink accepted')
+ except ValueError as e:assert str(e)=='period_committed_not_regular_or_oversized'
+ valid=commit('restore regular data')
+ from unittest.mock import patch
+ with patch.dict(G.committed.PROFILE,maximum_total_bytes=1):
+  try:check(valid);raise AssertionError('total byte budget ignored')
+  except ValueError as e:assert str(e)=='period_committed_total_limit'
+ real_batch=G.runtime._head_blobs
+ def corrupt_batch(*args,**kwargs):
+  values=real_batch(*args,**kwargs);key=next(iter(values));values[key]+=b'x';return values
+ with patch.object(G.runtime,'_head_blobs',side_effect=corrupt_batch):
+  try:check(valid);raise AssertionError('corrupted batch accepted')
+  except ValueError as e:assert str(e)=='period_committed_blob_mismatch'
+ err=io.StringIO();args[args.index('--expected-head')+1]=head
+ with contextlib.redirect_stderr(err):code=G.main(args,clock=lambda:now[0])
+ error=json.loads(err.getvalue());assert code==2 and error['status']=='committed_period_application_refused'
+ assert error['production_authorized']is False and error['MY_card_semantics_verified']is False
+ path=repo/'data/player_weekly.json';raw=path.read_bytes();path.write_bytes(raw+b'\n');bad=commit('changed committed original bytes')
+ path.write_bytes(raw)
+ try:check(bad);raise AssertionError('working repair approved a broken commit')
+ except ValueError as e:assert str(e)=='period_return_inputs_changed'
+ commit('restore committed original bytes')
+ source=next((repo/'data/snapshots/learning_outcomes/captures').glob('*.json'));body=source.read_bytes();source.unlink()
+ bad=commit('missing committed raw evidence');source.write_bytes(body)
+ try:check(bad);raise AssertionError('working raw restoration approved a broken commit')
+ except ValueError as e:assert str(e)=='missing_or_invalid_capture_object'
+ commit('restore raw evidence')
+ path=repo/'scripts/build_leg_pool.py';body=path.read_bytes();path.write_bytes(body+b'\n# synthetic changed committed code\n')
+ bad=commit('changed committed code');path.write_bytes(body)
+ try:check(bad);raise AssertionError('uncommitted code restoration approved a broken commit')
+ except ValueError as e:assert str(e)=='period_committed_code_changed'
+ commit('restore code')
  raw=(data/'player_weekly.json').read_bytes();(data/'player_weekly.json').write_bytes(raw+b'\n')
  try:control.reverify();raise AssertionError('changed original bytes accepted')
  except ValueError as e:assert str(e)=='period_return_inputs_changed'
