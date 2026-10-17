@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { poolLearningStatus, renderPoolLearning, learningEligibleLegs,
   PERIOD_SOURCE_MAX_AGE_MS } from '../../app/pool-learning-status.js';
+import { renderSeedOption, emptyReason } from '../../app/views/myparlays.js';
 
 // Original receipts are made by the actual Python producer, not JS-shaped
 // hand-written probabilities. Additional v2 display pins below are SYNTHETIC
@@ -179,4 +180,19 @@ test('display escapes every interpolated field and wraps full hashes at mobile w
   assert.match(html, /does not authenticate receipt hashes, an owner or publication/);
   const css = readFileSync(new URL('../../app/theme.css', import.meta.url), 'utf8');
   assert.match(css, /\.mp-learning dd\s*\{[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test('a held future prop is not called GAME FINAL or a risk-dial mismatch', () => {
+  const option = { kind: 'player', id: 'p1', name: 'Future Player', team: 'SEA', position: 'WR' };
+  const live = new Set(['p1']);
+  const held = renderSeedOption(option, 0, 0, live, new Set(['p1']));
+  assert.match(held, /PROP MODEL HELD/);
+  assert.ok(!held.includes('GAME FINAL'));
+  assert.ok(!renderSeedOption(option, 0, 0, live).includes('MODEL HELD'));
+  assert.match(renderSeedOption(option, 0, 0, new Set()), /GAME FINAL/);
+  const status = poolLearningStatus(pool(), Date.parse('2026-10-17T05:00:00Z'));
+  const reason = emptyReason([option], [], [], 6, now, status);
+  assert.match(reason, /Approval expired/);
+  assert.match(reason, /changing the risk dial does not reactivate/);
+  assert.ok(!reason.includes('try another risk'));
 });

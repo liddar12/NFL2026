@@ -74,7 +74,10 @@ test('MY shows the consumed versions at mobile width, expires on resume, and lea
   }, p.calibration_return.expires_utc);
   await expect(status).toContainText('Approval expired — MY props withheld');
   await expect(page.locator('.mp-card')).toHaveCount(0);
+  await expect(page.locator('#mp-list')).toContainText('Refresh the pool before using MY yardage props');
   await page.locator('.mp-seeds [data-drop]').click();
+  await page.locator('#mp-input').fill(player.player);
+  await expect(page.locator('#mp-suggest .est').first()).toHaveText('PROP MODEL HELD');
   await page.locator('#mp-input').fill(player.team);
   await page.locator('#mp-input').press('Enter');
   await expect(page.locator('.mp-card').first()).toBeVisible();

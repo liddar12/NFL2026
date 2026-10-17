@@ -439,7 +439,9 @@ function gameState(game, now) {
  * on those two teams read as a broken search for three days a week. Pure, so
  * the sentences are testable without a browser.
  */
-export function emptyReason(seeds, legs, games, poolWeek, now = Date.now()) {
+export function emptyReason(seeds, legs, games, poolWeek, now = Date.now(), learning = null) {
+  if (learning?.blockProps) return 'No card can be built from the remaining eligible legs. '
+    + `${learning.label}. Refresh the pool before using MY yardage props; changing the risk dial does not reactivate them.`;
   const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
   const live = liveSeedIds(upcomingLegs(legs || [], games || [], now));
   const week = Number(poolWeek);
@@ -473,10 +475,11 @@ export function emptyReason(seeds, legs, games, poolWeek, now = Date.now()) {
  * A team's second cell is the literal word TEAM — its name IS its abbreviation,
  * so repeating it there would say nothing.
  */
-function renderSeedOption(option, i, active, live) {
+export function renderSeedOption(option, i, active, live, held = new Set()) {
   const meta = option.kind === 'team' ? 'TEAM'
     : [option.team, option.position].filter(Boolean).map(esc).join(' · ');
-  const done = live && !live.has(String(option.id))
+  const done = held.has(String(option.id)) ? '<span class="est">PROP MODEL HELD</span>'
+    : live && !live.has(String(option.id))
     ? '<span class="est">GAME FINAL</span>' : '';
   return `<li role="option" id="mp-opt-${i}" class="mp-opt" data-seed="${esc(option.id)}" `
     + `aria-selected="${i === active ? 'true' : 'false'}">`
@@ -799,7 +802,7 @@ export function renderCard(card, i) {
 /* ---- mount -------------------------------------------------------------- */
 
 const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
-  dial: DEFAULT_DIAL, live: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [], verdict: null };
+  dial: DEFAULT_DIAL, live: new Set(), held: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [], verdict: null };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -856,8 +859,13 @@ function paint(el) {
   const learning = poolLearningStatus(state.pool);
   const learningBox = el.querySelector('#mp-learning');
   if (learningBox) learningBox.innerHTML = renderPoolLearning(learning);
-  const eligible = upcomingLegs(learningEligibleLegs(state.legs, learning), state.games || []);
-  state.live = liveSeedIds(eligible);
+  const upcoming = upcomingLegs(state.legs || [], state.games || []);
+  const eligible = learningEligibleLegs(upcoming, learning);
+  // A future game's held props are not a final game. Keep schedule state and
+  // model availability separate in the type-ahead as well as the main banner.
+  state.live = liveSeedIds(upcoming);
+  const eligibleSeeds = liveSeedIds(eligible);
+  state.held = new Set([...state.live].filter((id) => !eligibleSeeds.has(id)));
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
   // R101c — the TD pills + leg stepper (layout B). ALL TD / 50%+ have no other
@@ -897,7 +905,7 @@ function paint(el) {
   if (!cards.length) {
     // R89 — per seed, the game and its state, instead of one fixed sentence.
     list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, state.legs,
-      state.games, state.pool && state.pool.week))}</div>`;
+      state.games, state.pool && state.pool.week, Date.now(), learning))}</div>`;
     return;
   }
   // The list is built as leg-count PAIRS; the eyebrow says so, once per band,
@@ -1089,7 +1097,7 @@ export default async function mountMyParlays(el) {
     shown = matchSeeds(options, term);
     if (active >= shown.length) active = 0;
     listbox.innerHTML = shown.length
-      ? shown.map((o, i) => renderSeedOption(o, i, active, state.live)).join('')
+      ? shown.map((o, i) => renderSeedOption(o, i, active, state.live, state.held)).join('')
       // Not an option, and not silence either: the old box just cleared itself.
       : '<li class="mp-opt mp-opt--none" aria-disabled="true">No player or team matches</li>';
     input.setAttribute('aria-expanded', 'true');
