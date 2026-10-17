@@ -1,6 +1,6 @@
 # Claude → Codex release handoff: PR #174 (R133 parlay controls)
 
-Revision 2 (after Codex's review of `f31c5740`). Revision 1 written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
+Revision 3 (after Codex's review of `f31c5740`; revision 3 adds the CI fix in section 4). Revision 1 written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
 checkpoint, not a release**.
 
 - PR #174 stays **draft**. Nothing here is merged or deployed to production.
@@ -17,8 +17,9 @@ checkpoint, not a release**.
 | Base | `main` at `28f7ac3b1dca55ecfe1e8ffc2a8dbbbe61d38d2b` (data commit, 2026-10-17); main had not moved when this was written |
 | Round 1 source commit | `8c010d71a95d8c4edc310a352eec961d19c17333` (gate PASS; CI run 39041773167 success) |
 | Round 2 source commit | `101e3925848e138a52d450e8c0f0db134646da2e`, reviewed by Codex as head `f31c5740` (request changes: RC-01..RC-03) |
-| **Tested source commit (round 3)** | **`af41d0f6e7417208e6f27b1c98f5b48f40b62ad8`**: the RC-01..RC-03 fixes. The full gate in section 4 ran on exactly this tree. |
-| Final PR head | The commit that updates **this file** (revision 2). Its only diff from `af41d0f6` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
+| Round 3 fix commit | `af41d0f6e7417208e6f27b1c98f5b48f40b62ad8`: the RC-01..RC-03 fixes (local gate PASS; CI gate on its handoff head `28e29d90` aborted, see section 4) |
+| **Tested source commit (round 3)** | **`0436dd4bf01b2c90cfdd86948cbd86fbbcf79c6b`**: `af41d0f6` plus the RC-03 oracle memory fix (test file only). The full gate in section 4 ran on exactly this tree. |
+| Final PR head | The commit that updates **this file** (revision 3). Its only diff from `0436dd4b` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
 | Preview URL | https://deploy-preview-174--nfl2026.netlify.app/#/parlays. Netlify builds every push, so the preview deploys the final PR head. |
 | Related, separate | [NFL2026 #175](https://github.com/liddar12/NFL2026/pull/175), draft, "Sunday parlay learning pilot", branch `build/week6-learning-runtime-20261015`, head `3ea2a2279a08e6ee55a8e80a37861a6788f68108`, base `28f7ac3b` |
 | Related, separate | [SelfLearning #10](https://github.com/liddar12/SelfLearning/pull/10), draft, branch `build/nfl-feedback-runtime-20261015`, head `c1bf3d4773312c99ef0f30563c791525389fd5af`, base `aa5bbaed` |
@@ -93,15 +94,20 @@ These are computed against base `28f7ac3b`.
   - #175's MY TD pills keep using `app/atd-cards.js`, which #174 still imports for `breakEven` and `pctText`.
 - **No overlap** with SelfLearning #10, which is a different repository.
 
-## 4. Tests: exact commands and results on `101e3925`
+## 4. Tests: exact commands and results on `0436dd4b`
 
 | Command | Exit | Result |
 |---|---|---|
-| `bash tests/run_gate.sh` on **`af41d0f6`** (one gate at a time; port 4321) | **0** | **GATE RESULT: PASS (green)**, all 8 steps. Feature tests **2,138 pass, 0 fail**; browser E2E **364 passed, 1 skipped** |
-| `node --test tests/feature/r133_bet_types.test.mjs` on `af41d0f6` | 0 | 17 pass (12 before + 5 RC tests) |
+| `bash tests/run_gate.sh` on **`0436dd4b`** (one gate at a time; port 4321) | **0** | **GATE RESULT: PASS (green)**, all 8 steps. Feature tests **2,138 pass, 0 fail**; browser E2E **364 passed, 1 skipped** |
+| `node --test tests/feature/r133_bet_types.test.mjs` on `0436dd4b` | 0 | 17 pass (12 before + 5 RC tests), ~11 s |
+| `node --max-old-space-size=256 --test tests/feature/r133_bet_types.test.mjs` on `0436dd4b` / on `af41d0f6` | 0 / 1 | 17 pass / heap out of memory: proves the memory fix |
+| Superseded: CI `gate` on `28e29d90` (run 39053496127, job 117456661922) | 1 | feature 2,121 pass, 1 fail: `r133_bet_types.test.mjs` aborted (SIGABRT, 4 GB heap OOM) after 106 s |
 | `npx playwright test --config tests/playwright.config.mjs tests/web/r101b_game_td.spec.mjs tests/web/r101c_td_modes.spec.mjs --project=web` | 0 | 8 passed (incl. RC-02) |
 | Round 2, on `101e3925` (superseded) | 0 | gate PASS; feature 2,133; browser 363 passed, 1 skipped; final-head CI run 39051342080 green |
 
+- **CI failure on `28e29d90` and its fix (`0436dd4b`):**
+  - Cause: the RC-03 brute-force oracle stored every scored combination. Its ML+ATD skew instance runs to hundreds of millions, which exceeds the 4 GB CI heap. Locally it passed in about 116 s with more memory. The product code was not at fault.
+  - Fix: the oracle still enumerates and scores every combination on the same instances, but keeps only the running top k. The instances and assertions are unchanged, and one assertion was added: the skew instance's card count must equal the oracle's.
 - **The 1 browser skip:**
   - It is the existing spread/provenance fixture test, identified by Codex. It skips because current GAME data contains no spread legs.
   - It is the same skip count as the round-1 and round-2 gates.
