@@ -34,7 +34,8 @@ CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_
       "scripts/period_source_eligibility.py","scripts/scrape/espn.py",
       "scripts/period_freshness_policy.py", "scripts/my_freshness.py",
       "scripts/period_publication_gate.py", "scripts/selected_my_publication_gate.py",
-      "scripts/run_my_generation.py", "scripts/pilot_config.py", "scripts/publish_my_generation.py")
+      "scripts/run_my_generation.py", "scripts/pilot_config.py", "scripts/publish_my_generation.py",
+      "scripts/selected_legacy_bootstrap.py")
 
 
 class PeriodReturnError(ValueError):pass
