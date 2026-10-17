@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { poolLearningStatus, renderPoolLearning, learningCardRefusal } from '../../app/pool-learning-status.js';
 
 const ROOT = new URL('../..', import.meta.url);
 function py(body) {
@@ -87,6 +88,151 @@ print(json.dumps({'held':rows,'forged':M.verify(q,s,checked_utc=F.CHECKED)}))
 `);
   assert.ok(r.held.every(x => x.length === 0));
   assert.equal(r.forged.consumer_policy_pass, false);
+});
+
+test('unknown or misbound offered identities are row-local refusals, never a verification PASS', () => {
+  const r = py(String.raw`
+rows=[]
+for field,value in(('gsis_id','unknown-id'),('team','DAL'),('position','RB'),('market','rb_rush_yds'),
+                    ('game_id','SOURCE-G2'),('side','away')):
+ original=copy.deepcopy(f['pool']);original['players'][0][field]=value
+ selected=M.apply(original,s)
+ forged=copy.deepcopy(M.apply(f['pool'],s));forged['players'][0][field]=value
+ rows.append({'field':field,'ids':[p['gsis_id']for p in selected['players']],
+              'verify':M.verify(forged,s,checked_utc=F.CHECKED)['consumer_policy_pass']})
+# Moving both team and game must not bypass the source-roster binding either.
+original=copy.deepcopy(f['pool']);original['players'][0].update(team='DAL',game_id='SOURCE-G2')
+selected=M.apply(original,s)
+rows.append({'field':'team+game','ids':[p['gsis_id']for p in selected['players']],
+ 'verify':M.verify({**selected,'players':original['players']},s,checked_utc=F.CHECKED)['consumer_policy_pass']})
+print(json.dumps(rows))
+`);
+  for (const row of r) {
+    assert.equal(row.verify, false, row.field);
+    assert.ok(!row.ids.includes('espn-1') && !row.ids.includes('unknown-id'), row.field);
+    assert.ok(row.ids.includes('espn-2') && row.ids.includes('espn-3'), row.field);
+  }
+});
+
+test('duplicated/malformed source player identity withholds that row without erasing unrelated players', () => {
+  const r = py(String.raw`
+rows=[]
+for mode in('duplicate','missing_team','nonobject'):
+ source=copy.deepcopy(s)
+ if mode=='duplicate':source['player_projections']['players'].append(copy.deepcopy(source['player_projections']['players'][0]))
+ elif mode=='missing_team':source['player_projections']['players'][0].pop('team')
+ else:source['player_projections']['players'].append('malformed-row')
+ selected=M.apply(f['pool'],source)
+ rows.append({'mode':mode,'ids':[p['gsis_id']for p in selected['players']]})
+print(json.dumps(rows))
+`);
+  for (const row of r) {
+    assert.ok(row.ids.includes('espn-2') && row.ids.includes('espn-3'), row.mode);
+    assert.equal(row.ids.includes('espn-1'), row.mode === 'nonobject', row.mode);
+  }
+});
+
+test('bad team depth shape/rank holds only affected QBs, and malformed global teams never crashes or holds WRs', () => {
+  const r = py(String.raw`
+d=copy.deepcopy(f['docs']);p3=d['player_projections']['players'][2];p3['position']='QB'
+d['depth_chart']['teams']['DAL']={'snapshot':F.SOURCE,'QB':[{'name':p3['name'],'rank':1,'gsis_id':'espn-3','espn_id':'3'}]}
+d['player_weekly']=F.weekly(d);f=F.refresh(d);s={k:f['docs'][k]for k in M.SOURCE_NAMES}
+rows=[]
+for mode in('bad_rank','bad_row','bad_QB','bad_team','bad_teams','bad_document','bad_season'):
+ source=copy.deepcopy(s)
+ if mode=='bad_rank':source['depth_chart']['teams']['SEA']['QB'][0]['rank']='bad'
+ elif mode=='bad_row':source['depth_chart']['teams']['SEA']['QB'][0]='bad'
+ elif mode=='bad_QB':source['depth_chart']['teams']['SEA']['QB']='bad'
+ elif mode=='bad_team':source['depth_chart']['teams']['SEA']='bad'
+ elif mode=='bad_teams':source['depth_chart']['teams']='bad'
+ elif mode=='bad_document':source['depth_chart']='bad'
+ else:source['depth_chart']['season']=2025
+ selected=M.apply(f['pool'],source)
+ rows.append({'mode':mode,'ids':[p['gsis_id']for p in selected['players']],
+              'states':{g['game_id']:g['state']for g in selected['freshness_policy']['games']},
+              'verify':M.verify(selected,source,checked_utc=F.CHECKED)['consumer_policy_pass']})
+print(json.dumps(rows))
+`);
+  for (const row of r) {
+    assert.ok(!row.ids.includes('espn-1'), row.mode);
+    assert.ok(row.ids.includes('espn-2') && row.ids.includes('espn-4'), row.mode);
+    assert.equal(row.ids.includes('espn-3'), !['bad_teams', 'bad_document', 'bad_season'].includes(row.mode), row.mode);
+    assert.equal(row.states['SOURCE-G1'], 'provisional', row.mode);
+    assert.equal(row.states['SOURCE-G2'], 'provisional', row.mode);
+    assert.equal(row.verify, true, row.mode);
+  }
+});
+
+test('only fresh current-season/week exact-game inactive negatives are consumed, never confirmation', () => {
+  const r = py(String.raw`
+base=copy.deepcopy(s)
+game=copy.deepcopy(base['schedule']['games'][0])
+game.update(fetched_utc='2026-10-16T20:00:00Z',inactive={'SEA':[],'LAR':[{'espn_id':'2'}]})
+base['inactives']={'season':2026,'week':6,'updated_utc':'2026-10-16T20:00:00Z','games':[game]}
+rows=[]
+for mode in('fresh','wrong_season','wrong_week','wrong_game','wrong_team','wrong_kickoff','future_fetch',
+            'future_document','fetch_after_document','stale','missing_fetch','missing_updated','duplicate_game',
+            'bad_games','bad_row','bad_inactive','bad_players','bad_player'):
+ source=copy.deepcopy(base);doc=source['inactives'];row=doc['games'][0]
+ if mode=='wrong_season':doc['season']=2025
+ elif mode=='wrong_week':doc['week']=5
+ elif mode=='wrong_game':row['game_id']='OLD-GAME'
+ elif mode=='wrong_team':row['home']='DAL'
+ elif mode=='wrong_kickoff':row['kickoff_utc']='2026-10-18T17:00:00Z'
+ elif mode=='future_fetch':row['fetched_utc']='2026-10-16T20:02:00Z'
+ elif mode=='future_document':doc['updated_utc']='2026-10-16T20:02:00Z'
+ elif mode=='fetch_after_document':doc['updated_utc']='2026-10-16T19:59:00Z'
+ elif mode=='stale':row['fetched_utc']='2026-10-16T19:46:00Z'
+ elif mode=='missing_fetch':row.pop('fetched_utc')
+ elif mode=='missing_updated':doc.pop('updated_utc')
+ elif mode=='duplicate_game':doc['games'].append(copy.deepcopy(row))
+ elif mode=='bad_games':doc['games']='bad'
+ elif mode=='bad_row':doc['games'][0]='bad'
+ elif mode=='bad_inactive':row['inactive']='bad'
+ elif mode=='bad_players':row['inactive']['LAR']='bad'
+ elif mode=='bad_player':row['inactive']['LAR'][0]='bad'
+ selected=M.apply(f['pool'],source)
+ report=M.verify(selected,source,checked_utc=F.CHECKED)
+ rows.append({'mode':mode,'ids':[p['gsis_id']for p in selected['players']],
+              'verify':report['consumer_policy_pass'],'confirmation':report['inactive_confirmation_verified']})
+print(json.dumps(rows))
+`);
+  for (const row of r) {
+    assert.equal(row.ids.includes('espn-2'), row.mode !== 'fresh', row.mode);
+    assert.ok(row.ids.includes('espn-1') && row.ids.includes('espn-3'), row.mode);
+    assert.equal(row.verify, true, row.mode);
+    assert.equal(row.confirmation, false, row.mode);
+  }
+});
+
+test('current RETIRED/OUT negatives and an unknown-status row remain scoped and enforced', () => {
+  const r = py(String.raw`
+from scripts import availability as A
+rows=[]
+for mode in('Out','Reserve-Ret','quarantine'):
+ source=copy.deepcopy(s)
+ if mode=='quarantine':source['injuries']['quarantine']=[{'athlete_id':'2','status':'UNKNOWN','reason':'unmapped_status'}]
+ else:
+  report=source['injuries'];raw=copy.deepcopy(report['injuries'])
+  target=next(row for row in raw if row.get('player')=='Synthetic Source Player 2');target['status']=mode
+  source['injuries']={**report,**A.enrich_document({**report,'injuries':raw})}
+ selected=M.apply(f['pool'],source)
+ rows.append({'mode':mode,'ids':[p['gsis_id']for p in selected['players']]})
+print(json.dumps(rows))
+`);
+  for (const row of r) {
+    assert.ok(!row.ids.includes('espn-2'), row.mode);
+    assert.ok(row.ids.includes('espn-1') && row.ids.includes('espn-3'), row.mode);
+  }
+});
+
+test('UI admits confirmed-list integration is pending and refresh alone cannot clear the90minute hold', () => {
+  const p = py("print(json.dumps(M.apply(f['pool'],s)))");
+  const status = poolLearningStatus(p, Date.parse('2026-10-16T20:30:00Z'));
+  assert.match(renderPoolLearning(status), /confirmed-inactive adapter is still pending/);
+  assert.match(renderPoolLearning(status), /refresh alone cannot reactivate/);
+  assert.match(learningCardRefusal(p, [{ market: 'wr_rec_yds', game_id: 'SOURCE-G1', gsis_id: 'espn-2' }],
+    Date.parse('2026-10-16T20:30:00Z')), /refresh alone cannot reactivate/);
 });
 
 test('actual selected period producer retains original source bytes and replays the policy-bound pool', (t) => {

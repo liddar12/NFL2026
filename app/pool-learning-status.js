@@ -174,7 +174,7 @@ function selectedFreshness(pool, now) {
     freshnessNextCheckMs: deadlines.length ? Math.min(...deadlines) : null,
     freshnessLabel: provisional ? 'Provisional MY props — inactive recheck required'
       : 'MY props withheld pending inactive recheck',
-    freshnessNote: 'MY yardage props are provisional, not confirmed active. They are automatically withheld 90 minutes before kickoff or earlier if a source expires; a newly checked pool is required. '
+    freshnessNote: 'MY yardage props are provisional, not confirmed active. They are automatically withheld 90 minutes before kickoff or earlier if a source expires. Before that cutoff, fresh source checks may restore eligible props. At or after the cutoff, the confirmed-inactive adapter is still pending; refresh alone cannot reactivate these props. '
       + (blockedGames.size ? `${blockedGames.size} game(s) currently withheld. ` : '')
       + (blockedPlayers.size ? `${blockedPlayers.size} player(s) withheld by source checks. ` : '')
       + 'Later eligible games, moneylines and anytime-TD are not globally disabled.' });
@@ -199,7 +199,8 @@ export function learningEligibleLegs(legs, status) {
 export function learningCardRefusal(pool, legs, now = Date.now()) {
   const status = poolLearningStatus(pool, now);
   return learningEligibleLegs(legs, status).length === (legs || []).length ? null
-    : `${status.freshnessLabel || status.label}. Refresh for a newly checked card before recording it as a recommendation.`;
+    : status.freshnessSelected ? `${status.freshnessLabel}. Fresh source checks may restore eligible props before the 90-minute cutoff. At or after the cutoff, the confirmed-inactive adapter is still pending; refresh alone cannot reactivate these props.`
+      : `${status.label}. Refresh for a newly checked card before recording it as a recommendation.`;
 }
 
 export function renderPoolLearning(status) {
