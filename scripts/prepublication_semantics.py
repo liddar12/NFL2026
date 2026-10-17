@@ -166,8 +166,8 @@ def _membership(output, authority, target_id, season, week, target_recorded, che
                 unsupported.append({**location, "reason": "unsupported_market_or_missing_original_receipt"})
                 continue
             receipt = leg["learning_receipt"]
-            _require(lr.receipt_problem(receipt, leg, season, week) is None
-                     and all(ex._same_json(leg.get(k), receipt.get(k)) for k in ("season", "direction", "comparison_operator")),
+            _require(isinstance(receipt, dict) and type(receipt.get("receipt_id")) is str
+                     and ex.HASH.fullmatch(receipt["receipt_id"]),
                      "output_receipt_identity_or_serving_mismatch")
             rid = receipt["receipt_id"]
             known = authority.get(rid, [])
@@ -178,6 +178,13 @@ def _membership(output, authority, target_id, season, week, target_recorded, che
                     unsupported.append({**location, 'reason': 'retained_prejournal_vintage_unverified',
                         'source_receipt_id': rid})
                     continue
+            # Exact anchored pre-journal vintages above are explicitly NOT
+            # verified or training eligible. Today's receipt equations must
+            # still hold for every known/current receipt, not be retroactively
+            # imposed on unsupported historical bytes we promised to retain.
+            _require(lr.receipt_problem(receipt, leg, season, week) is None
+                     and all(ex._same_json(leg.get(k), receipt.get(k)) for k in ("season", "direction", "comparison_operator")),
+                     "output_receipt_identity_or_serving_mismatch")
             _require(known and all(ex._same_json(receipt, row["source"]) for row in known), "output_receipt_missing_or_conflicting_authority")
             matched = {row["lineage"]["generation_id"]: row for row in known if rid in row["offered"].get(card["card_id"], set())}
             _require(matched, "output_receipt_not_offered_for_card")

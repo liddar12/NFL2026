@@ -110,3 +110,39 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.match(out.refusals[4], /bootstrap_current_receipt_marked_legacy/);
   assert.match(out.refusals[5], /bootstrap_known_history_removed/);
 });
+
+test('only exact anchored unknown vintages may retain an obsolete or invalid receipt equation', () => {
+  const r = spawnSync('python3', ['-B', '-'], { cwd: ROOT, encoding: 'utf8', timeout: 30000,
+    maxBuffer: 1024 * 1024, input: String.raw`
+import copy,datetime
+from scripts import generation_semantic_gate as G
+from scripts import build_my_cards as MY,learning_receipts as L
+from tests.fixtures import period_eligibility as fixture
+f=fixture.make(qb=True)
+offered,_=MY.offered_cards(f['pool'],f['docs']['schedule']['games'],MY._correlation_table(f['docs']['parlay_calibration']),fixture.GENERATED)
+card=copy.deepcopy(next(row[3]for row in offered));card['card_id']='original-unsupported-vintage'
+index=next(i for i,l in enumerate(card['legs'])if l.get('learning_receipt'))
+leg=card['legs'][index];receipt=leg['learning_receipt'];receipt['features']['mu']+=1
+rid=receipt['receipt_id'];output={'season':2026,'week':6,'cards':[card]}
+allowed={'cards':{card['card_id']:copy.deepcopy(card)},'locations':{(card['card_id'],index,rid)}}
+# Restrict this example to its one bad old leg; every other leg is unsupported
+# without a receipt rather than being silently admitted as known authority.
+for i,l in enumerate(card['legs']):
+ if i!=index:l.pop('learning_receipt',None)
+allowed['cards'][card['card_id']]=copy.deepcopy(card)
+now=G._time('2026-10-16T20:03:00Z')
+args=(output,{},'sha256:'+'1'*64,2026,6,now,now)
+members,unsupported=G.sem._membership(*args,retained_unknown=allowed)
+assert not members and any(r['reason']=='retained_prejournal_vintage_unverified'for r in unsupported)
+def rejects(authority,context):
+ try:G.sem._membership(output,authority,args[2],2026,6,now,now,retained_unknown=context)
+ except G.sem.SemanticError as error:assert str(error)=='output_receipt_identity_or_serving_mismatch';return
+ raise AssertionError('invalid receipt became verified')
+rejects({},None)
+rejects({rid:[{'source':receipt}]},allowed)
+card['legs'][index]['selection']='changed historical card'
+rejects({},allowed)
+print('exact unknown only; strict/known/changed remain rejected')
+` });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+});
