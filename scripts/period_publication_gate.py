@@ -75,11 +75,11 @@ def _head(root, expected):
         'period_publication_head_changed')
 
 
-def _unchanged_consumer(root, expected_head, base_head):
+def _unchanged_consumer(root, expected_head, base_head, *, require_control=True):
     """Only a historical published consumer can qualify, never a new control."""
     original = _tree(root, base_head)
     final = _tree(root, expected_head)
-    if not any(p.startswith(CONTROL) for p in original) or original != final:
+    if (require_control and not any(p.startswith(CONTROL) for p in original)) or original != final:
         return None
     rows = runtime._git(root, ['rev-list', '--parents', base_head + '..' + expected_head],
         limit=16384).decode().splitlines()

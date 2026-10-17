@@ -268,7 +268,7 @@ replay_onto() {
 }
 
 main() {
-  local generation_binding="" semantic_no_generation=0
+  local generation_binding="" selected_my_binding="" semantic_no_generation=0
   local period_generation_id="" period_engine_checkout="" period_engine_commit=""
   local period_authority_id="" period_actor_ref="" period_options=0
   while [ "$#" -gt 0 ]; do
@@ -276,6 +276,9 @@ main() {
       --generation-binding)
         [ "$#" -ge 2 ] && [ -n "$2" ] && [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation binding requires one path" >&2; exit 2; }
         generation_binding="$2"; shift 2 ;;
+      --selected-MY-binding)
+        [ "$#" -ge 2 ] && [ -n "$2" ] && [ -z "$selected_my_binding" ] || { echo "selected MY binding requires one path" >&2; exit 2; }
+        selected_my_binding="$2"; shift 2 ;;
       --no-new-generation)
         [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation modes are mutually exclusive" >&2; exit 2; }
         semantic_no_generation=1; shift ;;
@@ -293,10 +296,13 @@ main() {
     esac
   done
   if [ "$period_options" -ne 0 ]; then
-    [ "$period_options" -eq 5 ] && [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "all five period publication pins are required, without a v1 generation mode" >&2; exit 2; }
+    [ "$period_options" -eq 5 ] && [ -z "$generation_binding" ] && [ -z "$selected_my_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "all five period publication pins are required, without another generation mode" >&2; exit 2; }
+  fi
+  if [ -n "$selected_my_binding" ]; then
+    [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "selected MY and v1 generation modes are mutually exclusive" >&2; exit 2; }
   fi
   if [ "$#" -ne 1 ] || [ -z "$1" ]; then
-    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --no-new-generation | --period-generation-id ID --period-engine-checkout PATH --period-engine-commit SHA --period-authority-id ID --period-actor-ref ACTOR] \"<commit message>\"" >&2
+    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --selected-MY-binding PATH | --no-new-generation | --period-generation-id ID --period-engine-checkout PATH --period-engine-commit SHA --period-authority-id ID --period-actor-ref ACTOR] \"<commit message>\"" >&2
     exit 2
   fi
   local message="$1" attempt remote replayed push_ref="HEAD"
@@ -392,6 +398,7 @@ main() {
     # bypasses either path. Conflict and immutable-history protections above
     # remain mandatory, including after every rebase/fallback/rejected push.
     if git cat-file -e "${push_ref}:data/learning_control" 2>/dev/null || [ -e "data/learning_control" ] || [ -L "data/learning_control" ]; then
+      [ -z "$selected_my_binding" ] || die "selected incumbent binding cannot bypass period-return control records. Nothing was published."
       local period_args=(--checkout "$PWD" --expected-head "$push_ref" --base-head "$remote")
       if [ "$period_options" -eq 5 ]; then
         period_args+=(--period-generation-id "$period_generation_id" --engine-checkout "$period_engine_checkout"
@@ -402,6 +409,12 @@ main() {
       fi
     elif [ "$period_options" -ne 0 ]; then
       die "period publication pins supplied without committed control records. Nothing was published."
+    else
+      local selected_args=(--checkout "$PWD" --expected-head "$push_ref" --base-head "$remote")
+      if [ -n "$selected_my_binding" ]; then selected_args+=(--binding "$selected_my_binding"); fi
+      if ! python3 "$HERE/selected_my_publication_gate.py" "${selected_args[@]}"; then
+        die "selected incumbent MY exact-tree consumer check held this tree. Keep original capture; never strip freshness or substitute an old PASS. Nothing was published."
+      fi
     fi
     [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after the period-return check. Nothing was published."
     if git push origin "$push_ref:main"; then

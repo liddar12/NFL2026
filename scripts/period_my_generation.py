@@ -11,7 +11,7 @@ from scripts import period_calibrator as period
 from scripts import learning_journal as journal
 
 
-def replay_binding(value):
+def replay_binding(value, *, pool_writer='period_canonical'):
     """Replay actual offers, journal population and first-sight archive append.
 
     Runs the trusted local producer over the explicit original inputs. Source
@@ -19,6 +19,7 @@ def replay_binding(value):
     inferred from this result. No sporting files are discovered or written;
     existing producer policy stamping introspects its trusted local code.
     """
+    period.need(pool_writer in ('period_canonical', 'legacy_pretty'), 'period_MY_unknown_pool_writer')
     value, loader = runtime._runtime_binding(value)
     bound = value['binding'];capture, docs = gate._capture(loader['capture'])
     outputs = gate._thaw(bound['outputs'], gate._paths(capture), documents=True)
@@ -64,7 +65,9 @@ def replay_binding(value):
         expected_raw = (my.json.dumps(expected_archive, ensure_ascii=True, indent=2, sort_keys=False) + '\n').encode()
     gate._same(archive, expected_archive, 'period_MY_archive_math_or_first_sight_changed')
     period.need(outputs[path] == expected_raw, 'period_MY_archive_writer_bytes_changed')
-    period.need(outputs['data/leg_pool.json'] == period.files.export.encoded(pool) + b'\n',
+    pool_raw = (period.files.export.encoded(pool) if pool_writer == 'period_canonical'
+        else my.json.dumps(pool, ensure_ascii=True, indent=2).encode()) + b'\n'
+    period.need(outputs['data/leg_pool.json'] == pool_raw,
         'period_MY_pool_writer_bytes_changed')
     authority = gate.sem.publication._authority(graph, capture['season'], capture['week'])
     members, unsupported = gate.sem._membership(archive, authority, bound['target_generation_id'],
