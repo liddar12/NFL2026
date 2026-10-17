@@ -15,9 +15,10 @@ import contextlib,copy,io,json,os,pathlib,shutil,tempfile
 from scripts import availability as A,build_leg_pool as B,run_parlay_feedback as F,learning_receipts as L
 from scripts import period_my_generation as MY,generation_capture_runtime as C,generation_semantic_gate as G
 from scripts import period_operator as O
-from scripts import build_weekly as W,period_source_eligibility as E
+from scripts import period_source_eligibility as E
 from scripts.period_calibrator import PeriodCalibrator
 from tests.fixtures import period_return as fixture
+from tests.fixtures.period_eligibility import complete_period_current
 engine=pathlib.Path(os.environ['SELFLEARN_CHECKOUT']);pin=F.git(engine,'rev-parse','HEAD')
 with tempfile.TemporaryDirectory()as tmp:
  fake=object.__new__(PeriodCalibrator);fake.data=pathlib.Path(tmp)/'overlap-checkout/data'
@@ -38,26 +39,7 @@ with tempfile.TemporaryDirectory()as tmp:
  assert all('status'not in g for g in current['game_predictions']['games'])
  # Exercise the ACTUAL weekly source/gate producer too. Synthetic training
  # remains weeks1-3; no real NFL outcome or fabricated earlier read is used.
- witness=A.enrich_document({'season':2026,'week':6,'source':'espn','updated_utc':'2026-10-16T19:30:00Z',
-  'source_updated_utc':'2026-10-16T19:30:00Z','received_utc':'2026-10-16T19:30:00Z',
-  'injuries':[{'team':p['team'],'player':p['name'],'status':'Active'}for p in current['player_projections']['players']]})
- witness.update(season=2026,week=6,source_updated_utc='2026-10-16T19:30:00Z',
-  received_utc='2026-10-16T19:30:00Z',quarantine=[])
- players=current['player_projections']['players'];current['player_projections']['season']=2026
- for p in players:p['proj_points']=100.
- old_rows={p['gsis_id']:p for p in current['player_weekly']['players']}
- teams={}
- for p in players:
-  if p['position']=='QB':
-   team=teams.setdefault(p['team'],{'snapshot':'2026-10-16T19:30:00Z','QB':[]})
-   team['QB'].append({'rank':len(team['QB'])+1,'name':p['name'],'gsis_id':p['gsis_id'],'espn_id':None})
- depth={'season':2026,'updated_utc':'2026-10-16T19:30:00Z','teams':teams}
- skip={t for g in schedule['games']if g['status']=='STATUS_FINAL'for t in(g['home'],g['away'])}
- current['player_weekly']=W.build_weekly_document(players,schedule['games'],
-  {t:1500. for g in schedule['games']for t in(g['home'],g['away'])},{},2026,'2026-10-16T19:30:00Z',
-  injuries=[],first_week=6,components_by_id={pid:{'components':r['league_components'],'base_applied_pts':100.}
-   for pid,r in old_rows.items()},factors=W.build_factors(2026),this_week=6,injury_document=witness,
-  depth_chart=depth,gate_skip_teams=skip)
+ witness,depth=complete_period_current(current,schedule)
  fixture.write_inputs(data,current,schedule);fixture.write(data/'leg_pool.json',B.build(current))
  fixture.write(data/'injuries.json',witness)
  fixture.write(data/'depth_chart.json',depth)

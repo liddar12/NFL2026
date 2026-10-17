@@ -109,7 +109,8 @@ def _final_time(control, application, capture, checked):
 
 
 def check_committed(*, checkout, expected_head, base_head, period_generation_id,
-        engine_checkout, engine_commit, authority_id, actor_ref, clock=period.files.now):
+        engine_checkout, engine_commit, authority_id, actor_ref, clock=period.files.now,
+        shadow_freshness_profile=None):
     """Read/replay one selected committed generation; never accept an uploaded PASS.
 
     The publisher must supply a freshly fetched base and pin/recheck HEAD on
@@ -180,6 +181,11 @@ def check_committed(*, checkout, expected_head, base_head, period_generation_id,
         # success. Undefined QB/inactive freshness and missing original source
         # facts still prevent a final semantic publication PASS.
         eligibility = source_eligibility.verify(capture, pool, checked_utc=checked)
+        proposed = None
+        if shadow_freshness_profile is not None:
+            from scripts import period_freshness_policy
+            proposed = period_freshness_policy.assess(capture, pool, checked_utc=checked,
+                profile=shadow_freshness_profile)
         # Exact Git blobs are immutable, but the selected HEAD and trusted local
         # executing sources/engine must still be the same at the final boundary.
         period.need(runtime._extra_paths(ROOT) == names and runtime._code(ROOT, names) == sources
@@ -199,6 +205,7 @@ def check_committed(*, checkout, expected_head, base_head, period_generation_id,
             'downstream_replay_id': downstream['downstream_replay_id'],
             'history_retention': retained, 'files': len(view.files), 'bytes': view.total,
             'source_eligibility_report': eligibility,
+            'proposed_freshness_assessment': proposed,
             'committed_data_tree_verified': True, 'original_bytes_and_outputs_verified': True,
             'configured_owner_chain_verified': True, 'upstream_eligibility_verified': False,
             'MY_card_semantics_verified': False, 'whole_release_pass': False,

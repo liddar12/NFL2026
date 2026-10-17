@@ -17,12 +17,12 @@ GENERATED = '2026-10-16T20:01:00Z'
 CHECKED = '2026-10-16T20:02:00Z'
 
 
-def weekly(docs, *, omit_depth=False):
+def weekly(docs, *, omit_depth=False, updated_utc=WEEKLY):
     players = docs['player_projections']['players']
     components = {p['gsis_id']: {'components': {'rec_yd': 80., 'pass_yd': 220.},
         'base_applied_pts': 100.} for p in players}
     return W.build_weekly_document(players, docs['schedule']['games'],
-        {team: 1500. for team in ('SEA', 'LAR', 'DAL', 'PHI', 'KC', 'BUF')}, {}, 2026, WEEKLY,
+        {team: 1500. for team in ('SEA', 'LAR', 'DAL', 'PHI', 'KC', 'BUF')}, {}, 2026, updated_utc,
         injuries=[], first_week=6, components_by_id=components, factors=W.build_factors(2026),
         this_week=6, injury_document=docs['injuries'],
         depth_chart=None if omit_depth else docs['depth_chart'], inactives=docs['inactives'],
@@ -83,3 +83,35 @@ def make(*, unknown=False, questionable=False, retired=False, qb=False, inactive
         'previous_my_cards': None}
     docs['player_weekly'] = weekly(docs)
     return refresh(docs)
+
+
+def complete_period_current(current, schedule):
+    """Synthetic period fixture -> actual weekly producer and its witnesses.
+
+    Training is NOT changed. These are explicit test witnesses, not recovered
+    original HTTP bodies or an assertion that the real NFL feed was complete.
+    """
+    from scripts.scrape.espn import FINAL_STATUSES
+    players = current['player_projections']['players']
+    source = current['player_weekly'].get('generated_utc') or current['player_weekly']['updated_utc']
+    witness = A.enrich_document({'source': 'synthetic-espn-shape', 'updated_utc': source,
+        'injuries': [{'team': p['team'], 'player': p['name'], 'status': 'Active'} for p in players]})
+    witness.update(season=2026, week=6, source_updated_utc=source, received_utc=source, quarantine=[])
+    current['player_projections']['season'] = 2026
+    for p in players:
+        p['proj_points'] = 100.
+    original = {p['gsis_id']: p for p in current['player_weekly']['players']}
+    teams = {}
+    for p in players:
+        if p['position'] == 'QB':
+            team = teams.setdefault(p['team'], {'snapshot': source, 'QB': []})
+            team['QB'].append({'rank': len(team['QB']) + 1, 'name': p['name'],
+                'gsis_id': p['gsis_id'], 'espn_id': None})
+    depth = {'season': 2026, 'updated_utc': source, 'teams': teams}
+    skip = {t for g in schedule['games'] if g['status'] in FINAL_STATUSES for t in (g['home'], g['away'])}
+    current['player_weekly'] = W.build_weekly_document(players, schedule['games'],
+        {t: 1500. for g in schedule['games'] for t in (g['home'], g['away'])}, {}, 2026, source,
+        injuries=[], first_week=6, components_by_id={pid: {'components': r['league_components'],
+            'base_applied_pts': 100.} for pid, r in original.items()}, factors=W.build_factors(2026),
+        this_week=6, injury_document=witness, depth_chart=depth, gate_skip_teams=skip)
+    return witness, depth

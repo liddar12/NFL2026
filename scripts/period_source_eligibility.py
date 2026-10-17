@@ -45,6 +45,24 @@ def _facts(capture, pool, checked_utc):
         'period_sources_week_mismatch')
     for name in ('player_weekly', 'player_projections', 'game_predictions', 'schedule'):
         _source_clock(docs[name], capture, checked)
+    # These locally stamped witness fetches cannot occur after the weekly
+    # producer time whose gate decisions they purport to support. This is a
+    # consistency check, NOT proof that the earlier producer consumed them.
+    weekly_time = gate._time(weekly.get('updated_utc') or weekly.get('generated_utc'))
+    injury_receipt = gate._time(docs['injuries'].get('received_utc'))
+    gate.need(injury_receipt <= weekly_time, 'period_sources_witness_fetched_after_weekly')
+    for name in ('depth_chart', 'inactives'):
+        document = docs[name]
+        if type(document) is not dict:
+            continue
+        if document.get('updated_utc') is not None:
+            gate.need(gate._time(document['updated_utc']) <= weekly_time,
+                'period_sources_witness_fetched_after_weekly')
+        if name == 'inactives':
+            for game in document.get('games') or []:
+                if game.get('fetched_utc') is not None:
+                    gate.need(gate._time(game['fetched_utc']) <= weekly_time,
+                        'period_sources_witness_fetched_after_weekly')
     rows = gate._unique(weekly.get('players'), 'gsis_id', 'period_sources_ambiguous_weekly_player')
     roster = gate._unique(projections.get('players'), 'gsis_id', 'period_sources_ambiguous_projection_player')
     gate.need(set(rows) == set(roster), 'period_sources_weekly_roster_mismatch')

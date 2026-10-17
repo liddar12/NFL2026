@@ -72,6 +72,9 @@ def main(argv=None, *, clock=period.files.now):
         help='Replay exact committed MY/application/history bytes; not an upstream eligibility or release gate')
     for name in ('expected-head', 'base-head', 'period-generation-id'):
         committed_my.add_argument('--' + name, required=True)
+    from scripts.period_freshness_policy import PROFILES
+    committed_my.add_argument('--shadow-freshness-profile', choices=tuple(PROFILES),
+        help='Assess a proposed profile only; does not select it for serving or authorize publication')
     args = parser.parse_args(argv)
     try:
         control = period.PeriodCalibrator(data_dir=args.data_dir, engine_checkout=args.engine_checkout,
@@ -106,7 +109,8 @@ def main(argv=None, *, clock=period.files.now):
             details = check_committed(checkout=control.data.parent, expected_head=args.expected_head,
                 base_head=args.base_head, period_generation_id=args.period_generation_id,
                 engine_checkout=control.engine_checkout, engine_commit=control.engine_commit,
-                authority_id=control.authority_id, actor_ref=control.actor_ref, clock=clock)
+                authority_id=control.authority_id, actor_ref=control.actor_ref, clock=clock,
+                shadow_freshness_profile=args.shadow_freshness_profile)
             result = {'status': 'committed_MY_replayed_not_publication_verified', 'details': details}
         print(json.dumps({'version': 2, 'kind': 'nfl.period_local_operator_result.v2',
             'operation': args.operation, **result, **FLAGS}, sort_keys=True))

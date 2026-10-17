@@ -16,6 +16,7 @@ from scripts import availability as A,build_leg_pool as B,run_parlay_feedback as
 from scripts import period_my_generation as MY,period_my_commit_replay as G,generation_capture_runtime as C
 from scripts.period_calibrator import PeriodCalibrator
 from tests.fixtures import period_return as fixture
+from tests.fixtures.period_eligibility import complete_period_current
 engine=pathlib.Path(os.environ['SELFLEARN_CHECKOUT']);pin=F.git(engine,'rev-parse','HEAD')
 os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
 with tempfile.TemporaryDirectory()as tmp:
@@ -27,11 +28,9 @@ with tempfile.TemporaryDirectory()as tmp:
  cfg=root/'config/excluded_games.json';cfg.parent.mkdir(parents=True);shutil.copyfile(F.ROOT/'config/excluded_games.json',cfg)
  fixture.training(data,engine,pin)
  current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='MY-commit',past=True)
+ witness,depth=complete_period_current(current,schedule)
  fixture.write_inputs(data,current,schedule);fixture.write(data/'leg_pool.json',B.build(current))
- fixture.write(data/'injuries.json',A.enrich_document({'season':2026,'week':6,'source':'espn',
-  'updated_utc':'2026-10-16T19:30:00Z','source_updated_utc':'2026-10-16T19:30:00Z',
-  'received_utc':'2026-10-16T19:30:00Z','injuries':[
-   {'team':p['team'],'player':p['name'],'status':'Active'}for p in current['player_projections']['players']]}))
+ fixture.write(data/'injuries.json',witness);fixture.write(data/'depth_chart.json',depth)
  now=['2026-10-16T20:01:00Z'];control=PeriodCalibrator(data_dir=data,engine_checkout=engine,engine_commit=pin,
   authority_id=L.fingerprint('synthetic-MY-commit-authority'),actor_ref='synthetic-MY-commit-operator',clock=lambda:now[0])
  oid=control.prepare(season=2026,week=6);control.record_intent(oid,action='approve',
@@ -57,8 +56,21 @@ with tempfile.TemporaryDirectory()as tmp:
  assert proof['committed_data_tree_verified']and proof['original_bytes_and_outputs_verified']
  assert proof['configured_owner_chain_verified']and proof['head']==head and proof['base_head']==base
  assert proof['period_generation_id']==result['period_generation_id']
- assert proof['source_eligibility_report']['frozen_weekly_eligibility_replayed']is False
- assert proof['source_eligibility_report']['reason_codes']==['period_sources_season_mismatch']
+ assert proof['source_eligibility_report']['frozen_weekly_eligibility_replayed']is True
+ assert proof['source_eligibility_report']['reason_codes']==['undefined_depth_freshness_policy']
+ assert proof['proposed_freshness_assessment']is None
+ # Retain the original missing-season negative while strengthening the real
+ # committed fixture to include the actual weekly producer and witnesses.
+ saved=json.loads(control.path('generations',result['period_generation_id'][7:]+'.json').read_bytes())
+ cap=saved['runtime_binding']['binding']['capture'];raws={k:r['raw_utf8'].encode()for k,r in cap['inputs'].items()}
+ incomplete=json.loads(raws['player_projections']);incomplete.pop('season')
+ raws['player_projections']=G.gate.encoded(incomplete)
+ incomplete_cap=G.gate.capture_inputs(raws,{k:r['raw_utf8'].encode()for k,r in cap['code'].items()},
+  season=cap['season'],week=cap['week'],captured_utc=cap['captured_utc_claim'],
+  generation_sha=cap['generation_sha_claim'],policy=cap['policy'])
+ source_hold=G.source_eligibility.verify(incomplete_cap,json.loads(saved['runtime_binding']['binding']['outputs']['data/leg_pool.json']['raw_utf8']),checked_utc=now[0])
+ assert source_hold['frozen_weekly_eligibility_replayed']is False
+ assert source_hold['reason_codes']==['period_sources_season_mismatch']
  for flag in('upstream_eligibility_verified','MY_card_semantics_verified','whole_release_pass',
   'owner_authenticated','publication_authorized','public_serving_verified','production_authorized','source_writes','network_used'):
   assert proof[flag]is False,(flag,proof)
@@ -68,11 +80,17 @@ with tempfile.TemporaryDirectory()as tmp:
  out=io.StringIO()
  args=['--data-dir',str(data),'--engine-checkout',str(engine),'--engine-commit',pin,
   '--authority-id',control.authority_id,'--actor-ref',control.actor_ref,'replay-my-commit',
-  '--expected-head',head,'--base-head',base,'--period-generation-id',result['period_generation_id']]
+  '--expected-head',head,'--base-head',base,'--period-generation-id',result['period_generation_id'],
+  '--shadow-freshness-profile','provisional_before_90m_v1']
  with contextlib.redirect_stdout(out):code=O.main(args,clock=lambda:now[0])
  assert code==0;cli=json.loads(out.getvalue())
  assert cli['operation']=='replay-my-commit'and cli['details']['head']==head
  assert cli['publication_authorized']is False and cli['details']['upstream_eligibility_verified']is False
+ proposed=cli['details']['proposed_freshness_assessment']
+ assert proposed['shadow_policy_pass']is True and proposed['shadow_only']is True,proposed
+ assert proposed['profile_selected_for_serving']is False and proposed['owner_approved']is False
+ assert proposed['capture_id']==cap['capture_id']and proposed['pool_id']==saved['pool_id']
+ assert proposed['proposed_parameters']['inactive_recheck_seconds_before_kickoff']==90*60
  refused=0
  # The real fitter/downstream work must not outlive the authorization checked
  # at entry. Change the injected operator clock only after actual MY replay.
@@ -155,6 +173,7 @@ with tempfile.TemporaryDirectory()as tmp:
  refused+=1
  print(json.dumps({'exact_tree_replayed':True,'worktree_repairs_ignored':True,'retained_refresh_replayed':True,
   'actual_operator_CLI_verified':True,
+  'actual_weekly_committed_shadow_profile_verified':True,'incomplete_source_negative_retained':True,
   'refused_cases':refused,'MY_card_semantics_verified':proof['MY_card_semantics_verified'],
   'production_authorized':proof['production_authorized']}))
 ` });
@@ -164,6 +183,8 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(result.worktree_repairs_ignored, true);
   assert.equal(result.retained_refresh_replayed, true);
   assert.equal(result.actual_operator_CLI_verified, true);
+  assert.equal(result.actual_weekly_committed_shadow_profile_verified, true);
+  assert.equal(result.incomplete_source_negative_retained, true);
   assert.equal(result.refused_cases, 10);
   assert.equal(result.MY_card_semantics_verified, false);
   assert.equal(result.production_authorized, false);
