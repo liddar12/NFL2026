@@ -1,14 +1,15 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 6 · October 16, 2026, 9:13 p.m. America/Chicago (CDT).
+Revision 7 · October 16, 2026, 9:50 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
 shared SelfLearning evaluator through the existing Actions pipeline. It saves
 complete records in Git-backed files; it does not require the new Supabase
 migrations or a working Vercel connection. It remains disabled and does not
-activate a model. MODEL now has a saved shadow-evaluation row; adoption/rollback,
-Review integration and browser/live acceptance remain required Sunday work.
+activate a production model. MODEL has a saved shadow-evaluation row; local
+candidate application/rollback now has end-to-end tests. Exact-tree publication,
+pipeline activation, Review integration and browser/live acceptance remain.
 
 ## Current implementation
 
@@ -96,13 +97,67 @@ This selects the mechanism to build, not a candidate to activate or a deployment
 to release. Preserve old v1 exact-generation events; add a versioned scope
 contract rather than silently broadening their authority.
 
-The engine's local `19a80d9` checkpoint now provides generic file-backed owner
+### Local fixed candidate consumer
+
+NFL `5c11a6af74ae692faafdd4e86b32c599962b5d98` adds
+`scripts/period_calibrator.py`. An explicitly configured local operator can
+stage the actual saved frozen graph/raw-outcome evaluation, record approval of
+its exact candidate, and apply it through the real `build_leg_pool` producer.
+The default builder/CLI and production workflow remain unchanged. A JSON
+`approved` field, uploaded report, coefficient file or old acknowledgement
+cannot supply the configured operator capability.
+
+The consumer reexecutes the shared fitter and gate, binds the candidate to
+the actual base/code/period, reserves owner-journal capacity, and checks fresh
+source clocks and each future scheduled game's identity/cutoff. It applies
+the fixed coefficients once to immutable base probabilities. Only eligible
+future MY-yardage props receive the new receipts; historical forecasts and
+game/ATD pricing are not repriced. Receipts name the candidate, owner event,
+application context and expiry. Evidence remains a retrospective refitting
+policy, not prospective validation of those fixed coefficients.
+
+Two local scenario tests pass, zero skips: real synthetic producer forecasts,
+raw grading/fitting, repeat use of A, separately approved B, rollback to A,
+two feedback cycles, unchanged old history and recovery after either mutable
+file is replaced. The rejection matrix covers **21 cases**. Revocation records
+a stop without the old raw history, old fitter or a healthy current pool;
+generating a replacement pool still requires verifiable inputs/state.
+The scope-design approval in chat is not an actual candidate approval.
+
+A third test uses a real temporary bare-Git origin. The publisher refuses v2
+control records even when their working directory disappears after commit.
+The new exact-tree semantic publication gate is unfinished; this refusal is
+intentional and has no enable-variable bypass. Local two-file recovery is not
+a Git/Netlify transaction or hosted owner authentication.
+
+Engine `405a84f` adds independently checked immutable evidence lookup to the
+generic file port; the existing read-only NFL diagnostic still remains held.
+Sixteen related engine tests pass. Engine `74a31a6` adds this consumer to the
+cross-repository provenance inventory, now 36 NFL files. Full regressions on
+the frozen `5c11a6af`/`74a31a6` pair finish exit **0**: **2,496 NFL feature
+tests pass**, zero failures/skips, plus contracts/smoke/four model gates;
+browser step 8 skips. **1,379 core/API tests pass**, zero skips;
+**49/49 critical files exceed 90%**, with stable source/test/tool/head identities
+and **8,551/8,862 = 96.4906%** executable lines. The file owner port covers
+179/179 lines; this does not measure the NFL consumer's branch coverage or live
+accuracy. Engine report: `docs/reviews/2026-10-16-critical49-period-return-coverage.json`.
+[NFL verification record](qa/2026-10-16-period-return-verification.json). Focused logs:
+`/private/tmp/nfl-period-return-frozen-controls-root-20261016.log` and
+`/private/tmp/nfl-period-return-publish-hold-root-20261016.log`.
+
+Remaining release work: final Git-tree owner/current/source checks after
+rebase/fallback, immutable control-history conflict rules, an explicit
+authenticated operator/pipeline entry point, visible effective version/expiry,
+and fresh-pipeline/browser/served-site acceptance. All synthetic fixtures stay
+in temporary directories. Nothing has been pushed, activated or deployed.
+
+The earlier engine `19a80d9` checkpoint provides generic file-backed owner
 intent persistence for this route: immutable events, namespace head/lock,
 revoke/rollback intent and original-result recovery. Full engine regression:
 **1,377 core/API tests pass**, zero skips; **49/49 critical files >90%**,
 stable **96.4766%** executable lines, exit 0. This does not authenticate an
-operator or apply a model. The v2 NFL scope, evidence composition, actual
-producer consumer and controlled publication/rollback remain required. Engine
+operator or apply a model. The local v2 consumer above builds on that port;
+controlled publication and release acceptance remain required. Engine
 details: `docs/architecture/2026-10-15/OWNER_INTENT_JOURNAL.md`; pinned report:
 `docs/reviews/2026-10-16-critical49-file-owner-coverage.json`. NFL runtime and
 its prior 2,493-feature full-gate result are unchanged; no new browser/live
