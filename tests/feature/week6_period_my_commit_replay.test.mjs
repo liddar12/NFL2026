@@ -57,6 +57,8 @@ with tempfile.TemporaryDirectory()as tmp:
  assert proof['committed_data_tree_verified']and proof['original_bytes_and_outputs_verified']
  assert proof['configured_owner_chain_verified']and proof['head']==head and proof['base_head']==base
  assert proof['period_generation_id']==result['period_generation_id']
+ assert proof['source_eligibility_report']['frozen_weekly_eligibility_replayed']is False
+ assert proof['source_eligibility_report']['reason_codes']==['period_sources_season_mismatch']
  for flag in('upstream_eligibility_verified','MY_card_semantics_verified','whole_release_pass',
   'owner_authenticated','publication_authorized','public_serving_verified','production_authorized','source_writes','network_used'):
   assert proof[flag]is False,(flag,proof)

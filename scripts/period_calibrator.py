@@ -29,7 +29,8 @@ CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_
       "scripts/materialize_calibrator.py","scripts/run_parlay_feedback.py","scripts/export_learning.py",
       "scripts/capture_outcome_evidence.py","scripts/prepublication_semantics.py",
       "scripts/generation_capture_runtime.py","scripts/period_my_generation.py",
-      "scripts/period_my_commit_replay.py")
+      "scripts/period_my_commit_replay.py","scripts/generation_semantic_gate.py",
+      "scripts/period_source_eligibility.py","scripts/scrape/espn.py")
 
 
 class PeriodReturnError(ValueError):pass

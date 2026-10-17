@@ -16,6 +16,7 @@ from scripts import learning_history_guard as history
 from scripts import period_calibrator as period
 from scripts import period_commit_replay as committed
 from scripts import period_my_generation as my
+from scripts import period_source_eligibility as source_eligibility
 
 ROOT = Path(__file__).resolve().parent.parent
 LINK_KEYS = {'version', 'kind', 'application_id', 'pool_id', 'owner_head_event_id',
@@ -175,6 +176,10 @@ def check_committed(*, checkout, expected_head, base_head, period_generation_id,
         period.need(replay['application_id'] == application['application_id'], 'period_MY_committed_application_mismatch')
         checked = clock()
         _final_time(control, application, capture, checked)
+        # This diagnostic is attached, not promoted into the narrower replay's
+        # success. Undefined QB/inactive freshness and missing original source
+        # facts still prevent a final semantic publication PASS.
+        eligibility = source_eligibility.verify(capture, pool, checked_utc=checked)
         # Exact Git blobs are immutable, but the selected HEAD and trusted local
         # executing sources/engine must still be the same at the final boundary.
         period.need(runtime._extra_paths(ROOT) == names and runtime._code(ROOT, names) == sources
@@ -193,6 +198,7 @@ def check_committed(*, checkout, expected_head, base_head, period_generation_id,
             'application_id': application['application_id'], 'owner_head_event_id': chain['head_event_id'],
             'downstream_replay_id': downstream['downstream_replay_id'],
             'history_retention': retained, 'files': len(view.files), 'bytes': view.total,
+            'source_eligibility_report': eligibility,
             'committed_data_tree_verified': True, 'original_bytes_and_outputs_verified': True,
             'configured_owner_chain_verified': True, 'upstream_eligibility_verified': False,
             'MY_card_semantics_verified': False, 'whole_release_pass': False,
