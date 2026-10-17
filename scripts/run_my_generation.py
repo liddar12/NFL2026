@@ -30,6 +30,24 @@ def _owner_heads(data):
     return period.files.export._delivery_path(data, 'learning_control', 'owner', 'heads')
 
 
+def _period_claim(pool):
+    """Match the UI's known-period markers, not ordinary legacy coefficients."""
+    from scripts import learning_receipts
+    if 'calibration_return' in pool or str(pool.get('live_adjustment_status') or '').startswith('period return v2:'):
+        return True
+    players = pool.get('players')
+    for player in players if type(players) is list else []:
+        if type(player) is not dict or player.get('market') not in learning_receipts.PROP_MARKETS:
+            continue
+        rungs = player.get('rungs')
+        for rung in rungs if type(rungs) is list else []:
+            receipt = rung.get('learning_receipt') if type(rung) is dict else None
+            context = receipt.get('input_context') if type(receipt) is dict else None
+            if type(context) is dict and 'calibration_return' in context:
+                return True
+    return False
+
+
 def _no_intent(data):
     """Missing configured intent must not hide a prior or foreign application."""
     from scripts import period_calibrator as period
@@ -41,7 +59,7 @@ def _no_intent(data):
     current = data / 'leg_pool.json'
     if current.exists():
         pool = period.files.read_json(current)
-        period.need(type(pool) is dict and pool.get('calibration_return') is None,
+        period.need(type(pool) is dict and not _period_claim(pool),
             'MY_generation_orphan_application')
 
 

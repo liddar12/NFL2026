@@ -120,13 +120,17 @@ test('no-intent cannot hide orphan/current/foreign authority, or a new owner eve
  const r=py(UNIT+String.raw`
 with tempfile.TemporaryDirectory()as tmp:
  root=pathlib.Path(tmp);rows=[]
- for fault in('current','pending','foreign','pool_claim','owner_arrives'):
+ for fault in('current','pending','foreign','pool_claim','pool_null','pool_status','pool_rung','owner_arrives'):
   local=root/fault;local.mkdir();control=Control(local);opts=options(control,local)
   if fault in('current','pending'):
    path=control.path(fault+'.json');path.parent.mkdir(parents=True);path.write_text('{}')
   elif fault=='foreign':
    path=control.path('owner','heads','foreign.json');path.parent.mkdir(parents=True);path.write_text('{}')
   elif fault=='pool_claim':(control.data/'leg_pool.json').write_text(json.dumps({'calibration_return':{'version':2}}))
+  elif fault=='pool_null':(control.data/'leg_pool.json').write_text(json.dumps({'calibration_return':None}))
+  elif fault=='pool_status':(control.data/'leg_pool.json').write_text(json.dumps({'live_adjustment_status':'period return v2: approve'}))
+  elif fault=='pool_rung':(control.data/'leg_pool.json').write_text(json.dumps({'players':[{'market':'wr_rec_yds',
+    'rungs':[{'learning_receipt':{'input_context':{'calibration_return':None}}}]}]}))
   def candidate_arrives(*args,**kwargs):
    existing_head(control);return legacy_result()
   out,err=io.StringIO(),io.StringIO()
@@ -137,10 +141,24 @@ with tempfile.TemporaryDirectory()as tmp:
    if fault=='owner_arrives':
     with patch.object(R,'_legacy',side_effect=candidate_arrives):code=R.main(main_args(opts))
    else:code=R.main(main_args(opts))
+  assert begin.call_count==0,'an orphan claim must fail before original reads, writes or model operations'
   rows.append(code)
  print(json.dumps(rows))
 `);
- assert.deepEqual(r,[2,2,2,2,2]);
+ assert.deepEqual(r,[2,2,2,2,2,2,2,2]);
+});
+
+test('ordinary legacy calibration text/coefficients are not mistaken for an owner-controlled period return',()=>{
+ const r=py(UNIT+String.raw`
+with tempfile.TemporaryDirectory()as tmp:
+ data=(pathlib.Path(tmp)/'data').resolve();data.mkdir();rows=[]
+ for pool in({'live_adjustment_status':'applied: validated base receipts','live_adjustment':{'a':.3,'b':1.1}},
+             {'live_adjustment_status':'held: legacy or mismatched base decision','live_adjustment':None},
+             {'players':[{'market':'wr_rec_yds','rungs':[{'learning_receipt':{'input_context':{'availability':'QUESTIONABLE'}}}]}]}):
+  (data/'leg_pool.json').write_text(json.dumps(pool));R._no_intent(data);rows.append(True)
+ print(json.dumps(rows))
+`);
+ assert.deepEqual(r,[true,true,true]);
 });
 
 test('actual no-intent CLI builds fresh incumbent MY receipts and captures without creating authority or fitting a new model',t=>{
