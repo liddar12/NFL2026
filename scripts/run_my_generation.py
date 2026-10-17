@@ -67,9 +67,11 @@ def _legacy(control, *, generation_sha, capture_dir):
     """Actual existing pool equation + MY writer, with original-byte capture."""
     from scripts import build_leg_pool as pool_builder, build_my_cards as my
     from scripts import generation_capture_runtime as runtime, period_calibrator as period
+    from scripts import selected_legacy_bootstrap as bootstrap
     _no_intent(control.data)
     session = runtime.begin(control.data.parent, generation_sha=generation_sha, clock=control.clock)
     runtime.persist(session.loader, capture_dir, checkout=session.checkout)
+    session = bootstrap.select(session)
     inputs = pool_builder.load_inputs(session, freshness_profile=control.freshness_profile)
     pool = pool_builder.build(inputs)
     period.need(pool['calibration_adopted'] is True, 'MY_generation_base_gate_held')
@@ -88,7 +90,7 @@ def _legacy(control, *, generation_sha, capture_dir):
     period.need(archive is not None and session.last_binding is not None, 'MY_generation_binding_missing')
     _no_intent(control.data)
     return {'archive_changed': changed, 'archive_cards': len(archive['cards']),
-        'period_generation_id': None, 'application_id': None, 'owner_head_event_id': None}, session.last_binding
+        'period_generation_id': None, 'application_id': None, 'owner_head_event_id': None}, bootstrap.wrap(session.last_binding, session)
 
 
 def run(*, data_dir, engine_checkout, engine_commit, authority_id, actor_ref,
@@ -146,6 +148,8 @@ def run(*, data_dir, engine_checkout, engine_commit, authority_id, actor_ref,
             and period.files.git(control.engine_checkout, 'rev-parse', 'HEAD') == engine_commit,
             'MY_generation_engine_changed')
     period.need(runtime.head_identity(checkout) == generation_sha, 'MY_generation_source_commit_mismatch')
+    from scripts import selected_legacy_bootstrap as bootstrap
+    inner_binding, _ = bootstrap.unwrap(binding)
     # Reuse the original immutable artifact. Return only its basename, never a
     # caller path, token or private evidence body in the workflow JSON protocol.
     binding_path = runtime.persist(binding, private, checkout=checkout)
@@ -159,8 +163,8 @@ def run(*, data_dir, engine_checkout, engine_commit, authority_id, actor_ref,
         'generation_sha': generation_sha,
         'engine_used': bool(engine_used), 'engine_commit_verified': bool(engine_used),
         'freshness_profile': freshness_profile, 'owner_intent_action': action,
-        'runtime_binding_id': binding['runtime_binding_id'],
-        'target_generation_id': binding['binding']['target_generation_id'],
+        'runtime_binding_id': inner_binding['runtime_binding_id'],
+        'target_generation_id': inner_binding['binding']['target_generation_id'],
         'binding_artifact_name': binding_path.name, **result, **FLAGS}
 
 

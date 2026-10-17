@@ -11,7 +11,7 @@ from scripts import period_calibrator as period
 from scripts import learning_journal as journal
 
 
-def replay_binding(value, *, pool_writer='period_canonical'):
+def replay_binding(value, *, pool_writer='period_canonical', retained_unknown=None):
     """Replay actual offers, journal population and first-sight archive append.
 
     Runs the trusted local producer over the explicit original inputs. Source
@@ -70,8 +70,9 @@ def replay_binding(value, *, pool_writer='period_canonical'):
     period.need(outputs['data/leg_pool.json'] == pool_raw,
         'period_MY_pool_writer_bytes_changed')
     authority = gate.sem.publication._authority(graph, capture['season'], capture['week'])
+    membership_options = {} if retained_unknown is None else {'retained_unknown': retained_unknown}
     members, unsupported = gate.sem._membership(archive, authority, bound['target_generation_id'],
-        capture['season'], capture['week'], gate._time(recorded), gate._time(bound['bound_utc_claim']))
+        capture['season'], capture['week'], gate._time(recorded), gate._time(bound['bound_utc_claim']), **membership_options)
     previous_ids = {c['card_id'] for c in (previous or {}).get('cards') or []}
     return period.sealed({'version': 2, 'kind': 'nfl.period_MY_downstream_replay.v2',
         'status': 'as_generated_offers_journal_and_archive_replayed',

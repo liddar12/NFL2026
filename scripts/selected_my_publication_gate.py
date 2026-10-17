@@ -24,6 +24,7 @@ from scripts import my_freshness
 from scripts import period_my_generation as downstream
 from scripts import period_publication_gate as publication
 from scripts import period_source_eligibility as source_facts
+from scripts import selected_legacy_bootstrap as bootstrap
 
 FLAGS = {**publication.FLAGS, 'model_approval_recorded': False,
     'model_adoption': False, 'engine_used': False}
@@ -99,6 +100,8 @@ def check_selected(value, *, checkout, expected_head, base_head, clock=runtime._
         and expected_head != base_head, 'selected_MY_exact_distinct_heads_required')
     _head(root, expected_head)
     retained = history.check_history(root, expected_head, base_head)
+    value, legacy_proof, retained_unknown = bootstrap.verify(value, checkout=root,
+        expected_head=expected_head, base_head=base_head)
     value, loader = runtime._runtime_binding(value)
     capture, docs = gate._capture(loader['capture'])
     tracked = runtime._head_tree(root, expected_head)
@@ -157,7 +160,7 @@ def check_selected(value, *, checkout, expected_head, base_head, clock=runtime._
         'selected_MY_incumbent_base_gate_held')
     rebuilt = build_leg_pool.build(inputs)
     gate._same(rebuilt, pool, 'selected_MY_incumbent_pool_not_reproduced')
-    result = downstream.replay_binding(value, pool_writer='legacy_pretty')
+    result = downstream.replay_binding(value, pool_writer='legacy_pretty', retained_unknown=retained_unknown)
     # Check the full current offered card population, not retained first-sight
     # archive rows, which may intentionally be older display vintages.
     offered, _ = downstream.my.offered_cards(pool, docs['schedule']['games'],
@@ -186,6 +189,11 @@ def check_selected(value, *, checkout, expected_head, base_head, clock=runtime._
         'supported_MY_yardage_consumer_semantics_verified': True,
         'runtime_binding_id': value['runtime_binding_id'], 'capture_id': capture['capture_id'],
         'downstream_replay_id': result['downstream_replay_id'], 'source_eligibility_report': facts,
+        'retained_legacy_scope': None if legacy_proof is None else {
+            'bootstrap_proof_id': legacy_proof['bootstrap_proof_id'],
+            'unverified_receipt_ids': len(legacy_proof['unverified_receipt_ids']),
+            'unverified_locations': len(legacy_proof['unverified_locations']),
+            'legacy_history_verified': False, 'legacy_training_eligible': False},
         'selected_freshness_policy': policy, 'history_retention': retained,
         'checked_utc': final_checked, **FLAGS}, 'publication_check_id')
 
@@ -199,7 +207,7 @@ def main(argv=None, *, clock=runtime._utc):
     try:
         options = {'checkout': args.checkout, 'expected_head': args.expected_head,
             'base_head': args.base_head, 'clock': clock}
-        result = (check_selected(runtime.read_artifact(args.binding, checkout=args.checkout), **options)
+        result = (check_selected(bootstrap.read_artifact(args.binding, checkout=args.checkout), **options)
             if args.binding is not None else unchanged_or_not_applicable(**options))
         print(json.dumps(result, sort_keys=True))
         return 0

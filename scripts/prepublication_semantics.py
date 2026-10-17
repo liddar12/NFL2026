@@ -146,7 +146,7 @@ def _target(graph, expected, checked):
     return doc, pool
 
 
-def _membership(output, authority, target_id, season, week, target_recorded, checked):
+def _membership(output, authority, target_id, season, week, target_recorded, checked, *, retained_unknown=None):
     _require(isinstance(output, dict) and type(output.get("season")) is int and output["season"] == season
              and type(output.get("week")) is int and output["week"] == week, "output_period_mismatch")
     members, unsupported, seen = [], [], set()
@@ -171,6 +171,13 @@ def _membership(output, authority, target_id, season, week, target_recorded, che
                      "output_receipt_identity_or_serving_mismatch")
             rid = receipt["receipt_id"]
             known = authority.get(rid, [])
+            if not known and retained_unknown is not None:
+                old = retained_unknown['cards'].get(card['card_id'])
+                allowed = (card['card_id'], index, rid) in retained_unknown['locations']
+                if allowed and old is not None and ex._same_json(card, old):
+                    unsupported.append({**location, 'reason': 'retained_prejournal_vintage_unverified',
+                        'source_receipt_id': rid})
+                    continue
             _require(known and all(ex._same_json(receipt, row["source"]) for row in known), "output_receipt_missing_or_conflicting_authority")
             matched = {row["lineage"]["generation_id"]: row for row in known if rid in row["offered"].get(card["card_id"], set())}
             _require(matched, "output_receipt_not_offered_for_card")
