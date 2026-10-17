@@ -10,6 +10,16 @@
 name: daily-pipeline
 
 on:
+  # A reviewed release/config change starts its first real refresh immediately.
+  # Generated data-only commits do not match, so the publisher cannot recurse.
+  push:
+    branches: [main]
+    paths:
+      - config/selflearning_pilot.json
+      - .github/workflows/daily.yml
+      - scripts/run_my_generation.py
+      - scripts/publish_my_generation.py
+      - scripts/pilot_config.py
   # R78 (owner's standing order, 2026-09-17): a morning and an evening refresh
   # every day, plus one hour before each kickoff window (Mon/Thu night, the
   # three Sunday windows). Times are America/New_York expressed in UTC while
@@ -53,17 +63,23 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Resolve reviewed NFL feedback configuration
+        id: selflearn_config
+        env:
+          SELFLEARN_NFL_PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: python3 -I -S -B scripts/pilot_config.py --config config/selflearning_pilot.json --github-output "$GITHUB_OUTPUT"
+
       # Optional dependency checkout precedes the recorded execution span.
       # Public repository; no extra hosted or cross-repository secret.
       - name: Checkout pinned SelfLearning pilot engine (optional)
-        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        if: steps.selflearn_config.outputs.enabled == '1'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: liddar12/SelfLearning
-          ref: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+          ref: ${{ steps.selflearn_config.outputs.engine_commit }}
           path: .selflearn-engine
           persist-credentials: false
-        continue-on-error: true
 
       # Heavy data libs live ONLY on the pipeline runner, never in the gate. The gate
       # (ci.yml) installs nothing.
@@ -170,19 +186,16 @@ jobs:
       # It refuses to write if its calibration has not cleared its own gate, so a
       # red gate leaves the previous pool standing rather than shipping legs
       # priced by coefficients that did not pass.
-      - name: MY PARLAYS leg pool (wide player universe, in-support rungs only)
-        run: bash scripts/stage.sh daily "MY PARLAYS leg pool (wide player universe, in-support rungs only)" -- python3 scripts/build_leg_pool.py
-
-      # R87 — RECORD WHAT MY PARLAYS OFFERED. MY cards are built in the browser and
-      # then gone, so nothing could grade them and the learning loop never saw the
-      # surface that produces the most cards. This rebuilds, from the pool just
-      # written, the ten cards the view would have offered for every team seed at
-      # every dial AT THE POOL'S OWN generated_utc — the moment they were offered —
-      # and appends anything new. Immediately after the pool step because it reads
-      # that pool and stamps its as-of; first sight locks the as-made numbers and
-      # a second run on the same pool changes no bytes.
-      - name: MY PARLAYS offered cards (first-sight lock)
-        run: bash scripts/stage.sh daily "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
+      # One actual pool -> MY writer/capture chain. No owner intent keeps the
+      # existing legacy calibration policy without requiring the engine. Explicit
+      # intent is independently reverified; this never prepares/approves a model.
+      - name: MY PARLAYS generation (selected freshness, existing intent only)
+        env:
+          SELFLEARN_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
+          SELFLEARN_AUTHORITY_ID: ${{ steps.selflearn_config.outputs.authority_id }}
+          SELFLEARN_ACTOR_REF: ${{ steps.selflearn_config.outputs.actor_ref }}
+          MY_FRESHNESS_PROFILE: ${{ steps.selflearn_config.outputs.freshness_profile }}
+        run: bash scripts/stage.sh daily "MY PARLAYS generation (selected freshness, existing intent only)" -- python3 -I -S -B scripts/run_my_generation.py --execute --data-dir data --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_ENGINE_COMMIT" --authority-id "$SELFLEARN_AUTHORITY_ID" --actor-ref "$SELFLEARN_ACTOR_REF" --capture-dir "$RUNNER_TEMP/my-generation" --generation-sha "$GITHUB_SHA" --freshness-profile "$MY_FRESHNESS_PROFILE" > "$RUNNER_TEMP/my-generation-result.json"
 
       # R101c — this week's WEEK-scope ANYTIME-TD cards (ALL TD / MAJORITY TD / 50%+,
       # 2-10 legs), built from the pool just written at the pool's own prices (the
@@ -305,32 +318,16 @@ jobs:
       # SelfLearning is public; no new Supabase/Vercel/cross-repo secret needed.
       - name: Shared parlay feedback pilot
         id: shared_feedback
-        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        if: steps.selflearn_config.outputs.enabled == '1'
         timeout-minutes: 15
         env:
-          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
         run: bash scripts/stage.sh --continue-on-error daily "Shared parlay feedback pilot" -- python3 -I -S -B scripts/run_parlay_feedback.py --execute --fetch-outcomes --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_NFL_ENGINE_COMMIT"
         continue-on-error: true
 
       - name: Record disabled shared parlay feedback pilot
-        if: vars.SELFLEARN_NFL_PILOT_ENABLED != '1'
+        if: steps.selflearn_config.outputs.enabled != '1'
         run: python3 scripts/stage_status.py skip --workflow daily --stage "Shared parlay feedback pilot" --reason "Default-off pilot; no shared evaluation or adoption ran"
-
-      # continue-on-error preserves the incumbent, but must not turn the whole
-      # job's green conclusion into evidence of a successful feedback attempt.
-      - name: Summarize shared feedback attempt (measure only)
-        if: always()
-        env:
-          PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
-          PILOT_OUTCOME: ${{ steps.shared_feedback.outcome }}
-        run: |
-          case "$PILOT_ENABLED:$PILOT_OUTCOME" in
-            1:success) outcome="Measurement completed; inspect the saved cohort and HOLD reasons." ;;
-            1:failure) outcome="FAILED; retained results are not a fresh success."; echo "::warning::Shared NFL feedback failed; the incumbent was not approved or replaced." ;;
-            1:*) outcome="NOT COMPLETED; no successful measurement is verified." ;;
-            *) outcome="DISABLED; no shared evaluation ran." ;;
-          esac
-          printf '%s\n' '### Shared NFL feedback (measure only)' "$outcome" 'No model was approved or activated by this step. A green job is not deployment or accuracy evidence.' >> "$GITHUB_STEP_SUMMARY"
 
       # R71 — post-game review over resolved estimates + the parlay-leg ledger.
       - name: Build post-game review (data/review.json)
@@ -357,6 +354,40 @@ jobs:
       - name: Validate shared feedback immutable records
         run: python3 -I -S -B scripts/run_parlay_feedback.py --check-records
 
+      # Operator summary, outside the wrapped generation/settlement span. A
+      # continue-on-error stage must not inherit the whole job's green result.
+      - name: Summarize shared feedback attempt (measure only)
+        if: always()
+        env:
+          CONFIG_OUTCOME: ${{ steps.selflearn_config.outcome }}
+          PILOT_ENABLED: ${{ steps.selflearn_config.outputs.enabled }}
+          PILOT_OUTCOME: ${{ steps.shared_feedback.outcome }}
+        run: |
+          if [ "$CONFIG_OUTCOME" != "success" ]; then
+            outcome="CONFIGURATION NOT VERIFIED; no successful measurement is verified."
+          else
+            case "$PILOT_ENABLED:$PILOT_OUTCOME" in
+            1:success) outcome="Measurement completed; inspect the saved cohort and HOLD reasons." ;;
+            1:failure) outcome="FAILED; retained results are not a fresh success."; echo "::warning::Shared NFL feedback failed; no shared-engine model was approved or activated." ;;
+            1:*) outcome="NOT COMPLETED; no successful measurement is verified." ;;
+            *) outcome="DISABLED; no shared evaluation ran." ;;
+            esac
+          fi
+          printf '%s\n' '### Shared NFL feedback (measure only)' "$outcome" 'No shared-engine model was approved or activated by this step. A green job is not deployment or accuracy evidence.' >> "$GITHUB_STEP_SUMMARY"
+
+      # Preserve original loader/checkpoint/binding evidence, including failed
+      # attempts. This artifact is recovery evidence, never a success/approval.
+      - name: Retain private MY generation evidence (7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-generation-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/my-generation/*.json
+            ${{ runner.temp }}/my-generation-result.json
+          retention-days: 7
+          if-no-files-found: warn
+
       # RACE-SAFE PUBLISH (F16). Other crons — gameday, and the weekly backtest
       # on this same concurrency group — may push while this run is committing.
       # The old body committed locally and then retried `git pull && git push`,
@@ -366,4 +397,8 @@ jobs:
       # picks up data/pipeline_stages.json, which lives under data/ like every
       # other generated artifact.
       - name: Commit data/
-        run: 'bash scripts/publish_data.sh "data: daily pipeline refresh [skip actions]"'
+        env:
+          SELFLEARN_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
+          SELFLEARN_AUTHORITY_ID: ${{ steps.selflearn_config.outputs.authority_id }}
+          SELFLEARN_ACTOR_REF: ${{ steps.selflearn_config.outputs.actor_ref }}
+        run: 'python3 -I -S -B scripts/publish_my_generation.py --execute --result-path "$RUNNER_TEMP/my-generation-result.json" --capture-dir "$RUNNER_TEMP/my-generation" --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_ENGINE_COMMIT" --authority-id "$SELFLEARN_AUTHORITY_ID" --actor-ref "$SELFLEARN_ACTOR_REF" --message "data: daily pipeline refresh [skip actions]"'

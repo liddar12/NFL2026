@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Opt-in MY generation under existing intent; never prepare or approve a model.
 
-No intent keeps the existing pool calibration, while explicitly applying the
-selected MY freshness policy. Existing intent must survive the actual period
+No intent keeps the existing legacy calibration policy, while explicitly applying
+the selected MY freshness policy. Existing intent must survive the actual period
 consumer's checks; its failure never becomes an unlabeled incumbent fallback.
 Outputs are local generation/capture identities, not publication permission.
 """
@@ -136,7 +136,7 @@ def run(*, data_dir, engine_checkout, engine_commit, authority_id, actor_ref,
         route = 'existing_explicit_owner_intent'
     else:
         # No journal or shared-code constructor/import is necessary just to
-        # retain the incumbent. A disabled measurement pilot can still refresh
+        # retain the legacy policy. A disabled measurement pilot can still refresh
         # eligible MY props under the selected source-only freshness policy.
         control = SimpleNamespace(data=data, freshness_profile=freshness_profile, clock=selected_clock)
         result, binding = _legacy(control, generation_sha=generation_sha, capture_dir=private)
@@ -156,6 +156,7 @@ def run(*, data_dir, engine_checkout, engine_commit, authority_id, actor_ref,
             'MY_generation_owner_changed')
     return {'version': 1, 'kind': 'nfl.MY_generation_run.v1',
         'status': 'local_MY_generated_not_published', 'route': route,
+        'generation_sha': generation_sha,
         'engine_used': bool(engine_used), 'engine_commit_verified': bool(engine_used),
         'freshness_profile': freshness_profile, 'owner_intent_action': action,
         'runtime_binding_id': binding['runtime_binding_id'],

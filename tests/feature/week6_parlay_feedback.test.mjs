@@ -217,13 +217,15 @@ test('Actions pilot is opt-in, pins shared source, bounds runtime and uses exist
  const pilot=source.slice(source.indexOf('- name: Shared parlay feedback pilot',start),end);
  const checkout=source.slice(start,source.indexOf('- name: Install pipeline dependencies',start));
  assert.ok(start>=0&&end>start);
- assert.match(pilot,/if: vars\.SELFLEARN_NFL_PILOT_ENABLED == '1'/);
- assert.match(checkout,/ref: \$\{\{ vars\.SELFLEARN_NFL_ENGINE_COMMIT \}\}/);
+ assert.match(source,/scripts\/pilot_config\.py --config config\/selflearning_pilot\.json --github-output/);
+ assert.match(pilot,/if: steps\.selflearn_config\.outputs\.enabled == '1'/);
+ assert.match(checkout,/ref: \$\{\{ steps\.selflearn_config\.outputs\.engine_commit \}\}/);
+ assert.ok(!checkout.includes('continue-on-error: true'),'an enabled pinned-engine checkout cannot silently degrade');
  assert.match(checkout,/persist-credentials: false/);
  assert.match(pilot,/timeout-minutes: 15/);
  assert.match(pilot,/stage\.sh --continue-on-error daily "Shared parlay feedback pilot"/);
  assert.match(pilot,/python3 -I -S -B scripts\/run_parlay_feedback\.py --execute --fetch-outcomes/);
- assert.match(pilot,/if: vars\.SELFLEARN_NFL_PILOT_ENABLED != '1'/);
+ assert.match(pilot,/if: steps\.selflearn_config\.outputs\.enabled != '1'/);
  assert.ok(end<source.indexOf('- name: Commit data/'));
  assert.ok(!pilot.includes('SELFLEARN_OPERATOR_TOKEN')&&!pilot.includes('supabase'));
  assert.match(source,/run: python3 -I -S -B scripts\/run_parlay_feedback\.py --check-records/);
