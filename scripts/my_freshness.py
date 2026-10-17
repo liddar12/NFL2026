@@ -94,7 +94,8 @@ def _safe_inactives(document, games, season, week, generated):
     An optional malformed, stale or differently scoped observation cannot turn
     a current player into a confirmed inactive. It is simply not consumed.
     """
-    if type(document) is not dict or document.get('season') != season or document.get('week') != week:
+    if type(document) is not dict or type(document.get('season')) is not int or document['season'] != season \
+            or type(document.get('week')) is not int or document['week'] != week:
         return None
     try:
         updated = _time(document.get('updated_utc'))
@@ -115,6 +116,9 @@ def _safe_inactives(document, games, season, week, generated):
         game = games.get(row['game_id'])
         if game is None or counts[row['game_id']] != 1 or any(
                 row.get(key) != game.get(key) for key in ('home', 'away', 'kickoff_utc')):
+            continue
+        if any(key in row and (type(row[key]) is not int or row[key] != expected)
+                for key, expected in (('season', season), ('week', week))):
             continue
         try:
             fetched = _time(row.get('fetched_utc'))

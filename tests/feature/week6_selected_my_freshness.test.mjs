@@ -170,12 +170,20 @@ game=copy.deepcopy(base['schedule']['games'][0])
 game.update(fetched_utc='2026-10-16T20:00:00Z',inactive={'SEA':[],'LAR':[{'espn_id':'2'}]})
 base['inactives']={'season':2026,'week':6,'updated_utc':'2026-10-16T20:00:00Z','games':[game]}
 rows=[]
-for mode in('fresh','wrong_season','wrong_week','wrong_game','wrong_team','wrong_kickoff','future_fetch',
+for mode in('fresh','no_row_period','wrong_season','wrong_week','row_season','row_week','row_season_float',
+            'row_week_float','row_week_null','wrong_game','wrong_team','wrong_kickoff','future_fetch',
             'future_document','fetch_after_document','stale','missing_fetch','missing_updated','duplicate_game',
             'bad_games','bad_row','bad_inactive','bad_players','bad_player'):
  source=copy.deepcopy(base);doc=source['inactives'];row=doc['games'][0]
- if mode=='wrong_season':doc['season']=2025
+ if mode=='no_row_period':
+  row.pop('season',None);row.pop('week',None)
+ elif mode=='wrong_season':doc['season']=2025
  elif mode=='wrong_week':doc['week']=5
+ elif mode=='row_season':row['season']=2025
+ elif mode=='row_week':row['week']=5
+ elif mode=='row_season_float':row['season']=2026.0
+ elif mode=='row_week_float':row['week']=6.0
+ elif mode=='row_week_null':row['week']=None
  elif mode=='wrong_game':row['game_id']='OLD-GAME'
  elif mode=='wrong_team':row['home']='DAL'
  elif mode=='wrong_kickoff':row['kickoff_utc']='2026-10-18T17:00:00Z'
@@ -198,7 +206,7 @@ for mode in('fresh','wrong_season','wrong_week','wrong_game','wrong_team','wrong
 print(json.dumps(rows))
 `);
   for (const row of r) {
-    assert.equal(row.ids.includes('espn-2'), row.mode !== 'fresh', row.mode);
+    assert.equal(row.ids.includes('espn-2'), !['fresh', 'no_row_period'].includes(row.mode), row.mode);
     assert.ok(row.ids.includes('espn-1') && row.ids.includes('espn-3'), row.mode);
     assert.equal(row.verify, true, row.mode);
     assert.equal(row.confirmation, false, row.mode);
