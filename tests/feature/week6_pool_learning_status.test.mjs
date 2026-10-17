@@ -60,12 +60,35 @@ test('an actual once-served legacy correction reports its receipt version withou
 });
 
 test('missing old metadata is unknown, never invented learning adoption or global withholding', () => {
-  for (const p of [null, {}, { players: [] }, JSON.parse(readFileSync(new URL('../../data/leg_pool.json', import.meta.url)))]) {
+  // An actual old-generation fixture, not today's selected pool examined at a
+  // clock before it existed. Never strip a selected policy to manufacture a pass.
+  const old = structuredClone(base);
+  for (const key of ['base_model_version', 'learning_receipt_policy']) delete old[key];
+  for (const player of old.players) for (const rung of player.rungs) delete rung.learning_receipt;
+  for (const p of [null, {}, { players: [] }, old]) {
     const s = poolLearningStatus(p, now);
     assert.equal(s.blockProps, false);
     assert.equal(s.artifactId, null);
     assert.ok(['unknown', 'unavailable'].includes(s.state));
   }
+});
+
+test('a selected-policy pool is held at a clock before generation, not downgraded to legacy unknown', () => {
+  // Synthetic display policy over actual producer prices; not an authoritative
+  // source check, publication proof or owner approval. Always runs, independent
+  // of whether the checked-out committed generation has selected this policy.
+  const p = structuredClone(base);
+  p.freshness_policy = { version: 1, profile: 'provisional_before_90m_v1',
+    policy_id: H('8'), generated_utc: p.generated_utc,
+    games: [...new Set(p.players.map((r) => r.game_id))].map((game_id) => ({ game_id,
+      state: 'provisional', check_due_utc: '2026-10-17T14:00:00Z',
+      source_expires_utc: '2026-10-17T08:00:00Z', blocked_player_ids: [], player_source_expires: {} })) };
+  assert.equal(poolLearningStatus(p, Date.parse(p.generated_utc)).freshnessInvalid, undefined);
+  const s = poolLearningStatus(p, Date.parse(p.generated_utc) - 1);
+  assert.equal(s.freshnessSelected, true);
+  assert.equal(s.freshnessInvalid, true);
+  assert.equal(s.blockProps, true);
+  assert.equal(learningEligibleLegs([{ market: 'wr_rec_yds' }, { market: 'moneyline' }], s).length, 1);
 });
 
 test('a saved approve/rollback/revoke displays the actual rung version, not an unrelated proposal', () => {

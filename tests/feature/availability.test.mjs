@@ -344,46 +344,16 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
   const proj = read('../../data/player_projections.json');
   const injuries = read('../../data/injuries.json');
 
-  const norm = (s) => String(s || '').replace(/\./g, '').toLowerCase()
-    .split(/\s+/).filter(Boolean).join(' ');
-  const report = new Map();
-  const byName = new Map();
-  const nameTeams = new Map();
-  for (const r of injuries.injuries) {
-    const key = `${r.team}|${norm(r.player)}`;
-    if (!report.has(key)) report.set(key, []);
-    report.get(key).push(r);
-    const n = norm(r.player);
-    if (!nameTeams.has(n)) nameTeams.set(n, new Set());
-    nameTeams.get(n).add(r.team);
-    if (!byName.has(n)) byName.set(n, []);
-    byName.get(n).push(r);
-  }
-  // R39 (2026-09-01): the R32 offseason-mover name fallback, mirrored — this
-  // test joined on exact (team, name) only while the producer and validator
-  // both fall back to a UNIQUE report name (availability.lookup_report;
-  // validator rule 4 mirrored it in R33). The gap sat latent until a mover
-  // (pool team = last season's, report team = current) carried a season IR
-  // flag in a committed data run and this file called the producer's honest
-  // block an orphan. Same guards as the producer: a report name on two teams
-  // never matches by name, and a pool-duplicated name never falls back.
-  const poolDups = new Set();
-  {
-    const seen = new Set();
-    for (const pr of proj.players) {
-      const n = norm(pr.name);
-      if (seen.has(n)) poolDups.add(n);
-      seen.add(n);
-    }
-  }
-  const lookupRows = (team, name) => {
-    const n = norm(name);
-    const exact = report.get(`${team}|${n}`);
-    if (exact) return exact;
-    if (poolDups.has(n)) return undefined;
-    if ((nameTeams.get(n) || new Set()).size !== 1) return undefined;
-    return byName.get(n);
-  };
+  // Use the consumer's current ID-first witness, not the retired name-only
+  // approximation. The binding's exact ID/team, conflicting-ID and ambiguity
+  // semantics are locked against hand-written expectations in the test below.
+  // This never relaxes suffix/name matching or treats a refusal as medical OUT.
+  const binding = runPy(`import json
+from scripts import availability as A
+p=json.load(open('data/player_projections.json'))
+i=json.load(open('data/injuries.json'))
+r=A.resolve_report(p['players'],i['injuries'])
+print(json.dumps({'rows':r['rows'],'refusals':r['refusals']}))`);
 
   let blocked = 0;
   let ending = 0;
@@ -405,7 +375,7 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       return;
     }
     // NO ORPHAN FLAGS: the app can never show an IR badge that no feed backs.
-    const rows = lookupRows(proj.players[i].team, proj.players[i].name);
+    const rows = binding.rows[p.gsis_id];
     assert.ok(rows, `${p.gsis_id}: flagged ${a.status} with no row in injuries.json`);
     assert.ok(rows.some((r) => r.availability === a.status),
       `${p.gsis_id}: flagged ${a.status} but the feed says ` +
@@ -481,6 +451,30 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
   assert.equal(meta.min_weeks_rule, 4);
   assert.ok(Math.abs(meta.season_points_removed - removed) <= 0.05,
     'model.availability.season_points_removed does not match the players');
+});
+
+test('ID-first injury witnesses accept same-ID/team suffix changes and refuse conflicting or ambiguous identities', () => {
+  const result = runPy(`import json
+from scripts import availability as A
+p={'gsis_id':'espn-42','name':'Deebo Samuel','team':'SF','position':'WR'}
+r={'athlete_id':'42','player':'Deebo Samuel Sr.','team':'SF','availability':'OUT'}
+cases={
+ 'suffix':([p],[r]),
+ 'wrong_team':([p],[dict(r,team='SEA')]),
+ 'conflicting_report':([p],[dict(r,espn_id='99')]),
+ 'conflicting_player':([dict(p,athlete_id='99')],[r]),
+ 'ambiguous_player':([p,dict(p,gsis_id='legacy-other',athlete_id='42')],[r]),
+ 'other_id_same_name':([p],[dict(r,athlete_id='99',player=p['name'])]),
+ 'suffix_without_id':([p],[{k:v for k,v in r.items() if k!='athlete_id'}]),
+}
+print(json.dumps({k:{'matched':list(v['rows']), 'refusals':v['refusals']}
+ for k,(ps,rs) in cases.items() for v in [A.resolve_report(ps,rs)]}))`);
+  assert.deepEqual(result.suffix, { matched: ['espn-42'], refusals: {} });
+  assert.equal(result.wrong_team.refusals['espn-42'], 'injury_identity_team_conflict');
+  assert.equal(result.conflicting_report.refusals['espn-42'], 'conflicting_injury_identity');
+  assert.equal(result.conflicting_player.refusals['espn-42'], 'conflicting_injury_identity');
+  assert.equal(result.ambiguous_player.refusals['espn-42'], 'ambiguous_injury_identity');
+  for (const [name, value] of Object.entries(result)) if (name !== 'suffix') assert.deepEqual(value.matched, [], name);
 });
 
 /* --------------------------------------------------------- loud at the boundary */
