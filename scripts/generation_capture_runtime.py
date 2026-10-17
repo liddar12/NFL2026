@@ -246,6 +246,7 @@ def _thaw_raw(values, *, allow_empty=False):
 
 def _output_root(path, checkout):
     root = _no_links(_alias(path))
+    checkout = _no_links(_alias(checkout))
     _need(len(root.parts) >= 3 and root != checkout and root not in checkout.parents and checkout not in root.parents,
           "capture_output_overlaps_authority")
     _need(not any((p / ".git").exists() for p in (root, *root.parents)), "capture_output_inside_checkout")
@@ -326,6 +327,8 @@ class GenerationCapture:
         self.pool_bytes = None
         self.my_reads = None
         self.generated_utc = None
+        self.last_checkpoint = None
+        self.last_binding = None
 
     @_safe
     def pool_inputs(self):
@@ -356,8 +359,10 @@ class GenerationCapture:
         _need(self.pool_bytes is None or self.pool_bytes == raw, "immutable_capture_pool_conflict")
         self.pool_bytes = raw
         self.generated_utc = pool["generated_utc"]
-        return _sealed({"version": 1, "kind": "nfl.generation_pool_checkpoint.v1", "loader": self.loader,
+        result = _sealed({"version": 1, "kind": "nfl.generation_pool_checkpoint.v1", "loader": self.loader,
             "pool": _freeze_raw({"data/leg_pool.json": raw})}, "checkpoint_id")
+        self.last_checkpoint = result
+        return result
 
     @_safe
     def my_inputs(self):
@@ -388,8 +393,10 @@ class GenerationCapture:
         outputs = {"data/leg_pool.json": self.pool_bytes, _input_paths(capture["season"], capture["week"])["previous_my_cards"]: my_raw}
         binding = gate.bind_generation(capture, graph, outputs, target_generation_id=target_generation_id,
             generated_utc=pool["generated_utc"], bound_utc=_clock(self.clock))
-        return _sealed({"version": 1, "kind": "nfl.generation_runtime_binding.v1", "loader": self.loader,
+        result = _sealed({"version": 1, "kind": "nfl.generation_runtime_binding.v1", "loader": self.loader,
             "my_stage_reads": self.my_reads, "binding": binding, "claims": dict(CLAIMS)}, "runtime_binding_id")
+        self.last_binding = result
+        return result
 
     @_safe
     def journal_graph(self, journal, pool, schedule, calibration, archive, snapshot_dir):

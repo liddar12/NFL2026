@@ -27,7 +27,8 @@ CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_
       "scripts/availability.py","scripts/period_calibrator.py","scripts/build_weekly.py",
       "scripts/build_predictions.py","scripts/scrape/renames.py","scripts/excluded_games.py",
       "scripts/materialize_calibrator.py","scripts/run_parlay_feedback.py","scripts/export_learning.py",
-      "scripts/capture_outcome_evidence.py","scripts/prepublication_semantics.py")
+      "scripts/capture_outcome_evidence.py","scripts/prepublication_semantics.py",
+      "scripts/generation_capture_runtime.py","scripts/period_my_generation.py")
 
 
 class PeriodReturnError(ValueError):pass
@@ -92,6 +93,7 @@ class PeriodCalibrator:
             fd=files.os.open(path.parent,files.os.O_RDONLY)
             try:files.os.fsync(fd)
             finally:files.os.close(fd)
+            return raw
         finally:
             if temporary is not None:temporary.unlink(missing_ok=True)
 
@@ -480,9 +482,21 @@ class PeriodCalibrator:
             'expires_utc':cmd['expires_utc'],'evidence_basis':scope['evidence_basis']}
         return sealed(value,'application_context_id')
 
-    def apply_and_save(self,inputs=None):
+    def apply_and_save(self,inputs=None,*,capture_runtime=None,capture_out_dir=None):
         """Actual local pool generation plus application record; no Git push."""
         from scripts import build_leg_pool
+        from scripts import generation_capture_runtime as runtime
+        need((capture_runtime is None)==(capture_out_dir is None),'period_return_capture_pair_required')
+        if capture_runtime is not None:
+            need(type(capture_runtime)is runtime.GenerationCapture and inputs is None,
+                 'period_return_configured_capture_required')
+            need(self.data==capture_runtime.checkout/'data','period_return_capture_data_mismatch')
+            runtime._output_root(capture_out_dir,capture_runtime.checkout)
+            runtime._output_root(capture_out_dir,self.engine_checkout)
+            # These are the parsed values actually returned by the earlier
+            # explicit loader. The repository reads below are REVALIDATION,
+            # never relabeled as that earlier original read.
+            inputs=capture_runtime.pool_inputs()
         with self.journal.lock(NS):
             self._recover()
             actual,raw=self.repository_snapshot()
@@ -495,6 +509,15 @@ class PeriodCalibrator:
             inputs=self.core.plain(inputs)
             if 'generation_sha'not in inputs:inputs['generation_sha']=files.os.environ.get('GITHUB_SHA')
             self._generation_inputs=self.input_capture(inputs,raw)
+            if capture_runtime is not None:
+                source=capture_runtime.loader['capture']['inputs']
+                for name,row in raw.items():
+                    expected=source[name]
+                    original=expected['raw_utf8'].encode()
+                    need((row['state']=='absent_optional')==
+                         (capture_runtime.loader['read_observations'][name]['state']=='absent_optional')
+                         and (row['raw_utf8'].encode()if row['raw_utf8']is not None else b'null')==original,
+                         'period_return_original_capture_changed')
             doc=build_leg_pool.build(inputs,calibration_return=self)
             need(doc['calibration_adopted']is True,'period_return_base_gate_held')
             plan=self.last_plan
@@ -528,7 +551,13 @@ class PeriodCalibrator:
             self._replace(self.path('pending.json'),pending)
             # Git publication is still a separate atomic boundary. A partial
             # local write must never be presented as a successful live release.
-            self._replace(self.data/'leg_pool.json',doc)
+            pool_raw=self._replace(self.data/'leg_pool.json',doc)
+            if capture_runtime is not None:
+                # Persist the exact writer buffer BEFORE acknowledging the new
+                # current pointer. A capture failure leaves the normal pending
+                # transaction for recovery and cannot become a publishable pool.
+                checkpoint=capture_runtime.record_pool_bytes(pool_raw)
+                runtime.persist(checkpoint,capture_out_dir,checkout=capture_runtime.checkout)
             self._replace(self.path('current.json'),pointer)
             self._immutable('transactions',pending,pending['transaction_id'])
             self._remove(self.path('pending.json'))

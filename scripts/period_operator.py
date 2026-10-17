@@ -7,6 +7,8 @@ risk acknowledgement records intent; applying is another explicit command.
 The publisher continues to refuse v2 until final MY semantics are implemented.
 """
 import argparse
+import contextlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -62,6 +64,9 @@ def main(argv=None, *, clock=period.files.now):
             command.add_argument('--ack-retrospective-risk', action='store_true',
                 help='Acknowledge that refitting-policy evidence is not prospective fixed-artifact validation')
     commands.add_parser('apply', help='Build/save a new local pool under existing verified intent; no auto-approval')
+    apply_my = commands.add_parser('apply-my', help='Build/save the actual MY archive with original-input/writer capture; no publication')
+    apply_my.add_argument('--generation-sha', required=True)
+    apply_my.add_argument('--capture-dir', required=True, help='Private persistent recovery directory outside the checkout')
     commands.add_parser('reverify', help='Read-only replay of the current local application; not a MY publication gate')
     args = parser.parse_args(argv)
     try:
@@ -83,6 +88,12 @@ def main(argv=None, *, clock=period.files.now):
             result = {'status': 'local_pool_saved_not_published', 'application_id': application['application_id'],
                 'artifact_id': application['artifact_id'], 'owner_head_event_id': application['owner_head_event_id'],
                 'pool_generated_utc': pool['generated_utc']}
+        elif args.operation == 'apply-my':
+            from scripts.period_my_generation import generate
+            # Keep the operator protocol one JSON result, not MY's human log or
+            # private recovery paths. The returned identities trace the records.
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = generate(control, generation_sha=args.generation_sha, capture_dir=args.capture_dir)
         else:
             result = {'status': 'local_application_replayed_not_publication_verified', 'details': control.reverify()}
         print(json.dumps({'version': 2, 'kind': 'nfl.period_local_operator_result.v2',
