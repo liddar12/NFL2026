@@ -135,3 +135,96 @@ test('publisher requires complete explicit v2 pins and retains the exact-tree de
   assert.equal(r.status, 2, r.stderr + r.stdout);
   assert.match(r.stderr, /all five period publication pins are required/);
 });
+
+test('actual publisher can settle an unchanged historical consumer but cannot publish an unpinned new pool', () => {
+  const r = py(String.raw`
+with tempfile.TemporaryDirectory()as tmp:
+ area=pathlib.Path(tmp);origin=area/'origin';work=area/'work'
+ subprocess.run(['git','init','--bare',str(origin)],check=True,capture_output=True,timeout=10)
+ subprocess.run(['git','clone',str(origin),str(work)],check=True,capture_output=True,timeout=10)
+ base=repo(work);git(work,'push','origin','HEAD:main');write(work,'data/review.json')
+ env={**os.environ,'PUBLISH_VALIDATE_CMD':'true','PUBLISH_BACKOFF_S':'0','PUBLISH_ATTEMPTS':'1'}
+ publisher=str(G.ROOT/'scripts/publish_data.sh')
+ good=subprocess.run(['bash',publisher,'synthetic historical settlement'],cwd=work,env=env,
+  capture_output=True,text=True,timeout=20)
+ assert good.returncode==0,good.stdout+good.stderr
+ accepted=git(origin,'rev-parse','refs/heads/main');assert accepted!=base
+ report=[json.loads(line)for line in good.stdout.splitlines()if line.startswith('{')][-1]
+ assert report['new_generation']is False and report['consumer_unchanged_proven']is True
+ write(work,'data/leg_pool.json',b'{"unapproved_new_pool":true}\n')
+ bad=subprocess.run(['bash',publisher,'synthetic new pool without pins'],cwd=work,env=env,
+  capture_output=True,text=True,timeout=20)
+ assert bad.returncode==1 and 'exact-tree consumer gate held'in bad.stdout
+ print(json.dumps({'good_exit':good.returncode,'bad_exit':bad.returncode,
+  'remote_unchanged_after_refusal':git(origin,'rev-parse','refs/heads/main')==accepted,
+  'local_fixture_only':True,'whole_release_pass':report['whole_release_pass']}))
+`);
+  assert.deepEqual(r, { good_exit: 0, bad_exit: 1, remote_unchanged_after_refusal: true,
+    local_fixture_only: true, whole_release_pass: false });
+});
+
+test('new-generation composition requires factual replay, selected policy, final clocks and only configured authority', () => {
+  const r = py(String.raw`
+# This deliberately stubs the independently tested producer replay and policy
+# interfaces. It tests composition/refusal, NOT an end-to-end generation PASS.
+import types,sys
+with tempfile.TemporaryDirectory()as tmp:
+ root=pathlib.Path(tmp);base=repo(root);write(root,'data/leg_pool.json',b'{"new_generation":true}\n');head=commit(root)
+ authority=G.period.lr.fingerprint('synthetic-authority');aid=G.period.lr.fingerprint('synthetic-application')
+ eid=G.period.lr.fingerprint('synthetic-event');gid=G.period.lr.fingerprint('synthetic-generation');pin='1'*40
+ scope=G.period.lr.fingerprint({'authority_id':authority,'namespace':G.period.NS})[7:]
+ headpath=G.CONTROL+'owner/heads/'+scope+'.json';eventpath=G.CONTROL+'owner/events/'+eid[7:]+'.json'
+ docs={k:{}for k in('schedule','injuries','depth_chart','inactives','player_weekly','player_projections','game_predictions')}
+ inventory={headpath:None,eventpath:None,G.CONTROL+'current.json':None}
+ values={headpath:{'head_event_id':eid},eventpath:{'event_id':eid,'authority_id':authority,'namespace':G.period.NS,'previous_event_id':None},
+  G.CONTROL+'generations/'+gid[7:]+'.json':{'runtime_binding':{'binding':{'capture':{}}}},
+  'data/leg_pool.json':{},G.CONTROL+'applications/'+aid[7:]+'.json':{
+   'forecast_created_utc':'2026-10-18T13:55:00Z','expires_utc':'2026-10-18T14:10:00Z'}}
+ class View:
+  def __init__(self,*args):self.tree=inventory
+  def document(self,name):return values[name]
+ facts={'frozen_weekly_eligibility_replayed':True}
+ proof={'source_eligibility_report':facts,'application_id':aid,'committed_MY_replay_id':gid}
+ policy={'consumer_policy_pass':True,'profile':'synthetic_registered_policy'}
+ module=types.ModuleType('scripts.my_freshness');module.PROFILE=policy['profile']
+ module.verify=lambda *args,**kw:dict(policy)
+ now=['2026-10-18T14:00:00Z']
+ def full():return G.check_publication(checkout=root,expected_head=head,base_head=base,
+  period_generation_id=gid,engine_checkout=root,engine_commit=pin,authority_id=authority,actor_ref='synthetic',clock=lambda:now[0])
+ with patch.object(G.replay,'check_committed',return_value=proof),patch.object(G.replay,'Snapshot',View),\
+      patch.object(G.replay.gate,'_capture',return_value=({},docs)),patch.object(G.period.files,'git',return_value=pin),\
+      patch.dict(sys.modules,{'scripts.my_freshness':module}):
+  # Existing cached imports must not cause the synthetic port to exercise a
+  # previous real module. Restore the package attribute after this subprocess.
+  import scripts;scripts.my_freshness=module
+  accepted=full();results=[]
+  facts['frozen_weekly_eligibility_replayed']=False;results.append(refusal(full));facts['frozen_weekly_eligibility_replayed']=True
+  policy['consumer_policy_pass']=False;results.append(refusal(full));policy['consumer_policy_pass']=True
+  policy['profile']='unselected';results.append(refusal(full));policy['profile']=module.PROFILE
+  inventory[G.CONTROL+'owner/heads/'+'f'*64+'.json']=None
+  results.append(refusal(full));del inventory[G.CONTROL+'owner/heads/'+'f'*64+'.json']
+  inventory[G.CONTROL+'unknown/'+gid[7:]+'.json']=None
+  results.append(refusal(full));del inventory[G.CONTROL+'unknown/'+gid[7:]+'.json']
+  inventory[G.CONTROL+'owner/events/'+'f'*64+'.json']=None
+  results.append(refusal(full));del inventory[G.CONTROL+'owner/events/'+'f'*64+'.json']
+  # The independent replay may finish before a policy calculation consumes the
+  # remaining authorization time. The final caller still checks it.
+  def expires(*args,**kw):now[0]='2026-10-18T14:10:00Z';return dict(policy)
+  module.verify=expires;results.append(refusal(full));now[0]='2026-10-18T14:00:00Z'
+  def late(*args,**kw):now[0]='2026-10-18T14:11:00Z';return dict(policy)
+  module.verify=late;results.append(refusal(full))
+ print(json.dumps({'accepted':accepted,'refusals':results,'stubbed_composition_only':True}))
+`);
+  assert.equal(r.stubbed_composition_only, true);
+  assert.equal(r.accepted.consumer_check_pass, true);
+  assert.equal(r.accepted.new_generation, true);
+  assert.equal(r.accepted.supported_MY_yardage_consumer_semantics_verified, true);
+  assert.equal(r.accepted.MY_card_semantics_verified, false);
+  assert.equal(r.accepted.publication_authorized, false);
+  assert.equal(r.accepted.owner_authenticated, false);
+  assert.deepEqual(r.refusals, ['period_publication_frozen_eligibility_held',
+    'period_publication_selected_freshness_held', 'period_publication_unselected_freshness_profile',
+    'period_publication_unconfigured_owner_scope', 'period_publication_unknown_control_record',
+    'period_publication_unacknowledged_owner_event', 'period_return_approval_expired',
+    'period_return_verification_deadline']);
+});
