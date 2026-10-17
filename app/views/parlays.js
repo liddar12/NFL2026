@@ -114,10 +114,11 @@
  */
 
 import {
-  getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards, getAtdGameCards,
+  getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, loadJson,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
 import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
+import { confChip, confClass } from '../bet-types.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -597,6 +598,14 @@ function annotateLegs(listEl, filtered) {
     parlay.legs.forEach((leg, li) => {
       const node = legNodes[li];
       if (!node) return;
+      // R133 — every leg carries its confidence tag (its own model chance); a
+      // spread is a flat 0.5 the model holds no opinion on, so it gets none.
+      const tagOd = leg.market !== 'spread' && node.querySelector('.leg-od');
+      if (tagOd) {
+        tagOd.insertAdjacentHTML('beforeend', confChip(leg.model_prob));
+        const cls = confClass(leg.model_prob);
+        if (cls) node.classList.add(cls);
+      }
       if (leg.market === 'spread') {
         const chip = document.createElement('span');
         chip.className = 'est leg-noedge';
@@ -803,8 +812,27 @@ export default async function mountParlays(el) {
   function paintBuckets() {
     const host = el.querySelector('#parlay-buckets');
     if (!host || !reviewMod) return;
-    host.innerHTML = reviewMod.renderParlayBuckets(
-      selWeek, reviewMod.parlayBucketCounts(selWeek), activeBucket);
+    // R133 — count what the viewer can see: the cards of the ACTIVE scope on the
+    // slate shown, each by the same resolver the bucket filter uses, so a chip
+    // never promises a card its list cannot show. A review row with no card on
+    // this slate (a card replaced before kickoff, or an excluded one) is named
+    // on its own line, never inside a bucket.
+    const all = reviewMod.parlayBucketCounts(selWeek);
+    let counts = all;
+    let off = 0;
+    if (all) {
+      const bucketOf = reviewMod.parlayBucketResolver(selWeek);
+      counts = Object.fromEntries(Object.keys(all).map((k) => [k, 0]));
+      let seen = 0;
+      visible().filter((p) => scopeOf(p) === active).forEach((p) => {
+        const b = bucketOf(p);
+        if (b && b in counts) { counts[b] += 1; seen += 1; }
+      });
+      off = Math.max(0, reviewMod.parlayRowCount(selWeek, active) - seen);
+    }
+    host.innerHTML = reviewMod.renderParlayBuckets(selWeek, counts, activeBucket)
+      + (off ? `<div class="state rv-off-slate">${off} graded ${active.toUpperCase()} card${off === 1 ? ' is' : 's are'} `
+        + 'not on this slate (replaced before kickoff or excluded) and not counted above.</div>' : '');
     syncRetroSummary();
   }
 
@@ -842,6 +870,7 @@ export default async function mountParlays(el) {
         paintLegSeg();
         paintTierSeg();
         paintList();
+        paintTd();
       });
       mod.prepareParlaySimulation(week, parlays);
       priceOffSlateRows();   // R121 — when the RETROSPECTIVE panel is already open
@@ -1035,24 +1064,26 @@ export default async function mountParlays(el) {
   }
 
   /*
-   * R101c — ANYTIME-TD cards on WEEK (owner: up to 10 legs, ALL TD / MAJORITY /
-   * 50%+; Gate 2 layout B); R101b — and on GAME. The module is loaded on the
-   * first TD paint and each scope's cards document only when a TD mode is chosen
-   * on that scope, never on a cold mount. The cards are the runner's — WEEK:
-   * scripts/build_atd_cards.py, one leg per game; GAME: build_atd_game_cards.py,
-   * one game per card, priced by the held-out-tested same-game pricer and only
-   * at the sizes it validated. This view only picks the mode and size and hides
-   * started games.
+   * R133 — the BET TYPE selector on WEEK and GAME (owner, 2026-10-17). It
+   * replaces the R101c TD pills there; MY keeps its own pills and dial. ALL is
+   * the published slate, and the − n + stepper is its leg filter (it replaces
+   * the 2 LEG … 7 LEG chips, which stay in the DOM, hidden, for the summary's
+   * sake). One or more types BUILD cards live from the leg pool
+   * (app/bet-types.js): browser-only, not recorded, not graded, and never in the
+   * ALL HIT buckets. Types apply to the current week only — a past week is the
+   * record, so it shows its published cards and the stepper alone. The module
+   * loads after first paint; the ~300 KB leg pool only on the first type tap.
    */
-  let td = null;
-  let atdMod = null;
-  // per scope: undefined = not loaded yet; null = unavailable
-  const atdDocs = { week: undefined, game: undefined };
-  const ATD_LOAD = { week: getAtdCards, game: getAtdGameCards };
+  let typeState = null;
+  let typeGame = null;  // GAME: the game picked in the dropdown (view state, not saved)
+  let btMod = null;
+  let typePool;     // undefined = not loaded yet; null = unavailable
+  let typeCalib = null;
   const ATD_HIDES = ['#parlay-filters', '.legend', '#parlay-retro', '#parlays-list', '#portfolio-risk',
     '.rv-strip--parlay'];
-  const tdEligible = () => (active === 'week' || active === 'game') && selWeek === curWeek;
-  const atdActive = () => tdEligible() && td && td.mode !== 'any';
+  const tdEligible = () => active === 'week' || active === 'game';
+  const typesOn = () => (typeState && selWeek === curWeek ? typeState.types : []);
+  const atdActive = () => tdEligible() && typesOn().length > 0;
 
   function setAtdMode(on) {
     const list = el.querySelector('#atd-list');
@@ -1071,32 +1102,84 @@ export default async function mountParlays(el) {
     if (!on) return;
     const listEl = el.querySelector('#atd-list');
     const scope = active;
-    if (atdDocs[scope] === undefined) {
-      listEl.innerHTML = '<div class="state state--loading">Loading anytime-TD cards…</div>';
-      try { atdDocs[scope] = await ATD_LOAD[scope](); } catch { atdDocs[scope] = null; }
+    if (typePool === undefined) {
+      listEl.innerHTML = '<div class="state state--loading">Loading the model’s legs…</div>';
+      try {
+        [typePool, typeCalib] = await Promise.all([
+          loadJson('/data/leg_pool.json'),
+          loadJson('/data/parlay_backtest.json').catch(() => null),
+        ]);
+      } catch { typePool = null; }
       if (!atdActive() || active !== scope) return;
     }
-    const doc = atdDocs[scope];
+    if (!typePool) {
+      listEl.innerHTML = '<div class="state">The model’s leg pool is unavailable, so no cards can be built.</div>';
+      betShown.atd = [];
+      return;
+    }
     const games = sched && sched.games;
-    const { cards, reason } = atdMod.atdCardsFor(doc, td.mode, td.legs, games);
-    listEl.innerHTML = cards.length
-      ? cards.map((c) => atdMod.renderAtdCard(c, { scope, pricer: doc.pricer, games })).join('')
-      : `<div class="state">${reason}</div>`;
+    const types = typesOn();
+    const legs = btMod.typeLegs(typePool, types, games);
+    // RC-02 — ONE effective count, the very value the stepper displays, for the
+    // generator too (a saved WEEK 10 shows 7 on GAME and must build 7).
+    const n = btMod.stepValue({ ...typeState, types }, scope, legCountsForScope());
+    let cards = [];
+    let html = '';
+    if (scope === 'game') {
+      const res = btMod.gameMixCards(legs, n, btMod.typeTable(typeCalib, typePool), typeGame);
+      cards = btMod.sortCards(res.cards, typeState.sort);
+      html = cards.length
+        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
+        : `<div class="state">${res.reason}</div>`;
+    } else {
+      // R133 — owner: whenever MONEYLINE is chosen, the two most likely
+      // moneyline-only cards ride above the mixed ones.
+      const onlyMl = types.length === 1 && types[0] === 'ml';
+      const ml = types.includes('ml') && !onlyMl ? btMod.moneylineCards(legs, n) : [];
+      const res = btMod.weekMixCards(legs, n);
+      const mix = btMod.sortCards(res.cards, typeState.sort);
+      cards = [...ml, ...mix];
+      html = (ml.length ? btMod.sectionHead('TOP MONEYLINE CARDS')
+          + ml.map((c) => btMod.renderTypeCard(c, { scope, types, games, label: 'MONEYLINE ONLY' })).join('') : '')
+        + (ml.length && mix.length ? btMod.sectionHead(typeState.sort === 'payout'
+          ? 'MIXED CARDS · BIGGEST PAYOUT FIRST' : 'MIXED CARDS · MOST LIKELY FIRST') : '')
+        + (mix.length ? mix.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
+          : `<div class="state">${res.reason}</div>`);
+    }
+    listEl.innerHTML = html;
     betShown.atd = cards;
     if (cards.length) addBetButtons(listEl, cards);
   }
 
   async function paintTd() {
     const host = el.querySelector('#td-controls');
+    const legBox = el.querySelector('#leg-controls');
+    if (legBox) legBox.hidden = true;
     if (!host) return;
     if (!tdEligible()) { host.hidden = true; setAtdMode(false); return; }
-    if (!atdMod) {
-      try { atdMod = await import('../atd-cards.js'); } catch { return; }
-      if (!td) td = atdMod.readTd();
+    if (!btMod) {
+      try { btMod = await import('../bet-types.js'); } catch { return; }
+      if (!typeState) typeState = btMod.readState();
       if (!tdEligible()) return;
     }
+    const eff = { ...typeState, types: typesOn() };
+    const counts = legCountsForScope();
+    if (!eff.types.length) {
+      const v = btMod.stepValue(eff, active, counts);
+      const leg = v == null || v === 'all' ? 'all' : String(v);
+      if (leg !== String(activeLeg)) {
+        activeLeg = leg;
+        paintLegSeg();
+        syncFiltersSummary();
+        paintList();
+      }
+    }
+    // the picker offers this week's games still to play (later weeks have no legs yet)
+    const open = btMod.openGames(((sched && sched.games) || []).filter((g) => Number(g.week) === Number(curWeek)));
+    if (!open.some((g) => String(g.game_id) === String(typeGame))) typeGame = open.length ? String(open[0].game_id) : null;
     host.hidden = false;
-    host.innerHTML = atdMod.tdControls(td);
+    host.innerHTML = btMod.typeControls(eff, active, counts,
+      { types: selWeek === curWeek, games: open, gameId: typeGame });
     await paintAtd();
   }
 
@@ -1280,6 +1363,9 @@ export default async function mountParlays(el) {
       if (!btn) return;
       const week = Number(btn.dataset.wk);
       if (!Number.isFinite(week) || week === selWeek) return;
+      // R73 — the leg count is per week (ALL on arrival), as the chips were;
+      // built cards on the current week keep their size.
+      if (typeState && !typesOn().length) typeState = { ...typeState, legs: 'all' };
       selectWeek(week).then(() => paintTd());
     });
   }
@@ -1306,6 +1392,9 @@ export default async function mountParlays(el) {
       if (!btn) return;
       active = btn.dataset.seg;
       activeLeg = 'all';
+      // R133 — switching scope resets the published-card leg filter to ALL, as
+      // the chips did; a built card keeps its size.
+      if (typeState && !typesOn().length) typeState = { ...typeState, legs: 'all' };
       seg.querySelectorAll('.seg-btn').forEach((b) => {
         const on = b === btn;
         b.classList.toggle('seg-btn--active', on);
@@ -1354,16 +1443,24 @@ export default async function mountParlays(el) {
     });
   }
 
-  // R101c — TD pills and the leg stepper (delegated on the persistent host).
+  // R133 — bet-type chips and the leg stepper (delegated on the persistent host).
   const tdBox = el.querySelector('#td-controls');
   if (tdBox) {
     tdBox.addEventListener('click', (e) => {
-      if (!atdMod || !td) return;
-      const next = atdMod.tdTap(td, e.target);
+      if (!btMod || !typeState) return;
+      const eff = { ...typeState, types: typesOn() };
+      const next = btMod.typeTap(eff, e.target, active, legCountsForScope());
       if (!next) return;
-      td = next;
-      atdMod.writeTd(td);
-      tdBox.innerHTML = atdMod.tdControls(td);
+      // a past week shows no type chips, so a tap there can only move the stepper
+      typeState = selWeek === curWeek ? next : { ...typeState, legs: next.legs };
+      btMod.writeState(typeState);
+      paintTd();
+    });
+    // R133 — GAME's game picker
+    tdBox.addEventListener('change', (e) => {
+      const pick = e.target.closest('#game-pick');
+      if (!pick || pick.value === typeGame) return;
+      typeGame = pick.value;
       paintAtd();
     });
   }

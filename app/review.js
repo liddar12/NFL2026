@@ -501,6 +501,12 @@ export function parlayBucketCounts(week, doc = docSync) {
   return b && typeof b === 'object' ? b : null;
 }
 
+/** R133 — how many review rows `week` holds for `scope` ('game' | 'week'). */
+export function parlayRowCount(week, scope, doc = docSync) {
+  const blk = weekBlock(doc, week);
+  return ((blk && blk.parlays) || []).filter((p) => p && (p.scope === 'week' ? 'week' : 'game') === scope).length;
+}
+
 /**
  * G03 — the join key for a card or a review row: `card_id`, the immutable leg
  * identity, when it is there; the rank-derived `parlay_id` otherwise (a pre-R90

@@ -49,54 +49,105 @@ async function open(page, doc = gameDoc) {
   await page.waitForSelector('.scopeseg [data-seg="game"]', { timeout: 20000 });
 }
 
-test('GAME: ALL TD cards are one game each, all TD, at the chosen size; 44 pt; no sideways scroll', async ({ page }) => {
+/* R133 (owner, 2026-10-17) — GAME's TD pills became the BET TYPE chips, and
+ * GAME is ONE game picked from a dropdown at 2-7 legs. Two legs are priced by
+ * the same-game correlation model; three or more are an ESTIMATE that chains
+ * the measured pair correlations (no backtest has validated them), and say so. */
+async function openTypes(page) {
+  // a fresh start per test; a reload marked 'keep' keeps the viewer's saved choice
+  await page.addInitScript(() => {
+    try { if (!sessionStorage.getItem('keep-types')) localStorage.removeItem('nfl2026.parlays.types.v1'); } catch (_) {}
+  });
+  await open(page);
+}
+
+test('GAME: pick a game; ANYTIME TD cards are that game\'s TD legs; 44 pt; no sideways scroll', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await open(page);
-  await page.click('#td-controls [data-td="all_td"]');
-  await page.click('#td-controls [data-step="-1"]');                  // 4 -> 3
-  await expect(page.locator('#td-controls .td-step-n')).toHaveText('3');
-  await expect(page.locator('#atd-list .atd-card[data-scope="game"]').first()).toBeVisible();
+  await openTypes(page);
+  await page.click('#td-controls [data-type="atd"]');
+  await expect(page.locator('#game-pick')).toBeVisible();
+  await expect(page.locator('#atd-list .type-card').first()).toBeVisible();
   await expect(page.locator('#parlays-list')).toBeHidden();
-  const cards = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => ({
-    head: c.querySelector('.p-head .lbl').textContent,
+  const options = await page.$$eval('#game-pick option', (os) => os.map((o) => [o.value, o.textContent]));
+  expect(options.length).toBeGreaterThan(1);
+  const second = options[1];
+  await page.selectOption('#game-pick', second[0]);
+  await expect(page.locator('#atd-list .type-card .p-head').first()).toContainText(second[1]);
+  const cards = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => ({
+    head: c.querySelector('.p-head').textContent,
     legs: [...c.querySelectorAll('.leg-nm')].map((n) => n.textContent),
-    note: c.querySelector('.corr').textContent,
   })));
-  const want = gameDoc.modes.all_td.cards['3'];
-  expect(cards.length).toBe(want.length);
-  cards.forEach((c, i) => {
-    expect(c.legs.length).toBe(3);
+  for (const c of cards) {
+    expect(c.head.split(' · ')[0]).toBe(second[1]);
+    expect(c.legs.length).toBe(2);
     for (const l of c.legs) expect(l).toMatch(/anytime TD$/);
-    expect(c.head.startsWith(label.get(String(want[i].legs[0].game_id)))).toBe(true);
-    expect(c.note).toMatch(/same-game model/);
-  });
-  for (const r of await page.$$eval('#td-controls button', (els) => els.map((e) => e.getBoundingClientRect()))) {
-    expect(Math.min(r.width, r.height)).toBeGreaterThanOrEqual(44);
   }
+  for (const [w, h] of await tapTargets(page, '#td-controls button, #game-pick')) expect(Math.min(w, h)).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width);
   expect(errors).toEqual([]);
 });
 
-test('GAME: a size the held-out test did not validate is not offered, and says so', async ({ page }) => {
-  await open(page);
-  await page.click('#td-controls [data-td="all_td"]');
-  await page.click('#td-controls [data-step="1"]');                   // 4 -> 5
-  await expect(page.locator('#atd-list .state')).toContainText('Not offered at 5 legs: not validated on held-out games');
-  await page.click('#td-controls [data-td="majority_td"]');
-  const rows = await page.$$eval('#atd-list .atd-card', (cs) => cs.map((c) => [...c.querySelectorAll('.leg-nm')].map((n) => /anytime TD$/.test(n.textContent))));
-  expect(rows.length).toBeGreaterThan(0);
-  for (const r of rows) {
-    expect(r.length).toBe(5);
-    expect(r.filter(Boolean).length * 2).toBeGreaterThan(r.length);
+test('GAME: up to 7 legs from one game; three or more are labelled an estimate', async ({ page }) => {
+  await openTypes(page);
+  await page.click('#td-controls [data-type="all"]');
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('2');
+  await expect(page.locator('#atd-list .type-card .ev .k').first()).toHaveText('MODEL HIT');
+  for (let i = 0; i < 10; i++) {
+    const plus = page.locator('#td-controls [data-step="1"]');
+    if (await plus.isDisabled()) break;
+    await plus.click();
   }
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('7');
+  await expect(page.locator('#td-controls .td-step-range')).toHaveText('2 – 7');
+  const first = page.locator('#atd-list .type-card').first();
+  await expect(first.locator('.leg')).toHaveCount(7);
+  await expect(first.locator('.ev .k')).toHaveText('EST. MODEL HIT');
+  await expect(first).toContainText('ESTIMATED by chaining the measured pair correlations');
 });
 
-test('GAME: no published game cards is an honest empty state, and ANY brings the slate back', async ({ page }) => {
-  await open(page, null);
-  await page.click('#td-controls [data-td="all_td"]');
-  await expect(page.locator('#atd-list .state')).toContainText('No anytime-TD cards are published for this view yet.');
-  await page.click('#td-controls [data-td="any"]');
+test('GAME: a kind one game cannot fill is an honest empty state, and PUBLISHED brings the slate back', async ({ page }) => {
+  await openTypes(page);
+  // a game offers at most one moneyline leg per card (the pool carries the pick's
+  // side), so MONEYLINE alone can never fill a 2-leg same-game card
+  await page.click('#td-controls [data-type="ml"]');
+  await expect(page.locator('#atd-list .state')).toContainText(/This game has [01] legs? of these kinds|No card of this size can be built from this game/);
+  await page.click('#td-controls [data-type="published"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
   await expect(page.locator('#atd-list')).toBeHidden();
 });
+
+test('RC-02: WEEK at 8, 9 and 10 legs switches to GAME at the displayed 7, and every card has 7 — reload too', async ({ page }) => {
+  await openTypes(page);
+  await page.click('.scopeseg [data-seg="week"]');
+  await page.click('#td-controls [data-type="all"]');
+  for (const want of ['8', '9', '10']) {
+    while ((await page.locator('#td-controls .td-step-n').textContent()).trim() !== want) {
+      await page.click('#td-controls [data-step="1"]');
+    }
+    await page.click('.scopeseg [data-seg="game"]');
+    await expect(page.locator('#td-controls .td-step-n')).toHaveText('7');
+    await page.waitForSelector('#atd-list .type-card');
+    const sizes = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => c.querySelectorAll('.leg').length));
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const n of sizes) expect(n).toBe(7);
+    await expect(page.locator('#atd-list .type-card .p-head').first()).toContainText('7 LEGS');
+    await page.click('.scopeseg [data-seg="week"]');
+  }
+  // the saved preference is 10; a reload straight onto GAME must still build 7
+  await page.click('.scopeseg [data-seg="game"]');
+  await page.evaluate(() => sessionStorage.setItem('keep-types', '1'));
+  await page.reload();
+  await page.waitForSelector('#td-controls [data-type="all"][aria-pressed="true"]', { timeout: 20000 });
+  await page.waitForSelector('#atd-list .type-card', { timeout: 20000 });
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('7');
+  const after = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => c.querySelectorAll('.leg').length));
+  for (const n of after) expect(n).toBe(7);
+});
+
+function tapTargets(page, sel) {
+  return page.$$eval(sel, (els) => els.map((e) => {
+    const r = e.getBoundingClientRect();
+    return [Math.round(r.width), Math.round(r.height)];
+  }));
+}

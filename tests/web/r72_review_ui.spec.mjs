@@ -24,6 +24,7 @@ const WEEK = Number(GP.week);
 const WK2 = WEEK + 1; // a second graded week (players) — schedule_full carries it
 const WK3 = WEEK + 2; // TBD-only week
 const BUCKETS = ['all_hit', 'push', 'partial', 'all_missed', 'pending'];
+import { setLegs, scopedBuckets } from './_legstep.mjs';
 const RESULT_OF = { all_hit: 'hit', push: 'void', partial: 'miss', all_missed: 'miss', pending: 'pending' };
 
 // Six committed players the fixture grades (pool order = the list's incoming order).
@@ -236,11 +237,13 @@ async function openRetro(page) {
 }
 
 test.describe('R72 — PARLAYS outcome buckets', () => {
-  test('counts from the summary, filter tap / untap with scope + leg count, a bucket chip per card', async ({ page }) => {
+  test('counts follow the scope shown, filter tap / untap with scope + leg count, a bucket chip per card', async ({ page }) => {
     const errors = collectErrors(page);
     const doc = fixture();
     const wk = doc.weeks[String(WEEK)];
-    const counts = wk.summary.parlays.buckets;
+    // R133 — a chip counts the ACTIVE scope's cards on the slate (GAME first),
+    // never the whole week: ALL HIT 1 over an empty list was the defect.
+    const counts = scopedBuckets(wk.parlays, 'game');
     await routeReview(page, doc);
     await page.goto('/#/parlays');
     await page.waitForSelector('.card.parlay', { timeout: 15000 });
@@ -289,10 +292,12 @@ test.describe('R72 — PARLAYS outcome buckets', () => {
 
     // combined with scope + leg count: WEEK scope, 3 LEG, PARTIAL
     await page.click('.seg-btn[data-seg="week"]');
-    // R90 — the leg-count chips moved into the collapsed FILTERS panel.
-    await page.evaluate(() => { const d = document.querySelector('#parlay-filters'); if (d) d.open = true; });
-    await page.waitForSelector('.leg-chip[data-leg="3"]', { timeout: 5000 });
-    await page.click('.leg-chip[data-leg="3"]');
+    // R133 — the leg count is the − n + stepper now.
+    await setLegs(page, 3);
+    const weekCounts = scopedBuckets(wk.parlays, 'week');
+    for (const b of BUCKETS) {
+      await expect(page.locator(`.rv-bucket[data-bucket="${b}"] .rv-bucket-n`)).toHaveText(String(weekCounts[b]));
+    }
     await page.click('.rv-bucket[data-bucket="partial"]');
     const legsOf = new Map(PARLAYS.parlays.map((p) => [p.parlay_id, p.legs.length]));
     const expected = wk.parlays.filter((p) => p.scope === 'week' && legsOf.get(p.parlay_id) === 3 && p.bucket === 'partial');
