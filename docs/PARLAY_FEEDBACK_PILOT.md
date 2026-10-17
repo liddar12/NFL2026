@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 4 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
+Revision 5 · October 16, 2026, 8:53 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -8,7 +8,7 @@ shared SelfLearning evaluator through the existing Actions pipeline. It saves
 complete records in Git-backed files; it does not require the new Supabase
 migrations or a working Vercel connection. It remains disabled and does not
 activate a model. MODEL now has a saved shadow-evaluation row; adoption/rollback,
-Review integration and Parlay exposure remain required Sunday work.
+Review integration and browser/live acceptance remain required Sunday work.
 
 ## Current implementation
 
@@ -62,6 +62,39 @@ source/test/tool/head identities and **8,372/8,683 = 96.4183%** executable lines
 The engine report is `docs/reviews/2026-10-16-critical48-committed-status-coverage.json`;
 NFL log: `/private/tmp/nfl-committed-feedback-status-full-gate-root-20261016.log`.
 The earlier baseline and red run below remain historical evidence.
+
+### Game and MY exposure follow-up
+
+NFL `c63f34fe` adds repeated-selection and shared-game counts on the actual shown
+Game/MY cards. An exact repeated selection has an explicit card-loss count;
+different player IDs, markets, lines or games do not merge by abbreviated text.
+Shared games are labeled separately and do not imply one common losing result.
+Incomplete identity is reported, not treated as independence. Rankings, cards,
+probabilities and prices remain unchanged. MY clears the previous warning and
+saved-bet targets before every repaint, including empty seeds or an empty dial.
+
+**66 focused regressions pass**, zero failures/skips, exit 0. Three browser cases
+are authored for 402/1280 px, wrapping, shown-card counts and mode/dial/seed
+transitions; syntax checks pass, but browser execution remains unavailable here.
+The single full NFL rerun on `c63f34fe` finishes exit **0**: **2,493 features
+pass**, zero failed/skipped, contracts/smoke/four model gates pass. Browser step
+8 skips, not passes. Log:
+`/private/tmp/nfl-concentration-full-gate-root-20261016.log`. The earlier engine
+report retains its original NFL dependency SHA; UI-only changes are not a new
+core/API or live-accuracy measurement.
+
+### Owner selected candidate scope
+
+The owner selected the recommended scope on October 16: a separate explicit
+approval of **one exact candidate** may cover eligible future **2026 Week 6**
+refreshes. Every generation must still pass base/version, source freshness,
+pre-kickoff, expiry and rollback checks. Check cutoff per offered future event:
+an already played Thursday game must not block a valid Sunday refresh or receive
+a rewritten forecast. A different candidate or coefficient
+set needs new approval; a pipeline refresh cannot approve its own refit.
+This selects the mechanism to build, not a candidate to activate or a deployment
+to release. Preserve old v1 exact-generation events; add a versioned scope
+contract rather than silently broadening their authority.
 
 The ten core tests and fifteen NFL pilot tests pass locally. They include
 real NFL receipt production, zero versus missing values, incomplete-history
@@ -178,9 +211,12 @@ the pipeline commits generated records.
 ## Owner release steps after remaining acceptance passes
 
 1. Review/reconcile the local NFL branch against current main and run the gates
-   on the exact release revision. Current read-only main at 1:27 p.m. CDT is
-   NFL `45b3cac4a0356b7e91b11121265ae1b84067fe93`; engine main is still
-   `aa5bbaeddca4138399a21c1894b4aed4bacb52b4`. Local code is not there yet.
+   on the exact release revision. Latest read-only main at 8:53 p.m. CDT is
+   NFL `d0f99be248003f109c9b6394feb2ab14921205cb`; engine main is still
+   `aa5bbaeddca4138399a21c1894b4aed4bacb52b4`. Since the earlier `45b3cac4`,
+   two commits change 51 paths, all under data; no runtime/workflow change.
+   [Recorded comparison](qa/2026-10-16-2053-remote-heads.json). No newer remote
+   data was imported or release-tested locally. Local code is not published.
 2. Authorize publishing the reviewed engine commit to an approved branch so
    Actions can check out its full SHA. An engine-main merge is not necessary for
    that checkout and could trigger Vercel's separate production integration.
@@ -208,15 +244,16 @@ evidence.
 
 1. Actual future-generation consumer plus explicit owner approval and rollback;
    candidate files/materialization drafts alone do not count. Preserve old
-   receipts and the exact base/correction order. Approval scope is still an
-   open owner choice: one pinned candidate for eligible Week 6 refreshes versus
-   one exact generation. Neither option authorizes activation by itself.
+   receipts and the exact base/correction order. Use the owner-selected pinned
+   candidate/Week 6 scope above; actual authorization, consumer and rollback
+   remain to be implemented and tested.
 2. Model/Review display of last success/failure, source/generation age, cohort
    size, metrics, exclusions and held/adopted state. No old success shown as a
    fresh run after failure. MODEL's saved shadow row is implemented; Review,
    subgroup comparison, manifest navigation and browser acceptance remain.
-3. Shared-leg/game exposure on visible recommendations; no duplicate filler or
-   claim that overlapping cards are independent.
+3. Browser acceptance of shared-leg/game exposure on visible recommendations;
+   Week's existing panel and Game/MY's new count-only panel do not diversify
+   selections, add duplicate filler or claim independent cards.
 4. Complete fresh-input pipeline/served-generation acceptance, including current
    eligibility, stale feeds, missing stats, correction recovery and rollback.
    Committed-tree data validation is implemented; it does not attest that

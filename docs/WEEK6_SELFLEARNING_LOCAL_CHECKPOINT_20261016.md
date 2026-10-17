@@ -1,6 +1,6 @@
 # Week 6 self-learning local checkpoint
 
-Revision 8 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
+Revision 9 · October 16, 2026, 8:53 p.m. America/Chicago (CDT).
 
 Local branches only. No push, merge, deployment, cloud migration or model
 activation has occurred. The owner-requested 7 a.m. target was **not met**.
@@ -51,6 +51,26 @@ Browser step 8 skips. Engine evidence:
 `/private/tmp/nfl-committed-feedback-status-full-gate-root-20261016.log`.
 No data files were hand-edited. Review/Parlay integration, actual future-serving
 activation/rollback and live acceptance remain unfinished.
+
+### Game and MY exposure
+
+`c63f34fe4cc78fc375a8e0d69940153293c4e9db` adds count-only repeated-selection
+and shared-game warnings tied to the shown cards, with incomplete identity and
+empty-state clearing. **66 focused tests pass**, zero skips, exit 0. No ranking,
+card, probability or price changes. Three browser cases are authored and syntax
+checked but not executed. The single full NFL rerun completes exit **0**:
+**2,493 features pass**, zero failed/skipped, contracts/smoke/four model gates;
+browser step 8 skips. Log: `/private/tmp/nfl-concentration-full-gate-root-20261016.log`.
+
+The owner selected one exact candidate approval for eligible future 2026 Week 6
+refreshes, not approval of an actual candidate/release. Each generation must
+still pass base/version, freshness, cutoff, expiry and rollback checks. This
+resolves the scope question; do not reinterpret old exact-generation events.
+
+Read-only remote check at 8:53 p.m. CDT: NFL main `d0f99be2`, two data-refresh
+commits after `45b3cac4`, 51 data paths, no runtime/workflow changes. Engine main
+is unchanged. [Exact heads and path inventory](qa/2026-10-16-2053-remote-heads.json).
+No new data was imported and no deployment identity was verified by this read.
 
 ## Current checkpoint
 

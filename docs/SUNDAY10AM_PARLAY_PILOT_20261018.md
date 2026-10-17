@@ -1,10 +1,10 @@
 # Sunday NFL parlay learning pilot
 
-Revision 5 · October 16, 2026, 2:41 p.m. America/Chicago (CDT).
+Revision 6 · October 16, 2026, 8:53 p.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
 An NFL-only operational pilot is a plausible target in the remaining roughly
-45 hours, conditional on the owner's release approval and successful pipeline
+37 hours, conditional on the owner's release approval and successful pipeline
 verification. It is not a commitment to finish the reusable platform or prove
 better predictions by Sunday. Prioritize the existing NFL Actions pipeline,
 Netlify app and a pinned SelfLearning Python package running in Actions. Do not
@@ -40,9 +40,14 @@ model gates; **1,363 core/API** pass with zero skips and stable **48/48 targets
 above 90%** line coverage. Browser step 8 skips. These changes do not activate a
 candidate or establish a served generation.
 
-Next priority is the actual future-generation consumer and rollback, plus Game/
-MY shared-leg and shared-game warnings. Week exposure already exists. Approval
-scope remains an owner choice; do not infer authorization from a saved report.
+Game/MY shared-leg and shared-game warnings are now local `c63f34fe`, with 66
+focused tests passing; the full NFL rerun finishes exit 0 with **2,493 features**,
+zero failed/skipped, plus contracts/smoke/four model gates. Browser step 8 skips;
+three authored browser cases are not yet executed. Week exposure already exists. The owner selected
+approval of one exact candidate for eligible future 2026 Week 6 refreshes, with
+per-generation compatibility/freshness/expiry checks. This is approval-scope
+design, not activation of any candidate. The actual consumer and rollback remain
+next; a new refitted candidate cannot approve itself.
 
 ## What Sunday should deliver
 
@@ -126,7 +131,13 @@ selection/coverage, not a guaranteed higher hit rate.
 
 ## Evidence and dependencies checked October 16
 
-- Read-only GitHub main: NFL `45b3cac4a0356b7e91b11121265ae1b84067fe93`;
+- Latest read-only check at **8:53 p.m. CDT**: NFL main
+  `d0f99be248003f109c9b6394feb2ab14921205cb`, two commits after `45b3cac4`,
+  changing 51 data paths and no runtime/workflows. Engine main is unchanged.
+  [Comparison](qa/2026-10-16-2053-remote-heads.json). This newer data was not
+  imported or release-gated locally; verify current main again before release.
+
+- Earlier read-only GitHub main: NFL `45b3cac4a0356b7e91b11121265ae1b84067fe93`;
   SelfLearning `aa5bbaeddca4138399a21c1894b4aed4bacb52b4`. The local integration
   work is not published by these remote heads.
 - Supabase migration read returns only `20260921025211 hosted_foundation`.
