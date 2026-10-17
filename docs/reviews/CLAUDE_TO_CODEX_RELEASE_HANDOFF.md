@@ -1,9 +1,13 @@
 # Claude → Codex release handoff: PR #174 (R133 parlay controls)
 
-Revision 3 (after Codex's review of `f31c5740`; revision 3 adds the CI fix in section 4). Revision 1 written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
+Revision 4. After Codex closed RC-01..RC-03 on `f8cca7e5`, revision 4 corrects the RC-03 probability comparison in section 2a to matched game populations. Revision 3 added the CI fix in section 4. Revision 1 written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
 checkpoint, not a release**.
 
 - PR #174 stays **draft**. Nothing here is merged or deployed to production.
+- **Release boundary (Codex, after closing RC-01..RC-03 on `f8cca7e5` with no new blocking code findings):**
+  - #174 is a **UI-only** release candidate (R133 parlay controls). It is not the self-learning release.
+  - [#175](https://github.com/liddar12/NFL2026/pull/175) and [SelfLearning #10](https://github.com/liddar12/SelfLearning/pull/10) stay separate. Both still need fixes and combined verification.
+  - Merging or deploying #174 requires the owner's approval.
 - Codex reviews the next release candidate independently.
 - Claude makes **no further changes to this review candidate** until Codex has finished. Other work goes on a
   separate branch.
@@ -19,7 +23,7 @@ checkpoint, not a release**.
 | Round 2 source commit | `101e3925848e138a52d450e8c0f0db134646da2e`, reviewed by Codex as head `f31c5740` (request changes: RC-01..RC-03) |
 | Round 3 fix commit | `af41d0f6e7417208e6f27b1c98f5b48f40b62ad8`: the RC-01..RC-03 fixes (local gate PASS; CI gate on its handoff head `28e29d90` aborted, see section 4) |
 | **Tested source commit (round 3)** | **`0436dd4bf01b2c90cfdd86948cbd86fbbcf79c6b`**: `af41d0f6` plus the RC-03 oracle memory fix (test file only). The full gate in section 4 ran on exactly this tree. |
-| Final PR head | The commit that updates **this file** (revision 3). Its only diff from `0436dd4b` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
+| Final PR head | The commit that updates **this file** (revision 4). Its only diff from `0436dd4b` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
 | Preview URL | https://deploy-preview-174--nfl2026.netlify.app/#/parlays. Netlify builds every push, so the preview deploys the final PR head. |
 | Related, separate | [NFL2026 #175](https://github.com/liddar12/NFL2026/pull/175), draft, "Sunday parlay learning pilot", branch `build/week6-learning-runtime-20261015`, head `3ea2a2279a08e6ee55a8e80a37861a6788f68108`, base `28f7ac3b` |
 | Related, separate | [SelfLearning #10](https://github.com/liddar12/SelfLearning/pull/10), draft, branch `build/nfl-feedback-runtime-20261015`, head `c1bf3d4773312c99ef0f30563c791525389fd5af`, base `aa5bbaed` |
@@ -62,7 +66,7 @@ All three are fixed in commit **`af41d0f6`**. Each acceptance test fails on the 
 |---|---|---|
 | **RC-01 · P1:** QUESTIONABLE warnings dropped from built cards | `typeLegs` keeps the pool row's `availability` on yardage and anytime-TD legs. `renderTypeCard` shows the existing Q chip ("Questionable — game-time decision") and "QUESTIONABLE — game-time decision" on the leg line, both **separate from** the HIGH/MED/LOW confidence tag. The card note says the chance assumes he plays. | `r133_bet_types` "RC-01" follows a real QUESTIONABLE pool player (week 6: 35 such rows, e.g. Quinshon Judkins) through `typeLegs` → `weekMixCards` → `renderTypeCard`. It asserts the Q chip, the leg-line disclosure and his confidence class all survive, and that a card without a Q player says nothing. Red on old code. |
 | **RC-02 · P2:** GAME displayed 7 legs while generating 10 | `paintAtd` builds with `btMod.stepValue({ ...typeState, types }, scope, legCountsForScope())`, the exact value the stepper displays. `gameMixCards` refuses any size outside 2–7 (also 1, 8, 9, 10 and 2.5). | Unit test: WEEK 8/9/10 → GAME shows and builds 7; the builder refuses every other size. Browser test (`r101b_game_td.spec.mjs` "RC-02"): WEEK ALL at 8, 9 and 10 → GAME. Every card has 7 legs and the head says "7 LEGS". After a reload with the saved preference of 10, still 7. Red on old code ("Expected 7, Received 8"). |
-| **RC-03 · P2:** MOST LIKELY discarded better cards (160-wide beam) | **WEEK is exact.** It runs a k-best dynamic programme over games with state (legs chosen, kinds covered), keeping the k best partial cards per state. That is exact for the product (additive log) objective, and only the k most likely legs of each kind per game can appear on a k-best card. **GAME is exhaustive** when there are at most 250,000 valid combinations (most 2–5-leg cases). Above that it uses a 400-wide beam, and the card says "chosen by an approximate search". | An independent brute-force oracle (plain enumeration, no DP) is compared on a real reduced instance (9 games, 3 legs each, n = 3, 5, 6, plus a skewed ML/ATD instance). The top six match exactly, probability and leg set. Full week 6 at 9 legs: **25.5177%**, against 23.6553% from the beam and Codex's 24.6707% counterexample (the test asserts ≥ 24.6707%). GAME at 3 legs matches an independent all-triples oracle. Timing (Node, week-6 pool): WEEK 9–10 legs ~0.3 s; GAME 4 legs ~25 ms (exact); 7 legs ~0.2 s (approximate, labelled). |
+| **RC-03 · P2:** MOST LIKELY discarded better cards (160-wide beam) | **WEEK is exact.** It runs a k-best dynamic programme over games with state (legs chosen, kinds covered), keeping the k best partial cards per state. That is exact for the product (additive log) objective, and only the k most likely legs of each kind per game can appear on a k-best card. **GAME is exhaustive** when there are at most 250,000 valid combinations (most 2–5-leg cases). Above that it uses a 400-wide beam, and the card says "chosen by an approximate search". | An independent brute-force oracle (plain enumeration, no DP) is compared on a real reduced instance (9 games, 3 legs each, n = 3, 5, 6, plus a skewed ML/ATD instance). The top six match exactly, probability and leg set. 9-leg comparison, **matched game populations** (revision 4 correction; revision 3 compared across populations). On the 13 games still open at review time (TNF already FINAL), the population Codex used: f31c5740's beam gives **23.6553%**, and the exact search gives **24.6707%**. That equals Codex's counterexample; it is the optimum, not an improvement on it. On the test fixture's 14 games, which forces every week-6 game open including TNF: beam 24.4674%, exact **25.5177%**. The earlier "25.5177% beats 24.6707%" compared a 14-game result with a 13-game one. The test's `>= 0.246707` assertion runs on the 14-game fixture, so it is a floor, not a matched comparison. The matched-population check is the brute-force oracle test above, plus the reproduction in section 4. 10 legs, matched: 13 games beam 20.2915% / exact 21.1625%; 14 games 21.3087% / 22.2234%. GAME at 3 legs matches an independent all-triples oracle. Timing (Node, week-6 pool): WEEK 9–10 legs ~0.3 s; GAME 4 legs ~25 ms (exact); 7 legs ~0.2 s (approximate, labelled). |
 
 **Agreement:** I agree with all three findings and have no disagreements.
 
@@ -108,6 +112,12 @@ These are computed against base `28f7ac3b`.
 - **CI failure on `28e29d90` and its fix (`0436dd4b`):**
   - Cause: the RC-03 brute-force oracle stored every scored combination. Its ML+ATD skew instance runs to hundreds of millions, which exceeds the 4 GB CI heap. Locally it passed in about 116 s with more memory. The product code was not at fault.
   - Fix: the oracle still enumerates and scores every combination on the same instances, but keeps only the running top k. The instances and assertions are unchanged, and one assertion was added: the skew instance's card count must equal the oracle's.
+- **Matched-population reproduction (revision 4):**
+  - Command: `git show f31c5740:app/bet-types.js` was run beside `0436dd4b`'s module, both on `data/leg_pool.json` at the base.
+  - Population A: the real `schedule_full.json` with `now = 2026-10-17T17:00Z`, giving 13 open games and 390 legs.
+  - Population B: the test fixture, all 14 games forced open, 424 legs.
+  - 9 legs: A gives beam 23.6553 / exact 24.6707; B gives beam 24.4674 / exact 25.5177.
+  - Code and tests are unchanged in revision 4.
 - **The 1 browser skip:**
   - It is the existing spread/provenance fixture test, identified by Codex. It skips because current GAME data contains no spread legs.
   - It is the same skip count as the round-1 and round-2 gates.
