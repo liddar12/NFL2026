@@ -47,7 +47,9 @@ on:
     inputs:
       mode:
         description: "lock | scores | both"
+        type: choice
         default: "both"
+        options: [lock, scores, both]
 
 concurrency:
   group: gameday
@@ -69,6 +71,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # Same exact reviewed engine pin as daily. This measurement also runs in
+      # scores mode: outcomes/corrections must not wait for tomorrow's rebuild.
+      - name: Checkout pinned SelfLearning pilot engine (optional)
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: liddar12/SelfLearning
+          ref: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+          path: .selflearn-engine
+          persist-credentials: false
+        continue-on-error: true
 
       - name: Install pipeline dependencies
         run: pip install --upgrade requests   # scores/odds only; nflverse not needed here
@@ -284,6 +298,35 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error gameday "Replay lab (candidate parlay rules vs shipped, measure only)" -- python3 scripts/replay_lab.py
         continue-on-error: true   # a measure-only bench never degrades the run
 
+      # Observe exact raw outcomes after settlement in EVERY mode, including
+      # scores-only. No pool rebuild, candidate approval or adoption occurs here.
+      - name: Shared parlay feedback pilot
+        id: shared_feedback
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
+        timeout-minutes: 15
+        env:
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: bash scripts/stage.sh --continue-on-error gameday "Shared parlay feedback pilot" -- python3 -I -S -B scripts/run_parlay_feedback.py --execute --fetch-outcomes --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_NFL_ENGINE_COMMIT"
+        continue-on-error: true
+
+      - name: Record disabled shared parlay feedback pilot
+        if: vars.SELFLEARN_NFL_PILOT_ENABLED != '1'
+        run: python3 scripts/stage_status.py skip --workflow gameday --stage "Shared parlay feedback pilot" --reason "Default-off pilot; no shared evaluation or adoption ran"
+
+      - name: Summarize shared feedback attempt (measure only)
+        if: always()
+        env:
+          PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          PILOT_OUTCOME: ${{ steps.shared_feedback.outcome }}
+        run: |
+          case "$PILOT_ENABLED:$PILOT_OUTCOME" in
+            1:success) outcome="Measurement completed; inspect the saved cohort and HOLD reasons." ;;
+            1:failure) outcome="FAILED; retained results are not a fresh success."; echo "::warning::Shared NFL feedback failed; the incumbent was not approved or replaced." ;;
+            1:*) outcome="NOT COMPLETED; no successful measurement is verified." ;;
+            *) outcome="DISABLED; no shared evaluation ran." ;;
+          esac
+          printf '%s\n' '### Shared NFL feedback (measure only)' "$outcome" 'No model was approved or activated by this step. A green job is not deployment or accuracy evidence.' >> "$GITHUB_STEP_SUMMARY"
+
       # SCORES MODE, STATED HONESTLY. There is no longer a "Refresh scores" step,
       # because there was never anything behind it: the removed line ran a scores
       # CLI module under scripts/scrape/ that has never existed in this repo, and
@@ -311,6 +354,9 @@ jobs:
 
       - name: Validate data contracts
         run: python scripts/validate_data.py
+
+      - name: Validate shared feedback immutable records
+        run: python3 -I -S -B scripts/run_parlay_feedback.py --check-records
 
       # RACE-SAFE PUBLISH (F16). daily.yml may push while this window commits, and
       # the two are on DIFFERENT concurrency groups so nothing serialises them.

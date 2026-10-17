@@ -60,6 +60,70 @@ with tempfile.TemporaryDirectory() as tmp:
  assert.equal(r.live,undefined);
 });
 
+test('latest actual R88 daily or gameday attempt wins; a new unfinished run cannot reuse an old success',()=>{
+ const r=py(String.raw`
+from scripts import stage_status as T
+with tempfile.TemporaryDirectory() as tmp:
+ data=pathlib.Path(tmp);path=data/'pipeline_stages.json';rows=[]
+ def inspect(doc):
+  path.write_text(json.dumps(doc));return S.stage_status(data)
+ def completed(doc,workflow,status,start,finish):
+  doc=T.begin(doc,workflow,'synthetic-'+workflow,now=start)
+  return T.record(doc,workflow,S.STAGE,0 if status=='ok'else 2,start,finish,
+   continue_on_error=True,now=finish)
+ a='2026-10-17T12:00:00Z';b='2026-10-17T12:01:00Z';c='2026-10-17T13:00:00Z';d='2026-10-17T13:01:00Z'
+ doc=completed(None,'daily','ok',a,b)
+ doc=completed(doc,'gameday','failed',c,d);rows.append(inspect(doc))
+ value=S.derive({'status':'absent','stage':rows[-1]})
+ assert 'FAILED'in value['why']and value['last_run_utc']is None and 'live'not in value
+ doc=completed(doc,'daily','ok','2026-10-17T14:00:00Z','2026-10-17T14:01:00Z');rows.append(inspect(doc))
+ doc=T.begin(doc,'gameday','synthetic-new',now='2026-10-17T15:00:00Z');rows.append(inspect(doc))
+ doc=T.skip(doc,'gameday',S.STAGE,'Disabled; no shared evaluation ran',now='2026-10-17T15:02:00Z')
+ doc=T.record(doc,'gameday','Learning loops record (MODEL tab)',0,'2026-10-17T15:03:00Z','2026-10-17T15:04:00Z',now='2026-10-17T15:04:00Z')
+ rows.append(inspect(doc))
+ doc={'workflows':{'daily':{'stages':[]},'backtest':{'stages':[]}}};rows.append(inspect(doc))
+ print(json.dumps(rows))
+`);
+ assert.deepEqual(r,['failed','ok','not_recorded','skipped','not_recorded']);
+});
+
+test('unorderable, contradictory or malformed attempt clocks fail closed instead of choosing a success',()=>{
+ const r=py(String.raw`
+with tempfile.TemporaryDirectory() as tmp:
+ data=pathlib.Path(tmp);path=data/'pipeline_stages.json';rows=[]
+ def inspect(doc):
+  path.write_text(json.dumps(doc));return S.stage_status(data)
+ def block(status='ok',start='2026-10-17T12:00:00Z',end='2026-10-17T12:01:00Z'):
+  return {'run_started_utc':start,'run_finished_utc':end,'stages':[{'name':S.STAGE,'status':status,'started_utc':start,'finished_utc':end}]}
+ base={'workflows':{'daily':block(),'gameday':block('failed')}}
+ rows.append(inspect(base))
+ same=copy.deepcopy(base);same['workflows']['gameday']['stages'][0]['status']='ok';rows.append(inspect(same))
+ legacy={'stages':[{'name':S.STAGE,'status':'failed'}]}
+ rows.append(inspect({'workflows':{'daily':legacy}}))
+ rows.append(inspect({'workflows':{'daily':legacy,'gameday':block()}}))
+ faults=[]
+ for fault in ('workflow_type','block_type','rows_type','duplicate','bad_status','naive','run_reversed','stage_reversed','stage_before_run','end_before_run','end_after_run','unfinished'):
+  doc={'workflows':{'daily':block()}};b=doc['workflows']['daily'];row=b['stages'][0]
+  if fault=='workflow_type':doc['workflows']=[]
+  elif fault=='block_type':doc['workflows']['daily']=None
+  elif fault=='rows_type':b['stages']={}
+  elif fault=='duplicate':b['stages'].append(copy.deepcopy(row))
+  elif fault=='bad_status':row['status']='OWNER_APPROVED'
+  elif fault=='naive':row['finished_utc']='2026-10-17T12:01:00'
+  elif fault=='run_reversed':b['run_finished_utc']='2026-10-17T11:00:00Z'
+  elif fault=='stage_reversed':row['started_utc']='2026-10-17T12:02:00Z'
+  elif fault=='stage_before_run':row['started_utc']='2026-10-17T11:59:00Z'
+  elif fault=='end_before_run':row['started_utc']=None;row['finished_utc']='2026-10-17T11:59:00Z'
+  elif fault=='end_after_run':row['finished_utc']='2026-10-17T12:02:00Z'
+  elif fault=='unfinished':row['finished_utc']=None
+  faults.append(inspect(doc))
+ rows.append(inspect({'workflows':{'backtest':{'stages':[]}}}))
+ print(json.dumps({'ordered':rows,'faults':faults}))
+`);
+ assert.deepEqual(r.ordered,['unreadable','ok','failed','unreadable','not_recorded']);
+ assert.deepEqual(r.faults,Array(12).fill('unreadable'));
+});
+
 test('actual feedback shows canonical versus vintage counts, held-out absence, corrections and saved timestamps',t=>{
  if(!requireEngine(t))return;
  const r=py(String.raw`

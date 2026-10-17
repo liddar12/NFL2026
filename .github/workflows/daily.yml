@@ -27,7 +27,9 @@ on:
     - cron: "3 16 * * 0"     # 12:03 ET Sun — 1h before the 1pm window
     - cron: "15 19 * * 0"    # 15:15 ET Sun — 1h before the 4pm window
     - cron: "20 23 * * 0"    # 19:20 ET Sun — 1h before Sunday Night Football
-  workflow_dispatch: {}    # allow manual runs from the Actions tab
+  # Dispatch on main before the Sunday deadline; cron timing is not a release
+  # guarantee. The feedback variables below enable measurement, not approval.
+  workflow_dispatch: {}
 
 # Only one pipeline commit in flight at a time; cancel a stale run if a new one starts.
 concurrency:
@@ -302,6 +304,7 @@ jobs:
       # to 1 and the engine variable to a REVIEWED full 40-character commit SHA.
       # SelfLearning is public; no new Supabase/Vercel/cross-repo secret needed.
       - name: Shared parlay feedback pilot
+        id: shared_feedback
         if: vars.SELFLEARN_NFL_PILOT_ENABLED == '1'
         timeout-minutes: 15
         env:
@@ -312,6 +315,22 @@ jobs:
       - name: Record disabled shared parlay feedback pilot
         if: vars.SELFLEARN_NFL_PILOT_ENABLED != '1'
         run: python3 scripts/stage_status.py skip --workflow daily --stage "Shared parlay feedback pilot" --reason "Default-off pilot; no shared evaluation or adoption ran"
+
+      # continue-on-error preserves the incumbent, but must not turn the whole
+      # job's green conclusion into evidence of a successful feedback attempt.
+      - name: Summarize shared feedback attempt (measure only)
+        if: always()
+        env:
+          PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          PILOT_OUTCOME: ${{ steps.shared_feedback.outcome }}
+        run: |
+          case "$PILOT_ENABLED:$PILOT_OUTCOME" in
+            1:success) outcome="Measurement completed; inspect the saved cohort and HOLD reasons." ;;
+            1:failure) outcome="FAILED; retained results are not a fresh success."; echo "::warning::Shared NFL feedback failed; the incumbent was not approved or replaced." ;;
+            1:*) outcome="NOT COMPLETED; no successful measurement is verified." ;;
+            *) outcome="DISABLED; no shared evaluation ran." ;;
+          esac
+          printf '%s\n' '### Shared NFL feedback (measure only)' "$outcome" 'No model was approved or activated by this step. A green job is not deployment or accuracy evidence.' >> "$GITHUB_STEP_SUMMARY"
 
       # R71 — post-game review over resolved estimates + the parlay-leg ledger.
       - name: Build post-game review (data/review.json)

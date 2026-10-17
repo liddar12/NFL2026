@@ -36,17 +36,47 @@ def clock(value):
 
 
 def stage_status(data):
+    """Use the newest recorded daily/gameday attempt, not daily's old success.
+
+    A newly opened run with no feedback row is not a completed attempt. Skip
+    rows have no stage clocks in the existing R88 format, so their run clock is
+    the ordering witness. Legacy single-workflow rows remain readable; multiple
+    unclocked rows or contradictory ties cannot establish which was latest.
+    """
     from scripts import run_parlay_feedback as files
     path=data/"pipeline_stages.json"
     if not path.exists():return "not_recorded"
     try:
         doc=files.read_json(path)
-        rows=doc["workflows"]["daily"]["stages"]
-        need(type(rows) is list and len(rows)<=1000)
-        matches=[r for r in rows if type(r) is dict and r.get("name")==STAGE]
-        if not matches:return "not_recorded"
-        need(len(matches)==1 and matches[0].get("status") in("ok","failed","skipped"))
-        return matches[0]["status"]
+        blocks=doc["workflows"];need(type(blocks) is dict)
+        attempts=[]
+        for workflow in("daily","gameday"):
+            if workflow not in blocks:continue
+            block=blocks[workflow];need(type(block) is dict)
+            rows=block["stages"];need(type(rows) is list and len(rows)<=1000)
+            matches=[r for r in rows if type(r) is dict and r.get("name")==STAGE]
+            run_start=instant(block["run_started_utc"])if block.get("run_started_utc")is not None else None
+            run_end=instant(block["run_finished_utc"])if block.get("run_finished_utc")is not None else None
+            need(run_start is None or run_end is None or run_start<=run_end)
+            if not matches:
+                if run_start is not None:attempts.append((run_end or run_start,"not_recorded"))
+                continue
+            need(len(matches)==1 and matches[0].get("status") in("ok","failed","skipped"))
+            row=matches[0];status=row["status"]
+            start=instant(row["started_utc"])if row.get("started_utc")is not None else None
+            end=instant(row["finished_utc"])if row.get("finished_utc")is not None else None
+            need(start is None or end is None or start<=end)
+            need(run_start is None or start is None or run_start<=start)
+            need(run_start is None or end is None or run_start<=end)
+            need(run_end is None or end is None or end<=run_end)
+            if status!="skipped"and(run_start is not None or start is not None):need(end is not None)
+            attempts.append((end or run_end or run_start,status))
+        if not attempts:return "not_recorded"
+        if len(attempts)==1:return attempts[0][1]
+        need(all(when is not None for when,_ in attempts))
+        latest=max(when for when,_ in attempts)
+        statuses={status for when,status in attempts if when==latest};need(len(statuses)==1)
+        return statuses.pop()
     except (ValueError,OSError,KeyError,TypeError,AttributeError,RecursionError):return "unreadable"
 
 
