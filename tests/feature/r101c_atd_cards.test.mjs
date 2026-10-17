@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import {assertMyGenerationDependency, GENERATION_SOURCES} from './r101_workflow_dependency_helpers.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -220,10 +221,12 @@ test('R101c MY: ANY never sees an ATD leg; TD modes keep their rule; one leg per
 test('R101c pipeline: cards after the pool in daily AND gameday; grader continue-on-error; selftests', () => {
   for (const wf of ['.github/workflows/daily.yml', '.github/workflows/gameday.yml']) {
     const y = read(wf);
-    const pool = y.indexOf('python3 scripts/build_leg_pool.py');
+    const pool = assertMyGenerationDependency(y,
+      Object.fromEntries(GENERATION_SOURCES.map(path => [path, read(path)])),
+      {after: ['scripts/build_atd_cards.py', 'scripts/validate_data.py']});
     const cards = y.indexOf('python3 scripts/build_atd_cards.py');
     const val = y.indexOf('scripts/validate_data.py');
-    assert.ok(pool > 0 && cards > pool && val > cards, `${wf}: pool -> cards -> validate`);
+    assert.ok(pool.index > 0 && cards > pool.index && val > cards, `${wf}: actual pool -> cards -> validate`);
     const grade = y.indexOf('python3 scripts/resolve_atd_cards.py');
     assert.ok(grade > 0, `${wf}: cards are graded`);
     assert.match(y.slice(grade, grade + 120), /continue-on-error: true/);
