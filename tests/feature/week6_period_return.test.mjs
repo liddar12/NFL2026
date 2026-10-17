@@ -31,7 +31,26 @@ with tempfile.TemporaryDirectory()as tmp:
   reason='Synthetic local mechanics only; not an actual owner approval or accuracy claim',acknowledge_retrospective=True)
  current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='future',past=True)
  fixture.write_inputs(data,current,schedule);now[0]='2026-10-16T20:00:01Z'
- baseline=B.build(current);pool,application=control.apply_and_save(current)
+ # The usable local CLI must invoke the real producer over repository inputs,
+ # not accept an uploaded PASS/price dictionary or silently approve its fit.
+ from scripts import period_operator as O
+ import contextlib,io
+ args=['--data-dir',str(data),'--engine-checkout',str(engine),'--engine-commit',pin,
+  '--authority-id',control.authority_id,'--actor-ref',control.actor_ref]
+ baseline=B.build(current);out=io.StringIO()
+ with contextlib.redirect_stdout(out):code=O.main(args+['apply'],clock=lambda:current['generated_utc'])
+ assert code==0;applied=json.loads(out.getvalue());_,application,pool=control.current()
+ assert applied['application_id']==application['application_id']and applied['production_authorized']is False
+ out=io.StringIO()
+ with contextlib.redirect_stdout(out):code=O.main(args+['inspect'],clock=lambda:now[0])
+ inspected=json.loads(out.getvalue());assert code==0
+ assert inspected['details']['saved_application']['application_id']==application['application_id']
+ assert inspected['details']['latest_owner_intent']['event_id']==ack['event_id']
+ assert inspected['details']['saved_application_matches_latest_intent']is True
+ assert inspected['owner_authenticated']is False and inspected['publication_authorized']is False
+ out=io.StringIO()
+ with contextlib.redirect_stdout(out):code=O.main(args+['reverify'],clock=lambda:now[0])
+ assert code==0 and json.loads(out.getvalue())['details']['application_id']==application['application_id']
  assert pool['calibration_return']=={k:application[k]for k in('version','action','scope_id','candidate_id',
   'artifact_id','owner_head_event_id','application_context_id','expires_utc','evidence_basis')}
  from scripts.validate_data import validate_against_schema
