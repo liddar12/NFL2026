@@ -210,3 +210,152 @@ test('bucket counts follow the scope and the slate shown (R133 RCA: ALL HIT 1, e
   assert.doesNotMatch(view, /renderParlayBuckets\(\s*selWeek, reviewMod\.parlayBucketCounts\(selWeek\)/,
     'the whole-week, all-scope counts are no longer painted as the chips');
 });
+
+/* ---- Codex review of f31c5740 (RC-01..RC-03) ---------------------------- */
+
+test('RC-01: a QUESTIONABLE player keeps his Q warning from pool through selection to the card, beside his confidence', () => {
+  const row = pool.players.find((r) => r.availability === 'QUESTIONABLE' && r.market === 'rb_rush_yds')
+    || pool.players.find((r) => r.availability === 'QUESTIONABLE');
+  assert.ok(row, 'the committed pool carries a QUESTIONABLE player');
+  const legs = typeLegs(pool, ['pass', 'rush', 'rec'], games, 0);
+  const q = legs.find((l) => l.owner === row.gsis_id);
+  assert.ok(q, 'he reaches the selection pool');
+  assert.equal(q.availability, 'QUESTIONABLE');
+  // selection: a 2-leg WEEK card that must contain him (his leg and one other game's)
+  const other = legs.find((l) => String(l.game_id) !== String(q.game_id));
+  const { cards } = weekMixCards([q, other].sort((a, b) => b.model_prob - a.model_prob), 2);
+  const card = cards.find((c) => c.legs.some((l) => l.owner === row.gsis_id));
+  assert.ok(card);
+  assert.equal(card.legs.find((l) => l.owner === row.gsis_id).availability, 'QUESTIONABLE');
+  const html = renderTypeCard(card, { scope: 'week', types: ['rush'], games });
+  const legHtml = html.split('<div class="leg ').find((h) => h.includes(q.selection));
+  assert.match(legHtml, /class="est leg-q" title="Questionable — game-time decision">Q</);
+  assert.match(legHtml, /QUESTIONABLE — game-time decision/);
+  assert.match(legHtml, new RegExp(`class="conf conf--${confTag(q.model_prob)}"`), 'confidence survives too');
+  assert.match(html, /Q = questionable, a game-time decision/);
+  // and a card without a Q player says nothing about it
+  const plain = renderTypeCard({ legs: [other], model_prob: other.model_prob }, { scope: 'week', types: ['rush'], games });
+  assert.doesNotMatch(plain, /leg-q|game-time decision/);
+});
+
+test('RC-02: one effective count — WEEK 8, 9, 10 (or a saved 10) on GAME is 7, and the builder refuses anything else', () => {
+  for (const legs of [8, 9, 10]) {
+    const st = S({ types: ALL, legs });
+    assert.equal(stepValue(st, 'game', []), 7, `WEEK ${legs} shows 7 on GAME`);
+    const html = typeControls(st, 'game', [], { games: openGames(games, 0), gameId: openGames(games, 0)[0].game_id });
+    assert.match(html, /td-step-n[^>]*>7</);
+  }
+  const all = typeLegs(pool, ALL, games, 0);
+  const gid = String(openGames(games, 0)[0].game_id);
+  for (const bad of [1, 8, 9, 10, 2.5]) {
+    const r = gameMixCards(all, bad, table, gid);
+    assert.equal(r.cards.length, 0, `GAME refuses ${bad}`);
+    assert.match(r.reason, /2–7 legs/);
+  }
+  const ok = gameMixCards(all, stepValue(S({ types: ALL, legs: 10 }), 'game', []), table, gid);
+  assert.ok(ok.cards.length > 0 && ok.cards.every((c) => c.legs.length === 7));
+  const view = readFileSync(new URL('../../app/views/parlays.js', import.meta.url), 'utf8');
+  assert.match(view, /const n = btMod\.stepValue\(\{ \.\.\.typeState, types \}, scope, legCountsForScope\(\)\);/,
+    'the generator reads the same normalized count the stepper shows');
+  assert.doesNotMatch(view, /const n = Number\(typeState\.legs\)/);
+});
+
+/* An independent oracle: every one-leg-per-game combination, scored by plain
+ * enumeration — no dynamic programme, no pruning. */
+function bruteWeek(legs, n, k) {
+  const byGame = new Map();
+  for (const l of legs) {
+    const g = String(l.game_id);
+    if (!byGame.has(g)) byGame.set(g, []);
+    byGame.get(g).push(l);
+  }
+  const gameIds = [...byGame.keys()];
+  const target = Math.min(n, new Set(legs.map((l) => l.kind)).size);
+  const out = [];
+  const pickGames = (start, chosen) => {
+    if (chosen.length === n) {
+      const rec = (i, acc) => {
+        if (i === n) {
+          if (new Set(acc.map((l) => l.kind)).size >= target) {
+            out.push({ p: acc.reduce((p, l) => p * l.model_prob, 1), key: acc.map((l) => l.selection).sort().join('|') });
+          }
+          return;
+        }
+        for (const l of byGame.get(chosen[i])) rec(i + 1, [...acc, l]);
+      };
+      rec(0, []);
+      return;
+    }
+    for (let i = start; i < gameIds.length; i += 1) pickGames(i + 1, [...chosen, gameIds[i]]);
+  };
+  pickGames(0, []);
+  return out.sort((a, b) => b.p - a.p || a.key.localeCompare(b.key)).slice(0, k);
+}
+
+test('RC-03: WEEK selection equals an independent brute-force oracle (top six, exactly) on real legs', () => {
+  const all = typeLegs(pool, ALL, games, 0);
+  // a reduced but real instance the oracle can enumerate: 9 games, the 3 most
+  // likely legs of each, every kind still present
+  const byGame = new Map();
+  for (const l of all) {
+    const g = String(l.game_id);
+    if (!byGame.has(g)) byGame.set(g, []);
+    if (byGame.get(g).length < 3) byGame.get(g).push(l);
+  }
+  const gids = [...byGame.keys()].slice(0, 9);
+  const small = gids.flatMap((g) => byGame.get(g)).sort((a, b) => b.model_prob - a.model_prob);
+  for (const n of [3, 5, 6]) {
+    const oracle = bruteWeek(small, n, 6);
+    const got = weekMixCards(small, n).cards;
+    assert.equal(got.length, oracle.length, `${n} legs`);
+    got.forEach((c, i) => {
+      assert.ok(Math.abs(c.model_prob - oracle[i].p) < 1e-12, `${n} legs, rank ${i + 1}`);
+      assert.equal(c.legs.map((l) => l.selection).sort().join('|'), oracle[i].key);
+    });
+  }
+  // a mixed-kind instance where the most likely legs are all one kind (the
+  // beam's failure mode): the oracle and the search must still agree
+  const skew = all.filter((l) => l.kind === 'ml' || l.kind === 'atd');
+  const sg = [...new Set(skew.map((l) => String(l.game_id)))].slice(0, 8);
+  const skewSmall = skew.filter((l) => sg.includes(String(l.game_id)));
+  const o2 = bruteWeek(skewSmall, 5, 6);
+  const g2 = weekMixCards(skewSmall, 5).cards;
+  g2.forEach((c, i) => assert.ok(Math.abs(c.model_prob - o2[i].p) < 1e-12));
+});
+
+test('RC-03: on the full week the 9- and 10-leg MOST LIKELY cards beat the counterexample Codex found', () => {
+  const all = typeLegs(pool, ALL, games, 0);
+  const nine = weekMixCards(all, 9).cards[0];
+  // Codex (f31c5740): the beam returned 23.6553%; a valid 9-game, 5-kind card reached 24.6707%
+  assert.ok(nine.model_prob >= 0.246707, `9 legs: ${nine.model_prob}`);
+  assert.ok(weekMixCards(all, 9).exact);
+  for (const n of [9, 10]) {
+    const c = weekMixCards(all, n).cards[0];
+    assert.equal(new Set(c.legs.map((l) => String(l.game_id))).size, n);
+    assert.ok(new Set(c.legs.map((l) => l.kind)).size >= mixTarget(n, all));
+  }
+});
+
+test('RC-03: GAME is exhaustive when it can be, and says so when it cannot', () => {
+  const all = typeLegs(pool, ALL, games, 0);
+  const gid = String(openGames(games, 0)[0].game_id);
+  const mine = all.filter((l) => String(l.game_id) === gid);
+  // independent oracle for a 3-leg same-game card: every valid triple
+  const clash = (a, b) => a.owner === b.owner || (a.kind === 'ml' && b.kind === 'ml')
+    || (a.side && a.side === b.side && ['moneyline', 'spread'].includes(a.market) && ['moneyline', 'spread'].includes(b.market));
+  let best = 0;
+  const target = mixTarget(3, mine);
+  for (let i = 0; i < mine.length; i += 1) for (let j = i + 1; j < mine.length; j += 1) for (let h = j + 1; h < mine.length; h += 1) {
+    const t = [mine[i], mine[j], mine[h]];
+    if (clash(t[0], t[1]) || clash(t[0], t[2]) || clash(t[1], t[2])) continue;
+    if (new Set(t.map((l) => l.kind)).size < target) continue;
+    best = Math.max(best, estimateSameGame(t, table));
+  }
+  const r3 = gameMixCards(all, 3, table, gid);
+  assert.equal(r3.exact, true);
+  assert.ok(Math.abs(r3.cards[0].model_prob - best) < 1e-12);
+  const r7 = gameMixCards(all, 7, table, gid);
+  const html = renderTypeCard(r7.cards[0], { scope: 'game', types: ALL, games, exact: r7.exact });
+  if (r7.exact) assert.doesNotMatch(html, /approximate search/);
+  else assert.match(html, /chosen by an approximate search/);
+});

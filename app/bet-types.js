@@ -276,6 +276,9 @@ export function typeLegs(pool, types, games, now = Date.now()) {
     const rung = pickRung(row.rungs);
     if (!rung) continue;
     const leg = { ...legFromPool(row, rung), owner: row.gsis_id, kind: KEY_OF[row.market] };
+    // R77 — a QUESTIONABLE player stays in the pool at his price; the flag must
+    // ride the leg to the card (RC-01: it was dropped here).
+    if (row.availability) leg.availability = row.availability;
     if (keep(leg)) out.push(leg);
   }
   if (want.has('anytime_td')) {
@@ -283,6 +286,7 @@ export function typeLegs(pool, types, games, now = Date.now()) {
       const rung = (row.rungs || [])[0];
       if (!rung) continue;
       const leg = { ...legFromPool(row, rung), owner: row.gsis_id, kind: 'atd' };
+      if (row.availability) leg.availability = row.availability;
       if (keep(leg)) out.push(leg);
     }
   }
@@ -297,75 +301,88 @@ export function typeLegs(pool, types, games, now = Date.now()) {
     || String(a.selection).localeCompare(String(b.selection)));
 }
 
-const BEAM = 160;
-const PER_KIND_CAP = 40;
-
 /** How many different kinds a card of n legs must carry. */
 export function mixTarget(n, legs) {
   return Math.min(n, new Set(legs.map((l) => l.kind)).size);
 }
 
+const KIND_BIT = Object.fromEntries(ALL_KEYS.map((k, i) => [k, 1 << i]));
+const popcount = (m) => { let c = 0; for (let x = m; x; x &= x - 1) c += 1; return c; };
+const cardKey = (legs) => legs.map((l) => l.selection).sort().join('|');
+const byLikelyThenKey = (a, b) => b.p - a.p || a.key.localeCompare(b.key);
+
 /**
- * The search both scopes share: n-leg cards from `legs` (descending chance),
- * keeping only cards with at least `target` different kinds, scored by `score`
- * and accepted by `fits(partial, leg)`. A beam that prunes a partial card that
- * can no longer reach the mix. Returns distinct cards, most likely first.
+ * WEEK, EXACT (RC-03): the k most likely n-leg cards with one leg per game and at
+ * least `target` different kinds. Cross-game legs are independent, so a card's
+ * chance is the product of its legs and the search is a k-best dynamic programme
+ * over games with state (legs chosen, kinds covered) — keeping the k best partial
+ * cards per state is exact for an additive (log) objective. Within a game only
+ * the k most likely legs of each kind can be on a k-best card (any other leg of
+ * that kind is dominated by k distinct swaps), so nothing else is considered.
  */
-function beamSearch(legs, n, target, fits, score, k) {
-  const pool = [];
-  const perKind = new Map();
+function exactWeek(legs, n, target, k) {
+  const games = new Map();
   for (const l of legs) {
-    const c = perKind.get(l.kind) || 0;
-    if (c >= PER_KIND_CAP) continue;
-    perKind.set(l.kind, c + 1);
-    pool.push(l);
+    const g = String(l.game_id);
+    if (!games.has(g)) games.set(g, new Map());
+    const perKind = games.get(g);
+    if (!perKind.has(l.kind)) perKind.set(l.kind, []);
+    const list = perKind.get(l.kind);
+    if (list.length < k) list.push(l);          // legs arrive most likely first
   }
-  let beam = [{ legs: [], kinds: new Set(), p: 1, last: -1 }];
-  for (let step = 0; step < n; step += 1) {
-    const left = n - step - 1;
-    const next = [];
-    for (const part of beam) {
-      for (let i = part.last + 1; i < pool.length; i += 1) {
-        const leg = pool[i];
-        if (!fits(part.legs, leg)) continue;
-        const kinds = new Set(part.kinds).add(leg.kind);
-        if (target - kinds.size > left) continue;      // the mix is out of reach
-        const legsNext = [...part.legs, leg];
-        next.push({ legs: legsNext, kinds, p: score(legsNext), last: i });
+  let states = new Map([['0|0', [{ p: 1, legs: [], key: '' }]]]);
+  for (const perKind of games.values()) {
+    const options = [...perKind.values()].flat();
+    const next = new Map();
+    const push = (key, entry) => {
+      if (!next.has(key)) next.set(key, []);
+      next.get(key).push(entry);
+    };
+    for (const [key, entries] of states) {
+      for (const e of entries) push(key, e);           // this game left out
+      const [c, mask] = key.split('|').map(Number);
+      if (c >= n) continue;
+      for (const leg of options) {
+        const m = mask | KIND_BIT[leg.kind];
+        for (const e of entries) {
+          const ls = [...e.legs, leg];
+          push(`${c + 1}|${m}`, { p: e.p * leg.model_prob, legs: ls, key: cardKey(ls) });
+        }
       }
     }
-    next.sort((a, b) => b.p - a.p);
-    beam = next.slice(0, BEAM);
+    for (const [key, list] of next) next.set(key, list.sort(byLikelyThenKey).slice(0, k));
+    states = next;
   }
-  return beam.slice(0, k).map((c) => ({ legs: c.legs, model_prob: c.p }));
+  const done = [];
+  for (const [key, list] of states) {
+    const [c, mask] = key.split('|').map(Number);
+    if (c === n && popcount(mask) >= target) done.push(...list);
+  }
+  return done.sort(byLikelyThenKey).slice(0, k).map((e) => ({ legs: e.legs, model_prob: e.p }));
 }
-
-const product = (legs) => legs.reduce((p, l) => p * l.model_prob, 1);
 
 /**
  * WEEK: the MIX_CARDS most likely n-leg cards, one leg per game (cross-game legs
  * combine as independent, the builder's rule), each carrying min(n, kinds)
- * different kinds. {cards, reason}.
+ * different kinds. Exact (exactWeek). {cards, reason, exact: true}.
  */
 export function weekMixCards(legs, n, k = MIX_CARDS) {
   const games = new Set(legs.map((l) => String(l.game_id)));
   if (games.size < n) {
-    return { cards: [], reason: `Only ${games.size} game${games.size === 1 ? '' : 's'} still to play `
+    return { cards: [], exact: true, reason: `Only ${games.size} game${games.size === 1 ? '' : 's'} still to play `
       + `${games.size === 1 ? 'has' : 'have'} legs of these kinds, and a WEEK card takes one leg per game — `
       + 'try fewer legs or more bet types.' };
   }
-  const target = mixTarget(n, legs);
-  const fits = (part, leg) => !part.some((l) => String(l.game_id) === String(leg.game_id));
-  const cards = beamSearch(legs, n, target, fits, product, k);
-  return cards.length ? { cards, reason: '' } : { cards: [], reason: 'No card of this size can be built.' };
+  const cards = exactWeek(legs, n, mixTarget(n, legs), k);
+  return cards.length ? { cards, reason: '', exact: true }
+    : { cards: [], exact: true, reason: 'No card of this size can be built.' };
 }
 
-/** The ML_CARDS most likely moneyline-only cards of n legs (one per game). */
+/** The ML_CARDS most likely moneyline-only cards of n legs (one per game). Exact. */
 export function moneylineCards(legs, n, k = ML_CARDS) {
   const ml = legs.filter((l) => l.kind === 'ml');
   if (new Set(ml.map((l) => String(l.game_id))).size < n) return [];
-  const fits = (part, leg) => !part.some((l) => String(l.game_id) === String(leg.game_id));
-  return beamSearch(ml, n, 1, fits, product, k);
+  return exactWeek(ml, n, 1, k);
 }
 
 /**
@@ -385,24 +402,77 @@ export function estimateSameGame(legs, table) {
   return p;
 }
 
+/** Combinations the GAME search will enumerate exhaustively before it switches to a beam. */
+export const GAME_EXACT_LIMIT = 250000;
+const GAME_BEAM = 400;
+
+function choose(m, n) {
+  let c = 1;
+  for (let i = 0; i < n; i += 1) c = (c * (m - i)) / (i + 1);
+  return c;
+}
+
 /**
- * GAME: the MIX_CARDS most likely n-leg cards from ONE game, one leg per player,
- * never both moneylines or a team's moneyline beside its own spread (R74),
- * each carrying min(n, kinds) different kinds; chance by estimateSameGame.
+ * GAME: the MIX_CARDS most likely n-leg cards from ONE game (2..GAME_MAX_LEGS;
+ * RC-02: the builder refuses any other size), one leg per player, never both
+ * moneylines or a team's moneyline beside its own spread (R74), each carrying
+ * min(n, kinds) different kinds; chance by estimateSameGame. EXACT (every valid
+ * combination scored) when there are at most GAME_EXACT_LIMIT of them; otherwise
+ * a beam, and the result says `exact: false` so the view can say so (RC-03).
  */
 export function gameMixCards(legs, n, table, gameId, k = MIX_CARDS) {
+  if (!Number.isInteger(n) || n < MIN_LEGS || n > GAME_MAX_LEGS) {
+    return { cards: [], exact: true, reason: `A GAME card is ${MIN_LEGS}–${GAME_MAX_LEGS} legs.` };
+  }
   const mine = legs.filter((l) => String(l.game_id) === String(gameId));
   if (mine.length < n) {
-    return { cards: [], reason: `This game has ${mine.length} leg${mine.length === 1 ? '' : 's'} of these kinds `
+    return { cards: [], exact: true, reason: `This game has ${mine.length} leg${mine.length === 1 ? '' : 's'} of these kinds `
       + 'still to play — pick fewer legs or more bet types.' };
   }
   const target = mixTarget(n, mine);
-  const fits = (part, leg) => !part.some((l) => l.owner === leg.owner
-    || (l.kind === 'ml' && leg.kind === 'ml') || sameSideGamePair(l, leg));
-  const cards = beamSearch(mine, n, target, fits, (ls) => estimateSameGame(ls, table), k)
-    .map((c) => ({ ...c, game_id: String(gameId) }));
-  return cards.length ? { cards, reason: '' }
-    : { cards: [], reason: 'No card of this size can be built from this game.' };
+  const clash = (a, b) => a.owner === b.owner || (a.kind === 'ml' && b.kind === 'ml') || sameSideGamePair(a, b);
+  const exact = choose(mine.length, n) <= GAME_EXACT_LIMIT;
+  let found = [];
+  if (exact) {
+    const pick = [];
+    const walk = (start) => {
+      if (pick.length === n) {
+        if (new Set(pick.map((l) => l.kind)).size >= target) {
+          const ls = pick.slice();
+          found.push({ legs: ls, p: estimateSameGame(ls, table), key: cardKey(ls) });
+        }
+        return;
+      }
+      for (let i = start; i <= mine.length - (n - pick.length); i += 1) {
+        if (pick.some((l) => clash(l, mine[i]))) continue;
+        pick.push(mine[i]);
+        walk(i + 1);
+        pick.pop();
+      }
+    };
+    walk(0);
+  } else {
+    let beam = [{ legs: [], kinds: new Set(), last: -1 }];
+    for (let step = 0; step < n; step += 1) {
+      const left = n - step - 1;
+      const next = [];
+      for (const part of beam) {
+        for (let i = part.last + 1; i < mine.length; i += 1) {
+          if (part.legs.some((l) => clash(l, mine[i]))) continue;
+          const kinds = new Set(part.kinds).add(mine[i].kind);
+          if (target - kinds.size > left) continue;
+          const ls = [...part.legs, mine[i]];
+          next.push({ legs: ls, kinds, last: i, p: estimateSameGame(ls, table), key: cardKey(ls) });
+        }
+      }
+      beam = next.sort(byLikelyThenKey).slice(0, GAME_BEAM);
+    }
+    found = beam;
+  }
+  const cards = found.sort(byLikelyThenKey).slice(0, k)
+    .map((e) => ({ legs: e.legs, model_prob: e.p, game_id: String(gameId) }));
+  return cards.length ? { cards, reason: '', exact }
+    : { cards: [], exact, reason: 'No card of this size can be built from this game.' };
 }
 
 /** The table the GAME pricer reads: the slate's pairs plus the measured ATD pairs. */
@@ -435,14 +505,23 @@ const KIND = {
  * opts.label overrides the heading words ("MONEYLINE ONLY"); opts.estimated
  * marks a same-game chance of three or more legs.
  */
-export function renderTypeCard(card, { scope = 'week', types = [], games = [], label = '' } = {}) {
+const QUESTIONABLE = 'QUESTIONABLE';
+
+/** R77 — the Q chip PARLAYS and MY already paint, same copy and tone. */
+export function qChip(leg) {
+  return leg && leg.availability === QUESTIONABLE
+    ? '<span class="est leg-q" title="Questionable — game-time decision">Q</span>' : '';
+}
+
+export function renderTypeCard(card, { scope = 'week', types = [], games = [], label = '', exact = true } = {}) {
   const where = scope === 'game' ? gameLabel(card.game_id, games) : '';
   const estimated = scope === 'game' && card.legs.length > 2;
   const legs = card.legs.map((l) => (
     `<div class="leg leg--annot ${confClass(l.model_prob)}">`
       + `<div class="leg-nm">${esc(l.selection)}</div>`
-      + `<div class="leg-od"><span class="mo">MODEL <b>${Math.round(l.model_prob * 100)}</b></span>${confChip(l.model_prob)}</div>`
-      + `<div class="leg-prov">${esc([l.team, KIND[l.market] || l.market].filter(Boolean).join(' · '))}</div>`
+      + `<div class="leg-od">${qChip(l)}<span class="mo">MODEL <b>${Math.round(l.model_prob * 100)}</b></span>${confChip(l.model_prob)}</div>`
+      + `<div class="leg-prov">${esc([l.team, KIND[l.market] || l.market,
+        l.availability === QUESTIONABLE ? 'QUESTIONABLE — game-time decision' : ''].filter(Boolean).join(' · '))}</div>`
     + '</div>')).join('');
   const note = scope === 'game'
     ? (estimated
@@ -450,6 +529,7 @@ export function renderTypeCard(card, { scope = 'week', types = [], games = [], l
         + 'no backtest has validated three or more same-game legs.'
       : 'Both legs are from one game, so the chance comes from the same-game correlation model.')
     : 'One leg per game, so the chance is the product of the legs.';
+  const hasQ = card.legs.some((l) => l.availability === QUESTIONABLE);
   return (
     `<article class="card parlay mp-card atd-card type-card" data-scope="${scope}"${label ? ' data-ml-only="1"' : ''}>`
       + '<div class="p-head">'
@@ -462,7 +542,10 @@ export function renderTypeCard(card, { scope = 'week', types = [], games = [], l
         + `<div class="pay">${breakEven(card.model_prob)}<span class="k">BREAK-EVEN ODDS</span></div>`
       + '</div>'
       + `<div class="corr"><span>${note} Built live from the model's legs: not a published card, `
-        + 'not recorded or graded. HIGH is a 65%+ leg, MED 50–65%, LOW under 50%. '
+        + 'not recorded or graded. HIGH is a 65%+ leg, MED 50–65%, LOW under 50%: the model\'s chance, '
+        + 'separate from injury status. '
+        + (hasQ ? 'Q = questionable, a game-time decision: the chance assumes he plays. ' : '')
+        + (exact ? '' : 'Too many combinations to score them all, so this card was chosen by an approximate search. ')
         + 'No book price is read.</span></div>'
     + '</article>'
   );

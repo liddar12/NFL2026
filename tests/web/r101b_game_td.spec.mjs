@@ -54,7 +54,10 @@ async function open(page, doc = gameDoc) {
  * the same-game correlation model; three or more are an ESTIMATE that chains
  * the measured pair correlations (no backtest has validated them), and say so. */
 async function openTypes(page) {
-  await page.addInitScript(() => { try { localStorage.removeItem('nfl2026.parlays.types.v1'); } catch (_) {} });
+  // a fresh start per test; a reload marked 'keep' keeps the viewer's saved choice
+  await page.addInitScript(() => {
+    try { if (!sessionStorage.getItem('keep-types')) localStorage.removeItem('nfl2026.parlays.types.v1'); } catch (_) {}
+  });
   await open(page);
 }
 
@@ -112,6 +115,34 @@ test('GAME: a kind one game cannot fill is an honest empty state, and PUBLISHED 
   await page.click('#td-controls [data-type="published"]');
   await expect(page.locator('#parlays-list')).toBeVisible();
   await expect(page.locator('#atd-list')).toBeHidden();
+});
+
+test('RC-02: WEEK at 8, 9 and 10 legs switches to GAME at the displayed 7, and every card has 7 — reload too', async ({ page }) => {
+  await openTypes(page);
+  await page.click('.scopeseg [data-seg="week"]');
+  await page.click('#td-controls [data-type="all"]');
+  for (const want of ['8', '9', '10']) {
+    while ((await page.locator('#td-controls .td-step-n').textContent()).trim() !== want) {
+      await page.click('#td-controls [data-step="1"]');
+    }
+    await page.click('.scopeseg [data-seg="game"]');
+    await expect(page.locator('#td-controls .td-step-n')).toHaveText('7');
+    await page.waitForSelector('#atd-list .type-card');
+    const sizes = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => c.querySelectorAll('.leg').length));
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const n of sizes) expect(n).toBe(7);
+    await expect(page.locator('#atd-list .type-card .p-head').first()).toContainText('7 LEGS');
+    await page.click('.scopeseg [data-seg="week"]');
+  }
+  // the saved preference is 10; a reload straight onto GAME must still build 7
+  await page.click('.scopeseg [data-seg="game"]');
+  await page.evaluate(() => sessionStorage.setItem('keep-types', '1'));
+  await page.reload();
+  await page.waitForSelector('#td-controls [data-type="all"][aria-pressed="true"]', { timeout: 20000 });
+  await page.waitForSelector('#atd-list .type-card', { timeout: 20000 });
+  await expect(page.locator('#td-controls .td-step-n')).toHaveText('7');
+  const after = await page.$$eval('#atd-list .type-card', (cs) => cs.map((c) => c.querySelectorAll('.leg').length));
+  for (const n of after) expect(n).toBe(7);
 });
 
 function tapTargets(page, sel) {

@@ -1120,14 +1120,16 @@ export default async function mountParlays(el) {
     const games = sched && sched.games;
     const types = typesOn();
     const legs = btMod.typeLegs(typePool, types, games);
-    const n = Number(typeState.legs);
+    // RC-02 — ONE effective count, the very value the stepper displays, for the
+    // generator too (a saved WEEK 10 shows 7 on GAME and must build 7).
+    const n = btMod.stepValue({ ...typeState, types }, scope, legCountsForScope());
     let cards = [];
     let html = '';
     if (scope === 'game') {
       const res = btMod.gameMixCards(legs, n, btMod.typeTable(typeCalib, typePool), typeGame);
       cards = btMod.sortCards(res.cards, typeState.sort);
       html = cards.length
-        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
+        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games, exact: res.exact })).join('')
         : `<div class="state">${res.reason}</div>`;
     } else {
       // R133 — owner: whenever MONEYLINE is chosen, the two most likely
