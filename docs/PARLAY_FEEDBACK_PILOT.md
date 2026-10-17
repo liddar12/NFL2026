@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 13 · October 16, 2026, 11:47 p.m. America/Chicago (CDT).
+Revision 15 · October 17, 2026, 12:04 a.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -11,7 +11,41 @@ activate a production model. MODEL has a saved shadow-evaluation row; local
 candidate application/rollback now has end-to-end tests. Exact-tree publication,
 pipeline activation, Review integration and browser/live acceptance remain.
 
-## Current MY generation regression
+## Current committed MY regression
+
+Frozen **NFL `30780fc9` / engine `6e714ec`** finishes both full runs, exit 0:
+**2,545 NFL features** pass, zero failed/skipped, contracts/smoke/four model
+gates; browser 8 skips. **1,379 core/API** pass, zero skips; 49 critical engine
+files above 90%, stable 96.4906% line coverage and 45 NFL source hashes.
+[Exact committed-MY full checkpoint](qa/2026-10-16-period-MY-committed-full-verification.json).
+This includes the exact-commit/operator/history checks below, not the newer
+weekly eligibility diagnostic under separate local test. The final upstream
+eligibility/publication gate, authentication and live acceptance remain open.
+
+## Frozen weekly eligibility replay
+
+Later local `f7f5d3fa` adds a source diagnostic attached to exact committed MY
+replay. It reconstructs weekly injury/status, depth and inactive-list decisions
+from the captured witnesses, checks period/player/game identity and freshness,
+and rejects an offered finished-game player. The report binds its exact capture,
+pool and check time. Real `week_game_rows` and `STATUS_FINAL_OVERTIME` semantics
+are retained. Row-local unknowns do not remove unrelated candidates.
+
+The actual weekly producer now participates in the real MY capture integration
+test. Nine related tests pass, zero failures/skips, including twelve source
+mutations and an omitted QB2 gate whose forged zero counts pass the older
+relationship validator. This identifies a validation gap, not an observed
+served QB2 card. The legacy validator source is unchanged.
+[Focused evidence](qa/2026-10-17-period-source-eligibility-verification.json).
+
+QB depth and in-window inactive freshness still produce explicit policy HOLDs.
+The fantasy points-loss field has its real numeric shape checked, not its
+earlier Elo/factor calculation rederived. Later witnesses are not misrepresented
+as the earlier weekly producer's actual reads or provider completeness. All
+upstream/final-semantic, authenticated-owner and publication flags remain false.
+Engine `0546b4e` pins 47 NFL files; a new full pair is required for this source.
+
+## Earlier MY generation regression
 
 Frozen **NFL `3905b1fb` / engine `7d675f4`** finishes both full runs, exit 0:
 **2,543 NFL features** pass, zero failed/skipped, contracts/smoke/four model
