@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 11 · October 16, 2026, 11:22 p.m. America/Chicago (CDT).
+Revision 12 · October 16, 2026, 11:41 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -11,7 +11,26 @@ activate a production model. MODEL has a saved shadow-evaluation row; local
 candidate application/rollback now has end-to-end tests. Exact-tree publication,
 pipeline activation, Review integration and browser/live acceptance remain.
 
-## Current MY display and retained learning history
+## Current MY generation regression
+
+Frozen **NFL `3905b1fb` / engine `7d675f4`** finishes both full runs, exit 0:
+**2,543 NFL features** pass, zero failed/skipped, contracts/smoke/four model
+gates; browser 8 skips. **1,379 core/API** pass, zero skips; 49 critical engine
+files above 90%, stable 96.4906% executable-line coverage and 44 NFL source
+hashes. This pair includes actual MY capture/downstream replay and the weekly
+prediction contract correction below. [Exact checkpoint and RCA](qa/2026-10-16-period-MY-full-verification.json).
+Newer exact-commit MY composition is being built separately and is not covered
+by this run. The final upstream eligibility/publication gate remains incomplete.
+
+Real published weekly rows intentionally omit status; the consumer had required
+it to match the full schedule. Synthetic fixtures incorrectly supplied that
+forbidden field and masked the refusal. The captured full schedule now owns
+status, while matchup/week/kickoff remain mandatory matches and an explicit
+contradictory or null status still holds. Fixtures use the actual weekly-row
+producer and validate the real schema; 33 focused tests pass with 24 exact
+refusal cases. Existing stored data is not hand-repaired or called regenerated.
+
+## Earlier MY display and retained learning history
 
 The corrected frozen pair **NFL `37948655` / engine `bdf0564`** passes both full
 runs, exit 0: **2,542 NFL features**, zero failed/skipped, contracts/smoke/four
@@ -33,8 +52,8 @@ failure recovers old pool/pointer and leaves the archive unchanged.
 Seventeen original-capture/operator checks pass; the later downstream/legacy
 run passes 16 overlapping checks, with 450/469 lines in the legacy runtime.
 A further real scenario verifies the fully retained refresh and three rehashed
-forgeries. New module coverage is not measured; the later source requires a
-fresh full paired regression with 44 NFL source hashes. Its downstream success
+forgeries. New module coverage is not measured; the current full pair above
+covers this later source with 44 NFL source hashes. Its downstream success
 does not verify upstream eligibility/freshness or authenticate a current owner,
 and all final publication flags remain false. The publisher's v2 hold stays.
 
