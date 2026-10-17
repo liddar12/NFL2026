@@ -32,7 +32,9 @@ CODE=("scripts/build_leg_pool.py","scripts/build_my_cards.py","scripts/learning_
       "scripts/generation_capture_runtime.py","scripts/period_my_generation.py",
       "scripts/period_my_commit_replay.py","scripts/generation_semantic_gate.py",
       "scripts/period_source_eligibility.py","scripts/scrape/espn.py",
-      "scripts/period_freshness_policy.py", "scripts/my_freshness.py")
+      "scripts/period_freshness_policy.py", "scripts/my_freshness.py",
+      "scripts/period_publication_gate.py", "scripts/selected_my_publication_gate.py",
+      "scripts/run_my_generation.py", "scripts/pilot_config.py", "scripts/publish_my_generation.py")
 
 
 class PeriodReturnError(ValueError):pass

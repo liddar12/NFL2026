@@ -1,10 +1,10 @@
 # Sunday NFL parlay learning pilot
 
-Revision 6 · October 16, 2026, 8:53 p.m. America/Chicago (CDT).
+Revision 7 · October 17, 2026, 9:10 a.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
-An NFL-only operational pilot is a plausible target in the remaining roughly
-37 hours, conditional on the owner's release approval and successful pipeline
+The owner resumed implementation and authorized getting the NFL pilot live
+before this target on October 17. Release still requires successful pipeline
 verification. It is not a commitment to finish the reusable platform or prove
 better predictions by Sunday. Prioritize the existing NFL Actions pipeline,
 Netlify app and a pinned SelfLearning Python package running in Actions. Do not
@@ -13,9 +13,38 @@ make the full hosted Vercel/Supabase service the critical path to this milestone
 This changes delivery priority, not the original 99-task denominator. The full
 engine roadmap remains open. The owner asked to defer security work for speed;
 defer broader hardening without exposing credentials or changing old forecasts.
-No production push, migration, deployment or model activation is authorized by
-this planning document. Reuse the existing R1 architecture; no new diagram or
-hosting provider is needed.
+The live-release request authorizes the tested NFL-first release, not an
+unreviewed candidate, a Supabase migration or a separate Vercel deployment.
+Reuse the existing R1 architecture; no new diagram or hosting provider is needed.
+
+## Saturday release checkpoint
+
+The owner selected provisional MY props before official inactive lists, clearly
+labeled, with automatic withholding at 90 minutes before kickoff until rechecked.
+Local producer, captured-source, saved-pool and UI enforcement are implemented.
+The current registered policy does not yet bind official inactive confirmation:
+after the checkpoint a fresh fetch alone cannot restore yardage props. Completing
+that recheck is still required; do not advertise confirmation or silent recovery.
+
+Ten focused actual-producer/period-return/selected-policy checks pass, including
+the real weekly producer, synthetic weeks 1–3 learning, explicit synthetic owner
+intent, exact captured reads and pool replay. Independent review then reproduced
+three new-policy defects: unbound player/game identity, malformed QB depth
+affecting unrelated players, and wrong-season inactive observations. Their fixes
+and regressions are in progress. This checkpoint is not release certification.
+
+The last completed NFL full run passed 2,555 feature tests plus non-browser
+gates; browser step 8 skipped. Its paired engine run finished **1,378 passed and
+one failed**, correctly refusing a job after a host-clock interruption exceeded
+its five-minute expiry. The unchanged focused test passes; preserve the deadline
+and rerun the full suite without interruption. Later integration changes need
+their own frozen full run.
+
+Current main `28f7ac3b` is merged locally, including fresh pipeline data and the
+post-TNF RCA update. No runtime changes were present between the prior production
+merge and that main revision. Nothing from this integration has been pushed or
+deployed as of this checkpoint. The whole-roadmap tally remains 50/99 completed
+local tasks, not an accuracy score or a live-readiness percentage.
 
 **Owner selected A: NFL first, shared engine running in Actions.** The first
 implementation slice is committed locally: engine `0e5b697` / `8460a71` and

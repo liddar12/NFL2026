@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 16 · October 17, 2026, 12:22 a.m. America/Chicago (CDT).
+Revision 17 · October 17, 2026, 9:10 a.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -10,6 +10,28 @@ migrations or a working Vercel connection. It remains disabled and does not
 activate a production model. MODEL has a saved shadow-evaluation row; local
 candidate application/rollback now has end-to-end tests. Exact-tree publication,
 pipeline activation, Review integration and browser/live acceptance remain.
+
+## Saturday live release work
+
+The owner resumed work and requested a live NFL pilot before the Sunday target.
+The selected provisional freshness policy now has actual producer/captured-pool
+and UI enforcement in local commits. The UI checks each game and QB deadline,
+including resume, lazy import and an already-open bet sheet. Three independently
+reproduced policy edge cases are being corrected before release. Official
+inactive confirmation is not yet bound, so the current 90-minute hold cannot be
+cleared merely by refreshing. Model approval remains separate from release.
+
+Main `28f7ac3b` is merged locally. The newest completed pre-follow-up NFL full
+run passed **2,555 features**, all non-browser gates, and skipped browser step 8.
+Paired engine coverage remained 96.4906%, but that run is **red: 1,378 passed,
+one failed** after a host-clock interruption expired a bounded job. The unchanged
+focused test passes. A new frozen full pair and CI browser run are required.
+No integration branch has been pushed or deployed as of 9:10 a.m. CDT.
+
+The publication boundary and gameday feedback/status changes have focused local
+regressions; actual selected-generation publication, approval-aware workflow
+activation, official-list rechecks and served-site acceptance remain in progress.
+See [Sunday release checkpoint](SUNDAY10AM_PARLAY_PILOT_20261018.md).
 
 ## Current committed MY regression
 
