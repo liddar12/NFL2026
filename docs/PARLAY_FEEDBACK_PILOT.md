@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 15 · October 17, 2026, 12:04 a.m. America/Chicago (CDT).
+Revision 16 · October 17, 2026, 12:22 a.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -13,13 +13,13 @@ pipeline activation, Review integration and browser/live acceptance remain.
 
 ## Current committed MY regression
 
-Frozen **NFL `30780fc9` / engine `6e714ec`** finishes both full runs, exit 0:
-**2,545 NFL features** pass, zero failed/skipped, contracts/smoke/four model
+Frozen **NFL `74efbc51` / engine `251229e`** finishes both full runs, exit 0:
+**2,550 NFL features** pass, zero failed/skipped, contracts/smoke/four model
 gates; browser 8 skips. **1,379 core/API** pass, zero skips; 49 critical engine
-files above 90%, stable 96.4906% line coverage and 45 NFL source hashes.
-[Exact committed-MY full checkpoint](qa/2026-10-16-period-MY-committed-full-verification.json).
-This includes the exact-commit/operator/history checks below, not the newer
-weekly eligibility diagnostic under separate local test. The final upstream
+files above 90%, stable 96.4906% line coverage and 47 NFL source hashes.
+[Exact weekly-eligibility full checkpoint](qa/2026-10-17-weekly-eligibility-full-verification.json).
+This includes weekly eligibility and the exact-commit/operator/history checks,
+not the newer proposed-policy/chronology source below. The final upstream
 eligibility/publication gate, authentication and live acceptance remain open.
 
 ## Frozen weekly eligibility replay
@@ -43,7 +43,35 @@ The fantasy points-loss field has its real numeric shape checked, not its
 earlier Elo/factor calculation rederived. Later witnesses are not misrepresented
 as the earlier weekly producer's actual reads or provider completeness. All
 upstream/final-semantic, authenticated-owner and publication flags remain false.
-Engine `0546b4e` pins 47 NFL files; a new full pair is required for this source.
+Engine `0546b4e` pins 47 NFL files; the current full pair above covers this source.
+
+## Proposed freshness policy assessment
+
+Local `f5b58319` adds an explicit read-only operator option:
+`replay-my-commit --shadow-freshness-profile provisional_before_90m_v1`
+or `wait_for_confirmed_inactives_v1`, alongside the existing exact-head/base/
+generation arguments. Neither profile is selected by default or for serving.
+The output includes proposed parameters, capture/pool/time IDs, affected players
+and the next required check. An assessment pass is not owner/model/release approval.
+
+The proposed provisional profile stops at 90 minutes before kickoff. The strict
+profile holds without bound confirmation evidence. Fresh zero and nonzero
+inactive arrays, and caller-supplied posted/complete flags, never establish
+official posting/completeness. Proposed QB bounds are a depth fetch younger than
+12 hours and a team snapshot younger than seven days; date-only/unknown clocks
+hold. Missing/stale depth is a source refusal for affected QBs, not a medical
+zero or a change to weekly points. These thresholds are proposals, not fitted
+or validated accuracy improvements. Risk: late changes and feed latency remain;
+LOE to enforce them in generation/UI and bind posting evidence is medium.
+
+Fourteen related tests pass, including the actual weekly producer, committed
+MY/operator shadow assessment and the original missing-season negative. A new
+consistency guard rejects locally stamped witness fetches later than the weekly
+build they supposedly support; it does not authenticate earlier reads.
+[Focused policy evidence](qa/2026-10-17-proposed-freshness-verification.json).
+The new source needs a full pair with 48 NFL hashes. Owner policy choice,
+posting evidence, generation/UI checkpoint enforcement and final publication
+remain unfinished. All existing serving and publisher holds remain unchanged.
 
 ## Earlier MY generation regression
 
