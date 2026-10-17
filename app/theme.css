@@ -972,6 +972,16 @@ button { font: inherit; color: inherit; }
 .conf--low    { color: var(--muted); }
 .conf--medium { color: var(--brand-txt); }
 .conf--high   { color: var(--pos-txt); }
+/* R133 — each leg box is outlined by its confidence: green HIGH, yellow MED, red LOW. */
+.legs > .leg.leg--conf-high   { border: 2px solid var(--pos); }
+.legs > .leg.leg--conf-medium { border: 2px solid var(--warn); }
+.legs > .leg.leg--conf-low    { border: 2px solid var(--neg); }
+.type-sec { margin: 14px 0 6px; }
+.game-pick {
+  min-height: 44px; min-width: 180px; padding: 0 12px; font: inherit; font-weight: 600;
+  color: inherit; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px;
+}
 #atd-list .state { margin-top: 8px; }
 .mp-card .leg-prov { color: var(--muted); }
 

@@ -118,7 +118,7 @@ import {
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
 import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
-import { confChip } from '../bet-types.js';
+import { confChip, confClass } from '../bet-types.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -601,7 +601,11 @@ function annotateLegs(listEl, filtered) {
       // R133 — every leg carries its confidence tag (its own model chance); a
       // spread is a flat 0.5 the model holds no opinion on, so it gets none.
       const tagOd = leg.market !== 'spread' && node.querySelector('.leg-od');
-      if (tagOd) tagOd.insertAdjacentHTML('beforeend', confChip(leg.model_prob));
+      if (tagOd) {
+        tagOd.insertAdjacentHTML('beforeend', confChip(leg.model_prob));
+        const cls = confClass(leg.model_prob);
+        if (cls) node.classList.add(cls);
+      }
       if (leg.market === 'spread') {
         const chip = document.createElement('span');
         chip.className = 'est leg-noedge';
@@ -1071,6 +1075,7 @@ export default async function mountParlays(el) {
    * loads after first paint; the ~300 KB leg pool only on the first type tap.
    */
   let typeState = null;
+  let typeGame = null;  // GAME: the game picked in the dropdown (view state, not saved)
   let btMod = null;
   let typePool;     // undefined = not loaded yet; null = unavailable
   let typeCalib = null;
@@ -1115,12 +1120,31 @@ export default async function mountParlays(el) {
     const games = sched && sched.games;
     const types = typesOn();
     const legs = btMod.typeLegs(typePool, types, games);
-    const { cards, reason } = scope === 'game'
-      ? btMod.gameTypeCards(legs, btMod.typeTable(typeCalib, typePool), games)
-      : btMod.weekTypeCards(legs, Number(typeState.legs));
-    listEl.innerHTML = cards.length
-      ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
-      : `<div class="state">${reason}</div>`;
+    const n = Number(typeState.legs);
+    let cards = [];
+    let html = '';
+    if (scope === 'game') {
+      const res = btMod.gameMixCards(legs, n, btMod.typeTable(typeCalib, typePool), typeGame);
+      cards = btMod.sortCards(res.cards, typeState.sort);
+      html = cards.length
+        ? cards.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
+        : `<div class="state">${res.reason}</div>`;
+    } else {
+      // R133 — owner: whenever MONEYLINE is chosen, the two most likely
+      // moneyline-only cards ride above the mixed ones.
+      const onlyMl = types.length === 1 && types[0] === 'ml';
+      const ml = types.includes('ml') && !onlyMl ? btMod.moneylineCards(legs, n) : [];
+      const res = btMod.weekMixCards(legs, n);
+      const mix = btMod.sortCards(res.cards, typeState.sort);
+      cards = [...ml, ...mix];
+      html = (ml.length ? btMod.sectionHead('TOP MONEYLINE CARDS')
+          + ml.map((c) => btMod.renderTypeCard(c, { scope, types, games, label: 'MONEYLINE ONLY' })).join('') : '')
+        + (ml.length && mix.length ? btMod.sectionHead(typeState.sort === 'payout'
+          ? 'MIXED CARDS · BIGGEST PAYOUT FIRST' : 'MIXED CARDS · MOST LIKELY FIRST') : '')
+        + (mix.length ? mix.map((c) => btMod.renderTypeCard(c, { scope, types, games })).join('')
+          : `<div class="state">${res.reason}</div>`);
+    }
+    listEl.innerHTML = html;
     betShown.atd = cards;
     if (cards.length) addBetButtons(listEl, cards);
   }
@@ -1136,7 +1160,7 @@ export default async function mountParlays(el) {
       if (!typeState) typeState = btMod.readState();
       if (!tdEligible()) return;
     }
-    const eff = { types: typesOn(), legs: typeState.legs };
+    const eff = { ...typeState, types: typesOn() };
     const counts = legCountsForScope();
     if (!eff.types.length) {
       const v = btMod.stepValue(eff, active, counts);
@@ -1148,8 +1172,12 @@ export default async function mountParlays(el) {
         paintList();
       }
     }
+    // the picker offers this week's games still to play (later weeks have no legs yet)
+    const open = btMod.openGames(((sched && sched.games) || []).filter((g) => Number(g.week) === Number(curWeek)));
+    if (!open.some((g) => String(g.game_id) === String(typeGame))) typeGame = open.length ? String(open[0].game_id) : null;
     host.hidden = false;
-    host.innerHTML = btMod.typeControls(eff, active, counts, { types: selWeek === curWeek });
+    host.innerHTML = btMod.typeControls(eff, active, counts,
+      { types: selWeek === curWeek, games: open, gameId: typeGame });
     await paintAtd();
   }
 
@@ -1418,13 +1446,20 @@ export default async function mountParlays(el) {
   if (tdBox) {
     tdBox.addEventListener('click', (e) => {
       if (!btMod || !typeState) return;
-      const eff = { types: typesOn(), legs: typeState.legs };
+      const eff = { ...typeState, types: typesOn() };
       const next = btMod.typeTap(eff, e.target, active, legCountsForScope());
       if (!next) return;
       // a past week shows no type chips, so a tap there can only move the stepper
-      typeState = selWeek === curWeek ? next : { types: typeState.types, legs: next.legs };
+      typeState = selWeek === curWeek ? next : { ...typeState, legs: next.legs };
       btMod.writeState(typeState);
       paintTd();
+    });
+    // R133 — GAME's game picker
+    tdBox.addEventListener('change', (e) => {
+      const pick = e.target.closest('#game-pick');
+      if (!pick || pick.value === typeGame) return;
+      typeGame = pick.value;
+      paintAtd();
     });
   }
 

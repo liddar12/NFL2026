@@ -145,7 +145,7 @@
   - chips count the active scope's cards on the slate shown, through the same resolver the
     filter uses; other graded rows of that scope are a separate "not on this slate" line;
   - on WEEK and GAME the TD pills become BET TYPE chips (ALL / ANYTIME TD / PASSING / RUSHING /
-    RECEIVING / MONEYLINE, multi-select). ALL is the published slate. Types build cards live
+    RECEIVING / MONEYLINE, multi-select). (Round 1: ALL is the published slate.) Types build cards live
     from the leg pool (`app/bet-types.js`; WEEK: one leg per game, the 3 most likely n-leg
     cards; GAME: the 3 most likely same-game pairs per game, correlation-priced). They are
     browser-only, not recorded, not graded. O/U and spread are not offered: no totals model,
@@ -155,8 +155,20 @@
     price);
   - every leg carries HIGH (≥ 65%) / MED (≥ 50%) / LOW by its own model chance, the MY dial's
     lines.
+  **Round 2 (owner, same day, preview screenshots):** ALL and "+ MONEYLINE" showed
+  moneyline-only cards. **RCA:** each player offered the hardest line still at 50%+ (props at
+  about 52-62%), so a 65-84% moneyline won every game's one slot, and ALL was the curated slate,
+  which is moneyline favourites by design. **Changed:** a player offers his MOST LIKELY line;
+  every card is FORCED TO MIX (min(n, kinds) different kinds); PUBLISHED is its own chip (the
+  default) and ALL builds from every kind; whenever MONEYLINE is chosen the two most likely
+  moneyline-only cards show in their own section; mixed cards sort MOST LIKELY or BIGGEST
+  PAYOUT; every leg box is outlined green / yellow / red by HIGH / MED / LOW. On week 6, a 7-leg
+  ALL card is 33.0% at model prices against 13.3% for the best moneyline-only card. GAME is now
+  one game picked from a dropdown at 2-7 legs; a pair is priced by the same-game model, and 3-7
+  legs are an ESTIMATE that chains the measured pair correlations, labelled "EST. MODEL HIT"
+  (owner's choice; no backtest validates 3+ same-game legs).
   **Not changed:** the "WK n PARLAYS: x/y hit" strip still counts every review row (R130).
-  **Next:** record and grade built cards. **Locked by** `r133_bet_types` (feature), the R133
+  **Next:** record and grade built cards; backtest the 3+ same-game estimate. **Locked by** `r133_bet_types` (feature), the R133
   bucket check in `r90_parlays_ux`, and the converted `r101b`/`r101c` specs.
  — Self-Learning Platform (liddar12/SelfLearning) and NFL2026
 
