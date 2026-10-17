@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 10 · October 16, 2026, 10:45 p.m. America/Chicago (CDT).
+Revision 11 · October 16, 2026, 11:22 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -13,7 +13,40 @@ pipeline activation, Review integration and browser/live acceptance remain.
 
 ## Current MY display and retained learning history
 
-The latest full NFL gate, `ffe7fd93`, is **red**: 2,532 feature tests pass and
+The corrected frozen pair **NFL `37948655` / engine `bdf0564`** passes both full
+runs, exit 0: **2,542 NFL features**, zero failed/skipped, contracts/smoke/four
+model gates; browser 8 skips. **1,379 core/API tests**, zero skips, 49 critical
+targets above 90%, stable 96.4906% executable-line coverage and 43 NFL source
+hashes. [Exact corrected checkpoint](qa/2026-10-16-my-display-history-r2-verification.json).
+This does not establish a production release or improved future accuracy.
+
+Later `c9ce721e`/`ed5c320b` adds actual `apply-my`: durable original loader
+reads, the exact pool-writer checkpoint before current-pointer acknowledgement,
+the actual MY archive/journal writer, and a v2 link containing unchanged v1
+capture objects. The downstream replayer rebuilds offered cards, receipt/
+candidate population, membership and exact archive append bytes. A refresh
+with zero new display keys preserves all older cards and still verifies the
+new offered forecast population. Rehashed payout/audit/history forgeries hold.
+Private capture directories must be outside both repositories; partial writer
+failure recovers old pool/pointer and leaves the archive unchanged.
+
+Seventeen original-capture/operator checks pass; the later downstream/legacy
+run passes 16 overlapping checks, with 450/469 lines in the legacy runtime.
+A further real scenario verifies the fully retained refresh and three rehashed
+forgeries. New module coverage is not measured; the later source requires a
+fresh full paired regression with 44 NFL source hashes. Its downstream success
+does not verify upstream eligibility/freshness or authenticate a current owner,
+and all final publication flags remain false. The publisher's v2 hold stays.
+
+One owner policy choice is pending: provisional, clearly labeled props before
+official inactive lists with a new check at 90 minutes pre-kickoff (recommended;
+late-scratch/feed-delay risk, medium LOE), or hold until fresh lists are
+confirmed (risk: no noon-game props at 10 a.m., low LOE). The NFL describes
+inactive-list exchange at its [90-minute meeting](https://operations.nfl.com/game-operations-logistics/preparation-safety/game-and-stadium-prep);
+that does not establish ESPN latency/completeness. Existing v1 holds are unchanged;
+neither choice is activated or treated as model/release approval.
+
+The earlier full NFL gate, `ffe7fd93`, is **red**: 2,532 feature tests pass and
 one 32-mutation Git fixture reaches its single child's 60-second deadline.
 Contracts/smoke/four model gates pass; browser skips. Paired engine `2483c1e`
 passes 1,379 tests with stable 96.4906% coverage and 42 NFL source hashes.
@@ -30,7 +63,8 @@ engine checkout/commit and configured authority/actor. Approve/rollback require
 an expiry and `--ack-retrospective-risk`; prepare/inspect cannot approve.
 Four related tests pass, including actual repository-input apply, separate
 saved/latest inspection and replay. This is local filesystem authority, not an
-authenticated hosted owner or production activation. A new full gate remains.
+authenticated hosted owner or production activation. The corrected full run
+above covers those operator/history fixes, not the later MY binding source.
 [First full failure and follow-up scope](qa/2026-10-16-my-display-history-first-verification.json).
 
 Local `230baa69` shows the base/calibrator/artifact/owner/application versions
