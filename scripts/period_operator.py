@@ -68,6 +68,10 @@ def main(argv=None, *, clock=period.files.now):
     apply_my.add_argument('--generation-sha', required=True)
     apply_my.add_argument('--capture-dir', required=True, help='Private persistent recovery directory outside the checkout')
     commands.add_parser('reverify', help='Read-only replay of the current local application; not a MY publication gate')
+    committed_my = commands.add_parser('replay-my-commit',
+        help='Replay exact committed MY/application/history bytes; not an upstream eligibility or release gate')
+    for name in ('expected-head', 'base-head', 'period-generation-id'):
+        committed_my.add_argument('--' + name, required=True)
     args = parser.parse_args(argv)
     try:
         control = period.PeriodCalibrator(data_dir=args.data_dir, engine_checkout=args.engine_checkout,
@@ -94,8 +98,16 @@ def main(argv=None, *, clock=period.files.now):
             # private recovery paths. The returned identities trace the records.
             with contextlib.redirect_stdout(io.StringIO()):
                 result = generate(control, generation_sha=args.generation_sha, capture_dir=args.capture_dir)
-        else:
+        elif args.operation == 'reverify':
             result = {'status': 'local_application_replayed_not_publication_verified', 'details': control.reverify()}
+        else:
+            from scripts.period_my_commit_replay import check_committed
+            period.need(control.data == control.data.parent / 'data', 'period_MY_checkout_data_required')
+            details = check_committed(checkout=control.data.parent, expected_head=args.expected_head,
+                base_head=args.base_head, period_generation_id=args.period_generation_id,
+                engine_checkout=control.engine_checkout, engine_commit=control.engine_commit,
+                authority_id=control.authority_id, actor_ref=control.actor_ref, clock=clock)
+            result = {'status': 'committed_MY_replayed_not_publication_verified', 'details': details}
         print(json.dumps({'version': 2, 'kind': 'nfl.period_local_operator_result.v2',
             'operation': args.operation, **result, **FLAGS}, sort_keys=True))
         return 0
