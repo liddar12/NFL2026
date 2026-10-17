@@ -94,11 +94,17 @@ def outcomes(week,schedule,actuals,snaps,observed):
     return capture.capture(2026,[week],fetcher=lambda spec:(200,{},bodies[spec['profile']]),clock=clock)
 
 
-def training(data,engine,commit):
-    """Three complete pregame cohorts, then observed raw FINAL data; no uploads/PASS flags."""
+def training(data,engine,commit,*,first_created=None):
+    """Three synthetic cohorts, raw FINAL data, and no uploaded PASS flags.
+
+    The optional first clock supports real-wall-clock publisher tests without
+    bypassing candidate age checks; weeks, synthetic labels and equations stay
+    unchanged. Existing fixtures retain their original fixed chronology.
+    """
     records=[]
     for week in (1,2,3):
-        created=stamp(dt.datetime(2026,9,27,12,tzinfo=dt.timezone.utc)+dt.timedelta(days=(week-1)*7))
+        first=lr.instant(first_created)if first_created is not None else dt.datetime(2026,9,27,12,tzinfo=dt.timezone.utc)
+        created=stamp(first+dt.timedelta(days=(week-1)*7))
         value,schedule,actuals,snaps=inputs(week,created)
         built=pool.build(value)
         learning_journal.record(built,schedule,None,[],stamp(lr.instant(created)+dt.timedelta(minutes=1)),str(data/'snapshots'))

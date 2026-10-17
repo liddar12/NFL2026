@@ -196,8 +196,10 @@ def check_publication(*, checkout, expected_head, base_head, period_generation_i
         need(runtime._extra_paths(ROOT) == trusted_names
             and runtime._code(ROOT, trusted_names) == trusted_sources,
             'period_publication_trusted_runtime_changed')
-        need(period.files.git(engine_checkout, 'rev-parse', 'HEAD') == engine_commit,
-            'period_MY_trusted_engine_changed')
+        # A dirty engine runtime can retain the same Git HEAD. Re-enter the
+        # fixed engine loader's exact-commit/clean-runtime/identity checks after
+        # policy work rather than trusting HEAD alone.
+        period.files.engine(engine_checkout, engine_commit)
         _head(root, expected_head)
     return period.sealed({'version': 2, 'kind': 'nfl.period_MY_publication_check.v2',
         'status': 'supported_committed_MY_yardage_consumer_checked', 'head': expected_head,

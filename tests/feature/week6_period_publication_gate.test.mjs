@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SETUP = String.raw`
@@ -192,7 +193,7 @@ with tempfile.TemporaryDirectory()as tmp:
  def full():return G.check_publication(checkout=root,expected_head=head,base_head=base,
   period_generation_id=gid,engine_checkout=root,engine_commit=pin,authority_id=authority,actor_ref='synthetic',clock=lambda:now[0])
  with patch.object(G.replay,'check_committed',return_value=proof),patch.object(G.replay,'Snapshot',View),\
-      patch.object(G.replay.gate,'_capture',return_value=({},docs)),patch.object(G.period.files,'git',return_value=pin),\
+      patch.object(G.replay.gate,'_capture',return_value=({},docs)),patch.object(G.period.files,'engine',return_value=(None,None,'synthetic-code')),\
       patch.dict(sys.modules,{'scripts.my_freshness':module}):
   # Existing cached imports must not cause the synthetic port to exercise a
   # previous real module. Restore the package attribute after this subprocess.
@@ -213,6 +214,9 @@ with tempfile.TemporaryDirectory()as tmp:
   module.verify=expires;results.append(refusal(full));now[0]='2026-10-18T14:00:00Z'
   def late(*args,**kw):now[0]='2026-10-18T14:11:00Z';return dict(policy)
   module.verify=late;results.append(refusal(full))
+  now[0]='2026-10-18T14:00:00Z';module.verify=lambda *args,**kw:dict(policy)
+  with patch.object(G.period.files,'engine',side_effect=ValueError('feedback_engine_runtime_dirty')):
+   results.append(refusal(full))
  print(json.dumps({'accepted':accepted,'refusals':results,'stubbed_composition_only':True}))
 `);
   assert.equal(r.stubbed_composition_only, true);
@@ -226,5 +230,87 @@ with tempfile.TemporaryDirectory()as tmp:
     'period_publication_selected_freshness_held', 'period_publication_unselected_freshness_profile',
     'period_publication_unconfigured_owner_scope', 'period_publication_unknown_control_record',
     'period_publication_unacknowledged_owner_event', 'period_return_approval_expired',
-    'period_return_verification_deadline']);
+    'period_return_verification_deadline', 'feedback_engine_runtime_dirty']);
+});
+
+test('actual selected MY generation passes the exact gate and real publisher against a temporary local remote', (t) => {
+  const engine = process.env.SELFLEARN_CHECKOUT;
+  if (!engine || !existsSync(`${engine}/packages/selflearn-core/selflearn_core/store/file_owner_intents.py`)) {
+    t.skip('Explicit shared engine checkout required for actual producer/refit/publication'); return;
+  }
+  const r = spawnSync('python3', ['-B', '-'], { cwd: ROOT, encoding: 'utf8', timeout: 180000,
+    maxBuffer: 4 * 1024 * 1024, input: String.raw`
+import contextlib,datetime as dt,io,json,os,pathlib,shutil,subprocess,tempfile
+from scripts import build_leg_pool as B,run_parlay_feedback as F,learning_receipts as L,my_freshness as M
+from scripts import generation_capture_runtime as C,period_my_generation as MY,period_publication_gate as G
+from scripts.period_calibrator import PeriodCalibrator
+from tests.fixtures import period_return as fixture
+from tests.fixtures.period_eligibility import complete_period_current
+engine=pathlib.Path(os.environ['SELFLEARN_CHECKOUT']);pin=F.git(engine,'rev-parse','HEAD')
+os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
+with tempfile.TemporaryDirectory()as tmp:
+ area=pathlib.Path(tmp);root=area/'checkout';root.mkdir();data=root/'data';origin=area/'local-origin'
+ shutil.copytree(F.ROOT/'scripts',root/'scripts',ignore=shutil.ignore_patterns('__pycache__'))
+ shutil.copytree(F.ROOT/'app',root/'app')
+ for relative in C.EXTRA_FIXED-{C.RUNTIME_PATH}:
+  target=root/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(F.ROOT/relative,target)
+ cfg=root/'config/excluded_games.json';cfg.parent.mkdir(parents=True);shutil.copyfile(F.ROOT/'config/excluded_games.json',cfg)
+ # Three synthetic complete cohorts retain their labels/equations; only their
+ # clocks move with the platform clock. No production clock override or stale
+ # artifact exemption is installed for this actual publisher subprocess.
+ started=L.instant(F.now())
+ fixture.training(data,engine,pin,first_created=fixture.stamp(started-dt.timedelta(days=19)))
+ created=fixture.stamp(L.instant(F.now())-dt.timedelta(minutes=2))
+ current,schedule,_,_=fixture.inputs(6,created,n=24,tag='selected-publication',past=True)
+ witness,depth=complete_period_current(current,schedule)
+ fixture.write_inputs(data,current,schedule);fixture.write(data/'leg_pool.json',B.build(current))
+ fixture.write(data/'injuries.json',witness);fixture.write(data/'depth_chart.json',depth)
+ control=PeriodCalibrator(data_dir=data,engine_checkout=engine,engine_commit=pin,
+  authority_id=L.fingerprint('synthetic-selected-publication-authority'),actor_ref='synthetic-operator',
+  clock=F.now,freshness_profile=M.PROFILE)
+ oid=control.prepare(season=2026,week=6)
+ control.record_intent(oid,action='approve',expires_utc=fixture.stamp(L.instant(F.now())+dt.timedelta(hours=2)),
+  reason='Synthetic publication mechanics only; not owner approval of a real candidate',acknowledge_retrospective=True)
+ F.git(root,'init','-b','main');F.git(root,'config','user.email','synthetic@example.invalid')
+ F.git(root,'config','user.name','Synthetic Fixture');F.git(root,'config','gc.auto','0');F.git(root,'config','maintenance.auto','false')
+ def commit(message):
+  F.git(root,'add','.');F.git(root,'-c','commit.gpgsign=false','commit','-m',message);return F.git(root,'rev-parse','HEAD')
+ base=commit('synthetic base with actual training, sources and explicit synthetic intent')
+ subprocess.run(['git','init','--bare',str(origin)],check=True,capture_output=True,timeout=10)
+ F.git(root,'remote','add','origin',str(origin));F.git(root,'push','origin','HEAD:main')
+ with contextlib.redirect_stdout(io.StringIO()):
+  result=MY.generate(control,generation_sha=base,capture_dir=area/'private-capture')
+ head=commit('actual selected-policy MY generation')
+ proof=G.check_publication(checkout=root,expected_head=head,base_head=base,
+  period_generation_id=result['period_generation_id'],engine_checkout=engine,engine_commit=pin,
+  authority_id=control.authority_id,actor_ref=control.actor_ref,clock=F.now)
+ assert proof['consumer_check_pass']and proof['new_generation']
+ assert proof['supported_MY_yardage_consumer_semantics_verified']
+ assert proof['selected_freshness_policy']['consumer_policy_pass']
+ # The publisher itself creates another commit, then independently checks that
+ # final SHA and freshly fetched base. This is a temporary local bare Git repo,
+ # never GitHub, production, Netlify or a real model approval.
+ fixture.write(data/'pipeline_stages.json',{'synthetic_publication_test':True})
+ args=['bash',str(F.ROOT/'scripts/publish_data.sh'),
+  '--period-generation-id',result['period_generation_id'],'--period-engine-checkout',str(engine),
+  '--period-engine-commit',pin,'--period-authority-id',control.authority_id,
+  '--period-actor-ref',control.actor_ref,'synthetic selected MY publication']
+ run=subprocess.run(args,cwd=root,capture_output=True,text=True,timeout=90,
+  env={**os.environ,'PUBLISH_VALIDATE_CMD':'true','PUBLISH_BACKOFF_S':'0','PUBLISH_ATTEMPTS':'1'})
+ assert run.returncode==0,run.stdout+run.stderr
+ published=F.git(origin,'rev-parse','refs/heads/main');assert published==F.git(root,'rev-parse','HEAD')and published!=head
+ reports=[json.loads(line)for line in run.stdout.splitlines()if line.startswith('{')]
+ selected=[r for r in reports if r.get('kind')=='nfl.period_MY_publication_check.v2'][-1]
+ assert selected['head']==published and selected['base_head']==base and selected['new_generation']
+ for flag in('whole_release_pass','publication_authorized','production_authorized','owner_authenticated',
+  'provider_authenticated','provider_completeness_verified','earlier_weekly_producer_reads_verified',
+  'upstream_eligibility_verified','public_serving_verified','accuracy_improvement_verified'):
+  assert selected[flag]is False,(flag,selected)
+ print(json.dumps({'publisher_exit':run.returncode,'exact_final_sha_verified':True,
+  'actual_producer_and_shared_fit':True,'local_fixture_only':True,'whole_release_pass':False}))
+` });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const answer = JSON.parse(r.stdout.trim().split('\n').at(-1));
+  assert.deepEqual(answer, { publisher_exit: 0, exact_final_sha_verified: true,
+    actual_producer_and_shared_fit: true, local_fixture_only: true, whole_release_pass: false });
 });
