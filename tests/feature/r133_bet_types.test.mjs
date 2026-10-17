@@ -271,25 +271,40 @@ function bruteWeek(legs, n, k) {
   }
   const gameIds = [...byGame.keys()];
   const target = Math.min(n, new Set(legs.map((l) => l.kind)).size);
+  // every combination is still scored; only the running top k is kept, so
+  // memory stays flat however many combinations there are (CI heap is 4 GB)
   const out = [];
+  const better = (a, b) => b.p - a.p || a.key.localeCompare(b.key);
+  const offer = (acc) => {
+    const p = acc.reduce((q, l) => q * l.model_prob, 1);
+    if (out.length === k && p < out[k - 1].p) return;
+    const rec = { p, key: acc.map((l) => l.selection).sort().join('|') };
+    if (out.length === k && better(rec, out[k - 1]) >= 0) return;
+    out.push(rec);
+    out.sort(better);
+    if (out.length > k) out.pop();
+  };
+  const acc = [];
   const pickGames = (start, chosen) => {
     if (chosen.length === n) {
-      const rec = (i, acc) => {
+      const rec = (i) => {
         if (i === n) {
-          if (new Set(acc.map((l) => l.kind)).size >= target) {
-            out.push({ p: acc.reduce((p, l) => p * l.model_prob, 1), key: acc.map((l) => l.selection).sort().join('|') });
-          }
+          if (new Set(acc.map((l) => l.kind)).size >= target) offer(acc);
           return;
         }
-        for (const l of byGame.get(chosen[i])) rec(i + 1, [...acc, l]);
+        for (const l of byGame.get(chosen[i])) {
+          acc.push(l);
+          rec(i + 1);
+          acc.pop();
+        }
       };
-      rec(0, []);
+      rec(0);
       return;
     }
     for (let i = start; i < gameIds.length; i += 1) pickGames(i + 1, [...chosen, gameIds[i]]);
   };
   pickGames(0, []);
-  return out.sort((a, b) => b.p - a.p || a.key.localeCompare(b.key)).slice(0, k);
+  return out;
 }
 
 test('RC-03: WEEK selection equals an independent brute-force oracle (top six, exactly) on real legs', () => {
@@ -320,6 +335,7 @@ test('RC-03: WEEK selection equals an independent brute-force oracle (top six, e
   const skewSmall = skew.filter((l) => sg.includes(String(l.game_id)));
   const o2 = bruteWeek(skewSmall, 5, 6);
   const g2 = weekMixCards(skewSmall, 5).cards;
+  assert.equal(g2.length, o2.length);
   g2.forEach((c, i) => assert.ok(Math.abs(c.model_prob - o2[i].p) < 1e-12));
 });
 
