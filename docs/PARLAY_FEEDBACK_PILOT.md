@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 8 · October 16, 2026, 10:09 p.m. America/Chicago (CDT).
+Revision 9 · October 16, 2026, 10:34 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -10,6 +10,39 @@ migrations or a working Vercel connection. It remains disabled and does not
 activate a production model. MODEL has a saved shadow-evaluation row; local
 candidate application/rollback now has end-to-end tests. Exact-tree publication,
 pipeline activation, Review integration and browser/live acceptance remain.
+
+## Current MY display and retained learning history
+
+Local `230baa69` shows the base/calibrator/artifact/owner/application versions
+actually recorded in each displayed MY-yardage rung. It does not call a newer
+proposal active. The producer's structured metadata is included in the saved
+pool/application identity. Expired approval, missing/inconsistent metadata or
+inputs beyond the existing 12-hour period-return policy withhold affected props
+without client-side baseline re-pricing. Resume, cutoff and bet-sheet checks
+cover a tab that slept through expiry; game and TD legs remain separate.
+Unknown older pools remain unknown, not proof that self-learning is active.
+
+The actual synthetic producer/raw-fitter/owner round trip passes three scenarios
+with A/B, rollback and revocation displayed by the JS reader; 70 related display,
+legacy and reporting checks pass. Local `142a3f3c` adds whole retained-history
+checks relative to the fetched publication base. Immutable evidence may not be
+deleted or rewritten even if unreferenced by the newest pointer. Owner/current
+and feedback pointer conflicts or R111 fallback cannot choose either writer
+automatically. Nine new tests and 21 existing publisher regressions pass in
+temporary repositories; no production repository is published by those tests.
+
+The latest completed full pair is older: engine `98c21ab` / NFL `8bdfd021`,
+1,379 core/API tests, 49 critical targets above 90%, stable 96.4906% line
+coverage and 37 NFL source hashes; 2,496 NFL features plus all non-browser
+gates pass. Both exit 0; browser step 8 skips. The newer display/history source
+still requires its full regression. [Exact checkpoint and limitations](qa/2026-10-16-period-committed-replay-verification.json).
+
+Offline browser dependencies are available in the isolated test worktree, but
+the environment denies the static server's local socket bind. Three new status
+browser cases list correctly; no executed browser, screenshot or mobile visual
+acceptance is claimed. Final MY-card semantic publication, operator/pipeline
+activation, Model/Review completion and fresh Actions/Netlify checks remain.
+V2 publication is still explicitly held; no actual candidate or release approved.
 
 ## Current implementation
 
