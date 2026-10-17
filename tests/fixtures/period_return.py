@@ -34,6 +34,7 @@ def write_inputs(data,value,schedule):
 
 
 def inputs(week,created,*,n=180,tag=None,past=False):
+    from scripts.build_predictions import week_game_rows
     tag=tag or str(week);now=lr.instant(created);rnd=random.Random(9931+week)
     games=[{'game_id':f'synthetic-{tag}-{i}','week':week,'home':home,'away':away,
         'kickoff_utc':stamp(now+dt.timedelta(days=1,hours=6)),'status':'STATUS_SCHEDULED',
@@ -66,7 +67,9 @@ def inputs(week,created,*,n=180,tag=None,past=False):
             'ladder':{pos:[59.5]for pos in POSITIONS},'verdict':{'adopt':True}},
         'player_projections':{'generated_utc':source,'players':players},
         'player_weekly':{'generated_utc':source,'players':weekly},
-        'game_predictions':{'generated_utc':source,'games':games},
+        'game_predictions':{'season':2026,'week':week,'updated_utc':source,'games':week_game_rows([
+            {**g,'roof':'outdoor','model':'synthetic-prior','estimate':True,
+             'probs':{'home':.5,'away':.5}}for g in games],week)},
         'parlays':{'season':2026,'week':week,'parlays':[{'game_id':g['game_id'],'legs':[
             {'market':'moneyline','selection':g['home']+' ML','model_prob':.5,'implied_prob':.52,
              'side':'home','price_source':'fair_market'}]}for g in games]},

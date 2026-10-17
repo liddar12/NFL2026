@@ -346,6 +346,10 @@ with tempfile.TemporaryDirectory()as tmp:
   for game in s['games']:game.pop('kickoff_utc',None)
  case('unknown-cutoffs',no_cutoffs,'period_return_no_future_games')
  case('contradictory-matchup',lambda c,v,s:s['games'][0].update(home='NYJ'),'period_return_schedule_game_mismatch')
+ case('explicit-prediction-status-conflict',lambda c,v,s:v['game_predictions']['games'][0].update(status='STATUS_FINAL'),
+  'period_return_schedule_game_mismatch')
+ case('explicit-prediction-status-null',lambda c,v,s:v['game_predictions']['games'][0].update(status=None),
+  'period_return_schedule_game_mismatch')
  case('engine-drift',lambda c,v,s:setattr(c,'engine_identity',lambda:L.fingerprint('other-code')),'period_return_engine_changed')
  def too_old(c,v,s):now[0]='2026-10-16T21:00:00Z'
  case('stale-generation',too_old,'period_return_generation_clock_stale')
@@ -389,5 +393,5 @@ with tempfile.TemporaryDirectory()as tmp:
  print(json.dumps({'refused_cases':cases,'public_serving_verified':False}))
 `});
  assert.equal(r.status,0,r.stderr+r.stdout);
- const result=JSON.parse(r.stdout.trim().split('\n').pop());assert.ok(result.refused_cases>=20);
+ const result=JSON.parse(r.stdout.trim().split('\n').pop());assert.equal(result.refused_cases,24);
 });

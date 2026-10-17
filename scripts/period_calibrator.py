@@ -461,7 +461,12 @@ class PeriodCalibrator:
             gid=str(game['game_id'])
             if gid in eligible:
                 need(all(files.export._same_json(game.get(k),future[gid].get(k))
-                     for k in('week','home','away','kickoff_utc','status')),'period_return_schedule_game_mismatch')
+                     for k in('week','home','away','kickoff_utc')),'period_return_schedule_game_mismatch')
+                # The published week_game_rows contract deliberately omits
+                # status. The captured full schedule owns that authority. A
+                # contrary explicit status (including null) still fails.
+                need('status'not in game or files.export._same_json(game['status'],future[gid].get('status')),
+                     'period_return_schedule_game_mismatch')
         need(eligible,'period_return_no_future_games')
         now=stamp(self.clock());need(0<=(now-started).total_seconds()<=900,'period_return_verification_deadline')
         need(self.journal.read_owner_intents(NS)['head_event_id']==event['event_id'],'period_return_owner_changed')

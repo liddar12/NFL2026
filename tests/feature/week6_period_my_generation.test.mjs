@@ -32,6 +32,9 @@ with tempfile.TemporaryDirectory()as tmp:
  cfg=root/'config/excluded_games.json';cfg.parent.mkdir(parents=True);shutil.copyfile(F.ROOT/'config/excluded_games.json',cfg)
  fixture.training(data,engine,pin)
  current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='MY-capture',past=True)
+ from scripts.validate_data import validate_against_schema
+ validate_against_schema(current['game_predictions'],json.loads((F.ROOT/'data/contracts/game_predictions.schema.json').read_bytes()),'actual_week_game_rows')
+ assert all('status'not in g for g in current['game_predictions']['games'])
  fixture.write_inputs(data,current,schedule);fixture.write(data/'leg_pool.json',B.build(current))
  # These are frozen eligibility witnesses, not a claim of original provider or
  # earlier weekly-producer reads. The final semantic gate is intentionally NOT
@@ -155,7 +158,7 @@ with tempfile.TemporaryDirectory()as tmp:
  print(json.dumps({'cards':result['archive_cards'],'target':result['target_generation_id'],
   'original_pool_writer_bound':True,'original_archive_writer_bound':True,'private_recovery_records':len(private_docs),
   'v1_semantics_still_held':True,'preproducer_drift_refused':True,'checkpoint_failure_recovered':True,
-  'fully_retained_refresh_verified':True,'rehash_forgeries_refused':len(forged),
+  'fully_retained_refresh_verified':True,'rehash_forgeries_refused':len(forged),'production_week_row_shape_verified':True,
   'production_authorized':result['production_authorized']}))
 ` });
   assert.equal(r.status, 0, `${r.error?.code || ''}\n${r.stderr}\n${r.stdout}`);
@@ -168,5 +171,6 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(result.checkpoint_failure_recovered, true);
   assert.equal(result.fully_retained_refresh_verified, true);
   assert.equal(result.rehash_forgeries_refused, 3);
+  assert.equal(result.production_week_row_shape_verified, true);
   assert.equal(result.production_authorized, false);
 });
