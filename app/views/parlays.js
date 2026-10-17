@@ -117,7 +117,7 @@ import {
   getParlays, getScheduleFull, getParlaysIndex, getParlayArchive, getAtdCards, getAtdGameCards,
 } from '../data.js';
 import { renderParlayCard } from '../render.js';
-import { summarizePortfolio, renderPortfolioRisk } from '../portfolio-risk.js';
+import { summarizePortfolio, renderPortfolioRisk, summarizeConcentration, renderConcentrationRisk } from '../portfolio-risk.js';
 
 const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds']);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -910,7 +910,9 @@ export default async function mountParlays(el) {
     listEl.dataset.parlayWeek = String(selWeek);
     const coverageNote = selWeek === curWeek && parlays === curParlays
       ? renderCandidateCoverage(data.candidate_coverage, active, matchupById) : '';
-    listEl.innerHTML = coverageNote + (shown.length
+    const concentration = active === 'game'
+      ? renderConcentrationRisk(summarizeConcentration(shown, sched?.games || [], selWeek)) : '';
+    listEl.innerHTML = coverageNote + concentration + (shown.length
       ? shown.map((p) => renderParlayCard(p, matchupById)).join('')
       : (bucketOf
         ? '<div class="state">No parlays in that bucket at this scope and leg count.</div>'

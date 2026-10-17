@@ -4249,6 +4249,9 @@ body.gate-locked { overflow: hidden; }
   border-radius: var(--radius-sm);
   padding: 0 10px;
 }
+.portfolio-concentration { min-width: 0; overflow-wrap: anywhere; }
+.portfolio-concentration .pf-sum { display: list-item; padding: 12px 0; box-sizing: border-box; }
+.card-list > .portfolio-concentration { grid-column: 1 / -1; }
 /* 44 px minimum touch target (HIG), which is also what the summary buys back:
    one row for three controls. */
 .pf-sum {

@@ -88,3 +88,106 @@ export function renderPortfolioRisk(summary) {
       : '<p>Joint win risk is unavailable for this set; no independence estimate is substituted.</p>')
     + '<p>Exposure warning only: selection has not been diversified.</p></details>';
 }
+
+const identity = (v) => (typeof v === 'string' && v.trim() !== ''
+  || typeof v === 'number' && Number.isFinite(v)) ? String(v) : null;
+const text = (v) => typeof v === 'string' && v.trim() !== '';
+const PROP_MARKETS = new Set(['qb_pass_yds', 'rb_rush_yds', 'wr_rec_yds', 'anytime_td']);
+
+/** Counts only. Repeated contracts and shared games are different quantities.
+ * Missing/conflicting identity never becomes a shared "unknown" event, and
+ * these counts do not estimate the joint distribution of player outcomes. */
+export function summarizeConcentration(cards, schedule = [], week = null) {
+  const games = new Map();
+  const conflicts = new Set();
+  for (const game of schedule) {
+    if (!game || week != null && Number(game.week) !== Number(week)) continue;
+    const id = identity(game.game_id);
+    if (!id || !text(game.home) || !text(game.away) || game.home === game.away) continue;
+    const prior = games.get(id);
+    if (prior && (prior.home !== game.home || prior.away !== game.away)) conflicts.add(id);
+    games.set(id, game);
+  }
+  conflicts.forEach((id) => games.delete(id));
+  const teams = new Map();
+  games.forEach((game, id) => [game.home, game.away].forEach((team) => {
+    if (!teams.has(team)) teams.set(team, new Set());
+    teams.get(team).add(id);
+  }));
+  const selections = new Map(), events = new Map();
+  let unverifiedGames = 0, unverifiedSelections = 0;
+  const add = (rows, seen, key, label) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    const row = rows.get(key) || {key, label, cards: 0};
+    row.cards += 1;
+    rows.set(key, row);
+  };
+  for (const card of cards) {
+    const seenGames = new Set(), seenSelections = new Set();
+    for (const leg of card.legs || []) {
+      const ml = leg.market === 'moneyline' && text(leg.selection)
+        ? leg.selection.match(/^(.+) ML$/)?.[1] : null;
+      const candidates = teams.get(ml);
+      const inferred = candidates?.size === 1 ? [...candidates][0] : null;
+      const id = identity(leg.game_id ?? card.game_id ?? inferred);
+      const conflict = leg.game_id != null && card.game_id != null
+        && identity(leg.game_id) !== identity(card.game_id);
+      const game = !conflict && games.get(id);
+      if (!game || leg.market === 'moneyline' && ![game.home, game.away].includes(ml)) {
+        unverifiedGames += 1; unverifiedSelections += 1; continue;
+      }
+      add(events, seenGames, id, `${game.away} @ ${game.home}`);
+      const owner = identity(leg.gsis_id ?? leg.owner);
+      const prop = PROP_MARKETS.has(leg.market);
+      const numericLine = typeof leg.line === 'number' && Number.isFinite(leg.line);
+      const lineOk = (leg.line == null || numericLine)
+        && (!prop || leg.market === 'anytime_td' || numericLine);
+      const ownerConflict = leg.gsis_id != null && leg.owner != null
+        && identity(leg.gsis_id) !== identity(leg.owner);
+      if (!text(leg.selection) || !['moneyline', 'spread', ...PROP_MARKETS].includes(leg.market)
+          || !lineOk || prop && (!owner || owner.startsWith('team:') || ownerConflict)) {
+        unverifiedSelections += 1; continue;
+      }
+      // Keep different lines, markets, players and events distinct, even when
+      // their abbreviated display text happens to match. No receipt is edited.
+      const key = JSON.stringify([id, leg.market, prop ? owner : null,
+        leg.line ?? null, leg.selection]);
+      add(selections, seenSelections, key, `${leg.selection} · ${game.away} @ ${game.home}`);
+    }
+  }
+  const sorted = (rows) => [...rows.values()].sort((a, b) => b.cards - a.cards || a.key.localeCompare(b.key));
+  return {cards: cards.length, selections: sorted(selections), games: sorted(events),
+    unverifiedGames, unverifiedSelections};
+}
+
+export function renderConcentrationRisk(summary) {
+  if (!summary || summary.cards < 2) return '';
+  const legs = summary.selections.filter((row) => row.cards > 1);
+  const games = summary.games.filter((row) => row.cards > 1);
+  if (!legs.length && !games.length && !summary.unverifiedSelections && !summary.unverifiedGames) return '';
+  const top = legs[0] || games[0];
+  const rows = (values) => values.slice(0, 3).map((row) =>
+    `<li>${row.cards}/${summary.cards}: ${esc(row.label)}</li>`).join('');
+  return '<details class="pfilters portfolio-concentration">'
+    + '<summary class="pf-sum">SHARED EXPOSURE · '
+    + (top ? `${top.cards}/${summary.cards} share one ${legs.length ? 'selection' : 'game'}` : 'identity incomplete')
+    + '</summary>'
+    + (legs.length ? '<p>Repeated selections (up to three largest):</p><ul>' + rows(legs) + '</ul>'
+      + `<p>One loss of the most repeated selection defeats ${legs[0].cards} of these ${summary.cards} shown cards.</p>`
+      : '<p>No repeated selection could be verified in this set.</p>')
+    + (games.length ? '<p>Shared games (up to three largest):</p><ul>' + rows(games) + '</ul>'
+      + '<p>A shared game is not necessarily a shared selection or one common losing result.</p>' : '')
+    + (summary.unverifiedSelections || summary.unverifiedGames
+      ? `<p>Identity incomplete for ${summary.unverifiedSelections} selection occurrence(s) and ${summary.unverifiedGames} game occurrence(s); exposure may be understated.</p>` : '')
+    + '<p>Counts overlap; do not add them. No joint win probability or independent-card estimate is inferred. '
+    + 'Exposure warning only: ranking and prices are unchanged; selection has not been diversified.</p></details>';
+}
+
+/** Clear before every repaint, including empty seeds and unavailable cards. */
+export function paintConcentrationRisk(host, cards, schedule = [], week = null) {
+  if (!host) return;
+  const html = renderConcentrationRisk(summarizeConcentration(cards, schedule, week));
+  host.innerHTML = html;
+  host.hidden = !html;
+}

@@ -86,6 +86,7 @@ import {
   modelEv, violatesOnePerSide,
 } from '../parlay-math.js';
 import { readTd, writeTd, tdControls, tdTap } from '../atd-cards.js';
+import { paintConcentrationRisk } from '../portfolio-risk.js';
 
 const POOL_PATH = '/data/leg_pool.json';
 const CALIB_PATH = '/data/parlay_backtest.json';
@@ -843,6 +844,9 @@ function paintRecord(el) {
 
 function paint(el) {
   const list = el.querySelector('#mp-list');
+  const risk = el.querySelector('#mp-concentration');
+  paintConcentrationRisk(risk, []);
+  state.shown = [];
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
   // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
@@ -906,6 +910,7 @@ function paint(el) {
   list.innerHTML = html.join('');
   // R110 — I BET THIS on every card; the sheet (app/views/mybets.js) loads on the tap.
   state.shown = cards;
+  paintConcentrationRisk(risk, cards, state.games || [], state.pool && state.pool.week);
   list.querySelectorAll('.mp-card[data-mp]').forEach((node) => node.insertAdjacentHTML(
     'beforeend', '<button type="button" class="leg-chip bet-this">I BET THIS</button>'));
 }
@@ -995,6 +1000,7 @@ export default async function mountMyParlays(el) {
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
+    + '<div id="mp-concentration" hidden></div>'
     + '<div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
   if (mpList) mpList.addEventListener('click', onBetTap);
