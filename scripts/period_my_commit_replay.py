@@ -134,8 +134,16 @@ def check_committed(*, checkout, expected_head, base_head, period_generation_id,
         exclusions = runtime._read(ROOT / 'config/excluded_games.json')
         period.need(view.copy('config/excluded_games.json').read_bytes() == exclusions,
             'period_MY_committed_exclusions_changed')
+        selected = view.document('data/leg_pool.json').get('freshness_policy')
+        freshness = {}
+        if selected is not None:
+            from scripts import my_freshness
+            period.need(type(selected) is dict and selected.get('profile') == my_freshness.PROFILE,
+                'period_MY_unrecognized_freshness_profile')
+            freshness['freshness_profile'] = my_freshness.PROFILE
         control = period.PeriodCalibrator(data_dir=root / 'data', engine_checkout=engine_checkout,
-            engine_commit=engine_commit, authority_id=authority_id, actor_ref=actor_ref, clock=clock)
+            engine_commit=engine_commit, authority_id=authority_id, actor_ref=actor_ref, clock=clock,
+            **freshness)
         _, application, pool = control.current()
         period.need(application is not None, 'period_return_application_missing')
         link = view.document('data/learning_control/generations/' + period_generation_id[7:] + '.json')

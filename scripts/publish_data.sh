@@ -269,16 +269,34 @@ replay_onto() {
 
 main() {
   local generation_binding="" semantic_no_generation=0
-  if [ "${1:-}" = "--generation-binding" ]; then
-    [ "$#" -ge 3 ] && [ -n "$2" ] || { echo "generation binding requires a path and commit message" >&2; exit 2; }
-    generation_binding="$2"
-    shift 2
-  elif [ "${1:-}" = "--no-new-generation" ]; then
-    semantic_no_generation=1
-    shift
+  local period_generation_id="" period_engine_checkout="" period_engine_commit=""
+  local period_authority_id="" period_actor_ref="" period_options=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --generation-binding)
+        [ "$#" -ge 2 ] && [ -n "$2" ] && [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation binding requires one path" >&2; exit 2; }
+        generation_binding="$2"; shift 2 ;;
+      --no-new-generation)
+        [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation modes are mutually exclusive" >&2; exit 2; }
+        semantic_no_generation=1; shift ;;
+      --period-generation-id|--period-engine-checkout|--period-engine-commit|--period-authority-id|--period-actor-ref)
+        [ "$#" -ge 2 ] && [ -n "$2" ] || { echo "period publication option requires a value" >&2; exit 2; }
+        case "$1" in
+          --period-generation-id) [ -z "$period_generation_id" ] || exit 2; period_generation_id="$2" ;;
+          --period-engine-checkout) [ -z "$period_engine_checkout" ] || exit 2; period_engine_checkout="$2" ;;
+          --period-engine-commit) [ -z "$period_engine_commit" ] || exit 2; period_engine_commit="$2" ;;
+          --period-authority-id) [ -z "$period_authority_id" ] || exit 2; period_authority_id="$2" ;;
+          --period-actor-ref) [ -z "$period_actor_ref" ] || exit 2; period_actor_ref="$2" ;;
+        esac
+        period_options=$((period_options + 1)); shift 2 ;;
+      *) break ;;
+    esac
+  done
+  if [ "$period_options" -ne 0 ]; then
+    [ "$period_options" -eq 5 ] && [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "all five period publication pins are required, without a v1 generation mode" >&2; exit 2; }
   fi
   if [ "$#" -ne 1 ] || [ -z "$1" ]; then
-    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --no-new-generation] \"<commit message>\"" >&2
+    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --no-new-generation | --period-generation-id ID --period-engine-checkout PATH --period-engine-commit SHA --period-authority-id ID --period-actor-ref ACTOR] \"<commit message>\"" >&2
     exit 2
   fi
   local message="$1" attempt remote replayed push_ref="HEAD"
@@ -367,12 +385,23 @@ main() {
       die "append-only learning history changed or an unacknowledged transaction remains. Nothing was published."
     fi
     [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its learning history check. Nothing was published."
-    # Period-return v2 is currently a local-only consumer. Neither the v1
-    # generation gate nor a valid feedback report verifies its authority and
-    # applied pool after a Git rebase. Refuse that tree until the separate v2
-    # publication gate exists; no environment variable or old PASS bypasses it.
+    # A new v2 consumer must replay this exact commit, current authority, frozen
+    # eligibility and the selected serving freshness policy. Later settlement
+    # can retain an unchanged published consumer without pretending its old
+    # forecast/approval deadlines are current. No environment/uploaded PASS
+    # bypasses either path. Conflict and immutable-history protections above
+    # remain mandatory, including after every rebase/fallback/rejected push.
     if git cat-file -e "${push_ref}:data/learning_control" 2>/dev/null || [ -e "data/learning_control" ] || [ -L "data/learning_control" ]; then
-      die "period-return v2 control records require the unfinished exact-tree publication gate. Local testing is allowed; nothing was published."
+      local period_args=(--checkout "$PWD" --expected-head "$push_ref" --base-head "$remote")
+      if [ "$period_options" -eq 5 ]; then
+        period_args+=(--period-generation-id "$period_generation_id" --engine-checkout "$period_engine_checkout"
+          --engine-commit "$period_engine_commit" --authority-id "$period_authority_id" --actor-ref "$period_actor_ref")
+      fi
+      if ! python3 "$HERE/period_publication_gate.py" "${period_args[@]}"; then
+        die "period-return v2 exact-tree consumer gate held this tree (unfinished exact-tree publication gate or missing/invalid generation pins, originals, authority, freshness). Nothing was published."
+      fi
+    elif [ "$period_options" -ne 0 ]; then
+      die "period publication pins supplied without committed control records. Nothing was published."
     fi
     [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after the period-return check. Nothing was published."
     if git push origin "$push_ref:main"; then
