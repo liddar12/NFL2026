@@ -1,5 +1,14 @@
 # Claude Code continuation: Week 6 parlay accuracy
 
+Current-reader note, October 15, 2026, 7:08 p.m. CDT (America/Chicago):
+the text below is the historical October 14 checkpoint, not current release
+status. PR #172 was subsequently merged as `32c5bfbe`. Local follow-up is on
+`build/week6-learning-runtime-20261015`; read
+[the learning/outcome/publication handoff](reviews/2026-10-15-learning-export.md)
+and the companion SelfLearning architecture implementation handoff. The new
+local commits are not pushed or deployed. Do not reopen the known failures below
+without checking their later fixes; preserve this historical evidence.
+
 Revision 1 — October 14, 2026, 9:05 p.m. CDT (America/Chicago).
 
 The owner requested that the RCA, evidence and unfinished implementation be published for Claude Code to continue. Implementation is paused. This branch is a work-in-progress checkpoint with known failures; it is not approved for production deployment.

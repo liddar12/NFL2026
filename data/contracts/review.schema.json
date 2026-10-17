@@ -67,6 +67,32 @@
         "type": "object",
         "required": ["games", "parlays", "players", "summary"],
         "properties": {
+          "as_offered": {
+            "type": "object",
+            "description": "R130 separate Git-committed pre-kickoff cohort. Never proof of public serving or a rewrite of settlement history. Absent in legacy documents.",
+            "required": ["policy", "provenance_status", "public_serving_verified", "summary", "cards", "coverage", "headline", "settlement"],
+            "properties": {
+              "policy": {"type": "string", "enum": ["git_last_pre_kickoff_v1"]},
+              "provenance_status": {"type": "string", "enum": ["available", "partial", "unavailable"]},
+              "public_serving_verified": {"type": "boolean", "enum": [false]},
+              "summary": {"type": "object", "required": ["all", "game", "week"]},
+              "headline": {"type": ["object", "null"]},
+              "cards": {"type": "array", "items": {
+                "type": "object", "required": ["parlay_id", "scope", "contract_hash", "provenance", "legs"],
+                "properties": {
+                  "scope": {"type": "string", "enum": ["game", "week"]},
+                  "contract_hash": {"type": "string", "minLength": 64, "maxLength": 64},
+                  "provenance": {"type": "object", "required": ["sha", "committed_utc", "cutoff_utc"]},
+                  "legs": {"type": "array", "items": {"type": "object", "required": ["market", "selection", "game_id", "result", "source"]}}
+                }
+              }},
+              "coverage": {"type": "object", "required": ["targets", "verified_targets", "missing", "snapshots"]},
+              "settlement": {
+                "type": "object", "required": ["provenance", "summary"],
+                "properties": {"provenance": {"type": "string", "enum": ["retrospective_archive"]}, "summary": {"type": "object", "required": ["all", "game", "week"]}}
+              }
+            }
+          },
           "excluded_cards": {
             "type": "array",
             "description": "R108: card_ids of the week's cards made ONLY of legs of owner-excluded games (config/excluded_games.json). They are not bets: no row in `parlays`, and never in the summary, the buckets, stake_100 or any row's money. A card with SOME excluded legs keeps its row; those legs are result 'void', why 'excluded game (owner)', and drop out at 1.0. Sorted, unique; absent when none.",

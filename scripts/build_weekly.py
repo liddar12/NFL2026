@@ -514,11 +514,11 @@ def _norm_name(name):
     return availability.norm_name(name)
 
 
-def injury_multipliers(projections, injuries):
+def injury_multipliers(projections, injuries, resolved=None):
     """{gsis_id: multiplier} for projected players whose status shapes the split.
 
-    Join on (team, normalized player name); a player with several report rows
-    keeps the WORST (lowest) multiplier. Statuses outside INJURY_MULT map to
+    Join by exact ESPN ID and team when known, else guarded legacy name; a
+    player with several matched rows keeps the WORST (lowest) multiplier. Statuses outside INJURY_MULT map to
     1.0 and are dropped, so an all-Active report is a clean no-op and only the
     players actually shaped are returned (their count is statuses_used).
 
@@ -526,43 +526,22 @@ def injury_multipliers(projections, injuries):
     a season-class status alike fall to 1.0 exactly as before — mechanic (b), not
     a multiplier, is what handles a long-term absence.
     """
-    by_key = {}
-    # R30c — the name-only fallback for offseason movers (the incident is
-    # documented at availability.index_report_by_name: the pool's team column
-    # lags the report's, so Mike Evans/Kirk/Waller were Questionable in a fresh
-    # feed and rendered healthy). Same discipline as the view join: a report
-    # name on more than one team is ambiguous and excluded; a pool-duplicated
-    # name never falls back.
-    by_name = {}
-    name_teams = {}
-    for row in injuries or []:
-        code = availability.normalize_status(row.get("status"))
-        mult = INJURY_MULT_CANON.get(code, 1.0)
-        if mult >= 1.0:
-            continue
-        nm = _norm_name(row.get("player"))
-        key = (row.get("team"), nm)
-        by_key[key] = min(by_key.get(key, 1.0), mult)
-        name_teams.setdefault(nm, set()).add(row.get("team"))
-        by_name[nm] = min(by_name.get(nm, 1.0), mult)
-    by_name = {n: m for n, m in by_name.items() if len(name_teams[n]) == 1}
-    ambiguous = availability.dup_names(projections)
+    resolved = resolved if resolved is not None else availability.resolve_report(projections, injuries)
     out = {}
     for p in projections:
-        nm = _norm_name(p.get("name"))
-        mult = by_key.get((p.get("team"), nm))
-        if mult is None and nm not in ambiguous:
-            mult = by_name.get(nm)
-        if mult is not None:
+        rows = resolved["rows"].get(p["gsis_id"], [])
+        mult = min((INJURY_MULT_CANON.get(availability.normalize_status(r.get("status")), 1.0)
+                    for r in rows), default=1.0)
+        if mult < 1.0:
             out[p["gsis_id"]] = mult
     return out
 
 
-def unavailability(projections, injuries):
+def unavailability(projections, injuries, resolved=None):
     """{gsis_id: availability view} for projected players who are NOT active.
 
-    Sibling to injury_multipliers and joined the same way (team + normalized name,
-    worst report row wins). The view carries the canonical status, its mechanic
+    Sibling to injury_multipliers and joined by the same ID-first resolver.
+    Worst matched report row wins. The view carries the canonical status, its mechanic
     class, and — for a season-class absence — the parsed duration and the sentence
     that stated it:
 
@@ -572,14 +551,10 @@ def unavailability(projections, injuries):
     not a discount, and the loud complaint about the drift belongs at the scraper
     and at the gate, never in a silent consumer.
     """
-    index = availability.index_report(injuries)
-    # R30c — offseason movers: exact (team, name) first, unique name second.
-    by_name = availability.index_report_by_name(injuries)
-    ambiguous = availability.dup_names(projections)
+    resolved = resolved if resolved is not None else availability.resolve_report(projections, injuries)
     out = {}
     for p in projections:
-        view = availability.lookup_report(index, by_name, p.get("team"),
-                                          p.get("name"), ambiguous)
+        view = resolved["views"].get(p["gsis_id"])
         if not view or view["availability"] == availability.ACTIVE:
             continue
         cls = view.get("availability_class")
@@ -778,9 +753,6 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
         meta["gated"] = len(gates)
         return gates, meta
     meta["depth_snapshot"] = depth_doc.get("updated_utc")
-    index = availability.index_report(injuries)
-    by_name = availability.index_report_by_name(injuries)
-    ambiguous = availability.dup_names(projections)
     by_team = {}
     for p in projections:
         if p.get("position") in DEPTH_GATED_POSITIONS:
@@ -788,8 +760,8 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
 
     def status_ok(team, row, pid):
         """Playable by STATUS and not on the inactive list: the projected row's
-        own view when he is projected, else the injury report joined on
-        (team, name); the chart row's own espn_id checks the inactive list."""
+        own view when he is projected, else the same scoped ID-first injury
+        binding; the chart row's own espn_id checks the inactive list."""
         hit = inact.get(str(row.get("espn_id") or ""))
         if hit is not None and hit[0] == team:
             return False      # the posted list names him, for THIS team
@@ -798,8 +770,12 @@ def this_week_gate(projections, unavail, injuries, depth_doc, wk, sched_by_team,
                 return False
             view = unavail.get(pid)
             return availability.status_playable(view["status"]) if view else True
-        view = availability.lookup_report(index, by_name, team, row.get("name"),
-                                          ambiguous)
+        record = {"gsis_id": "depth:" + team + ":" + str(row.get("espn_id") or row.get("name")),
+                  "team": team, "name": row.get("name"), "espn_id": row.get("espn_id")}
+        resolved = availability.resolve_report([*projections, record], injuries)
+        if record["gsis_id"] in resolved["refusals"]:
+            return True       # uncertainty is not evidence to promote a backup
+        view = resolved["views"].get(record["gsis_id"])
         return availability.status_playable(view["availability"]) if view else True
 
     for team, chart in teams.items():
@@ -1069,8 +1045,10 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     if factors is None:
         factors = build_factors(season, load_dvp(dvp_path), load_environment(env_path),
                                 load_forecast(forecast_path))
-    mults = injury_multipliers(projections, injuries)
-    unavail = unavailability(projections, injuries)
+    resolved = availability.resolve_report(projections, injuries)
+    quarantine["players"].update(resolved["refusals"])
+    mults = injury_multipliers(projections, injuries, resolved=resolved)
+    unavail = unavailability(projections, injuries, resolved=resolved)
     # Duplicate understood rows cannot convert quarantined participation into
     # a medical zero. Keep independent posted inactives and depth facts intact.
     for pid in quarantine["players"]:

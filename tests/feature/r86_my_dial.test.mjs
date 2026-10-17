@@ -35,9 +35,11 @@ import { dirname, join, resolve } from 'node:path';
 
 import {
   DEFAULT_DIAL, DIALS, PROP_DIAL_BAND, GAME_LEG_BAND, buildCards, dialLegs, poolLegs, renderCard,
-  seedOptions,
+  seedOptions, upcomingLegs,
 } from '../../app/views/myparlays.js';
 import { correlationTable } from '../../app/parlay-math.js';
+import { learningEligibleLegs, poolLearningStatus } from '../../app/pool-learning-status.js';
+import { assertScheduledSeedCoverage } from '../fixtures/selected_seed_universe.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const readJson = (p) => JSON.parse(readFileSync(join(ROOT, p), 'utf8'));
@@ -248,17 +250,19 @@ function sweep(legs, target, lowest, teams, pick = (ls) => dialLegs(ls, target))
 test('the committed pool no longer parks every prop leg on the ladder floor', () => {
   if (!hasPool) return;
   const pool = readJson('data/leg_pool.json');
-  const legs = poolLegs(pool);
-  const teams = seedOptions(pool).filter((s) => s.kind === 'team');
-  // R119 — both teams of a game on the owner's excluded list seed nothing.
-  const excludedTeams = 2 * readJson('config/excluded_games.json').games
-    .filter((g) => Number(g.season) === Number(pool.season) && Number(g.week) === Number(pool.week)).length;
-  // R124 — the full league is the week's slate, not a pinned 30: week 6 has
-  // four teams on bye (CIN, DET, MIA, MIN), 28 scheduled (data-ci #156).
-  const slateTeams = new Set(readJson('data/schedule_full.json').games
-    .filter((g) => Number(g.week) === Number(pool.week)).flatMap((g) => [g.home, g.away])).size;
-  assert.ok(teams.length >= slateTeams - excludedTeams,
-    `${teams.length} team seeds — expected this week's ${slateTeams} scheduled teams less ${excludedTeams} owner-excluded`);
+  const games = readJson('data/schedule_full.json').games;
+  const allTeams = seedOptions(pool).filter((s) => s.kind === 'team');
+  assertScheduledSeedCoverage(pool, games, readJson('config/excluded_games.json').games,
+    readJson('data/player_projections.json').players, allTeams);
+  // Legacy keeps its original raw-pool floor sweep. A selected pool is checked
+  // at its actual offer clock through the same upcoming + learning guards as
+  // paint(), not through a stale/future test clock or a policy-stripped copy.
+  const selected = Object.hasOwn(pool, 'freshness_policy');
+  const now = Date.parse(pool.generated_utc);
+  const legs = selected ? learningEligibleLegs(upcomingLegs(poolLegs(pool), games, now),
+    poolLearningStatus(pool, now)) : poolLegs(pool);
+  const liveTeams = new Set(legs.map((l) => l.team));
+  const teams = selected ? allTeams.filter((s) => liveTeams.has(s.name)) : allTeams;
   const lowest = new Map();
   for (const l of legs) {
     if (!isProp(l)) continue;
@@ -266,7 +270,8 @@ test('the committed pool no longer parks every prop leg on the ladder floor', ()
   }
 
   const even = sweep(legs, DIALS.even, lowest, teams);
-  assert.equal(even.cards, teams.length * 10, `${even.cards} cards for ${teams.length} seeds`);
+  const cardsPerSeed = selected ? 2 * Math.min(2 * new Set(legs.map((l) => l.game_id)).size - 1, 5) : 10;
+  assert.equal(even.cards, teams.length * cardsPerSeed, `${even.cards} cards for ${teams.length} eligible seeds`);
   assert.ok(even.props > 0, 'no prop legs reached the cards at all');
 
   // THE PRIMARY PROPERTY. Before R86 this was 100% and every one of those legs

@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import {assertMyGenerationDependency, GENERATION_SOURCES} from './r101_workflow_dependency_helpers.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -143,8 +144,10 @@ except V.ValidationError as e:
 test('R101: the daily pipeline prices ATD before the pool, continue-on-error; selftest in the gate', () => {
   const yml = read('.github/workflows/daily.yml');
   const atd = yml.indexOf('python3 scripts/build_atd_week.py --cache "$RUNNER_TEMP/atd"');
-  const pool = yml.indexOf('python3 scripts/build_leg_pool.py');
-  assert.ok(atd > 0 && pool > atd, 'atd_week.json is written before the pool reads it');
+  const pool = assertMyGenerationDependency(yml,
+    Object.fromEntries(GENERATION_SOURCES.map(path => [path, read(path)])),
+    {before: ['scripts/build_atd_week.py']});
+  assert.ok(atd > 0 && pool.index > atd, 'atd_week.json is written before the actual pool producer reads it');
   const block = yml.slice(yml.lastIndexOf('- name:', atd), atd + 200);
   assert.match(block, /continue-on-error: true/);
   assert.match(read('tests/smoke.sh'), /python3 scripts\/build_atd_week\.py --selftest/);

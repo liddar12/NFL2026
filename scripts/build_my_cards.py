@@ -62,6 +62,7 @@ from scripts.models.my_cards import (  # noqa: E402
 )
 from scripts.models.parlay_builder import _correlation_table  # noqa: E402
 from scripts import learning_receipts as receipts  # noqa: E402
+from scripts import learning_journal  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_DIR = os.path.join(DATA, "my_cards")
@@ -279,41 +280,76 @@ def _load(path):
 
 def write(doc, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, ensure_ascii=True, indent=2, sort_keys=False)
-        fh.write("\n")
+    raw = (json.dumps(doc, ensure_ascii=True, indent=2, sort_keys=False) + "\n").encode("utf-8")
+    with open(path, "wb") as fh:
+        fh.write(raw)
+    return raw
 
 
 def run(pool_path=POOL_PATH, schedule_path=SCHEDULE_PATH,
-        calibration_path=CALIBRATION_PATH, out_dir=OUT_DIR, now=None):
-    if not os.path.exists(pool_path):
+        calibration_path=CALIBRATION_PATH, out_dir=OUT_DIR, now=None,
+        snapshot_dir=None, capture_runtime=None, capture_out_dir=None):
+    if (capture_runtime is None) != (capture_out_dir is None):
+        raise ValueError("capture requires both its runtime and private output directory")
+    if capture_runtime is not None:
+        from scripts import generation_capture_runtime as runtime
+        root = capture_runtime.checkout
+        expected = (root / "data/leg_pool.json", root / "data/schedule_full.json", root / "data/parlay_backtest.json", root / "data/my_cards")
+        if tuple(str(runtime._no_links(runtime._alias(p))) for p in (pool_path, schedule_path, calibration_path, out_dir)) != tuple(str(p) for p in expected):
+            raise runtime.CaptureError("invalid_capture_relative_path")
+        runtime._output_root(capture_out_dir, root)
+        consumed = capture_runtime.my_inputs()
+        pool, schedule, calib, prev = [consumed[k] for k in ("pool", "schedule", "calibration", "previous")]
+        if now is not None and now != consumed["recorded_utc"]:
+            raise runtime.CaptureError("invalid_capture_clock")
+        now = consumed["recorded_utc"]
+    elif not os.path.exists(pool_path):
         print("my cards: no leg pool at %s yet -- scripts/build_leg_pool.py writes it "
               "on the daily run; nothing to record"
               % os.path.relpath(pool_path, _ROOT))
         return None, False
-    pool = _load(pool_path)
+    else:
+        pool = _load(pool_path)
     season, week = int(pool["season"]), int(pool["week"])
     as_of = pool.get("generated_utc")
     if not as_of:
         raise ValueError("leg_pool.json has no generated_utc")
     path = os.path.join(out_dir, "%d_wk%02d.json" % (season, week))
-    prev = _load(path) if os.path.exists(path) else None
-    if prev and any(r.get("pool_generated_utc") == as_of
-                    for r in prev.get("runs") or []):
-        print("my cards: pool as-of %s already recorded -> no change (%s)"
-              % (as_of, os.path.relpath(path, _ROOT)))
-        return prev, False
-
-    games = (_load(schedule_path).get("games") or []) if os.path.exists(schedule_path) else []
-    calib = _load(calibration_path) if os.path.exists(calibration_path) else None
+    if capture_runtime is None:
+        prev = _load(path) if os.path.exists(path) else None
+        schedule = _load(schedule_path) if os.path.exists(schedule_path) else {}
+        calib = _load(calibration_path) if os.path.exists(calibration_path) else None
+    games = schedule.get("games") or []
     corr = _correlation_table(calib)
     offered, n_seeds = offered_cards(pool, games, corr, as_of)
     kickoffs = kickoff_index(games)
     records = [card_record(dial, seed, rank, card, kickoffs)
                for dial, seed, rank, card in offered]
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # This must precede BOTH display de-duplication boundaries. A known card can
+    # contain a genuinely new pre-event forecast, without rewriting its first sight.
+    snapshots = snapshot_dir or os.path.join(os.path.dirname(os.path.abspath(out_dir)), "snapshots")
+    journal, journal_added = learning_journal.record(pool, schedule, calib, records, now, snapshots)
+    def finish_capture(archive, raw):
+        if capture_runtime is None:return
+        graph = capture_runtime.journal_graph(journal, pool, schedule, calib, archive, snapshots)
+        binding = capture_runtime.finish(graph, raw, target_generation_id=journal["generations"][0]["generation_id"])
+        location = runtime.persist(binding, capture_out_dir, checkout=capture_runtime.checkout)
+        print("generation runtime binding (supported consumer only, not publish authorization): %s" % location)
+    audit = journal["generations"][0]["audit"]
+    print("my learning journal: %s; %d eligible unique receipts, %d quarantined; public availability unverified"
+          % ("new generation" if journal_added else "existing generation",
+             audit["eligible_receipts"], audit["quarantined_records"]))
+    if prev and any(r.get("pool_generated_utc") == as_of
+                    for r in prev.get("runs") or []):
+        print("my cards: pool as-of %s already recorded -> no change (%s)"
+              % (as_of, os.path.relpath(path, _ROOT)))
+        if capture_runtime is not None:
+            finish_capture(prev, capture_runtime.loader["capture"]["inputs"]["previous_my_cards"]["raw_utf8"].encode("utf-8"))
+        return prev, False
     doc = append(prev, records, season, week, as_of, now)
-    write(doc, path)
+    raw = write(doc, path)
+    finish_capture(doc, raw)
     last = doc["runs"][-1]
     n_locked = sum(1 for c in doc["cards"] if c["locked"])
     per_dial = {d: sum(1 for c in doc["cards"] if c["dial"] == d) for d in DIAL_ORDER}
@@ -472,11 +508,25 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--generation-capture-checkpoint", help="explicit immutable pool checkpoint from the opt-in loader")
+    ap.add_argument("--generation-capture-dir", help="private immutable binding directory outside all checkouts")
     args = ap.parse_args(argv)
     if args.selftest:
+        if args.generation_capture_checkpoint or args.generation_capture_dir:ap.error("--selftest cannot capture a generation")
         selftest()
         return 0
-    run()
+    if bool(args.generation_capture_checkpoint) != bool(args.generation_capture_dir):
+        ap.error("capture checkpoint and directory must be provided together")
+    if args.generation_capture_checkpoint:
+        from scripts import generation_capture_runtime as runtime
+        try:
+            capture = runtime.resume(args.generation_capture_checkpoint, checkout=_ROOT)
+            run(capture_runtime=capture, capture_out_dir=args.generation_capture_dir)
+        except Exception:
+            print("generation capture held; local records are not approved for publication", file=sys.stderr)
+            return 1
+    else:
+        run()
     return 0
 
 

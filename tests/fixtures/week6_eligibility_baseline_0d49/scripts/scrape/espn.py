@@ -1,0 +1,456 @@
+"""ESPN public-JSON fetchers (schedule / scores / injuries).
+
+ESPN exposes an unauthenticated JSON API (the same one the scoreboard site calls). We
+read it directly. `requests` is imported INSIDE each function, guarded — the gate must
+run with no pip install.
+
+TWO inherited invariants encoded here:
+
+  1. STATUS-GATING (critical). Only a FINAL game becomes an "actual result" that can
+     award points or advance standings. ESPN status types we treat as final:
+     STATUS_FINAL, STATUS_FINAL_OVERTIME. Everything else (in-progress, halftime,
+     scheduled, postponed, and the 0-0 STATUS_SCHEDULED stubs) is DISPLAY-ONLY and must
+     never leak into actuals. `fetch_scores(final_only=True)` returns only gated rows.
+
+  2. LOUD ON ZERO ROWS (the silent-404 lesson). A 200 response with an empty events
+     list, or a non-200, raises FeedError rather than returning [] — an empty schedule
+     is almost always an outage or a wrong URL, not "no games". Callers must not mask it.
+"""
+
+import datetime as _dt
+import re as _re
+import sys as _sys
+import time as _time
+
+from .. import availability
+from .renames import normalize_team
+
+# ESPN status.type.name values that mean "this game is over and the score is real".
+FINAL_STATUSES = frozenset(["STATUS_FINAL", "STATUS_FINAL_OVERTIME"])
+
+# Base for the public scoreboard/schedule endpoint (NFL).
+_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+# Public injuries endpoint (per-team injury report).
+_INJURIES_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
+# Public teams endpoint (identity: colors, venue, ids).
+_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
+
+_HTTP_TIMEOUT = 20  # seconds; ESPN is fast, a long hang means trouble — fail, don't wait.
+
+
+class FeedError(RuntimeError):
+    """Raised loudly for a missing dependency, a non-200, or a zero-row payload."""
+
+
+def _require_requests():
+    """Import `requests` on demand with one actionable line. Kept out of module scope
+    so the gate can import this file without the package present."""
+    try:
+        import requests  # noqa: PLC0415 (intentional in-function import)
+    except ImportError as exc:  # pragma: no cover - exercised only off the gate
+        raise FeedError(
+            "requests is not installed. Install it in the pipeline runner only: "
+            "`pip install requests`. It must NEVER be a gate dependency."
+        ) from exc
+    return requests
+
+
+# Transport-level retries. A single TLS alert from ESPN's edge killed daily-pipeline
+# run 129 (2026-09-18 01:15Z) at its FIRST step, before anything was built. A
+# transport error (TLS handshake, connection reset, read timeout) is retried
+# with a short linear backoff; a non-200 or a non-JSON body is NOT — those are
+# the feed's answer, and the loud non-200 policy stands. The final failure still
+# raises: retries mask a blip, never an outage.
+_TRANSPORT_ATTEMPTS = 3
+_TRANSPORT_BACKOFF_S = 2.0
+
+
+def _get_json(url, params=None, _sleep=None):
+    """GET + parse JSON with a loud non-200 policy and bounded transport retries."""
+    requests = _require_requests()
+    sleep = _sleep or _time.sleep
+    resp = None
+    for attempt in range(1, _TRANSPORT_ATTEMPTS + 1):
+        try:
+            resp = requests.get(url, params=params or {}, timeout=_HTTP_TIMEOUT)
+            break
+        except requests.exceptions.RequestException as exc:
+            if attempt == _TRANSPORT_ATTEMPTS:
+                raise FeedError(
+                    f"ESPN GET {url} failed {_TRANSPORT_ATTEMPTS} times at the transport "
+                    f"layer ({exc.__class__.__name__}: {exc}). Giving up loudly."
+                ) from exc
+            wait = _TRANSPORT_BACKOFF_S * attempt
+            print(f"  [retry] ESPN GET {url}: {exc.__class__.__name__}; "
+                  f"attempt {attempt + 1}/{_TRANSPORT_ATTEMPTS} in {wait:.0f}s",
+                  file=_sys.stderr)
+            sleep(wait)
+    if resp.status_code != 200:
+        raise FeedError(
+            f"ESPN GET {url} returned HTTP {resp.status_code}. Refusing to treat a "
+            f"non-200 as empty data (the silent-404 lesson)."
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise FeedError(f"ESPN GET {url} returned non-JSON body.") from exc
+
+
+def _competitors(event):
+    """Extract (home, away) competitor dicts from an ESPN event, or (None, None)."""
+    comps = (event.get("competitions") or [{}])[0].get("competitors") or []
+    home = away = None
+    for c in comps:
+        if c.get("homeAway") == "home":
+            home = c
+        elif c.get("homeAway") == "away":
+            away = c
+    return home, away
+
+
+def _team_abbrev(competitor):
+    """Canonical nflverse abbrev for an ESPN competitor, via the RENAMES map. Loud on
+    an unmappable team — a drift here silently mis-attributes scores."""
+    team = (competitor or {}).get("team") or {}
+    raw = team.get("abbreviation") or team.get("displayName")
+    abbrev = normalize_team(raw)
+    if abbrev is None:
+        raise FeedError(
+            f"ESPN team '{raw}' did not map to a canonical abbreviation. Update "
+            f"scripts/scrape/renames.py (and mirror in JS) before trusting this run."
+        )
+    return abbrev
+
+
+def fetch_schedule(season, week=None, seasontype=2):
+    """Game schedule for a week (seasontype 2 = regular season).
+
+    Returns list[dict]: {game_id, home, away, kickoff_utc, status}. Loud if zero games.
+    kickoff_utc is the walk-forward information cutoff downstream, so it is carried
+    verbatim from ESPN's `date` (already ISO-8601 UTC with a trailing Z).
+    """
+    params = {"seasontype": seasontype, "dates": int(season)}
+    if week is not None:
+        params["week"] = int(week)
+    data = _get_json(_SCOREBOARD_URL, params)
+    events = data.get("events") or []
+    if not events:
+        raise FeedError(
+            f"ESPN schedule for season={season} week={week} returned 0 events. That is "
+            f"an outage or a wrong query, not an empty week — failing loudly."
+        )
+    out = []
+    for ev in events:
+        home, away = _competitors(ev)
+        status = (((ev.get("status") or {}).get("type")) or {}).get("name")
+        venue = (ev.get("competitions") or [{}])[0].get("venue") or {}
+        out.append(
+            {
+                "game_id": str(ev.get("id")),
+                "home": _team_abbrev(home),
+                "away": _team_abbrev(away),
+                "kickoff_utc": ev.get("date"),  # e.g. "2026-09-10T00:20Z"
+                "status": status,
+                "venue": venue.get("fullName"),
+                # ESPN's `indoor` flag covers domes + closed retractables; we record
+                # the binary here and let the stadium table refine retractable/open.
+                "roof": "indoor" if venue.get("indoor") else "outdoor",
+            }
+        )
+    return out
+
+
+def fetch_teams(min_rows=30):
+    """Return {canonical_abbrev: {name, location, display, espn_id, color, alt_color}}.
+
+    Colors are ESPN identity hex WITH a leading '#'. `color` is the primary; the app
+    lightens it for AA on the dark surface (never used raw as small text). Loud if the
+    league doesn't return ~32 teams.
+    """
+    data = _get_json(_TEAMS_URL)
+    rows = (((data.get("sports") or [{}])[0].get("leagues") or [{}])[0].get("teams")) or []
+    if len(rows) < min_rows:
+        raise FeedError(f"ESPN teams returned {len(rows)} (< {min_rows}) — outage or bad shape.")
+    out = {}
+    for r in rows:
+        t = r.get("team") or {}
+        raw = t.get("abbreviation")
+        ab = normalize_team(raw)
+        if ab is None:
+            raise FeedError(f"ESPN team '{raw}' unmapped — update renames.py before trusting this run.")
+        out[ab] = {
+            "name": t.get("nickname") or t.get("name"),
+            "location": t.get("location"),
+            "display": t.get("displayName"),
+            "espn_id": t.get("id"),
+            "color": ("#" + t["color"]) if t.get("color") else None,
+            "alt_color": ("#" + t["alternateColor"]) if t.get("alternateColor") else None,
+        }
+    return out
+
+
+def fetch_season_schedule(season, weeks=range(1, 19), seasontype=2):
+    """Full regular-season schedule for `season`, each row tagged with its `week`.
+    Asserts a sane total (a full NFL regular season is 272 games)."""
+    games = []
+    for wk in weeks:
+        for g in fetch_schedule(season, week=wk, seasontype=seasontype):
+            g["week"] = wk
+            games.append(g)
+    if len(games) < 200:
+        raise FeedError(f"season {season} schedule: only {len(games)} games (expected ~272).")
+    return games
+
+
+def fetch_final_results(season, weeks=range(1, 19), seasontype=2):
+    """All FINAL games from `season` (STATUS-gated) with integer scores — the input to
+    Elo priors. A future season with nothing played yet legitimately returns []."""
+    finals = []
+    for wk in weeks:
+        for g in fetch_scores(season, week=wk, seasontype=seasontype, final_only=True):
+            g["week"] = wk
+            finals.append(g)
+    return finals
+
+
+def fetch_scores(season, week=None, seasontype=2, final_only=True):
+    """Scores for a week. STATUS-GATED.
+
+    With `final_only=True` (default) ONLY final games are returned, each carrying an
+    integer home/away score — these are the rows eligible to become actuals. With
+    `final_only=False` every game is returned with a `final` boolean and a `status`, for
+    display purposes only. Non-final rows must NEVER be written into actuals.
+
+    Loud if the schedule query itself returns zero games. A week with real games but
+    none yet final legitimately returns [] under final_only=True — that is not an error
+    (the games simply haven't happened), so we only assert on the raw event count.
+
+    Rows also carry OPTIONAL venue identity (venue / venue_city / venue_country, each
+    possibly None) — added backward-compatibly for the environment model, which needs
+    `venue_country != 'USA'` to spot international games and the city to confirm a
+    "home" game was really played at the home stadium. Existing consumers ignore them.
+    """
+    params = {"seasontype": seasontype, "dates": int(season)}
+    if week is not None:
+        params["week"] = int(week)
+    data = _get_json(_SCOREBOARD_URL, params)
+    events = data.get("events") or []
+    if not events:
+        raise FeedError(
+            f"ESPN scores for season={season} week={week} returned 0 events — outage or "
+            f"bad query, not an empty week."
+        )
+    out = []
+    for ev in events:
+        status = (((ev.get("status") or {}).get("type")) or {}).get("name")
+        is_final = status in FINAL_STATUSES
+        if final_only and not is_final:
+            # Display-only / not-yet-played: excluded from the actuals-eligible set.
+            continue
+        home, away = _competitors(ev)
+        venue = (ev.get("competitions") or [{}])[0].get("venue") or {}
+        address = venue.get("address") or {}
+        row = {
+            "game_id": str(ev.get("id")),
+            "home": _team_abbrev(home),
+            "away": _team_abbrev(away),
+            "kickoff_utc": ev.get("date"),
+            "status": status,
+            "final": is_final,
+            # Optional venue identity (None-safe): see docstring.
+            "venue": venue.get("fullName"),
+            "venue_city": address.get("city"),
+            "venue_country": address.get("country"),
+        }
+        # Scores are only trustworthy on final games; parse them for final rows.
+        if is_final:
+            row["home_score"] = _to_int((home or {}).get("score"))
+            row["away_score"] = _to_int((away or {}).get("score"))
+        out.append(row)
+    return out
+
+
+# R79 -- game-day inactives. ESPN's core API carries a per-competition roster for
+# each competitor; once the inactive list is posted (about 90 minutes before
+# kickoff) the seven scratches -- and the emergency third quarterback -- carry
+# `didNotPlay: true`. `playerId` is the ESPN athlete id, the same id the
+# projection pool spells `espn-<id>`, so the join is exact and needs no name.
+_CORE_COMPETITION_URL = ("https://sports.core.api.espn.com/v2/sports/football/leagues/"
+                         "nfl/events/{gid}/competitions/{gid}")
+
+
+def parse_game_roster(entries):
+    """The inactive players in ONE competitor roster payload: [{espn_id, name}].
+
+    Pure. `didNotPlay` is the marker (the `active` flag is False for every
+    entry of a not-yet-played game and means nothing here). Entries without a
+    playerId are dropped, never guessed."""
+    out = []
+    for e in entries or []:
+        if not e.get("didNotPlay"):
+            continue
+        pid = e.get("playerId")
+        if pid in (None, ""):
+            continue
+        out.append({"espn_id": str(pid), "name": e.get("displayName") or ""})
+    out.sort(key=lambda r: (r["name"], r["espn_id"]))
+    return out
+
+
+def fetch_game_inactives(game_id):
+    """{home, away, inactive: {ABBR: [{espn_id, name}]}} for one ESPN event.
+
+    Two core-API reads per team (competition -> competitor -> roster). Loud on
+    a non-200 or an unmappable team; an EMPTY inactive list is valid data (the
+    list is not posted yet), never an error."""
+    comp = _get_json(_CORE_COMPETITION_URL.format(gid=game_id))
+    sides = {}
+    for c in comp.get("competitors") or []:
+        team_ref = (c.get("team") or {}).get("$ref")
+        roster_ref = (c.get("roster") or {}).get("$ref")
+        if not team_ref or not roster_ref:
+            raise FeedError(f"ESPN competition {game_id}: competitor without team/roster refs")
+        team = _get_json(team_ref)
+        abbrev = normalize_team(team.get("abbreviation") or team.get("displayName"))
+        if abbrev is None:
+            raise FeedError(f"ESPN team {team.get('abbreviation')!r} in game {game_id} did "
+                            f"not map to a canonical abbreviation.")
+        roster = _get_json(roster_ref)
+        sides[c.get("homeAway")] = (abbrev, parse_game_roster(roster.get("entries")))
+    if set(sides) != {"home", "away"}:
+        raise FeedError(f"ESPN competition {game_id}: expected home+away, got {sorted(sides)}")
+    return {"home": sides["home"][0], "away": sides["away"][0],
+            "inactive": {sides["home"][0]: sides["home"][1],
+                         sides["away"][0]: sides["away"][1]}}
+
+
+def fetch_injuries(min_rows=1, carry_positions=False, quarantine_unknown=False,
+                   return_document=False):
+    """Per-team injury reports, enriched with the canonical availability reading.
+
+    Returns list[dict]: {team, player, status, availability, availability_class,
+    weeks_out, out_for_season, confidence, evidence, detail}. Loud if the payload
+    is structurally empty. R70: with `carry_positions=True` (build_predictions)
+    each row also carries `position` and `athlete_id` from ESPN's athlete object
+    when the payload has them (null otherwise) — the default shape is unchanged
+    so the Rel17 row contract stays exactly what its test locks.
+
+    `status` is ESPN's designation carried through VERBATIM — it is what the report
+    said, and build_weekly.INJURY_MULT's three keys are that exact spelling.
+    `availability` is the canonical code from scripts/availability.py, and the
+    duration fields are scripts/injury_duration.py's conservative parse of `detail`
+    (null whenever the text does not state a duration unambiguously — never a guess).
+
+    Default callers refuse an unmapped status. Production explicitly opts into
+    quarantine_unknown + return_document: valid rows continue, while the returned
+    quarantine is consumed by the weekly recommendation gate. Never drop that
+    quarantine when using this mode; an unknown designation is not ACTIVE.
+
+    LOUD ON AN UNMAPPED STATUS, exactly as `_team_abbrev` is loud on an unmapped team.
+    A drifted availability string mis-attributes a fact the same way a drifted
+    abbreviation does: before Rel17 an unrecognised status silently multiplied by 1.0,
+    which is how players on injured reserve projected as fully healthy. The injuries
+    feed is already best-effort at the call site, so a refusal here degrades the run
+    visibly instead of poisoning it.
+    """
+    if quarantine_unknown and not return_document:
+        raise ValueError("quarantine_unknown requires return_document so eligibility evidence is preserved")
+    data = _get_json(_INJURIES_URL)
+    groups = data.get("injuries") or []
+    if not groups:
+        raise FeedError(
+            "ESPN injuries endpoint returned 0 team groups — outage, not 'nobody hurt'."
+        )
+    out = []
+    quarantine = []
+    for grp in groups:
+        team = normalize_team((grp.get("team") or {}).get("abbreviation") or grp.get("displayName"))
+        for item in grp.get("injuries") or []:
+            athlete = item.get("athlete") or {}
+            status = (
+                (item.get("status") or item.get("type") or {}).get("name")
+                if isinstance(item.get("status"), dict)
+                else item.get("status")
+            )
+            if availability.normalize_status(status) is None:
+                if quarantine_unknown:
+                    quarantine.append({
+                        "team": team, "player": athlete.get("displayName"),
+                        "athlete_id": _athlete_id(athlete), "status": status,
+                        "reason": "unmapped_status",
+                    })
+                    print(f"[warn] injury row quarantined: {team} "
+                          f"{athlete.get('displayName')!r}: {status!r}", file=_sys.stderr)
+                    continue
+                raise FeedError(
+                    f"ESPN injury status {status!r} (for {team} "
+                    f"{athlete.get('displayName')!r}) did not map to a canonical "
+                    f"availability code. Add the spelling to scripts/availability.py "
+                    f"(and re-run the gate) before trusting this run — an unmapped "
+                    f"status is NOT 'active'."
+                )
+            row = availability.enrich({
+                "team": team,
+                "player": athlete.get("displayName"),
+                "status": status,
+                "detail": item.get("longComment") or item.get("shortComment"),
+            })
+            # R70 — the position and ESPN athlete id, WHEN THE PAYLOAD CARRIES
+            # THEM. ESPN's site-API athlete object nests the position as
+            # {"abbreviation": "RB", ...}; a payload without it yields null, never
+            # a guess. build_line_report.py joins these rows to the depth chart
+            # by ESPN id (the chart's espn_id) or (team, name) and reads
+            # `position` to tell an OL/DL row from the rest; `athlete_id` is
+            # ESPN's id (NOT a gsis id).
+            if carry_positions:
+                row["position"] = _athlete_position(athlete)
+                row["athlete_id"] = _athlete_id(athlete)
+            out.append(row)
+    if len(out) < min_rows:
+        raise FeedError(
+            f"ESPN injuries produced {len(out)} rows (< {min_rows}); treating as an "
+            f"outage rather than an empty (and therefore misleading) injury report."
+        )
+    if return_document:
+        return {"injuries": out, "quarantine": quarantine,
+                "source_updated_utc": data.get("timestamp"),
+                "received_utc": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    return out
+
+
+def _athlete_position(athlete):
+    """The position abbreviation from an ESPN athlete object, or None. Accepts
+    the nested {"position": {"abbreviation": ...}} shape the site API uses and a
+    bare string; anything else is absent (null), never inferred."""
+    pos = (athlete or {}).get("position")
+    if isinstance(pos, dict):
+        pos = pos.get("abbreviation") or pos.get("name")
+    if isinstance(pos, str) and pos.strip():
+        return pos.strip().upper()
+    return None
+
+
+def _athlete_id(athlete):
+    """ESPN ID, including its canonical player URL when the id field is absent."""
+    aid = (athlete or {}).get("id")
+    if aid is None or str(aid).strip() == "":
+        ids = set()
+        for link in (athlete or {}).get("links") or []:
+            match = _re.search(r"^https://(?:www\.)?espn\.com/nfl/player/.*?/id/(\d+)(?:/|$)",
+                               str(link.get("href") or ""))
+            if match:
+                ids.add(match.group(1))
+        return next(iter(ids)) if len(ids) == 1 else None
+    return str(aid).strip()
+
+
+def _to_int(value):
+    """Coerce an ESPN score string to int; None-safe. Returns None if not parseable."""
+    if value is None:
+        return None
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+

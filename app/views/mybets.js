@@ -11,6 +11,7 @@
  */
 import { loadJson } from '../data.js';
 import * as B from '../bets.js';
+import { poolLearningStatus, learningEligibleLegs, learningCardRefusal } from '../pool-learning-status.js';
 
 const FACTS = '/data/bet_facts.json';
 const POOL = '/data/leg_pool.json';
@@ -78,7 +79,7 @@ function closeSheet() {
  * the book's odds are typed here, the odds pre-filled with the card's own fair
  * price. Exposure against the bets already held is shown BEFORE saving.
  */
-export function openBetSheet({ source, week, legs, title = null, model = null }) {
+export function openBetSheet({ source, week, legs, title = null, model = null, recommendationGuard = null }) {
   ensureDoc();
   closeSheet();
   const betLegs = legs.slice(0, B.MAX_LEGS).map((l) => B.betLeg(l, l.game_id));
@@ -122,6 +123,14 @@ export function openBetSheet({ source, week, legs, title = null, model = null })
     const act = e.target.closest('[data-mb]');
     if (e.target === sheetEl || (act && act.dataset.mb === 'cancel')) { closeSheet(); return; }
     if (!act || act.dataset.mb !== 'save') return;
+    // A recommendation sheet can remain open while a source/approval expires.
+    // Imported/already placed ticket records do not use this optional guard.
+    const held = recommendationRefusal(recommendationGuard);
+    if (held) {
+      ret.textContent = held;
+      ret.classList.add('mb-warn');
+      return;
+    }
     const st = Number(stake.value);
     const o = Number(String(odds.value).replace('+', ''));
     if (!(st > 0) || !B.americanToDecimal(o)) { sync(); ret.classList.add('mb-warn'); return; }
@@ -133,6 +142,16 @@ export function openBetSheet({ source, week, legs, title = null, model = null })
     syncChip();
   });
   stake.focus();
+}
+
+export function recommendationRefusal(guard) {
+  if (guard === null) return null;
+  if (typeof guard !== 'function') return 'Recommendation availability could not be checked. Refresh the card.';
+  try {
+    const reason = guard();
+    return reason === null ? null : typeof reason === 'string' && reason
+      ? reason : 'Recommendation availability could not be checked. Refresh the card.';
+  } catch (_) { return 'Recommendation availability could not be checked. Refresh the card.'; }
 }
 
 /** The BETS chip's open count (PARLAYS paints it from the same cached status). */
@@ -325,7 +344,7 @@ function onLedgerChange(e) {
 
 const B_STATE = { picked: [], q: '' };
 
-function builderLegs(p) {
+export function builderLegs(p, now = Date.now()) {
   const out = [];
   for (const row of (p && p.players) || []) {
     for (const r of row.rungs || []) {
@@ -343,7 +362,7 @@ function builderLegs(p) {
   for (const g of (p && p.game_legs) || []) {
     out.push({ ...g, owner: `team:${g.team}` });
   }
-  return out;
+  return learningEligibleLegs(out, poolLearningStatus(p, now));
 }
 
 /** Why `leg` cannot join `picked` (null when it can): same rules as MY. */
@@ -365,9 +384,14 @@ async function openBuilder() {
   const all = builderLegs(p);
   const paint = () => {
     const q = B_STATE.q.trim().toLowerCase();
-    const hits = q.length < 2 ? [] : all.filter((l) => String(l.selection).toLowerCase().includes(q)
-      || String(l.player || l.team || '').toLowerCase().includes(q)).slice(0, 24);
+    const status = poolLearningStatus(p);
+    const held = learningCardRefusal(p, B_STATE.picked);
+    const available = new Set(learningEligibleLegs(all, status));
+    const hits = q.length < 2 ? [] : all.filter((l) => available.has(l) && (String(l.selection).toLowerCase().includes(q)
+      || String(l.player || l.team || '').toLowerCase().includes(q))).slice(0, 24);
     box.innerHTML = '<div class="card mb-build">'
+      + (status.freshnessLabel ? `<div class="mb-hint">${esc(status.freshnessLabel)}. ${esc(status.freshnessNote)}</div>` : '')
+      + (held ? `<div class="mb-warn" role="status">${esc(held)}</div>` : '')
       + `<label class="mb-field">FIND A PLAYER OR TEAM<input id="mb-q" class="mp-input" autocomplete="off" value="${esc(B_STATE.q)}" placeholder="e.g. bijan, KC"></label>`
       + `<div class="legseg mb-hits">${hits.map((l, i) => {
         const why = builderRefusal(B_STATE.picked, l);
@@ -378,7 +402,7 @@ async function openBuilder() {
       + `<div class="mb-picked">${B_STATE.picked.map((l, i) => `<button type="button" class="leg-chip leg-chip--active" data-unpick="${i}" aria-label="Remove ${esc(l.selection)}">${esc(l.selection)} ✕</button>`).join('')}</div>`
       + '<div class="mb-sheet-act">'
         + '<button type="button" class="leg-chip" data-bx="close">CLOSE</button>'
-        + `<button type="button" class="leg-chip leg-chip--active" data-bx="next"${B_STATE.picked.length ? '' : ' disabled'}>NEXT · ${B_STATE.picked.length} LEG${B_STATE.picked.length === 1 ? '' : 'S'}</button>`
+        + `<button type="button" class="leg-chip leg-chip--active" data-bx="next"${B_STATE.picked.length && !held ? '' : ' disabled'}>NEXT · ${B_STATE.picked.length} LEG${B_STATE.picked.length === 1 ? '' : 'S'}</button>`
       + '</div></div>';
     const input = box.querySelector('#mb-q');
     input.addEventListener('input', () => {
@@ -392,7 +416,11 @@ async function openBuilder() {
   };
   box.onclick = (e) => {
     const hit = e.target.closest('[data-hit]');
-    if (hit && !hit.disabled) { B_STATE.picked.push(all[Number(hit.dataset.hit)]); paint(); return; }
+    if (hit && !hit.disabled) {
+      const leg = all[Number(hit.dataset.hit)];
+      if (learningCardRefusal(p, [leg])) { paint(); return; }
+      B_STATE.picked.push(leg); paint(); return;
+    }
     const un = e.target.closest('[data-unpick]');
     if (un) { B_STATE.picked.splice(Number(un.dataset.unpick), 1); paint(); return; }
     const bx = e.target.closest('[data-bx]');
@@ -400,10 +428,12 @@ async function openBuilder() {
     if (bx.dataset.bx === 'close') { box.innerHTML = ''; return; }
     if (bx.dataset.bx === 'next' && B_STATE.picked.length) {
       const legs = B_STATE.picked.slice();
+      if (learningCardRefusal(p, legs)) { paint(); return; }
       B_STATE.picked = [];
       B_STATE.q = '';
       box.innerHTML = '';
-      openBetSheet({ source: 'manual', week: p.week, legs, title: 'built' });
+      openBetSheet({ source: 'manual', week: p.week, legs, title: 'built',
+        recommendationGuard: () => learningCardRefusal(p, legs) });
     }
   };
   paint();

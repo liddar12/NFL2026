@@ -98,7 +98,7 @@ def _abbrev(name):
 
 
 def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=None,
-              live=None, receipt_context=None):
+              live=None, receipt_context=None, eligible_games=None):
     """One leg per (player, in-support rung). Returns (legs, counters).
 
     Every input is the one the slate uses: the same project_prop_yards, the same
@@ -115,6 +115,7 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
     counts = {"no_game": 0, "no_weekly_row": 0, "no_projection": 0,
               "no_calibration": 0, "refused_out_of_support": 0, "players_with_no_leg": 0,
               "not_playable": 0}
+    if eligible_games is not None:counts['period_return_not_future']=0
     for p in players:
         pos = p.get("position")
         if pos not in POSITIONS:
@@ -139,6 +140,9 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
             counts["no_game"] += 1
             continue
         gp, side, p_team = slot
+        if eligible_games is not None and str(gp.get('game_id'))not in eligible_games:
+            counts['period_return_not_future']+=1
+            continue
         coef, window, s = calib.get(pos), support.get(pos), sd.get(pos)
         if not coef or not window or not s:
             counts["no_calibration"] += 1
@@ -172,7 +176,9 @@ def prop_legs(players, weekly_by_id, game_preds, calib, support, sd, ladder, wk=
                     receipt_context, features=features,
                     input_context={"availability": rec.get("availability"),
                                    "eligibility": rec.get("eligibility"),
-                                   "this_week": rec.get("this_week")})
+                                   "this_week": rec.get("this_week"),
+                                   **({'calibration_return':receipt_context['calibration_return']}
+                                      if 'calibration_return'in receipt_context else{})})
             rungs.append(rung)
             made += 1
         if made == 0:
@@ -301,7 +307,7 @@ def drop_excluded(rows, excluded):
     return kept, len(rows) - len(kept)
 
 
-def build(inputs):
+def build(inputs, *, calibration_return=None):
     bt = inputs["pool_backtest"]
     calib = {p: v for p, v in (bt.get("calibration") or {}).items() if v}
     support = {p: tuple(v) for p, v in (bt.get("support") or {}).items()}
@@ -340,9 +346,27 @@ def build(inputs):
                "source_timestamps": {k: ((inputs.get(k) or {}).get("generated_utc") or
                                           (inputs.get(k) or {}).get("updated_utc")) for k in source_names},
                "generation_sha": inputs.get("generation_sha") or os.environ.get("GITHUB_SHA")}
+    return_plan=None
+    if calibration_return is not None:
+        from scripts.period_calibrator import PeriodCalibrator
+        if type(calibration_return)is not PeriodCalibrator:
+            raise ValueError('period_return_configured_capability_required')
+        context['source_snapshot_id']=receipts.fingerprint({'profile':'period_return_consumer_inputs.v2',
+            'producer_inputs':{k:sorted(v)if k=='excluded_games'and type(v)in(set,frozenset)else v
+                               for k,v in inputs.items()}})
+        return_plan=calibration_return.select(inputs,context,live)
+        calibration_return.last_plan=return_plan
+        live=return_plan['adjustment']
+        context['calibration_return']={k:return_plan[k]for k in('version','scope_id','candidate_id','artifact_id',
+            'owner_head_event_id','application_context_id','expires_utc','evidence_basis')}
+        context['source_snapshot_id']=receipts.fingerprint({'producer_inputs':context['source_snapshot_id'],
+            'calibration_return':return_plan['application_context_id']})
+        context['source_timestamps'].update(return_schedule=return_plan['schedule_issued_utc'],
+            return_owner=return_plan['owner_recorded_utc'],return_package=return_plan['package_received_utc'])
     props, counts = prop_legs(players, weekly_by_id, game_preds, calib, support, sd,
                               ladder, pool_week, live=live,
-                              receipt_context=context if pool_season and pool_week else None)
+                              receipt_context=context if pool_season and pool_week else None,
+                              eligible_games=set(return_plan['eligible_game_ids'])if return_plan else None)
     game_by_team, side_by_team = {}, {}
     for gp in game_preds:
         for side in ("home", "away"):
@@ -370,7 +394,7 @@ def build(inputs):
         atd_reason = ("offered: %d player(s); %d on owner-excluded games not offered (R108)"
                       % (len(atd), n_x_atd))
     counts["excluded_game"] = n_x_props + n_x_games + n_x_atd
-    return {
+    doc = {
         "season": parlays_doc.get("season"),
         "week": parlays_doc.get("week"),
         "generated_utc": generated,
@@ -417,6 +441,23 @@ def build(inputs):
             "its held-out verdict (atd_backtest.json) is adopted: %s." % atd_reason,
         ],
     }
+    if return_plan is not None:
+        # Structured saved-generation state for the UI. It is bound into the
+        # application pool hash and must agree with EVERY MY rung receipt. This
+        # is not current owner authority, publication proof or a new approval.
+        doc['calibration_return'] = {k: return_plan[k] for k in ('version', 'action', 'scope_id',
+            'candidate_id', 'artifact_id', 'owner_head_event_id', 'application_context_id',
+            'expires_utc', 'evidence_basis')}
+        doc['live_adjustment_status']=('period return v2: '+return_plan['action']+'; artifact '+str(return_plan['artifact_id'])
+            +'; expires '+str(return_plan['expires_utc'])+'; local generation, not publication proof')
+        doc['notes'].append('Owner-controlled period return v2; retrospective refitting-policy evidence is not '
+            'prospective proof of the fixed coefficients. Only scheduled pre-kickoff MY-yardage props are repriced; '
+            'previous forecasts, game/TD legs and public serving evidence are not rewritten. '
+            'Application context: '+return_plan['application_context_id'])
+    if 'my_freshness_sources' in inputs:
+        from scripts import my_freshness
+        doc = my_freshness.apply(doc, inputs['my_freshness_sources'])
+    return doc
 
 
 def _optional(path):
@@ -426,8 +467,12 @@ def _optional(path):
         return None
 
 
-def load_inputs():
-    return {
+def load_inputs(capture_runtime=None, *, freshness_profile=None):
+    if capture_runtime is not None:
+        # Opt-in loader returns exactly the parsed values whose bytes it froze;
+        # do not reread them, or fall back to the global exclusions cache.
+        return capture_runtime.pool_inputs(freshness_profile=freshness_profile)
+    inputs = {
         "excluded_games": excluded_ids(),     # R108 — config/excluded_games.json
         "atd_week": _optional(ATD_WEEK),
         "atd_backtest": _optional(ATD_BACKTEST),
@@ -437,6 +482,18 @@ def load_inputs():
         "game_predictions": _load(os.path.join(DATA, "game_predictions.json")),
         "parlays": _load(os.path.join(DATA, "parlays.json")),
     }
+    if freshness_profile is not None:
+        from scripts import my_freshness
+        if freshness_profile != my_freshness.PROFILE:
+            raise ValueError('MY_freshness_profile_unknown')
+        inputs['my_freshness_sources'] = {k: inputs[k] for k in
+            ('player_weekly', 'player_projections', 'game_predictions')}
+        inputs['my_freshness_sources'].update(
+            schedule=_load(os.path.join(DATA, 'schedule_full.json')),
+            injuries=_load(os.path.join(DATA, 'injuries.json')),
+            depth_chart=_optional(os.path.join(DATA, 'depth_chart.json')),
+            inactives=_optional(os.path.join(DATA, 'inactives.json')))
+    return inputs
 
 
 def selftest():
@@ -584,18 +641,39 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--generation-capture-dir", help="opt-in private immutable capture directory outside all checkouts")
+    ap.add_argument('--freshness-profile', choices=['provisional_before_90m_v1'],
+        help='Explicit owner-selected provisional MY freshness policy; does not approve a model')
     args = ap.parse_args(argv)
     if args.selftest:
+        if args.generation_capture_dir or args.freshness_profile:ap.error("--selftest cannot capture or select serving policy")
         selftest()
         return 0
-    doc = build(load_inputs())
+    capture = None
+    if args.generation_capture_dir:
+        from scripts import generation_capture_runtime as runtime
+        try:
+            capture = runtime.begin(_ROOT, generation_sha=runtime.head_identity(_ROOT))
+            original = runtime.persist(capture.loader, args.generation_capture_dir, checkout=_ROOT)
+            print("generation input observation (not upstream/public proof): %s" % original)
+        except runtime.CaptureError:
+            print("generation capture held before pool generation", file=sys.stderr)
+            return 1
+    doc = build(load_inputs(capture, freshness_profile=args.freshness_profile))
     if not doc["calibration_adopted"]:
         print("[warn] the pool calibration is NOT adopted by its gate — refusing to "
               "write a pool priced by coefficients that did not clear", file=sys.stderr)
         return 1
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, ensure_ascii=True, indent=2)
-        fh.write("\n")
+    raw = (json.dumps(doc, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+    with open(OUT, "wb") as fh:
+        fh.write(raw)
+    if capture is not None:
+        try:
+            checkpoint = runtime.persist(capture.record_pool_bytes(raw), args.generation_capture_dir, checkout=_ROOT)
+            print("generation pool checkpoint: %s" % checkpoint)
+        except runtime.CaptureError:
+            print("generation capture held; pool remains local, not approved for publication", file=sys.stderr)
+            return 1
     c = doc["counts"]
     print("wrote %s: %d prop legs (%d players) + %d game legs; refused %d rung(s), "
           "%d player(s) with no leg"

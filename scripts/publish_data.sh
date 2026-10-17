@@ -151,7 +151,9 @@ resolve_conflicts() {
       *) die "conflict outside data/ on '$path'. A pipeline commit changes only data/, so this is a code collision no automatic rule should resolve. Re-run the workflow once main is settled, or resolve it by hand." ;;
     esac
 
-    if is_ledger "$path"; then
+    if [ "${path#data/learning_control/}" != "$path" ] || [ "$path" = "data/learning_feedback.json" ]; then
+      die "conflict on learning authority/state records. Neither writer's control pointer or immutable evidence may be chosen automatically. Re-run from the settled head; nothing was published."
+    elif is_ledger "$path"; then
       base="$(stage_file 1 "$path" "$tmp/base.json")"
       theirs="$(stage_file 2 "$path" "$tmp/theirs.json")"
       ours="$(stage_file 3 "$path" "$tmp/ours.json")"
@@ -213,6 +215,9 @@ fall_back_to_theirs() {
   local onto="$1" path
   while IFS= read -r path; do
     [ -n "$path" ] || continue
+    if [ "${path#data/learning_control/}" != "$path" ] || [ "$path" = "data/learning_feedback.json" ]; then
+      die "fallback would replace learning authority/state records. No side is chosen automatically; regenerate against the settled head. Nothing was published."
+    fi
     if is_ledger "$path" || [ "${path#data/snapshots/}" != "$path" ]; then
       continue
     fi
@@ -263,11 +268,44 @@ replay_onto() {
 }
 
 main() {
+  local generation_binding="" selected_my_binding="" semantic_no_generation=0
+  local period_generation_id="" period_engine_checkout="" period_engine_commit=""
+  local period_authority_id="" period_actor_ref="" period_options=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --generation-binding)
+        [ "$#" -ge 2 ] && [ -n "$2" ] && [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation binding requires one path" >&2; exit 2; }
+        generation_binding="$2"; shift 2 ;;
+      --selected-MY-binding)
+        [ "$#" -ge 2 ] && [ -n "$2" ] && [ -z "$selected_my_binding" ] || { echo "selected MY binding requires one path" >&2; exit 2; }
+        selected_my_binding="$2"; shift 2 ;;
+      --no-new-generation)
+        [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "generation modes are mutually exclusive" >&2; exit 2; }
+        semantic_no_generation=1; shift ;;
+      --period-generation-id|--period-engine-checkout|--period-engine-commit|--period-authority-id|--period-actor-ref)
+        [ "$#" -ge 2 ] && [ -n "$2" ] || { echo "period publication option requires a value" >&2; exit 2; }
+        case "$1" in
+          --period-generation-id) [ -z "$period_generation_id" ] || exit 2; period_generation_id="$2" ;;
+          --period-engine-checkout) [ -z "$period_engine_checkout" ] || exit 2; period_engine_checkout="$2" ;;
+          --period-engine-commit) [ -z "$period_engine_commit" ] || exit 2; period_engine_commit="$2" ;;
+          --period-authority-id) [ -z "$period_authority_id" ] || exit 2; period_authority_id="$2" ;;
+          --period-actor-ref) [ -z "$period_actor_ref" ] || exit 2; period_actor_ref="$2" ;;
+        esac
+        period_options=$((period_options + 1)); shift 2 ;;
+      *) break ;;
+    esac
+  done
+  if [ "$period_options" -ne 0 ]; then
+    [ "$period_options" -eq 5 ] && [ -z "$generation_binding" ] && [ -z "$selected_my_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "all five period publication pins are required, without another generation mode" >&2; exit 2; }
+  fi
+  if [ -n "$selected_my_binding" ]; then
+    [ -z "$generation_binding" ] && [ "$semantic_no_generation" -eq 0 ] || { echo "selected MY and v1 generation modes are mutually exclusive" >&2; exit 2; }
+  fi
   if [ "$#" -ne 1 ] || [ -z "$1" ]; then
-    echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
+    echo "usage: bash scripts/publish_data.sh [--generation-binding PATH | --selected-MY-binding PATH | --no-new-generation | --period-generation-id ID --period-engine-checkout PATH --period-engine-commit SHA --period-authority-id ID --period-actor-ref ACTOR] \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote replayed
+  local message="$1" attempt remote replayed push_ref="HEAD"
 
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
@@ -312,7 +350,74 @@ main() {
       fi
     fi
 
-    if git push origin HEAD:main; then
+    # Explicit opt-in only. Recheck the FINAL committed tree before EVERY push,
+    # including each clean/conflicted rebase and R111 fallback. Never rebind the
+    # original capture to a different tree or treat an old PASS as permission.
+    # Pin the verified SHA in the push ref, eliminating a HEAD-switch gap.
+    push_ref="HEAD"
+    if [ -n "$generation_binding" ] || [ "$semantic_no_generation" -eq 1 ]; then
+      push_ref="$(git rev-parse HEAD)"
+      if [ -n "$generation_binding" ]; then
+        if ! python3 "$HERE/generation_capture_runtime.py" verify-head --checkout "$PWD" \
+               --binding "$generation_binding" --expected-head "$push_ref"; then
+          die "exact-generation semantic check held this tree. Nothing was published; keep the local capture and regenerate from original reads after the tree is settled."
+        fi
+      elif ! python3 "$HERE/generation_capture_runtime.py" no-new-generation --checkout "$PWD" \
+                 --expected-head "$push_ref" --base-head "$remote"; then
+        die "scores-only semantic check could not prove no forecast dependency changed. Nothing was published."
+      fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its semantic check. Nothing was published."
+    fi
+    # Optional feedback records must still join their immutable source graph in
+    # the FINAL tree, including a rebase/fallback. Never reset a semantic pin.
+    if git cat-file -e "${push_ref}:data/learning_feedback.json" 2>/dev/null || [ -e "data/learning_feedback.json" ] || [ -L "data/learning_feedback.json" ]; then
+      if [ "$push_ref" = "HEAD" ]; then push_ref="$(git rev-parse HEAD)"; fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed before its feedback integrity check. Nothing was published."
+      if ! python3 "$HERE/feedback_commit_guard.py" --checkout "$PWD" --expected-head "$push_ref"; then
+        die "feedback immutable records/source graph do not join. Nothing was published."
+      fi
+      [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its feedback integrity check. Nothing was published."
+    fi
+    # Pin even the default path: an unrelated local HEAD switch must not turn
+    # a check of an old tree into publication of unchecked control records.
+    if [ "$push_ref" = "HEAD" ]; then push_ref="$(git rev-parse HEAD)"; fi
+    [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed before the period-return check. Nothing was published."
+    # Validate ALL retained learning history, not just the ancestors still
+    # referenced by the newest feedback/application pointer. Recheck against the
+    # fetched base after every rebase/fallback and push retry; never auto-delete
+    # old outcomes, forecasts, corrections, evaluations or owner events.
+    if ! python3 "$HERE/learning_history_guard.py" --checkout "$PWD" \
+           --expected-head "$push_ref" --base-head "$remote"; then
+      die "append-only learning history changed or an unacknowledged transaction remains. Nothing was published."
+    fi
+    [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its learning history check. Nothing was published."
+    # A new v2 consumer must replay this exact commit, current authority, frozen
+    # eligibility and the selected serving freshness policy. Later settlement
+    # can retain an unchanged published consumer without pretending its old
+    # forecast/approval deadlines are current. No environment/uploaded PASS
+    # bypasses either path. Conflict and immutable-history protections above
+    # remain mandatory, including after every rebase/fallback/rejected push.
+    if git cat-file -e "${push_ref}:data/learning_control" 2>/dev/null || [ -e "data/learning_control" ] || [ -L "data/learning_control" ]; then
+      [ -z "$selected_my_binding" ] || die "selected incumbent binding cannot bypass period-return control records. Nothing was published."
+      local period_args=(--checkout "$PWD" --expected-head "$push_ref" --base-head "$remote")
+      if [ "$period_options" -eq 5 ]; then
+        period_args+=(--period-generation-id "$period_generation_id" --engine-checkout "$period_engine_checkout"
+          --engine-commit "$period_engine_commit" --authority-id "$period_authority_id" --actor-ref "$period_actor_ref")
+      fi
+      if ! python3 "$HERE/period_publication_gate.py" "${period_args[@]}"; then
+        die "period-return v2 exact-tree consumer gate held this tree (unfinished exact-tree publication gate or missing/invalid generation pins, originals, authority, freshness). Nothing was published."
+      fi
+    elif [ "$period_options" -ne 0 ]; then
+      die "period publication pins supplied without committed control records. Nothing was published."
+    else
+      local selected_args=(--checkout "$PWD" --expected-head "$push_ref" --base-head "$remote")
+      if [ -n "$selected_my_binding" ]; then selected_args+=(--binding "$selected_my_binding"); fi
+      if ! python3 "$HERE/selected_my_publication_gate.py" "${selected_args[@]}"; then
+        die "selected incumbent MY exact-tree consumer check held this tree. Keep original capture; never strip freshness or substitute an old PASS. Nothing was published."
+      fi
+    fi
+    [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after the period-return check. Nothing was published."
+    if git push origin "$push_ref:main"; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
       if [ "$FELL_BACK" -eq 1 ]; then
         echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"

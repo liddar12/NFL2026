@@ -63,8 +63,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Resolve reviewed SelfLearning pilot configuration
+        id: pilot_config
+        env:
+          SELFLEARN_NFL_PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: python3 -B scripts/pilot_config.py --config config/selflearning_pilot.json --github-output "$GITHUB_OUTPUT"
+      - name: Checkout pinned SelfLearning for integration tests
+        if: steps.pilot_config.outputs.enabled == '1'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: liddar12/SelfLearning
+          ref: ${{ steps.pilot_config.outputs.engine_commit }}
+          path: .selflearn-engine
+          persist-credentials: false
       # Same single source of truth as ci.yml's gate job; installs nothing.
       - name: Run regression gate
+        env:
+          SELFLEARN_CHECKOUT: ${{ steps.pilot_config.outputs.enabled == '1' && format('{0}/.selflearn-engine', github.workspace) || '' }}
+          SELFLEARNING_CHECKOUT: ${{ steps.pilot_config.outputs.enabled == '1' && format('{0}/.selflearn-engine', github.workspace) || '' }}
         run: bash tests/run_gate.sh
 
   e2e:

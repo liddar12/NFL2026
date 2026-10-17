@@ -375,6 +375,10 @@ def derive_loops(sources):
                                            else "This row reports a decision; effective runtime configuration is not established here.")
         out.append(dict({"id": lid, "group": group, "name": name, "learns": learns,
                           "moves": moves, "source": "data/" + src}, **row))
+    if "_shared_feedback_status"in sources:
+        if _ROOT not in sys.path:sys.path.insert(0,_ROOT)
+        from scripts.shared_feedback_status import derive
+        out.append(derive(sources["_shared_feedback_status"]))
     return out
 
 
@@ -415,6 +419,9 @@ def load_sources(data_dir=DATA):
                     out[f] = json.load(fh)
             except (OSError, ValueError):
                 out[f] = None
+    if _ROOT not in sys.path:sys.path.insert(0,_ROOT)
+    from scripts.shared_feedback_status import KEY,load
+    out[KEY]=load(data_dir)
     return out
 
 

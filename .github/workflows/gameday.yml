@@ -47,7 +47,9 @@ on:
     inputs:
       mode:
         description: "lock | scores | both"
+        type: choice
         default: "both"
+        options: [lock, scores, both]
 
 concurrency:
   group: gameday
@@ -69,6 +71,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Resolve reviewed NFL feedback configuration
+        id: selflearn_config
+        env:
+          SELFLEARN_NFL_PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: python3 -I -S -B scripts/pilot_config.py --config config/selflearning_pilot.json --github-output "$GITHUB_OUTPUT"
+
+      # Same exact reviewed engine pin as daily. This measurement also runs in
+      # scores mode: outcomes/corrections must not wait for tomorrow's rebuild.
+      - name: Checkout pinned SelfLearning pilot engine (optional)
+        if: steps.selflearn_config.outputs.enabled == '1'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: liddar12/SelfLearning
+          ref: ${{ steps.selflearn_config.outputs.engine_commit }}
+          path: .selflearn-engine
+          persist-credentials: false
 
       - name: Install pipeline dependencies
         run: pip install --upgrade requests   # scores/odds only; nflverse not needed here
@@ -142,18 +162,16 @@ jobs:
       # REFUSES to write while its calibration gate is red, so a red gate leaves the
       # previous pool standing rather than shipping legs priced by coefficients that
       # did not pass — that refusal is a healthy outcome, not a failure to retry.
-      - name: MY PARLAYS leg pool (rebuild under this generation)
+      - name: MY PARLAYS generation (selected freshness, existing intent only)
         if: ${{ github.event.inputs.mode != 'scores' }}
-        run: bash scripts/stage.sh gameday "MY PARLAYS leg pool (rebuild under this generation)" -- python3 scripts/build_leg_pool.py
-
-      # R87 (F17) — the cards actually OFFERED, recorded on first sight. A card that
-      # only ever appeared inside a gameday window previously had no pre-kickoff
-      # receipt; now the window that offers it is the window that locks it. Stdlib and
-      # offline; an absent data/leg_pool.json (the refusal above) is a one-line skip
-      # with exit 0, never a failed run.
-      - name: MY PARLAYS offered cards (first-sight lock)
-        if: ${{ github.event.inputs.mode != 'scores' }}
-        run: bash scripts/stage.sh gameday "MY PARLAYS offered cards (first-sight lock)" -- python3 scripts/build_my_cards.py
+        env:
+          SELFLEARN_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
+          SELFLEARN_AUTHORITY_ID: ${{ steps.selflearn_config.outputs.authority_id }}
+          SELFLEARN_ACTOR_REF: ${{ steps.selflearn_config.outputs.actor_ref }}
+          MY_FRESHNESS_PROFILE: ${{ steps.selflearn_config.outputs.freshness_profile }}
+        # Actual pool -> MY writer/capture chain; no intent retains the existing
+        # legacy calibration policy, existing intent must verify, no auto-approval.
+        run: bash scripts/stage.sh gameday "MY PARLAYS generation (selected freshness, existing intent only)" -- python3 -I -S -B scripts/run_my_generation.py --execute --data-dir data --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_ENGINE_COMMIT" --authority-id "$SELFLEARN_AUTHORITY_ID" --actor-ref "$SELFLEARN_ACTOR_REF" --capture-dir "$RUNNER_TEMP/my-generation" --generation-sha "$GITHUB_SHA" --freshness-profile "$MY_FRESHNESS_PROFILE" > "$RUNNER_TEMP/my-generation-result.json"
 
       # R101c — this week's WEEK-scope ANYTIME-TD cards (ALL TD / MAJORITY TD / 50%+,
       # 2-10 legs), built from the pool just written at the pool's own prices (the
@@ -227,8 +245,7 @@ jobs:
         if: ${{ github.event.inputs.mode == 'scores' }}
         run: |
           python3 scripts/stage_status.py skip --workflow gameday --stage "Lock pre-kickoff probabilities" --reason "scores mode: nothing is re-priced"
-          python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS leg pool (rebuild under this generation)" --reason "scores mode: nothing is re-priced"
-          python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS offered cards (first-sight lock)" --reason "scores mode: no new card is offered"
+          python3 scripts/stage_status.py skip --workflow gameday --stage "MY PARLAYS generation (selected freshness, existing intent only)" --reason "scores mode: nothing is re-priced and no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD week cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD game cards (first-sight record)" --reason "scores mode: no new card is offered"
           python3 scripts/stage_status.py skip --workflow gameday --stage "Anytime-TD MY cards (first-sight record)" --reason "scores mode: no new card is offered"
@@ -284,6 +301,21 @@ jobs:
         run: bash scripts/stage.sh --continue-on-error gameday "Replay lab (candidate parlay rules vs shipped, measure only)" -- python3 scripts/replay_lab.py
         continue-on-error: true   # a measure-only bench never degrades the run
 
+      # Observe exact raw outcomes after settlement in EVERY mode, including
+      # scores-only. No pool rebuild, candidate approval or adoption occurs here.
+      - name: Shared parlay feedback pilot
+        id: shared_feedback
+        if: steps.selflearn_config.outputs.enabled == '1'
+        timeout-minutes: 15
+        env:
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
+        run: bash scripts/stage.sh --continue-on-error gameday "Shared parlay feedback pilot" -- python3 -I -S -B scripts/run_parlay_feedback.py --execute --fetch-outcomes --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_NFL_ENGINE_COMMIT"
+        continue-on-error: true
+
+      - name: Record disabled shared parlay feedback pilot
+        if: steps.selflearn_config.outputs.enabled != '1'
+        run: python3 scripts/stage_status.py skip --workflow gameday --stage "Shared parlay feedback pilot" --reason "Default-off pilot; no shared evaluation or adoption ran"
+
       # SCORES MODE, STATED HONESTLY. There is no longer a "Refresh scores" step,
       # because there was never anything behind it: the removed line ran a scores
       # CLI module under scripts/scrape/ that has never existed in this repo, and
@@ -312,6 +344,39 @@ jobs:
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
+      - name: Validate shared feedback immutable records
+        run: python3 -I -S -B scripts/run_parlay_feedback.py --check-records
+
+      - name: Summarize shared feedback attempt (measure only)
+        if: always()
+        env:
+          CONFIG_OUTCOME: ${{ steps.selflearn_config.outcome }}
+          PILOT_ENABLED: ${{ steps.selflearn_config.outputs.enabled }}
+          PILOT_OUTCOME: ${{ steps.shared_feedback.outcome }}
+        run: |
+          if [ "$CONFIG_OUTCOME" != "success" ]; then
+            outcome="CONFIGURATION NOT VERIFIED; no successful measurement is verified."
+          else
+            case "$PILOT_ENABLED:$PILOT_OUTCOME" in
+            1:success) outcome="Measurement completed; inspect the saved cohort and HOLD reasons." ;;
+            1:failure) outcome="FAILED; retained results are not a fresh success."; echo "::warning::Shared NFL feedback failed; no shared-engine model was approved or activated." ;;
+            1:*) outcome="NOT COMPLETED; no successful measurement is verified." ;;
+            *) outcome="DISABLED; no shared evaluation ran." ;;
+            esac
+          fi
+          printf '%s\n' '### Shared NFL feedback (measure only)' "$outcome" 'No shared-engine model was approved or activated by this step. A green job is not deployment or accuracy evidence.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain private MY generation evidence (7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-generation-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/my-generation/*.json
+            ${{ runner.temp }}/my-generation-result.json
+          retention-days: 7
+          if-no-files-found: warn
+
       # RACE-SAFE PUBLISH (F16). daily.yml may push while this window commits, and
       # the two are on DIFFERENT concurrency groups so nothing serialises them.
       # The old fast-forward-only pull-and-push retry loop could not merge two
@@ -319,4 +384,16 @@ jobs:
       # and is race-safe by construction — see docs/PUBLISH.md. data/ includes
       # the snapshots and data/pipeline_stages.json.
       - name: Commit snapshots + data
-        run: 'bash scripts/publish_data.sh "data: gameday refresh [skip actions]"'
+        env:
+          PIPELINE_MODE: ${{ github.event.inputs.mode }}
+          SELFLEARN_ENGINE_COMMIT: ${{ steps.selflearn_config.outputs.engine_commit }}
+          SELFLEARN_AUTHORITY_ID: ${{ steps.selflearn_config.outputs.authority_id }}
+          SELFLEARN_ACTOR_REF: ${{ steps.selflearn_config.outputs.actor_ref }}
+        run: |
+          if [ "$PIPELINE_MODE" = "scores" ]; then
+            # No new forecast/capture exists in scores mode. Existing integrity
+            # and control-state holds still apply; never reuse an old MY PASS.
+            bash scripts/publish_data.sh "data: gameday refresh [skip actions]"
+          else
+            python3 -I -S -B scripts/publish_my_generation.py --execute --result-path "$RUNNER_TEMP/my-generation-result.json" --capture-dir "$RUNNER_TEMP/my-generation" --engine-checkout .selflearn-engine --engine-commit "$SELFLEARN_ENGINE_COMMIT" --authority-id "$SELFLEARN_AUTHORITY_ID" --actor-ref "$SELFLEARN_ACTOR_REF" --message "data: gameday refresh [skip actions]"
+          fi

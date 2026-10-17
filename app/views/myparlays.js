@@ -86,6 +86,9 @@ import {
   modelEv, violatesOnePerSide,
 } from '../parlay-math.js';
 import { readTd, writeTd, tdControls, tdTap } from '../atd-cards.js';
+import { paintConcentrationRisk } from '../portfolio-risk.js';
+import { poolLearningStatus, renderPoolLearning, learningEligibleLegs,
+  learningCardRefusal } from '../pool-learning-status.js';
 
 const POOL_PATH = '/data/leg_pool.json';
 const CALIB_PATH = '/data/parlay_backtest.json';
@@ -436,7 +439,9 @@ function gameState(game, now) {
  * on those two teams read as a broken search for three days a week. Pure, so
  * the sentences are testable without a browser.
  */
-export function emptyReason(seeds, legs, games, poolWeek, now = Date.now()) {
+export function emptyReason(seeds, legs, games, poolWeek, now = Date.now(), learning = null) {
+  if (learning?.blockProps || learning?.hasHeldProps) return 'No card can be built from the remaining eligible legs. '
+    + `${learning.freshnessLabel || learning.label}. Refresh the pool before using MY yardage props; changing the risk dial does not reactivate them.`;
   const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
   const live = liveSeedIds(upcomingLegs(legs || [], games || [], now));
   const week = Number(poolWeek);
@@ -470,10 +475,11 @@ export function emptyReason(seeds, legs, games, poolWeek, now = Date.now()) {
  * A team's second cell is the literal word TEAM — its name IS its abbreviation,
  * so repeating it there would say nothing.
  */
-function renderSeedOption(option, i, active, live) {
+export function renderSeedOption(option, i, active, live, held = new Set()) {
   const meta = option.kind === 'team' ? 'TEAM'
     : [option.team, option.position].filter(Boolean).map(esc).join(' · ');
-  const done = live && !live.has(String(option.id))
+  const done = held.has(String(option.id)) ? '<span class="est">PROP MODEL HELD</span>'
+    : live && !live.has(String(option.id))
     ? '<span class="est">GAME FINAL</span>' : '';
   return `<li role="option" id="mp-opt-${i}" class="mp-opt" data-seed="${esc(option.id)}" `
     + `aria-selected="${i === active ? 'true' : 'false'}">`
@@ -796,7 +802,7 @@ export function renderCard(card, i) {
 /* ---- mount -------------------------------------------------------------- */
 
 const state = { seeds: [], pool: null, table: null, legs: null, scores: null,
-  dial: DEFAULT_DIAL, live: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [], verdict: null };
+  dial: DEFAULT_DIAL, live: new Set(), held: new Set(), td: { mode: 'any', legs: 4 }, atdLegs: [], verdict: null };
 
 /* The dial is a per-VIEWER preference, not data: it says which of his own legs a
  * person wants to look at. localStorage throws outright in Safari private mode,
@@ -843,12 +849,23 @@ function paintRecord(el) {
 
 function paint(el) {
   const list = el.querySelector('#mp-list');
+  const risk = el.querySelector('#mp-concentration');
+  paintConcentrationRisk(risk, []);
+  state.shown = [];
   const seedBox = el.querySelector('#mp-seeds');
   const dialBox = el.querySelector('.mp-dial');
   // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
   // and so does the suggestion list, which marks every seed that has none.
-  const eligible = upcomingLegs(state.legs || [], state.games || []);
-  state.live = liveSeedIds(eligible);
+  const learning = poolLearningStatus(state.pool);
+  const learningBox = el.querySelector('#mp-learning');
+  if (learningBox) learningBox.innerHTML = renderPoolLearning(learning);
+  const upcoming = upcomingLegs(state.legs || [], state.games || []);
+  const eligible = learningEligibleLegs(upcoming, learning);
+  // A future game's held props are not a final game. Keep schedule state and
+  // model availability separate in the type-ahead as well as the main banner.
+  state.live = liveSeedIds(upcoming);
+  const eligibleSeeds = liveSeedIds(eligible);
+  state.held = new Set([...state.live].filter((id) => !eligibleSeeds.has(id)));
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
   // R101c — the TD pills + leg stepper (layout B). ALL TD / 50%+ have no other
@@ -888,7 +905,7 @@ function paint(el) {
   if (!cards.length) {
     // R89 — per seed, the game and its state, instead of one fixed sentence.
     list.innerHTML = `<div class="state">${esc(emptyReason(state.seeds, state.legs,
-      state.games, state.pool && state.pool.week))}</div>`;
+      state.games, state.pool && state.pool.week, Date.now(), learning))}</div>`;
     return;
   }
   // The list is built as leg-count PAIRS; the eyebrow says so, once per band,
@@ -906,19 +923,41 @@ function paint(el) {
   list.innerHTML = html.join('');
   // R110 — I BET THIS on every card; the sheet (app/views/mybets.js) loads on the tap.
   state.shown = cards;
+  paintConcentrationRisk(risk, cards, state.games || [], state.pool && state.pool.week);
   list.querySelectorAll('.mp-card[data-mp]').forEach((node) => node.insertAdjacentHTML(
     'beforeend', '<button type="button" class="leg-chip bet-this">I BET THIS</button>'));
 }
 
+export function myCardRefusal(card, pool, games, now = Date.now()) {
+  const reason = learningCardRefusal(pool, card.legs, now);
+  if (reason) return reason;
+  return upcomingLegs(card.legs, games, now).length === card.legs.length ? null
+    : 'A game on this card has started or is no longer scheduled. Refresh before recording a new recommendation.';
+}
+
 /** R110 — a tap on I BET THIS: the card's legs go to the save sheet as they are. */
-function onBetTap(e) {
+function onBetTap(e, el) {
   const btn = e.target.closest('.bet-this');
   const node = btn && btn.closest('.mp-card[data-mp]');
   const card = node && state.shown && state.shown[Number(node.dataset.mp)];
   if (!card) return;
+  // A tab may have slept through the expiry timer. Do not open a new bet sheet
+  // with expired corrected props before the next scheduled paint.
+  const sourcePool = state.pool, sourceGames = state.games || [];
+  const refusal = () => myCardRefusal(card, sourcePool, sourceGames);
+  if (refusal()) {
+    paint(el);
+    return;
+  }
   import('./mybets.js')
-    .then((mod) => mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
-      week: state.pool && state.pool.week, legs: card.legs, model: card.model }))
+    .then((mod) => {
+      // Module loading can cross an approval/source/inactive or kickoff cutoff.
+      if (!el.isConnected || !state.shown.includes(card)) return;
+      if (refusal()) { paint(el); return; }
+      mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
+        week: state.pool && state.pool.week, legs: card.legs, model: card.model,
+        recommendationGuard: refusal });
+    })
     .catch((err) => console.warn('[nfl2026] my bets failed to load:', err));
 }
 
@@ -972,6 +1011,7 @@ export default async function mountMyParlays(el) {
       + '<ul id="mp-suggest" class="mp-suggest" role="listbox" '
         + 'aria-label="Matching players and teams"></ul>'
     + '</div>'
+    + '<div id="mp-learning"></div>'
     + '<div id="mp-seeds"></div>'
     + '<div class="mp-dial" role="group" aria-label="Risk dial"></div>'
     + '<div id="mp-td"></div>'
@@ -995,9 +1035,10 @@ export default async function mountMyParlays(el) {
       + `<span class="est">ESTIMATE</span></div>`
     + (unavailable ? `<div class="state" role="status">${unavailable} game leg(s) unavailable — `
       + 'event or team-side identity could not be verified.</div>' : '')
+    + '<div id="mp-concentration" hidden></div>'
     + '<div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
-  if (mpList) mpList.addEventListener('click', onBetTap);
+  if (mpList) mpList.addEventListener('click', (e) => onBetTap(e, el));
 
   /* R89 — the type-ahead. The whole list is re-rendered on every keystroke:
    * matchSeeds over 246 options is one pass of string work, far below a frame,
@@ -1071,7 +1112,7 @@ export default async function mountMyParlays(el) {
     shown = matchSeeds(options, term);
     if (active >= shown.length) active = 0;
     listbox.innerHTML = shown.length
-      ? shown.map((o, i) => renderSeedOption(o, i, active, state.live)).join('')
+      ? shown.map((o, i) => renderSeedOption(o, i, active, state.live, state.held)).join('')
       // Not an option, and not silence either: the old box just cleared itself.
       : '<li class="mp-opt mp-opt--none" aria-disabled="true">No player or team matches</li>';
     input.setAttribute('aria-expanded', 'true');
@@ -1213,17 +1254,31 @@ export default async function mountMyParlays(el) {
     state.verdict = v || null;
     if (el.isConnected && state.td.mode !== 'any') paint(el);
   });
-  // Recheck at the next kickoff even when the tab stays open in the foreground.
+  // Recheck at kickoff, approval expiry or the source-age boundary. A background
+  // tab can throttle timers, so resume also rechecks before offering new cards.
   let timer;
   const scheduleCutoff = () => {
-    const next = Math.min(...state.games.map((g) => Date.parse(g.kickoff_utc)).filter((t) => t > Date.now()));
+    clearTimeout(timer);
+    const learningBoundary = poolLearningStatus(state.pool).nextCheckMs;
+    const next = Math.min(...[...state.games.map((g) => Date.parse(g.kickoff_utc)), learningBoundary]
+      .filter((t) => Number.isFinite(t) && t > Date.now()));
     if (Number.isFinite(next)) timer = setTimeout(() => {
       if (el.isConnected) { paint(el); scheduleCutoff(); }
     }, Math.min(next - Date.now() + 25, 2147483647));
   };
   scheduleCutoff();
+  const onResume = () => {
+    if (el.isConnected && !document.hidden) { paint(el); scheduleCutoff(); }
+  };
+  document.addEventListener('visibilitychange', onResume);
+  window.addEventListener('pageshow', onResume);
   const observer = new MutationObserver(() => {
-    if (!el.isConnected) { clearTimeout(timer); observer.disconnect(); }
+    if (!el.isConnected) {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('pageshow', onResume);
+      observer.disconnect();
+    }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   // R82 — the pool's own week, for the MY-mode subtitle the header paints.

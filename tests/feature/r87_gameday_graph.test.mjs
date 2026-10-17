@@ -81,7 +81,7 @@ function lockPath(all) {
 /* Every `python`/`python3` invocation in a step's commands, as a repo-relative
  * script path. Handles both spellings this repo uses: `python -m scripts.foo`
  * and `python3 scripts/foo.py`. */
-const INVOKE_RE = /\bpython3?\s+(?:-m\s+([A-Za-z_][\w.]*)|([\w./-]+\.py))/g;
+const INVOKE_RE = /\bpython3?\s+(?:-[ISBu]+\s+)*(?:-m\s+([A-Za-z_][\w.]*)|([\w./-]+\.py))/g;
 
 function invokedScripts(code) {
   const found = [];
@@ -92,7 +92,13 @@ function invokedScripts(code) {
 }
 
 function orderedInvocations(stepList) {
-  return stepList.flatMap((s) => invokedScripts(s.code).map((script) => ({ script, step: s })));
+  return stepList.flatMap((s) => invokedScripts(s.code).flatMap((script) => {
+    // The capture bridge executes the actual pool -> MY writer in one process;
+    // expand that tested chain, not unreachable legacy workflow commands.
+    const chain = script === 'scripts/run_my_generation.py'
+      ? [script, 'scripts/build_leg_pool.py', 'scripts/build_my_cards.py'] : [script];
+    return chain.map((entry) => ({script: entry, step: s}));
+  }));
 }
 
 const GAMEDAY = workflowText('gameday.yml');
@@ -141,7 +147,7 @@ test('F17 (i) — gameday lock path runs the full chain in dependency order', ()
   // `git commit` is no longer inline; match either spelling. This is the only
   // change R88 makes to this file: the stage wrapper leaves every command's
   // text on its own `run:` line, so INVOKE_RE still sees straight through it.
-  const commitAt = lock.findIndex((s) => /publish_data\.sh|git commit /.test(s.code));
+  const commitAt = lock.findIndex((s) => /publish_data\.sh|publish_my_generation\.py|git commit /.test(s.code));
   assert.ok(commitAt !== -1, 'gameday.yml has no commit step');
   const validateAt = lock.findIndex((s) => invokedScripts(s.code).includes('scripts/validate_data.py'));
   assert.ok(

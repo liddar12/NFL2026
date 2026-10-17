@@ -46,6 +46,8 @@ import {
   DIALS, buildCards, dialLegs, poolLegs, seedOptions, upcomingLegs,
 } from '../../app/views/myparlays.js';
 import { correlationTable } from '../../app/parlay-math.js';
+import { learningEligibleLegs, poolLearningStatus } from '../../app/pool-learning-status.js';
+import { assertScheduledSeedCoverage } from '../fixtures/selected_seed_universe.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
@@ -96,7 +98,8 @@ const TOY_NOW = '2026-09-20T09:00:00Z';
 
 /** The view's own pipeline, in one place, so both sides run the same chain. */
 function jsCards(pool, games, nowIso, dial, seeds) {
-  const legs = upcomingLegs(poolLegs(pool), games, Date.parse(nowIso));
+  const now = Date.parse(nowIso);
+  const legs = learningEligibleLegs(upcomingLegs(poolLegs(pool), games, now), poolLearningStatus(pool, now));
   return buildCards(dialLegs(legs, DIALS[dial]), seeds, TABLE);
 }
 
@@ -230,15 +233,8 @@ test('the Python mirror offers the same cards as the browser, number for number'
     const options = seedOptions(pool);
     const teams = options.filter((o) => o.kind === 'team');
     const players = options.filter((o) => o.kind === 'player');
-    // R119 — both teams of a game on the owner's excluded list seed nothing.
-    const excludedTeams = 2 * readJson('config/excluded_games.json').games
-      .filter((g) => Number(g.season) === Number(pool.season) && Number(g.week) === Number(pool.week)).length;
-    // R124 — the full league is the week's slate, not a pinned 30: week 6 has
-    // four teams on bye (CIN, DET, MIA, MIN), 28 scheduled (data-ci #156).
-    const slateTeams = new Set(games.filter((g) => Number(g.week) === Number(pool.week))
-      .flatMap((g) => [g.home, g.away])).size;
-    assert.ok(teams.length >= slateTeams - excludedTeams,
-      `${teams.length} team seeds — expected this week's ${slateTeams} scheduled teams less ${excludedTeams} owner-excluded`);
+    assertScheduledSeedCoverage(pool, games, readJson('config/excluded_games.json').games,
+      readJson('data/player_projections.json').players, teams);
     committed = { pool: join(ROOT, 'data/leg_pool.json'),
       schedule: join(ROOT, 'data/schedule_full.json') };
 
@@ -250,7 +246,8 @@ test('the Python mirror offers the same cards as the browser, number for number'
     const evenFrom = cases.length;
     for (const seed of teams) add('even', seed);
     // What this slate can build, from the same committed data the sweep reads.
-    const eligible = upcomingLegs(poolLegs(pool), games, Date.parse(now));
+    const eligible = learningEligibleLegs(upcomingLegs(poolLegs(pool), games, Date.parse(now)),
+      poolLearningStatus(pool, Date.parse(now)));
     const upcomingGames = new Set(eligible.map((l) => l.game_id)).size;
     const playable = new Set(eligible.map((l) => l.team));
     cardsPerLiveSeed = 2 * Math.min((2 * upcomingGames) - 1, 5);

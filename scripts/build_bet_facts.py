@@ -31,6 +31,7 @@ Facts only: no probability, no price, nothing the model is trained on.
 import argparse
 import datetime as dt
 import json
+import math
 import os
 import sys
 import tempfile
@@ -43,7 +44,9 @@ if _ROOT not in sys.path:
 from scripts.excluded_games import excluded_ids  # noqa: E402
 from scripts.resolve_estimates import fetch_csv, norm_name  # noqa: E402
 from scripts.resolve_parlay_legs import (  # noqa: E402
+    capture_snap_absence_unknown, capture_stat_fallback_blocked, captured_inputs,
     index_snaps, index_stats, index_td, load_finals, read_csv,
+    require_capture_games, require_capture_weeks,
 )
 from scripts.resolve_my_cards import _snaps  # noqa: E402
 
@@ -129,8 +132,12 @@ def _snap_call(name, team, snaps_week):
     without the player), None (no sheet for the team)."""
     if not snaps_week or not team or team not in snaps_week["teams"]:
         return None
-    return any(r["norm"] == name and r["team"] == team and r["snaps"] >= 1
-               for r in snaps_week["rows"])
+    if capture_stat_fallback_blocked(snaps_week, name):
+        return None
+    mine = [r for r in snaps_week["rows"] if r["norm"] == name and r["team"] == team]
+    if not any(r["snaps"] >= 1 for r in mine) and capture_snap_absence_unknown(snaps_week, team, name):
+        return None
+    return any(r["snaps"] >= 1 for r in mine)
 
 
 def _match(rows, name, team, pos=None):
@@ -165,13 +172,20 @@ def player_facts(ident, stat_rows, td_rows, snaps_week):
         rows = _match(stat_rows, name, team, pos)
         if len(rows) == 1:
             yd = rows[0]["yards"]
-            y = [yd["QB"], yd["RB"], yd["WR"]]
+            # A present row with an unknown required stat is not evidence of
+            # zero production. Keep the whole yardage fact unknown (the compact
+            # contract permits y:null, not null cells inside its numeric array).
+            required = yd.get(pos)
+            if (isinstance(required, (int, float)) and not isinstance(required, bool)
+                    and math.isfinite(required)):
+                y = [yd["QB"], yd["RB"], yd["WR"]]
         elif not rows:
             f = fallback()
             y = [0, 0, 0] if f == 0 else f
     td = None
     if td_rows is not None:
-        rows = _match(td_rows, name, team)
+        rows = _match(td_rows, name, team,
+                      pos if snaps_week and snaps_week.get("capture_checked") else None)
         if len(rows) == 1:
             td = rows[0]["tds"]
         elif not rows:
@@ -203,7 +217,7 @@ def game_facts(games, finals):
 
 
 def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, excluded,
-          season, generated_utc, source, teams_by_week=None):
+          season, generated_utc, source, teams_by_week=None, final_game_ids=None):
     gf = game_facts(games, finals)
     weeks = {}
     for wk in sorted(gf):
@@ -211,11 +225,15 @@ def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, exclu
         if not started and wk not in (stats_by_week or {}):
             continue                                  # nothing to grade in that week yet
         players = {}
+        final_teams = {team for gid, game in gf[wk].items()
+                       if gid in (final_game_ids or set()) for team in (game["h"], game["a"])}
         for pid in sorted(idents):
             ident = idents[pid]
             team = (teams_by_week or {}).get((pid, wk))
             if team and team != ident.get("team"):
                 ident = dict(ident, team=team)
+            if final_game_ids is not None and ident.get("team") not in final_teams:
+                continue
             f = player_facts(ident, (stats_by_week or {}).get(wk),
                              (td_by_week or {}).get(wk), (snaps_by_week or {}).get(wk))
             if f is not None:
@@ -232,19 +250,89 @@ def write(doc, path=OUT_PATH):
         fh.write("\n")
 
 
-def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
+def _existing_actual_weeks(path, season):
+    """Validate existing aggregate evidence before an opt-in overwrite."""
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    from scripts.validate_data import check_bet_facts, validate_against_schema  # noqa: PLC0415
+    with open(os.path.join(_ROOT, "data", "contracts", "bet_facts.schema.json"), encoding="utf-8") as fh:
+        schema = json.load(fh)
+    validate_against_schema(doc, schema, "existing bet facts")
+    check_bet_facts(doc)
+    if doc["season"] != season:
+        raise ValueError("existing bet facts season does not match evidence capture")
+    return {int(week) for week, block in doc["weeks"].items()
+            if any("hs" in game or "w" in game for game in block["games"].values())
+            or any(fact.get("y") is not None or fact.get("td") is not None
+                   for fact in block["players"].values())}
+
+
+def _capture_required_weeks(captured, games, recorded, out_path):
+    """Preserve actual history, started schedule weeks and locked card weeks.
+
+    Future full-season schedule rows do not require future network requests.
+    A missing/unparseable kickoff cannot honestly exempt a schedule week.
+    """
+    import glob  # noqa: PLC0415
+    completed = dt.datetime.fromisoformat(
+        captured["bundle"]["manifest"]["completed_utc"].replace("Z", "+00:00"))
+    required = set()
+    for path in {os.path.abspath(OUT_PATH), os.path.abspath(out_path)}:
+        required.update(_existing_actual_weeks(path, captured["season"]))
+    for game in games:
+        try:
+            week = int(game["week"])
+            kickoff = dt.datetime.fromisoformat(game["kickoff_utc"].replace("Z", "+00:00"))
+            if kickoff.tzinfo is None or kickoff.utcoffset() is None:
+                raise ValueError()
+        except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+            raise ValueError("evidence capture requires an explicit schedule week and kickoff") from None
+        if kickoff <= completed:
+            required.add(week)
+    for row in recorded:
+        if row.get("locked"):
+            required.add(int(row["week"]))
+    # recorded_legs intentionally keeps only leg fields. Read the original card
+    # lock flags for coverage without changing that legacy function's contract.
+    for pattern in RECORD_GLOBS:
+        for path in sorted(glob.glob(os.path.join(DATA, pattern))):
+            with open(path, encoding="utf-8") as fh:
+                doc = json.load(fh)
+            if doc.get("season") != captured["season"]:
+                continue
+            if any(card.get("locked") for card in doc.get("cards") or []):
+                required.add(int(doc["week"]))
+    return required
+
+
+def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None, evidence_capture=None):
+    if evidence_capture is not None and (cache_dir is not None or offline):
+        raise ValueError("--evidence-capture cannot be combined with cache/offline inputs")
     sched = _load(SCHEDULE_PATH, {}) or {}
     games = sched.get("games") or []
     season = int(sched.get("season") or (games[0].get("season") if games else 0)
                  or dt.datetime.now(dt.timezone.utc).year)
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     weeks = sorted({int(g["week"]) for g in games if g.get("week") is not None})
-    finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
+    captured = captured_inputs(evidence_capture, season) if evidence_capture is not None else None
+    if captured is not None:
+        finals, finals_source = captured["finals"], captured["source"]
+    else:
+        finals, finals_source = load_finals(None, season=season, weeks=weeks, offline=offline)
     recorded = recorded_legs()
+    if captured is not None:
+        require_capture_weeks(captured, _capture_required_weeks(captured, games, recorded, out_path))
+        require_capture_games(captured, games)
     idents = identities(_load(PROJ_PATH), _load(POOL_PATH), recorded)
     stats_by_week = td_by_week = snaps_by_week = None
     stats_note = "offline: no stat lines (props and ATD pending)"
-    if not offline:
+    if captured is not None:
+        stats_by_week, td_by_week = index_stats(captured["stats"]), index_td(captured["stats"])
+        snaps_by_week = captured["snap_index"]
+        stats_note = captured["source"]
+    elif not offline:
         rows, why = fetch_csv(season, cache_dir)
         if rows is None:
             stats_note = "stat lines unavailable: %s" % why
@@ -255,7 +343,8 @@ def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
                 len(stats_by_week), "" if snaps_by_week else "; snap counts unavailable")
     doc = build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week,
                 excluded_ids(), season, now, "finals: %s; stats: %s" % (finals_source, stats_note),
-                teams_by_week=week_teams(recorded))
+                teams_by_week=week_teams(recorded),
+                final_game_ids=captured["final_game_ids"] if captured is not None else None)
     write(doc, out_path)
     n_players = sum(len(w["players"]) for w in doc["weeks"].values())
     print("bet_facts: %d week(s), %d player-week fact(s), %d excluded game(s) -> %s"
@@ -337,13 +426,18 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--offline", action="store_true")
     ap.add_argument("--cache-dir", default=None)
+    ap.add_argument("--evidence-capture", metavar="JSON", default=None,
+                    help="verified immutable input capture; never fetch or use legacy fallbacks")
     ap.add_argument("--out", default=OUT_PATH)
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
+    if args.evidence_capture is not None and (args.cache_dir is not None or args.offline):
+        ap.error("--evidence-capture is exclusive with --cache-dir/--offline")
     if args.selftest:
         selftest()
         return 0
-    run(offline=args.offline, cache_dir=args.cache_dir, out_path=args.out)
+    run(offline=args.offline, cache_dir=args.cache_dir, out_path=args.out,
+        evidence_capture=args.evidence_capture)
     return 0
 
 

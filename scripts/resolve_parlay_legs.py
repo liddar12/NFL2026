@@ -27,7 +27,8 @@ HONESTY RULES
     resolved as this ships: weeks_resolved is 0 and every metric is null.
   * A locked prop leg whose player has no stat line in a published week is
     `unresolved` with a reason (no_stat_line / ambiguous / player_unidentified /
-    no_line) — never a miss, never a 0.
+    no_line) — never a miss, never a 0. A present row whose required yardage is
+    missing, malformed or nonfinite is unresolved (missing_stat_value), not zero.
   * The join is the selection's abbreviated name + the market's position + the
     game's two teams; when the ledger locked the full name from the pool it is
     tried first (exact normalised name, unique), then the abbreviation
@@ -60,6 +61,7 @@ from scripts.build_parlay_ledger import (PROP_POSITION, GAME_MARKETS,  # noqa: E
                                          ledger_path)
 from scripts.models.parlay_builder import seed_prop_prob  # noqa: E402
 from scripts.resolve_estimates import RELEASE_URL, fetch_csv, norm_name  # noqa: E402
+from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
 from scripts.scrape.renames import normalize_team  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
@@ -99,13 +101,33 @@ def _yards(row, col):
         return 0.0
 
 
+def _required_yards(row, col):
+    """A measured position's yardage, or unknown; missing is never zero.
+
+    Non-applicable columns and blank TD components retain their existing
+    conventions. A QB passing / RB rushing / WR receiving measurement must be
+    an actual finite number before a locked yardage prop can be graded.
+    """
+    value = row.get(col)
+    if isinstance(value, bool):
+        return None
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return value if math.isfinite(value) else None
+
+
 # --------------------------------------------------------------------------- #
 # stats index + player join                                                     #
 # --------------------------------------------------------------------------- #
 
 def index_stats(csv_rows):
     """{week: [row]} of REG-season QB/RB/WR rows with canonical team and the
-    three yardage columns; a row that fails to normalise is dropped."""
+    three yardage columns; a row that fails to normalise is dropped. The
+    position's required measurement remains None when missing or nonfinite;
+    retaining the row prevents a malformed cell being mistaken for no stat line
+    and then zero-filled from participation evidence."""
     by_week = {}
     for r in csv_rows:
         if (r.get("season_type") or "REG") != "REG":
@@ -125,9 +147,11 @@ def index_stats(csv_rows):
         if not n:
             continue
         team = normalize_team(r.get("team") or r.get("recent_team"))
+        yards = {p: (_required_yards(r, c) if p == pos else _yards(r, c))
+                 for p, c in YARDS_COL.items()}
         by_week.setdefault(wk, []).append({
             "name": name, "norm": n, "pos": pos, "team": team,
-            "yards": {p: _yards(r, c) for p, c in YARDS_COL.items()},
+            "yards": yards,
         })
     return by_week
 
@@ -231,6 +255,69 @@ def index_snaps(csv_rows):
     return by_week
 
 
+def index_capture_snaps(csv_rows):
+    """Typed opt-in participation evidence; never repair an unknown count to 0.
+
+    A malformed/ambiguous row makes only its team's week incomplete for absent
+    stat-line inference. Measured stats remain independently usable. A player
+    explicitly present with zero offensive snaps is not proven inactive: he may
+    have participated on special teams, so consumers keep his fallback unknown.
+    """
+    by_week, quarantined, unidentified, seen = {}, set(), [], set()
+    for row in csv_rows:
+        if row.get("game_type") == "POST":
+            continue
+        week = int(float(row["week"]))  # captured_inputs already scoped integral weeks
+        team, name = normalize_team(row.get("team")), norm_name(row.get("player"))
+        block = by_week.setdefault(week, {"teams": set(), "rows": [], "capture_checked": True})
+        value = row.get("offense_snaps")
+        try:
+            count = float(value) if not isinstance(value, bool) else float("nan")
+        except (TypeError, ValueError, OverflowError):
+            count = float("nan")
+        key = (week, team, name)
+        if (row.get("game_type") != "REG" or not row.get("season")
+                or not team or not name or not math.isfinite(count) or count < 0
+                or not count.is_integer() or key in seen):
+            if name:
+                block.setdefault("capture_unverified_snap_names", set()).add(name)
+            if team:
+                quarantined.add((week, team))
+            elif name:
+                unidentified.append({"week": week, "team": None, "player": name,
+                                     "reason": "unverified_participation_identity"})
+            else:
+                raise ValueError("unlocatable evidence participation identity")
+            continue
+        seen.add(key)
+        block["teams"].add(team)
+        block["rows"].append({"norm": name, "team": team, "snaps": count})
+    for week, team in quarantined:
+        by_week[week]["teams"].discard(team)
+    return by_week, ([{"week": week, "team": team, "reason": "incomplete_participation_sheet"}
+                      for week, team in sorted(quarantined)] + unidentified)
+
+
+def _capture_names_match(name, other):
+    return (name == other or (" " in name and " " in other and name[0] == other[0]
+                             and name.split(" ", 1)[1] == other.split(" ", 1)[1]))
+
+
+def capture_stat_fallback_blocked(snaps, name):
+    """A recognizable but unjoined stat row cannot be relabeled absent/zero."""
+    if not snaps or not snaps.get("capture_checked") or not name:
+        return False
+    names = snaps.get("capture_stat_names", set()) | snaps.get("capture_unverified_snap_names", set())
+    return any(_capture_names_match(name, other) for other in names)
+
+
+def capture_snap_absence_unknown(snaps, team, name):
+    """A named zero-offense row or possible alias is not proven inactivity."""
+    return bool(snaps and snaps.get("capture_checked") and any(
+        row["team"] == team and _capture_names_match(name, row["norm"])
+        for row in snaps["rows"]))
+
+
 def grade_atd(leg, week, td_by_week, snaps_by_week=None):
     """(result, actual, reason) for one anytime-TD leg.
 
@@ -257,15 +344,23 @@ def grade_atd(leg, week, td_by_week, snaps_by_week=None):
     if len(hits) > 1:
         return "pending", None, "ambiguous"
     if hits:
+        captured_snaps = (snaps_by_week or {}).get(int(week))
+        if (captured_snaps and captured_snaps.get("capture_checked") and leg.get("position")
+                and hits[0]["pos"] != leg["position"]):
+            return "pending", None, "unverified_stat_identity"
         tds = hits[0]["tds"]
         return ("hit" if tds >= 1 else "miss"), {"tds": tds}, None
     snaps = (snaps_by_week or {}).get(int(week))
     if not snaps or team not in snaps["teams"]:
         return "pending", None, "no_stat_line"
+    if capture_stat_fallback_blocked(snaps, name):
+        return "pending", None, "unverified_stat_identity"
     played = [r for r in snaps["rows"] if r["norm"] == name and r["team"] == team
               and r["snaps"] >= 1]
     if played:
         return "miss", {"tds": 0, "snaps": played[0]["snaps"]}, None
+    if capture_snap_absence_unknown(snaps, team, name):
+        return "pending", None, "participation_unknown"
     return "void", None, "did_not_play"
 
 
@@ -278,12 +373,15 @@ def _ref(leg, reason):
             "selection": leg["selection"], "reason": reason}
 
 
-def resolve_props(ledger, csv_rows):
+def resolve_props(ledger, csv_rows, final_game_ids=None):
     """(resolved rows, unresolved refs, weeks_with_rows) for locked prop legs."""
     by_week = index_stats(csv_rows)
     resolved, unresolved = [], []
     for leg in ledger.get("legs") or []:
         if not leg.get("locked") or leg.get("market") not in PROP_POSITION:
+            continue
+        if final_game_ids is not None and str(leg.get("game_id")) not in final_game_ids:
+            unresolved.append(_ref(leg, "game_not_final"))
             continue
         wk = int(leg["week"])
         if wk not in by_week:
@@ -299,6 +397,10 @@ def resolve_props(ledger, csv_rows):
             unresolved.append(_ref(leg, why))
             continue
         yards = row["yards"][leg["position"]]
+        if (not isinstance(yards, (int, float)) or isinstance(yards, bool)
+                or not math.isfinite(yards)):
+            unresolved.append(_ref(leg, "missing_stat_value"))
+            continue
         resolved.append({
             "week": wk, "game_id": leg["game_id"], "market": leg["market"],
             "position": leg["position"], "selection": leg["selection"],
@@ -312,15 +414,35 @@ def resolve_props(ledger, csv_rows):
     return resolved, unresolved, sorted(by_week)
 
 
+def _final_score(value):
+    """A complete nonnegative integer score, or None; never truncate a float."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(number) or number < 0 or not number.is_integer():
+        return None
+    return int(number)
+
+
 def finals_index(final_rows):
-    """{game_id: {"home_score", "away_score"}} from FINAL rows (espn shape).
-    A row without both integer scores is ignored — a stub never grades."""
+    """{game_id: {"home_score", "away_score"}} from explicit ESPN FINAL rows.
+
+    Verify status even for --finals files and injected fetchers. Score presence
+    or a status-less `final` flag is not evidence of a completed game. A row
+    without both genuine integer scores is ignored — a live/stub never grades.
+    """
     out = {}
     for g in final_rows or []:
-        hs, as_ = g.get("home_score"), g.get("away_score")
+        if (not isinstance(g, dict) or not isinstance(g.get("status"), str)
+                or g["status"] not in FINAL_STATUSES):
+            continue
+        hs, as_ = _final_score(g.get("home_score")), _final_score(g.get("away_score"))
         if g.get("game_id") is None or hs is None or as_ is None:
             continue
-        out[str(g["game_id"])] = {"home_score": int(hs), "away_score": int(as_)}
+        out[str(g["game_id"])] = {"home_score": hs, "away_score": as_}
     return out
 
 
@@ -499,8 +621,133 @@ def read_csv(path):
         return list(csv.DictReader(fh))
 
 
+def require_capture_weeks(captured, required):
+    """An opt-in aggregate refresh may not erase uncaptured locked history."""
+    missing = sorted(set(required) - set(captured["weeks"]))
+    if missing:
+        raise ValueError("evidence capture is missing required weeks: %s" % missing)
+
+
+def require_capture_games(captured, expected_rows):
+    """Do not attach a captured score to another period, side or team."""
+    games = {row["game_id"]: row for row in captured["scoreboard_rows"]}
+    for row in expected_rows:
+        if row.get("season", captured["season"]) != captured["season"]:
+            raise ValueError("evidence capture row season mismatch")
+        game = games.get(str(row.get("game_id")))
+        if game is None:
+            continue                         # unavailable/ambiguous remains pending
+        if int(row["week"]) != game["week"]:
+            raise ValueError("evidence capture game week mismatch")
+        if row.get("kickoff_utc") is not None:
+            try:
+                expected = dt.datetime.fromisoformat(row["kickoff_utc"].replace("Z", "+00:00"))
+                observed = dt.datetime.fromisoformat(game["kickoff_utc"].replace("Z", "+00:00"))
+                if expected.tzinfo is None or expected.utcoffset() is None or expected != observed:
+                    raise ValueError()
+            except (TypeError, ValueError, AttributeError, OverflowError):
+                raise ValueError("evidence capture game kickoff mismatch") from None
+        for side in ("home", "away"):
+            if row.get(side) is not None and row[side] != game[side]:
+                raise ValueError("evidence capture game team mismatch")
+        side = row.get("side")
+        if side in ("home", "away") and row.get("team") is not None and row["team"] != game[side]:
+            raise ValueError("evidence capture leg team mismatch")
+
+
+def captured_inputs(path, season=None):
+    """Load one verified immutable input bundle, with no fetch or fallback.
+
+    The score index intentionally remains the legacy grading shape. Explicit
+    status and observation provenance stay in the bundle and scoreboard rows;
+    callers must use final_game_ids to gate props/TDs as well as game markets.
+    """
+    from scripts.capture_outcome_evidence import (  # noqa: PLC0415
+        csv_rows, load_capture, scoreboard_rows,
+    )
+    bundle = load_capture(path)
+    manifest = bundle["manifest"]
+    captured_season = manifest["season"]
+    if season is not None and season != captured_season:
+        raise ValueError("evidence capture season mismatch")
+    weeks = set(manifest["weeks"])
+
+    def scoped_rows(profile):
+        out = []
+        for row in csv_rows(bundle, profile):
+            if row.get("season") not in (None, ""):
+                try:
+                    row_season = int(row["season"])
+                except (TypeError, ValueError, OverflowError):
+                    raise ValueError("invalid evidence CSV season") from None
+                if row_season != captured_season:
+                    raise ValueError("evidence CSV season mismatch")
+            try:
+                week = float(row.get("week"))
+            except (TypeError, ValueError, OverflowError):
+                raise ValueError("unlocatable evidence CSV week") from None
+            if not math.isfinite(week) or not week.is_integer():
+                raise ValueError("unlocatable evidence CSV week")
+            if int(week) in weeks:
+                out.append(row)
+        return out
+
+    scores = scoreboard_rows(bundle)
+    game_weeks = {}
+    for game in scores:
+        gid, week = game["game_id"], game["week"]
+        if gid in game_weeks and game_weeks[gid] != week:
+            raise ValueError("evidence capture reuses a game across weeks")
+        game_weeks[gid] = week
+    finals = finals_index(scores)
+    audit = manifest.get("audit") or {}
+    quarantined = audit.get("quarantined_game_ids") or []
+    source = "immutable evidence capture %s" % manifest["capture_id"]
+    if quarantined:
+        source += "; %d quarantined game IDs remain pending" % len(quarantined)
+    snap_rows = scoped_rows("nflverse_snap_counts_v1")
+    snap_index, participation_audit = index_capture_snaps(snap_rows)
+    stat_rows = scoped_rows("nflverse_stats_player_v1")
+    verified_stats, stat_audit = [], []
+    for row in stat_rows:
+        if row.get("season_type") == "POST":
+            continue
+        week = int(float(row["week"]))
+        team = normalize_team(row.get("team") or row.get("recent_team"))
+        name = norm_name(row.get("player_display_name") or row.get("player_name"))
+        position = (row.get("position") or "").upper()
+        position = _POS_ALIAS.get(position, position)
+        block = snap_index.setdefault(week, {"teams": set(), "rows": [], "capture_checked": True})
+        if name:
+            block.setdefault("capture_stat_names", set()).add(name)
+        elif team:
+            block["teams"].discard(team)
+            participation_audit.append({"week": week, "team": team,
+                                        "reason": "unidentified_stat_row"})
+        else:
+            raise ValueError("unlocatable evidence stat identity")
+        if (not row.get("season") or row.get("season_type") != "REG"
+                or not team or not name or position not in ATD_POSITIONS):
+            stat_audit.append({"week": week, "team": team, "player": name or None,
+                               "reason": "unverified_stat_identity_or_period"})
+        if row.get("season") and row.get("season_type") == "REG":
+            verified_stats.append(row)
+    if participation_audit:
+        source += "; %d quarantined participation team-weeks remain pending" % len(participation_audit)
+    if stat_audit:
+        source += "; %d unverified stat rows remain pending" % len(stat_audit)
+    return {"bundle": bundle, "season": captured_season, "weeks": weeks,
+            "stats": verified_stats,
+            "snaps": snap_rows, "snap_index": snap_index,
+            "participation_audit": participation_audit,
+            "stat_audit": stat_audit,
+            "scoreboard_rows": scores, "finals": finals,
+            "final_game_ids": set(finals),
+            "audit": audit, "source": source}
+
+
 REVIEW_PATH = os.path.join(DATA, "review.json")
-_FINAL_STATUSES = frozenset(["STATUS_FINAL", "STATUS_FINAL_OVERTIME"])
+_FINAL_STATUSES = FINAL_STATUSES
 
 
 def finals_from_review(review_doc):
@@ -513,7 +760,7 @@ def finals_from_review(review_doc):
     for wk in weeks.values() if isinstance(weeks, dict) else weeks:
         for g in (wk or {}).get("games") or []:
             fin = g.get("final") or {}
-            hs, as_ = fin.get("home_score"), fin.get("away_score")
+            hs, as_ = _final_score(fin.get("home_score")), _final_score(fin.get("away_score"))
             if g.get("status") not in _FINAL_STATUSES or hs is None or as_ is None:
                 continue
             out[str(g.get("game_id"))] = {"home_score": int(hs), "away_score": int(as_)}
@@ -581,7 +828,13 @@ def load_finals(finals_path=None, snapshot_glob=SNAPSHOT_GLOB, season=None, week
 
 
 def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_csv=None,
-        finals_path=None, now=None):
+        finals_path=None, now=None, evidence_capture=None):
+    captured = None
+    if evidence_capture is not None:
+        if cache_dir is not None or offline or dry_run_csv is not None or finals_path is not None:
+            raise ValueError("--evidence-capture cannot be combined with cache/offline/CSV/finals inputs")
+        captured = captured_inputs(evidence_capture, season)
+        season = captured["season"]
     if season is None:
         season = int(_load(os.path.join(DATA, "parlays.json"))["season"])
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -597,8 +850,17 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
                                  if l.get("locked") and l.get("market") in GAME_MARKETS})
         except (OSError, ValueError, KeyError, TypeError):
             game_weeks = ()
-    finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
-                                        offline=offline)
+    if captured is not None:
+        finals, finals_source = captured["finals"], captured["source"]
+        if os.path.exists(lpath):
+            locked = [l for l in _load(lpath).get("legs") or []
+                      if l.get("locked") and l.get("market") in set(PROP_POSITION) | set(GAME_MARKETS)]
+            required = {int(l["week"]) for l in locked}
+            require_capture_weeks(captured, required)
+            require_capture_games(captured, locked)
+    else:
+        finals, finals_source = load_finals(finals_path, season=season, weeks=game_weeks,
+                                            offline=offline)
     if not os.path.exists(lpath):
         skipped = ("no ledger at %s yet — scripts/build_parlay_ledger.py appends the first "
                    "legs on the daily run; nothing to resolve" % ledger_rel)
@@ -610,7 +872,9 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
             game_rows, g_unres = resolve_games(ledger, finals)
             unresolved += g_unres
             rows = None
-            if dry_run_csv:
+            if captured is not None:
+                rows, source = captured["stats"], captured["source"]
+            elif dry_run_csv:
                 rows, source = read_csv(dry_run_csv), "dry run: %s" % dry_run_csv
             elif offline:
                 skipped = "offline run: stats not fetched"
@@ -619,7 +883,8 @@ def run(season=None, cache_dir=None, out_path=OUT_PATH, offline=False, dry_run_c
                 if rows is None:
                     skipped = why
             if rows is not None:
-                prop_rows, p_unres, weeks = resolve_props(ledger, rows)
+                prop_rows, p_unres, weeks = resolve_props(ledger, rows,
+                    captured["final_game_ids"] if captured is not None else None)
                 unresolved += p_unres
                 if not prop_rows and not game_rows:
                     skipped = ("stats_player_week_%d.csv has %d rows (weeks %s) but no "
@@ -751,13 +1016,13 @@ def selftest():
     assert not any(r["week"] == 2 for r in props), \
         "week 2 is published but W. Two has no row there -> unresolved, never scored"
     # games: scores resolve ML + spread; winner-only resolves ML only; tie / push
-    finals = finals_index([{"game_id": "g1", "home_score": 24, "away_score": 20},
-                           {"game_id": "g2", "home_score": 17, "away_score": 17},
-                           {"game_id": "stub", "home_score": None, "away_score": None}])
+    finals = finals_index([{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 24, "away_score": 20},
+                           {"game_id": "g2", "status": "STATUS_FINAL", "home_score": 17, "away_score": 17},
+                           {"game_id": "stub", "status": "STATUS_SCHEDULED", "home_score": None, "away_score": None}])
     games, g_unres = resolve_games(ledger, finals)
     assert {(g["selection"], g["hit"]) for g in games} == {("SEA ML", True), ("SEA -3", True)}
     assert [u["reason"] for u in g_unres] == ["tie"]
-    push = finals_index([{"game_id": "g1", "home_score": 23, "away_score": 20}])
+    push = finals_index([{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 23, "away_score": 20}])
     games2, g_unres2 = resolve_games(ledger, push)
     assert [u["reason"] for u in g_unres2] == ["push"] and len(games2) == 1
     winners = winners_from_locks([[{"event_type": "game", "event_id": "g1", "resolved": True,
@@ -786,7 +1051,7 @@ def selftest():
     assert len(games5) == 2
     # ESPN live: a failed week is noted, never invented
     live, notes = fetch_finals_espn(2026, [1, 2], fetch=lambda wk: (
-        [{"game_id": "g1", "home_score": 30, "away_score": 27}] if wk == 1
+        [{"game_id": "g1", "status": "STATUS_FINAL", "home_score": 30, "away_score": 27}] if wk == 1
         else (_ for _ in ()).throw(RuntimeError("boom"))))
     assert live == {"g1": {"home_score": 30, "away_score": 27}} and len(notes) == 1
     # scoring: seed and model are scored on the SAME legs; counts conserve
@@ -824,15 +1089,21 @@ def main(argv=None):
                          "(writes nothing unless --out is given)")
     ap.add_argument("--finals", metavar="JSON", default=None,
                     help="FINAL rows (game_id, home_score, away_score) for ML/spread legs")
+    ap.add_argument("--evidence-capture", metavar="JSON", default=None,
+                    help="verified immutable input capture; never fetch or use legacy fallbacks")
     ap.add_argument("--out", default=None, help="write the document here instead")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
+    if args.evidence_capture is not None and (args.cache_dir is not None or args.offline
+                                 or args.dry_run_with is not None or args.finals is not None):
+        ap.error("--evidence-capture is exclusive with --cache-dir/--offline/--dry-run-with/--finals")
     if args.selftest:
         selftest()
         return 0
     out_path = args.out or (None if args.dry_run_with else OUT_PATH)
     run(season=args.season, cache_dir=args.cache_dir, out_path=out_path,
-        offline=args.offline, dry_run_csv=args.dry_run_with, finals_path=args.finals)
+        offline=args.offline, dry_run_csv=args.dry_run_with, finals_path=args.finals,
+        evidence_capture=args.evidence_capture)
     return 0
 
 

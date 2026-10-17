@@ -1407,7 +1407,17 @@ def build(inputs, now):
     doc = {"season": season, "generated_utc": now, "review_through_week": through,
            "weeks": out_weeks, "learning": learning_block(locks, tuning),
            "players_season": players_season(out_weeks),
-           "sources": inputs.get("sources") or {}, "notes": notes}
+           "sources": dict(inputs.get("sources") or {}), "notes": notes}
+    # R130 is a separate fixed-decision-time cohort, not a reinterpretation of
+    # the mutable settlement archive above. Fixtures may inject explicit history.
+    if "as_offered_history" in inputs:
+        from scripts.as_offered_record import build_record
+        record = build_record(doc, inputs["as_offered_history"], inputs.get("leg_scores"),
+                              inputs.get("exclusions_document"), now)
+        for week, entry in record["weeks"].items():
+            doc["weeks"][week]["as_offered"] = entry
+        doc["sources"]["as_offered_history_head"] = record["history_head"]
+        doc["notes"].append(record["note"])
     kept = carry_narratives(doc, previous)
     if kept:
         doc["notes"].append("narratives: %d carried forward (why unchanged)" % kept)
@@ -1476,6 +1486,9 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     sources["parlay_archives"] = sorted(archives)
     from scripts import excluded_games  # noqa: PLC0415 — R108, the owner's list
     excluded = sorted(excluded_games.excluded_ids())
+    from scripts.as_offered_record import read_git_history
+    as_offered_history = read_git_history(root)
+    exclusions_document = _load_opt(os.path.join(root, "config", "excluded_games.json"))
 
     finals, finals_reason = [], None
     if finals_path:
@@ -1535,6 +1548,8 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             "ledger": ledger, "parlay_ledger": pledger, "leg_scores": legs,
             "stats_rows": stats_rows, "stats_reason": stats_reason,
             "excluded_games": excluded,
+            "as_offered_history": as_offered_history,
+            "exclusions_document": exclusions_document,
             "previous": previous, "sources": sources, "notes": notes}
 
 

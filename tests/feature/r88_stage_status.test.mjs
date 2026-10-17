@@ -330,12 +330,18 @@ test('gameday records a SKIP for every mode-guarded step, so scores mode is not 
 test('every commit step is the publish script, with that workflow\'s message verbatim', () => {
   for (const { file, message } of WORKFLOWS) {
     const text = read(`.github/workflows/${file}`);
-    const step = steps(text).find((s) => s.code.includes('scripts/publish_data.sh'));
-    assert.ok(step, `${file} no longer calls scripts/publish_data.sh`);
+    const step = steps(text).find((s) => /scripts\/publish_(?:data\.sh|my_generation\.py)/.test(s.code));
+    assert.ok(step, `${file} no longer calls the real publisher or its fixed-argv capture dispatcher`);
     assert.ok(
-      step.code.includes(`bash scripts/publish_data.sh "${message}"`),
+      step.code.includes(`bash scripts/publish_data.sh "${message}"`)
+        || step.code.includes('scripts/publish_my_generation.py') && step.code.includes(`--message "${message}"`),
       `${file}: the publish must carry its existing commit message verbatim (${message})`,
     );
+    if (step.code.includes('scripts/publish_my_generation.py')) {
+      const dispatcher = read('scripts/publish_my_generation.py');
+      assert.match(dispatcher, /return \['bash', str\(ROOT \/ 'scripts\/publish_data\.sh'\), \*flags, message\]/);
+      assert.match(dispatcher, /subprocess\.run\(command\(\*\*options\), cwd=ROOT, check=False\)\.returncode/);
+    }
     assert.ok(!/git commit -m/.test(text),
       `${file} still commits inline — the publish is scripts/publish_data.sh's job now`);
   }
