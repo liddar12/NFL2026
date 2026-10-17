@@ -151,7 +151,9 @@ resolve_conflicts() {
       *) die "conflict outside data/ on '$path'. A pipeline commit changes only data/, so this is a code collision no automatic rule should resolve. Re-run the workflow once main is settled, or resolve it by hand." ;;
     esac
 
-    if is_ledger "$path"; then
+    if [ "${path#data/learning_control/}" != "$path" ] || [ "$path" = "data/learning_feedback.json" ]; then
+      die "conflict on learning authority/state records. Neither writer's control pointer or immutable evidence may be chosen automatically. Re-run from the settled head; nothing was published."
+    elif is_ledger "$path"; then
       base="$(stage_file 1 "$path" "$tmp/base.json")"
       theirs="$(stage_file 2 "$path" "$tmp/theirs.json")"
       ours="$(stage_file 3 "$path" "$tmp/ours.json")"
@@ -213,6 +215,9 @@ fall_back_to_theirs() {
   local onto="$1" path
   while IFS= read -r path; do
     [ -n "$path" ] || continue
+    if [ "${path#data/learning_control/}" != "$path" ] || [ "$path" = "data/learning_feedback.json" ]; then
+      die "fallback would replace learning authority/state records. No side is chosen automatically; regenerate against the settled head. Nothing was published."
+    fi
     if is_ledger "$path" || [ "${path#data/snapshots/}" != "$path" ]; then
       continue
     fi
@@ -353,6 +358,15 @@ main() {
     # a check of an old tree into publication of unchecked control records.
     if [ "$push_ref" = "HEAD" ]; then push_ref="$(git rev-parse HEAD)"; fi
     [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed before the period-return check. Nothing was published."
+    # Validate ALL retained learning history, not just the ancestors still
+    # referenced by the newest feedback/application pointer. Recheck against the
+    # fetched base after every rebase/fallback and push retry; never auto-delete
+    # old outcomes, forecasts, corrections, evaluations or owner events.
+    if ! python3 "$HERE/learning_history_guard.py" --checkout "$PWD" \
+           --expected-head "$push_ref" --base-head "$remote"; then
+      die "append-only learning history changed or an unacknowledged transaction remains. Nothing was published."
+    fi
+    [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its learning history check. Nothing was published."
     # Period-return v2 is currently a local-only consumer. Neither the v1
     # generation gate nor a valid feedback report verifies its authority and
     # applied pool after a Git rebase. Refuse that tree until the separate v2
