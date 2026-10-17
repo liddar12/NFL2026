@@ -862,6 +862,23 @@ button { font: inherit; color: inherit; }
    positioned against this box: the list must overlay the cards, not push the
    dial, the legend and the whole grid down by up to 40vh on every keystroke. */
 .mp-head { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.mp-learning {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.mp-learning strong { color: var(--ink); }
+.mp-learning p { margin: 6px 0 0; }
+.mp-learning summary { cursor: pointer; min-height: 44px; display: list-item; padding-top: 12px; box-sizing: border-box; }
+.mp-learning dl { margin: 0; min-width: 0; }
+.mp-learning dt { margin-top: 8px; font-weight: 600; }
+.mp-learning dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+.mp-learning--held { border-color: var(--accent-txt); }
 .mp-label {
   font-family: var(--mono);
   font-weight: 700;

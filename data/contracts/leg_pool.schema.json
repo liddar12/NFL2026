@@ -14,6 +14,22 @@
     "base_model_version": {"type": "string", "minLength": 1},
     "learning_receipt_policy": {"type": "string", "enum": ["base_receipt_v1"]},
     "live_adjustment_status": {"type": "string", "minLength": 1},
+    "calibration_return": {
+      "type": "object", "additionalProperties": false,
+      "description": "Opt-in period-return v2 saved-generation display metadata. Must match every MY yardage receipt's input_context.calibration_return (plus action). Not current owner authentication, publication authorization or prospective accuracy proof. Absent on ordinary/legacy builds.",
+      "required": ["version", "action", "scope_id", "candidate_id", "artifact_id", "owner_head_event_id", "application_context_id", "expires_utc", "evidence_basis"],
+      "properties": {
+        "version": {"type": "integer", "enum": [2]},
+        "action": {"type": "string", "enum": ["approve", "rollback", "revoke"]},
+        "scope_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "candidate_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact_id": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "owner_head_event_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "application_context_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "expires_utc": {"type": ["string", "null"], "minLength": 1},
+        "evidence_basis": {"type": "string", "enum": ["retrospective_refitting_policy_not_fixed_artifact_prospective_validation"]}
+      }
+    },
     "calibration_adopted": {"type": "boolean", "description": "False means the pool calibration did not clear its own never-regress gate. The builder refuses to write in that case, so a committed document always reads true."},
     "live_adjustment": {"type": ["object", "null"], "additionalProperties": false, "required": ["a", "b"], "properties": {"a": {"type": "number"}, "b": {"type": "number", "exclusiveMinimum": 0}}, "description": "The correction applied once to immutable base probability: sigmoid(a + b*logit(p_pool)). null means base-only. Default R100 decisions come from leg_pool_backtest.json live_2026; explicit period-return v2 additionally requires a verified fixed candidate and local owner-intent application record. A stored coefficient or PASS flag alone never activates it."},
     "ladder": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "number"}}, "description": "The rungs offered per position before the support rule filters them."},

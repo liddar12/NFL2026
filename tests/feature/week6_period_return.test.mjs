@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {poolLearningStatus} from '../../app/pool-learning-status.js';
 
 const ROOT=fileURLToPath(new URL('../..',import.meta.url));
 const ENGINE=process.env.SELFLEARN_CHECKOUT;
@@ -31,6 +32,10 @@ with tempfile.TemporaryDirectory()as tmp:
  current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='future',past=True)
  fixture.write_inputs(data,current,schedule);now[0]='2026-10-16T20:00:01Z'
  baseline=B.build(current);pool,application=control.apply_and_save(current)
+ assert pool['calibration_return']=={k:application[k]for k in('version','action','scope_id','candidate_id',
+  'artifact_id','owner_head_event_id','application_context_id','expires_utc','evidence_basis')}
+ from scripts.validate_data import validate_against_schema
+ validate_against_schema(pool,json.loads(pathlib.Path('data/contracts/leg_pool.schema.json').read_text()),'synthetic-period-pool')
  assert baseline['game_legs']and baseline['atd_legs']
  assert pool['game_legs']==baseline['game_legs']and pool['atd_legs']==baseline['atd_legs']
  captured=control._inputs(application['input_capture_id'])
@@ -218,12 +223,20 @@ with tempfile.TemporaryDirectory()as tmp:
  assert control.reverify()['application_id']==stop['application_id']
  print(json.dumps({'changed_future_rungs':changed,'held_past_players':pool['counts']['period_return_not_future'],
   'applied_artifact':application['artifact_id'],'separate_candidate_b':True,'rollback':True,'revocation_without_raw':True,
-  'recovery_fault_points':2,'public_serving_verified':False,'actual_owner_authenticated':False}))
+  'recovery_fault_points':2,'public_serving_verified':False,'actual_owner_authenticated':False,
+  'display_pools':[pool,pool_b,restored,reset]}))
 `});
  assert.equal(r.status,0,r.stderr+r.stdout);
  const result=JSON.parse(r.stdout.trim().split('\n').pop());
  assert.ok(result.changed_future_rungs>0);assert.equal(result.held_past_players,2);
  assert.equal(result.public_serving_verified,false);assert.equal(result.actual_owner_authenticated,false);
+ const states=result.display_pools.map(p=>poolLearningStatus(p,Date.parse(p.generated_utc)+1000));
+ assert.deepEqual(states.map(s=>s.action),['approve','approve','rollback','revoke']);
+ assert.deepEqual(states.map(s=>s.blockProps),[false,false,false,false]);
+ assert.equal(states[0].artifactId,result.applied_artifact);
+ assert.notEqual(states[0].artifactId,states[1].artifactId);
+ assert.equal(states[0].artifactId,states[2].artifactId);
+ assert.equal(states[3].artifactId,null);
 });
 
 test('actual local Git publisher cannot release local-only v2 control records, even if hidden after commit',()=>{

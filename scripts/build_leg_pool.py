@@ -442,6 +442,12 @@ def build(inputs, *, calibration_return=None):
         ],
     }
     if return_plan is not None:
+        # Structured saved-generation state for the UI. It is bound into the
+        # application pool hash and must agree with EVERY MY rung receipt. This
+        # is not current owner authority, publication proof or a new approval.
+        doc['calibration_return'] = {k: return_plan[k] for k in ('version', 'action', 'scope_id',
+            'candidate_id', 'artifact_id', 'owner_head_event_id', 'application_context_id',
+            'expires_utc', 'evidence_basis')}
         doc['live_adjustment_status']=('period return v2: '+return_plan['action']+'; artifact '+str(return_plan['artifact_id'])
             +'; expires '+str(return_plan['expires_utc'])+'; local generation, not publication proof')
         doc['notes'].append('Owner-controlled period return v2; retrospective refitting-policy evidence is not '

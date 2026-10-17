@@ -87,6 +87,8 @@ import {
 } from '../parlay-math.js';
 import { readTd, writeTd, tdControls, tdTap } from '../atd-cards.js';
 import { paintConcentrationRisk } from '../portfolio-risk.js';
+import { poolLearningStatus, renderPoolLearning, learningEligibleLegs,
+  isMyYardageProp } from '../pool-learning-status.js';
 
 const POOL_PATH = '/data/leg_pool.json';
 const CALIB_PATH = '/data/parlay_backtest.json';
@@ -851,7 +853,10 @@ function paint(el) {
   const dialBox = el.querySelector('.mp-dial');
   // R89 — the upcoming legs are read ONCE per paint: the card search needs them,
   // and so does the suggestion list, which marks every seed that has none.
-  const eligible = upcomingLegs(state.legs || [], state.games || []);
+  const learning = poolLearningStatus(state.pool);
+  const learningBox = el.querySelector('#mp-learning');
+  if (learningBox) learningBox.innerHTML = renderPoolLearning(learning);
+  const eligible = upcomingLegs(learningEligibleLegs(state.legs, learning), state.games || []);
   state.live = liveSeedIds(eligible);
   if (seedBox) seedBox.innerHTML = renderSeeds();
   if (dialBox) dialBox.innerHTML = renderDial();
@@ -916,11 +921,17 @@ function paint(el) {
 }
 
 /** R110 — a tap on I BET THIS: the card's legs go to the save sheet as they are. */
-function onBetTap(e) {
+function onBetTap(e, el) {
   const btn = e.target.closest('.bet-this');
   const node = btn && btn.closest('.mp-card[data-mp]');
   const card = node && state.shown && state.shown[Number(node.dataset.mp)];
   if (!card) return;
+  // A tab may have slept through the expiry timer. Do not open a new bet sheet
+  // with expired corrected props before the next scheduled paint.
+  if (card.legs.some(isMyYardageProp) && poolLearningStatus(state.pool).blockProps) {
+    paint(el);
+    return;
+  }
   import('./mybets.js')
     .then((mod) => mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
       week: state.pool && state.pool.week, legs: card.legs, model: card.model }))
@@ -977,6 +988,7 @@ export default async function mountMyParlays(el) {
       + '<ul id="mp-suggest" class="mp-suggest" role="listbox" '
         + 'aria-label="Matching players and teams"></ul>'
     + '</div>'
+    + '<div id="mp-learning"></div>'
     + '<div id="mp-seeds"></div>'
     + '<div class="mp-dial" role="group" aria-label="Risk dial"></div>'
     + '<div id="mp-td"></div>'
@@ -1003,7 +1015,7 @@ export default async function mountMyParlays(el) {
     + '<div id="mp-concentration" hidden></div>'
     + '<div id="mp-list" class="card-list"></div>';
   const mpList = el.querySelector('#mp-list');
-  if (mpList) mpList.addEventListener('click', onBetTap);
+  if (mpList) mpList.addEventListener('click', (e) => onBetTap(e, el));
 
   /* R89 — the type-ahead. The whole list is re-rendered on every keystroke:
    * matchSeeds over 246 options is one pass of string work, far below a frame,
@@ -1219,17 +1231,31 @@ export default async function mountMyParlays(el) {
     state.verdict = v || null;
     if (el.isConnected && state.td.mode !== 'any') paint(el);
   });
-  // Recheck at the next kickoff even when the tab stays open in the foreground.
+  // Recheck at kickoff, approval expiry or the source-age boundary. A background
+  // tab can throttle timers, so resume also rechecks before offering new cards.
   let timer;
   const scheduleCutoff = () => {
-    const next = Math.min(...state.games.map((g) => Date.parse(g.kickoff_utc)).filter((t) => t > Date.now()));
+    clearTimeout(timer);
+    const learningBoundary = poolLearningStatus(state.pool).nextCheckMs;
+    const next = Math.min(...[...state.games.map((g) => Date.parse(g.kickoff_utc)), learningBoundary]
+      .filter((t) => Number.isFinite(t) && t > Date.now()));
     if (Number.isFinite(next)) timer = setTimeout(() => {
       if (el.isConnected) { paint(el); scheduleCutoff(); }
     }, Math.min(next - Date.now() + 25, 2147483647));
   };
   scheduleCutoff();
+  const onResume = () => {
+    if (el.isConnected && !document.hidden) { paint(el); scheduleCutoff(); }
+  };
+  document.addEventListener('visibilitychange', onResume);
+  window.addEventListener('pageshow', onResume);
   const observer = new MutationObserver(() => {
-    if (!el.isConnected) { clearTimeout(timer); observer.disconnect(); }
+    if (!el.isConnected) {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('pageshow', onResume);
+      observer.disconnect();
+    }
   });
   observer.observe(document.body, { childList: true, subtree: true });
   // R82 — the pool's own week, for the MY-mode subtitle the header paints.
