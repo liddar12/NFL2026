@@ -71,7 +71,7 @@ def _legacy(control, *, generation_sha, capture_dir):
     _no_intent(control.data)
     session = runtime.begin(control.data.parent, generation_sha=generation_sha, clock=control.clock)
     runtime.persist(session.loader, capture_dir, checkout=session.checkout)
-    session = bootstrap.select(session)
+    session = bootstrap.select_referenced(session)
     inputs = pool_builder.load_inputs(session, freshness_profile=control.freshness_profile)
     pool = pool_builder.build(inputs)
     period.need(pool['calibration_adopted'] is True, 'MY_generation_base_gate_held')

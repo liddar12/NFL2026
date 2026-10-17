@@ -103,9 +103,9 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.ok(out.unknown_receipts > 0 && out.retained_cards > 0);
   assert.equal(out.consumer_pass, true);
   assert.equal(out.v1_still_strict, true);
-  assert.match(out.refusals[0], /bootstrap_proof_not_reproduced/);
+  assert.match(out.refusals[0], /reference_proof_not_reproduced/);
   assert.match(out.refusals[1], /output_receipt_missing_or_conflicting_authority/);
-  assert.match(out.refusals[2], /bootstrap_retained_card_not_exact_publication_base/);
+  assert.match(out.refusals[2], /reference_retained_card_not_exact_publication_base/);
   assert.match(out.refusals[3], /bootstrap_archive_not_exact_source_preimage/);
   assert.match(out.refusals[4], /bootstrap_current_receipt_marked_legacy/);
   assert.match(out.refusals[5], /bootstrap_known_history_removed/);
@@ -145,4 +145,126 @@ rejects({},allowed)
 print('exact unknown only; strict/known/changed remain rejected')
 ` });
   assert.equal(r.status, 0, r.stderr + r.stdout);
+});
+
+test('twelve committed selected refreshes use target-only graphs and revalidate exact historical Git authority', () => {
+  const r = spawnSync('python3', ['-B', '-'], { cwd: ROOT, encoding: 'utf8', timeout: 240000,
+    maxBuffer: 4 * 1024 * 1024, input: String.raw`
+import contextlib,copy,datetime,io,json,os,pathlib,shutil,tempfile
+from scripts import generation_capture_runtime as C,run_my_generation as R,run_parlay_feedback as F
+from scripts import selected_legacy_bootstrap as S,selected_my_publication_gate as G,my_freshness as M
+from scripts import build_my_cards as MY,learning_receipts as L,period_my_generation as D
+from tests.fixtures import period_eligibility as fixture
+os.environ.update(GIT_CONFIG_GLOBAL=os.devnull,GIT_CONFIG_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
+def refusal(fn):
+ try:fn()
+ except Exception as error:return str(error)
+ raise AssertionError('invalid referenced history accepted')
+with tempfile.TemporaryDirectory()as tmp:
+ area=pathlib.Path(tmp);root=area/'repo';root.mkdir();data=root/'data';data.mkdir()
+ shutil.copytree(F.ROOT/'scripts',root/'scripts',ignore=shutil.ignore_patterns('__pycache__'));shutil.copytree(F.ROOT/'app',root/'app')
+ for relative in C.EXTRA_FIXED-{C.RUNTIME_PATH}:
+  p=root/relative;p.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(F.ROOT/relative,p)
+ f=fixture.make(qb=True);docs=f['docs']
+ for name,relative in C._input_paths(2026,6).items():
+  if docs[name]is None:continue
+  p=root/relative;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(docs[name],ensure_ascii=True,indent=2)+'\n')
+ (data/'leg_pool.json').write_text(json.dumps(f['pool'],ensure_ascii=True,indent=2)+'\n')
+ with contextlib.redirect_stdout(io.StringIO()):
+  MY.run(pool_path=str(data/'leg_pool.json'),schedule_path=str(data/'schedule_full.json'),
+   calibration_path=str(data/'parlay_backtest.json'),out_dir=str(data/'my_cards'),
+   snapshot_dir=str(area/'older-unretained-journal'),now=fixture.GENERATED)
+ archive=data/'my_cards/2026_wk06.json';original=json.loads(archive.read_bytes())
+ F.git(root,'init','-b','main');F.git(root,'config','user.name','Synthetic');F.git(root,'config','user.email','synthetic@example.invalid')
+ F.git(root,'config','gc.auto','0');F.git(root,'config','maintenance.auto','false')
+ def commit(message):
+  F.git(root,'add','.');F.git(root,'-c','commit.gpgsign=false','commit','-m',message);return F.git(root,'rev-parse','HEAD')
+ source=commit('synthetic previously published cards')
+ # The spy retains the real validator and proves no historical aggregate is
+ # ever handed to it, during generation OR final committed-tree verification.
+ real_graph=C.gate.sem._graph;observed=[]
+ def single_graph(value):
+  observed.append(len(value['generations']));assert observed[-1]<=1
+  return real_graph(value)
+ C.gate.sem._graph=single_graph
+ sizes=[]
+ for index in range(12):
+  now='2026-10-16T20:%02d:00Z'%(3+index)
+  with contextlib.redirect_stdout(io.StringIO()):
+   result=R.run(data_dir=data,engine_checkout=area/'absent-engine',engine_commit='b'*40,
+    authority_id=L.fingerprint('synthetic-no-approval'),actor_ref='synthetic',capture_dir=area/('private-%d'%index),
+    generation_sha=source,freshness_profile=M.PROFILE,clock=lambda:now)
+  wrapper=S.read_artifact(area/('private-%d'%index)/result['binding_artifact_name'],checkout=root)
+  assert wrapper['kind']==S.REFERENCED_KIND
+  binding,proof=S.unwrap(wrapper)
+  assert len(binding['binding']['graph']['generations'])==1
+  assert proof['known_journals']==index
+  assert result['engine_used']is False and result['model_approval_recorded']is False
+  base=source;source=commit('selected actual refresh %d'%index)
+  if index in(0,2,11):
+   checked=G.check_selected(wrapper,checkout=root,expected_head=source,base_head=base,clock=lambda:now)
+   assert checked['consumer_check_pass']is True
+  sizes.append(len(C.gate.encoded(wrapper)))
+  current=json.loads(archive.read_bytes());byid={c['card_id']:c for c in current['cards']}
+  assert all(byid[c['card_id']]==c for c in original['cards'])
+ assert len(list((data/'snapshots/learning_journal/2026_wk06').glob('*.json')))==12
+ # Known historical lineage is absent from the inline target graph: the
+ # original strict replay must refuse it, not silently adopt reference mode.
+ assert 'output_receipt_missing_or_conflicting_authority'in refusal(lambda:D.replay_binding(binding,pool_writer='legacy_pretty'))
+ _,_,allowed=S.verify(wrapper,checkout=root,expected_head=source,base_head=base)
+ def rebound(graph):
+  value=copy.deepcopy(binding);bound=value['binding']
+  value['binding']=C.gate.bind_generation(bound['capture'],graph,
+   {k:v['raw_utf8'].encode()for k,v in bound['outputs'].items()},
+   target_generation_id=bound['target_generation_id'],generated_utc=bound['generated_utc_claim'],bound_utc=bound['bound_utc_claim'])
+  return C.gate._seal({k:v for k,v in value.items()if k!='runtime_binding_id'},'runtime_binding_id')
+ # A well-hashed but incomplete current target cannot borrow an old candidate
+ # from the retained authority; replay independently rebuilds the full journal.
+ omitted=copy.deepcopy(binding['binding']['graph']);entry=omitted['generations'][0]
+ doc=entry['request']['payload'];removed=doc['receipts'].pop()['receipt_id']
+ doc['generations'][0]['receipt_ids'].remove(removed);entry['expected_receipt_ids'].remove(removed)
+ doc['envelope_id']=L.fingerprint({k:v for k,v in doc.items()if k!='envelope_id'})
+ entry['request']['object_id']=doc['envelope_id']
+ assert 'period_MY_offers_population_or_membership_changed'in refusal(lambda:D.replay_binding(
+  rebound(omitted),pool_writer='legacy_pretty',retained_unknown=allowed))
+ missing=copy.deepcopy(binding['binding']['graph']);missing['source_objects'].pop()
+ refusal(lambda:rebound(missing))
+ extra=copy.deepcopy(binding['binding']['graph']);payload={'extra':'unreferenced historical source'}
+ extra['source_objects'].append({'version':1,'kind':'source_snapshot','object_id':L.fingerprint(payload),'payload':payload})
+ extra_wrapper=copy.deepcopy(wrapper);extra_wrapper['runtime_binding']=rebound(extra)
+ extra_wrapper=C.gate._seal({k:v for k,v in extra_wrapper.items()if k!='selected_binding_id'},'selected_binding_id')
+ assert 'reference_exact_target_source_closure_required'in refusal(lambda:S.verify(extra_wrapper,
+  checkout=root,expected_head=source,base_head=base))
+ loader=C.begin(root,generation_sha=source,clock=lambda:now).loader
+ proof2,state,_=S.prepare_referenced(root,loader)
+ journal=next(iter(proof2['known_source_inventory']))
+ journal=next(p for p in proof2['known_source_inventory']if '/learning_journal/'in p)
+ sourcefile=next(p for p in proof2['known_source_inventory']if '/learning_sources/'in p)
+ failures=[]
+ for name in(journal,sourcefile):
+  path=root/name;raw=path.read_bytes();path.unlink()
+  failures.append(refusal(lambda:S.prepare_referenced(root,loader)));path.write_bytes(raw+b'\n')
+  failures.append(refusal(lambda:S.prepare_referenced(root,loader)));path.write_bytes(raw)
+ adapter=S.ReferencedCapture(None,{**proof2,'unverified_receipt_ids':[result['target_generation_id']]})
+ failures.append(refusal(lambda:adapter.journal_graph({'generations':[{'receipt_ids':[result['target_generation_id']]}]},None,None,None,None,None)))
+ # Both a changed retained card on an advanced base and the final restored
+ # tree must be compared; selecting a preferred branch is not authority.
+ archive_raw=archive.read_bytes();changed=copy.deepcopy(current)
+ changed['cards'][0]['legs'][0]['selection']='changed competing original card'
+ archive.write_text(json.dumps(changed));competing=commit('competing base changes old card')
+ archive.write_bytes(archive_raw);restored=commit('restore generated tree')
+ failures.append(refusal(lambda:G.check_selected(wrapper,checkout=root,expected_head=restored,base_head=competing,clock=lambda:now)))
+ assert all('reference_known_history_removed'in failures[n]for n in(0,2))
+ assert all('reference_known_history_changed'in failures[n]for n in(1,3))
+ assert 'reference_current_receipt_marked_legacy'in failures[4]
+ assert 'reference_retained_card_not_exact_publication_base'in failures[5]
+ print(json.dumps({'refreshes':12,'single_graph_calls':len(observed),'maximum_graph_generations':max(observed),
+  'wrapper_bytes':sizes,'legacy_unknown_receipts':len(proof2['unverified_receipt_ids']),'refusals':failures}))
+` });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const out = JSON.parse(r.stdout.trim().split('\n').at(-1));
+  assert.equal(out.refreshes, 12);
+  assert.equal(out.maximum_graph_generations, 1);
+  assert.ok(out.legacy_unknown_receipts > 0);
+  assert.ok(out.wrapper_bytes.every(n => n < 64 * 1024 * 1024));
 });

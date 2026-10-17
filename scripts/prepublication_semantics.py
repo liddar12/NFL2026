@@ -173,8 +173,13 @@ def _membership(output, authority, target_id, season, week, target_recorded, che
             known = authority.get(rid, [])
             if not known and retained_unknown is not None:
                 old = retained_unknown['cards'].get(card['card_id'])
+                # This context is recomputed from complete individual frozen
+                # source-HEAD journals by the selected Git-reference verifier,
+                # never accepted from an uploaded summary or a caller's PASS.
+                if old is not None and ex._same_json(card, old):
+                    known = retained_unknown.get('known_authority', {}).get(rid, [])
                 allowed = (card['card_id'], index, rid) in retained_unknown['locations']
-                if allowed and old is not None and ex._same_json(card, old):
+                if not known and allowed and old is not None and ex._same_json(card, old):
                     unsupported.append({**location, 'reason': 'retained_prejournal_vintage_unverified',
                         'source_receipt_id': rid})
                     continue
