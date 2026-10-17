@@ -25,7 +25,7 @@ def _source_clock(doc, capture, checked):
         'period_sources_consumer_stale')
 
 
-def _facts(capture, pool, checked_utc):
+def _facts(capture, pool, checked_utc, *, selected_profile=None):
     capture, docs = gate._capture(capture)
     pool = gate._plain(pool)
     checked = gate._time(checked_utc)
@@ -143,7 +143,21 @@ def _facts(capture, pool, checked_utc):
         'period_sources_weekly_source_receipt_missing')
     offered = gate._unique(pool.get('players'), 'gsis_id', 'period_sources_ambiguous_offered_player')
     gate.need(set(offered) <= set(roster), 'period_sources_offered_player_unknown')
-    gate._explicit_source_identity(roster, rows, injury, pool, week)
+    actionable_ids = None
+    if selected_profile is not None:
+        from scripts import my_freshness
+        gate.need(selected_profile == my_freshness.PROFILE
+            and type(pool.get('freshness_policy')) is dict
+            and pool['freshness_policy'].get('profile') == selected_profile,
+            'period_sources_selected_profile_invalid')
+        # Derive from the complete, independently checked schedule, NEVER
+        # from whichever players survived pool selection. Missing future
+        # refusal metadata therefore cannot approve itself by dropping a leg.
+        actionable_ids = frozenset(pid for pid, p in roster.items()
+            if p['team'] in team_games
+            and team_games[p['team']].get('status') == 'STATUS_SCHEDULED'
+            and checked < gate._time(team_games[p['team']]['kickoff_utc']))
+    gate._explicit_source_identity(roster, rows, injury, pool, week, actionable_ids=actionable_ids)
     try:
         validate_data.check_weekly_availability(weekly, projections, injury, docs['depth_chart'], docs['inactives'])
         validate_data.check_no_unplayable_legs(weekly, {'week': week, 'parlays': []}, pool)
@@ -198,7 +212,7 @@ def _facts(capture, pool, checked_utc):
         'future_games_in_inactive_window': window}, holds
 
 
-def verify(capture, pool, *, checked_utc):
+def verify(capture, pool, *, checked_utc, selected_profile=None):
     """Pure diagnostic; success on facts cannot remove an undefined policy hold."""
     report = {'version': 2, 'kind': 'nfl.period_frozen_source_eligibility.v2', 'status': 'held',
         'capture_id': None, 'pool_id': None, 'checked_utc_claim': None,
@@ -207,10 +221,11 @@ def verify(capture, pool, *, checked_utc):
         'provider_authenticated': False, 'provider_completeness_verified': False,
         'earlier_weekly_producer_reads_verified': False, 'publication_authorized': False,
         'weekly_points_lost_rederived': False,
+        'weekly_negative_scope': 'all_roster' if selected_profile is None else 'scheduled_future',
         'production_authorized': False, 'public_serving_verified': False,
         'source_writes': False, 'network_used': False, 'coverage': {}, 'reason_codes': []}
     try:
-        coverage, holds = _facts(capture, pool, checked_utc)
+        coverage, holds = _facts(capture, pool, checked_utc, selected_profile=selected_profile)
         report.update(status='frozen_weekly_eligibility_replayed_policy_held' if holds
             else 'frozen_weekly_eligibility_replayed_not_release', frozen_weekly_eligibility_replayed=True,
             capture_id=capture['capture_id'], pool_id=gate.fingerprint(pool), checked_utc_claim=checked_utc,

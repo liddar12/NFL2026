@@ -275,13 +275,18 @@ def _unique(rows, key, reason):
     return result
 
 
-def _explicit_source_identity(roster, rows, injury, pool, week):
+def _explicit_source_identity(roster, rows, injury, pool, week, *, actionable_ids=None):
     """A known provider ID cannot be weakened to an unsuccessful name join.
 
 Only espn-N or an explicit original projection crosswalk is usable. Missing
 nflverse→ESPN mappings are not invented from names. A quarantine remains source
 uncertainty, not a new medical assertion or a projection zero.
+
+The optional trusted schedule-derived set scopes the required weekly refusal,
+not identity matching or offer exclusion. Ordinary v1 callers remain strict.
 """
+    need(actionable_ids is None or type(actionable_ids) is frozenset
+         and actionable_ids <= set(roster), "invalid_explicit_injury_actionable_scope")
     def identifier(value):
         need(type(value) in (str, int) and type(value) is not bool, "invalid_explicit_injury_identity")
         result = str(value)
@@ -306,7 +311,10 @@ uncertainty, not a new medical assertion or a projection zero.
         if pid is None:continue  # No guessed crosswalk to an unrelated GSIS.
         refused = not build_leg_pool.playable_this_week(rows[pid], week)
         if any(code in availability.NOT_PLAYABLE for code in codes):
-            need(refused and pid not in offered, "explicit_injury_id_negative_not_refused")
+            # The real weekly producer does not stamp this_week on bye or
+            # already-final players. They must remain absent from current offers.
+            required = actionable_ids is None or pid in actionable_ids
+            need(pid not in offered and (refused or not required), "explicit_injury_id_negative_not_refused")
         elif pid not in quarantined and availability.QUESTIONABLE in codes and not refused:
             need((rows[pid].get("availability") or {}).get("status") == availability.QUESTIONABLE
                  and (pid not in offered or offered[pid].get("availability") == availability.QUESTIONABLE),

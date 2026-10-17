@@ -168,7 +168,7 @@ def check_selected(value, *, checkout, expected_head, base_head, clock=runtime._
     offered_games = {str(leg.get('game_id')) for _, _, _, card in offered for leg in card['legs']}
     checked = clock()
     _final_time(pool, docs, offered_games, checked)
-    facts = source_facts.verify(capture, pool, checked_utc=checked)
+    facts = source_facts.verify(capture, pool, checked_utc=checked, selected_profile=my_freshness.PROFILE)
     gate.need(facts['frozen_weekly_eligibility_replayed'] is True
         and set(facts['reason_codes']) <= {'undefined_depth_freshness_policy',
             'undefined_inactive_freshness_or_applicability'}, 'selected_MY_frozen_eligibility_held')
