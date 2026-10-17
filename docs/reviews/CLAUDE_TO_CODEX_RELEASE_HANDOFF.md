@@ -1,6 +1,6 @@
 # Claude → Codex release handoff: PR #174 (R133 parlay controls)
 
-Written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
+Revision 2 (after Codex's review of `f31c5740`). Revision 1 written 2026-10-17 (America/Chicago afternoon) by Claude Code, at the owner's request. This is a **reviewable
 checkpoint, not a release**.
 
 - PR #174 stays **draft**. Nothing here is merged or deployed to production.
@@ -16,8 +16,9 @@ checkpoint, not a release**.
 | Head branch | `claude/practical-heisenberg-o9zg3m` |
 | Base | `main` at `28f7ac3b1dca55ecfe1e8ffc2a8dbbbe61d38d2b` (data commit, 2026-10-17); main had not moved when this was written |
 | Round 1 source commit | `8c010d71a95d8c4edc310a352eec961d19c17333` (gate PASS; CI run 39041773167 success) |
-| **Tested source commit (round 2)** | **`101e3925848e138a52d450e8c0f0db134646da2e`**: the full gate below ran on exactly this tree |
-| Final PR head | The commit that adds **this file**. Its only diff from `101e3925` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
+| Round 2 source commit | `101e3925848e138a52d450e8c0f0db134646da2e`, reviewed by Codex as head `f31c5740` (request changes: RC-01..RC-03) |
+| **Tested source commit (round 3)** | **`af41d0f6e7417208e6f27b1c98f5b48f40b62ad8`**: the RC-01..RC-03 fixes. The full gate in section 4 ran on exactly this tree. |
+| Final PR head | The commit that updates **this file** (revision 2). Its only diff from `af41d0f6` is this file. Its SHA is reported separately in the PR conversation, because a file cannot name its own commit. |
 | Preview URL | https://deploy-preview-174--nfl2026.netlify.app/#/parlays. Netlify builds every push, so the preview deploys the final PR head. |
 | Related, separate | [NFL2026 #175](https://github.com/liddar12/NFL2026/pull/175), draft, "Sunday parlay learning pilot", branch `build/week6-learning-runtime-20261015`, head `3ea2a2279a08e6ee55a8e80a37861a6788f68108`, base `28f7ac3b` |
 | Related, separate | [SelfLearning #10](https://github.com/liddar12/SelfLearning/pull/10), draft, branch `build/nfl-feedback-runtime-20261015`, head `c1bf3d4773312c99ef0f30563c791525389fd5af`, base `aa5bbaed` |
@@ -52,6 +53,20 @@ The owner raised these from week-6 screenshots and two rounds of preview review.
    - The owner chose this. No backtest validates 3+ same-game legs (RCA F03).
 7. **Not offered:** O/U (no game-total model) and spread (a flat 0.5).
 
+## 2a. Codex review of `f31c5740` — findings and fixes
+
+All three are fixed in commit **`af41d0f6`**. Each acceptance test fails on the reviewed code and passes on `af41d0f6`; the failing runs were done by stashing the fixed `app/` files over `af41d0f6`.
+
+| Finding | Fix (`af41d0f6`) | Verification |
+|---|---|---|
+| **RC-01 · P1:** QUESTIONABLE warnings dropped from built cards | `typeLegs` keeps the pool row's `availability` on yardage and anytime-TD legs. `renderTypeCard` shows the existing Q chip ("Questionable — game-time decision") and "QUESTIONABLE — game-time decision" on the leg line, both **separate from** the HIGH/MED/LOW confidence tag. The card note says the chance assumes he plays. | `r133_bet_types` "RC-01" follows a real QUESTIONABLE pool player (week 6: 35 such rows, e.g. Quinshon Judkins) through `typeLegs` → `weekMixCards` → `renderTypeCard`. It asserts the Q chip, the leg-line disclosure and his confidence class all survive, and that a card without a Q player says nothing. Red on old code. |
+| **RC-02 · P2:** GAME displayed 7 legs while generating 10 | `paintAtd` builds with `btMod.stepValue({ ...typeState, types }, scope, legCountsForScope())`, the exact value the stepper displays. `gameMixCards` refuses any size outside 2–7 (also 1, 8, 9, 10 and 2.5). | Unit test: WEEK 8/9/10 → GAME shows and builds 7; the builder refuses every other size. Browser test (`r101b_game_td.spec.mjs` "RC-02"): WEEK ALL at 8, 9 and 10 → GAME. Every card has 7 legs and the head says "7 LEGS". After a reload with the saved preference of 10, still 7. Red on old code ("Expected 7, Received 8"). |
+| **RC-03 · P2:** MOST LIKELY discarded better cards (160-wide beam) | **WEEK is exact.** It runs a k-best dynamic programme over games with state (legs chosen, kinds covered), keeping the k best partial cards per state. That is exact for the product (additive log) objective, and only the k most likely legs of each kind per game can appear on a k-best card. **GAME is exhaustive** when there are at most 250,000 valid combinations (most 2–5-leg cases). Above that it uses a 400-wide beam, and the card says "chosen by an approximate search". | An independent brute-force oracle (plain enumeration, no DP) is compared on a real reduced instance (9 games, 3 legs each, n = 3, 5, 6, plus a skewed ML/ATD instance). The top six match exactly, probability and leg set. Full week 6 at 9 legs: **25.5177%**, against 23.6553% from the beam and Codex's 24.6707% counterexample (the test asserts ≥ 24.6707%). GAME at 3 legs matches an independent all-triples oracle. Timing (Node, week-6 pool): WEEK 9–10 legs ~0.3 s; GAME 4 legs ~25 ms (exact); 7 legs ~0.2 s (approximate, labelled). |
+
+**Agreement:** I agree with all three findings and have no disagreements.
+
+On the oracle: the brute-force comparison also passes on the old code, because the beam was exact on that small instance. The full-week bound (RC-03 test 2) is the one that catches the old search.
+
 ## 3. What is included versus separate
 
 | Work | In #174? | Notes |
@@ -82,14 +97,14 @@ These are computed against base `28f7ac3b`.
 
 | Command | Exit | Result |
 |---|---|---|
-| `bash tests/run_gate.sh` (one gate at a time; port 4321) | **0** | **GATE RESULT: PASS (green)**, all 8 steps: data contracts, smoke, feature tests incl. AA contrast, four never-regress gates, browser E2E **363 passed, 1 skipped** |
-| `node --test tests/feature/*.mjs` | 0 | 2,133 pass, 0 fail |
-| `node --test tests/feature/r133_bet_types.test.mjs` | 0 | 12 pass |
-| `npx playwright test --config tests/playwright.config.mjs <the 9 parlay specs> --project=web` | 0 | 123 passed |
+| `bash tests/run_gate.sh` on **`af41d0f6`** (one gate at a time; port 4321) | **0** | **GATE RESULT: PASS (green)**, all 8 steps. Feature tests **2,138 pass, 0 fail**; browser E2E **364 passed, 1 skipped** |
+| `node --test tests/feature/r133_bet_types.test.mjs` on `af41d0f6` | 0 | 17 pass (12 before + 5 RC tests) |
+| `npx playwright test --config tests/playwright.config.mjs tests/web/r101b_game_td.spec.mjs tests/web/r101c_td_modes.spec.mjs --project=web` | 0 | 8 passed (incl. RC-02) |
+| Round 2, on `101e3925` (superseded) | 0 | gate PASS; feature 2,133; browser 363 passed, 1 skipped; final-head CI run 39051342080 green |
 
 - **The 1 browser skip:**
-  - It is a conditional `test.skip` already in the suite. The line reporter does not name it.
-  - It is the same skip count as the round-1 gate on `8c010d71`.
+  - It is the existing spread/provenance fixture test, identified by Codex. It skips because current GAME data contains no spread legs.
+  - It is the same skip count as the round-1 and round-2 gates.
   - No test was added to a skip list, and none was removed, weakened or quarantined.
 - **Tests changed because the owner removed a behaviour:**
   - The r101b and r101c WEEK/GAME TD-pill specs were **converted** to the bet-type chips. Their MY test is unchanged.
@@ -150,10 +165,12 @@ On head `3ea2a227`, the `gate` and `e2e` checks are **failing**. #174 does not a
 
 1. The "WK n PARLAYS: x/y hit" strip still counts every review row, including replaced cards (R130; #175 addresses it).
 2. **GAME 3–7 legs are an unvalidated estimate.** The label is honest, but no backtest exists. Backtest it before treating the number as a forecast.
+   - **GAME card selection is approximate** when a game has more than 250,000 valid combinations (typically 6–7 legs). The card says so.
+   - WEEK selection is exact (RC-03).
 3. **GAME uses one moneyline per game.** The pool carries only the pick's side, so MONEYLINE alone cannot fill a GAME card. The UI says why.
 4. **Built cards are not recorded or graded,** so they have no track record yet.
 5. **"Most likely line" yields short-yardage legs** (e.g. 20+ rush yds at 90%+). That is high hit chance with small payouts, which is what the owner asked for. BIGGEST PAYOUT sorting does not change the lines.
-6. The browser line reporter does not name the single skipped spec. Use `--reporter=list` if Codex wants it named.
+6. The single browser skip is the existing spread/provenance fixture: current GAME data has no spreads.
 7. **Release steps:** Codex review → address findings → owner authorization → merge (resolve the `parlays.js` import conflict if #175 lands first) → verify production → watch the next daily and data-ci runs.
 
 ## 8. Rollback
