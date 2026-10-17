@@ -88,7 +88,7 @@ import {
 import { readTd, writeTd, tdControls, tdTap } from '../atd-cards.js';
 import { paintConcentrationRisk } from '../portfolio-risk.js';
 import { poolLearningStatus, renderPoolLearning, learningEligibleLegs,
-  isMyYardageProp } from '../pool-learning-status.js';
+  learningCardRefusal } from '../pool-learning-status.js';
 
 const POOL_PATH = '/data/leg_pool.json';
 const CALIB_PATH = '/data/parlay_backtest.json';
@@ -440,8 +440,8 @@ function gameState(game, now) {
  * the sentences are testable without a browser.
  */
 export function emptyReason(seeds, legs, games, poolWeek, now = Date.now(), learning = null) {
-  if (learning?.blockProps) return 'No card can be built from the remaining eligible legs. '
-    + `${learning.label}. Refresh the pool before using MY yardage props; changing the risk dial does not reactivate them.`;
+  if (learning?.blockProps || learning?.hasHeldProps) return 'No card can be built from the remaining eligible legs. '
+    + `${learning.freshnessLabel || learning.label}. Refresh the pool before using MY yardage props; changing the risk dial does not reactivate them.`;
   const byId = new Map((games || []).map((g) => [String(g.game_id), g]));
   const live = liveSeedIds(upcomingLegs(legs || [], games || [], now));
   const week = Number(poolWeek);
@@ -928,6 +928,13 @@ function paint(el) {
     'beforeend', '<button type="button" class="leg-chip bet-this">I BET THIS</button>'));
 }
 
+export function myCardRefusal(card, pool, games, now = Date.now()) {
+  const reason = learningCardRefusal(pool, card.legs, now);
+  if (reason) return reason;
+  return upcomingLegs(card.legs, games, now).length === card.legs.length ? null
+    : 'A game on this card has started or is no longer scheduled. Refresh before recording a new recommendation.';
+}
+
 /** R110 — a tap on I BET THIS: the card's legs go to the save sheet as they are. */
 function onBetTap(e, el) {
   const btn = e.target.closest('.bet-this');
@@ -936,13 +943,21 @@ function onBetTap(e, el) {
   if (!card) return;
   // A tab may have slept through the expiry timer. Do not open a new bet sheet
   // with expired corrected props before the next scheduled paint.
-  if (card.legs.some(isMyYardageProp) && poolLearningStatus(state.pool).blockProps) {
+  const sourcePool = state.pool, sourceGames = state.games || [];
+  const refusal = () => myCardRefusal(card, sourcePool, sourceGames);
+  if (refusal()) {
     paint(el);
     return;
   }
   import('./mybets.js')
-    .then((mod) => mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
-      week: state.pool && state.pool.week, legs: card.legs, model: card.model }))
+    .then((mod) => {
+      // Module loading can cross an approval/source/inactive or kickoff cutoff.
+      if (!el.isConnected || !state.shown.includes(card)) return;
+      if (refusal()) { paint(el); return; }
+      mod.openBetSheet({ source: state.td.mode === 'any' ? 'my' : 'td',
+        week: state.pool && state.pool.week, legs: card.legs, model: card.model,
+        recommendationGuard: refusal });
+    })
     .catch((err) => console.warn('[nfl2026] my bets failed to load:', err));
 }
 

@@ -31,7 +31,7 @@ function displayPool() {
   return p;
 }
 
-async function openMy(page, pool) {
+async function openMy(page, pool, schedule = fixture.schedule) {
   // Only Date.now changes: the resume test exercises the real registered
   // listener, rather than depending on a particular Playwright clock version.
   await page.addInitScript(({ initial }) => {
@@ -39,7 +39,7 @@ async function openMy(page, pool) {
     Date.now = () => window.__learningFixtureNow;
   }, { initial: Date.parse(created) + 1000 });
   await page.route('**/data/leg_pool.json*', (r) => r.fulfill({ json: pool }));
-  await page.route('**/data/schedule_full.json*', (r) => r.fulfill({ json: fixture.schedule }));
+  await page.route('**/data/schedule_full.json*', (r) => r.fulfill({ json: schedule }));
   await page.goto('/#/parlays');
   await page.locator('.scopeseg [data-seg="my"]').click();
   await expect(page.locator('#mp-input')).toBeVisible();
@@ -104,4 +104,61 @@ test('an old pool without receipts reports unknown, not a functioning self-learn
   await openMy(page, p);
   await expect(page.locator('#mp-learning')).toContainText('Learning version unavailable');
   await expect(page.locator('#mp-learning')).not.toContainText('Owner-selected correction');
+});
+
+function provisionalFixture() {
+  const p = structuredClone(fixture.pool), schedule = structuredClone(fixture.schedule);
+  const player = p.players.find((row) => row.rungs.some((r) => Math.abs(r.model_prob - .5) <= .1));
+  const clock = (hours) => new Date(Date.parse(created) + hours * 3600000).toISOString();
+  for (const game of schedule.games) game.kickoff_utc = clock(game.game_id === player.game_id ? 2 : 4);
+  p.freshness_policy = { version: 1, profile: 'provisional_before_90m_v1', policy_id: H('a'),
+    generated_utc: p.generated_utc, games: schedule.games.map((g) => ({ game_id: g.game_id,
+      check_due_utc: new Date(Date.parse(g.kickoff_utc) - 90 * 60000).toISOString(),
+      source_expires_utc: clock(5), state: 'provisional', blocked_player_ids: [], player_source_expires: {} })) };
+  return { p, schedule, player, due: p.freshness_policy.games.find((g) => g.game_id === player.game_id).check_due_utc };
+}
+
+test('provisional MY props are withheld on resume at90minutes while later games and ML remain', async ({ page }) => {
+  const { p, schedule, player, due } = provisionalFixture();
+  await openMy(page, p, schedule);
+  const status = page.locator('#mp-learning');
+  await expect(status).toContainText('Provisional MY props');
+  await page.locator('#mp-input').fill(player.player);
+  await page.locator('#mp-input').press('Enter');
+  await expect(page.locator('.mp-card').first()).toBeVisible();
+  await page.evaluate((time) => {
+    window.__learningFixtureNow = Date.parse(time);
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, due);
+  await expect(page.locator('.mp-card')).toHaveCount(0);
+  await expect(page.locator('#mp-list')).toContainText('inactive recheck');
+  await page.locator('.mp-seeds [data-drop]').click();
+  await page.locator('#mp-input').fill(player.player);
+  await expect(page.locator('#mp-suggest .est').first()).toHaveText('PROP MODEL HELD');
+  const later = p.players.find((row) => row.game_id !== player.game_id
+    && row.rungs.some((r) => Math.abs(r.model_prob - .5) <= .1));
+  await page.locator('#mp-input').fill(later.player);
+  await page.locator('#mp-input').press('Enter');
+  await expect(page.locator('.mp-card').first()).toBeVisible();
+  await expect(page.locator('.mp-card').first()).toContainText(later.player);
+  await page.locator('.mp-seeds [data-drop]').click();
+  await page.locator('#mp-input').fill(player.team);
+  await page.locator('#mp-input').press('Enter');
+  await expect(page.locator('.mp-card').first()).toBeVisible();
+  await expect(page.locator('.mp-card').first()).toContainText(`${player.team} ML`);
+});
+
+test('a sheet opened before90minutes cannot save a recommendation after cutoff', async ({ page }) => {
+  const { p, schedule, player, due } = provisionalFixture();
+  await openMy(page, p, schedule);
+  await page.locator('#mp-input').fill(player.player);
+  await page.locator('#mp-input').press('Enter');
+  await page.locator('.mp-card .bet-this').first().click();
+  await expect(page.locator('.mb-sheet')).toBeVisible();
+  await page.evaluate((time) => { window.__learningFixtureNow = Date.parse(time); }, due);
+  await page.locator('.mb-sheet [data-mb="save"]').click();
+  await expect(page.locator('#mb-ret')).toContainText('inactive recheck');
+  await expect(page.locator('.mb-sheet')).toBeVisible();
+  const recorded = await page.evaluate(() => localStorage.getItem('nfl26.mybets.v1'));
+  expect(recorded).toBeNull();
 });

@@ -46,7 +46,7 @@ function sameReceipt(pool, player, rung) {
   return Math.abs(r.served_prob - Math.min(.95, Math.max(.05, corrected))) <= .000050000001;
 }
 
-export function poolLearningStatus(pool, now = Date.now()) {
+function savedLearningStatus(pool, now) {
   const result = { state: 'unknown', label: 'Learning version unavailable',
     note: 'This saved pool has no complete model-receipt metadata. Learning adoption and freshness are unknown.',
     blockProps: false, generatedUtc: null, expiresUtc: null, nextCheckMs: null,
@@ -119,8 +119,87 @@ export function poolLearningStatus(pool, now = Date.now()) {
     note: 'Saved-generation state only: current owner authority and live pipeline health are not checked by this file. Retrospective evidence is not prospective proof of improved accuracy.' });
 }
 
+const exactKeys = (value, keys) => object(value) && Object.keys(value).length === keys.length
+  && keys.every((key) => own(value, key));
+const identity = (value) => typeof value === 'string' && value.length > 0 && value.length <= 128;
+
+/* A separately selected generation policy, never a proposed/shadow assessment.
+ * These are saved consistency checks, not client authentication. The publisher
+ * must rederive this contract. No posted/complete flag can extend a saved pool.
+ */
+function selectedFreshness(pool, now) {
+  const result = { freshnessLabel: null, freshnessNote: null, freshnessSelected: false,
+    blockedGameIds: [], blockedPlayerIds: [], hasHeldProps: false, freshnessNextCheckMs: null };
+  if (!own(pool, 'freshness_policy')) return result;
+  result.freshnessSelected = true;
+  const meta = pool.freshness_policy;
+  const invalid = () => ({ ...result, freshnessInvalid: true, hasHeldProps: true,
+    freshnessLabel: 'MY source policy unavailable — yardage props withheld',
+    freshnessNote: 'The selected saved-generation freshness policy is missing or inconsistent. Refresh the pool; moneylines and anytime-TD remain separate.' });
+  if (!finite(now) || !exactKeys(meta, ['version', 'profile', 'policy_id', 'generated_utc', 'games'])
+    || meta.version !== 1 || meta.profile !== 'provisional_before_90m_v1' || !digest(meta.policy_id)
+    || meta.generated_utc !== pool.generated_utc || !Number.isFinite(instant(meta.generated_utc))
+    || instant(meta.generated_utc) > now || !Array.isArray(meta.games) || meta.games.length > 64) return invalid();
+  const games = new Map();
+  const blockedGames = new Set(), blockedPlayers = new Set(), deadlines = [];
+  let provisional = 0;
+  for (const game of meta.games) {
+    if (!exactKeys(game, ['game_id', 'check_due_utc', 'source_expires_utc', 'state', 'blocked_player_ids', 'player_source_expires'])
+      || !identity(game.game_id) || games.has(game.game_id)
+      || !['provisional', 'held'].includes(game.state)
+      || !Number.isFinite(instant(game.check_due_utc)) || !Number.isFinite(instant(game.source_expires_utc))
+      || !Array.isArray(game.blocked_player_ids) || game.blocked_player_ids.length > 2000
+      || !game.blocked_player_ids.every(identity)
+      || new Set(game.blocked_player_ids).size !== game.blocked_player_ids.length
+      || !object(game.player_source_expires) || Object.keys(game.player_source_expires).length > 2000
+      || !Object.entries(game.player_source_expires).every(([pid, clock]) => identity(pid)
+        && Number.isFinite(instant(clock)))) return invalid();
+    games.set(game.game_id, game);
+    game.blocked_player_ids.forEach((pid) => blockedPlayers.add(pid));
+    const cutoff = Math.min(instant(game.check_due_utc), instant(game.source_expires_utc));
+    if (game.state === 'held' || now >= cutoff) blockedGames.add(game.game_id);
+    else {
+      provisional += 1; deadlines.push(cutoff);
+      for (const [pid, clock] of Object.entries(game.player_source_expires)) {
+        const expiry = instant(clock);
+        if (now >= expiry) blockedPlayers.add(pid);
+        else deadlines.push(expiry);
+      }
+    }
+  }
+  const rows = Array.isArray(pool.players) ? pool.players.filter(isMyYardageProp) : [];
+  if (!rows.every((player) => identity(player.game_id) && games.has(player.game_id))) return invalid();
+  Object.assign(result, { blockedGameIds: [...blockedGames], blockedPlayerIds: [...blockedPlayers],
+    hasHeldProps: blockedGames.size > 0 || blockedPlayers.size > 0,
+    freshnessNextCheckMs: deadlines.length ? Math.min(...deadlines) : null,
+    freshnessLabel: provisional ? 'Provisional MY props — inactive recheck required'
+      : 'MY props withheld pending inactive recheck',
+    freshnessNote: 'MY yardage props are provisional, not confirmed active. They are automatically withheld 90 minutes before kickoff or earlier if a source expires; a newly checked pool is required. '
+      + (blockedGames.size ? `${blockedGames.size} game(s) currently withheld. ` : '')
+      + (blockedPlayers.size ? `${blockedPlayers.size} player(s) withheld by source checks. ` : '')
+      + 'Later eligible games, moneylines and anytime-TD are not globally disabled.' });
+  return result;
+}
+
+export function poolLearningStatus(pool, now = Date.now()) {
+  const status = Object.assign(savedLearningStatus(pool, now), selectedFreshness(pool, now));
+  if (status.freshnessInvalid) status.blockProps = true;
+  const deadlines = [status.nextCheckMs, status.freshnessNextCheckMs].filter(Number.isFinite);
+  status.nextCheckMs = deadlines.length ? Math.min(...deadlines) : null;
+  return status;
+}
+
 export function learningEligibleLegs(legs, status) {
-  return status.blockProps ? (legs || []).filter((leg) => !isMyYardageProp(leg)) : legs || [];
+  if (!status.blockProps && !status.blockedGameIds?.length && !status.blockedPlayerIds?.length) return legs || [];
+  const games = new Set(status.blockedGameIds || []), players = new Set(status.blockedPlayerIds || []);
+  return (legs || []).filter((leg) => !isMyYardageProp(leg) || !status.blockProps
+    && !games.has(String(leg.game_id)) && !players.has(leg.gsis_id || leg.owner));
+}
+
+export function learningCardRefusal(pool, legs, now = Date.now()) {
+  const status = poolLearningStatus(pool, now);
+  return learningEligibleLegs(legs, status).length === (legs || []).length ? null
+    : `${status.freshnessLabel || status.label}. Refresh for a newly checked card before recording it as a recommendation.`;
 }
 
 export function renderPoolLearning(status) {
@@ -128,8 +207,9 @@ export function renderPoolLearning(status) {
     ['Base model', status.baseVersion], ['Applied calibration', status.calibratorVersion],
     ['Applied artifact', status.artifactId], ['Owner event at generation', status.ownerEventId],
     ['Application context', status.applicationContextId]].filter(([, value]) => value !== null);
-  return `<section class="mp-learning${status.blockProps ? ' mp-learning--held' : ''}" role="status" aria-label="MY learning status">`
+  return `<section class="mp-learning${status.blockProps || status.hasHeldProps ? ' mp-learning--held' : ''}" role="status" aria-label="MY learning status">`
     + `<strong>${esc(status.label)}</strong><p>${esc(status.note)}</p>`
+    + (status.freshnessLabel ? `<strong>${esc(status.freshnessLabel)}</strong><p>${esc(status.freshnessNote)}</p>` : '')
     + '<p>MY yardage props only. Game, Week, moneyline and anytime-TD models are separate.</p>'
     + (rows.length ? '<details><summary>Saved model versions and clocks</summary><dl>'
       + rows.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')
