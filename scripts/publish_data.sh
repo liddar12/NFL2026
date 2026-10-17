@@ -349,6 +349,13 @@ main() {
       fi
       [ "$(git rev-parse HEAD)" = "$push_ref" ] || die "HEAD changed after its feedback integrity check. Nothing was published."
     fi
+    # Period-return v2 is currently a local-only consumer. Neither the v1
+    # generation gate nor a valid feedback report verifies its authority and
+    # applied pool after a Git rebase. Refuse that tree until the separate v2
+    # publication gate exists; no environment variable or old PASS bypasses it.
+    if git cat-file -e "${push_ref}:data/learning_control" 2>/dev/null || [ -e "data/learning_control" ] || [ -L "data/learning_control" ]; then
+      die "period-return v2 control records require the unfinished exact-tree publication gate. Local testing is allowed; nothing was published."
+    fi
     if git push origin "$push_ref:main"; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
       if [ "$FELL_BACK" -eq 1 ]; then
