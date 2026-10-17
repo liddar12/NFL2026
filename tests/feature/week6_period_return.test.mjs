@@ -31,7 +31,12 @@ with tempfile.TemporaryDirectory()as tmp:
  current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='future',past=True)
  fixture.write_inputs(data,current,schedule);now[0]='2026-10-16T20:00:01Z'
  baseline=B.build(current);pool,application=control.apply_and_save(current)
+ assert baseline['game_legs']and baseline['atd_legs']
  assert pool['game_legs']==baseline['game_legs']and pool['atd_legs']==baseline['atd_legs']
+ captured=control._inputs(application['input_capture_id'])
+ assert captured['inputs']=={**current,'generation_sha':os.environ.get('GITHUB_SHA')}
+ assert captured['files']['player_weekly']['raw_utf8'].encode()==(data/'player_weekly.json').read_bytes()
+ assert json.loads(captured['files']['schedule']['raw_utf8'])==schedule
  assert pool['counts']['period_return_not_future']==2
  assert len(pool['players'])==22
  originals={p['gsis_id']:p for p in baseline['players']};changed=0
@@ -47,6 +52,15 @@ with tempfile.TemporaryDirectory()as tmp:
  assert changed>0 and control.current()[0]==application['current_id']
  assert not control.path('pending.json').exists()
  assert json.loads(control.path('pools',L.fingerprint(old)[7:]+'.json').read_text())==old
+ before_replay={p:p.read_bytes()for p in data.rglob('*')if p.is_file()}
+ proof=control.reverify()
+ assert proof['application_id']==application['application_id']and proof['source_writes']is False
+ assert proof['committed_git_tree_verified']is False and proof['public_serving_verified']is False
+ assert all(p.read_bytes()==raw for p,raw in before_replay.items())
+ raw=(data/'player_weekly.json').read_bytes();(data/'player_weekly.json').write_bytes(raw+b'\n')
+ try:control.reverify();raise AssertionError('changed original bytes accepted')
+ except ValueError as e:assert str(e)=='period_return_inputs_changed'
+ finally:(data/'player_weekly.json').write_bytes(raw)
  # The same exact fixed candidate can return on another fresh generation.
  retained={p:p.read_bytes()for folder in('applications','pools')for p in control.path(folder).glob('*.json')}
  next_inputs,next_schedule,_,_=fixture.inputs(6,'2026-10-16T20:30:00Z',n=24,tag='future',past=True)
@@ -77,6 +91,8 @@ with tempfile.TemporaryDirectory()as tmp:
  now[0]='2026-10-16T22:30:00Z';oid_b=control.prepare(season=2026,week=6)
  b=control.record_intent(oid_b,action='approve',expires_utc='2026-10-21T00:00:00Z',
   reason='Synthetic second candidate; explicit separate local approval',acknowledge_retrospective=True)
+ try:control.reverify();raise AssertionError('new authority ignored')
+ except ValueError as e:assert str(e)=='period_return_owner_changed'
  fresh,fs,_,_=fixture.inputs(6,'2026-10-16T23:00:00Z',n=24,tag='future',past=True)
  fixture.write_inputs(data,fresh,fs);now[0]='2026-10-16T23:00:01Z'
  pool_b,app_b=control.apply_and_save(fresh)
@@ -136,6 +152,7 @@ with tempfile.TemporaryDirectory()as tmp:
  baseline={p['gsis_id']:p for p in base['players']}
  assert all(r['model_prob']==baseline[p['gsis_id']]['rungs'][i]['model_prob']
   for p in reset['players']for i,r in enumerate(p['rungs']))
+ assert control.reverify()['application_id']==stop['application_id']
  print(json.dumps({'changed_future_rungs':changed,'held_past_players':pool['counts']['period_return_not_future'],
   'applied_artifact':application['artifact_id'],'separate_candidate_b':True,'rollback':True,'revocation_without_raw':True,
   'recovery_fault_points':2,'public_serving_verified':False,'actual_owner_authenticated':False}))
@@ -250,6 +267,12 @@ with tempfile.TemporaryDirectory()as tmp:
  def corrupt_pool(c,v,s):
   old=F.read_json(c.data/'leg_pool.json');old['players'][0]['rungs'][0]['model_prob']=.1234;fixture.write(c.data/'leg_pool.json',old)
  case('unverified-incumbent',corrupt_pool,'period_return_current_receipts_unverified')
+ real_props=B.prop_legs
+ def raw_drift(c,v,s):
+  def changed(*args,**kwargs):
+   result=real_props(*args,**kwargs);path=c.data/'player_weekly.json';path.write_bytes(path.read_bytes()+b'\n');return result
+  B.prop_legs=changed
+ case('changed-original-bytes',raw_drift,'period_return_inputs_changed');B.prop_legs=real_props
  # Even a self-consistently rehashed candidate/report/package cannot substitute
  # for independently rerunning the real fitter over its frozen raw evidence.
  data=root/'forged-report';shutil.copytree(seed,data);control=configured(data);now[0]='2026-10-16T20:00:01Z'

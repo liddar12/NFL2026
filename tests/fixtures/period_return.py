@@ -54,6 +54,12 @@ def inputs(week,created,*,n=180,tag=None,past=False):
         games[-1]['status']='STATUS_FINAL';games[-1]['kickoff_utc']=stamp(now-dt.timedelta(hours=12))
     calibration={pos:{'a':0.,'b':1.,'c':0.}for pos in POSITIONS}
     source=stamp(now-dt.timedelta(minutes=30))
+    atd=None
+    if week==6:
+        atd={'season':2026,'week':week,'adopted':True,'generated_utc':source,'players':[
+            {'gsis_id':p['gsis_id'],'player':p['name'],'team':p['team'],'position':p['position'],
+             'game_id':games[i%len(games)]['game_id'],'side':'home','selection':p['name']+' anytime TD',
+             'model_prob':.31}for i,p in enumerate(players[:3])]}
     value={'generated_utc':created,'excluded_games':[],
         'pool_backtest':{'generated_utc':source,'model':'synthetic-wide-pool','calibration':calibration,
             'support':{pos:[-8.,8.]for pos in POSITIONS},'residual_sd':{pos:20. for pos in POSITIONS},
@@ -64,7 +70,7 @@ def inputs(week,created,*,n=180,tag=None,past=False):
         'parlays':{'season':2026,'week':week,'parlays':[{'game_id':g['game_id'],'legs':[
             {'market':'moneyline','selection':g['home']+' ML','model_prob':.5,'implied_prob':.52,
              'side':'home','price_source':'fair_market'}]}for g in games]},
-        'atd_week':None,'atd_backtest':None}
+        'atd_week':atd,'atd_backtest':{'adopted':True}if atd else None}
     schedule={'season':2026,'updated_utc':source,'games':copy.deepcopy(games)}
     return value,schedule,actuals,snaps
 
