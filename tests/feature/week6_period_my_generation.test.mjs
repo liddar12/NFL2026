@@ -11,7 +11,7 @@ test('actual approved pool writer feeds MY cards/journal with preproducer origin
   }
   const r = spawnSync('python3', ['-B', '-'], { cwd: ROOT, encoding: 'utf8', timeout: 120000,
     maxBuffer: 4 * 1024 * 1024, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, input: String.raw`
-import contextlib,io,json,os,pathlib,shutil,tempfile
+import contextlib,copy,io,json,os,pathlib,shutil,tempfile
 from scripts import availability as A,build_leg_pool as B,run_parlay_feedback as F,learning_receipts as L
 from scripts import period_my_generation as MY,generation_capture_runtime as C,generation_semantic_gate as G
 from scripts import period_operator as O
@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory()as tmp:
   target=root/relative;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(F.ROOT/relative,target)
  cfg=root/'config/excluded_games.json';cfg.parent.mkdir(parents=True);shutil.copyfile(F.ROOT/'config/excluded_games.json',cfg)
  fixture.training(data,engine,pin)
- current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=6,tag='MY-capture',past=True)
+ current,schedule,_,_=fixture.inputs(6,'2026-10-16T20:00:00Z',n=24,tag='MY-capture',past=True)
  fixture.write_inputs(data,current,schedule);fixture.write(data/'leg_pool.json',B.build(current))
  # These are frozen eligibility witnesses, not a claim of original provider or
  # earlier weekly-producer reads. The final semantic gate is intentionally NOT
@@ -58,6 +58,10 @@ with tempfile.TemporaryDirectory()as tmp:
  _,app,pool=control.current();binding=link['runtime_binding'];inner=binding['binding']
  assert app['application_id']==link['application_id']and app['owner_head_event_id']==ack['event_id']
  assert result['archive_cards']>0 and result['archive_changed']is True
+ assert link['downstream_replay']['supported_current_receipts']>0
+ assert link['downstream_replay']['new_archive_cards']==result['archive_cards']
+ assert link['downstream_replay']['target_archive_prop_legs']>0
+ assert link['downstream_replay']['MY_card_semantics_verified']is False
  assert binding['kind']=='nfl.generation_runtime_binding.v1'and inner['capture']['kind']=='nfl.original_generation_inputs.v1'
  assert all(binding['claims'][k]is False for k in C.CLAIMS)
  assert all(link[k]is False for k in('MY_card_semantics_verified','owner_authenticated','publication_authorized',
@@ -83,6 +87,43 @@ with tempfile.TemporaryDirectory()as tmp:
  try:MY._unchanged(session);raise AssertionError('raw-byte change accepted')
  except ValueError as e:assert str(e)=='period_MY_original_input_changed'
  (data/'player_weekly.json').write_bytes(raw)
+ # All display keys may already exist on the next genuine refresh. Rebuild the
+ # NEW offered population/journal while preserving every old first-sight card;
+ # never invent filler, reprice that archive or require a new target display leg.
+ first_archive=json.loads((root/path).read_bytes());first_link_bytes=control.path('generations',result['period_generation_id'][7:]+'.json').read_bytes()
+ now[0]='2026-10-16T20:02:30Z'
+ with contextlib.redirect_stdout(io.StringIO()):repeat=MY.generate(control,generation_sha='synthetic-MY-repeat',capture_dir=private)
+ second=json.loads(control.path('generations',repeat['period_generation_id'][7:]+'.json').read_bytes())
+ replay=second['downstream_replay'];second_archive=json.loads((root/path).read_bytes())
+ assert replay['new_archive_cards']==0 and replay['target_archive_prop_legs']==0
+ assert replay['supported_current_receipts']>0 and replay['current_offered_cards']>0
+ assert replay['retained_archive_prop_legs']>0
+ assert second_archive['cards']==first_archive['cards']and len(second_archive['runs'])==len(first_archive['runs'])+1
+ assert second['runtime_binding']['binding']['capture']['inputs']['previous_my_cards']['raw_utf8']==inner['outputs'][path]['raw_utf8']
+ assert control.path('generations',result['period_generation_id'][7:]+'.json').read_bytes()==first_link_bytes
+ # Fully rehashed claims are not enough: actual card math, complete candidate
+ # accounting and retained receipt authority must still reproduce.
+ def changed(original,*,archive_change=None,graph_change=None):
+  v=copy.deepcopy(original);b=v['binding'];outputs={n:x['raw_utf8'].encode()for n,x in b['outputs'].items()}
+  if archive_change:
+   doc=json.loads(outputs[path]);archive_change(doc);outputs[path]=(json.dumps(doc,ensure_ascii=True,indent=2)+'\n').encode()
+  if graph_change:graph_change(b['graph'],b['target_generation_id'])
+  v['binding']=G.bind_generation(b['capture'],b['graph'],outputs,target_generation_id=b['target_generation_id'],
+   generated_utc=b['generated_utc_claim'],bound_utc=b['bound_utc_claim'])
+  v['runtime_binding_id']=G.fingerprint({k:x for k,x in v.items()if k!='runtime_binding_id'})
+  return v
+ def wrong_math(doc):doc['cards'][0]['payout']+=1
+ def wrong_audit(graph,tid):
+  item=next(e for e in graph['generations']if e['request']['payload']['generations'][0]['generation_id']==tid)
+  doc=item['request']['payload'];audit=doc['generations'][0]['audit'];audit['candidate_rungs']+=1;audit['quarantined_records']+=1
+  audit['quarantine_reasons']['synthetic_omission']=1
+  doc['envelope_id']=G.fingerprint({k:v for k,v in doc.items()if k!='envelope_id'});item['request']['object_id']=doc['envelope_id']
+ def drop_old(graph,tid):graph['generations']=[e for e in graph['generations']if e['request']['payload']['generations'][0]['generation_id']==tid]
+ forged=[changed(binding,archive_change=wrong_math),changed(binding,graph_change=wrong_audit),
+  changed(second['runtime_binding'],graph_change=drop_old)]
+ for value in forged:
+  try:MY.replay_binding(value);raise AssertionError('rehashed downstream forgery accepted')
+  except ValueError:pass
  # A changed original BEFORE pricing is refused without creating a new pool or
  # transaction, even when JSON parsing would yield the identical dictionary.
  now[0]='2026-10-16T20:03:00Z';fresh=C.begin(root,generation_sha='synthetic-next-claim',clock=lambda:now[0])
@@ -114,6 +155,7 @@ with tempfile.TemporaryDirectory()as tmp:
  print(json.dumps({'cards':result['archive_cards'],'target':result['target_generation_id'],
   'original_pool_writer_bound':True,'original_archive_writer_bound':True,'private_recovery_records':len(private_docs),
   'v1_semantics_still_held':True,'preproducer_drift_refused':True,'checkpoint_failure_recovered':True,
+  'fully_retained_refresh_verified':True,'rehash_forgeries_refused':len(forged),
   'production_authorized':result['production_authorized']}))
 ` });
   assert.equal(r.status, 0, `${r.error?.code || ''}\n${r.stderr}\n${r.stdout}`);
@@ -124,5 +166,7 @@ with tempfile.TemporaryDirectory()as tmp:
   assert.equal(result.v1_semantics_still_held, true);
   assert.equal(result.preproducer_drift_refused, true);
   assert.equal(result.checkpoint_failure_recovered, true);
+  assert.equal(result.fully_retained_refresh_verified, true);
+  assert.equal(result.rehash_forgeries_refused, 3);
   assert.equal(result.production_authorized, false);
 });

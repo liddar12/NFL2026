@@ -583,14 +583,9 @@ def read_artifact(path, *, checkout):
 
 
 @_safe
-def verify_head(value, *, checkout, clock=_utc, expected_head=None):
-    """Recheck exact FINAL HEAD blobs before EACH push, never the worktree alone.
-
-No publish/rebase/rebind occurs. A code/data/tree change after generation holds.
-The caller must additionally keep HEAD unchanged until its push invocation;
-this local preflight cannot lock an external writer or authenticate git clocks.
-"""
-    root = _checkout(checkout);value = gate._plain(value)
+def _runtime_binding(value):
+    """Validate unchanged v1 capture structure without selecting a semantic gate."""
+    value = gate._plain(value)
     _need(type(value) is dict and set(value) == {"version", "kind", "loader", "my_stage_reads", "binding", "claims", "runtime_binding_id"}
           and type(value["version"]) is int and value["version"] == 1
           and value["kind"] == "nfl.generation_runtime_binding.v1", "invalid_runtime_capture_binding")
@@ -611,6 +606,18 @@ this local preflight cannot lock an external writer or authenticate git clocks.
               {k: v for k, v in original.items() if k not in ("read_started_utc_claim", "read_completed_utc_claim")}, "runtime_MY_read_input_mismatch")
         _need(gate._time(reads["read_started_utc_claim"]) <= gate._time(row["read_started_utc_claim"])
               <= gate._time(row["read_completed_utc_claim"]) <= gate._time(reads["read_completed_utc_claim"]), "invalid_runtime_MY_read_evidence")
+    return value, loader
+
+
+@_safe
+def verify_head(value, *, checkout, clock=_utc, expected_head=None):
+    """Recheck exact FINAL HEAD blobs before EACH push, never the worktree alone.
+
+No publish/rebase/rebind occurs. A code/data/tree change after generation holds.
+The caller must additionally keep HEAD unchanged until its push invocation;
+this local preflight cannot lock an external writer or authenticate git clocks.
+"""
+    root = _checkout(checkout);value, loader = _runtime_binding(value)
     head = _git(root, ["rev-parse", "--verify", "HEAD"], limit=100).decode().strip()
     _need(re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head), "invalid_capture_git_head")
     _need(expected_head is None or expected_head == head, "capture_checked_head_changed")
