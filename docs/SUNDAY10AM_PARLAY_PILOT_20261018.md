@@ -1,6 +1,6 @@
 # Sunday NFL parlay learning pilot
 
-Revision 8 · October 17, 2026, 9:50 a.m. America/Chicago (CDT).
+Revision 9 · October 17, 2026, 10:10 a.m. America/Chicago (CDT).
 Requested target: **Sunday, October 18, 2026, 10:00 a.m. CDT**.
 
 The owner resumed implementation and authorized getting the NFL pilot live
@@ -52,10 +52,22 @@ all prior immutable files unchanged. This proves capture/retry behavior, not
 prediction improvement or real-data model adoption. The approved/fitted route's
 legacy-history migration remains separately unfinished.
 
-A repeated-generation rehearsal exposed a release blocker: the bounded mixed
-14-document calculation exceeds its 750,000-node ceiling on the next refresh.
-The first wrapper is already 52.2 MB of its 64 MiB ceiling. Fix bounded processing
-and prove multiple refreshes; do not delete history or simply waive limits.
+A repeated-generation rehearsal exposed two failures: the mixed 14-document
+calculation exceeds 750,000 nodes on the second refresh, and the old inline
+historical graph exceeds 500,000 on the third. Local fixes separate bounded
+archive validation and replace inline history with exact Git references,
+checking every historical journal/source closure individually. Twelve synthetic
+committed refreshes now pass; independent known-only and concurrent history-loss
+negatives pass. All fetched-base cards and run multiplicity must survive.
+Real-data multi-refresh/current publisher verification under this new wrapper
+is still required. The 750k-node/16 MiB archive ceiling remains a real bound.
+
+The diagnostic full NFL run passes data/smoke/four model gates but has six feature
+failures, 2,612 passed and browser skipped. Focused test-integration fixes pass;
+they preserve future-team coverage, negative cases and 1e-9 numeric parity.
+Source diagnostics now handle real bye/final negatives without inventing weekly
+refusal blocks, while keeping default v1 and all offered-player checks strict.
+Do not describe those focused results as a final full release gate.
 
 Current main `28f7ac3b` is merged locally, including fresh pipeline data and the
 post-TNF RCA update. No runtime changes were present between the prior production

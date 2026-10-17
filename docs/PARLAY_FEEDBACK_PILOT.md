@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 18 · October 17, 2026, 9:50 a.m. America/Chicago (CDT).
+Revision 19 · October 17, 2026, 10:10 a.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -39,13 +39,34 @@ remain unverified. Actual shared intake persists only the 961 new receipts and
 returns HOLD for zero graded outcomes; repeat intake leaves the state and prior
 immutable files unchanged. No actual candidate is approved or activated.
 
-Release is blocked on repeated-run capacity (14-document aggregate exceeds the
-750k-node ceiling immediately after the first refresh), final NFL regressions,
-publication/browser/served-site verification and the official-list recheck.
+The old repeated-run failures are reproduced and preserved: the mixed 14-document
+aggregate exceeded 750k nodes after one refresh; the old inline-history graph
+exceeded 500k on the third. Local source `38ce7bc2` separates the bounded archive
+from ordinary inputs and uses a new selected-only Git-reference wrapper. It
+validates each complete historical journal/source closure separately, preserves
+all fetched-base cards and run-row multiplicity, and inlines only the new target.
+The explicit reference profile caps journals at 64, sources at 256 and unique
+history at 128 MiB; the archive still has its 750k-node/16 MiB limits. No history
+is deleted and no old unknown receipt becomes training evidence.
+
+Twelve synthetic committed refreshes pass after the retention fix; independent
+known-only three-refresh, authority-conflict and concurrent card/run-loss checks
+pass. This is not a production-sized repeated-run or current publisher success.
+The diagnostic full NFL run passed data/smoke/four model gates but had six feature
+test failures (2,612 passed). Focused fixes pass for the old workflow literals,
+injury-identity witness, eligible-team coverage and legacy/selected-clock test
+separation. Numeric JS/Python tolerance remains 1e-9 and future-team coverage
+remains strict. The real 300-player/165-offered source diagnostic also passes
+after excluding bye/final players from invented current-week refusal metadata;
+negative offers and all default v1 callers remain strict.
+
+Release is still blocked on real-data repeated refreshes under the new wrapper,
+the final source-exact full pair, publication/browser/served-site verification
+and the official-list recheck.
 The selected-only pre-journal migration does not yet cover fitted-model
 adoption/rollback on this retained legacy archive. Do not call these complete.
 
-No integration branch has been pushed or deployed as of 9:50 a.m. CDT. Shell Git
+No integration branch has been pushed or deployed as of 10:10 a.m. CDT. Shell Git
 push failed DNS. The first connected GitHub write was explicitly refused:
 approval is required but the session policy is `never`; no remote object/ref was
 created. Do not switch write routes around that refusal. Publish only from a
@@ -55,6 +76,31 @@ The publication boundary and gameday feedback/status changes have focused local
 regressions; actual selected-generation publication, approval-aware workflow
 activation, official-list rechecks and served-site acceptance remain in progress.
 See [Sunday release checkpoint](SUNDAY10AM_PARLAY_PILOT_20261018.md).
+
+## Official inactive recheck: still a proposed follow-up
+
+Keep `provisional_before_90m_v1` unchanged: a re-fetch does not clear its hold.
+A future registered policy needs retained raw HTTPS evidence, exact game/date/
+team/venue identity, explicit complete team lists, eligible roster/elevations,
+unambiguous player IDs, revision linkage and an expiring generation-bound lease.
+An official roster's “Active” section is not game-day activation. A caller's
+complete flag or an empty/nonempty ESPN list cannot supply this evidence.
+
+Official club articles can contain both lists ([Seahawks example](https://www.seahawks.com/news/seahawks-at-broncos-week-6-inactives)),
+but template/identity contradictions must hold. Even a documented vendor feed
+cannot use a default `played` flag as proof: [Sportradar's FAQ](https://developer.sportradar.com/football/reference/nfl-faq)
+explains that players begin in that state before inactive updates. No vendor
+credential or completeness guarantee is assumed.
+
+Estimated adapter work is 6–10 focused hours plus a real runner canary, not a
+completion promise. Proposed polling/lease renewal is five minutes with a
+15-minute maximum lease; current two-hour cron does not establish that cadence.
+The Sunday 8:30 a.m. CDT London game reaches T−90 at 7 a.m. and is already under
+way by the 10 a.m. target ([NFL London guidance](https://support.nfl.com/hc/en-us/articles/41438702917268-How-to-Watch-NFL-International-Series-Games)).
+Noon games reach their checkpoint at 10:30 a.m. CDT. Do not advertise automatic
+post-checkpoint recovery before raw capture → verification → publication → UI
+expiry/recovery is demonstrated. This follow-up does not authorize a model fit,
+candidate promotion, new hosting deployment or a bypass of the write refusal.
 
 ## Current committed MY regression
 
