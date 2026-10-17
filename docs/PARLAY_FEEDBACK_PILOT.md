@@ -1,6 +1,6 @@
 # Parlay feedback pilot operations and remaining work
 
-Revision 5 · October 16, 2026, 8:53 p.m. America/Chicago (CDT).
+Revision 6 · October 16, 2026, 9:13 p.m. America/Chicago (CDT).
 Owner-selected route A. Target: Sunday, October 18, 2026, 10:00 a.m. CDT.
 
 The first local pilot connects NFL forecasts, raw outcomes, corrections and the
@@ -95,6 +95,18 @@ set needs new approval; a pipeline refresh cannot approve its own refit.
 This selects the mechanism to build, not a candidate to activate or a deployment
 to release. Preserve old v1 exact-generation events; add a versioned scope
 contract rather than silently broadening their authority.
+
+The engine's local `19a80d9` checkpoint now provides generic file-backed owner
+intent persistence for this route: immutable events, namespace head/lock,
+revoke/rollback intent and original-result recovery. Full engine regression:
+**1,377 core/API tests pass**, zero skips; **49/49 critical files >90%**,
+stable **96.4766%** executable lines, exit 0. This does not authenticate an
+operator or apply a model. The v2 NFL scope, evidence composition, actual
+producer consumer and controlled publication/rollback remain required. Engine
+details: `docs/architecture/2026-10-15/OWNER_INTENT_JOURNAL.md`; pinned report:
+`docs/reviews/2026-10-16-critical49-file-owner-coverage.json`. NFL runtime and
+its prior 2,493-feature full-gate result are unchanged; no new browser/live
+acceptance or production write is claimed.
 
 The ten core tests and fifteen NFL pilot tests pass locally. They include
 real NFL receipt production, zero versus missing values, incomplete-history
