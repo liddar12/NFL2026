@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-18T16:23:16Z",
+  "generated_utc": "2026-10-18T17:11:39Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (79 games); scores from data/review.json FINAL rows (80 games); scores from ESPN live, STATUS-gated FINAL (64 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (80 games); scores from data/review.json FINAL rows (80 games); scores from ESPN live, STATUS-gated FINAL (65 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 5,
   "weeks": [
@@ -1232,29 +1232,29 @@
     },
     {
       "week": 6,
-      "n_cards": 3364,
-      "locked": 3364,
-      "graded": 99,
-      "pending": 3265,
+      "n_cards": 3509,
+      "locked": 3509,
+      "graded": 123,
+      "pending": 3386,
       "buckets": {
         "all_hit": 4,
         "push": 0,
         "partial": 0,
-        "all_missed": 95,
-        "pending": 3265
+        "all_missed": 119,
+        "pending": 3386
       },
       "by_dial": {
         "safe": {
-          "n": 828,
-          "graded": 13,
+          "n": 923,
+          "graded": 37,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 1300.0,
-          "net_fair": -1300.0,
-          "net_vig2": -1300.0,
+          "staked": 3700.0,
+          "net_fair": -3700.0,
+          "net_vig2": -3700.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
@@ -1267,7 +1267,7 @@
             "brier": null,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 13,
+              "incomplete_contract": 37,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1276,12 +1276,12 @@
             "all_hit": 0,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 13,
-            "pending": 815
+            "loss": 37,
+            "pending": 886
           }
         },
         "even": {
-          "n": 1485,
+          "n": 1509,
           "graded": 48,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -1313,11 +1313,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 48,
-            "pending": 1437
+            "pending": 1461
           }
         },
         "longshot": {
-          "n": 1051,
+          "n": 1077,
           "graded": 38,
           "all_hit": 4,
           "hit_rate": 0.1053,
@@ -1349,23 +1349,23 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 34,
-            "pending": 1013
+            "pending": 1039
           }
         }
       },
       "by_legs": {
         "2": {
-          "n": 491,
-          "graded": 18,
+          "n": 509,
+          "graded": 20,
           "all_hit": 4,
-          "hit_rate": 0.2222,
+          "hit_rate": 0.2,
           "mean_model": 0.2075,
           "log_loss": 0.7685,
           "brier": 0.2723,
-          "staked": 1800.0,
-          "net_fair": -342.12,
-          "net_vig2": -398.76,
-          "roi_fair": -0.1901,
+          "staked": 2000.0,
+          "net_fair": -542.12,
+          "net_vig2": -598.76,
+          "roi_fair": -0.2711,
           "calibration": {
             "version": "original_contract_v1",
             "n": 11,
@@ -1377,7 +1377,7 @@
             "brier": 0.2723,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 7,
+              "incomplete_contract": 9,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1386,21 +1386,21 @@
             "all_hit": 4,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 14,
-            "pending": 473
+            "loss": 16,
+            "pending": 489
           }
         },
         "3": {
-          "n": 585,
-          "graded": 16,
+          "n": 608,
+          "graded": 19,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 1600.0,
-          "net_fair": -1600.0,
-          "net_vig2": -1600.0,
+          "staked": 1900.0,
+          "net_fair": -1900.0,
+          "net_vig2": -1900.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
@@ -1413,7 +1413,7 @@
             "brier": null,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 16,
+              "incomplete_contract": 19,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1422,21 +1422,21 @@
             "all_hit": 0,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 16,
-            "pending": 569
+            "loss": 19,
+            "pending": 589
           }
         },
         "4": {
-          "n": 684,
-          "graded": 18,
+          "n": 708,
+          "graded": 21,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 1800.0,
-          "net_fair": -1800.0,
-          "net_vig2": -1800.0,
+          "staked": 2100.0,
+          "net_fair": -2100.0,
+          "net_vig2": -2100.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
@@ -1449,7 +1449,7 @@
             "brier": null,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 18,
+              "incomplete_contract": 21,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1458,21 +1458,21 @@
             "all_hit": 0,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 18,
-            "pending": 666
+            "loss": 21,
+            "pending": 687
           }
         },
         "5": {
-          "n": 766,
-          "graded": 23,
+          "n": 806,
+          "graded": 28,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 2300.0,
-          "net_fair": -2300.0,
-          "net_vig2": -2300.0,
+          "staked": 2800.0,
+          "net_fair": -2800.0,
+          "net_vig2": -2800.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
@@ -1485,7 +1485,7 @@
             "brier": null,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 23,
+              "incomplete_contract": 28,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1494,21 +1494,21 @@
             "all_hit": 0,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 23,
-            "pending": 743
+            "loss": 28,
+            "pending": 778
           }
         },
         "6": {
-          "n": 838,
-          "graded": 24,
+          "n": 878,
+          "graded": 35,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 2400.0,
-          "net_fair": -2400.0,
-          "net_vig2": -2400.0,
+          "staked": 3500.0,
+          "net_fair": -3500.0,
+          "net_vig2": -3500.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
@@ -1521,7 +1521,7 @@
             "brier": null,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 24,
+              "incomplete_contract": 35,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1530,8 +1530,8 @@
             "all_hit": 0,
             "reduced_hit": 0,
             "void": 0,
-            "loss": 24,
-            "pending": 814
+            "loss": 35,
+            "pending": 843
           }
         }
       }
@@ -897421,6 +897421,1658 @@
           "actual": null,
           "gsis_id": "espn-4567048",
           "line": 39.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "36ca3c2bcc50",
+      "week": 6,
+      "dial": "safe",
+      "seed": "IND",
+      "n_legs": 6,
+      "model": 0.1823,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "065b54ab5f1d",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 2,
+      "model": 0.5657,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "5edfb8b92913",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 2,
+      "model": 0.5543,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "da9b1a2ad9b2",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 3,
+      "model": 0.4365,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "db0f3e85700a",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 3,
+      "model": 0.4282,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 29.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "229faae7d81f",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 3,
+      "model": 0.4206,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "5db25e1ba194",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 4,
+      "model": 0.3304,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 29.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "5ac7788dbd65",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 4,
+      "model": 0.3246,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "bfdcea5a03b5",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 4,
+      "model": 0.3239,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "883fe1abf00b",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.2505,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 70+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 69.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "0e374ac74dc4",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.2457,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "7b167c8945cc",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.2457,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 29.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "7a83f9e4e577",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.2409,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "73a33936f267",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 5,
+      "model": 0.2419,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "game_id": "401873006",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "K. Walker III 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873006",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4567048",
+          "line": 39.5,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "ea910e1ab7e2",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 6,
+      "model": 0.1896,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 70+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 69.5,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 29.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "17e0c1aaed36",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 6,
+      "model": 0.1823,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "a865d5ef1f0d",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 6,
+      "model": 0.1859,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 70+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 69.5,
+          "side": "home"
+        },
+        {
+          "selection": "C. Rodriguez Jr. 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401872996",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4362619",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "6f0b51a42ba8",
+      "week": 6,
+      "dial": "safe",
+      "seed": "JAX",
+      "n_legs": 6,
+      "model": 0.1804,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "game_id": "401873006",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "3e2b48a7d0d9",
+      "week": 6,
+      "dial": "safe",
+      "seed": "KC",
+      "n_legs": 6,
+      "model": 0.1804,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "game_id": "401873006",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "6b1083e7d40e",
+      "week": 6,
+      "dial": "safe",
+      "seed": "LAR",
+      "n_legs": 6,
+      "model": 0.1823,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "53a0d911ae3f",
+      "week": 6,
+      "dial": "safe",
+      "seed": "NE",
+      "n_legs": 6,
+      "model": 0.1823,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "856ec2931f32",
+      "week": 6,
+      "dial": "safe",
+      "seed": "NYJ",
+      "n_legs": 6,
+      "model": 0.1633,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "G. Wilson 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569618",
+          "line": 19.5,
+          "side": "away"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "e679d0909fb1",
+      "week": 6,
+      "dial": "safe",
+      "seed": "NYJ",
+      "n_legs": 6,
+      "model": 0.1499,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "G. Smith 125+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-15864",
+          "line": 124.5,
+          "side": "away"
+        },
+        {
+          "selection": "IND ML",
+          "market": "moneyline",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Taylor 60+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4242335",
+          "line": 59.5,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": -100.0,
+        "net_vig2": -100.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "b4337404cfca",
+      "week": 6,
+      "dial": "safe",
+      "seed": "TEN",
+      "n_legs": 6,
+      "model": 0.1724,
+      "result": "miss",
+      "bucket": "all_missed",
+      "legs": [
+        {
+          "selection": "W. Robinson 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569587",
+          "line": 29.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0793d572909f76768dcc51553118f7c4d8b11d1d148e878c8beead893a0e46bd"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "C. Ward 125+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873003",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4688380",
+          "line": 124.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c5dd5ef120baeeac5bb11ef2acabda5725e5cbe996e4e084c7c9aec2920e5b80"
+        },
+        {
+          "selection": "LAR ML",
+          "market": "moneyline",
+          "game_id": "401873004",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "pending",
+          "actual": null,
+          "gsis_id": "espn-4569173",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:49d7268148557b3efe5b488eaeddb4c02d4670106f8c60ba68d3f018babc8418"
+        },
+        {
+          "selection": "JAX ML",
+          "market": "moneyline",
+          "game_id": "401872996",
+          "result": "miss",
+          "actual": {
+            "home_score": 31,
+            "away_score": 34
+          },
+          "gsis_id": null,
+          "line": null,
           "side": "home"
         }
       ],
