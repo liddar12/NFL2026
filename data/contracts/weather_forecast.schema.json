@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "weather_forecast.schema.json",
   "title": "Kickoff-hour weather FORECAST for upcoming non-dome home games (Open-Meteo forecast) + climatology fallback beyond the horizon",
-  "description": "Prediction-time source for the adopted weather_wind family (game model reads `games` only) and for build_weekly's weather factor (reads `games` then `climatology`). Keyless forecast data, rebuilt each run; open + retractable venues (retractable stays neutral in build_weekly). `games` rows are the kickoff-hour forecast inside the 16-day horizon, stamped source=forecast + fetched_utc; `climatology` rows (R56) are the home stadium's mean kickoff-hour temp/wind for the game's calendar month over 2021-2025 from weather_history.json, only where n >= 4 games (fewer -> no row), stamped source=climatology with the measured `rules` the row may fire (docs/WEATHER_HORIZON.md). Naturally small in-week and empty in the offseason (dormant). Never a model input on its own - applied only when weather_wind has cleared NEVER-REGRESS.",
+  "description": "Prediction-time source for the adopted weather_wind family (game model reads `games` only) and for build_weekly's weather factor (reads `games` then `climatology`). Keyless forecast data, rebuilt each run; open + retractable venues (retractable stays neutral in build_weekly). `games` rows are the kickoff-hour forecast inside the 16-day horizon, stamped source=forecast + fetched_utc; `climatology` rows (R56) are the home stadium's mean kickoff-hour temp/wind for the game's calendar month over 2021-2025 from weather_history.json, only where n >= 4 games (fewer -> no row), stamped source=climatology with the measured `rules` the row may fire (docs/WEATHER_HORIZON.md). Naturally small in-week and empty in the offseason (dormant). Never a model input on its own - applied only when weather_wind has cleared NEVER-REGRESS. Current CLI uses venue_bound_kickoff_weather_v2; exact version/root/row/game-window semantics are additionally enforced by check_weather_forecast. Legacy files are accepted only for archived context, never the current live reader. Missing precipitation remains null, not a dry-weather claim.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -38,7 +38,10 @@
             "type": "number"
           },
           "precip_mm": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0
           },
           "source": {
@@ -49,6 +52,166 @@
           },
           "fetched_utc": {
             "type": "string"
+          },
+          "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "season",
+              "week",
+              "game_id",
+              "home",
+              "away",
+              "kickoff_utc",
+              "venue",
+              "venue_city",
+              "venue_country",
+              "lat",
+              "lon",
+              "roof",
+              "venue_profile"
+            ],
+            "properties": {
+              "season": {
+                "type": "integer",
+                "minimum": 2026
+              },
+              "week": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18
+              },
+              "game_id": {
+                "type": "string"
+              },
+              "home": {
+                "type": "string"
+              },
+              "away": {
+                "type": "string"
+              },
+              "kickoff_utc": {
+                "type": "string"
+              },
+              "venue": {
+                "type": "string"
+              },
+              "venue_city": {
+                "type": "string"
+              },
+              "venue_country": {
+                "type": "string",
+                "enum": [
+                  "US"
+                ]
+              },
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "roof": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "dome",
+                  "retractable"
+                ]
+              },
+              "venue_profile": {
+                "type": "string",
+                "enum": [
+                  "reviewed_home_stadium_v1"
+                ]
+              }
+            }
+          },
+          "sample_utc": {
+            "type": "string"
+          },
+          "game_window": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "starts_utc",
+              "ends_utc",
+              "precipitation_semantics",
+              "hours",
+              "complete"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              "starts_utc": {
+                "type": "string"
+              },
+              "ends_utc": {
+                "type": "string"
+              },
+              "precipitation_semantics": {
+                "type": "string",
+                "enum": [
+                  "previous_hour_sum_not_exact_game_total"
+                ]
+              },
+              "complete": {
+                "type": "boolean"
+              },
+              "hours": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "forecast_utc",
+                    "temp_c",
+                    "wind_kph",
+                    "precip_mm"
+                  ],
+                  "properties": {
+                    "forecast_utc": {
+                      "type": "string"
+                    },
+                    "temp_c": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": -100,
+                      "maximum": 70
+                    },
+                    "wind_kph": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 400
+                    },
+                    "precip_mm": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "maximum": 1000
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -106,6 +269,84 @@
               ]
             },
             "description": "Threshold rules build_weekly may fire from this row. A rule that fires at the mean but was wrong for more than half of the stadium-month's 2023-2025 games (or has no measured games) is withheld."
+          },
+          "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "season",
+              "week",
+              "game_id",
+              "home",
+              "away",
+              "kickoff_utc",
+              "venue",
+              "venue_city",
+              "venue_country",
+              "lat",
+              "lon",
+              "roof",
+              "venue_profile"
+            ],
+            "properties": {
+              "season": {
+                "type": "integer",
+                "minimum": 2026
+              },
+              "week": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 18
+              },
+              "game_id": {
+                "type": "string"
+              },
+              "home": {
+                "type": "string"
+              },
+              "away": {
+                "type": "string"
+              },
+              "kickoff_utc": {
+                "type": "string"
+              },
+              "venue": {
+                "type": "string"
+              },
+              "venue_city": {
+                "type": "string"
+              },
+              "venue_country": {
+                "type": "string",
+                "enum": [
+                  "US"
+                ]
+              },
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "roof": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "dome",
+                  "retractable"
+                ]
+              },
+              "venue_profile": {
+                "type": "string",
+                "enum": [
+                  "reviewed_home_stadium_v1"
+                ]
+              }
+            }
           }
         }
       }
@@ -176,6 +417,26 @@
             }
           }
         }
+      }
+    },
+    "version": {
+      "type": "integer",
+      "enum": [
+        2
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "enum": [
+        "venue_bound_kickoff_weather_v2"
+      ]
+    },
+    "refusals": {
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
       }
     }
   }

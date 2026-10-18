@@ -87,6 +87,7 @@ headline still says how many points the absence cost. Rows under the total rule
 """
 
 import json
+import copy
 import datetime as dt
 import os
 import sys
@@ -413,7 +414,7 @@ def venue_factor(rel, home):
 
 
 def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
-                  roof_by_game=None):
+                  roof_by_game=None, forecast_context=None):
     """The per-document factor context player_weeks reads: feeds parsed ONCE.
 
     roof_by_game ({"season|wk|HOME|AWAY": roof}) overrides the static stadium
@@ -427,17 +428,40 @@ def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
     forecast = dict((forecast_doc or {}).get("games") or {})
     for key, row in ((forecast_doc or {}).get("climatology") or {}).items():
         forecast.setdefault(key, row)
-    return {
+    factors = {
         "season": int(season),
         "dvp_doc": dvp_doc,
         "dvp_by_week": {},                     # wk -> dvp_rates(...), filled lazily
         "roof": {norm_team(t): (v or {}).get("roof") for t, v in stadiums.items()},
         "roof_by_game": dict(roof_by_game or {}),
         "forecast": forecast,
+        "_forecast_document": copy.deepcopy(forecast_doc),
         "venue_rel": venue_rel,
         "venue_lam": lam,
         "counts": {k: 0 for k in NEUTRAL_KEYS},
     }
+    if forecast_context is not None:
+        forecast_context = forecast_context if type(forecast_context) is dict else {}
+        factors = enforce_forecast_context(factors, season,
+            forecast_context.get('schedule_games'), forecast_context.get('updated_utc'))
+    return factors
+
+
+def enforce_forecast_context(factors, season, schedule_games, updated_utc):
+    """Current-serving boundary, including caller-supplied prepared factors.
+
+    Pure archived/backtest build_factors callers retain the legacy path. A live
+    build cannot bypass source validation by preparing its factors elsewhere.
+    No weather coefficient, medical status or missing-data zero is introduced.
+    """
+    from scripts import weather_source_contract as weather
+    view = weather.live_view(factors.get('_forecast_document'), season,
+        schedule_games, updated_utc)
+    result = dict(factors)
+    result['forecast'] = {**view['climatology'], **view['games']}
+    result['roof_by_game'] = view['roof_by_game']
+    result['weather_source_report'] = view['report']
+    return result
 
 
 def week_multiplier(factors, wk, team, opp, home, position, elos):
@@ -1045,6 +1069,8 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
     if factors is None:
         factors = build_factors(season, load_dvp(dvp_path), load_environment(env_path),
                                 load_forecast(forecast_path))
+    if this_week is not None:
+        factors = enforce_forecast_context(factors, season, schedule_games, updated_utc)
     resolved = availability.resolve_report(projections, injuries)
     quarantine["players"].update(resolved["refusals"])
     mults = injury_multipliers(projections, injuries, resolved=resolved)
@@ -1179,6 +1205,7 @@ def build_weekly_document(projections, schedule_games, elos, receptions_by_id,
         model["injury_shape"] = {"applied": True, "statuses_used": len(mults)}
     if this_week is not None:
         model["this_week"] = gate_meta
+        model["weather_source"] = factors['weather_source_report']
     if source_state is not None:
         model["injury_source"] = source_state
     if n_blocked_players:

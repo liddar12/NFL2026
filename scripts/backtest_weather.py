@@ -145,6 +145,7 @@ if _ROOT not in sys.path:
 from scripts import build_wet_rates as wr                       # noqa: E402
 from scripts import weather_corpus as wc                        # noqa: E402
 from scripts import weather_power as wp                         # noqa: E402
+from scripts.weather_source_contract import number              # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "weather_backtest.json")
@@ -764,6 +765,8 @@ def team_game_rows(weather_rows, epa, dvp, bucket, weather_by_key=None):
     rows = []
     for key, game in sorted(weather_rows.items()):
         wx = (weather_by_key or {}).get(key, game)
+        if not all(number(wx.get(field), field) for field in ('temp_c', 'wind_kph', 'precip_mm')):
+            continue  # unknown weather is not a dry/zero-valued observation
         season, week = game["season"], game["week"]
         for side in ("home", "away"):
             team = game[side]
@@ -814,6 +817,8 @@ def player_week_rows(weather_rows, player_doc, bucket, weather_by_key=None):
             by_team.setdefault((int(week_s), team), []).append((row_key, row))
     for key, game in sorted(weather_rows.items()):
         wx = (weather_by_key or {}).get(key, game)
+        if not all(number(wx.get(field), field) for field in ('temp_c', 'wind_kph', 'precip_mm')):
+            continue
         season, week = game["season"], game["week"]
         for side in ("home", "away"):
             team = game[side]
@@ -1423,7 +1428,7 @@ def reach_arm(effect_ratio, pool_doc=None, calib_doc=None, weekly_doc=None,
     for key, row in ((forecast or {}).get("games") or {}).items():
         if str(row.get("source") or "") != "forecast":
             continue
-        if float(row.get("precip_mm") or 0.0) >= float(threshold_mm):
+        if number(row.get('precip_mm'), 'precip_mm') and row['precip_mm'] >= float(threshold_mm):
             wet_games.add(key)
 
     season, week = pool.get("season"), pool.get("week")

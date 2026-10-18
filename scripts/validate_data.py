@@ -518,6 +518,11 @@ def validate_against_schema(data, schema, label):
     """Validate `data` against `schema`; raise ValidationError listing all misses."""
     errors = []
     _validate(data, schema, label, errors)
+    if schema.get('$id') == 'weather_forecast.schema.json':
+        try:
+            check_weather_forecast(data)
+        except ValidationError as error:
+            errors.append(str(error))
     if errors:
         raise ValidationError("%s failed schema validation:\n  - %s"
                               % (label, "\n  - ".join(errors)))
@@ -526,6 +531,36 @@ def validate_against_schema(data, schema, label):
 # ---------------------------------------------------------------------------
 # Cross-file invariants.
 # ---------------------------------------------------------------------------
+
+
+def check_weather_forecast(document, schedule_doc=None):
+    """Strict v2 semantics plus immutable legacy-context compatibility.
+
+    The compact schema validator has no union/combinator support. Optional v2
+    shape fields alone would be insufficient: this explicit semantic gate is
+    invoked by the real publisher schema path, not just a focused unit test.
+    Live consumers separately require v2 and current schedule/clock binding.
+    """
+    from scripts import weather_source_contract as weather
+    if type(document) is not dict:
+        raise ValidationError('weather_forecast: document unavailable')
+    if 'version' in document or 'profile' in document:
+        args = {'schedule_games': schedule_doc.get('games'), 'season': schedule_doc.get('season')} \
+            if type(schedule_doc) is dict else {}
+        if not weather.validate_document(document, **args):
+            raise ValidationError('weather_forecast: registered v2 source contract invalid')
+    else:
+        if set(document) - {'generated_utc', 'source', 'games', 'climatology', 'sources'}:
+            raise ValidationError('weather_forecast: legacy context contains current metadata')
+        if any(type(document.get(name, {})) is not dict for name in ('games', 'climatology')):
+            raise ValidationError('weather_forecast: legacy rows must be maps')
+        for row in document.get('games', {}).values():
+            if type(row) is not dict or any(k in row for k in ('binding', 'game_window', 'sample_utc')) \
+                    or row.get('precip_mm') is None:
+                raise ValidationError('weather_forecast: unversioned current fields or unknown legacy rain')
+        for row in document.get('climatology', {}).values():
+            if type(row) is not dict or 'binding' in row:
+                raise ValidationError('weather_forecast: unversioned current binding')
 
 # MARKET INDEPENDENCE (user policy, PERMANENT): market-price signals are
 # DISPLAY ONLY. They are pinned to weight 0.0 forever — even after the day-zero
@@ -3597,6 +3632,13 @@ def main():
                 failures.append(str(exc))
 
     # 2) Cross-file invariants.
+    try:
+        forecast_path = os.path.join(DATA, 'weather_forecast.json')
+        if os.path.exists(forecast_path):
+            check_weather_forecast(_load(forecast_path), _load(os.path.join(DATA, 'schedule_full.json')))
+            print('ok    weather_forecast current registered binding (legacy archival context remains accepted)')
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
     try:
         check_meta_weights(_load(os.path.join(DATA, "meta.json")))
         print("ok    meta.json signal-registry invariant (32 signals @ 0.0)")

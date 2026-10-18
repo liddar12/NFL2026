@@ -11,6 +11,7 @@ the hour-picking math on a fixture payload, never fetches, never writes.
 """
 
 import json
+import math
 import os
 import sys
 import urllib.request
@@ -38,7 +39,10 @@ def load_finals(year):
 
 
 def pick_hour(payload_hourly, kickoff_utc):
-    """{wind_kph, temp_c, precip_mm} for the hour nearest kickoff, or None."""
+    """Kickoff-hour sample; unknown precipitation remains None, never dry.
+
+    Existing archived rows are never rewritten by this parser change.
+    """
     want = kickoff_utc[:13]                      # "2024-12-01T18"
     times = payload_hourly.get("time") or []
     try:
@@ -51,10 +55,12 @@ def pick_hour(payload_hourly, kickoff_utc):
     wind = val("wind_speed_10m")
     temp = val("temperature_2m")
     precip = val("precipitation")
-    if wind is None or temp is None:
+    def finite(value):
+        return type(value) in (int, float) and math.isfinite(value)
+    if not finite(wind) or not finite(temp) or wind < 0:
         return None
     return {"wind_kph": round(float(wind), 1), "temp_c": round(float(temp), 1),
-            "precip_mm": round(float(precip or 0.0), 2)}
+            "precip_mm": round(float(precip), 2) if finite(precip) and precip >= 0 else None}
 
 
 def selftest():
