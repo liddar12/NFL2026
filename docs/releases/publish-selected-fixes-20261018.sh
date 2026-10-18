@@ -27,12 +27,23 @@ apply_selected_patch() {
   [ -s "$patch" ] || fail 'Selected patch is empty.'
   git -C "$destination" apply --3way --index "$patch"
 }
+validate_source_head() {
+  local repository="$1" reviewed="$2" candidate="$3" path
+  git -C "$repository" merge-base --is-ancestor "$reviewed" "$candidate" || fail 'Local HEAD does not contain the reviewed functional release.'
+  while IFS= read -r path; do
+    case "$path" in docs/*) ;; *) fail "Unreviewed functional change after the selected release: $path"; return 1;; esac
+  done < <(git -C "$repository" diff --name-only "$reviewed" "$candidate")
+}
 validate_generated_delta() {
   local repository="$1" source="$2" generated="$3" path count=0
   git -C "$repository" merge-base --is-ancestor "$source" "$generated" || fail 'Generated head lost the reviewed source commit.'
   [ "$source" != "$generated" ] || fail 'Daily did not produce a new data commit; freshness is unverified.'
   while IFS= read -r path; do
-    case "$path" in data/*) count=$((count + 1));; *) fail "Daily changed source outside data/: $path"; return 1;; esac
+    case "$path" in
+      data/contracts/*) fail "Daily changed a reviewed source contract: $path"; return 1;;
+      data/*) count=$((count + 1));;
+      *) fail "Daily changed source outside data/: $path"; return 1;;
+    esac
   done < <(git -C "$repository" diff --name-only "$source" "$generated")
   [ "$count" -gt 0 ] || fail 'Daily produced no data changes.'
 }
@@ -114,7 +125,10 @@ main() {
   export GH_TOKEN GH_HOST
   [ "$(gh api user --jq .login)" = liddar12 ] || fail 'Personal GitHub identity is not liddar12.'
   if [ -n "$verified_artifacts" ]; then resume_verified "$verified_artifacts"; return; fi
-  [ "$(git -C "$SOURCE_REPO" rev-parse "$SOURCE_COMMIT")" = "$SOURCE_COMMIT" ]
+  local reviewed_source="$SOURCE_COMMIT"
+  SOURCE_COMMIT="$(git -C "$SOURCE_REPO" rev-parse HEAD)"
+  # Include final helper/evidence/handoff docs, without accepting later code.
+  validate_source_head "$SOURCE_REPO" "$reviewed_source" "$SOURCE_COMMIT"
   # Explicit canonical URL also works in a bundle-restored checkout whose origin
   # points at a local bundle. Never rewrite the owner's remote configuration.
   git_owner -C "$SOURCE_REPO" fetch --quiet "$NETWORK_REMOTE" main

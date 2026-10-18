@@ -39,6 +39,16 @@ test('actual three-way patch preserves newer main UI/data and only conflicts sto
     writeFileSync(join(repo, 'data/contracts/test.schema.json'), '{"version":2}\n');
     git(repo, 'commit', '--quiet', '-am', 'selected source');
     const candidate = git(repo, 'rev-parse', 'HEAD');
+    mkdirSync(join(repo, 'docs/releases'), {recursive: true});
+    writeFileSync(join(repo, 'docs/releases/handoff.md'), 'Final operator handoff\n');
+    git(repo, 'add', '.'); git(repo, 'commit', '--quiet', '-m', 'final docs');
+    const documented = git(repo, 'rev-parse', 'HEAD');
+    const validateHead = head => shell('validate_source_head "$TEST_REPO" "$TEST_REVIEWED" "$TEST_HEAD"', {TEST_REPO: repo, TEST_REVIEWED: candidate, TEST_HEAD: head});
+    assert.equal(validateHead(documented).status, 0, 'final docs/helper commits are accepted');
+    assert.notEqual(validateHead(base).status, 0, 'reviewed functional ancestor is required');
+    writeFileSync(join(repo, 'app/main.js'), 'unreviewed functional change\n');
+    git(repo, 'commit', '--quiet', '-am', 'unreviewed source');
+    assert.notEqual(validateHead(git(repo, 'rev-parse', 'HEAD')).status, 0, 'later functional changes are rejected');
     git(repo, 'checkout', '--quiet', 'main');
     writeFileSync(join(repo, 'app/views/parlays.js'), 'new public PR181 UX\n');
     writeFileSync(join(repo, 'data/current.json'), '{"public":2}\n');
@@ -46,13 +56,14 @@ test('actual three-way patch preserves newer main UI/data and only conflicts sto
     const publicHead = git(repo, 'rev-parse', 'HEAD');
     git(repo, 'remote', 'add', 'origin', repo); // local-only remote for main guard
     git(repo, 'worktree', 'add', '--quiet', '--detach', destination, publicHead);
-    const env = {TEST_REPO: repo, TEST_DEST: destination, TEST_BASE: base, TEST_CANDIDATE: candidate, TEST_PATCH: join(directory, 'selected.patch')};
+    const env = {TEST_REPO: repo, TEST_DEST: destination, TEST_BASE: base, TEST_CANDIDATE: documented, TEST_PATCH: join(directory, 'selected.patch')};
     const applied = shell('apply_selected_patch "$TEST_REPO" "$TEST_BASE" "$TEST_CANDIDATE" "$TEST_DEST" "$TEST_PATCH"', env);
     assert.equal(applied.status, 0, applied.stderr);
     assert.equal(readFileSync(join(destination, 'app/views/parlays.js'), 'utf8'), 'new public PR181 UX\n');
     assert.equal(readFileSync(join(destination, 'data/current.json'), 'utf8'), '{"public":2}\n');
     assert.equal(readFileSync(join(destination, 'app/main.js'), 'utf8'), 'selected code fix\n');
     assert.equal(readFileSync(join(destination, 'data/contracts/test.schema.json'), 'utf8'), '{"version":2}\n');
+    assert.equal(readFileSync(join(destination, 'docs/releases/handoff.md'), 'utf8'), 'Final operator handoff\n');
     git(destination, 'commit', '--quiet', '-m', 'prepared source');
     const source = git(destination, 'rev-parse', 'HEAD');
     const guard = () => shell('WORKTREE="$TEST_DEST"; START_MAIN="$TEST_BASE_MAIN"; NETWORK_REMOTE="$TEST_REPO"; git_owner() { git "$@"; }; assert_main_unchanged', {...env, TEST_BASE_MAIN: publicHead});
@@ -64,6 +75,9 @@ test('actual three-way patch preserves newer main UI/data and only conflicts sto
     assert.equal(validate(source, generated).status, 0);
     assert.notEqual(validate(source, source).status, 0, 'unchanged data is not fresh acceptance');
     assert.notEqual(validate(candidate, generated).status, 0, 'unrelated source identity is rejected');
+    writeFileSync(join(destination, 'data/contracts/test.schema.json'), '{"version":3}\n');
+    git(destination, 'commit', '--quiet', '-am', 'bad generated contract');
+    assert.notEqual(validate(source, git(destination, 'rev-parse', 'HEAD')).status, 0, 'daily cannot rewrite reviewed source contracts');
     writeFileSync(join(destination, 'app/main.js'), 'unexpected generated code\n');
     git(destination, 'commit', '--quiet', '-am', 'bad generation');
     assert.notEqual(validate(source, git(destination, 'rev-parse', 'HEAD')).status, 0);
