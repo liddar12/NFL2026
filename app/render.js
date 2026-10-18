@@ -241,10 +241,13 @@ export function renderGameCard(game) {
   const homePct = Math.round((game.probs && game.probs.home) * 100);
   const awayPct = Math.round((game.probs && game.probs.away) * 100);
 
-  // Venue = home stadium + roof; roof-only if we don't know the stadium.
+  // A nominal home team is not a venue: international/neutral games must not
+  // display its ordinary home stadium. Slate may supply the exact schedule
+  // venue as display-only metadata; absent evidence stays explicitly unknown.
   const roof = String(game.roof || '').toUpperCase();
-  const stadium = TEAMS[home] && TEAMS[home].stadium;
-  const venue = stadium ? `${stadium.toUpperCase()} · ${roof}` : roof;
+  const stadium = typeof game.venue === 'string' && game.venue.trim()
+    ? game.venue.toUpperCase() : 'VENUE UNKNOWN';
+  const venue = roof ? `${stadium} · ${roof}` : stadium;
 
   // Human label, never internal snake_case ("ELO_PRIOR" -> "ELO PRIOR").
   const model = String(game.model || '').replace(/_/g, ' ').toUpperCase();
