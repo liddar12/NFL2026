@@ -883,6 +883,11 @@ export default async function mountParlays(el) {
         .then(() => {
           if (active === 'my') setMyChromeHidden(true);
           if (atdActive()) setAtdMode(true);      // R101c — same reason, TD cards
+          // R133 — the chips count each visible card by its card_id, which
+          // applyParlayReview has only now stamped; counted before, a card
+          // re-ranked after kickoff fell back to its rank id, met the other
+          // card's row and counted nowhere (data-ci #203, 401872996 g1<->g2).
+          if (week === selWeek) paintBuckets();
         });
       paintBuckets();
       paintPnl();
