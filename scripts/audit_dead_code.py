@@ -164,11 +164,15 @@ def py_inventory():
         if name in ENTRY_PY or name.startswith("__") or name.startswith("test_"):
             continue
         pat = re.compile(r"\b" + re.escape(name) + r"\b")
+        # Classification only needs to know whether any other file refers to
+        # this name. Keep the same word boundaries, including comments/strings,
+        # but stop at the first reference instead of counting the whole corpus.
+        if any(pat.search(src) is not None for g, src in corpus.items() if g != f):
+            continue
         own = len(pat.findall(corpus.get(f, "")))
-        others = sum(len(pat.findall(src)) for g, src in corpus.items() if g != f)
-        if others == 0 and own <= 1:
+        if own <= 1:
             dead.append({"file": os.path.relpath(f, ROOT), "name": name, "line": line})
-        elif others == 0:
+        else:
             dead.append({"file": os.path.relpath(f, ROOT), "name": name, "line": line, "private_use_only": own - 1})
     return {"defs": len(defs), "unreferenced": [d for d in dead if "private_use_only" not in d],
             "file_private": [d for d in dead if "private_use_only" in d]}

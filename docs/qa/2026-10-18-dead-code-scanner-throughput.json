@@ -1,0 +1,75 @@
+{
+  "kind": "nfl.dead_code_scanner_throughput.v1",
+  "verified_chicago": "2026-10-18T12:52:24-05:00",
+  "timezone": "America/Chicago",
+  "branch": "build/sunday-scanner-throughput-20261018",
+  "base_commit": "b56fd8dd50769030a1e9990bdaf570a5599e5096",
+  "change": "Short-circuit Python external-reference searches; count internal occurrences only when no external reference exists",
+  "preserved": [
+    "exact regular-expression word boundaries, including Unicode behavior",
+    "comments, strings and invalid-syntax files as reference consumers",
+    "definition scope, entry exclusions, ignored directories and extensions",
+    "eager corpus reads and read-error propagation",
+    "complete inventory classification, schema, row order, line identities and private-use counts",
+    "JS/data inventories, CLI output, selftest assertions and existing gate commands"
+  ],
+  "environment": {"platform": "darwin", "python": "3.9.6", "node": "v26.7.0"},
+  "bounded_verification": {
+    "command": "node --test --test-concurrency=2 tests/feature/r52_dead_code_throughput.test.mjs",
+    "exit": 0,
+    "tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 291.47125,
+    "adversarial_classification_cases": 2,
+    "fixture_definitions": 28,
+    "legacy_oracle": "tests/fixtures/dead_code_inventory_reference.py",
+    "deterministic_work_check": "An early externally referenced name performs one search and zero occurrence counts; an externally unreferenced name retains its exact internal count",
+    "fixture_bytes_unchanged": true
+  },
+  "matched_repository_comparison": {
+    "actual_command": "python3 -B /private/tmp/nfl-r52-scanner-parity.YhcTrL/compare.py",
+    "exit": 0,
+    "original_source_sha256": "04cd883aaca1ca89676e56717278accd94800bc8720ab96ffa30719d85249e84",
+    "optimized_source_sha256": "3bb591dd086c99b86f308367e45c2348c1ca0a63b84b0a22a3a2cfa384315165",
+    "workload_sha256": "17201127dc8428335575e6cc3fb22d7c9863d5e34faffd6b522a0ee946d76a70",
+    "workload_files": 580,
+    "workload_bytes": 10633063,
+    "top_level_feed_names": 67,
+    "workload_unchanged_before_between_after": true,
+    "complete_output_equal": true,
+    "canonical_output_bytes": 102362,
+    "canonical_output_sha256": "0299846c2ecd2b723be20f8614e912ef4ca728d2ff4acaf8bd73c3a3d786580e",
+    "counts": {"js_modules": 46, "python_defs": 2324, "python_unreferenced": 2, "python_file_private": 606, "data_feeds": 67},
+    "original_seconds": {
+      "js": {"wall": 0.854280, "cpu": 0.825242},
+      "python": {"wall": 161.959214, "cpu": 161.899446},
+      "data": {"wall": 0.718793, "cpu": 0.080154},
+      "total": {"wall": 163.532392, "cpu": 162.804933}
+    },
+    "optimized_seconds": {
+      "js": {"wall": 0.989078, "cpu": 0.928288},
+      "python": {"wall": 77.721178, "cpu": 77.682217},
+      "data": {"wall": 1.479378, "cpu": 0.099566},
+      "total": {"wall": 80.189733, "cpu": 78.710157}
+    },
+    "python_wall_speedup": 2.0838491923012286,
+    "total_wall_speedup": 2.039318325202554,
+    "total_wall_seconds_saved": 83.342659,
+    "limitations": "One paired run, original first and optimized second, on a shared Mac. Source fingerprinting warmed file caches before each scan. No randomized order or repeated benchmark. These are scanner-only timings, not a full-suite ETA or measured hosted CI speedup."
+  },
+  "reproduction": {
+    "helper": "docs/qa/2026-10-18-dead-code-scanner-compare.py",
+    "preflight_command": "python3 -B docs/qa/2026-10-18-dead-code-scanner-compare.py --check-only",
+    "preflight_exit": 0,
+    "full_comparison_command": "python3 -B docs/qa/2026-10-18-dead-code-scanner-compare.py",
+    "public_baseline_commit": "9a537b9fdf5776d280f22549b1cb4aceb0b45458",
+    "public_baseline_note": "The public ancestor's scanner bytes match the measured b56fd8dd baseline SHA-256 exactly; the helper verifies this and the exact workload before running, avoiding a private-ancestor dependency. Documentation is outside the scanned corpus."
+  },
+  "git_diff_check": "passed",
+  "full_smoke_or_gate_rerun": false,
+  "repository_data_changed": false,
+  "integrated_into_release": false,
+  "pushed_or_deployed": false
+}
