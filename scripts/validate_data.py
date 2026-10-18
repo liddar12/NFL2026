@@ -1447,6 +1447,37 @@ def check_atd_game_cards(cards_doc, leg_pool, joint_backtest):
                               % "\n  - ".join(problems[:20]))
 
 
+def check_review_learning_join(review, tuning, snapshot_dir):
+    """review.json's learning block must be what scripts/build_review.py derives
+    from the model_tuning.json and lock snapshots it is published WITH.
+
+    Each file is valid alone; the join is what publish races break (R111 class):
+    2026-10-18 daily #329 checked out main 5s before gameday #182 published a
+    newer refit pass, rebuilt review.json from the older archive, and its
+    regenerable review.json won the rebase while model_tuning.json kept #182's
+    entry (data-ci #196 red). Failing here makes publish_data.sh fall back to
+    the published regenerable files instead of shipping the mismatch."""
+    from scripts import build_review as br
+    if review is None:
+        return
+    locks, _files = br.load_locks(snapshot_dir, review.get("season"))
+    want = br.learning_block(locks, tuning)
+    got = review.get("learning") or {}
+    problems = []
+    for key in ("graded_locks_total", "refit", "consumed_all"):
+        if got.get(key) != want.get(key):
+            problems.append("learning.%s is %r; model_tuning.json + data/snapshots give %r"
+                            % (key, got.get(key), want.get(key)))
+    for wk, blk in sorted((review.get("weeks") or {}).items()):
+        wl = ((blk or {}).get("summary") or {}).get("learning") or {}
+        if wl.get("refit") is not None and wl.get("refit") != want.get("refit"):
+            problems.append("weeks.%s.summary.learning.refit is %r, not the newest pass %r"
+                            % (wk, wl.get("refit"), want.get("refit")))
+    if problems:
+        raise ValidationError("review.json learning block joins model_tuning.json and the "
+                              "lock snapshots:\n  - %s" % "\n  - ".join(problems))
+
+
 def check_candidate_signal_weights(tuning):
     """R100 — a LEARNED weight on the shipped number must carry the receipt that earned it.
 
@@ -3517,6 +3548,14 @@ def main():
     try:
         check_candidate_signal_weights(_load(os.path.join(DATA, "model_tuning.json")))
         print("ok    model_tuning.json learned candidate weights carry a passing receipt (R100)")
+    except (OSError, ValueError, ValidationError) as exc:
+        failures.append(str(exc))
+    try:
+        _review = os.path.join(DATA, "review.json")
+        check_review_learning_join(_load(_review) if os.path.exists(_review) else None,
+                                   _load(os.path.join(DATA, "model_tuning.json")),
+                                   os.path.join(DATA, "snapshots"))
+        print("ok    review.json learning block joins model_tuning.json + lock snapshots")
     except (OSError, ValueError, ValidationError) as exc:
         failures.append(str(exc))
     try:
