@@ -316,4 +316,6 @@ jobs:
       # picks up data/pipeline_stages.json, which lives under data/ like every
       # other generated artifact.
       - name: Commit data/
+        env:
+          PUBLISH_BRANCH: ${{ github.ref_name }}
         run: 'bash scripts/publish_data.sh "data: daily pipeline refresh [skip actions]"'
