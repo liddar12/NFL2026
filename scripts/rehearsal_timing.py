@@ -161,11 +161,12 @@ class RehearsalTiming:
                     self.document["stderr_error_type"] = type(error).__module__ + "." + type(error).__qualname__
 
 
-def run_command(timing, command, *, timeout=300):
+def run_command(timing, command, *, timeout=None):
     """Observe a child with inherited streams; do not retain its argv or output.
 
-    The CLI maps timeout to 124, inability to start to 127, and signal termination
-    to 128+signal. The phase retains the child's raw return code when available.
+    There is no implicit deadline. The CLI maps an explicitly requested timeout
+    to 124, inability to start to 127, and signal termination to 128+signal. The
+    phase retains the child's raw return code when available.
     """
     with timing.phase("command", kind="command") as record:
         try:
@@ -180,10 +181,22 @@ def run_command(timing, command, *, timeout=300):
         return result.returncode if result.returncode >= 0 else 128 - result.returncode
 
 
+def positive_timeout(value):
+    try:
+        seconds = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("timeout must be positive finite seconds") from None
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise argparse.ArgumentTypeError("timeout must be positive finite seconds")
+    return seconds
+
+
 def main(argv=None, *, timing=None):
     def operation(observer):
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--report", required=True, type=Path)
+        parser.add_argument("--timeout", type=positive_timeout, default=None,
+            help="optional positive finite child deadline in seconds; no deadline by default")
         parser.add_argument("command", nargs=argparse.REMAINDER)
         args = parser.parse_args(argv)
         if args.report.resolve().is_relative_to(Path(__file__).resolve().parents[1] / "data"):
@@ -193,7 +206,7 @@ def main(argv=None, *, timing=None):
         command = args.command[1:] if args.command[:1] == ["--"] else args.command
         if not command:
             parser.error("a command after -- is required")
-        return run_command(observer, command)
+        return run_command(observer, command, timeout=args.timeout)
     return (timing or RehearsalTiming()).run(operation)
 
 

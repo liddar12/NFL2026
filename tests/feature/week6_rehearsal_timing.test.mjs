@@ -250,7 +250,7 @@ try:
             observer.attach(legacy, lambda:saved.append(copy.deepcopy(legacy)))
             return rehearsal.run_command(observer, ['fixture-command', 'secret-argument'])
         assert timing.run(operation) == expected
-        assert calls == [(['fixture-command', 'secret-argument'], {'timeout':300})]
+        assert calls == [(['fixture-command', 'secret-argument'], {'timeout':None})]
         doc = saved[-1]['timing']; phase = doc['phases'][0]
         assert doc['whole_run']['returncode'] == expected
         assert phase['name'] == 'command' and phase['outcome'] == 'completed'
@@ -261,9 +261,9 @@ try:
         cases += 1
 finally:
     rehearsal.subprocess.run = original_run
-print(json.dumps({'command_cases':cases, 'command_timeout':300, 'argv_omitted':True}))
+print(json.dumps({'command_cases':cases, 'command_timeout':None, 'argv_omitted':True}))
 `);
-  assert.deepEqual(result, {command_cases: 5, command_timeout: 300, argv_omitted: true});
+  assert.deepEqual(result, {command_cases: 5, command_timeout: null, argv_omitted: true});
 });
 
 test('real standalone CLI records whole invocation and child phase without exposing argv, environment or streams', () => {
@@ -271,8 +271,8 @@ test('real standalone CLI records whole invocation and child phase without expos
   const secret = 'timing-test-private-sentinel';
   const child = ['python3', '-I', '-S', '-B', '-c',
     'import sys; print("child output"); print("child diagnostic", file=sys.stderr); sys.exit(7)', secret];
-  function run(report, command = child) {
-    return spawnSync('python3', ['-I', '-S', '-B', SCRIPT, '--report', report, '--', ...command], {
+  function run(report, command = child, options = []) {
+    return spawnSync('python3', ['-I', '-S', '-B', SCRIPT, '--report', report, ...options, '--', ...command], {
       cwd: ROOT, encoding: 'utf8', timeout: 30000,
       env: {...process.env, REHEARSAL_TEST_PRIVATE: secret},
     });
@@ -313,6 +313,21 @@ test('real standalone CLI records whole invocation and child phase without expos
     assert.equal(missing.status, 127, missing.stderr);
     assert.equal(JSON.parse(readFileSync(report, 'utf8')).timing.phases[0].status, 'start_failed');
     assert.ok(!readFileSync(report, 'utf8').includes(secret));
+    const deadline = run(report, ['python3', '-I', '-S', '-B', '-c',
+      'import time; time.sleep(5)'], ['--timeout', '0.05']);
+    assert.equal(deadline.status, 124, deadline.stderr);
+    const deadlineDoc = JSON.parse(readFileSync(report, 'utf8')).timing;
+    assert.equal(deadlineDoc.whole_run.returncode, 124);
+    assert.equal(deadlineDoc.phases[0].status, 'timeout');
+    assert.ok(!('returncode' in deadlineDoc.phases[0]));
+    const preservedReport = readFileSync(report, 'utf8');
+    for (const invalid of ['0', '-1', 'nan', 'inf', 'not-a-number']) {
+      const refused = run(report, child, ['--timeout', invalid]);
+      assert.equal(refused.status, 2);
+      assert.equal(refused.stdout, '');
+      assert.ok(refused.stderr.includes('timeout must be positive finite seconds'));
+      assert.equal(readFileSync(report, 'utf8'), preservedReport);
+    }
     const rejected = run(join(ROOT, 'data', 'timing-should-not-exist.json'));
     assert.equal(rejected.status, 2);
     assert.ok(rejected.stderr.includes('outside the repository data directory'));
