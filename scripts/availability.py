@@ -42,6 +42,7 @@ Stdlib only, pure, no I/O, no network. `--selftest`.
 """
 
 import os
+import re
 import sys
 
 _THIS = os.path.dirname(os.path.abspath(__file__))
@@ -416,7 +417,103 @@ def lookup_report(index, by_name, team, name, ambiguous=frozenset()):
     return by_name.get(n)
 
 
-def apply_to_records(records, index, by_name=None, excluded_ids=frozenset()):
+def _report_identifiers(row, projection=False):
+    """Exact ESPN identity; a display name is never an identifier/crosswalk."""
+    values = []
+    gid = row.get("gsis_id") if projection else None
+    if isinstance(gid, str) and gid.startswith("espn-"):
+        values.append(gid[5:])
+    values.extend(row.get(k) for k in ("athlete_id", "espn_id")
+                  if row.get(k) not in (None, ""))
+    ids, invalid = set(), False
+    for value in values:
+        if type(value) is int and value >= 0:
+            value = str(value)
+        if type(value) is not str or re.fullmatch(r"[0-9]+", value) is None:
+            invalid = True
+            continue
+        ids.add(value)
+    return ids, invalid or len(ids) > 1
+
+
+def _report_identity(row, projection=False):
+    ids, invalid = _report_identifiers(row, projection)
+    return (next(iter(ids)) if len(ids) == 1 else None), invalid
+
+
+def resolve_report(records, injuries):
+    """ID-first report binding for current producer consumers, without mutation.
+
+    A comparable explicit ID always wins over a name. Equal IDs still require
+    an agreeing team before a medical consequence; conflicts withhold only the
+    affected identity. Legacy name joins remain possible only when one side has
+    no ESPN authority, and never borrow a different explicit ID. Refusals are
+    source uncertainty, not OUT/ACTIVE or a zero projection.
+    """
+    records, injuries = list(records or []), list(injuries or [])
+    views, matched, refusals = {}, {}, {}
+    identities = [_report_identity(p, True) for p in records]
+    report_ids = [_report_identity(r) for r in injuries]
+    report_aliases = [_report_identifiers(r) for r in injuries]
+    pool_ids = {}
+    for p in records:
+        for eid in _report_identifiers(p, True)[0]:
+            pool_ids.setdefault(eid, set()).add(p.get("gsis_id"))
+    ambiguous = dup_names(records)
+    for p, (eid, bad) in zip(records, identities):
+        pid, name, team = p.get("gsis_id"), norm_name(p.get("name")), p.get("team")
+        reason = "conflicting_injury_identity" if bad else None
+        chosen = []
+        exact = [(r, invalid) for r, (ids, invalid) in zip(injuries, report_aliases)
+                 if eid and eid in ids]
+        if not reason and eid and len(pool_ids.get(eid, ())) > 1:
+            reason = "ambiguous_injury_identity"
+        if not reason and exact:
+            if any(invalid for _, invalid in exact):
+                reason = "conflicting_injury_identity"
+            elif any(not r.get("team") or r.get("team") != team for r, _ in exact):
+                reason = "injury_identity_team_conflict"
+            else:
+                chosen = [r for r, _ in exact]
+        elif not reason:
+            named = [(r, rid, invalid) for r, (rid, invalid) in zip(injuries, report_ids)
+                     if name and norm_name(r.get("player")) == name]
+            # Explicit other people cannot supply this player's status, even
+            # when their display names and teams happen to be identical.
+            possible = [(r, rid, invalid) for r, rid, invalid in named
+                        if not eid or rid is None or invalid]
+            local = [item for item in possible if team and item[0].get("team") == team]
+            candidates = local or possible
+            if not local and (name in ambiguous or len({r.get("team") for r, _, _ in candidates}) > 1):
+                candidates = []
+            ids = {rid for _, rid, _ in candidates if rid}
+            same_team_pool = [q for q in records if q.get("team") == team
+                              and norm_name(q.get("name")) == name]
+            incompatible_name_ids = {rid for r, rid, invalid in named
+                                     if not invalid and rid and (not local or r.get("team") == team)}
+            if candidates and (any(invalid for _, _, invalid in candidates) or len(ids) > 1
+                    or len(same_team_pool) > 1
+                    or eid and any(rid != eid for rid in incompatible_name_ids)
+                    or not eid and any(pool_ids.get(rid) for rid in ids)):
+                reason = "ambiguous_injury_identity"
+            elif candidates:
+                chosen = [r for r, _, _ in candidates]
+        if not reason and chosen:
+            view = None
+            for row in chosen:
+                candidate = _avail_fields(row)
+                if not candidate.get("availability"):
+                    reason = "quarantined_status"
+                    break
+                view = _worse(view, candidate)
+            if not reason:
+                matched[pid], views[pid] = chosen, view
+        if reason:
+            refusals[pid] = reason
+    return {"views": views, "rows": matched, "refusals": refusals}
+
+
+def apply_to_records(records, index, by_name=None, excluded_ids=frozenset(), resolved=None):
     """Stamp the canonical `injury_status` onto player records IN PLACE.
 
     `records` are espn_players.build_player_records rows ({team, name, ...}); they
@@ -431,14 +528,18 @@ def apply_to_records(records, index, by_name=None, excluded_ids=frozenset()):
     `by_name` is index_report_by_name(...) when the caller wants the offseason
     name fallback (see that function's header); omitted, the join is exactly the
     old (team, name) key.
+
+    `resolved` explicitly selects the producer's ID-first binding. Legacy
+    callers retain their existing index contract; source refusals must also be
+    included in excluded_ids by a producer that stamps current recommendations.
     """
     n = 0
     ambiguous = dup_names(records) if by_name else frozenset()
     for rec in records or []:
         if rec.get("gsis_id") in excluded_ids:
             continue
-        view = lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"),
-                             ambiguous)
+        view = resolved["views"].get(rec.get("gsis_id")) if resolved is not None else \
+            lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"), ambiguous)
         if not view:
             continue
         code = view["availability"]

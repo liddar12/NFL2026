@@ -550,10 +550,10 @@ def _stamp_prior_seasons(records, history_path=None):
     return stamped
 
 
-def _stamp_absence(records, index, by_name, excluded_ids=frozenset()):
+def _stamp_absence(records, index, by_name, excluded_ids=frozenset(), resolved=None):
     """R49 — stamp the DOCUMENTED expected absence (`absence_weeks`, and
     `absence_confidence` when non-zero) from the injury report onto the pool
-    records, through the SAME join (availability.lookup_report) and the SAME
+    records, through the SAME scoped identity binding and the SAME
     week rule (build_weekly.blocked_week_count) the weekly split uses, so the
     season baseline and the zeroed weeks can never disagree about how long a
     player is out. No report row, or a week-class tag, or a suspension of
@@ -565,8 +565,8 @@ def _stamp_absence(records, index, by_name, excluded_ids=frozenset()):
     for rec in records:
         if rec.get("gsis_id") in excluded_ids:
             continue
-        view = availability.lookup_report(index, by_name or {}, rec.get("team"),
-                                          rec.get("name"), ambiguous)
+        view = resolved["views"].get(rec.get("gsis_id")) if resolved is not None else \
+            availability.lookup_report(index, by_name or {}, rec.get("team"), rec.get("name"), ambiguous)
         weeks, confidence = 0, None
         if view:
             weeks, confidence = build_weekly.blocked_week_count({
@@ -596,10 +596,11 @@ def _apply_injury_report(records, document, checked_utc, week):
         return 0, 0
     scope, rows = availability.quarantine_inputs(records, document)
     index, by_name = availability.index_report(rows), availability.index_report_by_name(rows)
-    excluded = set(scope["players"])
+    resolved = availability.resolve_report(records, rows)
+    excluded = set(scope["players"]) | set(resolved["refusals"])
     overridden = availability.apply_to_records(records, index, by_name=by_name,
-                                               excluded_ids=excluded)
-    absent = _stamp_absence(records, index, by_name, excluded_ids=excluded)
+                                               excluded_ids=excluded, resolved=resolved)
+    absent = _stamp_absence(records, index, by_name, excluded_ids=excluded, resolved=resolved)
     return overridden, absent
 
 
