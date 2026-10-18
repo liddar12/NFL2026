@@ -25,6 +25,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { setLegs, scopedBuckets } from './_legstep.mjs';
+import { cardIdOf } from '../../app/review.js';
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const POOL = read('../../data/leg_pool.json');
@@ -611,5 +612,44 @@ test('R133: bucket chips count what the list can show; off-slate rows are a sepa
     await expect(page.locator('#parlays-list .card.parlay')).toHaveCount(n);
     await page.click('.rv-bucket[data-bucket="all_hit"]');
   }
+  expect(errors).toEqual([]);
+});
+
+/* R133 — data-ci #203, 2026-10-18: after kickoff the builder re-ranked JAX @ NO,
+ * so the slate's g1 is the archive's g2 and vice versa. The chips counted each
+ * card before applyParlayReview had stamped its card_id, fell back to the rank
+ * id, met the OTHER card's row and counted it nowhere (ALL MISSED 0, not 2).
+ * Locked here on any data: two of today's GAME cards, graded under each other's
+ * rank ids, must each count in their own bucket. */
+test('R133: a card re-ranked after kickoff is counted by its identity, not its rank id', async ({ page }) => {
+  const errors = errorsOf(page);
+  const cards = (PARLAYS.parlays || []).filter((c) => c.scope !== 'week' && c.game_id != null);
+  const gid = cards.map((c) => c.game_id).find((g) => cards.filter((c) => c.game_id === g).length >= 2);
+  expect(gid, 'the slate has a game with two GAME cards').toBeTruthy();
+  const [a, b] = cards.filter((c) => c.game_id === gid);
+  // the app's own identity rule (sha1 of the archive writer's card identity)
+  const [idA, idB] = await Promise.all([cardIdOf(a), cardIdOf(b)]);
+  expect(idA && idB).toBeTruthy();
+  const template = Object.values(REVIEW.weeks || {}).flatMap((w) => w.parlays || [])
+    .find((r) => r.scope !== 'week' && r.bucket === 'all_missed');
+  expect(template, 'a graded GAME row to copy the shape of').toBeTruthy();
+  const row = (card, id, rankId, bucket) => ({
+    ...JSON.parse(JSON.stringify(template)), game_id: card.game_id, card_id: id, parlay_id: rankId,
+    bucket, legs: card.legs.map((l, i) => ({ ...l, result: bucket === 'partial' && i === 0 ? 'hit' : 'miss' })),
+  });
+  await page.route('**/data/review.json', async (route) => {
+    const doc = await (await route.fetch()).json();
+    const base = doc.weeks[CUR_WEEK] || JSON.parse(JSON.stringify(doc.weeks[GRADED_WEEK]));
+    base.parlays = [row(a, idA, b.parlay_id, 'all_missed'), row(b, idB, a.parlay_id, 'partial')];
+    base.summary.parlays.buckets = { all_hit: 0, push: 0, partial: 1, all_missed: 1, pending: 0 };
+    doc.weeks[CUR_WEEK] = base;
+    await route.fulfill({ json: doc });
+  });
+  await mount(page);
+  await page.evaluate(() => { const d = document.querySelector('#parlay-retro'); if (d) d.open = true; });
+  await page.waitForSelector('#parlay-buckets .rv-bucket', { timeout: 20000 });
+  await expect(page.locator('.rv-bucket[data-bucket="all_missed"] .rv-bucket-n')).toHaveText('1');
+  await expect(page.locator('.rv-bucket[data-bucket="partial"] .rv-bucket-n')).toHaveText('1');
+  await expect(page.locator('#parlay-buckets .rv-off-slate')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
