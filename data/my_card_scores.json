@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-18T23:24:08Z",
+  "generated_utc": "2026-10-18T23:28:05Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (88 games); scores from data/review.json FINAL rows (88 games); scores from ESPN live, STATUS-gated FINAL (73 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (88 games); scores from data/review.json FINAL rows (89 games); scores from ESPN live, STATUS-gated FINAL (74 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 5,
   "weeks": [
@@ -1234,50 +1234,50 @@
       "week": 6,
       "n_cards": 3787,
       "locked": 3787,
-      "graded": 2219,
-      "pending": 1568,
+      "graded": 2221,
+      "pending": 1566,
       "buckets": {
-        "all_hit": 80,
+        "all_hit": 82,
         "push": 0,
-        "partial": 1237,
-        "all_missed": 902,
-        "pending": 1568
+        "partial": 1304,
+        "all_missed": 835,
+        "pending": 1566
       },
       "by_dial": {
         "safe": {
           "n": 1051,
-          "graded": 887,
-          "all_hit": 47,
-          "hit_rate": 0.053,
-          "mean_model": 0.3403,
-          "log_loss": 0.4352,
-          "brier": 0.1312,
-          "staked": 88700.0,
-          "net_fair": -73007.15,
-          "net_vig2": -73777.06,
-          "roi_fair": -0.8231,
+          "graded": 889,
+          "all_hit": 49,
+          "hit_rate": 0.0551,
+          "mean_model": 0.3252,
+          "log_loss": 0.4127,
+          "brier": 0.1218,
+          "staked": 88900.0,
+          "net_fair": -72709.61,
+          "net_vig2": -73505.0,
+          "roi_fair": -0.8179,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 387,
-            "all_hit": 47,
-            "hit_rate": 0.1214,
-            "mean_model": 0.3403,
-            "expected_hits": 131.7053,
-            "log_loss": 0.4352,
-            "brier": 0.1312,
+            "n": 449,
+            "all_hit": 49,
+            "hit_rate": 0.1091,
+            "mean_model": 0.3252,
+            "expected_hits": 146.0214,
+            "log_loss": 0.4127,
+            "brier": 0.1218,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 500,
+              "incomplete_contract": 440,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 47,
+            "all_hit": 49,
             "reduced_hit": 0,
             "void": 0,
             "loss": 840,
-            "pending": 164
+            "pending": 162
           }
         },
         "even": {
@@ -1356,74 +1356,74 @@
       "by_legs": {
         "2": {
           "n": 533,
-          "graded": 256,
-          "all_hit": 60,
-          "hit_rate": 0.2344,
-          "mean_model": 0.3764,
-          "log_loss": 0.6692,
-          "brier": 0.2375,
-          "staked": 25600.0,
-          "net_fair": -7520.41,
-          "net_vig2": -8222.75,
-          "roi_fair": -0.2938,
+          "graded": 257,
+          "all_hit": 61,
+          "hit_rate": 0.2374,
+          "mean_model": 0.3801,
+          "log_loss": 0.6706,
+          "brier": 0.2382,
+          "staked": 25700.0,
+          "net_fair": -7449.38,
+          "net_vig2": -8158.36,
+          "roi_fair": -0.2899,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 154,
-            "all_hit": 60,
-            "hit_rate": 0.3896,
-            "mean_model": 0.3764,
-            "expected_hits": 57.9709,
-            "log_loss": 0.6692,
-            "brier": 0.2375,
+            "n": 157,
+            "all_hit": 61,
+            "hit_rate": 0.3885,
+            "mean_model": 0.3801,
+            "expected_hits": 59.6823,
+            "log_loss": 0.6706,
+            "brier": 0.2382,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 102,
+              "incomplete_contract": 100,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 60,
+            "all_hit": 61,
             "reduced_hit": 0,
             "void": 0,
             "loss": 196,
-            "pending": 277
+            "pending": 276
           }
         },
         "3": {
           "n": 672,
-          "graded": 317,
-          "all_hit": 17,
-          "hit_rate": 0.0536,
-          "mean_model": 0.3463,
-          "log_loss": 0.6077,
-          "brier": 0.2012,
-          "staked": 31700.0,
-          "net_fair": -22002.34,
-          "net_vig2": -22561.65,
-          "roi_fair": -0.6941,
+          "graded": 318,
+          "all_hit": 18,
+          "hit_rate": 0.0566,
+          "mean_model": 0.3488,
+          "log_loss": 0.6092,
+          "brier": 0.2021,
+          "staked": 31800.0,
+          "net_fair": -21775.83,
+          "net_vig2": -22353.98,
+          "roi_fair": -0.6848,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 106,
-            "all_hit": 17,
-            "hit_rate": 0.1604,
-            "mean_model": 0.3463,
-            "expected_hits": 36.7032,
-            "log_loss": 0.6077,
-            "brier": 0.2012,
+            "n": 109,
+            "all_hit": 18,
+            "hit_rate": 0.1651,
+            "mean_model": 0.3488,
+            "expected_hits": 38.017,
+            "log_loss": 0.6092,
+            "brier": 0.2021,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 211,
+              "incomplete_contract": 209,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 17,
+            "all_hit": 18,
             "reduced_hit": 0,
             "void": 0,
             "loss": 300,
-            "pending": 355
+            "pending": 354
           }
         },
         "4": {
@@ -1431,25 +1431,25 @@
           "graded": 451,
           "all_hit": 3,
           "hit_rate": 0.0067,
-          "mean_model": 0.2882,
-          "log_loss": 0.3918,
-          "brier": 0.1062,
+          "mean_model": 0.2896,
+          "log_loss": 0.3922,
+          "brier": 0.1063,
           "staked": 45100.0,
           "net_fair": -41910.7,
           "net_vig2": -42153.58,
           "roi_fair": -0.9293,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 96,
+            "n": 99,
             "all_hit": 3,
-            "hit_rate": 0.0312,
-            "mean_model": 0.2882,
-            "expected_hits": 27.6704,
-            "log_loss": 0.3918,
-            "brier": 0.1062,
+            "hit_rate": 0.0303,
+            "mean_model": 0.2896,
+            "expected_hits": 28.6711,
+            "log_loss": 0.3922,
+            "brier": 0.1063,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 355,
+              "incomplete_contract": 352,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1467,25 +1467,25 @@
           "graded": 546,
           "all_hit": 0,
           "hit_rate": 0.0,
-          "mean_model": 0.2262,
-          "log_loss": 0.2581,
-          "brier": 0.0535,
+          "mean_model": 0.2284,
+          "log_loss": 0.2608,
+          "brier": 0.0542,
           "staked": 54600.0,
           "net_fair": -54600.0,
           "net_vig2": -54600.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 83,
+            "n": 97,
             "all_hit": 0,
             "hit_rate": 0.0,
-            "mean_model": 0.2262,
-            "expected_hits": 18.7783,
-            "log_loss": 0.2581,
-            "brier": 0.0535,
+            "mean_model": 0.2284,
+            "expected_hits": 22.1566,
+            "log_loss": 0.2608,
+            "brier": 0.0542,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 463,
+              "incomplete_contract": 449,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1503,25 +1503,25 @@
           "graded": 649,
           "all_hit": 0,
           "hit_rate": 0.0,
-          "mean_model": 0.1762,
-          "log_loss": 0.1939,
-          "brier": 0.0311,
+          "mean_model": 0.1766,
+          "log_loss": 0.1944,
+          "brier": 0.0313,
           "staked": 64900.0,
           "net_fair": -64900.0,
           "net_vig2": -64900.0,
           "roi_fair": -1.0,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 63,
+            "n": 102,
             "all_hit": 0,
             "hit_rate": 0.0,
-            "mean_model": 0.1762,
-            "expected_hits": 11.1035,
-            "log_loss": 0.1939,
-            "brier": 0.0311,
+            "mean_model": 0.1766,
+            "expected_hits": 18.0154,
+            "log_loss": 0.1944,
+            "brier": 0.0313,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 586,
+              "incomplete_contract": 547,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -978423,7 +978423,7 @@
       "n_legs": 3,
       "model": 0.3402,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -978456,8 +978456,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -978854,7 +978857,7 @@
       "n_legs": 4,
       "model": 0.2407,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -978887,8 +978890,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -978922,7 +978928,7 @@
       "n_legs": 4,
       "model": 0.2369,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -978955,8 +978961,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -979136,7 +979145,7 @@
       "n_legs": 5,
       "model": 0.1735,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -979197,8 +979206,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -979456,7 +979468,7 @@
       "n_legs": 5,
       "model": 0.1694,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -979517,8 +979529,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -979762,8 +979777,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -979955,8 +979973,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -980038,8 +980059,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -980059,7 +980083,7 @@
       "n_legs": 6,
       "model": 0.1227,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -980120,8 +980144,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -980155,7 +980182,7 @@
       "n_legs": 6,
       "model": 0.1208,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Wilson 30+ rec yds",
@@ -980216,8 +980243,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -981602,8 +981632,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -981662,8 +981695,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -982204,8 +982240,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -982241,8 +982280,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -983439,8 +983481,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -983707,8 +983752,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -983793,8 +983841,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -984333,7 +984384,7 @@
       "n_legs": 3,
       "model": 0.367,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "BUF ML",
@@ -984362,8 +984413,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -984742,7 +984796,7 @@
       "n_legs": 4,
       "model": 0.2671,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Allen 225+ pass yds",
@@ -984789,8 +984843,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -985070,7 +985127,7 @@
       "n_legs": 4,
       "model": 0.2597,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "BUF ML",
@@ -985099,8 +985156,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -985362,7 +985422,7 @@
       "n_legs": 5,
       "model": 0.189,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Allen 225+ pass yds",
@@ -985409,8 +985469,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -985625,8 +985688,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -985711,8 +985777,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -985898,7 +985967,7 @@
       "n_legs": 5,
       "model": 0.189,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Allen 225+ pass yds",
@@ -985945,8 +986014,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -986238,7 +986310,7 @@
       "n_legs": 6,
       "model": 0.1362,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Allen 225+ pass yds",
@@ -986285,8 +986357,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -986399,8 +986474,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -986571,8 +986649,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -986686,7 +986767,7 @@
       "n_legs": 6,
       "model": 0.1337,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Allen 225+ pass yds",
@@ -986733,8 +986814,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -987804,8 +987888,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -989249,8 +989336,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -989603,8 +989693,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -990605,8 +990698,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -990873,8 +990969,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -990959,8 +991058,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -991410,7 +991512,7 @@
       "n_legs": 3,
       "model": 0.3945,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -991443,8 +991545,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -992216,7 +992321,7 @@
       "n_legs": 4,
       "model": 0.2791,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -992249,8 +992354,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -992284,7 +992392,7 @@
       "n_legs": 4,
       "model": 0.279,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -992317,8 +992425,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -992656,7 +992767,7 @@
       "n_legs": 5,
       "model": 0.2011,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -992704,8 +992815,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -992932,8 +993046,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -992992,8 +993109,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -993198,7 +993318,7 @@
       "n_legs": 5,
       "model": 0.1974,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -993231,8 +993351,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -993766,8 +993889,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -993938,8 +994064,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -994047,8 +994176,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -994166,7 +994298,7 @@
       "n_legs": 6,
       "model": 0.1423,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -994214,8 +994346,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -994262,7 +994397,7 @@
       "n_legs": 6,
       "model": 0.1422,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "G. Pickens 40+ rec yds",
@@ -994310,8 +994445,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -995917,8 +996055,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -996076,8 +996217,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -996516,7 +996660,7 @@
       "n_legs": 3,
       "model": 0.3786,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -996549,8 +996693,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -996992,7 +997139,7 @@
       "n_legs": 4,
       "model": 0.2758,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -997025,8 +997172,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -997315,7 +997465,7 @@
       "n_legs": 4,
       "model": 0.2751,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -997348,8 +997498,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -997697,7 +997850,7 @@
       "n_legs": 5,
       "model": 0.1951,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -997730,8 +997883,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -998112,8 +998268,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -998286,8 +998445,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -998407,7 +998569,7 @@
       "n_legs": 5,
       "model": 0.1951,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -998440,8 +998602,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -998833,7 +998998,7 @@
       "n_legs": 6,
       "model": 0.1406,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -998866,8 +999031,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -999166,8 +999334,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -999371,7 +999542,7 @@
       "n_legs": 6,
       "model": 0.1403,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "J. Love 200+ pass yds",
@@ -999432,8 +999603,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1000983,8 +1001157,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1001030,8 +1001207,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1001572,8 +1001752,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1001658,8 +1001841,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1002398,8 +1002584,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1002474,8 +1002663,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1002644,8 +1002836,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1002717,8 +1002912,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1002806,8 +1003004,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1003157,8 +1003358,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1003265,8 +1003469,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004086,8 +1004293,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004551,8 +1004761,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004565,6 +1004778,49 @@
       }
     },
     {
+      "card_id": "3aa35cf95f92",
+      "week": 6,
+      "dial": "safe",
+      "seed": "KC",
+      "n_legs": 2,
+      "model": 0.5782,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "game_id": "401873006",
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "hit",
+          "actual": {
+            "home_score": 26,
+            "away_score": 19
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 71.03,
+        "net_vig2": 64.39,
+        "assumed_price_legs": 0
+      }
+    },
+    {
       "card_id": "0da0a05baf44",
       "week": 6,
       "dial": "safe",
@@ -1004572,14 +1004828,17 @@
       "n_legs": 2,
       "model": 0.5666,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004662,8 +1004921,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004709,14 +1004971,17 @@
       "n_legs": 3,
       "model": 0.4009,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004756,6 +1005021,59 @@
       }
     },
     {
+      "card_id": "57a05e3b2e9f",
+      "week": 6,
+      "dial": "safe",
+      "seed": "KC",
+      "n_legs": 3,
+      "model": 0.4377,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "KC ML",
+          "market": "moneyline",
+          "game_id": "401873006",
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "NE ML",
+          "market": "moneyline",
+          "game_id": "401873001",
+          "result": "hit",
+          "actual": {
+            "home_score": 26,
+            "away_score": 19
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Stevenson 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873001",
+          "result": "hit",
+          "actual": 36.0,
+          "gsis_id": "espn-4569173",
+          "line": 29.5,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 226.51,
+        "net_vig2": 207.67,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "cb932f60506b",
       "week": 6,
       "dial": "safe",
@@ -1004769,8 +1005087,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004816,14 +1005137,17 @@
       "n_legs": 3,
       "model": 0.4008,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004876,8 +1005200,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004939,8 +1005266,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1004996,14 +1005326,17 @@
       "n_legs": 4,
       "model": 0.2888,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005070,8 +1005403,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005136,8 +1005472,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005193,14 +1005532,17 @@
       "n_legs": 4,
       "model": 0.2836,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005267,8 +1005609,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005343,8 +1005688,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005413,14 +1005761,17 @@
       "n_legs": 5,
       "model": 0.2044,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005501,8 +1005852,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005577,8 +1005931,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005653,8 +1006010,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005723,14 +1006083,17 @@
       "n_legs": 5,
       "model": 0.2043,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005811,8 +1006174,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005897,8 +1006263,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1005983,8 +1006352,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006063,14 +1006435,17 @@
       "n_legs": 6,
       "model": 0.1446,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006165,8 +1006540,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006251,8 +1006629,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006340,8 +1006721,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006434,8 +1006818,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1006522,14 +1006909,17 @@
       "n_legs": 6,
       "model": 0.1423,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1010277,7 +1010667,7 @@
       "n_legs": 2,
       "model": 0.5666,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1010296,8 +1010686,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1010624,7 +1011017,7 @@
       "n_legs": 3,
       "model": 0.4009,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1010643,8 +1011036,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1010678,7 +1011074,7 @@
       "n_legs": 3,
       "model": 0.4008,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1010697,8 +1011093,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1010864,7 +1011263,7 @@
       "n_legs": 4,
       "model": 0.2888,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1010911,8 +1011310,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011096,8 +1011498,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011199,7 +1011604,7 @@
       "n_legs": 4,
       "model": 0.2836,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1011218,8 +1011623,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011560,8 +1011968,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011636,8 +1012047,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011741,7 +1012155,7 @@
       "n_legs": 5,
       "model": 0.2044,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1011788,8 +1012202,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011823,7 +1012240,7 @@
       "n_legs": 5,
       "model": 0.2043,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1011870,8 +1012287,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1011970,8 +1012390,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012056,8 +1012479,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012132,8 +1012558,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012583,8 +1013012,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012691,8 +1013123,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012712,7 +1013147,7 @@
       "n_legs": 6,
       "model": 0.1446,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1012759,8 +1013194,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1012808,7 +1013246,7 @@
       "n_legs": 6,
       "model": 0.1423,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "LAR ML",
@@ -1012855,8 +1013293,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1013098,7 +1013539,7 @@
       "n_legs": 3,
       "model": 0.3471,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1013131,8 +1013572,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1013258,7 +1013702,7 @@
       "n_legs": 3,
       "model": 0.3428,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 20+ rec yds",
@@ -1013291,8 +1013735,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1013768,7 +1014215,7 @@
       "n_legs": 4,
       "model": 0.2456,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1013801,8 +1014248,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1013836,7 +1014286,7 @@
       "n_legs": 4,
       "model": 0.2455,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1013869,8 +1014319,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1014056,7 +1014509,7 @@
       "n_legs": 5,
       "model": 0.1769,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1014117,8 +1014570,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1014373,7 +1014829,7 @@
       "n_legs": 5,
       "model": 0.1748,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. Tucker 20+ rec yds",
@@ -1014434,8 +1014890,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1014951,8 +1015410,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1015083,7 +1015545,7 @@
       "n_legs": 6,
       "model": 0.1252,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1015144,8 +1015606,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1015179,7 +1015644,7 @@
       "n_legs": 6,
       "model": 0.1252,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "A. Jeanty 40+ rush yds",
@@ -1015240,8 +1015705,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1015859,8 +1016327,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016097,8 +1016568,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016173,8 +1016647,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016343,8 +1016820,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016416,8 +1016896,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016505,8 +1016988,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016856,8 +1017342,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1016964,8 +1017453,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1018442,8 +1018934,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021445,8 +1021940,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021534,8 +1022032,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021597,8 +1022098,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021670,8 +1022174,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021753,8 +1022260,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021839,8 +1022349,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1021925,8 +1022438,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1022011,8 +1022527,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1022249,8 +1022768,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1022345,8 +1022867,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1024567,8 +1025092,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1024640,8 +1025168,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1025434,8 +1025965,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1025520,8 +1026054,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1025583,8 +1026120,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1025700,8 +1026240,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1025781,8 +1026324,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1028454,8 +1029000,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1028712,8 +1029261,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1029921,8 +1030473,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1030278,8 +1030833,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1030710,7 +1031268,7 @@
       "n_legs": 4,
       "model": 0.2888,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Evans 20+ rec yds",
@@ -1030757,8 +1031315,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1030844,7 +1031405,7 @@
       "n_legs": 4,
       "model": 0.282,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "D. Samuel 20+ rec yds",
@@ -1030891,8 +1031452,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1031299,7 +1031863,7 @@
       "n_legs": 5,
       "model": 0.2044,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Evans 20+ rec yds",
@@ -1031346,8 +1031910,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1031381,7 +1031948,7 @@
       "n_legs": 5,
       "model": 0.2043,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Evans 20+ rec yds",
@@ -1031428,8 +1031995,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1031907,7 +1032477,7 @@
       "n_legs": 6,
       "model": 0.1446,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Evans 20+ rec yds",
@@ -1031927,8 +1032497,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1032003,7 +1032576,7 @@
       "n_legs": 6,
       "model": 0.1423,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "M. Evans 20+ rec yds",
@@ -1032050,8 +1032623,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1033744,8 +1034320,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1034356,8 +1034935,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1034442,8 +1035024,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1034492,8 +1035077,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1035652,8 +1036240,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1035715,8 +1036306,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1035893,8 +1036487,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1035976,8 +1036573,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1036039,8 +1036639,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1036225,8 +1036828,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1036288,8 +1036894,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1036584,8 +1037193,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1036892,7 +1037504,7 @@
       "n_legs": 3,
       "model": 0.3883,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1036925,8 +1037537,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1037585,7 +1038200,7 @@
       "n_legs": 4,
       "model": 0.2748,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1037618,8 +1038233,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1037653,7 +1038271,7 @@
       "n_legs": 4,
       "model": 0.2747,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1037686,8 +1038304,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1038237,8 +1038858,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1038314,8 +1038938,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1038433,7 +1039060,7 @@
       "n_legs": 5,
       "model": 0.1944,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1038466,8 +1039093,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1038515,7 +1039145,7 @@
       "n_legs": 5,
       "model": 0.1913,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1038548,8 +1039178,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1038967,7 +1039600,7 @@
       "n_legs": 6,
       "model": 0.1353,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1039000,8 +1039633,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1039214,8 +1039850,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1039281,8 +1039920,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1039527,7 +1040169,7 @@
       "n_legs": 6,
       "model": 0.1351,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "T. McLaurin 30+ rec yds",
@@ -1039560,8 +1040202,11 @@
           "selection": "KC ML",
           "market": "moneyline",
           "game_id": "401873006",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 22,
+            "away_score": 6
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
