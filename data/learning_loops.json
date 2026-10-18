@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-18T13:55:30Z",
+  "generated_utc": "2026-10-18T13:59:07Z",
   "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
@@ -19,7 +19,7 @@
       "source": "data/model_tuning.json",
       "state": "held",
       "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 16.25, 'revert': 0.28125} scores 0.685638 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.660944 across 5 folds over n=79 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
-      "last_run_utc": "2026-10-18T13:52:38Z",
+      "last_run_utc": "2026-10-18T13:48:42Z",
       "runs": 86,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z",
@@ -94,7 +94,7 @@
       "source": "data/weekly_backtest.json",
       "state": "adopted",
       "why": "v2 beats v1 on pooled MAE (6.003 vs 6.050) and pooled rank_corr (0.381 vs 0.369); held-out 2025 MAE 6.079 vs 6.111",
-      "last_run_utc": "2026-10-18T13:43:21Z",
+      "last_run_utc": "2026-10-18T13:56:20Z",
       "effective": {
         "state": "unknown",
         "source": "data/weekly_backtest.json",
@@ -303,7 +303,7 @@
       "source": "data/lines_backtest.json",
       "state": "measuring",
       "why": "phase 1 measures only; 0 of 15 variants clear never-regress",
-      "last_run_utc": "2026-10-18T13:43:33Z",
+      "last_run_utc": "2026-10-18T13:56:26Z",
       "effective": {
         "state": "measure_only",
         "source": "data/lines_backtest.json",
@@ -322,7 +322,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 6 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-10-18T13:55:27Z",
+      "last_run_utc": "2026-10-18T13:59:05Z",
       "effective": {
         "state": "measure_only",
         "source": "data/replay_lab.json",
