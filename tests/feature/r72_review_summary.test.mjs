@@ -216,6 +216,35 @@ print(json.dumps({"lb": lb, "lb2": lb2, "lb3": lb3["refit"], "lb4": lb4, "lb5": 
     note: "no graded receipts in this week's lock file yet (1 rows pending)" });
 });
 
+test('contract gate: review.json must join model_tuning.json + lock snapshots (publish race, data-ci #196)', () => {
+  // 2026-10-18: a daily run rebuilt review.json from an older refit archive and
+  // won the rebase over gameday's newer pass. Each file was valid alone; the
+  // gate now rejects the pair, so publish_data.sh keeps the published review.
+  const r = runPy(`${PRELUDE}
+import copy
+from scripts.validate_data import check_review_learning_join, ValidationError
+snap = "tests/fixtures/r72/snapshots"
+def verdict(review, tuning):
+    try:
+        check_review_learning_join(review, tuning, snap); return "ok"
+    except ValidationError as e:
+        return str(e)
+newer = copy.deepcopy(fx["tuning"])
+h = copy.deepcopy(next(e for e in newer["history"] if e.get("generated_utc") == doc["learning"]["refit"]["archived_utc"]))
+h["generated_utc"] = "2026-09-15T04:00:00Z"
+newer["history"].append(h)
+fx2 = copy.deepcopy(fx); fx2["tuning"] = newer
+print(json.dumps({"fresh": verdict(doc, fx["tuning"]),
+  "stale": verdict(doc, newer),
+  "rebuilt": verdict(br.build(fx2, "2026-09-15T12:00:00Z"), newer),
+  "absent": verdict(None, newer)}))`);
+  assert.equal(r.fresh, 'ok');
+  assert.match(r.stale, /learning\.refit is .*2026-09-14T04:00:00Z.*give .*2026-09-15T04:00:00Z/);
+  assert.match(r.stale, /weeks\.1\.summary\.learning\.refit/);
+  assert.equal(r.rebuilt, 'ok', 'a review rebuilt from the newer archive joins it');
+  assert.equal(r.absent, 'ok', 'no review.json yet: nothing to join');
+});
+
 test('learning lock (committed data): graded_locks_total derived from data/snapshots, never pinned', () => {
   assert.ok(existsSync(ARTIFACT), 'data/review.json is committed');
   const doc = JSON.parse(readFileSync(ARTIFACT, 'utf8'));
