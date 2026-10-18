@@ -11,7 +11,6 @@ the hour-picking math on a fixture payload, never fetches, never writes.
 """
 
 import json
-import math
 import os
 import sys
 import urllib.request
@@ -22,6 +21,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from scripts.scrape.stadiums import STADIUMS  # noqa: E402
+from scripts.weather_source_contract import number  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "weather_history.json")
@@ -55,12 +55,10 @@ def pick_hour(payload_hourly, kickoff_utc):
     wind = val("wind_speed_10m")
     temp = val("temperature_2m")
     precip = val("precipitation")
-    def finite(value):
-        return type(value) in (int, float) and math.isfinite(value)
-    if not finite(wind) or not finite(temp) or wind < 0:
+    if not number(wind, 'wind_kph') or not number(temp, 'temp_c'):
         return None
     return {"wind_kph": round(float(wind), 1), "temp_c": round(float(temp), 1),
-            "precip_mm": round(float(precip), 2) if finite(precip) and precip >= 0 else None}
+            "precip_mm": round(float(precip), 2) if number(precip, 'precip_mm') else None}
 
 
 def selftest():

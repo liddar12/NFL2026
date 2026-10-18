@@ -17,6 +17,12 @@ MAX_AGE_SECONDS = 12 * 3600
 MAX_GAMES = 512
 MAX_HOURLY = 4096
 WINDOW_HOURS = 3
+# Detached snapshots are taken before any current-serving guard. Bound each row
+# separately so one deeply nested/oversized provider row cannot kill a healthy
+# game's weather, and cannot be mistaken for an absent forecast/climate fallback.
+SNAPSHOT_MAX_DEPTH = 16
+SNAPSHOT_MAX_NODES = 4096
+SNAPSHOT_MAX_ROWS = 4096  # pure archived callers may carry multiple full seasons
 # Exact identity alias only, not fuzzy venue matching or permission to fall back
 # to a team's home. The Chiefs identify both names as the same physical venue:
 # https://www.chiefs.com/news/chiefs-unveil-vision-and-concepts-for-a-reimagined-arrowhead-stadium
@@ -45,7 +51,64 @@ def clock(value):
 def number(value, field):
     limits = {'temp_c': (-100, 70), 'wind_kph': (0, 400), 'precip_mm': (0, 1000)}
     lo, hi = limits[field]
-    return type(value) in (int, float) and math.isfinite(value) and lo <= value <= hi
+    # Check the physical range BEFORE isfinite: Python converts integers to a
+    # float there, and a perfectly parseable 400-digit JSON integer overflows.
+    return type(value) in (int, float) and lo <= value <= hi and math.isfinite(value)
+
+
+def _bounded_copy(value, budget, depth=0):
+    budget[0] -= 1
+    if budget[0] < 0 or depth > SNAPSHOT_MAX_DEPTH:
+        raise ValueError('weather_snapshot_limit')
+    if value is None or type(value) is bool:
+        return value
+    if type(value) is int:
+        if value.bit_length() > 16384:
+            raise ValueError('weather_snapshot_integer_limit')
+        return value
+    if type(value) is float:
+        return value
+    if type(value) is str and len(value) <= 16384:
+        return value
+    if type(value) is list and len(value) <= SNAPSHOT_MAX_NODES:
+        return [_bounded_copy(item, budget, depth + 1) for item in value]
+    if type(value) is dict and len(value) <= SNAPSHOT_MAX_NODES:
+        if any(type(key) is not str or len(key) > 1000 for key in value):
+            raise ValueError('weather_snapshot_key_invalid')
+        return {key: _bounded_copy(item, budget, depth + 1) for key, item in value.items()}
+    raise ValueError('weather_snapshot_value_invalid')
+
+
+def snapshot_document(document):
+    """Bounded detached input, preserving malformed row presence for refusal.
+
+    This is NOT validation or contract upgrading. Unknown profiles/extra keys
+    remain unknown. Invalid root metadata holds the document; an invalid game
+    row holds only that row, even if climatology for that same key is present.
+    Valid legacy snapshots retain their shape for archived pure consumers.
+    """
+    if type(document) is not dict or len(document) > 32:
+        return None
+    try:
+        result = _bounded_copy({key: value for key, value in document.items()
+            if key not in ('games', 'climatology')}, [SNAPSHOT_MAX_NODES])
+        for name in ('games', 'climatology'):
+            if name not in document:
+                continue
+            rows = document[name]
+            if type(rows) is not dict or len(rows) > SNAPSHOT_MAX_ROWS:
+                return None
+            result[name] = {}
+            for key, row in rows.items():
+                if type(key) is not str or len(key) > 200:
+                    return None
+                try:
+                    result[name][key] = _bounded_copy(row, [SNAPSHOT_MAX_NODES])
+                except ValueError:
+                    result[name][key] = {'invalid_weather_snapshot': True}
+        return result
+    except ValueError:
+        return None
 
 
 def key_for(season, game):

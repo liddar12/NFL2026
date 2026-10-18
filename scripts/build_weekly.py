@@ -87,7 +87,6 @@ headline still says how many points the absence cost. Rows under the total rule
 """
 
 import json
-import copy
 import datetime as dt
 import os
 import sys
@@ -421,6 +420,8 @@ def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
     roof for a specific game — the backtest passes the roof state nflverse
     recorded for that game; production leaves it None and uses the stadium table.
     """
+    from scripts import weather_source_contract as weather
+    forecast_doc = weather.snapshot_document(forecast_doc)
     stadiums = (env_doc or {}).get("stadiums") or {}
     venue_rel, lam = venue_rel_table((env_doc or {}).get("venue_hfa"))
     # one weather map: forecast rows first, climatology only where no forecast
@@ -435,7 +436,7 @@ def build_factors(season, dvp_doc=None, env_doc=None, forecast_doc=None,
         "roof": {norm_team(t): (v or {}).get("roof") for t, v in stadiums.items()},
         "roof_by_game": dict(roof_by_game or {}),
         "forecast": forecast,
-        "_forecast_document": copy.deepcopy(forecast_doc),
+        "_forecast_document": forecast_doc,
         "venue_rel": venue_rel,
         "venue_lam": lam,
         "counts": {k: 0 for k in NEUTRAL_KEYS},

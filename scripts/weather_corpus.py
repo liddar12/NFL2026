@@ -88,6 +88,8 @@ _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+from scripts.weather_source_contract import number  # noqa: E402
+
 DATA = os.path.join(_ROOT, "data")
 WEATHER_PATH = os.path.join(DATA, "weather_history.json")
 GAMES_META_PATH = os.path.join(DATA, "fixtures", "backtest_weekly", "games_meta.json")
@@ -247,12 +249,14 @@ def load_corpus(weather_doc=None, games_meta_doc=None,
 
     Returns a corpus dict:
 
-      rows          {key: row} for every JOINED row, relocations included -
+      rows          {key: row} for every JOINED, known-weather row, relocations included -
                     filtering is venue_verified()'s job, not this one's
       rows_read     rows in the weather file
       rows_joined   rows that found a games_meta row
       unjoined      keys that did not, sorted (a join failure is reported, not
                     swallowed: a silently dropped row is a silently shrunk n)
+      unknown_weather  joined keys excluded from ALL weather/control estimation,
+                    mapped to unknown/invalid fields. Missing rain is NOT dry.
       source        the weather file's own source string
       seasons       the seasons actually present, sorted
 
@@ -266,11 +270,17 @@ def load_corpus(weather_doc=None, games_meta_doc=None,
     meta = meta_index(games_meta_doc)
     games = weather_doc.get("games") or {}
 
-    rows, unjoined = {}, []
+    rows, unjoined, unknown_weather, joined = {}, [], {}, 0
     for key, obs in games.items():
         rec = meta.get(key)
         if rec is None:
             unjoined.append(key)
+            continue
+        joined += 1
+        invalid = tuple(field for field in ('precip_mm', 'temp_c', 'wind_kph')
+            if type(obs) is not dict or not number(obs.get(field), field))
+        if invalid:
+            unknown_weather[key] = invalid
             continue
         rows[key] = {
             "key": key,
@@ -288,8 +298,9 @@ def load_corpus(weather_doc=None, games_meta_doc=None,
     return {
         "rows": rows,
         "rows_read": len(games),
-        "rows_joined": len(rows),
+        "rows_joined": joined,
         "unjoined": tuple(sorted(unjoined)),
+        "unknown_weather": dict(sorted(unknown_weather.items())),
         "source": weather_doc.get("source", ""),
         "seasons": tuple(sorted({r["season"] for r in rows.values()})),
     }
@@ -319,6 +330,7 @@ def venue_verified(corpus):
         "rows_read": corpus["rows_read"],
         "rows_joined": corpus["rows_joined"],
         "unjoined": corpus["unjoined"],
+        "unknown_weather": corpus.get("unknown_weather", {}),
         "dropped": tuple(sorted(dropped)),
         "rows_kept": len(kept),
         "source": corpus.get("source", ""),
@@ -560,12 +572,14 @@ def condition_totals(counts):
 def corpus_filter_report(verified, audit):
     """The `corpus_filter` block: read, joined, dropped, kept, roof check.
 
-    Five numbers that have to add up in public. rows_read - unjoined =
-    rows_joined; rows_joined - dropped_relocations = rows_kept. A reader who
+    Counts add up in public. rows_read - unjoined = rows_joined;
+    rows_joined - rows_unknown_weather - dropped_relocations = rows_kept.
+    The optional unknown counter is absent (=0) in legacy known-only artifacts.
+    A reader who
     cannot reproduce that arithmetic from the block alone should not trust
     anything built on it.
     """
-    return {
+    result = {
         "source": verified.get("source", ""),
         "rows_read": verified["rows_read"],
         "rows_joined": verified["rows_joined"],
@@ -577,6 +591,11 @@ def corpus_filter_report(verified, audit):
         "rule": ("the neutral flag in %s drops relocations; %s is never "
                  "rewritten, refiltered or refetched" % (GAMES_META_REL, WEATHER_REL)),
     }
+    unknown = len(verified.get("unknown_weather", {}))
+    if unknown:
+        result["rows_unknown_weather"] = unknown
+        result["rule"] += "; unknown/malformed weather excluded before estimation, never imputed dry"
+    return result
 
 
 def report(weather_path=WEATHER_PATH, games_meta_path=GAMES_META_PATH,
