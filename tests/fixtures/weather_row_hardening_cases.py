@@ -88,6 +88,43 @@ class WeatherRowHardeningTests(unittest.TestCase):
         self.assertEqual(set(result['forecast']), {NE})
         self.assertIn(GB, result['weather_source_report']['games'])
 
+    def test_present_null_scalar_or_list_forecast_never_uses_valid_climate(self):
+        original, _ = F['produce'](pair())
+        climate = {'temp_c': -2.0, 'wind_kph': 35.0, 'source': 'climatology',
+            'n': 4, 'month': 10, 'rules': ['cold', 'wind'],
+            'binding': copy.deepcopy(original['games'][GB]['binding'])}
+        self.assertTrue(weather.row_valid(climate, 'climatology', climate['binding']))
+        for malformed in (None, False, 0, 'bad', [], ['bad'], {}):
+            with self.subTest(value=repr(malformed)):
+                document = copy.deepcopy(original)
+                document['games'][GB] = malformed
+                document['climatology'][GB] = copy.deepcopy(climate)
+                snapshot = weather.snapshot_document(document)
+                self.assertIn(GB, snapshot['games'])
+                self.assertEqual(snapshot['games'][GB], malformed)
+                self.assertFalse(weather.validate_document(document))
+                view = weather.live_view(snapshot, 2026, pair(), F['STAMP'])
+                self.assertEqual(view['games'], {NE: original['games'][NE]})
+                self.assertEqual(view['climatology'], {})
+                self.assertEqual(view['report']['games'][GB],
+                    'weather_saved_game_binding_changed')
+                result = factors(document)
+                self.assertEqual(result['forecast'], {NE: original['games'][NE]})
+                self.assertEqual(result['weather_source_report'], view['report'])
+
+    def test_absent_forecast_still_allows_valid_climate(self):
+        document, _ = F['produce'](pair())
+        binding = document['games'].pop(GB)['binding']
+        climate = {'temp_c': -2.0, 'wind_kph': 35.0, 'source': 'climatology',
+            'n': 4, 'month': 10, 'rules': ['cold', 'wind'], 'binding': binding}
+        document['climatology'][GB] = climate
+        self.assertTrue(weather.validate_document(document))
+        view = weather.live_view(weather.snapshot_document(document), 2026, pair(), F['STAMP'])
+        self.assertEqual(view['climatology'], {GB: climate})
+        self.assertEqual(set(view['games']), {NE})
+        self.assertNotIn(GB, view['report']['games'])
+        self.assertEqual(set(factors(document)['forecast']), {GB, NE})
+
     def test_valid_snapshot_is_detached_and_preserves_legacy_values(self):
         document, _ = F['produce'](pair())
         saved = weather.snapshot_document(document)

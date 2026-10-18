@@ -360,8 +360,10 @@ def live_view(document, season, schedule_games, checked_utc):
         if not problem:
             found = False
             for name, kind in (('games', 'forecast'), ('climatology', 'climatology')):
-                row = document[name].get(key)
-                if row is not None:
+                # Presence sets precedence: a null/malformed forecast is held,
+                # never reinterpreted as permission to substitute climatology.
+                if key in document[name]:
+                    row = document[name][key]
                     found = True
                     if not row_valid(row, kind, binding) or (kind == 'forecast'
                             and instant(row['fetched_utc']) != generated):

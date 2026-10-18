@@ -12,5 +12,5 @@ test('malformed weather rows cannot abort healthy games or turn unknown rain int
     env: { ...process.env, PYTHONPATH: root, PYTHONDONTWRITEBYTECODE: '1' },
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stderr, /Ran 11 tests/);
+  assert.match(result.stderr, /Ran 13 tests/);
 });
