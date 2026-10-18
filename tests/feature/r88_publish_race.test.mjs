@@ -174,15 +174,28 @@ for base, _dirs, files in os.walk("data"):
 print("validate stub: ok")
 `;
 
+/* git's automatic housekeeping (gc --auto / maintenance --auto, run after
+ * commit, fetch, rebase and push) can detach and keep writing .git/objects
+ * after the command returns; cleanup then hit ENOTEMPTY (data-ci #191,
+ * 2026-10-18, test (e)). The toy repos keep it off and synchronous. */
+const noHousekeeping = (dir) => {
+  git(dir, 'config', 'gc.auto', '0');
+  git(dir, 'config', 'gc.autoDetach', 'false');
+  git(dir, 'config', 'maintenance.auto', 'false');
+  git(dir, 'config', 'receive.autogc', 'false');
+};
+
 /** A bare remote plus two clones, all from one base commit. */
 const makeWorld = () => {
   const root = mkdtempSync(join(tmpdir(), 'r88-publish-'));
   const remote = join(root, 'remote.git');
   git(root, 'init', '--quiet', '--bare', '--initial-branch=main', remote);
+  noHousekeeping(remote);
 
   const seed = join(root, 'seed');
   mkdirSync(seed);
   git(seed, 'init', '--quiet', '--initial-branch=main');
+  noHousekeeping(seed);
   git(seed, 'config', 'user.name', 'seed');
   git(seed, 'config', 'user.email', 'seed@example.invalid');
   mkdirSync(join(seed, 'tools'), { recursive: true });
@@ -197,6 +210,7 @@ const makeWorld = () => {
   const clone = (name) => {
     const dir = join(root, name);
     git(root, 'clone', '--quiet', remote, dir);
+    noHousekeeping(dir);
     git(dir, 'config', 'user.name', name);
     git(dir, 'config', 'user.email', `${name}@example.invalid`);
     return dir;
@@ -235,7 +249,7 @@ const generate = (repo, { asOf, legSel, cardId, pHome, legSeen, cardSeen }) => {
   });
 };
 
-const cleanup = (world) => rmSync(world.root, { recursive: true, force: true });
+const cleanup = (world) => rmSync(world.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
 /* ---------- static properties of the script ------------------------------ */
 
