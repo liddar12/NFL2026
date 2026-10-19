@@ -337,6 +337,115 @@ print(json.dumps({
   assert.equal(out.no_keys, true, 'no availability keys on an all-healthy build');
 });
 
+/* -------------------------------------------- the reference identity binding */
+
+/* The ESPN ids a report row names (athlete_id / espn_id), and whether they are
+ * unusable: a non-numeric value, or two DIFFERENT ids on one row. */
+function rowIds(r) {
+  const ids = new Set();
+  let invalid = false;
+  for (const v of [r.athlete_id, r.espn_id]) {
+    if (v === undefined || v === null || v === '') continue;
+    const k = String(v);
+    if (!/^[0-9]+$/.test(k)) { invalid = true; continue; }
+    ids.add(k);
+  }
+  return { ids, invalid: invalid || ids.size > 1 };
+}
+
+/* The rows that back a pool player's flag, independently of build_weekly:
+ * an explicit ESPN id decides, and a mismatch NEVER falls back to a name.
+ *   - id match: every matching row must agree on team and carry no
+ *     conflicting id, else nothing (the producer refuses the identity);
+ *   - player with an id but no id match: only same-name rows that carry NO
+ *     id may back him, and a same-name row naming ANOTHER id means nothing
+ *     (it is someone else);
+ *   - player without an id: the legacy team+name rules (R32/R39). */
+function referenceLookup(rows, report, byName, nameTeams, poolDups, norm) {
+  const byId = new Map();
+  for (const r of rows) {
+    for (const k of rowIds(r).ids) {
+      if (!byId.has(k)) byId.set(k, []);
+      byId.get(k).push(r);
+    }
+  }
+  return (team, name, gsisId) => {
+    const eid = String(gsisId || '').startsWith('espn-') ? String(gsisId).slice(5) : '';
+    if (eid && byId.has(eid)) {
+      const hit = byId.get(eid);
+      if (hit.some((r) => rowIds(r).invalid || r.team !== team)) return undefined;
+      return hit;
+    }
+    const n = norm(name);
+    const named = [...(report.get(`${team}|${n}`) || []), ...(byName.get(n) || [])];
+    if (eid && named.some((r) => rowIds(r).ids.size || rowIds(r).invalid)) return undefined;
+    const keep = (list) => {
+      const out = eid ? (list || []).filter((r) => !rowIds(r).ids.size && !rowIds(r).invalid) : list;
+      return out && out.length ? out : undefined;
+    };
+    const exact = keep(report.get(`${team}|${n}`));
+    if (exact) return exact;
+    if (poolDups.has(n)) return undefined;
+    if ((nameTeams.get(n) || new Set()).size !== 1) return undefined;
+    return keep(byName.get(n));
+  };
+}
+
+/* Build the same indexes the committed-artifact test does, for given rows. */
+function referenceFor(rows, pool) {
+  const norm = (s) => String(s || '').replace(/\./g, '').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+  const report = new Map(); const byName = new Map(); const nameTeams = new Map();
+  for (const r of rows) {
+    const n = norm(r.player);
+    const key = `${r.team}|${n}`;
+    if (!report.has(key)) report.set(key, []);
+    report.get(key).push(r);
+    if (!nameTeams.has(n)) nameTeams.set(n, new Set());
+    nameTeams.get(n).add(r.team);
+    if (!byName.has(n)) byName.set(n, []);
+    byName.get(n).push(r);
+  }
+  const seen = new Set(); const poolDups = new Set();
+  for (const p of pool) { const n = norm(p.name); if (seen.has(n)) poolDups.add(n); seen.add(n); }
+  return referenceLookup(rows, report, byName, nameTeams, poolDups, norm);
+}
+
+test('reference binding: an explicit ESPN id mismatch never falls back to a name; conflicts back nothing', () => {
+  const out = (team, player, extra) => ({ team, player, status: 'Out', availability: 'OUT',
+    availability_class: 'week', ...extra });
+  const CASES = [
+    // [label, pool player, report rows, backed?]
+    ['id match through a name suffix', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith Jr.', { athlete_id: '111' })], true],
+    ['MISMATCHED id: same team + same name, another person', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '222' })], false],
+    ['MISMATCHED id beside an id-less same-name row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '222' }), out('SEA', 'Joe Smith')], false],
+    ['CONFLICTING ids on the matching row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '111', espn_id: '333' })], false],
+    ['malformed id on the same-name row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: 'abc' })], false],
+    ['TEAM conflict on an id match', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('DAL', 'Joe Smith', { athlete_id: '111' })], false],
+    ['TEAM conflict on one of two id rows', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '111' }), out('DAL', 'Joe Smith', { athlete_id: '111' })], false],
+    ['legacy: id-less row, same team and name', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith')], true],
+  ];
+  const ref = CASES.map(([, p, rows]) => !!referenceFor(rows, [p])(p.team, p.name, p.gsis_id));
+  // The producer, on the same inputs: a bound view <=> backed.
+  const prod = runPy(`
+import json
+from scripts import availability as av
+cases = json.loads(${JSON.stringify(JSON.stringify(CASES))})
+print(json.dumps([bool(av.resolve_report([p], rows)["views"].get(p["gsis_id"])) for _, p, rows, _ in cases]))
+`);
+  CASES.forEach(([label, , , backed], i) => {
+    assert.equal(ref[i], backed, `reference: ${label}`);
+    assert.equal(prod[i], backed, `producer: ${label}`);
+  });
+});
+
 /* ------------------------------------------------------- the committed artifact */
 
 test('committed player_weekly.json: no orphan flags, and the meta adds up', () => {
@@ -376,30 +485,10 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       seen.add(n);
     }
   }
-  // Selected release (injury identity hotfix): the producer binds a report
-  // by exact ESPN id first (availability.resolve_report), team required to
-  // agree, so "Deebo Samuel Sr." backs pool "Deebo Samuel" (espn-3126486).
-  // Mirrored here; the name rules below remain the fallback.
-  const byId = new Map();
-  for (const r of injuries.injuries) {
-    for (const v of [r.athlete_id, r.espn_id]) {
-      if (v === undefined || v === null || v === '') continue;
-      const k = String(v);
-      if (!byId.has(k)) byId.set(k, []);
-      byId.get(k).push(r);
-    }
-  }
-  const lookupRows = (team, name, gsisId) => {
-    const eid = String(gsisId || '').startsWith('espn-') ? String(gsisId).slice(5) : '';
-    const sameId = eid ? (byId.get(eid) || []).filter((r) => r.team === team) : [];
-    if (sameId.length) return sameId;
-    const n = norm(name);
-    const exact = report.get(`${team}|${n}`);
-    if (exact) return exact;
-    if (poolDups.has(n)) return undefined;
-    if ((nameTeams.get(n) || new Set()).size !== 1) return undefined;
-    return byName.get(n);
-  };
+  // Selected release (injury identity hotfix): the producer binds a report by
+  // exact ESPN id first (availability.resolve_report). The reference is the
+  // module-level referenceLookup below, so its negative cases are tested too.
+  const lookupRows = referenceLookup(injuries.injuries, report, byName, nameTeams, poolDups, norm);
 
   let blocked = 0;
   let ending = 0;
