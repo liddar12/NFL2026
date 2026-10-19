@@ -1,0 +1,140 @@
+# Lean self-learning pilot — Claude → Codex handoff
+
+Branch `pilot/selflearning-lean-20261019`, cut from NFL2026 main `c13a80ea` (2026-10-19).
+Engine pinned: SelfLearning `aacb19c73122f257449e977df40f2a2733991b2f`.
+**Learning stays disabled. Serving mode is shadow. Production behavior is unchanged.**
+Nothing here is wired into a workflow, a pipeline script or the app. There are no migrations,
+model adoption or activation; each needs a separate owner approval.
+
+Owner direction, 2026-10-19: lean, self-contained modules on a fresh branch from main. #175 is
+left untouched; its compatible contracts and builders are reused without merging its history or
+fixtures. There are three checkpoints, and each is handed to Codex before the next expands.
+
+## Checkpoint 1 — official inactive confirmation + T-90 withholding (shadow)
+
+| | |
+|---|---|
+| Exact commit | the head of this branch when this file was added; it is reported separately in the PR, because a file cannot name its own commit |
+| New | `scripts/inactive_confirmation.py`, `config/selflearning_pilot.json`, `scripts/pilot_config.py` (adapted), `tests/feature/pilot_inactive_confirmation.test.mjs`, `docs/pilot/*` |
+| Changed production files | **none** |
+
+### Behaviour
+
+Each player is classified per game, at a given check time:
+
+- `provisional`: before T-90 (kickoff − 90 min). The existing injury and depth gates still apply upstream.
+- `confirmed_active`: in [T-90, kickoff), a **valid official** list names him among the game-day actives.
+- `confirmed_inactive`: in [T-90, kickoff), a valid official list names him among the inactives.
+- `unknown_or_stale`: the default in the window. An empty, failed, expired, unregistered or contradictory feed lands here.
+- `closed`: at or after kickoff.
+
+Only `provisional` and `confirmed_active` rungs are offerable. Withholding at T-90 is automatic.
+Only valid confirmation restores a rung, and only while its 15-minute lease holds.
+
+A valid official list must meet every rule below. Each rule is a named refusal, and each has a test:
+
+- a registered source profile;
+- an exact game identity: game_id, home, away and the literal kickoff string;
+- a team that plays in the game;
+- posted and fetched inside [T-90, kickoff), not in the future, and within the lease;
+- `complete is True`;
+- non-empty inactive *and* active lists;
+- canonical, unique, disjoint numeric ids;
+- a raw-evidence sha256.
+
+If two valid lists disagree about a player, he stays unknown.
+
+### No usable confirmation source exists today, so nothing is withheld in production
+
+`OFFICIAL_SOURCES` is **empty**. ESPN's core-roster `didNotPlay` flags (main's `fetch_game_inactives`)
+are registered as *observation-only*: they are recorded but never confirm. Evidence:
+[`espn_inactive_probe_20261019.json`](espn_inactive_probe_20261019.json), probed about 14 h before WAS@SF kickoff.
+- ESPN already marked 7 players per team `didNotPlay`, hours before the official lists are posted.
+- It omitted Deebo Samuel, who is ruled OUT in the injury report.
+- The roster shape is identical before and after posting. It carries no posting flag or time.
+
+Consequence: if the module were enabled today, every player inside T-90 would be `unknown_or_stale`
+and withheld. Per the owner, it is **not** enabled. Permanent T-90 withholding must not reach
+production until two conditions hold: a usable official source exists and is registered, and the
+owner approves the rollout.
+
+**Decision needed (owner):** choose an official inactive source to register. Candidates:
+- a licensed feed with a posting timestamp and complete active/inactive lists;
+- parsing club or NFL inactive announcements, with retained raw bytes.
+
+#175 estimated the adapter at 6–10 focused hours plus a runner canary.
+
+### Acceptance evidence
+
+`node --test tests/feature/pilot_inactive_confirmation.test.mjs`: 10/10 pass. The tests lock:
+
+- The clock: T-90 − 1 s is provisional; T-90 and kickoff − 1 s are unknown without evidence; kickoff is closed.
+- Confirmed active, confirmed inactive and not-listed outcomes from valid evidence.
+- 21 named refusal cases, each leaving the player unknown.
+- The lease: exactly 15 min confirms; 15 min + 1 s does not.
+- Conflict, and the other team's list never applying.
+- On the **real** committed `data/leg_pool.json` inside a game's window, with the production
+  registry, nothing confirms and every rung in the window is withheld. ESPN evidence is refused
+  as `observation_only_source`.
+- ESPN `data/inactives.json`-shaped observations never confirm, even if the profile were registered by mistake.
+- `withhold()` is pure.
+- The pilot config is disabled, in shadow serving, and pinned to aacb19c7. The reader refuses a
+  live mode, the old profile, a half override, extra keys and a short SHA.
+- Production is unchanged: no file under `.github/`, `app/` or `scripts/`, nor `index.html`,
+  references the pilot modules.
+
+Mutation check. The suite fails when any of these is introduced:
+- accepting empty lists;
+- registering the ESPN profile;
+- removing the lease check;
+- an off-by-one at T-90.
+
+Full gate on this branch: see the PR for the exact command and result.
+
+### Reused vs replaced from #175 (3ea2a227)
+
+| #175 component | Here | Why |
+|---|---|---|
+| `period_freshness_policy.PROFILES` constants (T-90 = 5400 s, observation lease = 900 s) | **Reused** (values inlined) | The same policy numbers keep both branches comparable |
+| `pilot_config.py` | **Adapted** | Same strict reader. Keys narrowed to version/enabled/engine_commit/freshness_profile/serving_mode, `serving_mode` pinned to `shadow`, engine pin aacb19c7, new profile `confirmed_inactives_v1`. `authority_id`/`actor_ref` belong to #175's owner-authority stack, which stays there |
+| `my_freshness.py` hold rule (`held = … or generated >= checkpoint`) | **Replaced** by `inactive_confirmation.player_state` | #175 has no confirmed states, so after T-90 nothing can restore a rung. Its freshness step also runs whatever the pilot flag says |
+| `my_freshness` QB depth gate (`_depth`), 12 h source age | **Deferred** | Out of scope for checkpoint 1. Main's existing depth gate is unchanged |
+| `app/pool-learning-status.js` `selectedFreshness` | **Deferred to checkpoint 3** | The UI is wired only once a served document exists. There is no UI change now |
+| `scripts/publish_data.sh`, `scrape/espn.py`, `build_weekly.py`, `build_predictions.py`, `validate_data.py` from #175 | **Not taken** | Main's versions are newer: branch-safe publisher, inactive parser integrity, weather/venue, review join |
+
+Planned for checkpoint 2 (not in this commit): **reuse as-is** #175's `learning_journal.py`,
+`export_learning.py` and `capture_outcome_evidence.py`, plus `tests/fixtures/week6_outcomes.py`.
+The engine's `nfl_generation`, `nfl_capture_evidence` and parity tests already verify these
+formats. **Adapt** `run_parlay_feedback.py` (aacb19c7, optional `snapshot_profile`) and
+`learning_history_guard.py`. **Defer** the hosted intake, publication gates, period calibrator
+and `build_learning_outcomes.py`, because the engine grades from raw bytes itself.
+Main's `scripts/learning_receipts.py` is byte-identical to #175's, and main already stamps a
+`learning_receipt` on every MY rung.
+
+### Engine contract gaps at aacb19c7 (minimal reproductions; nothing changed)
+
+`SELFLEARN_CORE=<SelfLearning>/packages/selflearn-core python3 docs/pilot/engine_gap_repros.py`
+writes the output in [`engine_gap_repros_aacb19c7.json`](engine_gap_repros_aacb19c7.json).
+It uses only the engine's own fixtures at the pinned SHA.
+
+| | Finding | Integration impact |
+|---|---|---|
+| R1 z sign | `schemas/sports/nfl_parlay_leg.schema.json` documents `z = (line - mu)/sd`. `adapters/nfl.py validate_nfl_receipt` enforces `(mu - line)/sd`. A receipt built to the schema text (correctly resealed) is refused with `base_feature_parity_mismatch`; the fixture passes. | **Not a live blocker.** NFL's producer (`learning_receipts.py`, `build_leg_pool.py`) and its validator use the validator convention; real data has mu 197.95, line 124.5, z +0.958. Engine *documentation* fix needed, reviewed separately. Do not change the equation. |
+| R2 final status | NFL and the engine agree on final = `STATUS_FINAL`, `STATUS_FINAL_OVERTIME`. A game that is POSTPONED, CANCELED, SUSPENDED or `STATUS_FULL_TIME` (a soccer status) yields **0 revisions**, withheld as `game_not_final_with_complete_scores`. The evaluation keeps the forecasts visible (`captured_forecast_n` 2 vs `cohort_n` 0), but **nothing ever resolves them**. | **Integration blocker for accuracy reporting.** Any NFL accuracy surface must report captured vs graded vs unresolved, never a rate over graded rows alone. A rescheduled game needs a policy: re-forecast, or void it with evidence. Nothing is invented here. |
+| R3 push / official VOID | `VOID_REASONS` = {did_not_play, official_void, push}, but the file path's labeller emits only `did_not_play` (absent from snaps). It has no `official_void` and no push branch. A `gte` contract on an integer line would grade actual == line as a **hit**. | **Latent today:** all 1,231 current rungs are x.5 lines, so no push is possible. **Blocker** before any integer line or cancelled-game settlement. Needs an engine path for official voids/pushes, reviewed separately. Until then such legs stay unresolved and in the denominator. |
+
+### Rollback
+
+Checkpoint 1 changes no production file. Rolling back means closing the draft PR or deleting the
+branch; nothing deployed needs reverting.
+
+### Next (after Codex review of checkpoint 1)
+
+Checkpoint 2: capture predictions and receipts before kickoff, using the reused journal/export.
+- Quarantine invalid documents before submission, recording the exclusion reasons.
+- Keep raw captures immutable; the engine owns grading, superseding and idempotency.
+- The runner targets aacb19c7 and runs engine `prepare`/`evaluate` after the fact without backdating.
+- Records are git-backed under `data/snapshots/` and go through main's publisher unchanged.
+
+Checkpoint 3: integration acceptance, covering repeated refreshes, stale/missing feeds, kickoff
+boundaries, retries, duplicate outcomes and browser behaviour.
