@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-19T04:16:19Z",
+  "generated_utc": "2026-10-19T04:27:51Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (91 games); scores from data/review.json FINAL rows (91 games); scores from ESPN live, STATUS-gated FINAL (76 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (91 games); scores from data/review.json FINAL rows (92 games); scores from ESPN live, STATUS-gated FINAL (76 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 5,
   "weeks": [
@@ -1232,20 +1232,20 @@
     },
     {
       "week": 6,
-      "n_cards": 3791,
-      "locked": 3791,
+      "n_cards": 3793,
+      "locked": 3793,
       "graded": 3195,
-      "pending": 596,
+      "pending": 598,
       "buckets": {
         "all_hit": 340,
         "push": 0,
         "partial": 2518,
         "all_missed": 337,
-        "pending": 596
+        "pending": 598
       },
       "by_dial": {
         "safe": {
-          "n": 1053,
+          "n": 1054,
           "graded": 942,
           "all_hit": 76,
           "hit_rate": 0.0807,
@@ -1277,11 +1277,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 866,
-            "pending": 111
+            "pending": 112
           }
         },
         "even": {
-          "n": 1551,
+          "n": 1552,
           "graded": 1178,
           "all_hit": 232,
           "hit_rate": 0.1969,
@@ -1313,7 +1313,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 946,
-            "pending": 373
+            "pending": 374
           }
         },
         "longshot": {
@@ -1355,7 +1355,7 @@
       },
       "by_legs": {
         "2": {
-          "n": 537,
+          "n": 539,
           "graded": 403,
           "all_hit": 148,
           "hit_rate": 0.3672,
@@ -1387,7 +1387,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 255,
-            "pending": 134
+            "pending": 136
           }
         },
         "3": {
