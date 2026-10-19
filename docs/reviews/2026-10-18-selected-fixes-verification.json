@@ -1,0 +1,66 @@
+{
+  "revision": "R1",
+  "recorded_at": "2026-10-18T15:33:00-05:00",
+  "timezone": "America/Chicago",
+  "scope": "Six selected NFL fixes; separate optimized SelfLearning publication remains disabled and unintegrated",
+  "status": "LOCAL_ONLY_NOT_RELEASE_ACCEPTED",
+  "source_commit": "3de293f55d3d97f238c99436bb4ad62c0c48857c",
+  "source_base": "9a537b9fdf5776d280f22549b1cb4aceb0b45458",
+  "observed_remote_main": "b400175481ea083f241c0332b6c849881f8db062",
+  "remote_release_branch": "release/selected-fixes-20261018",
+  "remote_release_branch_status": "Created at observed main; selected source has NOT been uploaded",
+  "engine_local_candidate": "aacb19c73122f257449e977df40f2a2733991b2f",
+  "engine_base": "c1bf3d4773312c99ef0f30563c791525389fd5af",
+  "engine_status": "Local disabled publication only; no new remote branch/PR",
+  "generated_data_changed": false,
+  "source_schema_changes_allowed": "data/contracts/**",
+  "focused_verification": {
+    "exit_code": 0,
+    "tests": 99,
+    "passed": 99,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 29718.737667,
+    "python": "3.12.9",
+    "node": "26.7.0",
+    "log": "2026-10-18-selected-fixes-focused.log",
+    "log_sha256": "9bcafd383fd59dfd901ddf150f53744392f62bb697003c3bce512c009fd8ca03",
+    "command": "PATH=/Users/jliddar/code/SelfLearning/.venv/bin:$PATH node --test --test-concurrency=1 tests/feature/week6_injury_identity_hotfix.test.mjs tests/feature/r32_draft_readiness.test.mjs tests/feature/week6_inactives_parser_integrity.test.mjs tests/feature/r79_inactives.test.mjs tests/feature/r77_playable.test.mjs tests/feature/week6_weather_binding.test.mjs tests/feature/week6_weather_row_hardening.test.mjs tests/feature/week6_slate_venue.test.mjs tests/feature/r52_dead_code_throughput.test.mjs tests/feature/gate_config.test.mjs tests/feature/parallel_ci.test.mjs tests/feature/r102_data_ci.test.mjs tests/feature/week6_rehearsal_timing.test.mjs tests/feature/publish_branch.test.mjs tests/feature/r88_publish_race.test.mjs"
+  },
+  "operator_helper_verification": {
+    "source_commit": "0fd2b935",
+    "command": "node --test docs/releases/publish-selected-fixes-20261018.test.mjs",
+    "exit_code": 0,
+    "tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 1104.116959,
+    "log": "2026-10-18-selected-release-operator-checks.log",
+    "scope": "Local Git fixtures and stubbed GitHub only; no live deployment"
+  },
+  "other_checks": {
+    "bash_n_operator_script": "exit 0",
+    "git_diff_check": "exit 0",
+    "generated_data_base_parity": "exit 0"
+  },
+  "not_verified": [
+    "Full gate of selected source on fresh generated data",
+    "Hosted CI including every regression worker and browser E2E",
+    "Provider refresh and downstream data contracts",
+    "Exact final generated data SHA",
+    "Production Netlify deploy and served data",
+    "Improved predictive accuracy",
+    "Combined NFL/engine pilot integration"
+  ],
+  "publication_blocker": "github_create_blob rejected: MCP tool call requires approval, but approval policy is never",
+  "rules": [
+    "Do not work around denied code upload",
+    "Do not publish the full learning branch",
+    "Do not merge SelfLearning main or deploy Vercel/migrations",
+    "Do not activate learning or weather model changes",
+    "Do not hand-edit generated data",
+    "Rebase onto latest main without dropping PR181 or later source",
+    "Require exact final generated SHA and full CI before main"
+  ]
+}

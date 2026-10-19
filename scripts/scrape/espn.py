@@ -270,41 +270,77 @@ def fetch_scores(season, week=None, seasontype=2, final_only=True):
     return out
 
 
-# R79 -- game-day inactives. ESPN's core API carries a per-competition roster for
-# each competitor; once the inactive list is posted (about 90 minutes before
-# kickoff) the seven scratches -- and the emergency third quarterback -- carry
-# `didNotPlay: true`. `playerId` is the ESPN athlete id, the same id the
-# projection pool spells `espn-<id>`, so the join is exact and needs no name.
+# R79 -- game-day inactive observations from each competitor's core-API roster.
+# Only the exact boolean `didNotPlay: true` supplies a negative observation.
+# Empty/false/absent flags prove neither an officially posted complete list nor
+# that a player is active. `playerId` joins the projection pool's `espn-<id>`
+# exactly, without a name match.
 _CORE_COMPETITION_URL = ("https://sports.core.api.espn.com/v2/sports/football/leagues/"
                          "nfl/events/{gid}/competitions/{gid}")
 
 
-def parse_game_roster(entries):
-    """The inactive players in ONE competitor roster payload: [{espn_id, name}].
+def _game_roster_player_id(value):
+    """Canonical ESPN identity, matching the FINAL-participation primitive."""
+    if type(value) is int and 0 < value < 10 ** 15:
+        return str(value)
+    if type(value) is str and _re.fullmatch(r"[1-9][0-9]{0,14}", value):
+        return value
+    return None
 
-    Pure. `didNotPlay` is the marker (the `active` flag is False for every
-    entry of a not-yet-played game and means nothing here). Entries without a
-    playerId are dropped, never guessed."""
-    out = []
-    for e in entries or []:
-        if not e.get("didNotPlay"):
+
+def _game_roster(entries):
+    """Validated negative rows and ALL usable observed IDs, including non-DNP."""
+    if entries is None:
+        entries = []
+    if type(entries) is not list:
+        raise FeedError("ESPN roster: entries must be a list or null")
+    out, seen = [], set()
+    for e in entries:
+        if type(e) is not dict:
+            raise FeedError("ESPN roster: entry must be an object")
+        flag = e.get("didNotPlay")
+        if "didNotPlay" in e and type(flag) is not bool:
+            raise FeedError("ESPN roster: didNotPlay must be a boolean when present")
+        raw_id = e.get("playerId")
+        pid = _game_roster_player_id(raw_id)
+        if pid is not None:
+            if pid in seen:
+                raise FeedError("ESPN roster: duplicate canonical playerId")
+            seen.add(pid)
+        if flag is not True:
             continue
-        pid = e.get("playerId")
-        if pid in (None, ""):
-            continue
-        out.append({"espn_id": str(pid), "name": e.get("displayName") or ""})
+        if raw_id is None or raw_id == "":
+            continue  # Preserve missing-ID drops; never infer an identity.
+        if pid is None:
+            raise FeedError("ESPN roster: inactive playerId must be a canonical positive decimal ID")
+        name = e.get("displayName")
+        out.append({"espn_id": pid, "name": name if type(name) is str else ""})
     out.sort(key=lambda r: (r["name"], r["espn_id"]))
-    return out
+    return out, seen
+
+
+def parse_game_roster(entries):
+    """Inactive observations in ONE roster: [{espn_id, name}], sorted, pure.
+
+    Only exact boolean True emits a row; `active` is not an inactive marker.
+    Missing/null/empty playerId is dropped. Malformed DNP flags, nonempty
+    emitted IDs, roster shapes and duplicate canonical identities are refused.
+    Empty results do not establish posting, completeness or active status.
+    """
+    return _game_roster(entries)[0]
 
 
 def fetch_game_inactives(game_id):
     """{home, away, inactive: {ABBR: [{espn_id, name}]}} for one ESPN event.
 
     Two core-API reads per team (competition -> competitor -> roster). Loud on
-    a non-200 or an unmappable team; an EMPTY inactive list is valid data (the
-    list is not posted yet), never an error."""
+    a non-200, unmappable team, malformed roster or repeated canonical player
+    identity anywhere in this game's observed rosters, even non-DNP rows.
+    An EMPTY list is valid but establishes no posting/completeness/active claim.
+    Identity checks are per event, not across games or unobserved roster pages.
+    """
     comp = _get_json(_CORE_COMPETITION_URL.format(gid=game_id))
-    sides = {}
+    sides, seen = {}, set()
     for c in comp.get("competitors") or []:
         team_ref = (c.get("team") or {}).get("$ref")
         roster_ref = (c.get("roster") or {}).get("$ref")
@@ -316,7 +352,11 @@ def fetch_game_inactives(game_id):
             raise FeedError(f"ESPN team {team.get('abbreviation')!r} in game {game_id} did "
                             f"not map to a canonical abbreviation.")
         roster = _get_json(roster_ref)
-        sides[c.get("homeAway")] = (abbrev, parse_game_roster(roster.get("entries")))
+        inactive, identities = _game_roster(roster.get("entries"))
+        if seen & identities:
+            raise FeedError(f"ESPN competition {game_id}: duplicate canonical playerId across rosters")
+        seen.update(identities)
+        sides[c.get("homeAway")] = (abbrev, inactive)
     if set(sides) != {"home", "away"}:
         raise FeedError(f"ESPN competition {game_id}: expected home+away, got {sorted(sides)}")
     return {"home": sides["home"][0], "away": sides["away"][0],

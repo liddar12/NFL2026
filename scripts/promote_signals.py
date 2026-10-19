@@ -138,6 +138,7 @@ MULTIPLICITY UNIT (R24 — the divisor is HYPOTHESES, not grid points)
 """
 
 import functools
+import datetime as dt
 import json
 import math
 import os
@@ -2550,13 +2551,33 @@ def _stats_selftest():
     assert should_adopt(0.0024, 0.002462, 3, 44) is False
 
 
-def wind_current(season):
+_LIVE_WEATHER_DEFAULT = object()
+
+
+def wind_current(season, schedule_games=_LIVE_WEATHER_DEFAULT, checked_utc=None,
+                 forecast_document=_LIVE_WEATHER_DEFAULT):
     """{season|week|home|away: wind_kph} for PREDICTION-TIME weather_wind
     application, from the daily-refreshed weather_forecast.json (upcoming
     open-roof home games). None until the forecast builder has run; empty in
     the offseason (correctly dormant — no fabricated wind for future games)."""
-    games = _load_json(FORECAST_PATH, "games")
-    if games is None:
+    from scripts import weather_source_contract as weather
+    if forecast_document is _LIVE_WEATHER_DEFAULT:
+        try:
+            with open(FORECAST_PATH, encoding='utf-8') as handle:
+                forecast_document = json.load(handle)
+        except (OSError, ValueError):
+            forecast_document = None
+    if schedule_games is _LIVE_WEATHER_DEFAULT:
+        try:
+            schedule_games = _load_json(os.path.join(DATA, 'schedule_full.json'), 'games')
+        except (OSError, ValueError, TypeError, AttributeError):
+            schedule_games = None
+    if checked_utc is None:
+        checked_utc = dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')
+    view = weather.live_view(forecast_document, season, schedule_games, checked_utc)
+    games = view['games']
+    if not games:
+        print('WARNING: current weather wind withheld: ' + ','.join(view['report']['reason_codes']), file=sys.stderr)
         return None
     out = {}
     for key, w in games.items():

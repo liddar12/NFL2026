@@ -247,6 +247,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "rows_unknown_weather": {
+          "description": "Joined rows excluded before any weather/control estimation because an observation is unknown or malformed. Absent in legacy artifacts means zero; never interpreted as dry weather.",
+          "type": "integer",
+          "minimum": 0
+        },
         "dropped_relocations": {
           "description": "Minimum 1. A venue filter that drops nothing is a venue filter that did not run, and the corpus is known to contain relocations - a game played indoors in another city carries the weather of a stadium nobody was in.",
           "type": "integer",

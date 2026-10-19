@@ -28,6 +28,20 @@
 # zero-dep invariant holds. CI installs Playwright and runs it for real.
 set -uo pipefail
 
+# CI partitions share this entry point; local/data CI defaults to every check.
+partition=all
+if [ "$#" -ne 0 ]; then
+  if [ "$#" -ne 2 ] || [ "$1" != --partition ]; then
+    echo "Usage: bash tests/run_gate.sh [--partition all|core|features]" >&2
+    exit 2
+  fi
+  partition="$2"
+  case "$partition" in all|core|features) ;; *) echo "Unknown gate partition: $partition" >&2; exit 2 ;; esac
+fi
+if [ "$partition" != all ]; then
+  echo "GATE PARTITION: $partition (partial checks; full acceptance requires every partition)"
+fi
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
@@ -51,9 +65,14 @@ run_step() {
 }
 
 # ---- Fast gate (dependency-free) -----------------------------------------
+if [ "$partition" != features ]; then
 run_step "validate data contracts" python3 scripts/validate_data.py
 run_step "smoke tests"             bash tests/smoke.sh
+fi
+if [ "$partition" != core ]; then
 run_step "feature tests (incl. AA contrast)" node --test tests/feature/*.mjs
+fi
+if [ "$partition" != features ]; then
 run_step "weekly split never-regress (R51)" python3 scripts/backtest_weekly.py --gate
 run_step "parlay never-regress (R51)"       python3 scripts/backtest_parlay.py --gate
 run_step "kdst weekly split never-regress (R55)" python3 scripts/backtest_kdst.py --gate
@@ -89,11 +108,20 @@ else
   echo "##     npm run test:e2e   (or: bash tests/run_gate.sh after install)"
   echo "############################################################"
 fi
+fi
 
 echo "=================================================================="
 if [ "$fail" -ne 0 ]; then
+  if [ "$partition" != all ]; then
+    echo "GATE PARTITION $partition RESULT: FAIL" >&2
+    exit 1
+  fi
   echo "GATE RESULT: FAIL (red — do NOT deploy)" >&2
   exit 1
+fi
+if [ "$partition" != all ]; then
+  echo "GATE PARTITION $partition RESULT: PASS (partial checks only)"
+  exit 0
 fi
 echo "GATE RESULT: PASS (green)"
 exit 0

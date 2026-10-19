@@ -1,19 +1,21 @@
 # CI regression gate — runs on every push / PR.
 #
-# TWO JOBS, deliberately split so the invariant is visible:
-#   - `gate`  : the dependency-free FAST gate. Installs NOTHING (no pip, no npm).
+# Parallel regression partitions retain every check in tests/run_gate.sh.
+#   - `regression`: core and feature workers. Installs NOTHING (no pip, no npm).
 #               stdlib Python 3.11 + Node 22 built-ins only. If a fast-gate step
 #               ever needs an external package, the gate is wrong — fix the code,
 #               not this workflow. Scrapers (which DO need nfl_data_py/requests)
 #               are never invoked by the gate; their heavy imports are guarded
 #               inside functions.
+#   - `gate`: required check; succeeds only when every partition succeeds.
 #   - `e2e`   : the browser E2E (Playwright web + pwa). This is the ONE place that
 #               installs deps (npm + a chromium browser). Kept out of `gate` so the
 #               zero-dep guarantee for the fast gate is never eroded.
 #
 # The gate is exit-code gated (never grep colored summaries). tests/run_gate.sh runs, in
-# order: validate_data.py -> smoke.sh -> node --test tests/feature/*.mjs (which now
-# includes the WCAG AA contrast test), and fails fast on the first non-zero exit.
+# default order: validation, smoke, features (including WCAG AA), four backtests,
+# optional browser checks. CI overlaps features with core validation/backtests.
+# Every failing command fails its worker and the required gate.
 name: ci
 
 on:
@@ -31,11 +33,17 @@ permissions:
   contents: read
 
 jobs:
-  gate:
+  regression:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [core, features]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       # Python + Node only. NO dependency install steps — that is the point.
       - name: Setup Python
@@ -52,7 +60,23 @@ jobs:
       # workflow fails if run_gate.sh returns non-zero. On this runner
       # @playwright/test is absent, so run_gate.sh's step 4 skips loudly.
       - name: Run regression gate
-        run: bash tests/run_gate.sh
+        run: bash tests/run_gate.sh --partition "${{ matrix.partition }}"
+
+  # Preserve the required check name and reject failed, skipped or cancelled workers.
+  gate:
+    needs: [regression]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every regression partition
+        shell: bash
+        env:
+          REGRESSION_RESULT: ${{ needs.regression.result }}
+        run: |
+          if [ "$REGRESSION_RESULT" != success ]; then
+            echo "Required regression partitions did not all succeed."
+            exit 1
+          fi
 
   # Browser E2E: the INDEPENDENT web + pwa proofs. The only job allowed to install
   # dependencies (Playwright + chromium). It does not gate the fast gate above.

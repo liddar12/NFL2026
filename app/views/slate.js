@@ -9,8 +9,10 @@
  * whole season from today's ratings every run), so on any week but the current
  * one app/review.js repaints the heads from the immutable lock and demotes the
  * recomputed number to a provenance line — see its R90 block.
- * schedule_full is only fetched on the first non-default selection (cached by
- * data.js after that). Handles the empty + error states with a .state message
+ * schedule_full also optionally supplies the current slate's actual venue,
+ * joined on exact event identity; it never replaces a probability. A missing
+ * schedule leaves VENUE UNKNOWN rather than inventing a home location.
+ * Handles the empty + error states with a .state message
  * so the user never sees a blank screen. No rendering markup for cards lives
  * here — that is render.js's job; this module orchestrates fetch -> paint.
  */
@@ -21,6 +23,35 @@ import {
 } from '../render.js';
 
 const WEEKS = 18; // fixed 2026 regular season length — chips are WK 1..18
+
+/** Display-only current-slate venue join. Neither input is mutated, and no
+ * schedule probability, roof assumption, status or model field is copied.
+ * A duplicate ID is ambiguous even if one duplicate appears to match. The
+ * prediction document's week binds older per-game rows without their own week.
+ */
+export function enrichSlateVenues(predictions, schedule) {
+  const games = Array.isArray(predictions?.games) ? predictions.games : [];
+  const season = predictions?.season, week = predictions?.week;
+  if (!Number.isInteger(season) || !Number.isInteger(week)
+      || schedule?.season !== season || !Array.isArray(schedule?.games)) return games;
+  const byId = new Map();
+  for (const row of schedule.games) {
+    if (!row || typeof row.game_id !== 'string' || !row.game_id) continue;
+    byId.set(row.game_id, byId.has(row.game_id) ? null : row);
+  }
+  return games.map((game) => {
+    if (!game || typeof game.game_id !== 'string' || !game.game_id) return game;
+    const row = byId.get(game.game_id);
+    if (!row || row.home !== game.home || row.away !== game.away
+        || typeof game.home !== 'string' || !game.home || game.home === game.away
+        || typeof game.away !== 'string' || !game.away
+        || typeof game.kickoff_utc !== 'string' || !game.kickoff_utc
+        || row.kickoff_utc !== game.kickoff_utc || row.week !== week
+        || (game.week !== undefined && game.week !== week)
+        || typeof row.venue !== 'string' || !row.venue.trim()) return game;
+    return { ...game, venue: row.venue };
+  });
+}
 
 /** Paint a plain .state message (empty / error). */
 function stateMsg(el, text) {
@@ -69,9 +100,12 @@ export default async function mountSlate(el) {
   // a 404 or empty file simply means no strips render, zero behavior change.
   let marketGames = {};
   const marketRequest = getMarketPrices({ timeoutMs: 2000 }).catch(() => null);
+  // Optional adornment: initial predictions render immediately; a venue fetch
+  // cannot suppress the slate or substitute schedule_full's recomputed prices.
+  const venueRequest = getScheduleFull({ timeoutMs: 2000 }).catch(() => null);
   if (!el.isConnected) return;
 
-  const defaultGames = (data && Array.isArray(data.games)) ? data.games : [];
+  let defaultGames = (data && Array.isArray(data.games)) ? data.games : [];
   if (defaultGames.length === 0) {
     stateMsg(el, 'No games scheduled yet.');
     return;
@@ -177,6 +211,11 @@ export default async function mountSlate(el) {
     if (!el.isConnected || active !== defaultWeek || !mp?.games) return;
     marketGames = mp.games;
     paintGames(defaultGames);
+  });
+  venueRequest.then((schedule) => {
+    if (!el.isConnected) return;
+    defaultGames = enrichSlateVenues(data, schedule);
+    if (active === defaultWeek) paintGames(defaultGames);
   });
 
   // Wire the week bar (event delegation, one listener).

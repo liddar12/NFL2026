@@ -42,6 +42,7 @@ import json
 import os
 import sys
 import urllib.request
+import urllib.parse
 
 _THIS = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.abspath(os.path.join(_THIS, ".."))
@@ -50,6 +51,7 @@ if _ROOT not in sys.path:
 
 from scripts.scrape.stadiums import STADIUMS  # noqa: E402
 from scripts.build_weather_history import pick_hour, load_finals, SEASONS  # noqa: E402
+from scripts import weather_source_contract as bound_weather  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "weather_forecast.json")
@@ -67,7 +69,9 @@ RULES = tuple(RULE_THRESHOLDS)
 
 FORECAST_URL = ("https://api.open-meteo.com/v1/forecast?latitude={lat}"
                 "&longitude={lon}&hourly=temperature_2m,wind_speed_10m,precipitation"
-                f"&forecast_days={FORECAST_DAYS}&timezone=UTC")
+                f"&forecast_days={FORECAST_DAYS}&timezone=UTC"
+                "&temperature_unit=celsius&wind_speed_unit=kmh&precipitation_unit=mm")
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 NON_DOME_HOMES = {ab: s for ab, s in STADIUMS.items()
                   if s.get("roof") in ("open", "retractable")}
@@ -211,13 +215,18 @@ def climatology_markdown(table):
 # ----------------------------------------------------------------------------------
 
 def build_document(schedule_doc, now_utc, fetch_hourly, history_games=None,
-                   finals_by_season=None, generated_utc=None):
+                   finals_by_season=None, generated_utc=None, profile=None):
     """(doc, stats). fetch_hourly(home) -> Open-Meteo `hourly` payload or None on
     failure (main passes the network fetcher; the selftest a fixture).
     A game inside the horizon takes its kickoff-hour forecast; a game with no
     forecast row (beyond the horizon, or its fetch failed) takes the home
     stadium's climatology row for its kickoff month when one exists; otherwise it
     is absent and counted."""
+    if profile is not None:
+        if profile != bound_weather.PROFILE:
+            raise ValueError('weather_profile_unknown')
+        return build_bound_document(schedule_doc, now_utc, fetch_hourly,
+            history_games, finals_by_season, generated_utc)
     rows = upcoming_non_dome_home_games(schedule_doc)
     stamp = generated_utc or now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     stats = {"scheduled": len(rows), "forecast": 0, "climatology": 0, "absent": 0,
@@ -277,6 +286,94 @@ def build_document(schedule_doc, now_utc, fetch_hourly, history_games=None,
     return doc, stats
 
 
+def build_bound_document(schedule_doc, now_utc, fetch_hourly, history_games=None,
+                         finals_by_season=None, generated_utc=None):
+    """Current producer; legacy build_document fixtures remain unchanged.
+
+    fetch_hourly is only called after actual-venue matching. Its timestamp is
+    our supplied capture clock, not an invented upstream model issuance time.
+    """
+    season = schedule_doc.get('season') if type(schedule_doc) is dict else None
+    rows = schedule_doc.get('games') if type(schedule_doc) is dict else None
+    if type(season) is not int or type(rows) is not list or len(rows) > bound_weather.MAX_GAMES:
+        raise ValueError('weather_schedule_unknown')
+    if not isinstance(now_utc, dt.datetime) or now_utc.utcoffset() is None:
+        raise ValueError('weather_capture_clock_unknown')
+    stamp = bound_weather.clock(now_utc) if generated_utc is None else generated_utc
+    if bound_weather.instant(stamp) != now_utc:
+        raise ValueError('weather_capture_clock_conflict')
+    stats = {'scheduled': 0, 'forecast': 0, 'climatology': 0, 'absent': 0,
+        'fetch_calls': 0, 'fetch_failed': 0, 'beyond_horizon': 0}
+    games, climates, refusals, targets, counts, ids = {}, {}, {}, {}, {}, {}
+    for game in rows:
+        if type(game) is not dict or game.get('status') != 'STATUS_SCHEDULED':
+            continue
+        key = bound_weather.key_for(season, game)
+        counts[key] = counts.get(key, 0) + 1
+        gid = game.get('game_id')
+        if type(gid) is str:
+            ids[gid] = ids.get(gid, 0) + 1
+        binding, reason = bound_weather.target(season, game)
+        if binding is not None and binding['roof'] == 'dome':
+            continue
+        stats['scheduled'] += 1
+        if reason:
+            refusals[key] = reason
+            continue
+        kickoff = bound_weather.instant(game['kickoff_utc'])
+        if kickoff <= now_utc:
+            refusals[key] = 'weather_game_not_upcoming'
+            continue
+        targets[key] = (game, binding)
+    hourly_by_home = {}
+    for key, (game, binding) in targets.items():
+        if counts[key] != 1 or ids.get(binding['game_id']) != 1:
+            refusals[key] = 'weather_game_identity_ambiguous'
+            continue
+        kickoff = bound_weather.instant(game['kickoff_utc'])
+        if not within_horizon(game['kickoff_utc'], now_utc):
+            stats['beyond_horizon'] += 1
+            continue
+        home = game['home']
+        if home not in hourly_by_home:
+            try:
+                hourly_by_home[home] = fetch_hourly(home)
+            except Exception:  # provider failure stays scoped; never expose arbitrary text
+                hourly_by_home[home] = None
+            stats['fetch_failed' if hourly_by_home[home] is None else 'fetch_calls'] += 1
+        hourly = hourly_by_home[home]
+        sample = bound_weather.hour_sample(hourly, kickoff)
+        if sample is None or sample['temp_c'] is None or sample['wind_kph'] is None:
+            refusals[key] = 'weather_forecast_hour_unavailable'
+            continue
+        games[key] = {k: sample[k] for k in ('temp_c', 'wind_kph', 'precip_mm')}
+        games[key].update(source='forecast', fetched_utc=stamp, binding=binding,
+            sample_utc=sample['forecast_utc'], game_window=bound_weather.window(hourly, kickoff))
+    table = climatology_table(history_games or {}, finals_by_season or {})
+    for key, (game, binding) in targets.items():
+        if key in games or counts[key] != 1 or ids.get(binding['game_id']) != 1:
+            continue
+        kickoff = bound_weather.instant(game['kickoff_utc'])
+        prior = table['rows'].get((game['home'], kickoff.month))
+        if prior is not None:
+            climates[key] = {**climatology_row(prior), 'binding': binding}
+    stats['forecast'], stats['climatology'] = len(games), len(climates)
+    stats['absent'] = stats['scheduled'] - len(games) - len(climates)
+    doc = {'version': bound_weather.VERSION, 'profile': bound_weather.PROFILE,
+        'generated_utc': stamp, 'source': 'open-meteo hourly; exact reviewed venue and kickoff binding; '
+            'capture time is local, not provider issuance; game window is evidence only',
+        'games': games, 'climatology': climates, 'refusals': refusals,
+        'sources': {'forecast_days': FORECAST_DAYS, 'climatology_min_n': CLIMATOLOGY_MIN_N,
+            'climatology_seasons': list(CLIMATOLOGY_SEASONS),
+            'climatology_eval_seasons': list(CLIMATOLOGY_EVAL_SEASONS),
+            'climatology_stadium_months': len(table['rows']),
+            'climatology_skipped_lt_min_n': len(table['skipped']),
+            'counts': {k: stats[k] for k in ('scheduled', 'forecast', 'climatology', 'absent')}}}
+    if not bound_weather.validate_document(doc):
+        raise ValueError('weather_produced_contract_invalid')
+    return doc, stats
+
+
 def _load_history_games():
     if not os.path.exists(HISTORY_PATH):
         return {}
@@ -294,12 +391,37 @@ def _load_finals_by_season():
     return out
 
 
+def _forecast_origin(url):
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme == 'https' and parsed.hostname == 'api.open-meteo.com' \
+        and parsed.port in (None, 443) and not parsed.username and not parsed.password \
+        and parsed.path == '/v1/forecast'
+
+
+class _ForecastRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _forecast_origin(newurl):
+            raise ValueError('weather_provider_origin_changed')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _network_fetch(home):
     st = NON_DOME_HOMES[home]
     url = FORECAST_URL.format(lat=st["lat"], lon=st["lon"])
     try:
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            payload = json.load(resp)
+        opener = urllib.request.build_opener(_ForecastRedirects())
+        with opener.open(url, timeout=30) as resp:
+            if not _forecast_origin(resp.geturl()):
+                raise ValueError('weather_provider_origin_changed')
+            raw = resp.read(MAX_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise ValueError('weather_provider_response_oversized')
+            payload = json.loads(raw)
+            units = payload.get('hourly_units') if type(payload) is dict else None
+            if type(units) is not dict or any(units.get(k) != v for k, v in (
+                    ('temperature_2m', '°C'), ('wind_speed_10m', 'km/h'), ('precipitation', 'mm'))) \
+            or type(payload.get('utc_offset_seconds')) is not int or payload['utc_offset_seconds'] != 0:
+                raise ValueError('weather_provider_units_or_timezone_unknown')
     except Exception as err:  # noqa: BLE001 — loud, keep going for other homes
         print(f"WEATHER FORECAST: fetch failed for {home}: {err}", file=sys.stderr)
         return None
@@ -462,8 +584,12 @@ def main():
         return 0
 
     now = dt.datetime.now(dt.timezone.utc)
+    # Current network CLI explicitly selects v2. The unselected pure API exists
+    # for archived regression fixtures only; live readers never accept it.
+    now = now.replace(microsecond=0)
     doc, stats = build_document(schedule_doc, now, _network_fetch,
-                                _load_history_games(), _load_finals_by_season())
+                                _load_history_games(), _load_finals_by_season(),
+                                profile=bound_weather.PROFILE)
     if stats["fetch_calls"] == 0 and stats["fetch_failed"]:
         # Never reached the API: keep the existing file rather than replacing
         # live forecast rows with climatology alone.

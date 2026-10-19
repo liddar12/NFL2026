@@ -319,4 +319,6 @@ jobs:
       # and is race-safe by construction — see docs/PUBLISH.md. data/ includes
       # the snapshots and data/pipeline_stages.json.
       - name: Commit snapshots + data
+        env:
+          PUBLISH_BRANCH: ${{ github.ref_name }}
         run: 'bash scripts/publish_data.sh "data: gameday refresh [skip actions]"'

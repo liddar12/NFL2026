@@ -51,7 +51,7 @@ test("run_gate.sh gates every step on its EXIT CODE, never by grepping output", 
     "a grep in run_gate.sh means a step is being judged by its output again");
   // A red step must fail the whole gate with a non-zero exit.
   assert.match(sh, /fail=1/);
-  assert.match(sh, /if \[ "\$fail" -ne 0 \]; then\s*\n\s*echo "GATE RESULT: FAIL[^"]*" >&2\s*\n\s*exit 1/,
+  assert.match(sh, /if \[ "\$fail" -ne 0 \]; then\n  if \[ "\$partition" != all \]; then\n    echo "GATE PARTITION \$partition RESULT: FAIL" >&2\n    exit 1\n  fi\n  echo "GATE RESULT: FAIL[^"]*" >&2\n  exit 1\nfi/,
     "the FAIL path must exit 1 — a red gate that exits 0 is a green gate");
   assert.match(sh, /set -uo pipefail/);
 });
@@ -79,17 +79,21 @@ test("run_gate.sh step 4 skips LOUDLY without failing — the documented fast-ga
 function ciJobs() {
   const yml = read(".github/workflows/ci.yml");
   const jobs = yml.slice(yml.search(/^jobs:/m));
+  const regression = jobs.slice(jobs.search(/^ {2}regression:/m), jobs.search(/^ {2}gate:/m));
   const gate = jobs.slice(jobs.search(/^ {2}gate:/m), jobs.search(/^ {2}e2e:/m));
   const e2e = jobs.slice(jobs.search(/^ {2}e2e:/m));
   assert.ok(gate.length > 0 && e2e.length > 0, "ci.yml must define gate and e2e jobs");
-  return { gate, e2e };
+  assert.ok(regression.startsWith('  regression:'), 'required regression workers must exist');
+  assert.match(gate, /needs: \[regression\]/);
+  assert.match(gate, /if: always\(\)/);
+  return { gate, regression, e2e };
 }
 
-test("ci.yml's gate job invokes run_gate.sh and installs NOTHING first", () => {
-  const { gate } = ciJobs();
-  assert.match(gate, /run: bash tests\/run_gate\.sh/,
+test("ci.yml's required regression workers invoke run_gate.sh and install NOTHING first", () => {
+  const { gate, regression } = ciJobs();
+  assert.match(regression, /run: bash tests\/run_gate\.sh --partition/,
     "the gate job must run the single source of truth, not re-list the steps");
-  const code = gate.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const code = (gate + regression).split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
   assert.ok(!/npm (i|ci|install)|pip install|playwright install/.test(code),
     "a dependency install inside the gate job erodes the zero-dep fast-gate "
     + "invariant — if a fast-gate step needs a package, the step is wrong");

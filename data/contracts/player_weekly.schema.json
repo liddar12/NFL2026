@@ -145,6 +145,17 @@
           },
           "description": "Weather multipliers + thresholds (pass_dome, pass_outdoors, pass_cold_extra, rb_wind, cold_c, wind_kph) - documented priors; roof from environment_model.json, forecast from weather_forecast.json."
         },
+        "weather_source": {
+          "type": "object", "additionalProperties": false,
+          "required": ["profile", "status", "reason_codes", "games", "provider_HTTP_verified"],
+          "properties": {
+            "profile": {"type": "string", "enum": ["venue_bound_kickoff_weather_v2"]},
+            "status": {"type": "string", "enum": ["held", "current_bound_rows"]},
+            "reason_codes": {"type": "array", "items": {"type": "string"}},
+            "games": {"type": "object", "maxProperties": 512, "additionalProperties": {"type": "string"}},
+            "provider_HTTP_verified": {"type": "boolean", "enum": [false]}
+          }
+        },
         "weather_sources": {
           "type": "object",
           "additionalProperties": false,

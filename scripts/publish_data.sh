@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# publish_data.sh — commit data/ and get it onto main, whoever else is pushing.
+# publish_data.sh — commit data/ onto main or an explicit release/* branch.
 #
 # WHY THIS EXISTS (F16). Every pipeline workflow used to end with the same loop:
 # commit locally, then retry `pull (fast-forward only) && push` five times. That
@@ -40,6 +40,7 @@
 # Usage:  bash scripts/publish_data.sh "data: daily pipeline refresh [skip actions]"
 #
 # Env (test seams; the defaults are what production runs):
+#   PUBLISH_BRANCH        main or release/*           (default: main when unset)
 #   PUBLISH_VALIDATE_CMD  the contract gate            (default: python3 scripts/validate_data.py)
 #   PUBLISH_BACKOFF_S     seconds between attempts     (default: 5)
 #   PUBLISH_ATTEMPTS      how many attempts            (default: 5)
@@ -148,7 +149,7 @@ resolve_conflicts() {
     [ -n "$path" ] || continue
     case "$path" in
       data/*) ;;
-      *) die "conflict outside data/ on '$path'. A pipeline commit changes only data/, so this is a code collision no automatic rule should resolve. Re-run the workflow once main is settled, or resolve it by hand." ;;
+      *) die "conflict outside data/ on '$path'. A pipeline commit changes only data/, so this is a code collision no automatic rule should resolve. Re-run the workflow once $target_branch is settled, or resolve it by hand." ;;
     esac
 
     if is_ledger "$path"; then
@@ -269,6 +270,17 @@ main() {
   fi
   local message="$1" attempt remote replayed
 
+  # Resolve and validate before changing config, the index or local history.
+  local target_branch="${PUBLISH_BRANCH-main}"
+  case "$target_branch" in
+    main|release/*) ;;
+    *) echo "::error::invalid publish branch: '$target_branch' (expected main or release/*)"; exit 2 ;;
+  esac
+  if ! git check-ref-format "refs/heads/$target_branch"; then
+    echo "::error::invalid publish branch: '$target_branch'"
+    exit 2
+  fi
+
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
 
@@ -281,13 +293,13 @@ main() {
   log "committed $(git rev-parse --short HEAD): $message"
 
   for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
-    if ! git fetch --quiet origin main; then
-      die "could not fetch origin/main (attempt $attempt). Nothing was published; this run's generation is committed locally."
+    if ! git fetch --quiet origin "$target_branch"; then
+      die "could not fetch origin/$target_branch (attempt $attempt). Nothing was published; this run's generation is committed locally."
     fi
     remote="$(git rev-parse FETCH_HEAD)"
 
     if ! git merge-base --is-ancestor "$remote" HEAD; then
-      log "attempt $attempt: main moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
+      log "attempt $attempt: $target_branch moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
       replay_onto "$remote"
       log "attempt $attempt: replayed onto $(git rev-parse --short "$remote"); head is now $(git rev-parse --short HEAD)"
       if [ "$REBASE_RESOLVED" -eq 0 ] && ! eval "$VALIDATE_CMD"; then
@@ -296,13 +308,13 @@ main() {
         fall_back_to_theirs "$remote"
         if git diff --cached --quiet "$remote" -- .; then
           git reset --quiet --hard "$remote"
-          log "  nothing of this run's survives the fallback; main already holds it"
+          log "  nothing of this run's survives the fallback; $target_branch already holds it"
           exit 0
         fi
         git -c core.editor=true commit --quiet --amend --no-edit
         if ! eval "$VALIDATE_CMD"; then
           git reset --quiet --hard "$replayed"
-          die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). Nothing on main changed; re-run the pipeline against the new head."
+          die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). Nothing on $target_branch changed; re-run the pipeline against the new head."
         fi
       fi
       if git merge-base --is-ancestor "$remote" HEAD; then
@@ -312,8 +324,8 @@ main() {
       fi
     fi
 
-    if git push origin HEAD:main; then
-      log "attempt $attempt: published $(git rev-parse --short HEAD) to main"
+    if git push origin "HEAD:refs/heads/$target_branch"; then
+      log "attempt $attempt: published $(git rev-parse --short HEAD) to $target_branch"
       if [ "$FELL_BACK" -eq 1 ]; then
         echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"
       fi
@@ -325,7 +337,7 @@ main() {
     fi
   done
 
-  echo "::error::could not publish data after $ATTEMPTS attempts: main is being written faster than this run can rebase onto it. The generation is committed locally in the runner's checkout and nothing was lost on main; re-run the workflow."
+  echo "::error::could not publish data after $ATTEMPTS attempts: $target_branch is being written faster than this run can rebase onto it. The generation is committed locally in the runner's checkout and nothing was lost on $target_branch; re-run the workflow."
   exit 1
 }
 
