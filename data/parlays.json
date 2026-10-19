@@ -1,120 +1,212 @@
 {
   "season": 2026,
   "week": 6,
-  "updated_utc": "2026-10-19T01:19:07Z",
+  "updated_utc": "2026-10-19T04:14:28Z",
   "parlays": [
     {
-      "parlay_id": "401873007-g1",
+      "parlay_id": "401873008-g1",
       "scope": "game",
       "legs": [
         {
           "market": "moneyline",
-          "selection": "GB ML",
-          "implied_prob": 0.7945,
-          "model_prob": 0.6471,
+          "selection": "SF ML",
+          "implied_prob": 0.7867,
+          "model_prob": 0.8407,
+          "side": "home",
+          "price_source": "fair_market"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Purdy 225+ pass yds",
+          "implied_prob": 0.5378,
+          "model_prob": 0.5146,
+          "side": "home",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 215.62,
+          "sd": 76.66,
+          "z": -0.1158,
+          "line": 224.5,
+          "gsis_id": "espn-4361741"
+        }
+      ],
+      "model_ev": 0.0658,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
+      "game_id": "401873008"
+    },
+    {
+      "parlay_id": "401873008-g2",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "implied_prob": 0.7867,
+          "model_prob": 0.8407,
+          "side": "home",
+          "price_source": "fair_market"
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "C. McCaffrey 60+ rush yds",
+          "implied_prob": 0.4336,
+          "model_prob": 0.4149,
+          "side": "home",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 43.94,
+          "sd": 38.87,
+          "z": -0.4002,
+          "line": 59.5,
+          "gsis_id": "espn-3117251"
+        }
+      ],
+      "model_ev": 0.17,
+      "confidence_tier": "medium",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
+      "game_id": "401873008"
+    },
+    {
+      "parlay_id": "401873008-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "implied_prob": 0.7867,
+          "model_prob": 0.8407,
           "side": "home",
           "price_source": "fair_market"
         },
         {
           "market": "wr_rec_yds",
-          "selection": "G. Pickens 60+ rec yds",
-          "implied_prob": 0.4863,
-          "model_prob": 0.4654,
+          "selection": "T. McLaurin 60+ rec yds",
+          "implied_prob": 0.3971,
+          "model_prob": 0.38,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 66.62,
+          "mu": 56.01,
           "sd": 41.58,
-          "z": 0.1713,
+          "z": -0.084,
           "line": 59.5,
-          "gsis_id": "espn-4426354"
+          "gsis_id": "espn-3121422"
         }
       ],
-      "model_ev": -0.2822,
+      "model_ev": -0.0342,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873007"
+      "game_id": "401873008"
     },
     {
-      "parlay_id": "401873007-g2",
+      "parlay_id": "401872995-g1",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.563,
+          "model_prob": 0.5388,
+          "side": "home",
+          "price_source": "assumed"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "J. Smith-Njigba 60+ rec yds",
+          "implied_prob": 0.6174,
+          "model_prob": 0.5908,
+          "side": "away",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 86.14,
+          "sd": 41.58,
+          "z": 0.6407,
+          "line": 59.5,
+          "gsis_id": "espn-4430878"
+        }
+      ],
+      "model_ev": -0.1547,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
+      "game_id": "401872995"
+    },
+    {
+      "parlay_id": "401872995-g2",
       "scope": "game",
       "legs": [
         {
           "market": "qb_pass_yds",
-          "selection": "D. Prescott 225+ pass yds",
-          "implied_prob": 0.3436,
-          "model_prob": 0.3288,
-          "side": "away",
+          "selection": "B. Nix 225+ pass yds",
+          "implied_prob": 0.3974,
+          "model_prob": 0.3803,
+          "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 194.53,
+          "mu": 197.95,
           "sd": 76.66,
-          "z": -0.3909,
+          "z": -0.3463,
           "line": 224.5,
-          "gsis_id": "espn-2577417"
+          "gsis_id": "espn-4426338"
         },
         {
           "market": "wr_rec_yds",
-          "selection": "G. Pickens 60+ rec yds",
-          "implied_prob": 0.4863,
-          "model_prob": 0.4654,
+          "selection": "J. Smith-Njigba 60+ rec yds",
+          "implied_prob": 0.6174,
+          "model_prob": 0.5908,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 66.62,
+          "mu": 86.14,
           "sd": 41.58,
-          "z": 0.1713,
+          "z": 0.6407,
           "line": 59.5,
-          "gsis_id": "espn-4426354"
+          "gsis_id": "espn-4430878"
         }
       ],
-      "model_ev": 0.357,
-      "confidence_tier": "medium",
+      "model_ev": 0.0124,
+      "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873007"
+      "game_id": "401872995"
     },
     {
-      "parlay_id": "401873007-g3",
+      "parlay_id": "401872995-g3",
       "scope": "game",
       "legs": [
         {
-          "market": "rb_rush_yds",
-          "selection": "J. Williams 60+ rush yds",
-          "implied_prob": 0.3905,
-          "model_prob": 0.3737,
-          "side": "away",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 54.9,
-          "sd": 38.87,
-          "z": -0.1183,
-          "line": 59.5,
-          "gsis_id": "espn-4361579"
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.563,
+          "model_prob": 0.5388,
+          "side": "home",
+          "price_source": "assumed"
         },
         {
-          "market": "wr_rec_yds",
-          "selection": "G. Pickens 60+ rec yds",
-          "implied_prob": 0.4863,
-          "model_prob": 0.4654,
-          "side": "away",
+          "market": "qb_pass_yds",
+          "selection": "B. Nix 225+ pass yds",
+          "implied_prob": 0.3974,
+          "model_prob": 0.3803,
+          "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 66.62,
-          "sd": 41.58,
-          "z": 0.1713,
-          "line": 59.5,
-          "gsis_id": "espn-4426354"
+          "mu": 197.95,
+          "sd": 76.66,
+          "z": -0.3463,
+          "line": 224.5,
+          "gsis_id": "espn-4426338"
         }
       ],
-      "model_ev": 0.0429,
+      "model_ev": 0.024,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873007"
+      "game_id": "401872995"
     },
     {
       "parlay_id": "401872996-g1",
@@ -164,15 +256,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "T. Lawrence 225+ pass yds",
-          "implied_prob": 0.3806,
-          "model_prob": 0.3642,
+          "implied_prob": 0.3799,
+          "model_prob": 0.3635,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 185.43,
+          "mu": 185.2,
           "sd": 76.66,
-          "z": -0.5097,
+          "z": -0.5126,
           "line": 224.5,
           "gsis_id": "espn-4360310"
         }
@@ -189,15 +281,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "T. Lawrence 225+ pass yds",
-          "implied_prob": 0.3806,
-          "model_prob": 0.3642,
+          "implied_prob": 0.3799,
+          "model_prob": 0.3635,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 185.43,
+          "mu": 185.2,
           "sd": 76.66,
-          "z": -0.5097,
+          "z": -0.5126,
           "line": 224.5,
           "gsis_id": "espn-4360310"
         },
@@ -217,7 +309,7 @@
           "gsis_id": "espn-4258173"
         }
       ],
-      "model_ev": 0.0436,
+      "model_ev": 0.0438,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401872996"
@@ -335,15 +427,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "L. Jackson 225+ pass yds",
-          "implied_prob": 0.4349,
-          "model_prob": 0.4162,
+          "implied_prob": 0.4341,
+          "model_prob": 0.4154,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 215.68,
+          "mu": 215.45,
           "sd": 76.66,
-          "z": -0.115,
+          "z": -0.118,
           "line": 224.5,
           "gsis_id": "espn-3916387"
         },
@@ -363,7 +455,7 @@
           "gsis_id": "espn-4429615"
         }
       ],
-      "model_ev": 0.2905,
+      "model_ev": 0.291,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401872997"
@@ -489,15 +581,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "D. Jones 225+ pass yds",
-          "implied_prob": 0.5462,
-          "model_prob": 0.5227,
+          "implied_prob": 0.5451,
+          "model_prob": 0.5216,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 228.56,
+          "mu": 228.28,
           "sd": 76.66,
-          "z": 0.0529,
+          "z": 0.0493,
           "line": 224.5,
           "gsis_id": "espn-3917792"
         }
@@ -514,15 +606,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "D. Jones 225+ pass yds",
-          "implied_prob": 0.5462,
-          "model_prob": 0.5227,
+          "implied_prob": 0.5451,
+          "model_prob": 0.5216,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 228.56,
+          "mu": 228.28,
           "sd": 76.66,
-          "z": 0.0529,
+          "z": 0.0493,
           "line": 224.5,
           "gsis_id": "espn-3917792"
         },
@@ -542,7 +634,7 @@
           "gsis_id": "espn-4242335"
         }
       ],
-      "model_ev": -0.0976,
+      "model_ev": -0.0977,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873003"
@@ -562,20 +654,20 @@
         {
           "market": "qb_pass_yds",
           "selection": "D. Maye 225+ pass yds",
-          "implied_prob": 0.5653,
-          "model_prob": 0.541,
+          "implied_prob": 0.5663,
+          "model_prob": 0.5419,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 225.09,
+          "mu": 225.35,
           "sd": 76.66,
-          "z": 0.0077,
+          "z": 0.0111,
           "line": 224.5,
           "gsis_id": "espn-4431452"
         }
       ],
-      "model_ev": -0.0423,
+      "model_ev": -0.0425,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873001"
@@ -620,15 +712,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "D. Maye 225+ pass yds",
-          "implied_prob": 0.5653,
-          "model_prob": 0.541,
+          "implied_prob": 0.5663,
+          "model_prob": 0.5419,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 225.09,
+          "mu": 225.35,
           "sd": 76.66,
-          "z": 0.0077,
+          "z": 0.0111,
           "line": 224.5,
           "gsis_id": "espn-4431452"
         },
@@ -648,7 +740,7 @@
           "gsis_id": "espn-4047646"
         }
       ],
-      "model_ev": 0.1647,
+      "model_ev": 0.1641,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873001"
@@ -806,15 +898,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Hurts 225+ pass yds",
-          "implied_prob": 0.3597,
-          "model_prob": 0.3442,
+          "implied_prob": 0.3585,
+          "model_prob": 0.3431,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 191.24,
+          "mu": 190.92,
           "sd": 76.66,
-          "z": -0.4338,
+          "z": -0.438,
           "line": 224.5,
           "gsis_id": "espn-4040715"
         },
@@ -834,7 +926,7 @@
           "gsis_id": "espn-4241478"
         }
       ],
-      "model_ev": 0.3528,
+      "model_ev": 0.354,
       "confidence_tier": "medium",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401872998"
@@ -887,15 +979,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "B. Mayfield 225+ pass yds",
-          "implied_prob": 0.5326,
-          "model_prob": 0.5097,
+          "implied_prob": 0.5327,
+          "model_prob": 0.5098,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 248.67,
+          "mu": 248.7,
           "sd": 76.66,
-          "z": 0.3153,
+          "z": 0.3157,
           "line": 224.5,
           "gsis_id": "espn-3052587"
         }
@@ -945,15 +1037,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "B. Mayfield 225+ pass yds",
-          "implied_prob": 0.5326,
-          "model_prob": 0.5097,
+          "implied_prob": 0.5327,
+          "model_prob": 0.5098,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 248.67,
+          "mu": 248.7,
           "sd": 76.66,
-          "z": 0.3153,
+          "z": 0.3157,
           "line": 224.5,
           "gsis_id": "espn-3052587"
         },
@@ -973,7 +1065,7 @@
           "gsis_id": "espn-4047650"
         }
       ],
-      "model_ev": 0.016,
+      "model_ev": 0.0159,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873002"
@@ -1051,15 +1143,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "M. Stafford 225+ pass yds",
-          "implied_prob": 0.6033,
-          "model_prob": 0.5773,
+          "implied_prob": 0.6028,
+          "model_prob": 0.5768,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 239.4,
+          "mu": 239.26,
           "sd": 76.66,
-          "z": 0.1944,
+          "z": 0.1925,
           "line": 224.5,
           "gsis_id": "espn-12483"
         },
@@ -1079,7 +1171,7 @@
           "gsis_id": "espn-4426515"
         }
       ],
-      "model_ev": 0.0828,
+      "model_ev": 0.0829,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873004"
@@ -1231,15 +1323,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Allen 225+ pass yds",
-          "implied_prob": 0.6217,
-          "model_prob": 0.5949,
+          "implied_prob": 0.6228,
+          "model_prob": 0.596,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 247.98,
+          "mu": 248.28,
           "sd": 76.66,
-          "z": 0.3062,
+          "z": 0.3102,
           "line": 224.5,
           "gsis_id": "espn-3918298"
         }
@@ -1256,15 +1348,15 @@
         {
           "market": "qb_pass_yds",
           "selection": "J. Allen 225+ pass yds",
-          "implied_prob": 0.6217,
-          "model_prob": 0.5949,
+          "implied_prob": 0.6228,
+          "model_prob": 0.596,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 247.98,
+          "mu": 248.28,
           "sd": 76.66,
-          "z": 0.3062,
+          "z": 0.3102,
           "line": 224.5,
           "gsis_id": "espn-3918298"
         },
@@ -1284,215 +1376,116 @@
           "gsis_id": "espn-4379399"
         }
       ],
-      "model_ev": -0.0938,
+      "model_ev": -0.0937,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873005"
     },
     {
-      "parlay_id": "401872995-g1",
+      "parlay_id": "401873007-g1",
       "scope": "game",
       "legs": [
         {
           "market": "moneyline",
-          "selection": "DEN ML",
-          "implied_prob": 0.563,
-          "model_prob": 0.5388,
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
           "side": "home",
           "price_source": "assumed"
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "J. Smith-Njigba 60+ rec yds",
-          "implied_prob": 0.6174,
-          "model_prob": 0.5908,
-          "side": "away",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 86.14,
-          "sd": 41.58,
-          "z": 0.6407,
-          "line": 59.5,
-          "gsis_id": "espn-4430878"
-        }
-      ],
-      "model_ev": -0.1547,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401872995"
-    },
-    {
-      "parlay_id": "401872995-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "qb_pass_yds",
-          "selection": "B. Nix 225+ pass yds",
-          "implied_prob": 0.3974,
-          "model_prob": 0.3803,
-          "side": "home",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 197.95,
-          "sd": 76.66,
-          "z": -0.3463,
-          "line": 224.5,
-          "gsis_id": "espn-4426338"
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "J. Smith-Njigba 60+ rec yds",
-          "implied_prob": 0.6174,
-          "model_prob": 0.5908,
-          "side": "away",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 86.14,
-          "sd": 41.58,
-          "z": 0.6407,
-          "line": 59.5,
-          "gsis_id": "espn-4430878"
-        }
-      ],
-      "model_ev": 0.0124,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401872995"
-    },
-    {
-      "parlay_id": "401872995-g3",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "DEN ML",
-          "implied_prob": 0.563,
-          "model_prob": 0.5388,
-          "side": "home",
-          "price_source": "assumed"
-        },
-        {
-          "market": "qb_pass_yds",
-          "selection": "B. Nix 225+ pass yds",
-          "implied_prob": 0.3974,
-          "model_prob": 0.3803,
-          "side": "home",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 197.95,
-          "sd": 76.66,
-          "z": -0.3463,
-          "line": 224.5,
-          "gsis_id": "espn-4426338"
-        }
-      ],
-      "model_ev": 0.024,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401872995"
-    },
-    {
-      "parlay_id": "401873008-g1",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "SF ML",
-          "implied_prob": 0.7867,
-          "model_prob": 0.8407,
-          "side": "home",
-          "price_source": "fair_market"
-        },
-        {
-          "market": "qb_pass_yds",
-          "selection": "B. Purdy 225+ pass yds",
-          "implied_prob": 0.5378,
-          "model_prob": 0.5146,
-          "side": "home",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 215.62,
-          "sd": 76.66,
-          "z": -0.1158,
-          "line": 224.5,
-          "gsis_id": "espn-4361741"
-        }
-      ],
-      "model_ev": 0.0658,
-      "confidence_tier": "low",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873008"
-    },
-    {
-      "parlay_id": "401873008-g2",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "SF ML",
-          "implied_prob": 0.7867,
-          "model_prob": 0.8407,
-          "side": "home",
-          "price_source": "fair_market"
         },
         {
           "market": "rb_rush_yds",
-          "selection": "C. McCaffrey 60+ rush yds",
-          "implied_prob": 0.4336,
-          "model_prob": 0.4149,
+          "selection": "J. Jacobs 60+ rush yds",
+          "implied_prob": 0.5657,
+          "model_prob": 0.5413,
           "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 43.94,
+          "mu": 66.85,
           "sd": 38.87,
-          "z": -0.4002,
+          "z": 0.189,
           "line": 59.5,
-          "gsis_id": "espn-3117251"
+          "gsis_id": "espn-4047365"
         }
       ],
-      "model_ev": 0.17,
-      "confidence_tier": "medium",
+      "model_ev": 0.0738,
+      "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873008"
+      "game_id": "401873007"
     },
     {
-      "parlay_id": "401873008-g3",
+      "parlay_id": "401873007-g2",
       "scope": "game",
       "legs": [
         {
           "market": "moneyline",
-          "selection": "SF ML",
-          "implied_prob": 0.7867,
-          "model_prob": 0.8407,
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
           "side": "home",
-          "price_source": "fair_market"
+          "price_source": "assumed"
         },
         {
           "market": "wr_rec_yds",
-          "selection": "T. McLaurin 60+ rec yds",
-          "implied_prob": 0.3971,
-          "model_prob": 0.38,
+          "selection": "G. Pickens 60+ rec yds",
+          "implied_prob": 0.4803,
+          "model_prob": 0.4596,
           "side": "away",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 56.01,
+          "mu": 66.62,
           "sd": 41.58,
-          "z": -0.084,
+          "z": 0.1713,
           "line": 59.5,
-          "gsis_id": "espn-3121422"
+          "gsis_id": "espn-4426354"
         }
       ],
-      "model_ev": -0.0342,
+      "model_ev": -0.1512,
       "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873008"
+      "game_id": "401873007"
+    },
+    {
+      "parlay_id": "401873007-g3",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "J. Jacobs 60+ rush yds",
+          "implied_prob": 0.5657,
+          "model_prob": 0.5413,
+          "side": "home",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 66.85,
+          "sd": 38.87,
+          "z": 0.189,
+          "line": 59.5,
+          "gsis_id": "espn-4047365"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "G. Pickens 60+ rec yds",
+          "implied_prob": 0.4803,
+          "model_prob": 0.4596,
+          "side": "away",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 66.62,
+          "sd": 41.58,
+          "z": 0.1713,
+          "line": 59.5,
+          "gsis_id": "espn-4426354"
+        }
+      ],
+      "model_ev": -0.1758,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
+      "game_id": "401873007"
     },
     {
       "parlay_id": "week-2leg-1",
@@ -1772,18 +1765,18 @@
         },
         {
           "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.7643,
-          "model_prob": 0.7314,
+          "selection": "KC ML",
+          "implied_prob": 0.7987,
+          "model_prob": 0.7643,
           "side": "home",
           "price_source": "assumed"
         },
         {
           "market": "moneyline",
-          "selection": "PIT ML",
-          "implied_prob": 0.7402,
-          "model_prob": 0.7083,
-          "side": "away",
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
+          "side": "home",
           "price_source": "assumed"
         }
       ],
@@ -1878,14 +1871,14 @@
         },
         {
           "market": "moneyline",
-          "selection": "BUF ML",
-          "implied_prob": 0.7019,
-          "model_prob": 0.6717,
-          "side": "away",
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
+          "side": "home",
           "price_source": "assumed"
         }
       ],
-      "model_ev": -0.1038,
+      "model_ev": -0.1039,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
     },
@@ -1927,19 +1920,76 @@
         },
         {
           "market": "moneyline",
-          "selection": "IND ML",
-          "implied_prob": 0.6986,
-          "model_prob": 0.6685,
-          "side": "home",
+          "selection": "BUF ML",
+          "implied_prob": 0.7019,
+          "model_prob": 0.6717,
+          "side": "away",
           "price_source": "assumed"
         }
       ],
-      "model_ev": -0.1039,
+      "model_ev": -0.1038,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
     },
     {
       "parlay_id": "week-6leg-1",
+      "scope": "week",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SF ML",
+          "implied_prob": 0.7867,
+          "model_prob": 0.8407,
+          "side": "home",
+          "price_source": "fair_market"
+        },
+        {
+          "market": "moneyline",
+          "selection": "NE ML",
+          "implied_prob": 0.8386,
+          "model_prob": 0.8025,
+          "side": "home",
+          "price_source": "assumed"
+        },
+        {
+          "market": "moneyline",
+          "selection": "KC ML",
+          "implied_prob": 0.7987,
+          "model_prob": 0.7643,
+          "side": "home",
+          "price_source": "assumed"
+        },
+        {
+          "market": "moneyline",
+          "selection": "LAR ML",
+          "implied_prob": 0.7643,
+          "model_prob": 0.7314,
+          "side": "home",
+          "price_source": "assumed"
+        },
+        {
+          "market": "moneyline",
+          "selection": "PIT ML",
+          "implied_prob": 0.7402,
+          "model_prob": 0.7083,
+          "side": "away",
+          "price_source": "assumed"
+        },
+        {
+          "market": "moneyline",
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
+          "side": "home",
+          "price_source": "assumed"
+        }
+      ],
+      "model_ev": -0.1425,
+      "confidence_tier": "low",
+      "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
+    },
+    {
+      "parlay_id": "week-6leg-2",
       "scope": "week",
       "legs": [
         {
@@ -1996,7 +2046,7 @@
       "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
     },
     {
-      "parlay_id": "week-6leg-2",
+      "parlay_id": "week-6leg-3",
       "scope": "week",
       "legs": [
         {
@@ -2044,63 +2094,6 @@
           "selection": "IND ML",
           "implied_prob": 0.6986,
           "model_prob": 0.6685,
-          "side": "home",
-          "price_source": "assumed"
-        }
-      ],
-      "model_ev": -0.1425,
-      "confidence_tier": "low",
-      "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
-    },
-    {
-      "parlay_id": "week-6leg-3",
-      "scope": "week",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "SF ML",
-          "implied_prob": 0.7867,
-          "model_prob": 0.8407,
-          "side": "home",
-          "price_source": "fair_market"
-        },
-        {
-          "market": "moneyline",
-          "selection": "NE ML",
-          "implied_prob": 0.8386,
-          "model_prob": 0.8025,
-          "side": "home",
-          "price_source": "assumed"
-        },
-        {
-          "market": "moneyline",
-          "selection": "KC ML",
-          "implied_prob": 0.7987,
-          "model_prob": 0.7643,
-          "side": "home",
-          "price_source": "assumed"
-        },
-        {
-          "market": "moneyline",
-          "selection": "LAR ML",
-          "implied_prob": 0.7643,
-          "model_prob": 0.7314,
-          "side": "home",
-          "price_source": "assumed"
-        },
-        {
-          "market": "moneyline",
-          "selection": "PIT ML",
-          "implied_prob": 0.7402,
-          "model_prob": 0.7083,
-          "side": "away",
-          "price_source": "assumed"
-        },
-        {
-          "market": "moneyline",
-          "selection": "JAX ML",
-          "implied_prob": 0.6956,
-          "model_prob": 0.6656,
           "side": "home",
           "price_source": "assumed"
         }
@@ -2155,18 +2148,18 @@
         },
         {
           "market": "moneyline",
-          "selection": "BUF ML",
-          "implied_prob": 0.7019,
-          "model_prob": 0.6717,
-          "side": "away",
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
+          "side": "home",
           "price_source": "assumed"
         },
         {
           "market": "moneyline",
-          "selection": "IND ML",
-          "implied_prob": 0.6986,
-          "model_prob": 0.6685,
-          "side": "home",
+          "selection": "BUF ML",
+          "implied_prob": 0.7019,
+          "model_prob": 0.6717,
+          "side": "away",
           "price_source": "assumed"
         }
       ],
@@ -2220,22 +2213,22 @@
         },
         {
           "market": "moneyline",
-          "selection": "BUF ML",
-          "implied_prob": 0.7019,
-          "model_prob": 0.6717,
-          "side": "away",
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
+          "side": "home",
           "price_source": "assumed"
         },
         {
           "market": "moneyline",
-          "selection": "JAX ML",
-          "implied_prob": 0.6956,
-          "model_prob": 0.6656,
+          "selection": "IND ML",
+          "implied_prob": 0.6986,
+          "model_prob": 0.6685,
           "side": "home",
           "price_source": "assumed"
         }
       ],
-      "model_ev": -0.1794,
+      "model_ev": -0.1795,
       "confidence_tier": "low",
       "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
     },
@@ -2285,9 +2278,9 @@
         },
         {
           "market": "moneyline",
-          "selection": "IND ML",
-          "implied_prob": 0.6986,
-          "model_prob": 0.6685,
+          "selection": "GB ML",
+          "implied_prob": 0.7193,
+          "model_prob": 0.6883,
           "side": "home",
           "price_source": "assumed"
         },
@@ -2307,7 +2300,7 @@
   ],
   "candidate_coverage": {
     "version": "distinct_cards_v1",
-    "generated_utc": "2026-10-19T01:19:07Z",
+    "generated_utc": "2026-10-19T04:14:28Z",
     "game_shortfalls": [],
     "week_shortfall": null
   }
