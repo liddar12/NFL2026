@@ -376,7 +376,23 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       seen.add(n);
     }
   }
-  const lookupRows = (team, name) => {
+  // Selected release (injury identity hotfix): the producer binds a report
+  // by exact ESPN id first (availability.resolve_report), team required to
+  // agree, so "Deebo Samuel Sr." backs pool "Deebo Samuel" (espn-3126486).
+  // Mirrored here; the name rules below remain the fallback.
+  const byId = new Map();
+  for (const r of injuries.injuries) {
+    for (const v of [r.athlete_id, r.espn_id]) {
+      if (v === undefined || v === null || v === '') continue;
+      const k = String(v);
+      if (!byId.has(k)) byId.set(k, []);
+      byId.get(k).push(r);
+    }
+  }
+  const lookupRows = (team, name, gsisId) => {
+    const eid = String(gsisId || '').startsWith('espn-') ? String(gsisId).slice(5) : '';
+    const sameId = eid ? (byId.get(eid) || []).filter((r) => r.team === team) : [];
+    if (sameId.length) return sameId;
     const n = norm(name);
     const exact = report.get(`${team}|${n}`);
     if (exact) return exact;
@@ -405,7 +421,7 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       return;
     }
     // NO ORPHAN FLAGS: the app can never show an IR badge that no feed backs.
-    const rows = lookupRows(proj.players[i].team, proj.players[i].name);
+    const rows = lookupRows(proj.players[i].team, proj.players[i].name, p.gsis_id);
     assert.ok(rows, `${p.gsis_id}: flagged ${a.status} with no row in injuries.json`);
     assert.ok(rows.some((r) => r.availability === a.status),
       `${p.gsis_id}: flagged ${a.status} but the feed says ` +

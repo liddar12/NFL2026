@@ -66,6 +66,11 @@
             "description": "Stadium roof state for weather gating.",
             "enum": ["indoor", "outdoor", "retractable"]
           },
+          "venue": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display only: this event's actual stadium from the schedule (neutral/international sites included). Absent when the schedule names none; never inferred from the home team."
+          },
           "probs": {
             "type": "object",
             "additionalProperties": false,

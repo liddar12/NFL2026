@@ -77,11 +77,22 @@ def injury_feed_record(document, now, week, failure=None):
 
 
 def week_game_rows(predicted, week):
-    """The published slate and prop caller share this event-week-bearing shape."""
-    return [{"game_id": p["game_id"], "home": p["home"], "away": p["away"],
-             "week": p["week"], "kickoff_utc": p["kickoff_utc"], "roof": p["roof"],
-             "probs": p["probs"], "model": p["model"], "estimate": p["estimate"]}
-            for p in predicted if p["week"] == week]
+    """The published slate and prop caller share this event-week-bearing shape.
+    `venue` is the game's own schedule venue (display only), carried only when
+    it is a non-empty string, so the slate never fetches schedule_full on a
+    cold load to name a London or Mexico City stadium (R25 budget)."""
+    rows = []
+    for p in predicted:
+        if p["week"] != week:
+            continue
+        row = {"game_id": p["game_id"], "home": p["home"], "away": p["away"],
+               "week": p["week"], "kickoff_utc": p["kickoff_utc"], "roof": p["roof"],
+               "probs": p["probs"], "model": p["model"], "estimate": p["estimate"]}
+        venue = p.get("venue")
+        if isinstance(venue, str) and venue.strip():
+            row["venue"] = venue
+        rows.append(row)
+    return rows
 
 
 def market_feed_record(src, now):

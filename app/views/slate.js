@@ -9,9 +9,12 @@
  * whole season from today's ratings every run), so on any week but the current
  * one app/review.js repaints the heads from the immutable lock and demotes the
  * recomputed number to a provenance line — see its R90 block.
- * schedule_full also optionally supplies the current slate's actual venue,
- * joined on exact event identity; it never replaces a probability. A missing
- * schedule leaves VENUE UNKNOWN rather than inventing a home location.
+ * The current week's actual venue arrives on game_predictions.json itself
+ * (scripts/build_predictions.week_game_rows), so the cold slate never pulls
+ * schedule_full (R25 budget: 4 contracts). schedule_full is fetched only on
+ * the first non-default selection; a cached predictions file without venues
+ * then borrows them by exact event identity (enrichSlateVenues). It never
+ * replaces a probability; a missing venue shows VENUE UNKNOWN, never a guess.
  * Handles the empty + error states with a .state message
  * so the user never sees a blank screen. No rendering markup for cards lives
  * here — that is render.js's job; this module orchestrates fetch -> paint.
@@ -100,9 +103,6 @@ export default async function mountSlate(el) {
   // a 404 or empty file simply means no strips render, zero behavior change.
   let marketGames = {};
   const marketRequest = getMarketPrices({ timeoutMs: 2000 }).catch(() => null);
-  // Optional adornment: initial predictions render immediately; a venue fetch
-  // cannot suppress the slate or substitute schedule_full's recomputed prices.
-  const venueRequest = getScheduleFull({ timeoutMs: 2000 }).catch(() => null);
   if (!el.isConnected) return;
 
   let defaultGames = (data && Array.isArray(data.games)) ? data.games : [];
@@ -199,6 +199,9 @@ export default async function mountSlate(el) {
       return;
     }
     if (seq !== paintSeq) return; // a newer selection already painted
+    // A game_predictions.json older than the pipeline's venue field (a cached
+    // copy) borrows the exact venue once the schedule is here anyway.
+    if (defaultGames.some((g) => g && !g.venue)) defaultGames = enrichSlateVenues(data, full);
     const games = ((full && full.games) || []).filter((g) => Number(g.week) === week);
     paintGames(games);
   }
@@ -211,11 +214,6 @@ export default async function mountSlate(el) {
     if (!el.isConnected || active !== defaultWeek || !mp?.games) return;
     marketGames = mp.games;
     paintGames(defaultGames);
-  });
-  venueRequest.then((schedule) => {
-    if (!el.isConnected) return;
-    defaultGames = enrichSlateVenues(data, schedule);
-    if (active === defaultWeek) paintGames(defaultGames);
   });
 
   // Wire the week bar (event delegation, one listener).
