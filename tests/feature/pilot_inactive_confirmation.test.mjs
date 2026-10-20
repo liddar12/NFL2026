@@ -212,20 +212,28 @@ print(json.dumps({"ok": ok,
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: no workflow, pipeline script or app file references the pilot modules', () => {
+test('production is unchanged: only explicitly listed offline pilot tools may reference the pilot modules', () => {
   const hits = [];
+  // Checkpoint 2 adds standalone offline tools, not a production caller. Keep
+  // the allowlist exact: a workflow, existing producer, or app may not opt in.
+  const offline = new Set([
+    'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
+    'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
+    'run_parlay_feedback.py', 'learning_history_guard.py',
+  ].map(name => join('scripts', name)));
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (rel === join('scripts', 'inactive_confirmation.py') || rel === join('scripts', 'pilot_config.py')) continue;
+      if (offline.has(rel)) continue;
       const src = readFileSync(join(ROOT, rel), 'utf8');
-      if (/inactive_confirmation|pilot_config|selflearning_pilot/.test(src)) hits.push(rel);
+      if (pilotReferences.test(src)) hits.push(rel);
     }
   };
   for (const d of ['.github', 'app', 'scripts']) walk(d);
-  assert.ok(!/inactive_confirmation|selflearning_pilot/.test(readFileSync(join(ROOT, 'index.html'), 'utf8')));
+  assert.ok(!pilotReferences.test(readFileSync(join(ROOT, 'index.html'), 'utf8')));
   assert.deepEqual(hits, []);
 });
 
