@@ -165,7 +165,26 @@ test('pool→MY archive preserves receipts; legacy/mismatched decisions cannot a
   const r = py(`
 from scripts import build_leg_pool as pool, build_my_cards as cards
 from scripts.validate_data import validate_against_schema, ValidationError
-inputs=pool.load_inputs(); inputs["generated_utc"]="2026-10-14T12:00:00Z"
+# Synthetic, fully prospective producer inputs: changing committed FINAL flags
+# must not erase this positive end-to-end receipt/archival proof.
+stamp="2026-10-14T11:00:00Z"
+games=[{"game_id":gid,"home":home,"away":away,"week":6,
+        "kickoff_utc":"2026-10-18T17:00:00Z","status":"STATUS_SCHEDULED",
+        "probs":{"home":.6,"away":.4}}
+       for gid,home,away in (("receipt-G1","SEA","NE"),("receipt-G2","BUF","DET"))]
+players=[{"gsis_id":"receipt-"+team,"name":"Fixture "+team,"team":team,"position":"WR"}
+         for team in ("SEA","NE","BUF","DET")]
+inputs={"generated_utc":"2026-10-14T12:00:00Z", "generation_sha":"test-fixture",
+ "excluded_games":[], "atd_week":None,"atd_backtest":None,
+ "pool_backtest":{"model":"receipt_test_fixture","calibration":{"WR":{"a":0,"b":1,"c":0}},
+   "support":{"WR":[-4,4]},"residual_sd":{"WR":30},"ladder":{"WR":[39.5,59.5,79.5]},
+   "verdict":{"adopt":True},"generated_utc":stamp},
+ "player_projections":{"generated_utc":stamp,"players":players},
+ "player_weekly":{"generated_utc":stamp,"players":[{"gsis_id":p["gsis_id"],
+   "league_components":{"rec_yd":180},"weeks":[{"wk":6,"pts":10},{"wk":7,"pts":10}]}
+   for p in players]},
+ "game_predictions":{"season":2026,"week":6,"generated_utc":stamp,"games":games},
+ "parlays":{"season":2026,"week":6,"generated_utc":stamp,"parlays":[]}}
 baseline=pool.build(inputs)
 version=baseline["base_model_version"]
 for source in ("player_weekly","player_projections","game_predictions","pool_backtest"):
@@ -180,12 +199,13 @@ modern=decision(lr.POLICY,version)
 modern_schema=json.load(open("data/contracts/leg_pool.schema.json"))
 validate_against_schema(modern,modern_schema,"modern")
 validate_against_schema(json.load(open("data/leg_pool.json")),modern_schema,"legacy")
-games=json.load(open("data/schedule_full.json"))["games"]
 offered,_=cards.offered_cards(modern,games,None,modern["generated_utc"])
 records=[cards.card_record(d,s,r,c,cards.kickoff_index(games)) for d,s,r,c in offered]
 archive=cards.append(None,records,modern["season"],modern["week"],modern["generated_utc"],modern["generated_utc"])
 validate_against_schema(archive,json.load(open("data/contracts/my_cards.schema.json")),"archive")
 recorded=[leg for card in archive["cards"] for leg in card["legs"] if leg.get("learning_receipt")]
+closed,_=cards.offered_cards(modern,[dict(g,status="STATUS_FINAL") for g in games],None,modern["generated_utc"])
+late,_=cards.offered_cards(modern,games,None,"2026-10-19T12:00:00Z")
 source_receipts={r["learning_receipt"]["receipt_id"]:r["learning_receipt"] for p in modern["players"] for r in p["rungs"]}
 inputs["generated_utc"]="2026-10-15T12:00:00Z"; later=pool.build(inputs)
 broken=copy.deepcopy(modern)
@@ -194,7 +214,9 @@ try: validate_against_schema(broken,modern_schema,"broken"); rejected=False
 except ValidationError: rejected=True
 print(json.dumps({"legacy":legacy["live_adjustment"],"mismatch":mismatch["live_adjustment"],
  "modern":modern["live_adjustment"],"stable_base":version==modern["base_model_version"]==later["base_model_version"],
- "recorded":len(recorded),"preserved":all(l["learning_receipt"]==source_receipts[l["learning_receipt"]["receipt_id"]] for l in recorded),
+ "recorded":len(recorded),"closed_offers":len(closed),"late_offers":len(late),
+ "locked":all(c["locked"] for c in archive["cards"]),
+ "preserved":all(l["learning_receipt"]==source_receipts[l["learning_receipt"]["receipt_id"]] for l in recorded),
  "features_preserved":all(l["learning_receipt"]["features"]==source_receipts[l["learning_receipt"]["receipt_id"]]["features"] for l in recorded),
  "rejected":rejected}))
 `);
@@ -203,6 +225,9 @@ print(json.dumps({"legacy":legacy["live_adjustment"],"mismatch":mismatch["live_a
   assert.deepEqual(r.modern, { a: .4, b: 1.1 });
   assert.equal(r.stable_base, true);
   assert.ok(r.recorded > 0);
+  assert.equal(r.closed_offers, 0, 'FINAL games cannot create new offered receipts');
+  assert.equal(r.late_offers, 0, 'passed kickoffs cannot create new offered receipts');
+  assert.equal(r.locked, true, 'the positive fixture was recorded strictly before kickoff');
   assert.equal(r.preserved, true);
   assert.equal(r.features_preserved, true);
   assert.equal(r.rejected, true);
