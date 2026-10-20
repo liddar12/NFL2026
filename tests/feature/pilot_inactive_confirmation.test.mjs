@@ -228,3 +228,94 @@ test('production is unchanged: no workflow, pipeline script or app file referenc
   assert.ok(!/inactive_confirmation|selflearning_pilot/.test(readFileSync(join(ROOT, 'index.html'), 'utf8')));
   assert.deepEqual(hits, []);
 });
+
+/* ---------------------------------------- Codex review of #184 (2026-10-20) */
+
+test('malformed source_profile values are a named refusal, never a crash', () => {
+  const r = runPy(`${PRELUDE}
+now = T("2026-10-19T22:55:00Z")
+out = {}
+for label, prof in (("list", []), ("dict", {}), ("int", 5), ("none", None), ("bool", True)):
+    out[label] = [ic.validate_evidence(ev(source_profile=prof), G, now, REG)[1],
+                  ic.player_state("222", "SF", G, now, [ev(source_profile=prof)], REG)]
+print(json.dumps(out))`);
+  for (const [label, [reason, state]] of Object.entries(r)) {
+    assert.equal(reason, 'source_profile_malformed', label);
+    assert.deepEqual(state, ['unknown_or_stale', 'source_profile_malformed'], label);
+  }
+});
+
+test('ESPN never confirms: an enriched, complete ESPN record fails even when a caller registers the ESPN profile', () => {
+  const r = runPy(`${PRELUDE}
+now = T("2026-10-19T22:55:00Z")
+leaky = frozenset({"espn_core_roster_didnotplay_v1", "test_official_v1"})
+enriched = ev(source_profile="espn_core_roster_didnotplay_v1")   # every other field valid and complete
+print(json.dumps({"validate": ic.validate_evidence(enriched, G, now, leaky),
+                  "active": ic.player_state("222", "SF", G, now, [enriched], leaky),
+                  "inactive": ic.player_state("3126486", "SF", G, now, [enriched], leaky),
+                  "control": ic.player_state("222", "SF", G, now, [ev()], leaky)}))`);
+  assert.deepEqual(r.validate, [false, 'observation_only_source']);
+  assert.deepEqual(r.active, ['unknown_or_stale', 'observation_only_source']);
+  assert.deepEqual(r.inactive, ['unknown_or_stale', 'observation_only_source']);
+  assert.deepEqual(r.control, ['confirmed_active', 'official_active'], 'a registered official record still confirms');
+});
+
+test('assess() stays total: missing kickoff and malformed rows are named per player; unaffected players are still assessed', () => {
+  const r = runPy(`${PRELUDE}
+now = T("2026-10-19T22:55:00Z")
+NOKICK = {"game_id": "g2", "home": "DAL", "away": "GB"}           # kickoff missing
+pool = {"players": [
+  {"gsis_id": "00-0036", "team": "DAL", "game_id": "g2", "rungs": [{}]},      # non-ESPN, no kickoff (Codex's crash)
+  {"gsis_id": "espn-555", "team": "GB", "game_id": "g2", "rungs": [{}]},      # ESPN, no kickoff
+  {"gsis_id": "espn-222", "team": "SF", "game_id": "401873008", "rungs": [{}, {}]},   # unaffected, confirmed
+  {"gsis_id": "espn-abc", "team": "SF", "game_id": "401873008", "rungs": "x"},        # malformed id + rungs
+  "not a player", None, 7]}
+a = ic.assess(pool, [G, NOKICK, "junk", None], now, {"401873008": [ev()], "g2": "not a list"}, REG)
+print(json.dumps({"players": [[p["gsis_id"], p["state"], p["reason"]] for p in a["players"]],
+                  "malformed": a["malformed_players"], "rungs": a["rungs"],
+                  "games": [[g["game_id"], g["checkpoint_utc"]] for g in a["games"]],
+                  "withheld_kept": [p["gsis_id"] for p in ic.withhold(pool, a)["players"]],
+                  "junk_evidence": [[p["gsis_id"], p["reason"]] for p in ic.assess(pool, [G], now, "junk", REG)["players"]
+                                    if p["game_id"] == "401873008"]}))`);
+  assert.deepEqual(r.players, [
+    ['00-0036', 'unknown_or_stale', 'kickoff_unknown'],
+    ['espn-555', 'unknown_or_stale', 'kickoff_unknown'],
+    ['espn-222', 'confirmed_active', 'official_active'],
+    ['espn-abc', 'unknown_or_stale', 'player_id_not_espn'],
+  ]);
+  assert.equal(r.malformed, 3);
+  assert.deepEqual(r.rungs, { offered: 2, withheld: 2 });
+  assert.deepEqual(r.games, [['401873008', '2026-10-19T22:45:00Z'], ['g2', null]]);
+  assert.deepEqual(r.withheld_kept, ['espn-222']);
+  // a non-mapping evidence_by_game is no evidence, not a crash
+  assert.deepEqual(r.junk_evidence, [['espn-222', 'no_evidence'], ['espn-abc', 'player_id_not_espn']]);
+});
+
+test('every evidence field accepts any JSON type without raising: refusal or confirmation, never an exception', () => {
+  const r = runPy(`${PRELUDE}
+now = T("2026-10-19T22:55:00Z")
+bad = [None, [], {}, 5, 1.5, True, "x", ["111"], {"a": 1}]
+fields = ["source_profile", "game_id", "home", "away", "kickoff_utc", "team", "posted_utc", "fetched_utc",
+          "complete", "inactive_ids", "active_ids", "raw_sha256"]
+crashes, confirmed = [], []
+for f in fields:
+    for v in bad:
+        e = ev(**{f: v})
+        try:
+            ok, reason = ic.validate_evidence(e, G, now, REG)
+            st = ic.player_state("222", "SF", G, now, [e], REG)
+            if ok:
+                confirmed.append([f, repr(v)])
+        except Exception as exc:
+            crashes.append([f, repr(v), repr(exc)])
+for g in (None, [], {}, {"kickoff_utc": 5}, {"kickoff_utc": "soon"}):
+    try:
+        ic.player_state("222", "SF", g, now, [ev()], REG)
+    except Exception as exc:
+        crashes.append(["game", repr(g), repr(exc)])
+print(json.dumps({"crashes": crashes, "confirmed": confirmed}))`);
+  assert.deepEqual(r.crashes, []);
+  // the only substitutions that leave a record valid are the fixture's own values:
+  // complete=True and the inactive list ['111']; every other type is refused
+  assert.deepEqual(r.confirmed, [['complete', 'True'], ['inactive_ids', "['111']"]]);
+});

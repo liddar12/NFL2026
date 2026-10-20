@@ -84,7 +84,7 @@ def parse_utc(value):
 
 
 def checkpoint(game):
-    kick = parse_utc(game.get("kickoff_utc"))
+    kick = parse_utc(game.get("kickoff_utc")) if type(game) is dict else None
     return None if kick is None else kick - dt.timedelta(seconds=PARAMETERS["recheck_seconds_before_kickoff"])
 
 
@@ -103,9 +103,15 @@ def validate_evidence(ev, game, now, registry=OFFICIAL_SOURCES):
     """(True, None) for usable confirmation evidence, else (False, reason)."""
     if type(ev) is not dict:
         return False, "evidence_malformed"
-    if ev.get("source_profile") not in registry:
-        return False, ("observation_only_source" if ev.get("source_profile") in OBSERVATION_ONLY_SOURCES
-                       else "unregistered_source")
+    profile = ev.get("source_profile")
+    if type(profile) is not str:
+        return False, "source_profile_malformed"
+    # Observation-only profiles never confirm, whatever registry a caller
+    # passes and however complete the record looks (Codex review of #184).
+    if profile in OBSERVATION_ONLY_SOURCES:
+        return False, "observation_only_source"
+    if profile not in registry:
+        return False, "unregistered_source"
     for key in ("game_id", "home", "away", "kickoff_utc"):
         if type(ev.get(key)) is not str or ev.get(key) != game.get(key):
             return False, "game_identity_mismatch"
@@ -138,6 +144,8 @@ def validate_evidence(ev, game, now, registry=OFFICIAL_SOURCES):
 def player_state(espn_id, team, game, now, evidence, registry=OFFICIAL_SOURCES):
     """(state, reason) for one player at `now`; `evidence` is every record seen
     for this game (any team, valid or not). Pure."""
+    if type(game) is not dict:
+        return "unknown_or_stale", "game_malformed"
     kick, check = parse_utc(game.get("kickoff_utc")), checkpoint(game)
     if kick is None:
         return "unknown_or_stale", "kickoff_unknown"
@@ -179,24 +187,31 @@ def assess(pool, games, now, evidence_by_game, registry=OFFICIAL_SOURCES):
     rungs:[...]}]}); `games` the week's schedule rows. Returns a document with
     per-game checkpoints and per-player states, and the rung counts it would
     withhold. It does NOT modify the pool."""
-    by_game = {str(g.get("game_id")): g for g in games or []}
+    games = [g for g in (games or []) if type(g) is dict]
+    by_game = {str(g.get("game_id")): g for g in games}
+    evidence_by_game = evidence_by_game if type(evidence_by_game) is dict else {}
     players, counts = [], {s: 0 for s in STATES}
-    withheld = offered = 0
+    withheld = offered = malformed = 0
     for p in (pool or {}).get("players") or []:
+        if type(p) is not dict:
+            malformed += 1          # reported, never fatal to the other players
+            continue
         gid = str(p.get("game_id"))
         game = by_game.get(gid)
         pid = str(p.get("gsis_id") or "")
-        espn_id = pid[5:] if pid.startswith("espn-") else ""
+        espn_id = pid[5:] if pid.startswith("espn-") and _ID.fullmatch(pid[5:]) else ""
         if game is None:
             state, reason = "unknown_or_stale", "game_unknown"
-        elif not espn_id:
-            state, reason = ("unknown_or_stale", "player_id_not_espn") if now >= checkpoint(game) else \
-                player_state("", p.get("team"), game, now, [], registry)
         else:
+            ev = evidence_by_game.get(gid)
             state, reason = player_state(espn_id, p.get("team"), game, now,
-                                         (evidence_by_game or {}).get(gid), registry)
+                                         ev if type(ev) is list else [], registry)
+            # an id-less player can never be found on an official list
+            if not espn_id and state == "unknown_or_stale" and reason != "kickoff_unknown":
+                reason = "player_id_not_espn"
         counts[state] += 1
-        n = len(p.get("rungs") or [])
+        rungs = p.get("rungs")
+        n = len(rungs) if type(rungs) is list else 0
         if state in OFFERABLE:
             offered += n
         else:
@@ -210,8 +225,8 @@ def assess(pool, games, now, evidence_by_game, registry=OFFICIAL_SOURCES):
         "registered_official_sources": sorted(registry),
         "games": [{"game_id": str(g.get("game_id")), "kickoff_utc": g.get("kickoff_utc"),
                    "checkpoint_utc": checkpoint(g).strftime("%Y-%m-%dT%H:%M:%SZ") if checkpoint(g) else None}
-                  for g in games or []],
-        "players": players, "state_counts": counts,
+                  for g in games],
+        "players": players, "state_counts": counts, "malformed_players": malformed,
         "rungs": {"offered": offered, "withheld": withheld},
         "serving_applied": False,
     }
@@ -223,7 +238,7 @@ def withhold(pool, assessment):
     keep = {(p["gsis_id"], p["game_id"]) for p in assessment["players"] if p["state"] in OFFERABLE}
     out = dict(pool)
     out["players"] = [p for p in pool.get("players") or []
-                      if (str(p.get("gsis_id") or ""), str(p.get("game_id"))) in keep]
+                      if type(p) is dict and (str(p.get("gsis_id") or ""), str(p.get("game_id"))) in keep]
     return out
 
 
@@ -232,12 +247,14 @@ def espn_observations(inactives_doc):
     per team). Kept for the audit trail; validate_evidence always refuses them."""
     out = {}
     for g in (inactives_doc or {}).get("games") or []:
-        for team, rows in (g.get("inactive") or {}).items():
+        if type(g) is not dict or type(g.get("inactive")) is not dict:
+            continue
+        for team, rows in g["inactive"].items():
             out.setdefault(str(g.get("game_id")), []).append({
                 "source_profile": "espn_core_roster_didnotplay_v1",
                 "game_id": str(g.get("game_id")), "home": g.get("home"), "away": g.get("away"),
                 "kickoff_utc": g.get("kickoff_utc"), "team": team,
                 "fetched_utc": g.get("fetched_utc"),
-                "inactive_ids": [str(r.get("espn_id")) for r in rows or []],
+                "inactive_ids": [str(r.get("espn_id")) for r in rows or [] if type(r) is dict],
             })
     return out

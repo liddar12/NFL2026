@@ -13,8 +13,11 @@ R1  z sign: schemas/sports/nfl_parlay_leg.schema.json documents one sign,
 R2  final status: a game that never reaches STATUS_FINAL[_OVERTIME]
     (postponed / cancelled / suspended) yields no revision; check how the
     evaluation accounts for the ungraded receipts.
-R3  push / official VOID: the producer has no input for an official void, and
-    a `gte` contract on an integer line grades actual == line as a HIT.
+R3  push / official VOID, executed: (a) the `gte` prediction threshold grades
+    actual == line as a HIT on the file path, which is correct for that
+    contract; (b) explicit push / official_void settlement inputs resolve as
+    VOID and are counted as exclusions, not losses; (c) the file path has no
+    channel to receive such a settlement input.
 """
 import copy
 import json
@@ -112,14 +115,89 @@ for status, final in (("STATUS_FINAL", True), ("STATUS_POSTPONED", False), ("STA
 out["R2_final_status"] = r2
 
 # --------------------------------------------------------- R3 push / VOID
-r3 = {"void_reasons": sorted(__import__("selflearn_core.adapters.nfl_resolution",
-                                         fromlist=["VOID_REASONS"]).VOID_REASONS)}
-src = open(os.path.join(CORE, "selflearn_core/adapters/nfl_capture_labels.py")).read()
-r3["labels_emit_push"] = "push" in src
-r3["labels_emit_official_void"] = "official_void" in src
-r3["labels_hit_rule"] = "actual >= line (comparison_operator gte)"
-r3["integer_line_equal_actual_grades_as"] = "hit (no push branch in nfl_capture_labels)" if "push" not in src else "see source"
-r3["producer_line_fractions_note"] = "NFL leg_pool lines are all x.5 today (1,231/1,231 rungs on 2026-10-19), so a push cannot occur in current data"
+# Executed, not inferred from source text. Two different rules are in play:
+#   * the PREDICTION contract is a threshold, `over` / `gte`: "player reaches
+#     at least `line`". actual == line is a HIT of that prediction, whatever
+#     the line's fraction. An integer line is NOT reinterpreted as a push.
+#   * a SETTLEMENT rule (a sportsbook push, an official void) is a separate,
+#     explicit input. The engine's resolution layer accepts it as VOID; the
+#     question is whether the file path can ever receive it.
+import inspect                                                     # noqa: E402
+from selflearn_core.adapters import nfl_capture_labels as LB       # noqa: E402
+from selflearn_core.adapters.nfl_resolution import VOID_REASONS    # noqa: E402
+from selflearn_core.scoring.binary_receipts import score_binary_receipts   # noqa: E402
+from selflearn_core.store.receipt_journal import ReceiptJournal    # noqa: E402
+import test_nfl_resolution as RS                                   # noqa: E402
+
+r3 = {"void_reasons_accepted_by_resolution": sorted(VOID_REASONS)}
+
+# R3a  file path, executed: the engine's own journal fixture at three lines
+# around an observed stat of exactly 80 (integer line 80 included).
+LINES, ACTUAL = (79.5, 80.0, 80.5), 80
+g3 = T.graph(L.journal_fixture(lines=LINES))
+b3 = F.prepare(g3, observed_utc=PREGAME)["state"]
+p3 = F.prepare(g3, previous=b3, captures=[T.capture(ACTUAL)], observed_utc=POSTGAME)
+line_of = {rc["receipt_id"]: rc["features"]["line"] for rc in p3["state"]["receipts"]}
+graded = {}
+for rv in p3["state"]["revisions"]:
+    res = rv["resolution"]
+    graded.setdefault(format(line_of[res["receipt_id"]], "g"), set()).add(
+        (res["status"], res["hit"], res["actual"], res["reason"]))
+r3["R3a_file_path_threshold"] = {
+    "observed_actual": ACTUAL,
+    "graded_by_line": {k: sorted(map(list, v), key=str) for k, v in sorted(graded.items())},
+    "reading": "gte threshold: 79.5 hit, 80 hit (actual == line), 80.5 miss. Correct for the "
+               "prediction contract; the engine does not infer a push from an integer line, and should not."}
+
+# R3b  resolution layer, executed: an explicit settlement input of push or
+# official_void resolves as VOID (hit=None) and the scorer counts it as an
+# EXCLUSION, never as a loss and never silently dropped.
+r, s, leg, games, *_ = RS.settlement_fixture()
+r3b = {}
+for reason in ("push", "official_void"):
+    batch = RS.resolve(r, s, [dict(leg, result="void", reason=reason, actual=None)], games)
+    with ReceiptJournal(":memory:") as j:
+        j.append_receipt(r)
+        j.append_resolution(**batch["proposals"][0])
+        rep = score_binary_receipts(j.receipts(), j.latest_resolutions())
+    r3b[reason] = {"resolution": [[p["resolution"]["status"], p["resolution"]["hit"], p["resolution"]["reason"]]
+                                  for p in batch["proposals"]],
+                   "score_n": rep["n"], "score_hits": rep["hits"], "score_excluded": rep["excluded"]}
+binary = RS.resolve(r, s, [leg], games)
+with ReceiptJournal(":memory:") as j:
+    j.append_receipt(r)
+    j.append_resolution(**binary["proposals"][0])
+    rep = score_binary_receipts(j.receipts(), j.latest_resolutions())
+r3b["control_binary_hit"] = {"score_n": rep["n"], "score_hits": rep["hits"], "score_excluded": rep["excluded"]}
+r3["R3b_resolution_layer_settlement_inputs"] = r3b
+
+# R3c  the file path's settlement inputs, executed: its entry point takes only
+# the journal, the capture envelope and raw bytes, and every void reason it
+# emitted across R2/R3a is did_not_play. There is no channel for an official
+# void or a book's push rule, so such an outcome would be graded by the
+# threshold (R3a) instead of staying visibly unresolved.
+emitted = {rv["resolution"].get("reason") for rv in p3["state"]["revisions"]}
+sig = inspect.signature(LB.bind_capture_labels)
+r3["R3c_file_path_settlement_channel"] = {
+    "bind_capture_labels_signature": str(sig),
+    "settlement_parameters": [k for k in sig.parameters
+                              if k not in ("journal", "capture_envelope", "raw_chunks", "max_total_bytes")],
+    "void_reasons_emitted_in_R3a": sorted(x for x in emitted if x is not None),
+    "gap": "settlement rules need an explicit, sourced input on the file path that yields VOID "
+           "(excluded and counted, R3b) rather than a threshold grade"}
+r3["producer_line_fractions_note"] = ("NFL leg_pool lines are all x.5 today (1,231/1,231 rungs on 2026-10-19), "
+                                      "so threshold and settlement cannot disagree in current data")
 out["R3_push_void"] = r3
+
+# The R3 cases are executable checks: the script exits non-zero if the pinned
+# engine stops behaving as recorded above.
+assert graded == {"79.5": {("FINAL", True, 80.0, None)}, "80": {("FINAL", True, 80.0, None)},
+                  "80.5": {("FINAL", False, 80.0, None)}}, graded
+for reason in ("push", "official_void"):
+    assert r3b[reason] == {"resolution": [["VOID", None, reason]], "score_n": 0, "score_hits": 0,
+                           "score_excluded": {"not_final_binary_outcome": 1}}, r3b[reason]
+assert r3b["control_binary_hit"] == {"score_n": 1, "score_hits": 1, "score_excluded": {}}, r3b
+assert r3["R3c_file_path_settlement_channel"]["settlement_parameters"] == []
+assert r3["R3c_file_path_settlement_channel"]["void_reasons_emitted_in_R3a"] == []
 
 print(json.dumps(out, indent=1, sort_keys=True, default=str))
