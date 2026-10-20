@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "kind": "nfl.lean_pilot_checkpoint2_verification.v1",
+  "recorded_utc": "2026-10-20T20:11:41Z",
+  "local_timezone": "America/Chicago",
+  "source_commit": "30ff2360feef7981db748418483c1c329aa0928b",
+  "main_reconciled": "7d9bb8e5a0fac454de3812a6168137c136eb934d",
+  "checkpoint1_head": "72644df1daa8406b787cbfe4e98db348daccce84",
+  "branch": "build/lean-checkpoint2-20261020",
+  "checkout": "/Users/jliddar/code/NFL2026-lean-checkpoint2-20261020",
+  "engine_commit": "aacb19c73122f257449e977df40f2a2733991b2f",
+  "reused_source_commit": "de7e93c0df5984c1b7942df90ec9ef2549a9aee4",
+  "reused_git_blobs": {
+    "scripts/learning_journal.py": "4650f677033a24ac70bc05585f56d1839b80acd6",
+    "scripts/export_learning.py": "922ae479bb3b2b443da37a934003fd1137616ce3",
+    "scripts/capture_outcome_evidence.py": "12a45b3980454e42c23a701b3ac888d7fa6f10a6",
+    "tests/fixtures/week6_outcomes.py": "7d676f70a33c710a1181b396e9de5c6601fb8e6f"
+  },
+  "boundaries": {
+    "learning_enabled": false,
+    "serving_mode": "shadow",
+    "merged": false,
+    "deployed": false,
+    "published_new_source_to_github": false,
+    "production_authorized": false,
+    "production_app_changed": false,
+    "production_workflows_changed": false,
+    "generated_data_changed_vs_main": false,
+    "checkpoint1_config_or_inactive_module_changed": false,
+    "engine_checkout_changed": false,
+    "pr175_changed": false,
+    "hosted_intake_or_database_changed": false,
+    "model_equations_or_tolerances_changed": false
+  },
+  "python_accepted": "3.12.9",
+  "engine_test_environment": {
+    "SELFLEARN_CHECKOUT": "/Users/jliddar/code/SelfLearning-runtime-publish-20261018"
+  },
+  "logs_directory": "/private/tmp/nfl-lean-checkpoint2-evidence-20261020.lAiZfk",
+  "checks": [
+    {
+      "name": "all_features_pinned_engine",
+      "command": "node --test --test-concurrency=1 tests/feature/*.mjs",
+      "exit_code": 0,
+      "tests": 2238,
+      "passed": 2238,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 154864.968042,
+      "log": "features-python312.log",
+      "log_sha256": "650d390e84373b279d63ae4b72e19fbb3c8c093165b94c09248b1a0eda63c46e"
+    },
+    {
+      "name": "core_partition",
+      "command": "bash tests/run_gate.sh --partition core",
+      "exit_code": 0,
+      "result": "GATE PARTITION core RESULT: PASS (partial checks only)",
+      "browser_executed": false,
+      "log": "core-python312.log",
+      "log_sha256": "a42291b053f3cb8e8b56eb3d1101318ec71a07bdfbc53022936fa7a07132178a"
+    },
+    {
+      "name": "focused_producer_capture_runner_inactive_pinned_engine",
+      "command": "node --test tests/feature/pilot_capture_cli.test.mjs tests/feature/pilot_capture_contracts.test.mjs tests/feature/pilot_feedback_runner.test.mjs tests/feature/pilot_inactive_confirmation.test.mjs",
+      "exit_code": 0,
+      "tests": 53,
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "log": "focused-python312.log",
+      "log_sha256": "784d7b0029fbd1eab798a91520654195aa0758d69fb7ae2ae5cd90e6b5bec320"
+    },
+    {
+      "name": "initial_full_run_wrong_local_python",
+      "python": "3.9.6",
+      "exit_code": 1,
+      "tests": 2238,
+      "passed": 2237,
+      "failed": 1,
+      "skipped": 0,
+      "failure": "Existing R87 scanner requires sys.stdlib_module_names (Python 3.10+); unchanged scanner passes on Python 3.12.9",
+      "log": "features.log",
+      "log_sha256": "4c723c626a28ccaa1a076f2f26e3c30056442cc099e3a1604e73f29d2c1ea8b1"
+    }
+  ],
+  "real_week7_local_canary": {
+    "workspace": "/private/tmp/nfl-lean-checkpoint2-canary-20261020.w9cREf",
+    "candidate_rungs": 978,
+    "eligible_receipts": 976,
+    "producer_quarantined": 2,
+    "producer_quarantine_reasons": {"base_feature_parity_mismatch": 2},
+    "first_imported_before_kickoff": 976,
+    "late_imported_receipts": 0,
+    "outcome_revisions": 0,
+    "cohort_n": 0,
+    "adoption_gate_passed": false,
+    "repeated_state_changed": false,
+    "state_id": "sha256:dcb5622ee949d653d4091e6e9f3d9b267205eccacc9dfbd6e2c14d12e3b56170",
+    "network_used": false,
+    "served_or_published": false,
+    "accuracy_improvement_verified": false,
+    "scope": "eligible MY supported prop receipts; no browser-built WEEK/GAME or placed-ticket cohort",
+    "repeat_log": "real-week7-repeat.json",
+    "repeat_log_sha256": "66f4a77d3b3839006d2612299994b6958172bfec79aa53b09c3c3e8543f2d73f",
+    "quarantine_diagnosis": {
+      "cause_observed": "one-ULP differences under the inherited exact-float base-probability contract",
+      "suspected_not_verified": "cross-platform math.exp variation; Linux reproduction remains required",
+      "absolute_difference_each": 5.551115123125783e-17,
+      "frozen_z_and_served_probability_match": true,
+      "rungs": [
+        {"player": "Raheim Sanders", "player_id": "espn-4601080", "market": "rb_rush_yds", "line": 19.5},
+        {"player": "Christian Watson", "player_id": "espn-4248528", "market": "wr_rec_yds", "line": 49.5}
+      ]
+    }
+  },
+  "independent_review": {
+    "remaining_reproducible_p1_p2": 0,
+    "fixed_findings": [
+      "offered cohort replay after kickoff must preserve the original immutable envelope",
+      "future or malformed generation clocks must be refused before engine-graph persistence"
+    ]
+  },
+  "not_claimed_or_remaining": [
+    "hosted CI or browser acceptance on the new source",
+    "bounded Linux CLI canary; macOS CLI explicitly refuses unavailable memory enforcement",
+    "authenticated public publication or provider authority",
+    "sourced push or official-VOID settlement support",
+    "official inactive source registration or live T-90 rollout",
+    "scheduled production capture, hosted persistence or model activation",
+    "prospective accuracy improvement; real week7 outcomes have not occurred"
+  ]
+}
