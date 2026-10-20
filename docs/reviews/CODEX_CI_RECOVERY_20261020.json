@@ -1,0 +1,117 @@
+{
+  "revision": "R1",
+  "recorded_utc": "2026-10-20T12:39:43Z",
+  "timezone": "America/Chicago",
+  "scope": "Take over PR183/184 CI recovery only; checkpoint2 paused; pilot disabled; no merge or production deployment",
+  "failed_ci": {
+    "pr183": {
+      "head": "4bee889f8649be4944ccadba826e25b5365e58b3",
+      "run": 39360745667
+    },
+    "pr184": {
+      "head": "5175bf49c2fd665ba36aecfe1251be21ea3ea3a4",
+      "merge_ref": "f179787a8b342bdf606b110349b7543ada14d984",
+      "run": 39360764397
+    },
+    "base_main": "860ff675c325dc78c213c036ac7b589b7c72b3b8",
+    "root_cause": "Tests required nonempty future offerings/unplayed rows on an all-kicked-off slate. PR CI checked newer main data via merge refs; old local PR heads used different snapshots."
+  },
+  "recovered_source": {
+    "main": "9fdd47a36299664efcc54bf4cf223e85fef19a1b",
+    "shared_test_fix": "019cf0576f4723bc4010f63e135d8d108895c0d1",
+    "pr183": "4695b17e87497faa219970b04dc4c09951fc86a9",
+    "pr184": "013a3c7940ac133923f59309eb309abef74dd450",
+    "engine": "aacb19c73122f257449e977df40f2a2733991b2f",
+    "later_changes": "Only this RCA/evidence documentation"
+  },
+  "verification": {
+    "pr183_features": {
+      "exit_code": 0,
+      "tests": 2185,
+      "passed": 2184,
+      "failed": 0,
+      "skipped": 1,
+      "duration_ms": 127565.707583
+    },
+    "pr184_features": {
+      "exit_code": 0,
+      "tests": 2197,
+      "passed": 2196,
+      "failed": 0,
+      "skipped": 1,
+      "duration_ms": 130643.911167
+    },
+    "existing_skip": "Committed-pool ATD parity: current pool has no adopted anytime-TD legs. Independent synthetic ATD parity and positive recorder now run unconditionally.",
+    "closed_main_before": {
+      "base": "860ff675",
+      "root_three_files": {
+        "exit_code": 1,
+        "tests": 14,
+        "passed": 11,
+        "failed": 3
+      },
+      "r90_unit": {
+        "exit_code": 1,
+        "tests": 13,
+        "passed": 12,
+        "failed": 1
+      }
+    },
+    "closed_main_after": {
+      "exit_code": 0,
+      "tests": 29,
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0
+    },
+    "latest_main_focused": {
+      "exit_code": 0,
+      "tests": 29,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 1
+    },
+    "pr184_core": {
+      "exit_code": 0,
+      "partition": "core",
+      "passed": [
+        "schema validation",
+        "smoke",
+        "weekly split never-regress",
+        "parlay never-regress",
+        "kdst never-regress",
+        "leg pool calibration never-regress"
+      ],
+      "browser_step": "Skipped by existing optional-dependency check; not browser acceptance",
+      "full_gate_claimed": false
+    },
+    "engine_reproductions": {
+      "exit_code": 0,
+      "pinned_engine_unchanged": true
+    },
+    "browser": {
+      "exit_code": 1,
+      "status": "ENVIRONMENT_BLOCKED",
+      "tests_executed": 0,
+      "reason": "Python http.server socket.bind: PermissionError [Errno 1] Operation not permitted",
+      "remote_ci_still_required": true
+    },
+    "data_identical_to_main": true,
+    "production_source_unchanged": true
+  },
+  "publication": {
+    "status": "NOT_PUSHED",
+    "reason": "GitHub code upload rejected: MCP tool call requires approval, but approval policy is never",
+    "workaround_attempted": false
+  },
+  "local_log_sha256": {
+    "main-features.log": "fc8d76b6e3b13a9ad67ec70d05329b3e1d73770c3dddae26fc193718dc921f49",
+    "closed-main-before.log": "ef58e0716d4f599d656843d109092aff9a90b1e6cb7b6a4a6d878fcc65ad2841",
+    "closed-main-after.log": "b411f61e27710e36c3f75e8f4803093f3ef605e6bb88e881873f66f5b771566e",
+    "fixed-main-focused.log": "bb3979d786542fbae08d6843ef8374636b5703a3a90ae9c5b96ab1d52de68894",
+    "pr183-features.log": "c81e64b09ac573ed7237cafab084c3f5f3dd775ac15eefe47eb2959e114f32f2",
+    "pr184-features.log": "bf54aa3f0d05b38ba2dc2532fd801e477e0c9e3d6b45361e305627f06a1a42b8",
+    "pr184-core.log": "2e69311228ae401fffcba4d0753d31359e07d03c2c0ef765ea5cb128aca2ce09",
+    "r90-browser-main.log": "3b58d87b7171b92b8c748db131a00e441772b265abe6561ea696930cf7f0a7d9"
+  }
+}
