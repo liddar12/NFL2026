@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-20T03:54:00Z",
+  "generated_utc": "2026-10-20T12:44:04Z",
   "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
@@ -18,9 +18,9 @@
       "moves": "every game win probability",
       "source": "data/model_tuning.json",
       "state": "held",
-      "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.36625} scores 0.690851 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.670915 across 5 folds over n=92 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them.",
-      "last_run_utc": "2026-10-20T03:51:04Z",
-      "runs": 96,
+      "why": "NEVER REGRESS: best backtest grid candidate hfa_elo=45 revert=0.45 k=25 scores 0.6369 vs incumbent (hfa_elo=45 revert=0.45 k=20) at 0.6371 over 1084 real FINAL games (seasons 2022-2023-2024-2025); the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
+      "last_run_utc": "2026-10-20T12:37:14Z",
+      "runs": 97,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z",
       "chronology": {
@@ -45,8 +45,8 @@
       "source": "data/model_tuning.json",
       "state": "held",
       "why": "incumbent retained: no family's improvement was large relative to its own fold-clustered uncertainty",
-      "last_run_utc": "2026-10-13T14:53:24Z",
-      "runs": 27,
+      "last_run_utc": "2026-10-20T12:37:24Z",
+      "runs": 28,
       "chronology": {
         "invalid_timestamps": 0,
         "latest_conflict": false
@@ -68,9 +68,9 @@
       "moves": "every player projection",
       "source": "data/model_tuning.json",
       "state": "held",
-      "why": "the refit is worse on held-out week(s) [2]",
-      "last_run_utc": "2026-10-13T14:53:43Z",
-      "runs": 11,
+      "why": "the refit is worse on held-out week(s) [2, 6]",
+      "last_run_utc": "2026-10-20T12:37:56Z",
+      "runs": 12,
       "live": "every signal at full strength",
       "chronology": {
         "invalid_timestamps": 0,
@@ -113,7 +113,7 @@
       "source": "data/kdst_backtest.json",
       "state": "adopted",
       "why": "split beats flat by 0.1191, 95% CI [-0.1624, -0.0758] excludes 0",
-      "last_run_utc": "2026-10-13T14:52:41Z",
+      "last_run_utc": "2026-10-20T12:36:31Z",
       "effective": {
         "state": "unknown",
         "source": "data/kdst_backtest.json",
@@ -131,8 +131,8 @@
       "moves": "every MY PARLAYS leg probability",
       "source": "data/leg_pool_backtest.json",
       "state": "adopted",
-      "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0717, margin 0.005), keeps skill (0.1758 vs 0.1446) and carries information (skill > 0.02)",
-      "last_run_utc": "2026-10-13T14:52:43Z",
+      "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0723, margin 0.005), keeps skill (0.1758 vs 0.1427) and carries information (skill > 0.02)",
+      "last_run_utc": "2026-10-20T12:36:36Z",
       "effective": {
         "state": "unknown",
         "source": "data/leg_pool_backtest.json",
@@ -150,15 +150,15 @@
       "moves": "every MY PARLAYS leg probability",
       "source": "data/leg_pool_backtest.json",
       "state": "held",
-      "why": "hold: the layer is worse on held-out week(s) [5]",
-      "last_run_utc": "2026-10-13T14:52:43Z",
+      "why": "hold: 0 held-out week(s) so far (weeks [6] graded); the layer ships only on >= 2",
+      "last_run_utc": "2026-10-20T12:36:36Z",
       "effective": {
         "state": "disabled",
         "source": "data/leg_pool_backtest.json:live_2026",
         "since_utc": null,
         "version": "config:5153dc173a57ad52",
         "note": "The pool reads this applied flag and adjustment; a held decision is not proof a prior layer remains active.",
-        "observed_utc": "2026-10-13T14:52:43Z"
+        "observed_utc": "2026-10-20T12:36:36Z"
       }
     },
     {
@@ -208,7 +208,7 @@
       "source": "data/atd_backtest.json",
       "state": "adopted",
       "why": "ADOPTED \u2014 beats the position base rate and opportunity-only share on log loss and Brier in every held-out season (2023, 2024, 2025), calibration slope inside [0.9, 1.1] in each; team TDs within 5% over 2024-25",
-      "last_run_utc": "2026-10-13T14:53:58Z",
+      "last_run_utc": "2026-10-20T12:38:13Z",
       "effective": {
         "state": "unknown",
         "source": "data/atd_backtest.json",
@@ -227,7 +227,7 @@
       "source": "data/joint_backtest.json",
       "state": "held",
       "why": "held-out log-loss joint 0.091365 vs independent 0.091129 over 43528 cards \u2014 the independent product keeps pricing them",
-      "last_run_utc": "2026-10-13T14:56:55Z",
+      "last_run_utc": "2026-10-20T12:44:03Z",
       "effective": {
         "state": "unknown",
         "source": "data/joint_backtest.json",
@@ -246,7 +246,7 @@
       "source": "data/backup_qb_backtest.json",
       "state": "measuring",
       "why": "phase 1 measures only; 2 of 10 candidates clear never-regress (best by pooled MAE: cap_gap_RB)",
-      "last_run_utc": "2026-10-13T14:53:42Z",
+      "last_run_utc": "2026-10-20T12:37:56Z",
       "effective": {
         "state": "measure_only",
         "source": "data/backup_qb_backtest.json",
@@ -265,7 +265,7 @@
       "source": "data/weather_backtest.json",
       "state": "measuring",
       "why": "not powered: 1 of 10 measured effects have the sample to detect the effect of interest; 0 candidate(s) adoptable",
-      "last_run_utc": "2026-10-13T14:53:49Z",
+      "last_run_utc": "2026-10-20T12:38:04Z",
       "effective": {
         "state": "measure_only",
         "source": "data/weather_backtest.json",
@@ -284,7 +284,7 @@
       "source": "data/qb_depth_backtest.json",
       "state": "measuring",
       "why": "verdict none: no candidate clears the one-sided test at alpha 0.05 over 4 families",
-      "last_run_utc": "2026-10-13T14:53:32Z",
+      "last_run_utc": "2026-10-20T12:37:38Z",
       "effective": {
         "state": "measure_only",
         "source": "data/qb_depth_backtest.json",

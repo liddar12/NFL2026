@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-13T14:52:43Z",
+  "generated_utc": "2026-10-20T12:36:36Z",
   "model": "leg_pool_v1",
   "ladder": {
     "QB": [
@@ -72,14 +72,14 @@
     "shipped": {
       "arm": "shipped",
       "n": 41314,
-      "skill": 0.1446,
-      "ece": 0.0717,
-      "log_loss": 0.586
+      "skill": 0.1427,
+      "ece": 0.0723,
+      "log_loss": 0.5873
     },
     "ece_margin": 0.005,
     "min_skill": 0.02,
     "adopt": true,
-    "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0717, margin 0.005), keeps skill (0.1758 vs 0.1446) and carries information (skill > 0.02)"
+    "why": "wide refit is better calibrated (ECE 0.0066 vs 0.0723, margin 0.005), keeps skill (0.1758 vs 0.1427) and carries information (skill > 0.02)"
   },
   "per_fold_coefficients": {
     "2024": {
@@ -238,55 +238,28 @@
   ],
   "live_2026": {
     "weeks": [
-      2,
-      3,
-      4,
-      5
+      6
     ],
-    "legs": 974,
-    "offered_mean": 0.5043,
-    "hit_rate": 0.5945,
-    "per_week": [
-      {
-        "week": 3,
-        "n": 262,
-        "fit_weeks": [
-          2
-        ],
-        "raw_log_loss": 0.6587,
-        "adjusted_log_loss": 0.627,
-        "raw_ece": 0.1365,
-        "adjusted_ece": 0.0568
-      },
-      {
-        "week": 4,
-        "n": 222,
-        "fit_weeks": [
-          2,
-          3
-        ],
-        "raw_log_loss": 0.6628,
-        "adjusted_log_loss": 0.6297,
-        "raw_ece": 0.1254,
-        "adjusted_ece": 0.0407
-      },
-      {
-        "week": 5,
-        "n": 318,
-        "fit_weeks": [
-          2,
-          3,
-          4
-        ],
-        "raw_log_loss": 0.6671,
-        "adjusted_log_loss": 0.7044,
-        "raw_ece": 0.0423,
-        "adjusted_ece": 0.1311
-      }
-    ],
+    "legs": 143,
+    "offered_mean": 0.507,
+    "hit_rate": 0.6154,
+    "per_week": [],
     "adjustment": null,
     "applied": false,
-    "reason": "hold: the layer is worse on held-out week(s) [5]"
+    "reason": "hold: 0 held-out week(s) so far (weeks [6] graded); the layer ships only on >= 2",
+    "receipt_policy": "base_receipt_v1",
+    "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+    "base_mean": 0.507,
+    "lineage": {
+      "eligible_unique_legs": 143,
+      "quarantined_records": 43168,
+      "quarantine_reasons": {
+        "missing_or_unsupported_receipt": 43168
+      },
+      "eligibility": "validated internal pre-event receipts; public availability unverified",
+      "different_base_version": 0,
+      "joined_unique_legs": 143
+    }
   },
   "narrow_guard": {
     "pool_fit": {
@@ -299,9 +272,9 @@
     "shipped_fit": {
       "arm": "shipped_fit",
       "n": 2430,
-      "skill": 0.0385,
-      "ece": 0.0213,
-      "log_loss": 0.6651
+      "skill": 0.0389,
+      "ece": 0.0265,
+      "log_loss": 0.6648
     },
     "note": "the shipped slate keeps shipped_fit; pool_fit is shown only to record that one coefficient set cannot serve both populations"
   },
