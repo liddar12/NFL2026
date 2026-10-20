@@ -1,33 +1,33 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-20T03:53:34Z",
+  "generated_utc": "2026-10-20T15:02:22Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (92 games); scores from data/review.json FINAL rows (92 games); scores from ESPN live, STATUS-gated FINAL (93 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (92 games); scores from data/review.json FINAL rows (93 games); scores from ESPN live, STATUS-gated FINAL (93 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 6,
   "legs": {
-    "on_file": 733,
-    "locked": 584,
+    "on_file": 734,
+    "locked": 585,
     "unlocked": 149,
-    "resolved": 491,
-    "unresolved": 44
+    "resolved": 494,
+    "unresolved": 41
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 255,
-      "hit_rate": 0.5412,
+      "n": 258,
+      "hit_rate": 0.5426,
       "model": {
-        "log_loss": 0.6699,
-        "brier": 0.2383
+        "log_loss": 0.6697,
+        "brier": 0.2382
       },
       "seed": {
-        "log_loss": 0.6832,
-        "brier": 0.245
+        "log_loss": 0.6805,
+        "brier": 0.2437
       },
       "by_pricing": {
-        "calibrated": 255
+        "calibrated": 258
       }
     },
     "moneyline": {
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 84,
-      "hit_rate": 0.5476,
-      "model": {
-        "log_loss": 0.7202,
-        "brier": 0.2621
-      },
-      "seed": {
-        "log_loss": 0.6611,
-        "brier": 0.2341
-      },
-      "by_pricing": {
-        "calibrated": 84
-      }
-    },
-    "RB": {
-      "n": 86,
-      "hit_rate": 0.4884,
-      "model": {
-        "log_loss": 0.6373,
-        "brier": 0.2228
-      },
-      "seed": {
-        "log_loss": 0.6853,
-        "brier": 0.2461
-      },
-      "by_pricing": {
-        "calibrated": 86
-      }
-    },
-    "WR": {
       "n": 85,
-      "hit_rate": 0.5882,
+      "hit_rate": 0.5529,
       "model": {
-        "log_loss": 0.6532,
-        "brier": 0.2305
+        "log_loss": 0.7189,
+        "brier": 0.2614
       },
       "seed": {
-        "log_loss": 0.7028,
-        "brier": 0.2548
+        "log_loss": 0.6587,
+        "brier": 0.2329
       },
       "by_pricing": {
         "calibrated": 85
+      }
+    },
+    "RB": {
+      "n": 87,
+      "hit_rate": 0.4943,
+      "model": {
+        "log_loss": 0.6398,
+        "brier": 0.224
+      },
+      "seed": {
+        "log_loss": 0.6826,
+        "brier": 0.2448
+      },
+      "by_pricing": {
+        "calibrated": 87
+      }
+    },
+    "WR": {
+      "n": 86,
+      "hit_rate": 0.5814,
+      "model": {
+        "log_loss": 0.6513,
+        "brier": 0.2296
+      },
+      "seed": {
+        "log_loss": 0.6999,
+        "brier": 0.2533
+      },
+      "by_pricing": {
+        "calibrated": 86
       }
     }
   },
@@ -244,18 +244,18 @@
     {
       "week": 6,
       "props": {
-        "n": 37,
-        "hit_rate": 0.6486,
+        "n": 40,
+        "hit_rate": 0.65,
         "model": {
-          "log_loss": 0.6922,
-          "brier": 0.2492
+          "log_loss": 0.6892,
+          "brier": 0.2478
         },
         "seed": {
-          "log_loss": 0.6907,
-          "brier": 0.2487
+          "log_loss": 0.6728,
+          "brier": 0.2399
         },
         "by_pricing": {
-          "calibrated": 37
+          "calibrated": 40
         }
       },
       "moneyline": {
@@ -558,27 +558,6 @@
       "game_id": "401873007",
       "market": "rb_rush_yds",
       "selection": "J. Jacobs 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 6,
-      "game_id": "401873008",
-      "market": "qb_pass_yds",
-      "selection": "B. Purdy 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 6,
-      "game_id": "401873008",
-      "market": "rb_rush_yds",
-      "selection": "C. McCaffrey 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 6,
-      "game_id": "401873008",
-      "market": "wr_rec_yds",
-      "selection": "T. McLaurin 60+ rec yds",
       "reason": "no_stat_line"
     }
   ],
@@ -8956,6 +8935,44 @@
     {
       "week": 6,
       "game_id": "401873008",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "B. Purdy 225+ pass yds",
+      "player": "Brock Purdy",
+      "team": "SF",
+      "line": 224.5,
+      "mu": 217.2,
+      "sd": 76.66,
+      "z": -0.0952,
+      "p_team": 0.8407,
+      "pricing": "calibrated",
+      "model_prob": 0.5474,
+      "seed_prob": 0.6363,
+      "actual": 264.0,
+      "hit": true
+    },
+    {
+      "week": 6,
+      "game_id": "401873008",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "C. McCaffrey 60+ rush yds",
+      "player": "Christian McCaffrey",
+      "team": "SF",
+      "line": 59.5,
+      "mu": 43.94,
+      "sd": 38.87,
+      "z": -0.4002,
+      "p_team": 0.8407,
+      "pricing": "calibrated",
+      "model_prob": 0.4227,
+      "seed_prob": 0.6363,
+      "actual": 64.0,
+      "hit": true
+    },
+    {
+      "week": 6,
+      "game_id": "401873008",
       "market": "spread",
       "selection": "SF -7.5",
       "team": "SF",
@@ -8966,6 +8983,25 @@
         "home_score": 23,
         "away_score": 17
       },
+      "hit": false
+    },
+    {
+      "week": 6,
+      "game_id": "401873008",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "T. McLaurin 60+ rec yds",
+      "player": "Terry McLaurin",
+      "team": "WAS",
+      "line": 59.5,
+      "mu": 56.01,
+      "sd": 41.58,
+      "z": -0.084,
+      "p_team": 0.1593,
+      "pricing": "calibrated",
+      "model_prob": 0.3885,
+      "seed_prob": 0.3637,
+      "actual": 27.0,
       "hit": false
     }
   ]
