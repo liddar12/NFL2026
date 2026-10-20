@@ -23,6 +23,7 @@
 
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { slateLifecycle } from '../fixtures/r90_slate_lifecycle.mjs';
 
 const read = (rel) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
 const GP = read('../../data/game_predictions.json');
@@ -204,75 +205,53 @@ test.describe('R90 — F13 historical truth on a closed week', () => {
    * kept today's recomputation. Committed DET @ BUF graded a 65% lock and printed
    * 69%, and 15 more week-2 games go FINAL under the same rule. */
 
-  test('G04: a FINAL game on the CURRENT week shows its LOCK; an unplayed game on the same week does not', async ({ page }) => {
-    const errors = collectErrors(page);
-    // SCHED above is the closed week's index; this test needs the current one.
-    const schedOf = (id) => (SCHEDULE.games || []).find((x) => String(x.game_id) === String(id));
-    const statusOf = (id) => String((schedOf(id) || {}).status || '');
-    const todayPct = (row) => {
-      const s = schedOf(row.game_id);
-      return Math.round((row.picked === row.home ? s.probs.home : s.probs.away) * 100);
-    };
-    /* THE WEEK IS DERIVED (2026-09-23).
-     *
-     * This read both halves off the CURRENT week, which held them together only
-     * while that week was part-played. Between the Monday night game and
-     * Thursday's kickoff the pipeline has already rolled to a week with no FINAL
-     * game at all, and the assertion reddened the gate on entirely correct data
-     * every Tuesday and Wednesday of the season.
-     *
-     * Each half now stands on the newest week that HAS its case — on a game day
-     * that is the same week for both, which is the original test exactly, and in
-     * the midweek gap it is the closed week for the lock and the current one for
-     * the unplayed card. Neither window is ever empty, so neither half skips. */
-    const weeksSeen = Object.keys(REVIEW.weeks || {}).map(Number)
-      .filter((w) => w <= Number(CURRENT)).sort((a, b) => b - a);
-    const newestWith = (pred) => {
-      for (const w of weeksSeen) {
-        const hit = ((REVIEW.weeks[String(w)] || {}).games || []).find(pred);
-        if (hit) return { week: w, row: hit };
+  for (const phase of ['mixed', 'closed', 'rollover']) {
+    test(`G04: ${phase} current slate keeps final locks and unplayed forecasts distinct`, async ({ page }) => {
+      const errors = collectErrors(page);
+      const { predictions, schedule, review } = slateLifecycle(phase);
+      for (const [name, doc] of Object.entries({
+        game_predictions: predictions, schedule_full: schedule, review,
+      })) {
+        await page.route(`**/data/${name}.json*`, r => r.fulfill({ json: doc }));
       }
-      return { week: null, row: null };
-    };
-    const fin = newestWith((g) => /^STATUS_FINAL/.test(statusOf(g.game_id)) && g.pick_prob != null);
-    const open = newestWith((g) => statusOf(g.game_id) === 'STATUS_SCHEDULED');
-    const finalRow = fin.row;
-    const openRow = open.row;
-    expect(finalRow, 'some week at or before the current one carries a FINAL game').toBeTruthy();
-    expect(openRow, 'some week at or before the current one carries an unplayed game').toBeTruthy();
-
-    await openWeekOn(page, fin.week, finalRow.game_id);
-    const done = page.locator(`.card.game[data-game-id="${finalRow.game_id}"]`);
-    await done.locator('.prob[data-rv-prob="locked"]').waitFor({ timeout: 15000 });
-
-    // 1. the head is the LOCK the won/lost dot grades — not today's recomputation
-    const pct = lockedPct(finalRow);
-    await expect(done.locator('.ph--home')).toHaveText(`${finalRow.home} ${pct.home}%`);
-    await expect(done.locator('.ph--away')).toHaveText(`${finalRow.away} ${pct.away}%`);
-    await expect(done.locator('.rv-final')).toHaveText(
-      `FINAL \u00b7 ${finalRow.home} ${finalRow.final.home_score}\u2013${finalRow.away} ${finalRow.final.away_score}`);
-    // 2. the recomputation is a second, NAMED figure
-    const rec = todayPct(finalRow);
-    await expect(done.locator('.rv-prov')).toContainText('LOCKED ');
-    await expect(done.locator('.rv-prov')).toContainText(`recomputed with today's model: ${rec}%`);
-    // 3. the review's own case: 65%, not 69%
-    const pickedPct = finalRow.picked === finalRow.home ? pct.home : pct.away;
-    expect(pickedPct).toBe(Math.round(finalRow.pick_prob * 100));
-    if (String(finalRow.game_id) === '401872932') {
-      expect(pickedPct).toBe(65);
-      expect(rec).toBe(69);
-      await expect(done.locator('.ph--fav')).toHaveText(`${finalRow.picked} 65%`);
-    }
-
-    // 4. an unplayed game keeps today's forecast: none of it
-    if (open.week !== fin.week) await openWeekOn(page, open.week, openRow.game_id);
-    const card = page.locator(`.card.game[data-game-id="${openRow.game_id}"]`);
-    await expect(card.locator('.prob[data-rv-prob]')).toHaveCount(0);
-    await expect(card.locator('.rv-final')).toHaveCount(0);
-    await expect(card.locator('.rv-prov')).toHaveCount(0);
-    await expect(card.locator('.ph--none')).toHaveCount(0);
-    expect(errors).toEqual([]);
-  });
+      const assertFinal = async (g) => {
+        const card = page.locator(`.card.game[data-game-id="${g.game_id}"]`);
+        await expect(card.locator('.prob')).toHaveAttribute('data-rv-prob', 'locked');
+        await expect(card.locator('.ph--home')).toHaveText(`${g.home} 65%`);
+        await expect(card.locator('.ph--away')).toHaveText(`${g.away} 35%`);
+        await expect(card.locator('.ph--fav')).toHaveText(`${g.home} 65%`);
+        await expect(card.locator('.rv-final')).toHaveText(`FINAL · ${g.home} 24–${g.away} 17`);
+        await expect(card.locator('.rv-prov')).toHaveText(
+          `LOCKED 2026-10-15T10:00:00Z · recomputed with today's model: ${Math.round(g.probs.home * 100)}%`);
+        await expect(card.locator('.rv-dot')).toHaveAttribute('aria-label', `${g.home} pick won`);
+      };
+      await openWeekOn(page, predictions.week, predictions.games[0].game_id);
+      await expect(page.locator('.wk-chip[aria-pressed="true"]')).toHaveAttribute('data-wk', String(predictions.week));
+      await expect(page.locator('.card.game')).toHaveCount(predictions.games.length);
+      // Wait until the view's own review decoration completes, including its
+      // no-op for a current slate with no review rows.
+      await expect(page.locator('#slate-list')).toHaveAttribute('data-rv-bound', '1');
+      for (const g of predictions.games) {
+        if (g.status === 'STATUS_FINAL') {
+          await assertFinal(g);
+        } else {
+          const card = page.locator(`.card.game[data-game-id="${g.game_id}"]`);
+          await expect(card.locator('.ph--home')).toHaveText(`${g.home} ${Math.round(g.probs.home * 100)}%`);
+          await expect(card.locator('.ph--away')).toHaveText(`${g.away} ${Math.round(g.probs.away * 100)}%`);
+          await expect(card.locator('.prob[data-rv-prob]')).toHaveCount(0);
+          await expect(card.locator('.rv-final, .rv-prov, .rv-dot, .ph--none')).toHaveCount(0);
+        }
+      }
+      if (phase === 'rollover') {
+        // The new current week has no review rows; navigating back still grades
+        // every game of the closed week from its retained receipts.
+        await openWeekOn(page, 6, 'r90-final');
+        await expect(page.locator('.card.game')).toHaveCount(2);
+        for (const g of schedule.games.filter(g => g.week === 6)) await assertFinal(g);
+      }
+      expect(errors).toEqual([]);
+    });
+  }
 });
 
 test.describe('R90 — F20 keyboard and semantics', () => {

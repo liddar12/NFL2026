@@ -30,6 +30,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { slateLifecycle } from '../fixtures/r90_slate_lifecycle.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const src = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
@@ -262,81 +263,33 @@ test('the view hands review.js the week context historical truth needs', () => {
  * button, and kept today's recomputation as its headline. These are behavioural
  * instead: the decision is per CARD, from the row and the schedule status. */
 
-const CURRENT_WEEK = Number(json('data/game_predictions.json').week);
-const weekGames = (wk) => (REVIEW.weeks[String(wk)] || { games: [] }).games;
-const isFinal = (g) => /^STATUS_FINAL/.test(String(g.status || ''));
-const finalRows = weekGames(CURRENT_WEEK).filter(isFinal);
-const scheduledRows = weekGames(CURRENT_WEEK).filter((g) => {
-  const sch = SCHEDULE.games.find((x) => String(x.game_id) === String(g.game_id));
-  return sch && String(sch.status) === 'STATUS_SCHEDULED';
-});
-
-/* THE WEEK IS DERIVED TOO (2026-09-23).
- *
- * Between the Monday night game and Thursday's kickoff the current week has no
- * FINAL row at all — the pipeline has already rolled to it, and not one of its
- * games has been played. The assertion that stood here read `finalRows.length >
- * 0` and reddened the whole gate every Tuesday and Wednesday of the season, on
- * data that is entirely correct.
- *
- * The claim is per CARD, so it is made on the newest week that HAS a graded row
- * — which is the CURRENT week from the first kickoff through the Monday night
- * game, exactly the week the F13 bug excluded, and the one before it in the
- * midweek gap. That window is never empty from week 1 on, so this never goes
- * quiet. The stricter statement is kept as its own assertion below: once the
- * current week has started, its FINAL rows are the ones under test. */
-const gradedWeek = Object.keys(REVIEW.weeks)
-  .map(Number).filter((wk) => wk <= CURRENT_WEEK && weekGames(wk).some(isFinal))
-  .sort((a, b) => b - a)[0];
-const gradedRows = weekGames(gradedWeek).filter(isFinal);
-
-test('G04: a FINAL game on the CURRENT week is graded truth — its head is the LOCK, not today\'s number', async () => {
-  const mod = await loadReview();
-  assert.ok(gradedRows.length > 0,
-    'some week at or before the current one carries a FINAL game to grade');
-  // A game IN PROGRESS has started but has no final yet (data-ci ran inside the
-  // Thursday game, 2026-10-02 02:52Z): the rule is about the week's FINALS, so it
-  // binds once the current week has one, not the moment its first game kicks off.
-  const currentHasFinal = weekGames(CURRENT_WEEK).some(isFinal);
-  assert.equal(currentHasFinal ? gradedWeek : CURRENT_WEEK, CURRENT_WEEK,
-    'once the current week has a FINAL game, ITS finals are the ones under test');
-  for (const row of gradedRows) {
-    // THE decision applyHistoricalTruth makes, on the pipeline's own week.
-    assert.equal(mod.isGradedRow(row), true, `${row.away} at ${row.home} is graded`);
-    const heads = mod.lockedHeads(row);
-    assert.ok(heads, 'a graded row paints the locked pair');
-    const sch = SCHEDULE.games.find((g) => String(g.game_id) === String(row.game_id));
-    const pickedLocked = row.picked === row.home ? heads.homePct : heads.awayPct;
-    const pickedToday = Math.round(
-      (row.picked === row.home ? sch.probs.home : sch.probs.away) * 100);
-    assert.equal(pickedLocked, Math.round(row.pick_prob * 100),
-      'the head is the lock the won/lost dot grades');
-    // the recomputation exists, and it is a second NAMED figure, never the head
-    assert.match(mod.provenanceText(row, pickedToday),
-      /^LOCKED .+ · recomputed with today's model: \d+%$/);
-    assert.equal(mod.finalScoreText(row),
-      `FINAL · ${row.home} ${row.final.home_score}\u2013${row.away} ${row.final.away_score}`);
-  }
-  // the committed case the review named: DET @ BUF shows 65%, not 69%
-  const buf = gradedRows.find((g) => String(g.game_id) === '401872932');
-  if (buf) {
-    const sch = SCHEDULE.games.find((g) => String(g.game_id) === '401872932');
-    assert.equal(Math.round(buf.pick_prob * 100), 65);
-    assert.equal(Math.round(sch.probs.home * 100), 69);
-    assert.equal(mod.lockedHeads(buf).homePct, 65, 'the card prints the 65% the dot grades');
-  }
-});
-
-test('G04: an unplayed game on the CURRENT week keeps today\'s forecast', async () => {
-  const mod = await loadReview();
-  assert.ok(scheduledRows.length > 0, 'the current week is mostly unplayed');
-  for (const row of scheduledRows) {
-    assert.equal(mod.isGradedRow(row), false,
-      `${row.away} at ${row.home} has not been played — nothing to lock`);
-  }
-  // and the helper's own early return is what keeps it that way: not past, not FINAL
-  assert.equal(mod.isGradedRow({ result: null, pick_prob: 0.6, status: 'STATUS_SCHEDULED' }), false);
-});
+for (const phase of ['mixed', 'closed', 'rollover']) {
+  test(`G04: ${phase} slate grades every FINAL and preserves each unplayed current forecast`, async () => {
+    const mod = await loadReview();
+    const { predictions, schedule, review } = slateLifecycle(phase);
+    const byId = new Map(Object.values(review.weeks).flatMap(w => w.games).map(r => [r.game_id, r]));
+    const current = schedule.games.filter(g => g.week === predictions.week);
+    assert.equal(current.filter(g => g.status === 'STATUS_FINAL').length, phase === 'mixed' ? 1 : phase === 'closed' ? 2 : 0);
+    assert.equal(current.filter(g => g.status === 'STATUS_SCHEDULED').length, phase === 'closed' ? 0 : 1);
+    for (const g of schedule.games) {
+      const row = byId.get(g.game_id);
+      if (g.status === 'STATUS_FINAL') {
+        assert.equal(mod.isGradedRow(row), true);
+        const heads = mod.lockedHeads(row);
+        assert.equal(heads.homePct, 65, 'the headline is the immutable lock');
+        assert.notEqual(heads.homePct, Math.round(g.probs.home * 100), 'fixture separates lock and recomputation');
+        assert.equal(mod.provenanceText(row, Math.round(g.probs.home * 100)),
+          `LOCKED 2026-10-15T10:00:00Z · recomputed with today's model: ${Math.round(g.probs.home * 100)}%`);
+        assert.equal(mod.finalScoreText(row), `FINAL · ${g.home} 24–${g.away} 17`);
+      } else {
+        assert.equal(row, undefined, 'unplayed games need no pending review receipt');
+        assert.equal(mod.isGradedRow(row), false);
+        assert.equal(mod.lockedHeads(row), null);
+        assert.equal(mod.isGradedRow({ status: g.status, result: null, pick_prob: .6 }), false);
+      }
+    }
+  });
+}
 
 test('G04: the repaint is decided per card, not per week — no whole-week guard survives', () => {
   const review = src('app/review.js');
