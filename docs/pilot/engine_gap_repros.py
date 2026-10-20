@@ -185,8 +185,9 @@ r3["R3c_file_path_settlement_channel"] = {
     "void_reasons_emitted_in_R3a": sorted(x for x in emitted if x is not None),
     "gap": "settlement rules need an explicit, sourced input on the file path that yields VOID "
            "(excluded and counted, R3b) rather than a threshold grade"}
-r3["producer_line_fractions_note"] = ("NFL leg_pool lines are all x.5 today (1,231/1,231 rungs on 2026-10-19), "
-                                      "so threshold and settlement cannot disagree in current data")
+r3["producer_line_fractions_note"] = ("The historical 2026-10-19 snapshot had 1,231/1,231 x.5 rungs. "
+                                      "Half-point lines avoid equality pushes, not official VOIDs; "
+                                      "a sourced official VOID can still disagree with a threshold grade.")
 out["R3_push_void"] = r3
 
 # The R3 cases are executable checks: the script exits non-zero if the pinned
