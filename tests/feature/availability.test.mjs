@@ -337,6 +337,152 @@ print(json.dumps({
   assert.equal(out.no_keys, true, 'no availability keys on an all-healthy build');
 });
 
+/* -------------------------------------------- the reference identity binding */
+
+/* The ESPN ids a report row names (athlete_id / espn_id), and whether they are
+ * unusable: a non-numeric value, or two DIFFERENT ids on one row. */
+function rowIds(r) {
+  const ids = new Set();
+  let invalid = false;
+  for (const v of [r.athlete_id, r.espn_id]) {
+    if (v === undefined || v === null || v === '') continue;
+    const k = String(v);
+    if (!/^[0-9]+$/.test(k)) { invalid = true; continue; }
+    ids.add(k);
+  }
+  return { ids, invalid: invalid || ids.size > 1 };
+}
+
+/* The rows that back a pool player's flag, independently of build_weekly,
+ * mirroring availability.resolve_report step for step (Codex review of #183:
+ * a same-team id-less row must still back a player when ANOTHER team has a
+ * same-name player with an explicit id):
+ *   - the player's own explicit id decides: every row naming it must agree on
+ *     team and carry no conflicting id, else nothing;
+ *   - otherwise same-name rows; a player with an id may only take rows that
+ *     carry NO id. Same-team rows win; with none, a name shared across teams
+ *     (or by two pool players) backs nothing;
+ *   - an explicit id on a same-name row is a conflict only where it could be
+ *     the same person: on the player's own team when a same-team row exists,
+ *     on any team when none does;
+ *   - two pool players on one team with one normalized name back nothing. */
+function referenceLookup(rows, pool, norm) {
+  const byId = new Map();
+  for (const r of rows) {
+    for (const k of rowIds(r).ids) {
+      if (!byId.has(k)) byId.set(k, []);
+      byId.get(k).push(r);
+    }
+  }
+  const poolNames = new Map();
+  const poolIds = new Map();
+  for (const q of pool) {
+    const n = norm(q.name);
+    poolNames.set(n, (poolNames.get(n) || 0) + 1);
+    const g = String(q.gsis_id || '');
+    if (g.startsWith('espn-')) poolIds.set(g.slice(5), (poolIds.get(g.slice(5)) || 0) + 1);
+  }
+  const single = (r) => { const { ids, invalid } = rowIds(r); return { id: ids.size === 1 && !invalid ? [...ids][0] : null, invalid }; };
+  return (team, name, gsisId) => {
+    const eid = String(gsisId || '').startsWith('espn-') ? String(gsisId).slice(5) : '';
+    if (eid && (poolIds.get(eid) || 0) > 1) return undefined;
+    if (eid && byId.has(eid)) {
+      const hit = byId.get(eid);
+      if (hit.some((r) => rowIds(r).invalid || r.team !== team)) return undefined;
+      return hit;
+    }
+    const n = norm(name);
+    if (!n) return undefined;
+    const named = rows.filter((r) => norm(r.player) === n).map((r) => ({ r, ...single(r) }));
+    const possible = named.filter((x) => !eid || x.id === null || x.invalid);
+    const local = possible.filter((x) => team && x.r.team === team);
+    let candidates = local.length ? local : possible;
+    if (!local.length && ((poolNames.get(n) || 0) > 1 || new Set(candidates.map((x) => x.r.team)).size > 1)) candidates = [];
+    if (!candidates.length) return undefined;
+    const ids = new Set(candidates.map((x) => x.id).filter(Boolean));
+    const sameTeamPool = pool.filter((q) => q.team === team && norm(q.name) === n).length;
+    const incompatible = new Set(named.filter((x) => !x.invalid && x.id && (!local.length || x.r.team === team)).map((x) => x.id));
+    if (candidates.some((x) => x.invalid) || ids.size > 1 || sameTeamPool > 1
+        || (eid && [...incompatible].some((id) => id !== eid))
+        || (!eid && [...ids].some((id) => poolIds.has(id)))) return undefined;
+    return candidates.map((x) => x.r);
+  };
+}
+
+/* The reference over given rows and pool (the same normalization the
+ * committed-artifact test uses). */
+function referenceFor(rows, pool) {
+  const norm = (s) => String(s || '').replace(/\./g, '').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+  return referenceLookup(rows, pool, norm);
+}
+
+test('reference binding: an explicit ESPN id mismatch never falls back to a name; conflicts back nothing', () => {
+  const out = (team, player, extra) => ({ team, player, status: 'Out', availability: 'OUT',
+    availability_class: 'week', ...extra });
+  const CASES = [
+    // [label, pool player, report rows, backed?]
+    ['id match through a name suffix', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith Jr.', { athlete_id: '111' })], true],
+    ['MISMATCHED id: same team + same name, another person', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '222' })], false],
+    ['MISMATCHED id beside an id-less same-name row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '222' }), out('SEA', 'Joe Smith')], false],
+    ['CONFLICTING ids on the matching row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '111', espn_id: '333' })], false],
+    ['malformed id on the same-name row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: 'abc' })], false],
+    ['TEAM conflict on an id match', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('DAL', 'Joe Smith', { athlete_id: '111' })], false],
+    ['TEAM conflict on one of two id rows', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith', { athlete_id: '111' }), out('DAL', 'Joe Smith', { athlete_id: '111' })], false],
+    ['legacy: id-less row, same team and name', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith')], true],
+    // Codex review of #183: another TEAM's same-name player with an explicit id
+    // must not veto this player's own same-team, id-less row.
+    ['legacy: same-team id-less row beside ANOTHER team\'s same-name id row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith'), out('DAL', 'Joe Smith', { athlete_id: '999' })], true],
+    ['same-team id-less row beside a SAME-team same-name id row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('SEA', 'Joe Smith'), out('SEA', 'Joe Smith', { athlete_id: '999' })], false],
+    ['no same-team row: another team\'s id-less row with a third team\'s id row', { gsis_id: 'espn-111', name: 'Joe Smith', team: 'SEA' },
+      [out('DAL', 'Joe Smith'), out('NYG', 'Joe Smith', { athlete_id: '999' })], false],
+    ['player without id: legacy mover, unique report name on another team', { gsis_id: '00-0001', name: 'Joe Smith', team: 'SEA' },
+      [out('DAL', 'Joe Smith')], true],
+  ];
+  const ref = CASES.map(([, p, rows]) => !!referenceFor(rows, [p])(p.team, p.name, p.gsis_id));
+  // The producer, on the same inputs: a bound view <=> backed.
+  const prod = runPy(`
+import json
+from scripts import availability as av
+cases = json.loads(${JSON.stringify(JSON.stringify(CASES))})
+print(json.dumps([bool(av.resolve_report([p], rows)["views"].get(p["gsis_id"])) for _, p, rows, _ in cases]))
+`);
+  CASES.forEach(([label, , , backed], i) => {
+    assert.equal(ref[i], backed, `reference: ${label}`);
+    assert.equal(prod[i], backed, `producer: ${label}`);
+  });
+});
+
+test('reference binding agrees with availability.resolve_report on every committed pool player', () => {
+  const proj = read('../../data/player_projections.json');
+  const injuries = read('../../data/injuries.json');
+  const look = referenceFor(injuries.injuries, proj.players);
+  const ref = Object.fromEntries(proj.players.map((p) => {
+    const rows = look(p.team, p.name, p.gsis_id);
+    return [p.gsis_id, rows ? rows.map((r) => injuries.injuries.indexOf(r)).sort((a, b) => a - b) : null];
+  }));
+  const prod = runPy(`
+import json
+from scripts import availability as av
+proj = json.load(open("data/player_projections.json"))["players"]
+rows = json.load(open("data/injuries.json"))["injuries"]
+res = av.resolve_report(proj, rows)
+idx = {id(r): i for i, r in enumerate(rows)}
+print(json.dumps({p["gsis_id"]: sorted(idx[id(r)] for r in res["rows"][p["gsis_id"]]) if p["gsis_id"] in res["rows"] else None
+                  for p in proj}))`);
+  const diff = Object.keys(prod).filter((k) => JSON.stringify(prod[k]) !== JSON.stringify(ref[k]));
+  assert.deepEqual(diff.map((k) => [k, prod[k], ref[k]]), []);
+});
+
 /* ------------------------------------------------------- the committed artifact */
 
 test('committed player_weekly.json: no orphan flags, and the meta adds up', () => {
@@ -376,30 +522,10 @@ test('committed player_weekly.json: no orphan flags, and the meta adds up', () =
       seen.add(n);
     }
   }
-  // Selected release (injury identity hotfix): the producer binds a report
-  // by exact ESPN id first (availability.resolve_report), team required to
-  // agree, so "Deebo Samuel Sr." backs pool "Deebo Samuel" (espn-3126486).
-  // Mirrored here; the name rules below remain the fallback.
-  const byId = new Map();
-  for (const r of injuries.injuries) {
-    for (const v of [r.athlete_id, r.espn_id]) {
-      if (v === undefined || v === null || v === '') continue;
-      const k = String(v);
-      if (!byId.has(k)) byId.set(k, []);
-      byId.get(k).push(r);
-    }
-  }
-  const lookupRows = (team, name, gsisId) => {
-    const eid = String(gsisId || '').startsWith('espn-') ? String(gsisId).slice(5) : '';
-    const sameId = eid ? (byId.get(eid) || []).filter((r) => r.team === team) : [];
-    if (sameId.length) return sameId;
-    const n = norm(name);
-    const exact = report.get(`${team}|${n}`);
-    if (exact) return exact;
-    if (poolDups.has(n)) return undefined;
-    if ((nameTeams.get(n) || new Set()).size !== 1) return undefined;
-    return byName.get(n);
-  };
+  // Selected release (injury identity hotfix): the producer binds a report by
+  // exact ESPN id first (availability.resolve_report). The reference is the
+  // module-level referenceLookup below, so its negative cases are tested too.
+  const lookupRows = referenceLookup(injuries.injuries, proj.players, norm);
 
   let blocked = 0;
   let ending = 0;

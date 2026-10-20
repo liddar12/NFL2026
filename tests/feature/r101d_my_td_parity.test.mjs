@@ -188,10 +188,16 @@ test('R101d parity: the 3+-legs-from-one-game path matches on a slate that force
   assert.ok(bigSeen > 0, 'the synthetic slate ranks at least one 3+-legs-from-one-game card');
 });
 
-test('R101d recorder: the recorded top card is the browser\'s top card, and it records once',
-  { skip: !hasAtd && 'the committed pool offers no anytime-TD leg' }, () => {
-    const games = readJson('data/schedule_full.json').games;
-    const calib = readJson('data/parlay_backtest.json');
+test('R101d recorder: deterministic top-card parity, first sight once, no offers after kickoff or FINAL', () => {
+  // Keep the positive recorder proof independent of live adoption and the last
+  // game's kickoff. The separate committed sweep above still checks real data.
+  for (const phase of ['pregame', 'all_kicked_off', 'all_final']) {
+    const src = syntheticSource();
+    const pool = src.pool;
+    const games = phase === 'all_final'
+      ? src.games.map((g) => ({ ...g, status: 'STATUS_FINAL' })) : src.games;
+    if (phase === 'all_kicked_off') pool.generated_utc = '2026-12-07T00:00:00Z';
+    const calib = src.calib;
     const now = Date.parse(pool.generated_utc);
     const table = correlationTable(mergedCalib(calib, pool));
     const atd = upcomingLegs(atdPoolLegs(pool), games, now);
@@ -207,13 +213,15 @@ test('R101d recorder: the recorded top card is the browser\'s top card, and it r
         if (top) want[`${mode}|${n}`] = top.legs.map((l) => l.selection).sort();
       }
     }
+    if (phase === 'pregame') assert.equal(Object.keys(want).length, 4,
+      'positive control exercises both modes at both sizes');
+    else assert.deepEqual(want, {}, `${phase}: the browser offers nothing`);
     const got = python(`
 import json, sys, tempfile
 sys.path.insert(0, ".")
 from scripts import build_my_td_cards as R, build_atd_cards as W
 pay = json.load(open(sys.argv[1]))
-pool = json.load(open("data/leg_pool.json")); games = json.load(open("data/schedule_full.json"))["games"]
-calib = json.load(open("data/parlay_backtest.json"))
+pool, games, calib = pay["pool"], pay["games"], pay["calib"]
 seeds = [s for s in R.M.seed_options(pool) if s.get("kind") == "team" and s["name"] == pay["seed"]]
 out = {}
 corr = R._correlation_table(R.M.merged_calib(calib, pool))
@@ -237,12 +245,19 @@ doc = {"adopted": True, "season": pool["season"], "week": pool["week"], "generat
 doc["modes"] = {m: {"cards": c} for m, c in doc["modes"].items()}
 with tempfile.TemporaryDirectory() as tmp:
     first, again = W.record(doc, tmp), W.record(doc, tmp)
-print(json.dumps({"top": out, "first": first, "again": again}))`, { seed: seed.name, verdict: VERDICT });
+print(json.dumps({"top": out, "first": first, "again": again}))`,
+      { seed: seed.name, verdict: VERDICT, pool, games, calib });
     for (const [k, sel] of Object.entries(want)) {
       assert.deepEqual(got.top[k], sel, `${k}: the recorded top card is the one the browser shows first`);
     }
-    assert.ok(got.first > 0 && got.again === 0, 'first sight recorded once');
-  });
+    if (phase === 'pregame') assert.ok(got.first > 0, 'positive control records real offered cards');
+    else {
+      assert.deepEqual(got.top, {}, `${phase}: the Python mirror offers nothing`);
+      assert.equal(got.first, 0, `${phase}: no post-kickoff or FINAL card is recorded`);
+    }
+    assert.equal(got.again, 0, `${phase}: a repeated refresh never duplicates a card`);
+  }
+});
 
 test('R101d view: a 3+-legs-from-one-game card says how it was priced; the legend states both caps', () => {
   const leg = (sel, gid, p) => ({ selection: sel, game_id: gid, model_prob: p, implied_prob: p * 1.045,

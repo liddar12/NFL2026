@@ -215,7 +215,8 @@ test('the Python mirror offers the same cards as the browser, number for number'
    * is a stronger claim than the old one: the EVEN sweep must find EXACTLY the
    * cards this slate can build for every seed that still has a leg to build
    * from (on a full slate that is 32 x 10 = 320, not "more than 200"), and at
-   * least one seed must still be playable. */
+   * a CLOSED slate must instead prove that both callers offer exactly zero.
+   * The independent toy sweep above always proves the nonempty path. */
   let expectedEvenTeamCards = null;
   let liveTeamSeeds = 0;
   let cardsPerLiveSeed = 0;
@@ -253,7 +254,7 @@ test('the Python mirror offers the same cards as the browser, number for number'
     const eligible = upcomingLegs(poolLegs(pool), games, Date.parse(now));
     const upcomingGames = new Set(eligible.map((l) => l.game_id)).size;
     const playable = new Set(eligible.map((l) => l.team));
-    cardsPerLiveSeed = 2 * Math.min((2 * upcomingGames) - 1, 5);
+    cardsPerLiveSeed = 2 * Math.max(0, Math.min((2 * upcomingGames) - 1, 5));
     liveTeamSeeds = teams.filter((s) => playable.has(s.name)).length;
     expectedEvenTeamCards = { from: evenFrom, to: cases.length,
       total: liveTeamSeeds * cardsPerLiveSeed, upcomingGames };
@@ -283,14 +284,37 @@ test('the Python mirror offers the same cards as the browser, number for number'
     + 'sweep found too few to prove anything');
   if (expectedEvenTeamCards) {
     const { from, to, total, upcomingGames } = expectedEvenTeamCards;
-    assert.ok(upcomingGames > 0 && liveTeamSeeds > 0,
-      `no week-${readJson('data/leg_pool.json').week} game was still upcoming when the `
-      + 'committed pool was generated, so MY could offer nothing and the committed half '
-      + 'of this sweep proves nothing');
+    if (upcomingGames === 0) {
+      assert.equal(liveTeamSeeds, 0, 'a closed slate has no playable seed');
+      assert.equal(total, 0, 'a closed slate must never manufacture cards');
+      cases.forEach((c, i) => {
+        if (c.pool === 'committed') assert.deepEqual(expected[i], [], `${c.label}: the slate is closed`);
+      });
+    } else {
+      assert.ok(liveTeamSeeds > 0, 'an eligible game must supply a playable seed');
+    }
     const swept = expected.slice(from, to).reduce((n, c) => n + c.length, 0);
     assert.equal(swept, total,
       `the EVEN team sweep compared ${swept} cards; this slate (${upcomingGames} game(s) `
       + `still upcoming, ${liveTeamSeeds} seed(s) with a leg left) can build exactly `
       + `${total} — ${cardsPerLiveSeed} per playable seed`);
+  }
+});
+
+test('the Python mirror and browser both offer nothing after kickoff or on an all-FINAL slate', () => {
+  for (const [label, games, now] of [
+    ['all kicked off', TOY_GAMES, '2026-09-23T00:00:00Z'],
+    ['all FINAL', TOY_GAMES.map((g) => ({ ...g, status: 'STATUS_FINAL' })), TOY_NOW],
+  ]) {
+    const pool = toyPool();
+    const cases = ['safe', 'even', 'longshot'].flatMap((dial) =>
+      seedOptions(pool).filter((s) => s.kind === 'team').map((seed) => ({ pool: 'toy', dial, seeds: [seed] })));
+    const py = pythonCards({ calib: join(ROOT, 'data/parlay_backtest.json'),
+      toy_pool: pool, toy_games: games, toy_now: now, cases });
+    assert.ok(cases.length > 0, 'exercise real seeds, never an empty test sweep');
+    cases.forEach((c, i) => {
+      assert.deepEqual(jsCards(pool, games, now, c.dial, c.seeds), [], `${label}: browser refuses`);
+      assert.deepEqual(py[i], [], `${label}: recorder refuses`);
+    });
   }
 });
