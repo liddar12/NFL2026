@@ -212,10 +212,11 @@ print(json.dumps({"ok": ok,
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: only explicitly listed offline pilot tools may reference the pilot modules', () => {
+test('production is unchanged: only listed offline tools and the locked test-only canary may reference pilot modules', () => {
   const hits = [];
-  // Checkpoint 2 adds standalone offline tools, not a production caller. Keep
-  // the allowlist exact: a workflow, existing producer, or app may not opt in.
+  // Checkpoint 2 adds standalone offline tools, not a production caller. The
+  // owner separately authorized ONE test-only canary workflow, whose read-only
+  // command/checkout contract is locked by pilot_canary_workflow.test.mjs.
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
@@ -227,7 +228,7 @@ test('production is unchanged: only explicitly listed offline pilot tools may re
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel)) continue;
+      if (offline.has(rel) || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
       const src = readFileSync(join(ROOT, rel), 'utf8');
       if (pilotReferences.test(src)) hits.push(rel);
     }

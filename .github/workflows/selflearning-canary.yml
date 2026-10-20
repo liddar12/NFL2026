@@ -1,0 +1,98 @@
+# Test-only cross-repository acceptance. No live capture, publication or adoption.
+# Keep ci.yml's zero-dependency regression partitions and browser job unchanged.
+name: selflearning-canary
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selflearning-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-canary:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: nfl
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SELFLEARN_CHECKOUT: ${{ github.workspace }}/selflearning
+      EXPECTED_ENGINE_COMMIT: aacb19c73122f257449e977df40f2a2733991b2f
+    steps:
+      - name: Checkout exact NFL test tree
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: nfl
+          persist-credentials: false
+
+      - name: Checkout pinned public engine
+        uses: actions/checkout@v4
+        with:
+          repository: liddar12/SelfLearning
+          ref: aacb19c73122f257449e977df40f2a2733991b2f
+          path: selflearning
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Refuse missing or drifting engine before tests
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C "$SELFLEARN_CHECKOUT" rev-parse HEAD)" = "$EXPECTED_ENGINE_COMMIT"
+          test -f "$SELFLEARN_CHECKOUT/packages/selflearn-core/selflearn_core/adapters/nfl_file_feedback.py"
+
+      - name: Run all focused integration tests without skips
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 --test-reporter=tap \
+            tests/feature/pilot_capture_cli.test.mjs \
+            tests/feature/pilot_capture_contracts.test.mjs \
+            tests/feature/pilot_feedback_runner.test.mjs \
+            tests/feature/pilot_inactive_confirmation.test.mjs \
+            | tee "$RUNNER_TEMP/pilot-focused.tap"
+          node --input-type=module - "$RUNNER_TEMP/pilot-focused.tap" <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const tap = readFileSync(process.argv[2], 'utf8');
+          for (const [name, expected] of [['tests', 53], ['pass', 53], ['fail', 0], ['cancelled', 0], ['skipped', 0]]) {
+            const values = [...tap.matchAll(new RegExp('^# ' + name + ' ([0-9]+)$', 'gm'))];
+            assert.equal(values.length, 1, 'missing or ambiguous TAP total: ' + name);
+            assert.equal(Number(values[0][1]), expected, 'unaccepted TAP total: ' + name);
+          }
+          JS
+
+      - name: Exercise real bounded Linux CLI
+        run: |
+          python3 -I -S -B tests/pilot_linux_canary.py \
+            --engine-checkout "$SELFLEARN_CHECKOUT" \
+            --expected-nfl-sha "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/pilot-linux-canary.json"
+
+      - name: Retain test evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selflearning-canary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/pilot-focused.tap
+            ${{ runner.temp }}/pilot-linux-canary.json
+          if-no-files-found: error
+          retention-days: 7
