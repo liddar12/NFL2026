@@ -3,8 +3,10 @@
 Branch `pilot/selflearning-lean-20261019`, cut from NFL2026 main `c13a80ea` (2026-10-19).
 Engine pinned: SelfLearning `aacb19c73122f257449e977df40f2a2733991b2f`.
 **Learning stays disabled. Serving mode is shadow. Production behavior is unchanged.**
-Nothing here is wired into a workflow, a pipeline script or the app. There are no migrations,
-model adoption or activation; each needs a separate owner approval.
+Production pipelines and the app remain unwired. A separately authorized test-only
+Linux canary workflow was added on 2026-10-20 (addendum below); it writes only temporary
+test artifacts. There are no migrations, model adoption or activation; each needs a
+separate owner approval.
 
 Owner direction, 2026-10-19: lean, self-contained modules on a fresh branch from main. #175 is
 left untouched; its compatible contracts and builders are reused without merging its history or
@@ -233,8 +235,9 @@ committed append-only evidence; it is not wired into publication and does not
 authenticate publication, approvals or input observations.
 
 The checkpoint-1 isolation test now allows only eight explicitly named standalone
-pilot tools to reference one another. It still rejects **all workflow, existing
-producer and app references**. No production caller or live selection path changed.
+pilot tools to reference one another. It rejects production workflow, existing
+producer and app references, with one separately authorized and contract-tested
+test-only workflow exception (below). No production caller or live selection path changed.
 
 ### Local evidence and limitations
 
@@ -310,3 +313,88 @@ Shared-engine follow-ups belong in **SelfLearning**, not an NFL-only equation
 fork: a reviewed cross-platform numeric-parity contract, sourced settlement
 support for R3, and the R1 schema-description correction. Keep the current exact
 pin and quarantines until separately tested engine changes are reviewed.
+
+## Test-only Linux canary — separately authorized 2026-10-20
+
+Owner selected option A: add the remaining pinned-engine Linux acceptance job.
+Functional source: `5223c81b827986a29901148aed7dd5131b869003`. Later evidence/document
+commits do not change the tested workflow, harness or assertions.
+
+### What the existing hosted run proved
+
+The push of `b383156d` reached draft #184. Hosted
+[CI run 39494287715](https://github.com/liddar12/NFL2026/actions/runs/39494287715)
+passed core, feature, gate and browser jobs on exactly that head. Feature results
+were 2,227 passed / 11 skipped, and browser results were 364 passed / 4 skipped.
+All eleven feature skips explicitly lacked the engine checkout; that green run
+did **not** establish pinned-engine Linux acceptance.
+
+### New workflow and source isolation
+
+`.github/workflows/selflearning-canary.yml` is a separate, test-only workflow.
+The existing `ci.yml`, daily/gameday/publisher workflows, app, production scripts,
+generated data, disabled config and engine are unchanged by this addendum.
+It runs on same-repository PR updates and authorized manual dispatch, never on
+a production push, schedule, privileged PR-target event or deployment hook.
+
+- Read-only repository permission, 15-minute job ceiling, Python 3.11 / Node 22;
+  no npm, pip, database, provider or deployment setup.
+- Checkout the exact NFL event SHA under `nfl/` and the fixed public SelfLearning
+  commit `aacb19c73122f257449e977df40f2a2733991b2f` under `selflearning/`.
+  Both checkouts disable persisted credentials. Both repositories were verified
+  public; no new PAT or repository secret is required for the cross-repo read.
+- Explicit engine-path/ref preflight runs before the focused suite. The Node test
+  process must exit 0 **and** its TAP totals must be 53 passed, zero failed,
+  cancelled or skipped. Missing or ambiguous totals fail the step.
+- Execute `tests/pilot_linux_canary.py` with isolated stdlib Python. It requires
+  actual Linux, exact clean checkouts and an explicit output under runner temp.
+- Upload only TAP and canary JSON artifacts from runner temp, retained seven days.
+  This evidence transport is not publication of forecasts or sports data.
+
+The sole workflow exception in the source-isolation test is this exact filename.
+`pilot_canary_workflow.test.mjs` locks its read-only permissions, event restriction,
+pins, checkouts, test commands, zero-skip guard, timeouts and artifact paths. Mutants
+that introduce a floating pin, production command, permissive skip count, missing
+limit or failure swallowing are rejected. No existing production caller is allowed.
+
+The checkout and artifact configuration follows the official
+[checkout v4 documentation](https://github.com/actions/checkout/blob/v4/README.md)
+and [upload-artifact v4 documentation](https://github.com/actions/upload-artifact/blob/v4/README.md).
+
+### What an actual Linux pass must show
+
+The canary uses **synthetic historical fixtures**, not retrospectively reconstructed
+real tickets. Three actual CLI executions use actual UTC, each bounded at the CLI
+and by a 330-second parent timeout: initial capture grading, identical retry, and
+a changed measurement. Acceptance requires:
+
+- Four receipts visibly imported late, zero prospective imports, cohort two;
+  revisions **4 → 4 → 8** with distinct superseding links.
+- Identical retry state, original receipt/source import clocks retained, and
+  correction history append-only.
+- Enforced Linux address space at most 2 GiB, CPU at most 180 seconds, file bytes
+  at most 128 MiB + 1, and the CLI's 300-second wall-clock ceiling.
+- All learning/adoption/production/publication/provider-authentication flags false;
+  settlement still explicitly unsupported for pushes/official VOIDs.
+- No tracked NFL or engine changes, including data, app, config and workflows.
+  Temporary workspace and output stay outside both code checkouts.
+
+The harness refuses on macOS before creating a temp workspace, importing the
+engine or launching the CLI. Unit tests and a macOS library check validate result
+shapes and actual engine supersession contracts; neither is a Linux execution pass.
+
+### Handoff
+
+Local verification, source identities and remaining acceptance are recorded in
+`LINUX_CANARY_EVIDENCE_20261020.json`: 2,249 feature tests passed without skips,
+core partition passed, and the exact focused command/TAP guard passed 53/53.
+Actual hosted execution remains pending the
+owner's normal fast-forward push to the existing #184 branch. That push should
+start both the unchanged ordinary CI and this new canary workflow automatically;
+manual dispatch is not needed to validate the draft.
+
+Require **both workflows**, including the canary job itself, to succeed on the new
+candidate. A skipped canary job, standard-CI engine skips or uploaded logs alone
+are not acceptance. Keep #184 draft and learning disabled. No merge, deployment,
+production capture scheduling, official inactive-source registration or activation
+is authorized by this test-only change.
