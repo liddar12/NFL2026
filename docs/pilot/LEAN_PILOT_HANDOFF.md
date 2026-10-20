@@ -158,7 +158,8 @@ Owner classification (2026-10-19):
 | #184: "ESPN never confirms" depended on the registry | Observation-only profiles are refused before the registry check | The enriched-evidence test with a leaky registry, plus a registered-official control |
 | R3: evidence was source-string searches and a hard-coded conclusion | Executed engine cases separating the prediction threshold from settlement rules (table above) | The assertions in `engine_gap_repros.py` |
 
-Checkpoint 2 stays paused. Learning stays disabled.
+Checkpoint 2 was paused at the checkpoint-1 handoff. The owner resumed its build
+on 2026-10-20 with learning explicitly disabled; see the checkpoint-2 addendum below.
 
 ### Rollback
 
@@ -175,3 +176,137 @@ Checkpoint 2: capture predictions and receipts before kickoff, using the reused 
 
 Checkpoint 3: integration acceptance, covering repeated refreshes, stale/missing feeds, kickoff
 boundaries, retries, duplicate outcomes and browser behaviour.
+
+## Checkpoint 2 — Codex build, 2026-10-20, America/Chicago
+
+Owner authorization: **resume checkpoint 2, keep learning disabled**. This is a local
+review candidate, not merge, deployment, workflow or model-adoption authority.
+
+- Branch: `build/lean-checkpoint2-20261020`; isolated checkout
+  `/Users/jliddar/code/NFL2026-lean-checkpoint2-20261020`.
+- Reconciled checkpoint-1 head `72644df1` with merged main `7d9bb8e5` using a
+  conflict-free merge. Main's newer generated data was preserved, not regenerated.
+- Functional source: `30ff2360feef7981db748418483c1c329aa0928b`. Later commits only
+  update this handoff and verification evidence. Engine remains exactly
+  `aacb19c73122f257449e977df40f2a2733991b2f`, unmodified.
+- #175 and its checkout are untouched. The existing pilot config and inactive
+  module are unchanged: `enabled=false`, `serving_mode=shadow`, no official source.
+
+### Implemented boundaries
+
+The old branch's `learning_journal.py`, `export_learning.py`,
+`capture_outcome_evidence.py` and 92-line `tests/fixtures/week6_outcomes.py` are
+reused byte-for-byte from `de7e93c0`. No old publisher, workflow, calibrator,
+prediction builder, hosted intake or database adapter is imported.
+
+`scripts/pilot_capture.py` is a new, standalone offline capture command. Default
+execution previews without writes. `--execute` requires an explicit workspace
+outside the source checkout and inputs. It owns the real clock, exposes no
+historical `--as-of`, rejects future/malformed generation clocks before persistence,
+and quarantines bad receipt rows with counts and reasons. Immutable retries keep
+the original capture, including an offered cohort replayed after kickoff.
+
+Its default cohort is **eligible MY prop rungs**, not published WEEK/GAME cards,
+the newer browser-built cards, placed bets or authenticated public publication.
+No offered-card cohort is invented. A producer can supply exact offered records
+through the library later; that future pipeline integration is not wired here.
+
+`scripts/run_parlay_feedback.py` independently invokes the pinned engine's
+`prepare` and `evaluate` on the frozen source graph and raw outcome captures.
+The engine, not the producer, grades thresholds and appends superseding revisions.
+Repeated captures do not add forecasts or revisions; corrected measurements append
+history, and retrying an older capture does not roll back the correction. Late
+imports remain visibly late, never relabeled as prospective.
+
+The runner requires the exact clean engine checkout/import identity and a separate
+workspace. It persists completion last, checks bounded full state ancestry and
+retained import clocks, and refuses missing/rewound completion pointers. Explicit
+push/official-VOID settlement inputs are refused **before grading or state advance**;
+the refusal labels settlement support unresolved. No push is inferred from an
+integer threshold. Without sourced settlement integration, its outcome basis is
+`threshold_observations_not_sportsbook_settlement`, not sportsbook P&L or settlement
+accuracy. R3 remains an activation blocker for settlement-based learning.
+
+`scripts/learning_history_guard.py` now uses its own bounded stdlib Git reader,
+without `generation_capture_runtime` or the #175 owner-authority stack. It checks
+committed append-only evidence; it is not wired into publication and does not
+authenticate publication, approvals or input observations.
+
+The checkpoint-1 isolation test now allows only eight explicitly named standalone
+pilot tools to reference one another. It still rejects **all workflow, existing
+producer and app references**. No production caller or live selection path changed.
+
+### Local evidence and limitations
+
+- Focused producer/capture/runner/inactive suite: **53 passed, 0 skipped**, exit 0,
+  with `SELFLEARN_CHECKOUT` pointing to the exact pinned engine. Includes actual
+  producer → raw capture → engine integration, corrections, retry/crash recovery,
+  unsupported settlement refusal, full ancestry and source-identity guards.
+- Core partition: exit 0, `GATE PARTITION core RESULT: PASS (partial checks only)`.
+  Its optional browser step was skipped because this worktree has no browser
+  dependencies. No local browser pass or full-gate pass is claimed.
+- Full feature suite on Python 3.12.9: **2,238 passed, 0 failed, 0 skipped**,
+  exit 0. The same source passed the core partition and all 53 focused tests.
+  The first full run accidentally selected macOS Python 3.9.6: 2,237 passed,
+  1 failed because the existing R87 scanner needs `sys.stdlib_module_names`
+  (Python 3.10+). No scanner assertion was changed. Source/log identities and
+  that failed attempt are preserved in `CHECKPOINT2_EVIDENCE_20261020.json`.
+- Independent review reproduced two wrapper bugs (offered replay after kickoff,
+  and a future generation poisoning the graph). Both were fixed with acceptance
+  tests before the functional source commit; final review reported no remaining
+  reproducible P1/P2 finding in the reviewed capture/runner paths.
+- Real Week-7 local canary: **978 candidate rungs, 976 captured/imported before
+  kickoff, 2 explicitly quarantined, 0 outcomes, cohort 0, adoption gate false**.
+  Repeating the engine run preserves the same state ID and adds no revisions.
+  This proves prospective capture only, not accuracy improvement or settlement.
+- Both exclusions are one-ULP base-probability differences under macOS:
+  Raheim Sanders rushing 19.5 and Christian Watson receiving 49.5. Each stored vs
+  reconstructed base differs by `5.551115123125783e-17`; z and 4dp served prices
+  match. Existing NFL and pinned-engine validators demand exact base equality.
+  Cross-platform `math.exp` variation is suspected, not Linux-verified. No equation,
+  tolerance, receipt or served data was changed to force acceptance.
+- Local `--execute` feedback CLI refuses on macOS because its Linux address-space
+  ceiling cannot be enforced. Library integration reports
+  `controller_limits_applied=false`; it is not a CLI resource-canary pass.
+  A supported Linux CLI canary remains required before scheduling the runner.
+
+Raw local evidence is in `/private/tmp/nfl-lean-checkpoint2-evidence-20261020.lAiZfk/`;
+the isolated real-data store is
+`/private/tmp/nfl-lean-checkpoint2-canary-20261020.w9cREf/`. Neither is served or
+automatically published. The latter contains immutable real forecasts, not outcomes
+or proof that a viewer saw them.
+
+### Commands and next acceptance
+
+```bash
+# Safe, offline previews; neither command writes or calls a provider.
+python3 -B scripts/pilot_capture.py
+python3 -B scripts/run_parlay_feedback.py
+
+# Explicit prospective capture into a NEW, separate local workspace.
+python3 -B scripts/pilot_capture.py --execute --workspace /private/tmp/nfl-shadow-example
+
+# Supported Linux only: pinned offline feedback, no automatic outcome retrieval.
+python3 -B scripts/run_parlay_feedback.py --execute \
+  --data-dir /private/tmp/nfl-shadow-example \
+  --engine-checkout /path/to/clean/pinned/SelfLearning
+```
+
+The feedback runner deliberately has no fetch option. Raw outcome capture remains
+an explicit separate operation in the reused capture tool; its source URLs and
+observed bytes/clocks are retained and independently verified by the engine.
+
+Next: publish the exact local candidate to the existing #184 draft (normal
+fast-forward only), require fresh hosted core/features/gate/browser checks on its
+current-main merge, and execute a Linux bounded-CLI canary with the exact engine.
+Hosted default CI lacks an engine checkout: its engine integration cases explicitly
+skip and **must not** substitute for the exact-engine acceptance above.
+
+Checkpoint 3, an official inactive-source decision, source-publication evidence,
+settlement integration, scheduled production capture, and any model adoption remain
+separate. In particular, no fit on week-5/TNF outcomes and no activation is authorized.
+
+Shared-engine follow-ups belong in **SelfLearning**, not an NFL-only equation
+fork: a reviewed cross-platform numeric-parity contract, sourced settlement
+support for R3, and the R1 schema-description correction. Keep the current exact
+pin and quarantines until separately tested engine changes are reviewed.
