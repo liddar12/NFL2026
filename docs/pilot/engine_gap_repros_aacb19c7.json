@@ -275,12 +275,79 @@
   "receipts": 4
  },
  "R3_push_void": {
-  "integer_line_equal_actual_grades_as": "hit (no push branch in nfl_capture_labels)",
-  "labels_emit_official_void": false,
-  "labels_emit_push": false,
-  "labels_hit_rule": "actual >= line (comparison_operator gte)",
-  "producer_line_fractions_note": "NFL leg_pool lines are all x.5 today (1,231/1,231 rungs on 2026-10-19), so a push cannot occur in current data",
-  "void_reasons": [
+  "R3a_file_path_threshold": {
+   "graded_by_line": {
+    "79.5": [
+     [
+      "FINAL",
+      true,
+      80.0,
+      null
+     ]
+    ],
+    "80": [
+     [
+      "FINAL",
+      true,
+      80.0,
+      null
+     ]
+    ],
+    "80.5": [
+     [
+      "FINAL",
+      false,
+      80.0,
+      null
+     ]
+    ]
+   },
+   "observed_actual": 80,
+   "reading": "gte threshold: 79.5 hit, 80 hit (actual == line), 80.5 miss. Correct for the prediction contract; the engine does not infer a push from an integer line, and should not."
+  },
+  "R3b_resolution_layer_settlement_inputs": {
+   "control_binary_hit": {
+    "score_excluded": {},
+    "score_hits": 1,
+    "score_n": 1
+   },
+   "official_void": {
+    "resolution": [
+     [
+      "VOID",
+      null,
+      "official_void"
+     ]
+    ],
+    "score_excluded": {
+     "not_final_binary_outcome": 1
+    },
+    "score_hits": 0,
+    "score_n": 0
+   },
+   "push": {
+    "resolution": [
+     [
+      "VOID",
+      null,
+      "push"
+     ]
+    ],
+    "score_excluded": {
+     "not_final_binary_outcome": 1
+    },
+    "score_hits": 0,
+    "score_n": 0
+   }
+  },
+  "R3c_file_path_settlement_channel": {
+   "bind_capture_labels_signature": "(journal, capture_envelope, raw_chunks, *, max_total_bytes=67108864)",
+   "gap": "settlement rules need an explicit, sourced input on the file path that yields VOID (excluded and counted, R3b) rather than a threshold grade",
+   "settlement_parameters": [],
+   "void_reasons_emitted_in_R3a": []
+  },
+  "producer_line_fractions_note": "NFL leg_pool lines are all x.5 today (1,231/1,231 rungs on 2026-10-19), so threshold and settlement cannot disagree in current data",
+  "void_reasons_accepted_by_resolution": [
    "did_not_play",
    "official_void",
    "push"

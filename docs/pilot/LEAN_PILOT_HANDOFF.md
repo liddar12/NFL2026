@@ -33,6 +33,10 @@ Only valid confirmation restores a rung, and only while its 15-minute lease hold
 
 A valid official list must meet every rule below. Each rule is a named refusal, and each has a test:
 
+- a source profile that is a string (`source_profile_malformed` otherwise);
+- not an observation-only profile. This is checked **before** the registry, so an observation-only
+  profile never confirms, even under a registry that lists it by mistake and even when the record
+  is otherwise complete (`observation_only_source`);
 - a registered source profile;
 - an exact game identity: game_id, home, away and the literal kickoff string;
 - a team that plays in the game;
@@ -43,6 +47,11 @@ A valid official list must meet every rule below. Each rule is a named refusal, 
 - a raw-evidence sha256.
 
 If two valid lists disagree about a player, he stays unknown.
+
+Malformed input never raises. A non-dict game, player, evidence record or evidence map, a
+missing kickoff, a non-ESPN player id or non-list rungs each produce a named state for that
+player (`game_malformed`, `kickoff_unknown`, `player_id_not_espn`, `game_unknown`) or a
+`malformed_players` count. Every other player in the pool is still assessed.
 
 ### No usable confirmation source exists today, so nothing is withheld in production
 
@@ -66,7 +75,7 @@ owner approves the rollout.
 
 ### Acceptance evidence
 
-`node --test tests/feature/pilot_inactive_confirmation.test.mjs`: 10/10 pass. The tests lock:
+`node --test tests/feature/pilot_inactive_confirmation.test.mjs`: 14/14 pass. The tests lock:
 
 - The clock: T-90 − 1 s is provisional; T-90 and kickoff − 1 s are unknown without evidence; kickoff is closed.
 - Confirmed active, confirmed inactive and not-listed outcomes from valid evidence.
@@ -77,6 +86,17 @@ owner approves the rollout.
   registry, nothing confirms and every rung in the window is withheld. ESPN evidence is refused
   as `observation_only_source`.
 - ESPN `data/inactives.json`-shaped observations never confirm, even if the profile were registered by mistake.
+- An enriched ESPN record (complete, both lists, digest, in-window clocks) under a registry that
+  lists the ESPN profile is refused as `observation_only_source`. As a control, the same record
+  under a registered official profile confirms.
+- `source_profile` values of `[]`, `{}`, `None`, numbers and booleans are refused as
+  `source_profile_malformed`, not raised.
+- `assess()` is total. A player with no kickoff (ESPN and non-ESPN) is `kickoff_unknown`, a
+  malformed id is `player_id_not_espn`, junk rows are counted in `malformed_players`, and a
+  confirmed player in another game is still `confirmed_active` and kept by `withhold()`.
+  A non-mapping `evidence_by_game` is treated as no evidence.
+- A fuzz over every evidence field × nine JSON types raises nothing. The only substitutions that
+  still confirm are the fixture's own values (`complete=True`, inactive list `['111']`).
 - `withhold()` is pure.
 - The pilot config is disabled, in shadow serving, and pinned to aacb19c7. The reader refuses a
   live mode, the old profile, a half override, extra keys and a short SHA.
@@ -87,7 +107,11 @@ Mutation check. The suite fails when any of these is introduced:
 - accepting empty lists;
 - registering the ESPN profile;
 - removing the lease check;
-- an off-by-one at T-90.
+- an off-by-one at T-90;
+- checking the registry before the observation-only list;
+- removing the `source_profile` type check;
+- removing the non-dict guard for the game, for players or for `evidence_by_game`;
+- removing the `player_id_not_espn` reason.
 
 Full gate on this branch: see the PR for the exact command and result.
 
@@ -123,7 +147,18 @@ Owner classification (2026-10-19):
 |---|---|---|
 | **R1 z sign** | **Documentation correction; no equation change.** | `schemas/sports/nfl_parlay_leg.schema.json` documents `z = (line - mu)/sd`. `adapters/nfl.py validate_nfl_receipt` enforces `(mu - line)/sd`, and so do NFL's producer and validator (real data: mu 197.95, line 124.5, z +0.958). A receipt built to the schema text (correctly resealed) is refused with `base_feature_parity_mismatch`. The fix is to correct the schema description in the engine, reviewed separately; the engine stays pinned at aacb19c7 meanwhile. |
 | **R2 final status** | **No NFL blocker demonstrated; unresolved games remain visible and ungraded.** | NFL and the engine agree on final = `STATUS_FINAL`, `STATUS_FINAL_OVERTIME`. A POSTPONED, CANCELED, SUSPENDED or `STATUS_FULL_TIME` game yields 0 revisions (withheld `game_not_final_with_complete_scores`). The evaluation keeps its forecasts visible (`captured_forecast_n` 2, `cohort_n` 0) without grading them. |
-| **R3 push / official VOID** | **Real settlement gap.** Pushes and VOIDs must remain *visibly unresolved*. They must not silently become losses or disappear from evaluation. This must be resolved and tested before any claim of complete settlement support. | `VOID_REASONS` = {did_not_play, official_void, push}, but the file-path labeller emits only `did_not_play`. It has no `official_void` and no push branch. A `gte` contract on an integer line would grade actual == line as a hit. Latent in current data (1,231/1,231 rungs are x.5 lines), but unresolved. |
+| **R3 push / official VOID** | **Real settlement gap.** Pushes and VOIDs must remain *visibly unresolved*. They must not silently become losses or disappear from evaluation. This must be resolved and tested before any claim of complete settlement support. | Executed cases; the script asserts each and exits non-zero on a change. **(a) Prediction threshold, file path:** the engine's own journal at lines 79.5 / 80 / 80.5 with an observed 80 grades hit / hit / miss. actual == line is a **hit**, which is correct for an `over`/`gte` threshold. An integer line is **not** reinterpreted as a push, and it should not be. **(b) Settlement rule, resolution layer:** an explicit `push` or `official_void` input resolves as `VOID` with `hit = null`. The scorer reports it as `excluded.not_final_binary_outcome = 1`, with n 0 and hits 0: visible, not a loss, not dropped. A binary-hit control scores n 1, hits 1. **(c) The gap:** `bind_capture_labels(journal, capture_envelope, raw_chunks)` has no settlement parameter, and it emits only `did_not_play`. If a book settled a leg as a push or a league voided it, the file path would grade it by the threshold rather than leaving it `VOID`. The fix is an explicit, sourced settlement input on the file path that produces (b). It must not be inferred from integer lines. This is latent in current data (1,231/1,231 rungs are x.5), but it is unresolved, and complete settlement support is not claimed. |
+
+### Codex review corrections (2026-10-20)
+
+| Finding | Correction | Locked by |
+|---|---|---|
+| #183: the reference lookup rejected a legitimate legacy match (an id-less same-team row plus another team's id row) | `referenceLookup` now mirrors `availability.resolve_report` step by step. Conflicting ids are scoped like the producer: only same-team rows count when a same-team name match exists | The Codex parity case and three neighbours; a parity test that agrees with the producer on all 300 committed pool players |
+| #184: malformed inputs crashed | Named refusals and per-player states; unaffected players are still assessed (see Behaviour) | The `assess()` totality test, the `source_profile` test and the field × type fuzz |
+| #184: "ESPN never confirms" depended on the registry | Observation-only profiles are refused before the registry check | The enriched-evidence test with a leaky registry, plus a registered-official control |
+| R3: evidence was source-string searches and a hard-coded conclusion | Executed engine cases separating the prediction threshold from settlement rules (table above) | The assertions in `engine_gap_repros.py` |
+
+Checkpoint 2 stays paused. Learning stays disabled.
 
 ### Rollback
 
