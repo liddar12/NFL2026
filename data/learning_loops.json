@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-22T23:21:41Z",
+  "generated_utc": "2026-10-22T23:26:12Z",
   "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
@@ -18,9 +18,9 @@
       "moves": "every game win probability",
       "source": "data/model_tuning.json",
       "state": "held",
-      "why": "NEVER REGRESS: best backtest grid candidate hfa_elo=45 revert=0.45 k=25 scores 0.6369 vs incumbent (hfa_elo=45 revert=0.45 k=20) at 0.6371 over 1084 real FINAL games (seasons 2022-2023-2024-2025); the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
-      "last_run_utc": "2026-10-20T12:37:14Z",
-      "runs": 97,
+      "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.36625} scores 0.690851 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.670915 across 5 folds over n=92 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them.",
+      "last_run_utc": "2026-10-22T23:22:58Z",
+      "runs": 98,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z",
       "chronology": {
@@ -322,7 +322,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 6 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-10-22T23:21:38Z",
+      "last_run_utc": "2026-10-22T23:26:08Z",
       "effective": {
         "state": "measure_only",
         "source": "data/replay_lab.json",
