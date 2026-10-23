@@ -2,7 +2,7 @@
   "kind": "atd_week",
   "season": 2026,
   "week": 7,
-  "generated_utc": "2026-10-23T01:30:35Z",
+  "generated_utc": "2026-10-23T10:17:45Z",
   "adopted": true,
   "verdict": "ADOPTED \u2014 beats the position base rate and opportunity-only share on log loss and Brier in every held-out season (2023, 2024, 2025), calibration slope inside [0.9, 1.1] in each; team TDs within 5% over 2024-25",
   "backtest_generated_utc": "2026-10-20T12:38:13Z",
@@ -16,11 +16,11 @@
   },
   "counts": {
     "app_players": 300,
-    "not_playable": 29,
+    "not_playable": 27,
     "no_game": 46,
     "no_history_id": 0,
     "presumed_active_non_app": 202,
-    "priced": 225
+    "priced": 227
   },
   "players": [
     {
@@ -311,10 +311,26 @@
       "game_id": "401873010",
       "side": "home",
       "selection": "D. Swift anytime TD",
-      "model_prob": 0.5638,
-      "raw_prob": 0.5638,
+      "model_prob": 0.4334,
+      "raw_prob": 0.4334,
       "lambda_team": 2.524,
-      "share": 0.3287,
+      "share": 0.2251,
+      "has_history": true
+    },
+    {
+      "gsis_id": "espn-4608686",
+      "nflverse_id": "00-0040236",
+      "player": "Kyle Monangai",
+      "team": "CHI",
+      "position": "RB",
+      "market": "anytime_td",
+      "game_id": "401873010",
+      "side": "home",
+      "selection": "K. Monangai anytime TD",
+      "model_prob": 0.3096,
+      "raw_prob": 0.3096,
+      "lambda_team": 2.524,
+      "share": 0.1468,
       "has_history": true
     },
     {
@@ -411,23 +427,8 @@
       "raw_prob": 0.0976,
       "lambda_team": 2.524,
       "share": 0.0407,
-      "has_history": true
-    },
-    {
-      "gsis_id": "espn-4047646",
-      "nflverse_id": "00-0035676",
-      "player": "A.J. Brown",
-      "team": "NE",
-      "position": "WR",
-      "market": "anytime_td",
-      "game_id": "401873010",
-      "side": "away",
-      "selection": "A. Brown anytime TD",
-      "model_prob": 0.3624,
-      "raw_prob": 0.3624,
-      "lambda_team": 2.7225,
-      "share": 0.1653,
-      "has_history": true
+      "has_history": true,
+      "availability": "QUESTIONABLE"
     },
     {
       "gsis_id": "espn-4569173",
@@ -462,19 +463,35 @@
       "has_history": true
     },
     {
-      "gsis_id": "espn-4427095",
-      "nflverse_id": "00-0038621",
-      "player": "DeMario Douglas",
+      "gsis_id": "espn-4047646",
+      "nflverse_id": "00-0035676",
+      "player": "A.J. Brown",
       "team": "NE",
       "position": "WR",
       "market": "anytime_td",
       "game_id": "401873010",
       "side": "away",
-      "selection": "D. Douglas anytime TD",
-      "model_prob": 0.2258,
-      "raw_prob": 0.2258,
+      "selection": "A. Brown anytime TD",
+      "model_prob": 0.2947,
+      "raw_prob": 0.2947,
       "lambda_team": 2.7225,
-      "share": 0.094,
+      "share": 0.1282,
+      "has_history": true
+    },
+    {
+      "gsis_id": "espn-4361432",
+      "nflverse_id": "00-0037816",
+      "player": "Romeo Doubs",
+      "team": "NE",
+      "position": "WR",
+      "market": "anytime_td",
+      "game_id": "401873010",
+      "side": "away",
+      "selection": "R. Doubs anytime TD",
+      "model_prob": 0.2316,
+      "raw_prob": 0.2316,
+      "lambda_team": 2.7225,
+      "share": 0.0968,
       "has_history": true
     },
     {
@@ -494,19 +511,19 @@
       "has_history": true
     },
     {
-      "gsis_id": "espn-2991662",
-      "nflverse_id": "00-0033555",
-      "player": "Mack Hollins",
+      "gsis_id": "espn-4427095",
+      "nflverse_id": "00-0038621",
+      "player": "DeMario Douglas",
       "team": "NE",
       "position": "WR",
       "market": "anytime_td",
       "game_id": "401873010",
       "side": "away",
-      "selection": "M. Hollins anytime TD",
-      "model_prob": 0.201,
-      "raw_prob": 0.201,
+      "selection": "D. Douglas anytime TD",
+      "model_prob": 0.18,
+      "raw_prob": 0.18,
       "lambda_team": 2.7225,
-      "share": 0.0824,
+      "share": 0.0729,
       "has_history": true
     },
     {
@@ -526,6 +543,22 @@
       "has_history": true
     },
     {
+      "gsis_id": "espn-2991662",
+      "nflverse_id": "00-0033555",
+      "player": "Mack Hollins",
+      "team": "NE",
+      "position": "WR",
+      "market": "anytime_td",
+      "game_id": "401873010",
+      "side": "away",
+      "selection": "M. Hollins anytime TD",
+      "model_prob": 0.1597,
+      "raw_prob": 0.1597,
+      "lambda_team": 2.7225,
+      "share": 0.0639,
+      "has_history": true
+    },
+    {
       "gsis_id": "espn-4613202",
       "nflverse_id": "00-0040131",
       "player": "Kyle Williams",
@@ -535,10 +568,10 @@
       "game_id": "401873010",
       "side": "away",
       "selection": "K. Williams anytime TD",
-      "model_prob": 0.1156,
-      "raw_prob": 0.1156,
+      "model_prob": 0.0909,
+      "raw_prob": 0.0909,
       "lambda_team": 2.7225,
-      "share": 0.0451,
+      "share": 0.035,
       "has_history": true
     },
     {
