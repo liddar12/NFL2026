@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-23T10:18:34Z",
+  "generated_utc": "2026-10-23T15:00:24Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (93 games); scores from data/review.json FINAL rows (93 games); scores from ESPN live, STATUS-gated FINAL (78 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (93 games); scores from data/review.json FINAL rows (94 games); scores from ESPN live, STATUS-gated FINAL (78 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 6,
   "weeks": [
@@ -1538,13 +1538,13 @@
     },
     {
       "week": 7,
-      "n_cards": 1993,
-      "locked": 1993,
-      "graded": 35,
+      "n_cards": 1994,
+      "locked": 1994,
+      "graded": 36,
       "pending": 1958,
       "buckets": {
         "all_hit": 2,
-        "push": 0,
+        "push": 1,
         "partial": 17,
         "all_missed": 16,
         "pending": 1958
@@ -1623,17 +1623,17 @@
           }
         },
         "longshot": {
-          "n": 557,
-          "graded": 22,
+          "n": 558,
+          "graded": 23,
           "all_hit": 1,
-          "hit_rate": 0.0455,
+          "hit_rate": 0.0435,
           "mean_model": 0.1881,
           "log_loss": 0.7141,
           "brier": 0.2489,
-          "staked": 2200.0,
-          "net_fair": -1835.53,
-          "net_vig2": -1849.69,
-          "roi_fair": -0.8343,
+          "staked": 2300.0,
+          "net_fair": -1744.62,
+          "net_vig2": -1762.52,
+          "roi_fair": -0.7585,
           "calibration": {
             "version": "original_contract_v1",
             "n": 3,
@@ -1644,7 +1644,7 @@
             "log_loss": 0.7141,
             "brier": 0.2489,
             "excluded": {
-              "changed_contract": 0,
+              "changed_contract": 1,
               "incomplete_contract": 19,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -1652,7 +1652,7 @@
           },
           "settlements": {
             "all_hit": 1,
-            "reduced_hit": 0,
+            "reduced_hit": 1,
             "void": 0,
             "loss": 21,
             "pending": 535
@@ -1662,16 +1662,16 @@
       "by_legs": {
         "2": {
           "n": 253,
-          "graded": 6,
+          "graded": 7,
           "all_hit": 2,
-          "hit_rate": 0.3333,
+          "hit_rate": 0.2857,
           "mean_model": 0.2225,
           "log_loss": 0.8159,
           "brier": 0.3003,
-          "staked": 600.0,
-          "net_fair": 128.94,
-          "net_vig2": 100.62,
-          "roi_fair": 0.2149,
+          "staked": 700.0,
+          "net_fair": 219.85,
+          "net_vig2": 187.79,
+          "roi_fair": 0.3141,
           "calibration": {
             "version": "original_contract_v1",
             "n": 4,
@@ -1682,7 +1682,7 @@
             "log_loss": 0.8159,
             "brier": 0.3003,
             "excluded": {
-              "changed_contract": 0,
+              "changed_contract": 1,
               "incomplete_contract": 2,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -1690,10 +1690,10 @@
           },
           "settlements": {
             "all_hit": 2,
-            "reduced_hit": 0,
+            "reduced_hit": 1,
             "void": 0,
             "loss": 4,
-            "pending": 247
+            "pending": 246
           }
         },
         "3": {
@@ -1805,7 +1805,7 @@
           }
         },
         "6": {
-          "n": 518,
+          "n": 519,
           "graded": 9,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -1837,7 +1837,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 9,
-            "pending": 509
+            "pending": 510
           }
         }
       }
@@ -1147352,6 +1147352,51 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "f021a044fa65",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "NE",
+      "n_legs": 2,
+      "model": 0.2124,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "M. Hollins 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873010",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2991662",
+          "line": 29.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:ff9131330ffd15b1216d7cf20263a0a36b26dc82bf31ea7d073bd3fc0469ceea"
+        },
+        {
+          "selection": "D. Maye 225+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873010",
+          "result": "hit",
+          "actual": 321.0,
+          "gsis_id": "espn-4431452",
+          "line": 224.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:496ce3be17280834599e0c80fa995389811dd326616a753e89b6317f0f5d0a6d"
+        }
+      ],
+      "money": {
+        "net_fair": 90.91,
+        "net_vig2": 87.17,
+        "assumed_price_legs": 2
       }
     },
     {

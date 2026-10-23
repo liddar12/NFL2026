@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-23T10:15:40Z",
+  "generated_utc": "2026-10-23T14:56:54Z",
   "model_candidate": "weekly_split_v2",
   "model_incumbent": "weekly_split_v1",
   "fixture": {
@@ -179,36 +179,37 @@
       "revert": 0.45
     },
     "elo_chain_from": 2019,
-    "runtime_s": 0.63
+    "runtime_s": 1.1
   },
   "live_2026": {
     "season": 2026,
-    "weeks": 6,
+    "weeks": 7,
     "weeks_resolved": [
       1,
       2,
       3,
       4,
       5,
-      6
+      6,
+      7
     ],
-    "rows": 1564,
+    "rows": 1829,
     "ledger": "data/estimates/2026.json",
     "scores": "data/estimate_scores.json",
     "shipped": {
-      "mae": 5.4025,
-      "rank_corr": 0.5203,
-      "topk": 0.7342
+      "mae": 5.6152,
+      "rank_corr": 0.4677,
+      "topk": 0.7312
     },
     "gated": {
-      "mae": 5.422,
-      "rank_corr": 0.5078,
-      "topk": 0.7176
+      "mae": 5.5842,
+      "rank_corr": 0.4618,
+      "topk": 0.7219
     },
     "candidate": {
-      "mae": 5.4025,
-      "rank_corr": 0.5203,
-      "topk": 0.7342
+      "mae": 5.6152,
+      "rank_corr": 0.4677,
+      "topk": 0.7312
     },
     "per_week": [
       {
@@ -323,6 +324,25 @@
           "mae": 4.738,
           "rank_corr": 0.5549,
           "topk": 0.6834
+        }
+      },
+      {
+        "week": 7,
+        "n": 265,
+        "shipped": {
+          "mae": 6.8709,
+          "rank_corr": 0.1576,
+          "topk": 0.5799
+        },
+        "gated": {
+          "mae": 6.5418,
+          "rank_corr": 0.1905,
+          "topk": 0.9393
+        },
+        "candidate": {
+          "mae": 6.8709,
+          "rank_corr": 0.1576,
+          "topk": 0.5799
         }
       }
     ],
