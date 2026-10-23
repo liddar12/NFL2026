@@ -1,0 +1,357 @@
+{
+ "R1_z_sign": {
+  "fixture_mu_line_sd": [
+   80,
+   39.5,
+   30
+  ],
+  "fixture_validates": true,
+  "fixture_z": 1.35,
+  "note": "fixture base_prob is the sigmoid of a=b=c=0 calibration, so z does not move base_prob; the parity check on z alone decides",
+  "schema_sign_receipt": "ValueError('base_feature_parity_mismatch')",
+  "schema_z_text": {
+   "description": "(line - mu) / sd",
+   "type": "number"
+  },
+  "validator_z_formula": "(mu - line) / sd  (adapters/nfl.py validate_nfl_receipt)"
+ },
+ "R2_final_status": {
+  "STATUS_CANCELED": {
+   "capture_results": [
+    {
+     "binding_status": "withheld",
+     "capture_id": "sha256:499b2233f4d92c4c7bb90bba3e79e35d0678d5f19b84fa9e371cb6bbc2c6f08e",
+     "membership_id": "sha256:17bb1821fcf396d7a7cd5b4596b2601873c61cc743a7d8568923d1e9b16c952f",
+     "new_observations": 0,
+     "new_revisions": 0,
+     "resolution_exclusions": {
+      "no_observed_grade": 4
+     },
+     "withheld": {
+      "game_not_final_with_complete_scores": 4
+     }
+    }
+   ],
+   "report_counts": {
+    "captured_forecast_n": 2,
+    "cohort_n": 0,
+    "version": 1
+   },
+   "report_top_keys": [
+    "as_of_utc",
+    "automatic_promotion",
+    "candidate",
+    "captured_forecast_n",
+    "cohort_id",
+    "cohort_n",
+    "current_nfl_rules_reference",
+    "evaluation_kind",
+    "excluded",
+    "folds",
+    "forecast_dataset_id",
+    "kind",
+    "membership_policy",
+    "metrics",
+    "offering_membership_coverage",
+    "paired_game_interval",
+    "per_position",
+    "population",
+    "proposed_shared_return_gate",
+    "public_serving_verified",
+    "publication",
+    "report_id",
+    "rows",
+    "shared_shadow_numeric_gate",
+    "version"
+   ],
+   "resolutions": [],
+   "revisions": 0
+  },
+  "STATUS_FINAL": {
+   "capture_results": [
+    {
+     "binding_status": "staged",
+     "capture_id": "sha256:bdd4069c903e35d44e2dbf0b99f20ab02ce4934e944e00b4215311bad16b352d",
+     "membership_id": "sha256:17bb1821fcf396d7a7cd5b4596b2601873c61cc743a7d8568923d1e9b16c952f",
+     "new_observations": 4,
+     "new_revisions": 4,
+     "resolution_exclusions": {},
+     "withheld": {}
+    }
+   ],
+   "report_counts": {
+    "captured_forecast_n": 2,
+    "cohort_n": 2,
+    "version": 1
+   },
+   "report_top_keys": [
+    "as_of_utc",
+    "automatic_promotion",
+    "candidate",
+    "captured_forecast_n",
+    "cohort_id",
+    "cohort_n",
+    "current_nfl_rules_reference",
+    "evaluation_kind",
+    "excluded",
+    "folds",
+    "forecast_dataset_id",
+    "kind",
+    "membership_policy",
+    "metrics",
+    "offering_membership_coverage",
+    "paired_game_interval",
+    "per_position",
+    "population",
+    "proposed_shared_return_gate",
+    "public_serving_verified",
+    "publication",
+    "report_id",
+    "rows",
+    "shared_shadow_numeric_gate",
+    "version"
+   ],
+   "resolutions": [
+    [
+     "FINAL",
+     "True"
+    ]
+   ],
+   "revisions": 4
+  },
+  "STATUS_FULL_TIME": {
+   "capture_results": [
+    {
+     "binding_status": "withheld",
+     "capture_id": "sha256:82cea3783809cae1cc4251382505565e9e0e33f5e15624fb3274a2675d1b82a8",
+     "membership_id": "sha256:17bb1821fcf396d7a7cd5b4596b2601873c61cc743a7d8568923d1e9b16c952f",
+     "new_observations": 0,
+     "new_revisions": 0,
+     "resolution_exclusions": {
+      "no_observed_grade": 4
+     },
+     "withheld": {
+      "game_not_final_with_complete_scores": 4
+     }
+    }
+   ],
+   "report_counts": {
+    "captured_forecast_n": 2,
+    "cohort_n": 0,
+    "version": 1
+   },
+   "report_top_keys": [
+    "as_of_utc",
+    "automatic_promotion",
+    "candidate",
+    "captured_forecast_n",
+    "cohort_id",
+    "cohort_n",
+    "current_nfl_rules_reference",
+    "evaluation_kind",
+    "excluded",
+    "folds",
+    "forecast_dataset_id",
+    "kind",
+    "membership_policy",
+    "metrics",
+    "offering_membership_coverage",
+    "paired_game_interval",
+    "per_position",
+    "population",
+    "proposed_shared_return_gate",
+    "public_serving_verified",
+    "publication",
+    "report_id",
+    "rows",
+    "shared_shadow_numeric_gate",
+    "version"
+   ],
+   "resolutions": [],
+   "revisions": 0
+  },
+  "STATUS_POSTPONED": {
+   "capture_results": [
+    {
+     "binding_status": "withheld",
+     "capture_id": "sha256:d973056ae3f0e50eeb160b9f56fc08d09a48d5f1f0bf5555c07c0d3478f66905",
+     "membership_id": "sha256:17bb1821fcf396d7a7cd5b4596b2601873c61cc743a7d8568923d1e9b16c952f",
+     "new_observations": 0,
+     "new_revisions": 0,
+     "resolution_exclusions": {
+      "no_observed_grade": 4
+     },
+     "withheld": {
+      "game_not_final_with_complete_scores": 4
+     }
+    }
+   ],
+   "report_counts": {
+    "captured_forecast_n": 2,
+    "cohort_n": 0,
+    "version": 1
+   },
+   "report_top_keys": [
+    "as_of_utc",
+    "automatic_promotion",
+    "candidate",
+    "captured_forecast_n",
+    "cohort_id",
+    "cohort_n",
+    "current_nfl_rules_reference",
+    "evaluation_kind",
+    "excluded",
+    "folds",
+    "forecast_dataset_id",
+    "kind",
+    "membership_policy",
+    "metrics",
+    "offering_membership_coverage",
+    "paired_game_interval",
+    "per_position",
+    "population",
+    "proposed_shared_return_gate",
+    "public_serving_verified",
+    "publication",
+    "report_id",
+    "rows",
+    "shared_shadow_numeric_gate",
+    "version"
+   ],
+   "resolutions": [],
+   "revisions": 0
+  },
+  "STATUS_SUSPENDED": {
+   "capture_results": [
+    {
+     "binding_status": "withheld",
+     "capture_id": "sha256:5155e29e3729155f67a23d2ad373c7af596d13705815bb9488bf036e66452b98",
+     "membership_id": "sha256:17bb1821fcf396d7a7cd5b4596b2601873c61cc743a7d8568923d1e9b16c952f",
+     "new_observations": 0,
+     "new_revisions": 0,
+     "resolution_exclusions": {
+      "no_observed_grade": 4
+     },
+     "withheld": {
+      "game_not_final_with_complete_scores": 4
+     }
+    }
+   ],
+   "report_counts": {
+    "captured_forecast_n": 2,
+    "cohort_n": 0,
+    "version": 1
+   },
+   "report_top_keys": [
+    "as_of_utc",
+    "automatic_promotion",
+    "candidate",
+    "captured_forecast_n",
+    "cohort_id",
+    "cohort_n",
+    "current_nfl_rules_reference",
+    "evaluation_kind",
+    "excluded",
+    "folds",
+    "forecast_dataset_id",
+    "kind",
+    "membership_policy",
+    "metrics",
+    "offering_membership_coverage",
+    "paired_game_interval",
+    "per_position",
+    "population",
+    "proposed_shared_return_gate",
+    "public_serving_verified",
+    "publication",
+    "report_id",
+    "rows",
+    "shared_shadow_numeric_gate",
+    "version"
+   ],
+   "resolutions": [],
+   "revisions": 0
+  },
+  "receipts": 4
+ },
+ "R3_push_void": {
+  "R3a_file_path_threshold": {
+   "graded_by_line": {
+    "79.5": [
+     [
+      "FINAL",
+      true,
+      80.0,
+      null
+     ]
+    ],
+    "80": [
+     [
+      "FINAL",
+      true,
+      80.0,
+      null
+     ]
+    ],
+    "80.5": [
+     [
+      "FINAL",
+      false,
+      80.0,
+      null
+     ]
+    ]
+   },
+   "observed_actual": 80,
+   "reading": "gte threshold: 79.5 hit, 80 hit (actual == line), 80.5 miss. Correct for the prediction contract; the engine does not infer a push from an integer line, and should not."
+  },
+  "R3b_resolution_layer_settlement_inputs": {
+   "control_binary_hit": {
+    "score_excluded": {},
+    "score_hits": 1,
+    "score_n": 1
+   },
+   "official_void": {
+    "resolution": [
+     [
+      "VOID",
+      null,
+      "official_void"
+     ]
+    ],
+    "score_excluded": {
+     "not_final_binary_outcome": 1
+    },
+    "score_hits": 0,
+    "score_n": 0
+   },
+   "push": {
+    "resolution": [
+     [
+      "VOID",
+      null,
+      "push"
+     ]
+    ],
+    "score_excluded": {
+     "not_final_binary_outcome": 1
+    },
+    "score_hits": 0,
+    "score_n": 0
+   }
+  },
+  "R3c_file_path_settlement_channel": {
+   "bind_capture_labels_signature": "(journal, capture_envelope, raw_chunks, *, max_total_bytes=67108864)",
+   "gap": "settlement rules need an explicit, sourced input on the file path that yields VOID (excluded and counted, R3b) rather than a threshold grade",
+   "settlement_parameters": [],
+   "void_reasons_emitted_in_R3a": []
+  },
+  "producer_line_fractions_note": "The historical 2026-10-19 snapshot had 1,231/1,231 x.5 rungs. Half-point lines avoid equality pushes, not official VOIDs; a sourced official VOID can still disagree with a threshold grade.",
+  "void_reasons_accepted_by_resolution": [
+   "did_not_play",
+   "official_void",
+   "push"
+  ]
+ },
+ "engine_core": "/Users/jliddar/code/SelfLearning-runtime-publish-20261018/packages/selflearn-core"
+}
