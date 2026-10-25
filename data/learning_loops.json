@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-10-25T13:50:20Z",
+  "generated_utc": "2026-10-25T14:13:21Z",
   "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
@@ -19,8 +19,8 @@
       "source": "data/model_tuning.json",
       "state": "held",
       "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 4.75, 'revert': 0.3925} scores 0.694653 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.671381 across 5 folds over n=93 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false.",
-      "last_run_utc": "2026-10-25T13:47:32Z",
-      "runs": 102,
+      "last_run_utc": "2026-10-25T14:10:14Z",
+      "runs": 103,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z",
       "chronology": {
@@ -322,7 +322,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 7 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-10-25T13:50:17Z",
+      "last_run_utc": "2026-10-25T14:13:18Z",
       "effective": {
         "state": "measure_only",
         "source": "data/replay_lab.json",
