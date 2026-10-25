@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-25T23:25:36Z",
+  "generated_utc": "2026-10-25T23:29:56Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (101 games); scores from data/review.json FINAL rows (102 games); scores from ESPN live, STATUS-gated FINAL (86 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (101 games); scores from data/review.json FINAL rows (102 games); scores from ESPN live, STATUS-gated FINAL (87 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 6,
   "weeks": [
@@ -1540,50 +1540,50 @@
       "week": 7,
       "n_cards": 2766,
       "locked": 2766,
-      "graded": 1388,
-      "pending": 1378,
+      "graded": 1392,
+      "pending": 1374,
       "buckets": {
-        "all_hit": 100,
+        "all_hit": 104,
         "push": 1,
-        "partial": 1049,
-        "all_missed": 238,
-        "pending": 1378
+        "partial": 1050,
+        "all_missed": 237,
+        "pending": 1374
       },
       "by_dial": {
         "safe": {
           "n": 1077,
-          "graded": 615,
-          "all_hit": 60,
-          "hit_rate": 0.0976,
-          "mean_model": 0.3267,
-          "log_loss": 0.4813,
-          "brier": 0.1547,
-          "staked": 61500.0,
-          "net_fair": -33787.31,
-          "net_vig2": -35572.54,
-          "roi_fair": -0.5494,
+          "graded": 619,
+          "all_hit": 64,
+          "hit_rate": 0.1034,
+          "mean_model": 0.3265,
+          "log_loss": 0.4819,
+          "brier": 0.155,
+          "staked": 61900.0,
+          "net_fair": -33037.85,
+          "net_vig2": -34886.17,
+          "roi_fair": -0.5337,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 266,
-            "all_hit": 60,
-            "hit_rate": 0.2256,
-            "mean_model": 0.3267,
-            "expected_hits": 86.9148,
-            "log_loss": 0.4813,
-            "brier": 0.1547,
+            "n": 280,
+            "all_hit": 64,
+            "hit_rate": 0.2286,
+            "mean_model": 0.3265,
+            "expected_hits": 91.4176,
+            "log_loss": 0.4819,
+            "brier": 0.155,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 349,
+              "incomplete_contract": 339,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 60,
+            "all_hit": 64,
             "reduced_hit": 0,
             "void": 0,
             "loss": 555,
-            "pending": 462
+            "pending": 458
           }
         },
         "even": {
@@ -1662,74 +1662,74 @@
       "by_legs": {
         "2": {
           "n": 303,
-          "graded": 146,
-          "all_hit": 36,
-          "hit_rate": 0.2466,
-          "mean_model": 0.3919,
-          "log_loss": 0.6033,
-          "brier": 0.2075,
-          "staked": 14600.0,
-          "net_fair": -4364.26,
-          "net_vig2": -4758.21,
-          "roi_fair": -0.2989,
+          "graded": 147,
+          "all_hit": 37,
+          "hit_rate": 0.2517,
+          "mean_model": 0.3947,
+          "log_loss": 0.6051,
+          "brier": 0.2084,
+          "staked": 14700.0,
+          "net_fair": -4293.4,
+          "net_vig2": -4693.98,
+          "roi_fair": -0.2921,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 104,
-            "all_hit": 36,
-            "hit_rate": 0.3462,
-            "mean_model": 0.3919,
-            "expected_hits": 40.761,
-            "log_loss": 0.6033,
-            "brier": 0.2075,
+            "n": 106,
+            "all_hit": 37,
+            "hit_rate": 0.3491,
+            "mean_model": 0.3947,
+            "expected_hits": 41.8351,
+            "log_loss": 0.6051,
+            "brier": 0.2084,
             "excluded": {
               "changed_contract": 1,
-              "incomplete_contract": 41,
+              "incomplete_contract": 40,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 36,
+            "all_hit": 37,
             "reduced_hit": 1,
             "void": 0,
             "loss": 109,
-            "pending": 157
+            "pending": 156
           }
         },
         "3": {
           "n": 448,
-          "graded": 210,
-          "all_hit": 44,
-          "hit_rate": 0.2095,
-          "mean_model": 0.3131,
-          "log_loss": 0.6958,
-          "brier": 0.2505,
-          "staked": 21000.0,
-          "net_fair": 1050.83,
-          "net_vig2": -221.11,
-          "roi_fair": 0.05,
+          "graded": 213,
+          "all_hit": 47,
+          "hit_rate": 0.2207,
+          "mean_model": 0.3159,
+          "log_loss": 0.7008,
+          "brier": 0.253,
+          "staked": 21300.0,
+          "net_fair": 1729.43,
+          "net_vig2": 401.03,
+          "roi_fair": 0.0812,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 114,
-            "all_hit": 44,
-            "hit_rate": 0.386,
-            "mean_model": 0.3131,
-            "expected_hits": 35.6902,
-            "log_loss": 0.6958,
-            "brier": 0.2505,
+            "n": 118,
+            "all_hit": 47,
+            "hit_rate": 0.3983,
+            "mean_model": 0.3159,
+            "expected_hits": 37.2729,
+            "log_loss": 0.7008,
+            "brier": 0.253,
             "excluded": {
               "changed_contract": 0,
-              "incomplete_contract": 96,
+              "incomplete_contract": 95,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
-            "all_hit": 44,
+            "all_hit": 47,
             "reduced_hit": 0,
             "void": 0,
             "loss": 166,
-            "pending": 238
+            "pending": 235
           }
         },
         "4": {
@@ -1737,25 +1737,25 @@
           "graded": 254,
           "all_hit": 10,
           "hit_rate": 0.0394,
-          "mean_model": 0.2196,
-          "log_loss": 0.4143,
-          "brier": 0.1239,
+          "mean_model": 0.2222,
+          "log_loss": 0.4122,
+          "brier": 0.1227,
           "staked": 25400.0,
           "net_fair": -15848.11,
           "net_vig2": -16575.54,
           "roi_fair": -0.6239,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 85,
+            "n": 88,
             "all_hit": 10,
-            "hit_rate": 0.1176,
-            "mean_model": 0.2196,
-            "expected_hits": 18.6664,
-            "log_loss": 0.4143,
-            "brier": 0.1239,
+            "hit_rate": 0.1136,
+            "mean_model": 0.2222,
+            "expected_hits": 19.5569,
+            "log_loss": 0.4122,
+            "brier": 0.1227,
             "excluded": {
               "changed_contract": 1,
-              "incomplete_contract": 168,
+              "incomplete_contract": 165,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1773,25 +1773,25 @@
           "graded": 350,
           "all_hit": 8,
           "hit_rate": 0.0229,
-          "mean_model": 0.1742,
-          "log_loss": 0.4648,
-          "brier": 0.1292,
+          "mean_model": 0.1759,
+          "log_loss": 0.4553,
+          "brier": 0.1257,
           "staked": 35000.0,
           "net_fair": -20608.75,
           "net_vig2": -21965.43,
           "roi_fair": -0.5888,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 68,
+            "n": 71,
             "all_hit": 8,
-            "hit_rate": 0.1176,
-            "mean_model": 0.1742,
-            "expected_hits": 11.8476,
-            "log_loss": 0.4648,
-            "brier": 0.1292,
+            "hit_rate": 0.1127,
+            "mean_model": 0.1759,
+            "expected_hits": 12.4911,
+            "log_loss": 0.4553,
+            "brier": 0.1257,
             "excluded": {
               "changed_contract": 1,
-              "incomplete_contract": 281,
+              "incomplete_contract": 278,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1809,25 +1809,25 @@
           "graded": 428,
           "all_hit": 2,
           "hit_rate": 0.0047,
-          "mean_model": 0.1375,
-          "log_loss": 0.2289,
-          "brier": 0.0477,
+          "mean_model": 0.1381,
+          "log_loss": 0.2269,
+          "brier": 0.047,
           "staked": 42800.0,
           "net_fair": -36193.19,
           "net_vig2": -36933.34,
           "roi_fair": -0.8456,
           "calibration": {
             "version": "original_contract_v1",
-            "n": 59,
+            "n": 61,
             "all_hit": 2,
-            "hit_rate": 0.0339,
-            "mean_model": 0.1375,
-            "expected_hits": 8.1098,
-            "log_loss": 0.2289,
-            "brier": 0.0477,
+            "hit_rate": 0.0328,
+            "mean_model": 0.1381,
+            "expected_hits": 8.4218,
+            "log_loss": 0.2269,
+            "brier": 0.047,
             "excluded": {
               "changed_contract": 1,
-              "incomplete_contract": 368,
+              "incomplete_contract": 366,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1220413,6 +1220413,49 @@
       }
     },
     {
+      "card_id": "e01eb2b224ea",
+      "week": 7,
+      "dial": "safe",
+      "seed": "DEN",
+      "n_legs": 2,
+      "model": 0.5359,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "game_id": "401873019",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "away"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 70.86,
+        "net_vig2": 64.23,
+        "assumed_price_legs": 0
+      }
+    },
+    {
       "card_id": "9e5220c75d5c",
       "week": 7,
       "dial": "safe",
@@ -1220420,14 +1220463,17 @@
       "n_legs": 2,
       "model": 0.5382,
       "result": "miss",
-      "bucket": "all_missed",
+      "bucket": "partial",
       "legs": [
         {
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220453,6 +1220499,63 @@
       }
     },
     {
+      "card_id": "6185c507248e",
+      "week": 7,
+      "dial": "safe",
+      "seed": "DEN",
+      "n_legs": 3,
+      "model": 0.3882,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "game_id": "401873019",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "away"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Jennings 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 34.0,
+          "gsis_id": "espn-3886598",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c95663d2dc75096c6d5707bddad2c0aaae5ec32bb47ef00949a178b771b2ba2a"
+        }
+      ],
+      "money": {
+        "net_fair": 226.2,
+        "net_vig2": 207.38,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "ee7524c72082",
       "week": 7,
       "dial": "safe",
@@ -1220466,8 +1220569,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220503,6 +1220609,120 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 0
+      }
+    },
+    {
+      "card_id": "dd1d501cc740",
+      "week": 7,
+      "dial": "safe",
+      "seed": "DEN",
+      "n_legs": 3,
+      "model": 0.3917,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "game_id": "401873019",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "away"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Mason 30+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 68.0,
+          "gsis_id": "espn-4360569",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:81790c608fcd11aa3a64ffa3df309321f7e47b94e7820d95c03c960af6056335"
+        }
+      ],
+      "money": {
+        "net_fair": 226.2,
+        "net_vig2": 207.38,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "c4436424b3b8",
+      "week": 7,
+      "dial": "safe",
+      "seed": "DEN",
+      "n_legs": 3,
+      "model": 0.3854,
+      "result": "hit",
+      "bucket": "all_hit",
+      "legs": [
+        {
+          "selection": "DEN ML",
+          "market": "moneyline",
+          "game_id": "401873019",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "away"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "A. Jones Sr. 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 26.0,
+          "gsis_id": "espn-3042519",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:cf4a31b44e358ccab67da7b96c9d183b179b453164fe7ec2a1a34536d201ab40"
+        }
+      ],
+      "money": {
+        "net_fair": 226.2,
+        "net_vig2": 207.38,
+        "assumed_price_legs": 1
       }
     },
     {
@@ -1220576,8 +1220796,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220643,8 +1220866,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220710,8 +1220936,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220777,8 +1221006,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220858,8 +1221090,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1220938,8 +1221173,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221019,8 +1221257,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221100,8 +1221341,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221181,8 +1221425,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221276,8 +1221523,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221370,8 +1221620,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221465,8 +1221718,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221560,8 +1221816,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221655,8 +1221914,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
@@ -1221750,8 +1222012,11 @@
           "selection": "DEN ML",
           "market": "moneyline",
           "game_id": "401873019",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 30
+          },
           "gsis_id": null,
           "line": null,
           "side": "away"
