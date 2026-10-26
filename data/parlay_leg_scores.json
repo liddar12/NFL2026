@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-26T01:14:22Z",
+  "generated_utc": "2026-10-26T04:20:51Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (104 games); scores from data/review.json FINAL rows (105 games); scores from ESPN live, STATUS-gated FINAL (105 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (105 games); scores from data/review.json FINAL rows (105 games); scores from ESPN live, STATUS-gated FINAL (106 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 7,
@@ -10,7 +10,7 @@
     "on_file": 743,
     "locked": 592,
     "unlocked": 151,
-    "resolved": 539,
+    "resolved": 540,
     "unresolved": 51
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 112,
-      "hit_rate": 0.5804,
-      "log_loss": 0.6699,
-      "brier": 0.2391
+      "n": 113,
+      "hit_rate": 0.5841,
+      "log_loss": 0.6682,
+      "brier": 0.2383
     },
     "spread": {
       "n": 137,
@@ -289,10 +289,10 @@
         }
       },
       "moneyline": {
-        "n": 13,
-        "hit_rate": 0.5385,
-        "log_loss": 0.7366,
-        "brier": 0.2708
+        "n": 14,
+        "hit_rate": 0.5714,
+        "log_loss": 0.7183,
+        "brier": 0.2618
       },
       "spread": {
         "n": 0,
@@ -9905,6 +9905,21 @@
       "model_prob": 0.6686,
       "seed_prob": 0.5229,
       "actual": 68.0,
+      "hit": true
+    },
+    {
+      "week": 7,
+      "game_id": "401873022",
+      "market": "moneyline",
+      "selection": "SEA ML",
+      "team": "SEA",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6192,
+      "actual": {
+        "home_score": 20,
+        "away_score": 3
+      },
       "hit": true
     }
   ]
