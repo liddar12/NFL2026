@@ -12,5 +12,5 @@ test('current weather uses exact venue/game/time, preserves unknown rain and his
     env: { ...process.env, PYTHONPATH: root, PYTHONDONTWRITEBYTECODE: '1' },
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stderr, /Ran 22 tests/);
+  assert.match(result.stderr, /Ran 23 tests/);
 });
