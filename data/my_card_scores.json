@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-27T10:51:24Z",
+  "generated_utc": "2026-10-27T15:54:45Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (106 games); scores from data/review.json FINAL rows (107 games); scores from ESPN live, STATUS-gated FINAL (91 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
@@ -1540,28 +1540,28 @@
       "week": 7,
       "n_cards": 2769,
       "locked": 2769,
-      "graded": 2720,
-      "pending": 49,
+      "graded": 2769,
+      "pending": 0,
       "buckets": {
         "all_hit": 420,
-        "push": 402,
+        "push": 451,
         "partial": 1758,
         "all_missed": 140,
-        "pending": 49
+        "pending": 0
       },
       "by_dial": {
         "safe": {
           "n": 1078,
-          "graded": 1066,
+          "graded": 1078,
           "all_hit": 191,
-          "hit_rate": 0.1792,
+          "hit_rate": 0.1772,
           "mean_model": 0.3135,
           "log_loss": 0.5804,
           "brier": 0.1981,
-          "staked": 106600.0,
-          "net_fair": 244678.92,
-          "net_vig2": 216129.58,
-          "roi_fair": 2.2953,
+          "staked": 107800.0,
+          "net_fair": 247560.64,
+          "net_vig2": 218791.57,
+          "roi_fair": 2.2965,
           "calibration": {
             "version": "original_contract_v1",
             "n": 610,
@@ -1572,18 +1572,18 @@
             "log_loss": 0.5804,
             "brier": 0.1981,
             "excluded": {
-              "changed_contract": 447,
-              "incomplete_contract": 9,
+              "changed_contract": 468,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 191,
-            "reduced_hit": 215,
+            "reduced_hit": 227,
             "void": 0,
             "loss": 660,
-            "pending": 12
+            "pending": 0
           }
         },
         "even": {
@@ -1608,8 +1608,8 @@
             "log_loss": 0.6508,
             "brier": 0.2101,
             "excluded": {
-              "changed_contract": 195,
-              "incomplete_contract": 5,
+              "changed_contract": 200,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
@@ -1624,16 +1624,16 @@
         },
         "longshot": {
           "n": 723,
-          "graded": 686,
+          "graded": 723,
           "all_hit": 23,
-          "hit_rate": 0.0335,
+          "hit_rate": 0.0318,
           "mean_model": 0.069,
           "log_loss": 0.2818,
           "brier": 0.0798,
-          "staked": 68600.0,
-          "net_fair": 19903.36,
-          "net_vig2": 13921.13,
-          "roi_fair": 0.2901,
+          "staked": 72300.0,
+          "net_fair": 30846.45,
+          "net_vig2": 24180.68,
+          "roi_fair": 0.4266,
           "calibration": {
             "version": "original_contract_v1",
             "n": 253,
@@ -1644,34 +1644,34 @@
             "log_loss": 0.2818,
             "brier": 0.0798,
             "excluded": {
-              "changed_contract": 411,
-              "incomplete_contract": 22,
+              "changed_contract": 470,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 23,
-            "reduced_hit": 92,
-            "void": 1,
+            "reduced_hit": 119,
+            "void": 11,
             "loss": 570,
-            "pending": 37
+            "pending": 0
           }
         }
       },
       "by_legs": {
         "2": {
           "n": 306,
-          "graded": 294,
+          "graded": 306,
           "all_hit": 91,
-          "hit_rate": 0.3095,
+          "hit_rate": 0.2974,
           "mean_model": 0.3954,
           "log_loss": 0.6459,
           "brier": 0.2282,
-          "staked": 29400.0,
-          "net_fair": 3476.21,
-          "net_vig2": 2319.09,
-          "roi_fair": 0.1182,
+          "staked": 30600.0,
+          "net_fair": 3522.97,
+          "net_vig2": 2361.01,
+          "roi_fair": 0.1151,
           "calibration": {
             "version": "original_contract_v1",
             "n": 230,
@@ -1682,32 +1682,32 @@
             "log_loss": 0.6459,
             "brier": 0.2282,
             "excluded": {
-              "changed_contract": 60,
-              "incomplete_contract": 4,
+              "changed_contract": 76,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 91,
-            "reduced_hit": 35,
-            "void": 1,
+            "reduced_hit": 37,
+            "void": 11,
             "loss": 167,
-            "pending": 12
+            "pending": 0
           }
         },
         "3": {
           "n": 448,
-          "graded": 439,
+          "graded": 448,
           "all_hit": 130,
-          "hit_rate": 0.2961,
+          "hit_rate": 0.2902,
           "mean_model": 0.2755,
           "log_loss": 0.7099,
           "brier": 0.2533,
-          "staked": 43900.0,
-          "net_fair": 40237.57,
-          "net_vig2": 35678.52,
-          "roi_fair": 0.9166,
+          "staked": 44800.0,
+          "net_fair": 42057.48,
+          "net_vig2": 37396.44,
+          "roi_fair": 0.9388,
           "calibration": {
             "version": "original_contract_v1",
             "n": 319,
@@ -1718,32 +1718,32 @@
             "log_loss": 0.7099,
             "brier": 0.2533,
             "excluded": {
-              "changed_contract": 115,
-              "incomplete_contract": 5,
+              "changed_contract": 129,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 130,
-            "reduced_hit": 50,
+            "reduced_hit": 59,
             "void": 0,
             "loss": 259,
-            "pending": 9
+            "pending": 0
           }
         },
         "4": {
           "n": 549,
-          "graded": 538,
+          "graded": 549,
           "all_hit": 82,
-          "hit_rate": 0.1524,
+          "hit_rate": 0.1494,
           "mean_model": 0.1727,
           "log_loss": 0.5736,
           "brier": 0.19,
-          "staked": 53800.0,
-          "net_fair": 74782.8,
-          "net_vig2": 65852.19,
-          "roi_fair": 1.39,
+          "staked": 54900.0,
+          "net_fair": 77434.13,
+          "net_vig2": 68357.78,
+          "roi_fair": 1.4105,
           "calibration": {
             "version": "original_contract_v1",
             "n": 339,
@@ -1754,32 +1754,32 @@
             "log_loss": 0.5736,
             "brier": 0.19,
             "excluded": {
-              "changed_contract": 188,
-              "incomplete_contract": 11,
+              "changed_contract": 210,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 82,
-            "reduced_hit": 88,
+            "reduced_hit": 99,
             "void": 0,
             "loss": 368,
-            "pending": 11
+            "pending": 0
           }
         },
         "5": {
           "n": 701,
-          "graded": 693,
+          "graded": 701,
           "all_hit": 66,
-          "hit_rate": 0.0952,
+          "hit_rate": 0.0942,
           "mean_model": 0.1131,
           "log_loss": 0.538,
           "brier": 0.1645,
-          "staked": 69300.0,
-          "net_fair": 152843.56,
-          "net_vig2": 134050.4,
-          "roi_fair": 2.2055,
+          "staked": 70100.0,
+          "net_fair": 156871.6,
+          "net_vig2": 137799.97,
+          "roi_fair": 2.2378,
           "calibration": {
             "version": "original_contract_v1",
             "n": 351,
@@ -1790,32 +1790,32 @@
             "log_loss": 0.538,
             "brier": 0.1645,
             "excluded": {
-              "changed_contract": 334,
-              "incomplete_contract": 8,
+              "changed_contract": 350,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 66,
-            "reduced_hit": 122,
+            "reduced_hit": 130,
             "void": 0,
             "loss": 505,
-            "pending": 8
+            "pending": 0
           }
         },
         "6": {
           "n": 765,
-          "graded": 756,
+          "graded": 765,
           "all_hit": 51,
-          "hit_rate": 0.0675,
+          "hit_rate": 0.0667,
           "mean_model": 0.0754,
           "log_loss": 0.4255,
           "brier": 0.1197,
-          "staked": 75600.0,
-          "net_fair": 257899.92,
-          "net_vig2": 224057.43,
-          "roi_fair": 3.4114,
+          "staked": 76500.0,
+          "net_fair": 263178.69,
+          "net_vig2": 228963.97,
+          "roi_fair": 3.4402,
           "calibration": {
             "version": "original_contract_v1",
             "n": 392,
@@ -1826,38 +1826,38 @@
             "log_loss": 0.4255,
             "brier": 0.1197,
             "excluded": {
-              "changed_contract": 356,
-              "incomplete_contract": 8,
+              "changed_contract": 373,
+              "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
             }
           },
           "settlements": {
             "all_hit": 51,
-            "reduced_hit": 106,
+            "reduced_hit": 115,
             "void": 0,
             "loss": 599,
-            "pending": 9
+            "pending": 0
           }
         }
       }
     },
     {
       "week": 8,
-      "n_cards": 840,
-      "locked": 840,
+      "n_cards": 1239,
+      "locked": 1239,
       "graded": 0,
-      "pending": 840,
+      "pending": 1239,
       "buckets": {
         "all_hit": 0,
         "push": 0,
         "partial": 0,
         "all_missed": 0,
-        "pending": 840
+        "pending": 1239
       },
       "by_dial": {
         "safe": {
-          "n": 280,
+          "n": 512,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -1889,11 +1889,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 280
+            "pending": 512
           }
         },
         "even": {
-          "n": 280,
+          "n": 299,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -1925,11 +1925,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 280
+            "pending": 299
           }
         },
         "longshot": {
-          "n": 280,
+          "n": 428,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -1961,13 +1961,13 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 280
+            "pending": 428
           }
         }
       },
       "by_legs": {
         "2": {
-          "n": 168,
+          "n": 211,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -1999,11 +1999,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 168
+            "pending": 211
           }
         },
         "3": {
-          "n": 168,
+          "n": 244,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2035,11 +2035,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 168
+            "pending": 244
           }
         },
         "4": {
-          "n": 168,
+          "n": 268,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2071,11 +2071,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 168
+            "pending": 268
           }
         },
         "5": {
-          "n": 168,
+          "n": 252,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2107,11 +2107,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 168
+            "pending": 252
           }
         },
         "6": {
-          "n": 168,
+          "n": 264,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2143,7 +2143,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 168
+            "pending": 264
           }
         }
       }
@@ -1182291,7 +1182291,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1205723,7 +1205723,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1206392,7 +1206392,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1206815,7 +1206815,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1212403,7 +1212403,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1233357,6 +1233357,65 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "bf0002e7b704",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "DAL",
+      "n_legs": 3,
+      "model": 0.0889,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "M. Davis 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4240603",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:30f3f556ba61ecb601ff5a7ef1e62d68584a4dfad856d7f544acc3b7ce3d2774"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:748b92059f40f1c0d2346b7310128555d717c687076472572af1dc2cdc644419"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b20a16458478d8314fedc019ef8037a83b4bf2160040cd1d7354ee68465b5f1b"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
         "assumed_price_legs": 3
       }
     },
@@ -1263492,6 +1263551,411 @@
       }
     },
     {
+      "card_id": "2eda52576e28",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1627,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d4c8f5e861a88c5c5cc44a58ade23a7f6e7e75aef62ad10ead654d3c276b055e"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "47c9de0f4175",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1724,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:cc9dc563de8f346050eb10010a3269a31e837815a765a2d8b0ca7e2532a550d5"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "f89dcbefc3f7",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1505,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8077f1d1b9fb5bec08886d1dd81d5d34629dfdeb73243808de73f0969c8555ac"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "8be62e535358",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1426,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:512fc3bff87d2e0b335bcbf7b8e05a36c5fbfba259df175016906789513c8242"
+        },
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:9a7884d1847a3a5e53357fa44215c459936473a03b41b05ad0c017ec73dd10a6"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "af5a4fb2c386",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1612,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428850",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0ff83e85d3a1e8790e149b26bc47151869216d0676bf448211b88500dcd901f8"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "caddeec196d7",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1665,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8a54aac250e784c08d3cab6a759614d970a1e192203f097334553d1f485c43dd"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "c62b558c4430",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1505,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428850",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:7bac6d19f1ac1785e57527c5778dac750f3c2c53a4b494f8fae050c609d20b30"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8134e47d56ed6f101ad4e6c0b3a4981a65ada58b6f79d84db3a885ea681fe99a"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "be360a57b352",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1593,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:7131a506f63452fea2eed6da18b2d7883751bd0eb17f9485422b7e45b320b520"
+        },
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:f8563c5ea08a1a4a43202114e588a153598a4450bb70ac37c177931fd5005bd7"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "e4048ae5a2cb",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1478,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:5e2f1b3bdeb2ca550dae24d808e80054aa8dc56d85cecfbe3a94bca09b8d9764"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "7db460319061",
       "week": 7,
       "dial": "longshot",
@@ -1263505,7 +1263969,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1263537,6 +1264001,51 @@
       }
     },
     {
+      "card_id": "7597044cd772",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.1572,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:762226e187b544e24d5e6680ace8667409501e639b5e8928e973acdf3e22927e"
+        },
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:19f2bb54e5f071d896255caa9e0fb68e5e297be5ee80a3bf4c290c9c2a2d1e81"
+        }
+      ],
+      "money": {
+        "net_fair": 0.0,
+        "net_vig2": 0.0,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "399627a41f19",
       "week": 7,
       "dial": "longshot",
@@ -1263550,7 +1264059,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1263582,6 +1264091,183 @@
       }
     },
     {
+      "card_id": "b852702734eb",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0865,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "37deafc000f3",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0885,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:31c6940d923528a89b2287ce997f1576cf0a12b9d463d693dfadae9cf7c73b65"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:04e65973797259820c7cb06feaeb5e5222298f9abefd8be2b31b06ef5cd18d0b"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "4fcc55136f49",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0793,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8077f1d1b9fb5bec08886d1dd81d5d34629dfdeb73243808de73f0969c8555ac"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "5031139cc251",
       "week": 7,
       "dial": "longshot",
@@ -1263595,7 +1264281,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1263641,6 +1264327,65 @@
       }
     },
     {
+      "card_id": "6bd785fd2249",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0839,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:2d5505130b6e4fd3d7ce0b39ca75d43db9d3d68f7e71147ccf49d8155eb424bb"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:de4d56c9ef6bb9b7637af785ccfff7732a134b1c5af7551983a748c1a8c93e71"
+        }
+      ],
+      "money": {
+        "net_fair": 90.91,
+        "net_vig2": 87.17,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "23a7310aae26",
       "week": 7,
       "dial": "longshot",
@@ -1263654,7 +1264399,7 @@
           "selection": "D. Smith 70+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 69.5,
@@ -1263713,7 +1264458,7 @@
           "selection": "D. Smith 70+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 69.5,
@@ -1263772,7 +1264517,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1263831,7 +1264576,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1263877,6 +1264622,65 @@
       }
     },
     {
+      "card_id": "819b3a37ed37",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.0779,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:5e2f1b3bdeb2ca550dae24d808e80054aa8dc56d85cecfbe3a94bca09b8d9764"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "a0ddb94e5ad1",
       "week": 7,
       "dial": "longshot",
@@ -1263890,7 +1264694,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1263949,7 +1264753,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264008,7 +1264812,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264054,6 +1264858,298 @@
       }
     },
     {
+      "card_id": "c30c4b867136",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0369,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d4c8f5e861a88c5c5cc44a58ade23a7f6e7e75aef62ad10ead654d3c276b055e"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "e33d5903849d",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0391,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:31c6940d923528a89b2287ce997f1576cf0a12b9d463d693dfadae9cf7c73b65"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:04e65973797259820c7cb06feaeb5e5222298f9abefd8be2b31b06ef5cd18d0b"
+        },
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:cc9dc563de8f346050eb10010a3269a31e837815a765a2d8b0ca7e2532a550d5"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "7d42ba9ea255",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0341,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8077f1d1b9fb5bec08886d1dd81d5d34629dfdeb73243808de73f0969c8555ac"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "cd1e00d542fb",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0322,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:512fc3bff87d2e0b335bcbf7b8e05a36c5fbfba259df175016906789513c8242"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:748b92059f40f1c0d2346b7310128555d717c687076472572af1dc2cdc644419"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b20a16458478d8314fedc019ef8037a83b4bf2160040cd1d7354ee68465b5f1b"
+        },
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:9a7884d1847a3a5e53357fa44215c459936473a03b41b05ad0c017ec73dd10a6"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "095dc4135130",
       "week": 7,
       "dial": "longshot",
@@ -1264067,7 +1265163,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264109,7 +1265205,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1264140,7 +1265236,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264182,7 +1265278,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264200,6 +1265296,298 @@
       }
     },
     {
+      "card_id": "6c569d715248",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0366,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428850",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0ff83e85d3a1e8790e149b26bc47151869216d0676bf448211b88500dcd901f8"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "42ef7edbb1f9",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0378,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:31c6940d923528a89b2287ce997f1576cf0a12b9d463d693dfadae9cf7c73b65"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:04e65973797259820c7cb06feaeb5e5222298f9abefd8be2b31b06ef5cd18d0b"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8a54aac250e784c08d3cab6a759614d970a1e192203f097334553d1f485c43dd"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "f384487b216b",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0361,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:7131a506f63452fea2eed6da18b2d7883751bd0eb17f9485422b7e45b320b520"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:9d9a0faf6edb8defeeaf63dc65151ad4e91fe48b8b6ea4ac4dcb624d6f58b8b0"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:69e24a905f20d2af6b3b0f5172988bee5ad93558777472ef424a80ba1a0c79a1"
+        },
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:f8563c5ea08a1a4a43202114e588a153598a4450bb70ac37c177931fd5005bd7"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "3ca8f20c28d4",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0335,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:5e2f1b3bdeb2ca550dae24d808e80054aa8dc56d85cecfbe3a94bca09b8d9764"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "ac113040855a",
       "week": 7,
       "dial": "longshot",
@@ -1264213,7 +1265601,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264273,6 +1265661,79 @@
       }
     },
     {
+      "card_id": "1b5ee4890c1d",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.0356,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:762226e187b544e24d5e6680ace8667409501e639b5e8928e973acdf3e22927e"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c42212d39a18858b4ebfea9d14f565d358166a1b44866dffea0af26673d85976"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c26f8395ab6e2aea90d025560cf2120afe7a962f592f137ee833824ba4abe917"
+        },
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:19f2bb54e5f071d896255caa9e0fb68e5e297be5ee80a3bf4c290c9c2a2d1e81"
+        }
+      ],
+      "money": {
+        "net_fair": 264.47,
+        "net_vig2": 250.31,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "88061b76f9b0",
       "week": 7,
       "dial": "longshot",
@@ -1264286,7 +1265747,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1264359,7 +1265820,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264401,7 +1265862,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1264432,7 +1265893,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264474,7 +1265935,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264492,6 +1265953,93 @@
       }
     },
     {
+      "card_id": "33fdfd3dd254",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.019,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:2d5505130b6e4fd3d7ce0b39ca75d43db9d3d68f7e71147ccf49d8155eb424bb"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:de4d56c9ef6bb9b7637af785ccfff7732a134b1c5af7551983a748c1a8c93e71"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 5
+      }
+    },
+    {
       "card_id": "9e4100b9569b",
       "week": 7,
       "dial": "longshot",
@@ -1264505,7 +1266053,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264579,6 +1266127,93 @@
       }
     },
     {
+      "card_id": "6f527221adba",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0175,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8077f1d1b9fb5bec08886d1dd81d5d34629dfdeb73243808de73f0969c8555ac"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d7a756e3ea9d69d69e335608907fd1bdc3b889a89e26e9abcedcad2eff3719e0"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b8668b89a487ef19fe096c37c5f451789bab9bd0714ae1f060c8a083dfdd54e6"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 5
+      }
+    },
+    {
       "card_id": "c475615d9238",
       "week": 7,
       "dial": "longshot",
@@ -1264592,7 +1266227,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1264679,7 +1266314,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264766,7 +1266401,7 @@
           "selection": "D. Smith 70+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 69.5,
@@ -1264840,6 +1266475,180 @@
       }
     },
     {
+      "card_id": "3d86c3c1305e",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0188,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:224191602e5343c6f1ae45cd41e9f774e8dde6ae556aa588def033a2a29f8601"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:299aa0e92f9ab6155a1ab3540c1b6e6f2a8d70026e37ac733bdf63596a23575c"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:e0f9904e37bc6bb9dcecebdebb8c3f8c54e8d337166dc1c8a2325a775b7c4f85"
+        },
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2976592",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:ffc71aa4e2cf631f191bee1768e445b0bb164938fcfd0157d5b9ef25e9ba4a0f"
+        },
+        {
+          "selection": "G. Smith 275+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873015",
+          "result": "hit",
+          "actual": 287.0,
+          "gsis_id": "espn-15864",
+          "line": 274.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:39aea153f367b1a6236f44ecb6b6fe2ee461f2471de228e9d229aad93dca885e"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "7016c29e3942",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0192,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:31c6940d923528a89b2287ce997f1576cf0a12b9d463d693dfadae9cf7c73b65"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:04e65973797259820c7cb06feaeb5e5222298f9abefd8be2b31b06ef5cd18d0b"
+        },
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2976592",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b0bb959c64cd7922b5df950596245de80a11e4de296edc37375cea6704fb48b9"
+        },
+        {
+          "selection": "G. Smith 275+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873015",
+          "result": "hit",
+          "actual": 287.0,
+          "gsis_id": "espn-15864",
+          "line": 274.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0ddec4767b4f90b003cce95e8246e91e7c7f6f0e3e981dde9d7ba20e83fc9cb8"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 5
+      }
+    },
+    {
       "card_id": "d939e4190d57",
       "week": 7,
       "dial": "longshot",
@@ -1264853,7 +1266662,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1264940,7 +1266749,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265014,6 +1266823,93 @@
       }
     },
     {
+      "card_id": "45511f7924bf",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.0171,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:6d834649fd2ed814711f595e0d8afb16ac26fb16e03a1c4c7c67db34481e1349"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:a86bf12c4437774efd83b4fae3643847f0c3df826c72ddb815c7bf755c118150"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8a85b4385f5aee56eb937dc5b5cb0441d7c60feda2eb021ac9964ae7025e0239"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fd7527cb90d10f07d79eac28efda57011299362ef17472a38f1391aea2cc55c2"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:6146ddcdf23ddaec3a919c03f54ebbb1d1535b362ce85ddbc1555902dab8279d"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 5
+      }
+    },
+    {
       "card_id": "d5ef87ad96e3",
       "week": 7,
       "dial": "longshot",
@@ -1265027,7 +1266923,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265114,7 +1267010,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265188,6 +1267084,107 @@
       }
     },
     {
+      "card_id": "1538add0dfb8",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0081,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:2d5505130b6e4fd3d7ce0b39ca75d43db9d3d68f7e71147ccf49d8155eb424bb"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:de4d56c9ef6bb9b7637af785ccfff7732a134b1c5af7551983a748c1a8c93e71"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d4c8f5e861a88c5c5cc44a58ade23a7f6e7e75aef62ad10ead654d3c276b055e"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
       "card_id": "bf599564a3b6",
       "week": 7,
       "dial": "longshot",
@@ -1265201,7 +1267198,7 @@
           "selection": "D. Smith 70+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 69.5,
@@ -1265271,7 +1267268,7 @@
           "selection": "D. Wicks 30+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4428850",
           "line": 29.5,
@@ -1265302,7 +1267299,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265372,7 +1267369,7 @@
           "selection": "D. Smith 70+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 69.5,
@@ -1265403,7 +1267400,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265473,7 +1267470,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265491,6 +1267488,107 @@
       }
     },
     {
+      "card_id": "63ae2ac542a3",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0075,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8077f1d1b9fb5bec08886d1dd81d5d34629dfdeb73243808de73f0969c8555ac"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d7a756e3ea9d69d69e335608907fd1bdc3b889a89e26e9abcedcad2eff3719e0"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b8668b89a487ef19fe096c37c5f451789bab9bd0714ae1f060c8a083dfdd54e6"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
       "card_id": "64a547baa450",
       "week": 7,
       "dial": "longshot",
@@ -1265504,7 +1267602,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265574,7 +1267672,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1265605,7 +1267703,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265675,7 +1267773,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265693,6 +1267791,309 @@
       }
     },
     {
+      "card_id": "7171c5938a5e",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.008,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:51bb90f3f716e255191c17183b07b82e9662628c919c6b45addb8e51a8d6c364"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d1e1a6feff25f14647f70feaf3d263765c262bb97b589566f205dba33c0b7c3e"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:baed136a5777e86781929448445b485bf85eeb5f13eb2eab2476cbf6f3fe3386"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:2d5505130b6e4fd3d7ce0b39ca75d43db9d3d68f7e71147ccf49d8155eb424bb"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:de4d56c9ef6bb9b7637af785ccfff7732a134b1c5af7551983a748c1a8c93e71"
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428850",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0ff83e85d3a1e8790e149b26bc47151869216d0676bf448211b88500dcd901f8"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "a0caae5241f3",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0079,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:224191602e5343c6f1ae45cd41e9f774e8dde6ae556aa588def033a2a29f8601"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:299aa0e92f9ab6155a1ab3540c1b6e6f2a8d70026e37ac733bdf63596a23575c"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:e0f9904e37bc6bb9dcecebdebb8c3f8c54e8d337166dc1c8a2325a775b7c4f85"
+        },
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2976592",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:ffc71aa4e2cf631f191bee1768e445b0bb164938fcfd0157d5b9ef25e9ba4a0f"
+        },
+        {
+          "selection": "G. Smith 275+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873015",
+          "result": "hit",
+          "actual": 287.0,
+          "gsis_id": "espn-15864",
+          "line": 274.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:39aea153f367b1a6236f44ecb6b6fe2ee461f2471de228e9d229aad93dca885e"
+        },
+        {
+          "selection": "D. Wicks 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428850",
+          "line": 29.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:dfbbe6cf096f4a0370190da06468b437340a03726b7caf07bf1f5083ea57ac4c"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "c8945cb82874",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0085,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:245c6169a686e0303f3e2be934ebddd6f587b055b7f55a2a0fbd9b721c0be5b0"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:31c6940d923528a89b2287ce997f1576cf0a12b9d463d693dfadae9cf7c73b65"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:04e65973797259820c7cb06feaeb5e5222298f9abefd8be2b31b06ef5cd18d0b"
+        },
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2976592",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b0bb959c64cd7922b5df950596245de80a11e4de296edc37375cea6704fb48b9"
+        },
+        {
+          "selection": "G. Smith 275+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873015",
+          "result": "hit",
+          "actual": 287.0,
+          "gsis_id": "espn-15864",
+          "line": 274.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0ddec4767b4f90b003cce95e8246e91e7c7f6f0e3e981dde9d7ba20e83fc9cb8"
+        },
+        {
+          "selection": "D. Smith 70+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 69.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:cc9dc563de8f346050eb10010a3269a31e837815a765a2d8b0ca7e2532a550d5"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
       "card_id": "18e76bff96bd",
       "week": 7,
       "dial": "longshot",
@@ -1265706,7 +1268107,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265776,7 +1268177,7 @@
           "selection": "D. Wicks 30+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4428850",
           "line": 29.5,
@@ -1265794,6 +1268195,208 @@
       }
     },
     {
+      "card_id": "cfa97dd27a4d",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0078,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Blue 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4685279",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:7131a506f63452fea2eed6da18b2d7883751bd0eb17f9485422b7e45b320b520"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:9d9a0faf6edb8defeeaf63dc65151ad4e91fe48b8b6ea4ac4dcb624d6f58b8b0"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:69e24a905f20d2af6b3b0f5172988bee5ad93558777472ef424a80ba1a0c79a1"
+        },
+        {
+          "selection": "S. Shepard 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-2976592",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:db0a7482753167ebed54f075869c34f4f84ac37c4e2dc8e26731bcd096f62b66"
+        },
+        {
+          "selection": "G. Smith 275+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873015",
+          "result": "hit",
+          "actual": 287.0,
+          "gsis_id": "espn-15864",
+          "line": 274.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:746b7684aed7469f2924188dedadfde06565723cb9e2a0d0419c57191dafce79"
+        },
+        {
+          "selection": "T. Bigsby 40+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429013",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:f8563c5ea08a1a4a43202114e588a153598a4450bb70ac37c177931fd5005bd7"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
+      "card_id": "c76fe3d16463",
+      "week": 7,
+      "dial": "longshot",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.0074,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "H. Brown 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:5e2f1b3bdeb2ca550dae24d808e80054aa8dc56d85cecfbe3a94bca09b8d9764"
+        },
+        {
+          "selection": "T. Tucker 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 103.0,
+          "gsis_id": "espn-4428718",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c8a0be5bb0b32fc9f0f5bf65958c4741e49b20bb525690b386c2ed4bf6958d44"
+        },
+        {
+          "selection": "K. Cousins 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873021",
+          "result": "hit",
+          "actual": 295.0,
+          "gsis_id": "espn-14880",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:fbf7f140b0f615bdb682f07df66eeacd4e0739c86d2aa01268333ac878046507"
+        },
+        {
+          "selection": "X. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4386544",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d7a756e3ea9d69d69e335608907fd1bdc3b889a89e26e9abcedcad2eff3719e0"
+        },
+        {
+          "selection": "B. Purdy 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 249.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:b8668b89a487ef19fe096c37c5f451789bab9bd0714ae1f060c8a083dfdd54e6"
+        },
+        {
+          "selection": "D. Achane 80+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873015",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4429160",
+          "line": 79.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:12e831df11dd4f44913dbe746c61671fe13594642c04a6b197b1fc4d0aadbfc3"
+        }
+      ],
+      "money": {
+        "net_fair": 595.8,
+        "net_vig2": 555.67,
+        "assumed_price_legs": 6
+      }
+    },
+    {
       "card_id": "b631eaa4b315",
       "week": 7,
       "dial": "longshot",
@@ -1265807,7 +1268410,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1265877,7 +1268480,7 @@
           "selection": "H. Brown 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 39.5,
@@ -1265908,7 +1268511,7 @@
           "selection": "J. Blue 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4685279",
           "line": 19.5,
@@ -1265978,7 +1268581,7 @@
           "selection": "T. Bigsby 40+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 39.5,
@@ -1341304,6 +1343907,50 @@
       }
     },
     {
+      "card_id": "055f7f5eed15",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.4718,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 49.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0bd42ba2753e5390a97fad87804196ad9f74412c9445baeafdaff4bef115a9c9"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 23.38,
+        "net_vig2": 20.96,
+        "assumed_price_legs": 1
+      }
+    },
+    {
       "card_id": "ae8f590aa69d",
       "week": 7,
       "dial": "safe",
@@ -1341317,7 +1343964,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1341388,6 +1344035,50 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "ca641dab5d12",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 2,
+      "model": 0.5352,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 23.38,
+        "net_vig2": 20.96,
         "assumed_price_legs": 1
       }
     },
@@ -1341703,6 +1344394,64 @@
       }
     },
     {
+      "card_id": "efba7c35cbdc",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.3417,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 49.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0bd42ba2753e5390a97fad87804196ad9f74412c9445baeafdaff4bef115a9c9"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Jennings 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 34.0,
+          "gsis_id": "espn-3886598",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c95663d2dc75096c6d5707bddad2c0aaae5ec32bb47ef00949a178b771b2ba2a"
+        }
+      ],
+      "money": {
+        "net_fair": 135.55,
+        "net_vig2": 126.4,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "1dc9b9c89194",
       "week": 7,
       "dial": "safe",
@@ -1341716,7 +1344465,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1341814,6 +1344563,64 @@
         "net_fair": -100.0,
         "net_vig2": -100.0,
         "assumed_price_legs": 1
+      }
+    },
+    {
+      "card_id": "a138e91f072e",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.3877,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Jennings 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 34.0,
+          "gsis_id": "espn-3886598",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:1ffbe90c33e5ff5de89bb8cf3a6971f222f3c4b7796c1335edbca9d03ef94ec8"
+        }
+      ],
+      "money": {
+        "net_fair": 135.55,
+        "net_vig2": 126.4,
+        "assumed_price_legs": 2
       }
     },
     {
@@ -1342163,6 +1344970,64 @@
       }
     },
     {
+      "card_id": "80aa26b8e127",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 3,
+      "model": 0.3849,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "A. Jones Sr. 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 26.0,
+          "gsis_id": "espn-3042519",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:949ed4e63b03be3fb6c27f8f717b16a326fe958c1174111850d9f4d56e8e86cc"
+        }
+      ],
+      "money": {
+        "net_fair": 135.55,
+        "net_vig2": 126.4,
+        "assumed_price_legs": 2
+      }
+    },
+    {
       "card_id": "fa14eca4b3a4",
       "week": 7,
       "dial": "safe",
@@ -1342293,7 +1345158,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1342364,7 +1345229,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1342565,6 +1345430,78 @@
       }
     },
     {
+      "card_id": "9b258934bb84",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.2928,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "Z. Flowers 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873012",
+          "result": "hit",
+          "actual": 137.0,
+          "gsis_id": "espn-4429615",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d175b1614357b64651991eec321bc1400e822a998e1e5b113b81b7c4ccb74c0a"
+        },
+        {
+          "selection": "L. Jackson 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873012",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-3916387",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:446b3cacd3574c734010c610a545e001c2cac2917323b0b314fb81cad1801e79"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 135.55,
+        "net_vig2": 126.4,
+        "assumed_price_legs": 3
+      }
+    },
+    {
       "card_id": "d6de6b79cecd",
       "week": 7,
       "dial": "safe",
@@ -1342706,6 +1345643,78 @@
       "money": {
         "net_fair": -100.0,
         "net_vig2": -100.0,
+        "assumed_price_legs": 3
+      }
+    },
+    {
+      "card_id": "2bf47fc4e121",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 4,
+      "model": 0.2534,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 49.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0bd42ba2753e5390a97fad87804196ad9f74412c9445baeafdaff4bef115a9c9"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Pearsall 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428209",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:3dba0c75365a3a5291967069237b51368b0d6294a24925f8294ca12a7d6f5637"
+        },
+        {
+          "selection": "B. Purdy 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 174.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:be3e1bfd988d22c3becf5cc9588f1403a1ba3ec62593c2e2017ecc9712722731"
+        }
+      ],
+      "money": {
+        "net_fair": 135.55,
+        "net_vig2": 126.4,
         "assumed_price_legs": 3
       }
     },
@@ -1342935,7 +1345944,7 @@
           "selection": "D. Smith 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 39.5,
@@ -1343224,7 +1346233,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1343309,7 +1346318,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1343550,6 +1346559,92 @@
       }
     },
     {
+      "card_id": "1f7e40328594",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.2121,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "Z. Flowers 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873012",
+          "result": "hit",
+          "actual": 137.0,
+          "gsis_id": "espn-4429615",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d175b1614357b64651991eec321bc1400e822a998e1e5b113b81b7c4ccb74c0a"
+        },
+        {
+          "selection": "L. Jackson 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873012",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-3916387",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:446b3cacd3574c734010c610a545e001c2cac2917323b0b314fb81cad1801e79"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "J. Jennings 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 34.0,
+          "gsis_id": "espn-3886598",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:1ffbe90c33e5ff5de89bb8cf3a6971f222f3c4b7796c1335edbca9d03ef94ec8"
+        }
+      ],
+      "money": {
+        "net_fair": 349.68,
+        "net_vig2": 323.74,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "4be3560b9a6f",
       "week": 7,
       "dial": "safe",
@@ -1343722,6 +1346817,92 @@
       }
     },
     {
+      "card_id": "7f6f10d14dde",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.1835,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 49.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0bd42ba2753e5390a97fad87804196ad9f74412c9445baeafdaff4bef115a9c9"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Pearsall 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428209",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:3dba0c75365a3a5291967069237b51368b0d6294a24925f8294ca12a7d6f5637"
+        },
+        {
+          "selection": "B. Purdy 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 174.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:be3e1bfd988d22c3becf5cc9588f1403a1ba3ec62593c2e2017ecc9712722731"
+        },
+        {
+          "selection": "J. Jennings 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 34.0,
+          "gsis_id": "espn-3886598",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:c95663d2dc75096c6d5707bddad2c0aaae5ec32bb47ef00949a178b771b2ba2a"
+        }
+      ],
+      "money": {
+        "net_fair": 349.68,
+        "net_vig2": 323.74,
+        "assumed_price_legs": 4
+      }
+    },
+    {
       "card_id": "1fec39108987",
       "week": 7,
       "dial": "safe",
@@ -1343735,7 +1346916,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1343974,6 +1347155,92 @@
       "money": {
         "net_fair": 758.49,
         "net_vig2": 693.11,
+        "assumed_price_legs": 4
+      }
+    },
+    {
+      "card_id": "e27d58d775aa",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 5,
+      "model": 0.2105,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "Z. Flowers 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873012",
+          "result": "hit",
+          "actual": 137.0,
+          "gsis_id": "espn-4429615",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d175b1614357b64651991eec321bc1400e822a998e1e5b113b81b7c4ccb74c0a"
+        },
+        {
+          "selection": "L. Jackson 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873012",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-3916387",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:446b3cacd3574c734010c610a545e001c2cac2917323b0b314fb81cad1801e79"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "A. Jones Sr. 20+ rush yds",
+          "market": "rb_rush_yds",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": 26.0,
+          "gsis_id": "espn-3042519",
+          "line": 19.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:949ed4e63b03be3fb6c27f8f717b16a326fe958c1174111850d9f4d56e8e86cc"
+        }
+      ],
+      "money": {
+        "net_fair": 349.68,
+        "net_vig2": 323.74,
         "assumed_price_legs": 4
       }
     },
@@ -1344251,7 +1347518,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1344350,7 +1347617,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1344645,7 +1347912,7 @@
           "selection": "D. Smith 40+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 39.5,
@@ -1345030,6 +1348297,106 @@
       }
     },
     {
+      "card_id": "f0267a0b707c",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.1315,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 49.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:0bd42ba2753e5390a97fad87804196ad9f74412c9445baeafdaff4bef115a9c9"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Pearsall 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428209",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:3dba0c75365a3a5291967069237b51368b0d6294a24925f8294ca12a7d6f5637"
+        },
+        {
+          "selection": "B. Purdy 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 174.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:be3e1bfd988d22c3becf5cc9588f1403a1ba3ec62593c2e2017ecc9712722731"
+        },
+        {
+          "selection": "D. Metcalf 30+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873011",
+          "result": "hit",
+          "actual": 56.0,
+          "gsis_id": "espn-4047650",
+          "line": 29.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:7fcd42cb2678b7574c3f88b5ec4968f6f93c0f5508028176e6944d1ac9bd62eb"
+        },
+        {
+          "selection": "A. Rodgers 150+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873011",
+          "result": "hit",
+          "actual": 212.0,
+          "gsis_id": "espn-8439",
+          "line": 149.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:5a8ef9b9b69a4a71a0de145adffa816b90081b0fa2703f7285a7d07bad554a21"
+        }
+      ],
+      "money": {
+        "net_fair": 758.49,
+        "net_vig2": 693.11,
+        "assumed_price_legs": 5
+      }
+    },
+    {
       "card_id": "4cc40dd64141",
       "week": 7,
       "dial": "safe",
@@ -1345043,7 +1348410,7 @@
           "selection": "D. Smith 50+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 49.5,
@@ -1345324,6 +1348691,106 @@
       "money": {
         "net_fair": 758.49,
         "net_vig2": 693.11,
+        "assumed_price_legs": 5
+      }
+    },
+    {
+      "card_id": "787c2278cd53",
+      "week": 7,
+      "dial": "safe",
+      "seed": "PHI",
+      "n_legs": 6,
+      "model": 0.1572,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "D. Smith 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d0d807156810c0549ba2b3a36d69ea2634ad9b579f3a7a938387a4e90b1f86b0"
+        },
+        {
+          "selection": "Z. Flowers 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873012",
+          "result": "hit",
+          "actual": 137.0,
+          "gsis_id": "espn-4429615",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:d175b1614357b64651991eec321bc1400e822a998e1e5b113b81b7c4ccb74c0a"
+        },
+        {
+          "selection": "L. Jackson 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873012",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-3916387",
+          "line": 174.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:446b3cacd3574c734010c610a545e001c2cac2917323b0b314fb81cad1801e79"
+        },
+        {
+          "selection": "MIN ML",
+          "market": "moneyline",
+          "game_id": "401873014",
+          "result": "hit",
+          "actual": {
+            "home_score": 16,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        },
+        {
+          "selection": "R. Pearsall 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873017",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4428209",
+          "line": 19.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:9b3d2f9ecfc1fbf1d0e4898043f8b5a0388f32b434aa768f805f74b21e08ef7e"
+        },
+        {
+          "selection": "B. Purdy 175+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873017",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4361741",
+          "line": 174.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:3f5d8cdfc5f7ee3baf37f4749a0da0448952502d820f8208993bdee19f3b51f6"
+        }
+      ],
+      "money": {
+        "net_fair": 349.68,
+        "net_vig2": 323.74,
         "assumed_price_legs": 5
       }
     },

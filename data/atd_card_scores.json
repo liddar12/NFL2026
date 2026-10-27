@@ -1,12 +1,12 @@
 {
   "kind": "atd_card_scores",
   "season": 2026,
-  "generated_utc": "2026-10-27T10:51:31Z",
+  "generated_utc": "2026-10-27T15:54:50Z",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (106 games); scores from data/review.json FINAL rows (107 games); scores from ESPN live, STATUS-gated FINAL (75 games)",
   "skipped": null,
   "rule": "a card hits when every leg hits; a pending leg keeps the card pending (never a miss); ATD legs graded by grade_atd (void = did not play); a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108)",
-  "graded": 13189,
-  "pending": 719,
+  "graded": 13197,
+  "pending": 1076,
   "by_mode": {
     "all_td": {
       "2": {
@@ -213,10 +213,10 @@
       },
       "5": {
         "hits": 1,
-        "graded": 157,
-        "hit_rate": 0.0064,
-        "mean_model": 0.004574,
-        "ratio": 1.392
+        "graded": 158,
+        "hit_rate": 0.0063,
+        "mean_model": 0.004579,
+        "ratio": 1.382
       },
       "6": {
         "hits": 1,
@@ -243,31 +243,31 @@
       },
       "3": {
         "hits": 15,
-        "graded": 123,
-        "hit_rate": 0.122,
-        "mean_model": 0.147809,
-        "ratio": 0.825
+        "graded": 124,
+        "hit_rate": 0.121,
+        "mean_model": 0.14768,
+        "ratio": 0.819
       },
       "4": {
         "hits": 6,
-        "graded": 151,
-        "hit_rate": 0.0397,
-        "mean_model": 0.047292,
-        "ratio": 0.84
+        "graded": 153,
+        "hit_rate": 0.0392,
+        "mean_model": 0.047254,
+        "ratio": 0.83
       },
       "5": {
         "hits": 5,
-        "graded": 162,
-        "hit_rate": 0.0309,
-        "mean_model": 0.037319,
-        "ratio": 0.827
+        "graded": 164,
+        "hit_rate": 0.0305,
+        "mean_model": 0.037312,
+        "ratio": 0.817
       },
       "6": {
         "hits": 4,
-        "graded": 178,
-        "hit_rate": 0.0225,
-        "mean_model": 0.010539,
-        "ratio": 2.132
+        "graded": 179,
+        "hit_rate": 0.0223,
+        "mean_model": 0.010546,
+        "ratio": 2.119
       },
       "7": {
         "hits": 2,
@@ -338,9 +338,9 @@
       },
       "5": {
         "hits": 3,
-        "graded": 438,
+        "graded": 439,
         "hit_rate": 0.0068,
-        "mean_model": 0.045013,
+        "mean_model": 0.044924,
         "ratio": 0.152
       },
       "6": {
@@ -258551,7 +258551,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -259609,7 +259609,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -259619,7 +259619,7 @@
           "selection": "T. Bigsby anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 0.5,
@@ -260740,7 +260740,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -260750,7 +260750,7 @@
           "selection": "T. Bigsby anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 0.5,
@@ -262313,6 +262313,51 @@
     {
       "week": 7,
       "scope": "game",
+      "card_id": "5e4c4c105a48df9d",
+      "mode": "majority_td",
+      "n_legs": 3,
+      "model_prob": 0.13188288,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
       "card_id": "bfa595bc57e93ca1",
       "mode": "majority_td",
       "n_legs": 3,
@@ -262935,6 +262980,63 @@
             "tds": 0
           },
           "gsis_id": "espn-4683062",
+          "line": 0.5,
+          "side": "away"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
+      "card_id": "f656fd4fd5622dda",
+      "mode": "majority_td",
+      "n_legs": 4,
+      "model_prob": 0.03653156,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "G. Pickens anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4426354",
           "line": 0.5,
           "side": "away"
         }
@@ -263751,6 +263853,73 @@
             "tds": 0
           },
           "gsis_id": "espn-4683062",
+          "line": 0.5,
+          "side": "away"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
+      "card_id": "2f2c9ae71ea3f202",
+      "mode": "majority_td",
+      "n_legs": 5,
+      "model_prob": 0.02960152,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "D. Prescott 125+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": 212.0,
+          "gsis_id": "espn-2577417",
+          "line": 124.5,
+          "side": "away"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "G. Pickens anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4426354",
           "line": 0.5,
           "side": "away"
         }
@@ -264735,7 +264904,7 @@
           "selection": "D. Smith 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 19.5,
@@ -266191,7 +266360,7 @@
           "selection": "D. Smith 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 19.5,
@@ -267600,7 +267769,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -267658,7 +267827,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -269137,7 +269306,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -269147,7 +269316,7 @@
           "selection": "H. Brown 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 19.5,
@@ -269205,7 +269374,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -270839,7 +271008,7 @@
           "selection": "H. Brown 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 19.5,
@@ -270861,7 +271030,7 @@
           "selection": "D. Wicks 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4428850",
           "line": 19.5,
@@ -270907,7 +271076,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -270917,7 +271086,7 @@
           "selection": "T. Bigsby anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 0.5,
@@ -272863,7 +273032,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -273438,7 +273607,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -274370,6 +274539,63 @@
     {
       "week": 7,
       "scope": "game",
+      "card_id": "5a1892c1814c6175",
+      "mode": "majority_td",
+      "n_legs": 4,
+      "model_prob": 0.05222562,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "S. Barkley anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-3929630",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
       "card_id": "d6285cb20d861532",
       "mode": "majority_td",
       "n_legs": 4,
@@ -274708,6 +274934,73 @@
             "tds": 1
           },
           "gsis_id": "espn-4362628",
+          "line": 0.5,
+          "side": "away"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
+      "card_id": "118f7bbfcb43e629",
+      "mode": "majority_td",
+      "n_legs": 5,
+      "model_prob": 0.04385908,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "G. Pickens 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": 57.0,
+          "gsis_id": "espn-4426354",
+          "line": 19.5,
+          "side": "away"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "S. Barkley anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-3929630",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
           "line": 0.5,
           "side": "away"
         }
@@ -275121,6 +275414,85 @@
           "gsis_id": "espn-4429615",
           "line": 0.5,
           "side": "home"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
+      "card_id": "c4b8c6b9ee7f519a",
+      "mode": "majority_td",
+      "n_legs": 6,
+      "model_prob": 0.0117222,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "D. Smith 20+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241478",
+          "line": 19.5,
+          "side": "home"
+        },
+        {
+          "selection": "D. Prescott 125+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": 212.0,
+          "gsis_id": "espn-2577417",
+          "line": 124.5,
+          "side": "away"
+        },
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "S. Barkley anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-3929630",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "G. Pickens anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4426354",
+          "line": 0.5,
+          "side": "away"
         }
       ]
     },
@@ -275691,7 +276063,7 @@
           "selection": "D. Smith 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 19.5,
@@ -276515,7 +276887,7 @@
           "selection": "D. Smith 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 19.5,
@@ -277444,7 +277816,7 @@
           "selection": "D. Smith 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 19.5,
@@ -277477,7 +277849,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -278622,7 +278994,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -278632,7 +279004,7 @@
           "selection": "H. Brown 20+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 19.5,
@@ -278702,7 +279074,7 @@
           "selection": "D. Smith anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241478",
           "line": 0.5,
@@ -285830,6 +286202,75 @@
     {
       "week": 7,
       "scope": "game",
+      "card_id": "58cedee34e5305e7",
+      "mode": "all_td",
+      "n_legs": 5,
+      "model_prob": 0.00529627,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "S. Barkley anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-3929630",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "G. Pickens anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4426354",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "H. Brown anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 0.5,
+          "side": "home"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "game",
       "card_id": "2e049c0416c64bb5",
       "mode": "all_td",
       "n_legs": 5,
@@ -285959,7 +286400,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -286298,7 +286739,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -287443,7 +287884,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -287830,7 +288271,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -287888,7 +288329,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -288376,7 +288817,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -288398,7 +288839,7 @@
           "selection": "E. Demercado 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4362478",
           "line": 19.5,
@@ -288444,7 +288885,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -288738,7 +289179,7 @@
           "selection": "T. Bigsby 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 19.5,
@@ -288760,7 +289201,7 @@
           "selection": "E. Demercado 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4362478",
           "line": 19.5,
@@ -288806,7 +289247,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1128364,7 +1128805,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1128457,7 +1128898,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1128562,7 +1129003,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1128679,7 +1129120,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1129874,7 +1130315,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1130120,7 +1130561,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1130298,7 +1130739,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1130427,6 +1130868,75 @@
     {
       "week": 7,
       "scope": "my",
+      "card_id": "e8dca32f4da34614",
+      "mode": "all_td",
+      "n_legs": 5,
+      "model_prob": 0.00587471,
+      "result": "void",
+      "legs": [
+        {
+          "selection": "J. Williams anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4361579",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "C. Lamb anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 2
+          },
+          "gsis_id": "espn-4241389",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "S. Barkley anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-3929630",
+          "line": 0.5,
+          "side": "home"
+        },
+        {
+          "selection": "G. Pickens anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "hit",
+          "actual": {
+            "tds": 1
+          },
+          "gsis_id": "espn-4426354",
+          "line": 0.5,
+          "side": "away"
+        },
+        {
+          "selection": "H. Brown anytime TD",
+          "market": "anytime_td",
+          "game_id": "401873009",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4241372",
+          "line": 0.5,
+          "side": "home"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "scope": "my",
       "card_id": "1ede6ec592aeeacb",
       "mode": "all_td",
       "n_legs": 6,
@@ -1130485,7 +1130995,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1130566,7 +1131076,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1130906,7 +1131416,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1130998,7 +1131508,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1131032,7 +1131542,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
@@ -1131100,7 +1131610,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1131110,7 +1131620,7 @@
           "selection": "H. Brown 30+ rec yds",
           "market": "wr_rec_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 29.5,
@@ -1131214,7 +1131724,7 @@
           "selection": "T. Bigsby 30+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4429013",
           "line": 29.5,
@@ -1131224,7 +1131734,7 @@
           "selection": "E. Demercado 20+ rush yds",
           "market": "rb_rush_yds",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4362478",
           "line": 19.5,
@@ -1131270,7 +1131780,7 @@
           "selection": "H. Brown anytime TD",
           "market": "anytime_td",
           "game_id": "401873009",
-          "result": "pending",
+          "result": "void",
           "actual": null,
           "gsis_id": "espn-4241372",
           "line": 0.5,
