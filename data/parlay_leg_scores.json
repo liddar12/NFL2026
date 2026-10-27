@@ -1,40 +1,40 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-26T16:47:29Z",
+  "generated_utc": "2026-10-27T10:49:22Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (105 games); scores from data/review.json FINAL rows (106 games); scores from ESPN live, STATUS-gated FINAL (106 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (106 games); scores from data/review.json FINAL rows (106 games); scores from ESPN live, STATUS-gated FINAL (107 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 7,
   "legs": {
-    "on_file": 743,
-    "locked": 592,
+    "on_file": 790,
+    "locked": 639,
     "unlocked": 151,
-    "resolved": 543,
-    "unresolved": 48
+    "resolved": 548,
+    "unresolved": 44
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 293,
-      "hit_rate": 0.5392,
+      "n": 297,
+      "hit_rate": 0.5387,
       "model": {
-        "log_loss": 0.6677,
-        "brier": 0.2373
+        "log_loss": 0.6668,
+        "brier": 0.2368
       },
       "seed": {
-        "log_loss": 0.6861,
-        "brier": 0.2465
+        "log_loss": 0.6857,
+        "brier": 0.2463
       },
       "by_pricing": {
-        "calibrated": 293
+        "calibrated": 297
       }
     },
     "moneyline": {
-      "n": 113,
-      "hit_rate": 0.5841,
-      "log_loss": 0.6682,
-      "brier": 0.2383
+      "n": 114,
+      "hit_rate": 0.5789,
+      "log_loss": 0.6705,
+      "brier": 0.2394
     },
     "spread": {
       "n": 137,
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 97,
-      "hit_rate": 0.5361,
+      "n": 98,
+      "hit_rate": 0.5306,
       "model": {
-        "log_loss": 0.7127,
-        "brier": 0.2586
+        "log_loss": 0.7103,
+        "brier": 0.2574
       },
       "seed": {
-        "log_loss": 0.6632,
-        "brier": 0.2352
+        "log_loss": 0.6627,
+        "brier": 0.2349
       },
       "by_pricing": {
-        "calibrated": 97
+        "calibrated": 98
       }
     },
     "RB": {
-      "n": 97,
-      "hit_rate": 0.5258,
+      "n": 98,
+      "hit_rate": 0.5306,
       "model": {
-        "log_loss": 0.6482,
-        "brier": 0.2281
+        "log_loss": 0.6477,
+        "brier": 0.2278
       },
       "seed": {
-        "log_loss": 0.688,
-        "brier": 0.2474
+        "log_loss": 0.6873,
+        "brier": 0.2471
       },
       "by_pricing": {
-        "calibrated": 97
+        "calibrated": 98
       }
     },
     "WR": {
-      "n": 99,
-      "hit_rate": 0.5556,
+      "n": 101,
+      "hit_rate": 0.5545,
       "model": {
-        "log_loss": 0.6428,
-        "brier": 0.2254
+        "log_loss": 0.6432,
+        "brier": 0.2256
       },
       "seed": {
-        "log_loss": 0.7067,
-        "brier": 0.2567
+        "log_loss": 0.7065,
+        "brier": 0.2566
       },
       "by_pricing": {
-        "calibrated": 99
+        "calibrated": 101
       }
     }
   },
@@ -274,25 +274,25 @@
     {
       "week": 7,
       "props": {
-        "n": 35,
-        "hit_rate": 0.5143,
+        "n": 39,
+        "hit_rate": 0.5128,
         "model": {
-          "log_loss": 0.6532,
-          "brier": 0.2303
+          "log_loss": 0.6477,
+          "brier": 0.2276
         },
         "seed": {
-          "log_loss": 0.7275,
-          "brier": 0.2669
+          "log_loss": 0.72,
+          "brier": 0.2632
         },
         "by_pricing": {
-          "calibrated": 35
+          "calibrated": 39
         }
       },
       "moneyline": {
-        "n": 14,
-        "hit_rate": 0.5714,
-        "log_loss": 0.7183,
-        "brier": 0.2618
+        "n": 15,
+        "hit_rate": 0.5333,
+        "log_loss": 0.7323,
+        "brier": 0.2688
       },
       "spread": {
         "n": 0,
@@ -588,34 +588,6 @@
       "game_id": "401873007",
       "market": "rb_rush_yds",
       "selection": "J. Jacobs 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 7,
-      "game_id": "401873009",
-      "market": "qb_pass_yds",
-      "selection": "D. Prescott 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 7,
-      "game_id": "401873009",
-      "market": "rb_rush_yds",
-      "selection": "S. Barkley 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 7,
-      "game_id": "401873009",
-      "market": "wr_rec_yds",
-      "selection": "C. Lamb 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 7,
-      "game_id": "401873009",
-      "market": "wr_rec_yds",
-      "selection": "G. Pickens 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -9081,6 +9053,97 @@
       "model_prob": 0.3885,
       "seed_prob": 0.3637,
       "actual": 27.0,
+      "hit": false
+    },
+    {
+      "week": 7,
+      "game_id": "401873009",
+      "market": "moneyline",
+      "selection": "PHI ML",
+      "team": "PHI",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6053,
+      "actual": {
+        "home_score": 21,
+        "away_score": 38
+      },
+      "hit": false
+    },
+    {
+      "week": 7,
+      "game_id": "401873009",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "D. Prescott 225+ pass yds",
+      "player": "Dak Prescott",
+      "team": "DAL",
+      "line": 224.5,
+      "mu": 206.15,
+      "sd": 76.66,
+      "z": -0.2394,
+      "p_team": 0.3947,
+      "pricing": "calibrated",
+      "model_prob": 0.3773,
+      "seed_prob": 0.4579,
+      "actual": 212.0,
+      "hit": false
+    },
+    {
+      "week": 7,
+      "game_id": "401873009",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "S. Barkley 60+ rush yds",
+      "player": "Saquon Barkley",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 71.01,
+      "sd": 38.87,
+      "z": 0.2962,
+      "p_team": 0.6053,
+      "pricing": "calibrated",
+      "model_prob": 0.5505,
+      "seed_prob": 0.5421,
+      "actual": 62.0,
+      "hit": true
+    },
+    {
+      "week": 7,
+      "game_id": "401873009",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "C. Lamb 60+ rec yds",
+      "player": "CeeDee Lamb",
+      "team": "DAL",
+      "line": 59.5,
+      "mu": 69.85,
+      "sd": 41.58,
+      "z": 0.2489,
+      "p_team": 0.3947,
+      "pricing": "calibrated",
+      "model_prob": 0.4896,
+      "seed_prob": 0.4579,
+      "actual": 74.0,
+      "hit": true
+    },
+    {
+      "week": 7,
+      "game_id": "401873009",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "G. Pickens 60+ rec yds",
+      "player": "George Pickens",
+      "team": "DAL",
+      "line": 59.5,
+      "mu": 64.42,
+      "sd": 41.58,
+      "z": 0.1184,
+      "p_team": 0.3947,
+      "pricing": "calibrated",
+      "model_prob": 0.4587,
+      "seed_prob": 0.4579,
+      "actual": 57.0,
       "hit": false
     },
     {
