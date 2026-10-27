@@ -571,6 +571,63 @@ def selftest():
           "means with the n >= 4 floor and the measured rule guard, key formats")
 
 
+def rebind_document(document, schedule_doc):
+    """(document, withheld keys) with every row still bound to the current schedule.
+
+    The pipeline rewrites schedule_full.json after this file is built (ESPN
+    reschedules, flexed kickoffs). A row whose binding no longer equals the
+    current game is withheld into `refusals`, never re-pointed at the new
+    kickoff: its sample and window belong to the old hour. Offline and pure;
+    a legacy (unversioned) document is returned unchanged.
+    """
+    if type(document) is not dict or 'version' not in document:
+        return document, []
+    season = schedule_doc.get('season') if type(schedule_doc) is dict else None
+    games = schedule_doc.get('games') if type(schedule_doc) is dict else None
+    current, ids = {}, {}
+    for game in games if type(games) is list else []:
+        if type(game) is not dict:
+            continue
+        key = bound_weather.key_for(season, game)
+        gid = game.get('game_id')
+        if type(gid) is str:
+            ids[gid] = ids.get(gid, 0) + 1
+        current[key] = None if key in current else bound_weather.target(season, game)
+    out = dict(document, refusals=dict(document.get('refusals') or {}))
+    withheld = []
+    for name in ('games', 'climatology'):
+        kept = {}
+        for key, row in (document.get(name) or {}).items():
+            binding = row.get('binding') if type(row) is dict else None
+            if type(binding) is dict and current.get(key) == (binding, None) \
+                    and ids.get(binding.get('game_id')) == 1:
+                kept[key] = row
+            else:
+                out['refusals'][key] = 'weather_game_binding_changed'
+                withheld.append(key)
+        out[name] = kept
+    return out, sorted(set(withheld))
+
+
+def rebind_main():
+    if not os.path.exists(OUT_PATH) or not os.path.exists(SCHEDULE_PATH):
+        print("WEATHER REBIND: nothing to rebind.")
+        return 0
+    with open(OUT_PATH, encoding="utf-8") as fh:
+        document = json.load(fh)
+    with open(SCHEDULE_PATH, encoding="utf-8") as fh:
+        schedule_doc = json.load(fh)
+    doc, withheld = rebind_document(document, schedule_doc)
+    if not withheld:
+        print("WEATHER REBIND: every row still matches the current schedule.")
+        return 0
+    with open(OUT_PATH, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, ensure_ascii=True, indent=1, sort_keys=True)
+        fh.write("\n")
+    print(f"WEATHER REBIND: withheld {len(withheld)} row(s) whose game changed: {', '.join(withheld)}")
+    return 0
+
+
 def main():
     if not os.path.exists(SCHEDULE_PATH):
         print("WEATHER FORECAST: no schedule yet; nothing to do.")
@@ -620,4 +677,6 @@ if __name__ == "__main__":
               f"{len(table['skipped'])} skipped (n < {CLIMATOLOGY_MIN_N}), "
               f"{table['unjoined']} history rows unjoined")
         sys.exit(0)
+    if "--rebind" in sys.argv:
+        sys.exit(rebind_main())
     sys.exit(main())

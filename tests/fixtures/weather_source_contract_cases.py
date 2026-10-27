@@ -150,6 +150,37 @@ class SourceContractTests(unittest.TestCase):
             with self.subTest(change=change):
                 self.assertEqual(view(doc, [{**game(), **change}])['games'], {})
 
+    def test_kickoff_flexed_after_build_is_withheld_so_the_publisher_validates(self):
+        # RCA 2026-10-26: daily/gameday built the forecast, then the ESPN step
+        # moved a week-9 kickoff in schedule_full.json and the publisher refused
+        # the whole document. The rebind withholds that row, never re-points it.
+        other = dict(game('CHI', 'NE', 'g-2'))
+        doc, _ = produce([game(), other])
+        flexed = [{**game(), 'kickoff_utc': '2026-10-18T17:25Z'}, other]
+        with self.assertRaises(validator.ValidationError):
+            validator.check_weather_forecast(doc, {'season': 2026, 'games': flexed})
+        rebound, withheld = producer.rebind_document(doc, {'season': 2026, 'games': flexed})
+        self.assertEqual(withheld, ['2026|6|GB|DAL'])
+        self.assertNotIn('2026|6|GB|DAL', rebound['games'])
+        self.assertEqual(rebound['refusals']['2026|6|GB|DAL'], 'weather_game_binding_changed')
+        self.assertEqual(rebound['games']['2026|6|CHI|NE'], doc['games']['2026|6|CHI|NE'])
+        validator.check_weather_forecast(rebound, {'season': 2026, 'games': flexed})
+        self.assertEqual(len(view(rebound, flexed)['games']), 1)
+        # unchanged schedule: nothing withheld, document identical; input never mutated
+        same, none = producer.rebind_document(doc, {'season': 2026, 'games': [game(), other]})
+        self.assertEqual((same, none), (doc, []))
+        self.assertIn('2026|6|GB|DAL', doc['games'])
+        legacy = {'generated_utc': STAMP, 'games': {}}
+        self.assertEqual(producer.rebind_document(legacy, {'season': 2026, 'games': flexed}), (legacy, []))
+        # both workflows rebind right after the step that rewrites the schedule
+        root = Path(__file__).resolve().parents[2]
+        for wf in ('daily.yml', 'gameday.yml'):
+            yml = (root / '.github' / 'workflows' / wf).read_text()
+            build = yml.index('python -m scripts.build_predictions')
+            self.assertIn('python -m scripts.build_predictions && python scripts/build_weather_forecast.py --rebind',
+                yml[build:build + 120], wf)
+            self.assertLess(build, yml.index('python scripts/validate_data.py'), wf)
+
     def test_future_stale_unknown_version_and_legacy_fail_current_not_history(self):
         doc, _ = produce()
         for change, when in (({'version': 3}, STAMP), ({'profile': 'uploaded-complete'}, STAMP),

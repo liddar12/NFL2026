@@ -132,7 +132,10 @@ jobs:
       - name: Fetch ESPN + build real predictions + feed health
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}   # optional; market feeds degraded if unset
-        run: bash scripts/stage.sh daily "Fetch ESPN + build real predictions + feed health" -- python -m scripts.build_predictions
+        # The rebind withholds weather rows whose game the ESPN rewrite of
+        # schedule_full.json just changed (a flexed kickoff), so the published
+        # forecast always matches the published schedule (RCA 2026-10-26).
+        run: bash scripts/stage.sh daily "Fetch ESPN + build real predictions + feed health" -- bash -c 'python -m scripts.build_predictions && python scripts/build_weather_forecast.py --rebind'
 
       # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
       # (created on first sight, refreshed while open, frozen once every game is

@@ -119,8 +119,9 @@ jobs:
         # record shows one LOCK stage rather than five shell lines. The copy
         # archives a timestamped snapshot of the REAL game predictions as the
         # locked, point-in-time record (leak-safe: locked before kickoff, never
-        # edited after).
-        run: bash scripts/stage.sh gameday "Lock pre-kickoff probabilities" -- bash -c 'python -m scripts.build_predictions && ts="$(date -u +%Y%m%dT%H%M%SZ)" && mkdir -p data/snapshots && cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json" && echo "locked snapshot data/snapshots/game_predictions.${ts}.json"'
+        # edited after). The rebind withholds weather rows whose game the
+        # schedule rewrite just changed (RCA 2026-10-26).
+        run: bash scripts/stage.sh gameday "Lock pre-kickoff probabilities" -- bash -c 'python -m scripts.build_predictions && python scripts/build_weather_forecast.py --rebind && ts="$(date -u +%Y%m%dT%H%M%SZ)" && mkdir -p data/snapshots && cp data/game_predictions.json "data/snapshots/game_predictions.${ts}.json" && echo "locked snapshot data/snapshots/game_predictions.${ts}.json"'
 
       # R73 — WEEK-TO-WEEK PARLAY HISTORY. Archive the week parlays.json holds
       # (created on first sight, refreshed while open, frozen once every game is
