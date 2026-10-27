@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-20T12:38:13Z",
+  "generated_utc": "2026-10-27T13:05:34Z",
   "kind": "atd_backtest",
   "policy": "MEASURE ONLY (R99 E1). P(anytime TD) = 1 - exp(-lambda_team * share), walk-forward. No ATD leg is offered while adopted is false. No book price is an input.",
   "model": "lambda_team = league TDs/game x shrunk offence rate x shrunk opponent TDs-allowed rate x home factor; share = TD share shrunk toward carries/targets opportunity share, R92 depth cascade, team sum <= 1",
@@ -124,20 +124,20 @@
     },
     "2026": {
       "stats": {
-        "rows": 6488,
-        "kept_rows": 2114,
+        "rows": 7447,
+        "kept_rows": 2420,
         "not_reg": 0,
-        "other_season": 6,
-        "no_offense": 4368,
+        "other_season": 7,
+        "no_offense": 5020,
         "duplicate_player_week": 0
       },
-      "team_games": 186,
+      "team_games": 214,
       "snaps": {
-        "rows": 8671,
-        "kept": 2267,
-        "unmapped": 8
+        "rows": 9981,
+        "kept": 2607,
+        "unmapped": 9
       },
-      "universe": 2381
+      "universe": 2736
     }
   },
   "seasons": {
@@ -646,34 +646,35 @@
       3,
       4,
       5,
-      6
+      6,
+      7
     ],
     "model": {
-      "n": 2381,
-      "log_loss": 0.3798,
-      "brier": 0.11624,
-      "calibration_intercept": -0.0291,
-      "calibration_slope": 1.0005,
-      "mean_p": 0.161,
-      "hit_rate": 0.1575
+      "n": 2736,
+      "log_loss": 0.38076,
+      "brier": 0.11701,
+      "calibration_intercept": 0.0096,
+      "calibration_slope": 1.0131,
+      "mean_p": 0.1607,
+      "hit_rate": 0.1597
     },
     "position_base_rate": {
-      "n": 2381,
-      "log_loss": 0.43306,
-      "brier": 0.13203,
-      "calibration_intercept": -0.2739,
-      "calibration_slope": 0.8447,
-      "mean_p": 0.16,
-      "hit_rate": 0.1575
+      "n": 2736,
+      "log_loss": 0.43571,
+      "brier": 0.13323,
+      "calibration_intercept": -0.0326,
+      "calibration_slope": 0.9805,
+      "mean_p": 0.1598,
+      "hit_rate": 0.1597
     },
     "opportunity_only": {
-      "n": 2381,
-      "log_loss": 0.38316,
-      "brier": 0.11807,
-      "calibration_intercept": -0.0037,
-      "calibration_slope": 1.0125,
-      "mean_p": 0.16,
-      "hit_rate": 0.1575
+      "n": 2736,
+      "log_loss": 0.38296,
+      "brier": 0.11833,
+      "calibration_intercept": 0.0549,
+      "calibration_slope": 1.0386,
+      "mean_p": 0.1596,
+      "hit_rate": 0.1597
     },
     "per_week": [
       {
@@ -704,11 +705,11 @@
         "week": 3,
         "model": {
           "n": 413,
-          "log_loss": 0.41571,
-          "brier": 0.12921,
-          "calibration_intercept": -0.2645,
-          "calibration_slope": 0.7694,
-          "mean_p": 0.1584,
+          "log_loss": 0.41569,
+          "brier": 0.1292,
+          "calibration_intercept": -0.2643,
+          "calibration_slope": 0.7695,
+          "mean_p": 0.1583,
           "hit_rate": 0.1671
         }
       },
@@ -716,10 +717,10 @@
         "week": 4,
         "model": {
           "n": 401,
-          "log_loss": 0.38014,
-          "brier": 0.11852,
-          "calibration_intercept": 0.1256,
-          "calibration_slope": 1.0903,
+          "log_loss": 0.37988,
+          "brier": 0.1184,
+          "calibration_intercept": 0.13,
+          "calibration_slope": 1.0937,
           "mean_p": 0.164,
           "hit_rate": 0.1646
         }
@@ -728,10 +729,10 @@
         "week": 5,
         "model": {
           "n": 387,
-          "log_loss": 0.37469,
-          "brier": 0.1133,
-          "calibration_intercept": 0.3067,
-          "calibration_slope": 1.1863,
+          "log_loss": 0.37455,
+          "brier": 0.11323,
+          "calibration_intercept": 0.3097,
+          "calibration_slope": 1.1887,
           "mean_p": 0.1611,
           "hit_rate": 0.168
         }
@@ -747,6 +748,18 @@
           "mean_p": 0.163,
           "hit_rate": 0.1457
         }
+      },
+      {
+        "week": 7,
+        "model": {
+          "n": 355,
+          "log_loss": 0.38768,
+          "brier": 0.12245,
+          "calibration_intercept": 0.2455,
+          "calibration_slope": 1.0817,
+          "mean_p": 0.1587,
+          "hit_rate": 0.1746
+        }
       }
     ],
     "live_2026": {
@@ -756,11 +769,12 @@
         3,
         4,
         5,
-        6
+        6,
+        7
       ],
-      "legs": 2381,
-      "offered_mean": 0.161,
-      "hit_rate": 0.1575,
+      "legs": 2736,
+      "offered_mean": 0.1607,
+      "hit_rate": 0.1597,
       "per_week": [
         {
           "week": 2,
@@ -793,10 +807,10 @@
             2,
             3
           ],
-          "raw_log_loss": 0.3801,
-          "adjusted_log_loss": 0.3811,
-          "raw_ece": 0.0123,
-          "adjusted_ece": 0.0155
+          "raw_log_loss": 0.3799,
+          "adjusted_log_loss": 0.3809,
+          "raw_ece": 0.0087,
+          "adjusted_ece": 0.0154
         },
         {
           "week": 5,
@@ -807,10 +821,10 @@
             3,
             4
           ],
-          "raw_log_loss": 0.3747,
-          "adjusted_log_loss": 0.3755,
-          "raw_ece": 0.0384,
-          "adjusted_ece": 0.0311
+          "raw_log_loss": 0.3746,
+          "adjusted_log_loss": 0.3753,
+          "raw_ece": 0.0347,
+          "adjusted_ece": 0.031
         },
         {
           "week": 6,
@@ -826,11 +840,27 @@
           "adjusted_log_loss": 0.3626,
           "raw_ece": 0.0451,
           "adjusted_ece": 0.0452
+        },
+        {
+          "week": 7,
+          "n": 355,
+          "fit_weeks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "raw_log_loss": 0.3877,
+          "adjusted_log_loss": 0.3882,
+          "raw_ece": 0.0331,
+          "adjusted_ece": 0.0303
         }
       ],
       "adjustment": null,
       "applied": false,
-      "reason": "hold: the layer is worse on held-out week(s) [2, 3, 4, 5]"
+      "reason": "hold: the layer is worse on held-out week(s) [2, 3, 4, 5, 7]"
     }
   },
   "in_season_min_weeks": 4,
