@@ -1,7 +1,7 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-29T16:55:45Z",
-  "as_of_utc": "2026-10-29T16:52:34Z",
+  "generated_utc": "2026-10-29T22:07:00Z",
+  "as_of_utc": "2026-10-29T22:04:02Z",
   "source": "scripts/build_parlay_ledger.py over data/parlays.json (legs as shipped), data/game_predictions.json (game, kickoff, p_team) and data/player_projections.json (the player behind a prop selection)",
   "note": "one entry per (season, week, game_id, market, selection), written the first time the leg is seen and never rewritten; `locked` is true only when that first sight preceded the game's kickoff \u2014 unlocked legs are kept for the record and excluded from scoring. p_team is the side's win probability the leg was priced with, so the seed pricing can be recomputed on identical legs. implied_prob is a yardstick, never an input.",
   "runs": [
@@ -4509,6 +4509,19 @@
       "legs_seen": 46,
       "legs_added": 0,
       "locked_added": 0,
+      "unlocked_added": 0,
+      "skipped": {
+        "unknown_market": 0,
+        "no_game": 0,
+        "bad_selection": 0
+      }
+    },
+    {
+      "as_of_utc": "2026-10-29T22:04:02Z",
+      "week": 8,
+      "legs_seen": 46,
+      "legs_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0,
       "skipped": {
         "unknown_market": 0,
@@ -24797,6 +24810,32 @@
       "seen_utc": "2026-10-27T10:45:56Z",
       "locked": true,
       "locked_utc": "2026-10-27T10:45:56Z"
+    },
+    {
+      "season": 2026,
+      "week": 8,
+      "market": "rb_rush_yds",
+      "selection": "K. Walker III 60+ rush yds",
+      "position": "RB",
+      "player": "Kenneth Walker III",
+      "gsis_id": "espn-4567048",
+      "team": "KC",
+      "side": "away",
+      "line": 59.5,
+      "mu": 55.66,
+      "sd": 38.87,
+      "z": -0.0987,
+      "game_id": "401873033",
+      "home": "DEN",
+      "away": "KC",
+      "kickoff_utc": "2026-11-01T21:25Z",
+      "p_team": 0.3554,
+      "model_prob": 0.3794,
+      "implied_prob": 0.3965,
+      "pricing": "calibrated",
+      "seen_utc": "2026-10-29T22:04:02Z",
+      "locked": true,
+      "locked_utc": "2026-10-29T22:04:02Z"
     },
     {
       "season": 2026,
