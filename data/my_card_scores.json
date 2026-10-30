@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-10-30T10:19:33Z",
+  "generated_utc": "2026-10-30T16:43:49Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (107 games); scores from data/review.json FINAL rows (107 games); scores from ESPN live, STATUS-gated FINAL (92 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (107 games); scores from data/review.json FINAL rows (108 games); scores from ESPN live, STATUS-gated FINAL (92 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 7,
   "weeks": [
@@ -1844,20 +1844,20 @@
     },
     {
       "week": 8,
-      "n_cards": 2073,
-      "locked": 2073,
-      "graded": 242,
-      "pending": 1831,
+      "n_cards": 2108,
+      "locked": 2108,
+      "graded": 243,
+      "pending": 1865,
       "buckets": {
         "all_hit": 2,
-        "push": 0,
+        "push": 1,
         "partial": 231,
         "all_missed": 9,
-        "pending": 1831
+        "pending": 1865
       },
       "by_dial": {
         "safe": {
-          "n": 766,
+          "n": 798,
           "graded": 9,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -1889,7 +1889,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 9,
-            "pending": 757
+            "pending": 789
           }
         },
         "even": {
@@ -1929,17 +1929,17 @@
           }
         },
         "longshot": {
-          "n": 755,
-          "graded": 3,
+          "n": 758,
+          "graded": 4,
           "all_hit": 2,
-          "hit_rate": 0.6667,
+          "hit_rate": 0.5,
           "mean_model": 0.1922,
           "log_loss": 1.1687,
           "brier": 0.4466,
-          "staked": 300.0,
-          "net_fair": 428.94,
-          "net_vig2": 400.62,
-          "roi_fair": 1.4298,
+          "staked": 400.0,
+          "net_fair": 519.85,
+          "net_vig2": 487.79,
+          "roi_fair": 1.2996,
           "calibration": {
             "version": "original_contract_v1",
             "n": 3,
@@ -1950,7 +1950,7 @@
             "log_loss": 1.1687,
             "brier": 0.4466,
             "excluded": {
-              "changed_contract": 0,
+              "changed_contract": 1,
               "incomplete_contract": 0,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -1958,26 +1958,26 @@
           },
           "settlements": {
             "all_hit": 2,
-            "reduced_hit": 0,
+            "reduced_hit": 1,
             "void": 0,
             "loss": 1,
-            "pending": 752
+            "pending": 754
           }
         }
       },
       "by_legs": {
         "2": {
           "n": 249,
-          "graded": 6,
+          "graded": 7,
           "all_hit": 2,
-          "hit_rate": 0.3333,
+          "hit_rate": 0.2857,
           "mean_model": 0.2483,
           "log_loss": 1.0113,
           "brier": 0.3783,
-          "staked": 600.0,
-          "net_fair": 128.94,
-          "net_vig2": 100.62,
-          "roi_fair": 0.2149,
+          "staked": 700.0,
+          "net_fair": 219.85,
+          "net_vig2": 187.79,
+          "roi_fair": 0.3141,
           "calibration": {
             "version": "original_contract_v1",
             "n": 4,
@@ -1988,7 +1988,7 @@
             "log_loss": 1.0113,
             "brier": 0.3783,
             "excluded": {
-              "changed_contract": 0,
+              "changed_contract": 1,
               "incomplete_contract": 2,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -1996,14 +1996,14 @@
           },
           "settlements": {
             "all_hit": 2,
-            "reduced_hit": 0,
+            "reduced_hit": 1,
             "void": 0,
             "loss": 4,
-            "pending": 243
+            "pending": 242
           }
         },
         "3": {
-          "n": 338,
+          "n": 339,
           "graded": 33,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2035,11 +2035,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 33,
-            "pending": 305
+            "pending": 306
           }
         },
         "4": {
-          "n": 415,
+          "n": 420,
           "graded": 60,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2071,11 +2071,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 60,
-            "pending": 355
+            "pending": 360
           }
         },
         "5": {
-          "n": 497,
+          "n": 510,
           "graded": 68,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2107,11 +2107,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 68,
-            "pending": 429
+            "pending": 442
           }
         },
         "6": {
-          "n": 574,
+          "n": 590,
           "graded": 75,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2143,7 +2143,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 75,
-            "pending": 499
+            "pending": 515
           }
         }
       }
@@ -1380026,6 +1380026,51 @@
       "money": {
         "net_fair": 264.47,
         "net_vig2": 250.31,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "63bd2fe6eeb9",
+      "week": 8,
+      "dial": "longshot",
+      "seed": "GB",
+      "n_legs": 2,
+      "model": 0.1766,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Love 250+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873023",
+          "result": "hit",
+          "actual": 288.0,
+          "gsis_id": "espn-4036378",
+          "line": 249.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:64c514dc15b3cfcb22ae819e74365133a4451b4df13f699687f36c34ac35d0ae"
+        },
+        {
+          "selection": "J. Reed 40+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873023",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-4362249",
+          "line": 39.5,
+          "side": "home",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:2b9b7ce0393f043e5c2935bd82f0cc052cec873f45b5c3b4058ea9d7c5db49c3"
+        }
+      ],
+      "money": {
+        "net_fair": 90.91,
+        "net_vig2": 87.17,
         "assumed_price_legs": 2
       }
     },
