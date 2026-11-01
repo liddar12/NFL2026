@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-01T20:30:12Z",
+  "generated_utc": "2026-11-01T22:06:57Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (107 games); scores from data/review.json FINAL rows (108 games); scores from ESPN live, STATUS-gated FINAL (108 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (115 games); scores from data/review.json FINAL rows (108 games); scores from ESPN live, STATUS-gated FINAL (116 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 8,
   "legs": {
-    "on_file": 796,
+    "on_file": 799,
     "locked": 645,
-    "unlocked": 151,
-    "resolved": 552,
+    "unlocked": 154,
+    "resolved": 560,
     "unresolved": 80
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 115,
-      "hit_rate": 0.5826,
-      "log_loss": 0.6688,
-      "brier": 0.2386
+      "n": 123,
+      "hit_rate": 0.5854,
+      "log_loss": 0.6619,
+      "brier": 0.2355
     },
     "spread": {
       "n": 137,
@@ -319,10 +319,10 @@
         }
       },
       "moneyline": {
-        "n": 1,
-        "hit_rate": 1.0,
-        "log_loss": 0.4711,
-        "brier": 0.1412
+        "n": 9,
+        "hit_rate": 0.6667,
+        "log_loss": 0.5527,
+        "brier": 0.1858
       },
       "spread": {
         "n": 0,
@@ -10374,6 +10374,126 @@
       "seed_prob": 0.4503,
       "actual": 58.0,
       "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873024",
+      "market": "moneyline",
+      "selection": "DAL ML",
+      "team": "DAL",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6739,
+      "actual": {
+        "home_score": 30,
+        "away_score": 33
+      },
+      "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873025",
+      "market": "moneyline",
+      "selection": "TB ML",
+      "team": "TB",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5247,
+      "actual": {
+        "home_score": 16,
+        "away_score": 0
+      },
+      "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873026",
+      "market": "moneyline",
+      "selection": "BUF ML",
+      "team": "BUF",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7135,
+      "actual": {
+        "home_score": 36,
+        "away_score": 10
+      },
+      "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873027",
+      "market": "moneyline",
+      "selection": "PIT ML",
+      "team": "PIT",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6608,
+      "actual": {
+        "home_score": 27,
+        "away_score": 6
+      },
+      "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873028",
+      "market": "moneyline",
+      "selection": "JAX ML",
+      "team": "JAX",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7819,
+      "actual": {
+        "home_score": 42,
+        "away_score": 7
+      },
+      "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873029",
+      "market": "moneyline",
+      "selection": "NYJ ML",
+      "team": "NYJ",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5176,
+      "actual": {
+        "home_score": 33,
+        "away_score": 38
+      },
+      "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873030",
+      "market": "moneyline",
+      "selection": "MIN ML",
+      "team": "MIN",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5489,
+      "actual": {
+        "home_score": 19,
+        "away_score": 15
+      },
+      "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873031",
+      "market": "moneyline",
+      "selection": "CIN ML",
+      "team": "CIN",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.8071,
+      "actual": {
+        "home_score": 43,
+        "away_score": 36
+      },
+      "hit": true
     }
   ]
 }
