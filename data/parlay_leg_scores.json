@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-02T05:36:15Z",
+  "generated_utc": "2026-11-02T10:22:08Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (119 games); scores from data/review.json FINAL rows (119 games); scores from ESPN live, STATUS-gated FINAL (120 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (119 games); scores from data/review.json FINAL rows (120 games); scores from ESPN live, STATUS-gated FINAL (120 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 8,
@@ -10,24 +10,24 @@
     "on_file": 800,
     "locked": 645,
     "unlocked": 155,
-    "resolved": 591,
-    "unresolved": 53
+    "resolved": 593,
+    "unresolved": 51
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 327,
-      "hit_rate": 0.526,
+      "n": 329,
+      "hit_rate": 0.5228,
       "model": {
-        "log_loss": 0.6691,
-        "brier": 0.238
+        "log_loss": 0.6687,
+        "brier": 0.2378
       },
       "seed": {
         "log_loss": 0.6894,
         "brier": 0.2481
       },
       "by_pricing": {
-        "calibrated": 327
+        "calibrated": 329
       }
     },
     "moneyline": {
@@ -60,33 +60,33 @@
       }
     },
     "RB": {
-      "n": 106,
-      "hit_rate": 0.5283,
+      "n": 107,
+      "hit_rate": 0.5234,
       "model": {
-        "log_loss": 0.649,
-        "brier": 0.2285
+        "log_loss": 0.6494,
+        "brier": 0.2287
       },
       "seed": {
-        "log_loss": 0.6938,
-        "brier": 0.2503
+        "log_loss": 0.6935,
+        "brier": 0.2502
       },
       "by_pricing": {
-        "calibrated": 106
+        "calibrated": 107
       }
     },
     "WR": {
-      "n": 113,
-      "hit_rate": 0.5221,
+      "n": 114,
+      "hit_rate": 0.5175,
       "model": {
-        "log_loss": 0.6431,
-        "brier": 0.2256
+        "log_loss": 0.642,
+        "brier": 0.225
       },
       "seed": {
-        "log_loss": 0.7062,
+        "log_loss": 0.7064,
         "brier": 0.2565
       },
       "by_pricing": {
-        "calibrated": 113
+        "calibrated": 114
       }
     }
   },
@@ -304,18 +304,18 @@
     {
       "week": 8,
       "props": {
-        "n": 30,
-        "hit_rate": 0.4,
+        "n": 32,
+        "hit_rate": 0.375,
         "model": {
-          "log_loss": 0.6918,
-          "brier": 0.2497
+          "log_loss": 0.6862,
+          "brier": 0.2469
         },
         "seed": {
-          "log_loss": 0.7258,
-          "brier": 0.2662
+          "log_loss": 0.7238,
+          "brier": 0.2652
         },
         "by_pricing": {
-          "calibrated": 30
+          "calibrated": 32
         }
       },
       "moneyline": {
@@ -672,22 +672,8 @@
     {
       "week": 8,
       "game_id": "401873035",
-      "market": "rb_rush_yds",
-      "selection": "S. Barkley 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 8,
-      "game_id": "401873035",
       "market": "wr_rec_yds",
       "selection": "D. Smith 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 8,
-      "game_id": "401873035",
-      "market": "wr_rec_yds",
-      "selection": "S. Diggs 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -10878,6 +10864,44 @@
         "away_score": 10
       },
       "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873035",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "S. Barkley 60+ rush yds",
+      "player": "Saquon Barkley",
+      "team": "PHI",
+      "line": 59.5,
+      "mu": 68.71,
+      "sd": 38.87,
+      "z": 0.2369,
+      "p_team": 0.4685,
+      "pricing": "calibrated",
+      "model_prob": 0.4997,
+      "seed_prob": 0.4874,
+      "actual": 30.0,
+      "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873035",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "S. Diggs 60+ rec yds",
+      "player": "Stefon Diggs",
+      "team": "WAS",
+      "line": 59.5,
+      "mu": 50.82,
+      "sd": 41.58,
+      "z": -0.2088,
+      "p_team": 0.5315,
+      "pricing": "calibrated",
+      "model_prob": 0.4016,
+      "seed_prob": 0.5126,
+      "actual": 38.0,
+      "hit": false
     }
   ]
 }
