@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 8,
-  "generated_utc": "2026-11-02T22:06:11Z",
-  "pool_generated_utc": "2026-11-02T22:06:10Z",
+  "generated_utc": "2026-11-02T23:21:06Z",
+  "pool_generated_utc": "2026-11-02T23:21:06Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -427,6 +427,14 @@
       "cards_seen": 12,
       "cards_added": 0,
       "locked_added": 0,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-11-02T23:21:06Z",
+      "week": 8,
+      "cards_seen": 12,
+      "cards_added": 1,
+      "locked_added": 1,
       "unlocked_added": 0
     }
   ],
@@ -710507,6 +710515,114 @@
       "first_seen_utc": "2026-11-01T22:53:42Z",
       "locked": true,
       "locked_utc": "2026-11-01T22:53:42Z"
+    },
+    {
+      "card_id": "84e3071ff2e4",
+      "dial": "even",
+      "seed": "SEA",
+      "rank": 2,
+      "n_legs": 2,
+      "same_game": true,
+      "mixed_game": false,
+      "model": 0.3583,
+      "implied": 0.3325,
+      "ev": 0.0776,
+      "tier": "low",
+      "payout": 200.73,
+      "assumed": 2,
+      "earliest_kickoff_utc": "2026-11-03T01:15Z",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "SEA ML",
+          "game_id": "401873036",
+          "team": "SEA",
+          "side": "home",
+          "player": null,
+          "gsis_id": null,
+          "position": null,
+          "line": null,
+          "mu": null,
+          "model_prob": 0.6343,
+          "implied_prob": 0.6038,
+          "price_source": "fair_market",
+          "priced": false
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "S. Darnold 225+ pass yds",
+          "game_id": "401873036",
+          "team": "SEA",
+          "side": "home",
+          "player": "Sam Darnold",
+          "gsis_id": "espn-3912547",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 218.88,
+          "model_prob": 0.527,
+          "implied_prob": 0.5507,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:bcdfae1efd803a28b0b6e3cacb36b87867c0e0ef7fcfc2c3022aa61aab5ceccb",
+            "season": 2026,
+            "week": 8,
+            "game_id": "401873036",
+            "player_id": "espn-3912547",
+            "market": "qb_pass_yds",
+            "line": 224.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.5270300895564757,
+            "served_prob": 0.527,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-02T23:21:06Z",
+            "source_snapshot_id": "sha256:4bdbab0959c4f28f57fb68696f1eb1df59650622c954f6ecb976f9b01b4e6555",
+            "source_timestamps": {
+              "player_weekly": "2026-11-02T23:21:00Z",
+              "player_projections": "2026-11-02T23:19:12Z",
+              "game_predictions": "2026-11-02T23:19:12Z",
+              "pool_backtest": "2026-10-27T13:03:41Z"
+            },
+            "generation_sha": "135a1bbd6f1ff610463c38eb9b4138e975f0e987",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 224.5,
+              "mu": 218.88030262808599,
+              "sd": 76.6615,
+              "z": -0.07330534064574805,
+              "p_team": 0.6343,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873036",
+                "side:home",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:be748912bae32f3f9dd07261701513dd8f9a3133ce6a63465098faf3ae0edd3d"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-02T23:21:06Z",
+      "locked": true,
+      "locked_utc": "2026-11-02T23:21:06Z"
     }
   ]
 }
