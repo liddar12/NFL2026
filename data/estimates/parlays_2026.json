@@ -1,7 +1,7 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-02T02:35:46Z",
-  "as_of_utc": "2026-11-02T02:33:21Z",
+  "generated_utc": "2026-11-02T05:36:15Z",
+  "as_of_utc": "2026-11-02T05:34:00Z",
   "source": "scripts/build_parlay_ledger.py over data/parlays.json (legs as shipped), data/game_predictions.json (game, kickoff, p_team) and data/player_projections.json (the player behind a prop selection)",
   "note": "one entry per (season, week, game_id, market, selection), written the first time the leg is seen and never rewritten; `locked` is true only when that first sight preceded the game's kickoff \u2014 unlocked legs are kept for the record and excluded from scoring. p_team is the side's win probability the leg was priced with, so the seed pricing can be recomputed on identical legs. implied_prob is a yardstick, never an input.",
   "runs": [
@@ -5004,6 +5004,19 @@
       "legs_added": 0,
       "locked_added": 0,
       "unlocked_added": 0,
+      "skipped": {
+        "unknown_market": 0,
+        "no_game": 0,
+        "bad_selection": 0
+      }
+    },
+    {
+      "as_of_utc": "2026-11-02T05:34:00Z",
+      "week": 8,
+      "legs_seen": 49,
+      "legs_added": 1,
+      "locked_added": 0,
+      "unlocked_added": 1,
       "skipped": {
         "unknown_market": 0,
         "no_game": 0,
@@ -25629,6 +25642,32 @@
       "seen_utc": "2026-10-27T10:45:56Z",
       "locked": true,
       "locked_utc": "2026-10-27T10:45:56Z"
+    },
+    {
+      "season": 2026,
+      "week": 8,
+      "market": "qb_pass_yds",
+      "selection": "J. Hurts 225+ pass yds",
+      "position": "QB",
+      "player": "Jalen Hurts",
+      "gsis_id": "espn-4040715",
+      "team": "PHI",
+      "side": "away",
+      "line": 224.5,
+      "mu": 222.3,
+      "sd": 76.66,
+      "z": -0.0287,
+      "game_id": "401873035",
+      "home": "WAS",
+      "away": "PHI",
+      "kickoff_utc": "2026-11-02T01:20Z",
+      "p_team": 0.393,
+      "model_prob": 0.4352,
+      "implied_prob": 0.4548,
+      "pricing": "calibrated",
+      "seen_utc": "2026-11-02T05:34:00Z",
+      "locked": false,
+      "locked_utc": null
     },
     {
       "season": 2026,
