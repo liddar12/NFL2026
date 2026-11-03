@@ -1,7 +1,7 @@
 {
   "season": 2026,
   "week": 9,
-  "updated_utc": "2026-11-03T10:15:45Z",
+  "updated_utc": "2026-11-03T10:48:08Z",
   "parlays": [
     {
       "parlay_id": "401873037-g1",
@@ -925,7 +925,41 @@
     },
     {
       "parlay_id": "401873041-g2",
-      "card_id": "d52130ff89db",
+      "card_id": "293db5d4ba4d",
+      "scope": "game",
+      "legs": [
+        {
+          "market": "moneyline",
+          "selection": "DEN ML",
+          "implied_prob": 0.5721,
+          "model_prob": 0.6605,
+          "side": "away",
+          "price_source": "fair_market"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "T. McMillan 60+ rec yds",
+          "implied_prob": 0.4319,
+          "model_prob": 0.4133,
+          "side": "home",
+          "pricing": "calibrated",
+          "price_source": "assumed",
+          "estimate": true,
+          "mu": 57.65,
+          "sd": 41.58,
+          "z": -0.0444,
+          "line": 59.5,
+          "gsis_id": "espn-4685472"
+        }
+      ],
+      "model_ev": 0.0104,
+      "confidence_tier": "low",
+      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
+      "game_id": "401873041"
+    },
+    {
+      "parlay_id": "401873041-g3",
+      "card_id": "d96f18cf4924",
       "scope": "game",
       "legs": [
         {
@@ -945,56 +979,22 @@
         },
         {
           "market": "wr_rec_yds",
-          "selection": "C. Sutton 60+ rec yds",
-          "implied_prob": 0.4391,
-          "model_prob": 0.4202,
-          "side": "away",
+          "selection": "T. McMillan 60+ rec yds",
+          "implied_prob": 0.4319,
+          "model_prob": 0.4133,
+          "side": "home",
           "pricing": "calibrated",
           "price_source": "assumed",
           "estimate": true,
-          "mu": 54.02,
+          "mu": 57.65,
           "sd": 41.58,
-          "z": -0.1319,
+          "z": -0.0444,
           "line": 59.5,
-          "gsis_id": "espn-3128429"
+          "gsis_id": "espn-4685472"
         }
       ],
-      "model_ev": 0.2252,
-      "confidence_tier": "medium",
-      "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
-      "game_id": "401873041"
-    },
-    {
-      "parlay_id": "401873041-g3",
-      "card_id": "22989933fb06",
-      "scope": "game",
-      "legs": [
-        {
-          "market": "moneyline",
-          "selection": "DEN ML",
-          "implied_prob": 0.5721,
-          "model_prob": 0.6605,
-          "side": "away",
-          "price_source": "fair_market"
-        },
-        {
-          "market": "wr_rec_yds",
-          "selection": "C. Sutton 60+ rec yds",
-          "implied_prob": 0.4391,
-          "model_prob": 0.4202,
-          "side": "away",
-          "pricing": "calibrated",
-          "price_source": "assumed",
-          "estimate": true,
-          "mu": 54.02,
-          "sd": 41.58,
-          "z": -0.1319,
-          "line": 59.5,
-          "gsis_id": "espn-3128429"
-        }
-      ],
-      "model_ev": 0.1979,
-      "confidence_tier": "medium",
+      "model_ev": 0.0149,
+      "confidence_tier": "low",
       "correlation_note": "Same-game legs are correlated; combined probability uses a pairwise correlation adjustment (not the independence product). SIMULATED EV uses independent 1/implied_prob prices, not an executable same-game quote.",
       "game_id": "401873041"
     },
@@ -2476,7 +2476,7 @@
       "correlation_note": "Cross-game legs treated as independent (rho=0). EV is simulated, not a sportsbook quote."
     }
   ],
-  "archived_utc": "2026-11-03T10:17:52Z",
+  "archived_utc": "2026-11-03T10:49:56Z",
   "closed": false,
   "history": [
     {
@@ -2486,6 +2486,10 @@
     {
       "updated_utc": "2026-11-03T10:15:45Z",
       "archived_utc": "2026-11-03T10:17:52Z"
+    },
+    {
+      "updated_utc": "2026-11-03T10:48:08Z",
+      "archived_utc": "2026-11-03T10:49:56Z"
     }
   ]
 }

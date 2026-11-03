@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-03T10:19:23Z",
+  "generated_utc": "2026-11-03T10:50:51Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (120 games); scores from data/review.json FINAL rows (121 games); scores from ESPN live, STATUS-gated FINAL (105 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
@@ -2150,20 +2150,20 @@
     },
     {
       "week": 9,
-      "n_cards": 978,
-      "locked": 978,
+      "n_cards": 1002,
+      "locked": 1002,
       "graded": 0,
-      "pending": 978,
+      "pending": 1002,
       "buckets": {
         "all_hit": 0,
         "push": 0,
         "partial": 0,
         "all_missed": 0,
-        "pending": 978
+        "pending": 1002
       },
       "by_dial": {
         "safe": {
-          "n": 315,
+          "n": 322,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2195,11 +2195,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 315
+            "pending": 322
           }
         },
         "even": {
-          "n": 310,
+          "n": 314,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2231,11 +2231,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 310
+            "pending": 314
           }
         },
         "longshot": {
-          "n": 353,
+          "n": 366,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2267,84 +2267,12 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 353
+            "pending": 366
           }
         }
       },
       "by_legs": {
         "2": {
-          "n": 188,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 188
-          }
-        },
-        "3": {
-          "n": 191,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 191
-          }
-        },
-        "4": {
           "n": 192,
           "graded": 0,
           "all_hit": 0,
@@ -2380,8 +2308,8 @@
             "pending": 192
           }
         },
-        "5": {
-          "n": 196,
+        "3": {
+          "n": 195,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2413,11 +2341,83 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 196
+            "pending": 195
+          }
+        },
+        "4": {
+          "n": 197,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 197
+          }
+        },
+        "5": {
+          "n": 200,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 200
           }
         },
         "6": {
-          "n": 211,
+          "n": 218,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -2449,7 +2449,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 211
+            "pending": 218
           }
         }
       }
