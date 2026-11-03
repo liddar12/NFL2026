@@ -388,10 +388,10 @@ shapes and actual engine supersession contracts; neither is a Linux execution pa
 Local verification, source identities and remaining acceptance are recorded in
 `LINUX_CANARY_EVIDENCE_20261020.json`: 2,249 feature tests passed without skips,
 core partition passed, and the exact focused command/TAP guard passed 53/53.
-Actual hosted execution remains pending the
-owner's normal fast-forward push to the existing #184 branch. That push should
-start both the unchanged ordinary CI and this new canary workflow automatically;
-manual dispatch is not needed to validate the draft.
+Hosted execution is done: the push of `4f83acb5` to the existing #184 branch ran
+both the ordinary CI and the canary workflow, and the hosted Linux canary passed
+in CI on `4f83acb5` (Oct 20, 2026; checks 4:04–4:09 PM CDT), alongside gate, e2e
+and regression core/features.
 
 Require **both workflows**, including the canary job itself, to succeed on the new
 candidate. A skipped canary job, standard-CI engine skips or uploaded logs alone
