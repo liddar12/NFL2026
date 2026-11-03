@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-03T03:59:17Z",
+  "generated_utc": "2026-11-03T05:45:13Z",
   "weeks_replayed": [
     1,
     2,
@@ -12,15 +12,15 @@
     8
   ],
   "legs": {
-    "on_file": 800,
-    "locked": 645,
+    "on_file": 850,
+    "locked": 695,
     "unlocked": 155,
-    "resolved": 593,
+    "resolved": 596,
     "unresolved_by_reason": {
-      "no_stat_line": 44,
+      "no_stat_line": 42,
       "push": 6,
       "tie": 1,
-      "week_not_resolved": 1
+      "week_not_resolved": 50
     }
   },
   "baseline": "shipped",
@@ -29,11 +29,11 @@
       "description": "The probability locked on the leg at build time. The baseline every other row is measured against; it is not a candidate.",
       "legs": {
         "pooled": {
-          "n": 593,
-          "hit_rate": 0.5059,
-          "log_loss": 0.6713,
-          "brier": 0.2394,
-          "shipped_log_loss_same_legs": 0.6713,
+          "n": 596,
+          "hit_rate": 0.5067,
+          "log_loss": 0.6718,
+          "brier": 0.2396,
+          "shipped_log_loss_same_legs": 0.6718,
           "delta_log_loss": 0.0,
           "ci90": [
             0.0,
@@ -141,11 +141,11 @@
             "week": 7
           },
           {
-            "n": 45,
-            "hit_rate": 0.4889,
-            "log_loss": 0.6365,
-            "brier": 0.2238,
-            "shipped_log_loss_same_legs": 0.6365,
+            "n": 48,
+            "hit_rate": 0.5,
+            "log_loss": 0.6444,
+            "brier": 0.2276,
+            "shipped_log_loss_same_legs": 0.6444,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -157,11 +157,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 127,
-            "hit_rate": 0.5984,
-            "log_loss": 0.6545,
-            "brier": 0.232,
-            "shipped_log_loss_same_legs": 0.6545,
+            "n": 128,
+            "hit_rate": 0.5938,
+            "log_loss": 0.6572,
+            "brier": 0.2333,
+            "shipped_log_loss_same_legs": 0.6572,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -183,11 +183,11 @@
             "verdict": "same"
           },
           "rb_rush_yds": {
-            "n": 107,
-            "hit_rate": 0.5234,
-            "log_loss": 0.6494,
-            "brier": 0.2287,
-            "shipped_log_loss_same_legs": 0.6494,
+            "n": 108,
+            "hit_rate": 0.5278,
+            "log_loss": 0.6517,
+            "brier": 0.2299,
+            "shipped_log_loss_same_legs": 0.6517,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -209,11 +209,11 @@
             "verdict": "same"
           },
           "wr_rec_yds": {
-            "n": 114,
-            "hit_rate": 0.5175,
-            "log_loss": 0.642,
-            "brier": 0.225,
-            "shipped_log_loss_same_legs": 0.642,
+            "n": 115,
+            "hit_rate": 0.5217,
+            "log_loss": 0.6397,
+            "brier": 0.224,
+            "shipped_log_loss_same_legs": 0.6397,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -226,44 +226,44 @@
         "changed_legs": 0
       },
       "parlays": {
-        "eligible": 572,
+        "eligible": 575,
         "excluded_by_reason": {
-          "no_stat_line": 30,
+          "no_stat_line": 29,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 2
+          "week_not_replayed": 63
         },
         "rules": {
           "all": {
-            "n": 572,
-            "hit": 187,
-            "staked": 57200.0,
-            "net_fair": 15402.57,
-            "net_vig2": 10612.99,
-            "roi_fair": 0.2693,
-            "roi_vig2": 0.1855,
-            "assumed_price_legs": 467
+            "n": 575,
+            "hit": 188,
+            "staked": 57500.0,
+            "net_fair": 15467.04,
+            "net_vig2": 10663.31,
+            "roi_fair": 0.269,
+            "roi_vig2": 0.1854,
+            "assumed_price_legs": 471
           },
           "ev_gt_0": {
-            "n": 287,
+            "n": 288,
             "hit": 86,
-            "staked": 28700.0,
-            "net_fair": -1113.74,
-            "net_vig2": -2299.49,
-            "roi_fair": -0.0388,
-            "roi_vig2": -0.0801,
-            "assumed_price_legs": 315
+            "staked": 28800.0,
+            "net_fair": -1213.74,
+            "net_vig2": -2399.49,
+            "roi_fair": -0.0421,
+            "roi_vig2": -0.0833,
+            "assumed_price_legs": 316
           },
           "ev_gt_0.05": {
-            "n": 223,
+            "n": 224,
             "hit": 62,
-            "staked": 22300.0,
-            "net_fair": -2096.23,
-            "net_vig2": -2995.3,
-            "roi_fair": -0.094,
-            "roi_vig2": -0.1343,
-            "assumed_price_legs": 247
+            "staked": 22400.0,
+            "net_fair": -2196.23,
+            "net_vig2": -3095.3,
+            "roi_fair": -0.098,
+            "roi_vig2": -0.1382,
+            "assumed_price_legs": 248
           },
           "tier_high_only": {
             "n": 6,
@@ -276,14 +276,14 @@
             "assumed_price_legs": 5
           },
           "max_2_legs": {
-            "n": 385,
-            "hit": 129,
-            "staked": 38500.0,
-            "net_fair": 1493.65,
-            "net_vig2": -59.36,
-            "roi_fair": 0.0388,
-            "roi_vig2": -0.0015,
-            "assumed_price_legs": 467
+            "n": 388,
+            "hit": 130,
+            "staked": 38800.0,
+            "net_fair": 1558.11,
+            "net_vig2": -9.04,
+            "roi_fair": 0.0402,
+            "roi_vig2": -0.0002,
+            "assumed_price_legs": 471
           }
         }
       },
@@ -294,15 +294,15 @@
       "description": "Pre-calibration pricing: props = seed_prop_prob(p_team), moneyline = p_team, spread = 0.5. The floor the calibrated model had to clear to ship.",
       "legs": {
         "pooled": {
-          "n": 593,
-          "hit_rate": 0.5059,
-          "log_loss": 0.6828,
-          "brier": 0.2451,
-          "shipped_log_loss_same_legs": 0.6713,
-          "delta_log_loss": 0.0115,
+          "n": 596,
+          "hit_rate": 0.5067,
+          "log_loss": 0.6834,
+          "brier": 0.2454,
+          "shipped_log_loss_same_legs": 0.6718,
+          "delta_log_loss": 0.0116,
           "ci90": [
-            -0.0014,
-            0.0241
+            -0.002,
+            0.0239
           ],
           "verdict": "same"
         },
@@ -406,15 +406,15 @@
             "week": 7
           },
           {
-            "n": 45,
-            "hit_rate": 0.4889,
-            "log_loss": 0.6632,
-            "brier": 0.2368,
-            "shipped_log_loss_same_legs": 0.6365,
-            "delta_log_loss": 0.0267,
+            "n": 48,
+            "hit_rate": 0.5,
+            "log_loss": 0.6718,
+            "brier": 0.2409,
+            "shipped_log_loss_same_legs": 0.6444,
+            "delta_log_loss": 0.0274,
             "ci90": [
-              -0.0093,
-              0.062
+              -0.0064,
+              0.0622
             ],
             "verdict": "same",
             "week": 8
@@ -422,11 +422,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 127,
-            "hit_rate": 0.5984,
-            "log_loss": 0.6545,
-            "brier": 0.232,
-            "shipped_log_loss_same_legs": 0.6545,
+            "n": 128,
+            "hit_rate": 0.5938,
+            "log_loss": 0.6572,
+            "brier": 0.2333,
+            "shipped_log_loss_same_legs": 0.6572,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -448,15 +448,15 @@
             "verdict": "same"
           },
           "rb_rush_yds": {
-            "n": 107,
-            "hit_rate": 0.5234,
-            "log_loss": 0.6935,
-            "brier": 0.2502,
-            "shipped_log_loss_same_legs": 0.6494,
-            "delta_log_loss": 0.0442,
+            "n": 108,
+            "hit_rate": 0.5278,
+            "log_loss": 0.6946,
+            "brier": 0.2507,
+            "shipped_log_loss_same_legs": 0.6517,
+            "delta_log_loss": 0.0429,
             "ci90": [
-              0.0068,
-              0.0816
+              0.0057,
+              0.0798
             ],
             "verdict": "worse"
           },
@@ -474,41 +474,41 @@
             "verdict": "same"
           },
           "wr_rec_yds": {
-            "n": 114,
-            "hit_rate": 0.5175,
-            "log_loss": 0.7064,
-            "brier": 0.2565,
-            "shipped_log_loss_same_legs": 0.642,
-            "delta_log_loss": 0.0644,
+            "n": 115,
+            "hit_rate": 0.5217,
+            "log_loss": 0.7053,
+            "brier": 0.256,
+            "shipped_log_loss_same_legs": 0.6397,
+            "delta_log_loss": 0.0656,
             "ci90": [
-              0.0353,
-              0.0915
+              0.0364,
+              0.092
             ],
             "verdict": "worse"
           }
         },
         "skipped_legs": 0,
-        "changed_legs": 329
+        "changed_legs": 331
       },
       "parlays": {
-        "eligible": 572,
+        "eligible": 575,
         "excluded_by_reason": {
-          "no_stat_line": 30,
+          "no_stat_line": 29,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 2
+          "week_not_replayed": 63
         },
         "rules": {
           "all": {
-            "n": 572,
-            "hit": 187,
-            "staked": 57200.0,
-            "net_fair": 15402.57,
-            "net_vig2": 10612.99,
-            "roi_fair": 0.2693,
-            "roi_vig2": 0.1855,
-            "assumed_price_legs": 467
+            "n": 575,
+            "hit": 188,
+            "staked": 57500.0,
+            "net_fair": 15467.04,
+            "net_vig2": 10663.31,
+            "roi_fair": 0.269,
+            "roi_vig2": 0.1854,
+            "assumed_price_legs": 471
           },
           "ev_gt_0": {
             "n": 300,
@@ -541,32 +541,32 @@
             "assumed_price_legs": 116
           },
           "max_2_legs": {
-            "n": 385,
-            "hit": 129,
-            "staked": 38500.0,
-            "net_fair": 1493.65,
-            "net_vig2": -59.36,
-            "roi_fair": 0.0388,
-            "roi_vig2": -0.0015,
-            "assumed_price_legs": 467
+            "n": 388,
+            "hit": 130,
+            "staked": 38800.0,
+            "net_fair": 1558.11,
+            "net_vig2": -9.04,
+            "roi_fair": 0.0402,
+            "roi_vig2": -0.0002,
+            "assumed_price_legs": 471
           }
         }
       },
       "verdict": "same",
-      "note": "593 of 593 resolved leg(s) re-priced, 329 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "596 of 596 resolved leg(s) re-priced, 331 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "pool_calibration": {
       "description": "Props re-priced with the wide-pool coefficients from leg_pool_backtest.json, the support rule kept: a leg whose z is outside the pool's measured range is skipped, not extrapolated. Game legs as shipped.",
       "legs": {
         "pooled": {
-          "n": 592,
-          "hit_rate": 0.5051,
-          "log_loss": 0.6634,
-          "brier": 0.2358,
-          "shipped_log_loss_same_legs": 0.6701,
-          "delta_log_loss": -0.0066,
+          "n": 595,
+          "hit_rate": 0.5059,
+          "log_loss": 0.6636,
+          "brier": 0.2359,
+          "shipped_log_loss_same_legs": 0.6705,
+          "delta_log_loss": -0.0069,
           "ci90": [
-            -0.0134,
+            -0.0137,
             0.0005
           ],
           "verdict": "same"
@@ -671,15 +671,15 @@
             "week": 7
           },
           {
-            "n": 45,
-            "hit_rate": 0.4889,
-            "log_loss": 0.6186,
-            "brier": 0.2162,
-            "shipped_log_loss_same_legs": 0.6365,
-            "delta_log_loss": -0.0179,
+            "n": 48,
+            "hit_rate": 0.5,
+            "log_loss": 0.6242,
+            "brier": 0.2192,
+            "shipped_log_loss_same_legs": 0.6444,
+            "delta_log_loss": -0.0202,
             "ci90": [
-              -0.044,
-              0.0079
+              -0.0454,
+              0.0048
             ],
             "verdict": "same",
             "week": 8
@@ -687,11 +687,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 127,
-            "hit_rate": 0.5984,
-            "log_loss": 0.6545,
-            "brier": 0.232,
-            "shipped_log_loss_same_legs": 0.6545,
+            "n": 128,
+            "hit_rate": 0.5938,
+            "log_loss": 0.6572,
+            "brier": 0.2333,
+            "shipped_log_loss_same_legs": 0.6572,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -713,15 +713,15 @@
             "verdict": "same"
           },
           "rb_rush_yds": {
-            "n": 106,
-            "hit_rate": 0.5189,
-            "log_loss": 0.6315,
-            "brier": 0.2202,
-            "shipped_log_loss_same_legs": 0.6422,
-            "delta_log_loss": -0.0107,
+            "n": 107,
+            "hit_rate": 0.5234,
+            "log_loss": 0.634,
+            "brier": 0.2215,
+            "shipped_log_loss_same_legs": 0.6446,
+            "delta_log_loss": -0.0105,
             "ci90": [
-              -0.0347,
-              0.0146
+              -0.0349,
+              0.0153
             ],
             "verdict": "same"
           },
@@ -739,62 +739,62 @@
             "verdict": "same"
           },
           "wr_rec_yds": {
-            "n": 114,
-            "hit_rate": 0.5175,
-            "log_loss": 0.6153,
-            "brier": 0.2133,
-            "shipped_log_loss_same_legs": 0.642,
-            "delta_log_loss": -0.0267,
+            "n": 115,
+            "hit_rate": 0.5217,
+            "log_loss": 0.6118,
+            "brier": 0.2118,
+            "shipped_log_loss_same_legs": 0.6397,
+            "delta_log_loss": -0.0279,
             "ci90": [
-              -0.0507,
-              0.0001
+              -0.0515,
+              -0.0018
             ],
-            "verdict": "same"
+            "verdict": "better"
           }
         },
         "skipped_legs": 1,
-        "changed_legs": 328
+        "changed_legs": 330
       },
       "parlays": {
-        "eligible": 569,
+        "eligible": 572,
         "excluded_by_reason": {
-          "no_stat_line": 30,
+          "no_stat_line": 29,
           "leg_not_locked": 84,
           "push": 6,
           "leg_not_priced_by_variant": 3,
           "tie": 2,
-          "week_not_resolved": 2
+          "week_not_replayed": 63
         },
         "rules": {
           "all": {
-            "n": 569,
-            "hit": 186,
-            "staked": 56900.0,
-            "net_fair": 15435.04,
-            "net_vig2": 10655.85,
-            "roi_fair": 0.2713,
-            "roi_vig2": 0.1873,
-            "assumed_price_legs": 463
+            "n": 572,
+            "hit": 187,
+            "staked": 57200.0,
+            "net_fair": 15499.5,
+            "net_vig2": 10706.16,
+            "roi_fair": 0.271,
+            "roi_vig2": 0.1872,
+            "assumed_price_legs": 467
           },
           "ev_gt_0": {
-            "n": 264,
-            "hit": 89,
-            "staked": 26400.0,
-            "net_fair": 2473.01,
-            "net_vig2": 1237.31,
-            "roi_fair": 0.0937,
-            "roi_vig2": 0.0469,
-            "assumed_price_legs": 287
+            "n": 266,
+            "hit": 90,
+            "staked": 26600.0,
+            "net_fair": 2637.48,
+            "net_vig2": 1387.62,
+            "roi_fair": 0.0992,
+            "roi_vig2": 0.0522,
+            "assumed_price_legs": 290
           },
           "ev_gt_0.05": {
-            "n": 223,
+            "n": 224,
             "hit": 76,
-            "staked": 22300.0,
-            "net_fair": 2823.66,
-            "net_vig2": 1733.54,
-            "roi_fair": 0.1266,
-            "roi_vig2": 0.0777,
-            "assumed_price_legs": 243
+            "staked": 22400.0,
+            "net_fair": 2723.66,
+            "net_vig2": 1633.54,
+            "roi_fair": 0.1216,
+            "roi_vig2": 0.0729,
+            "assumed_price_legs": 244
           },
           "tier_high_only": {
             "n": 15,
@@ -807,32 +807,32 @@
             "assumed_price_legs": 20
           },
           "max_2_legs": {
-            "n": 382,
-            "hit": 128,
-            "staked": 38200.0,
-            "net_fair": 1526.12,
-            "net_vig2": -16.5,
-            "roi_fair": 0.04,
-            "roi_vig2": -0.0004,
-            "assumed_price_legs": 463
+            "n": 385,
+            "hit": 129,
+            "staked": 38500.0,
+            "net_fair": 1590.58,
+            "net_vig2": 33.82,
+            "roi_fair": 0.0413,
+            "roi_vig2": 0.0009,
+            "assumed_price_legs": 467
           }
         }
       },
       "verdict": "same",
-      "note": "592 of 593 resolved leg(s) re-priced, 328 changed, 1 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "595 of 596 resolved leg(s) re-priced, 330 changed, 1 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "spread_margin_model": {
       "description": "Spread legs priced by the retired pre-R51 Elo margin rule (p_cover = Phi((Phi^-1(p_team)*13.5 - handicap)/13.5)); moneyline and props as shipped. A retired rule, re-measured on live legs -- not a path back in.",
       "legs": {
         "pooled": {
-          "n": 593,
-          "hit_rate": 0.5059,
-          "log_loss": 0.676,
-          "brier": 0.2415,
-          "shipped_log_loss_same_legs": 0.6713,
-          "delta_log_loss": 0.0047,
+          "n": 596,
+          "hit_rate": 0.5067,
+          "log_loss": 0.6764,
+          "brier": 0.2417,
+          "shipped_log_loss_same_legs": 0.6718,
+          "delta_log_loss": 0.0046,
           "ci90": [
-            -0.0011,
+            -0.001,
             0.0109
           ],
           "verdict": "same"
@@ -937,11 +937,11 @@
             "week": 7
           },
           {
-            "n": 45,
-            "hit_rate": 0.4889,
-            "log_loss": 0.6365,
-            "brier": 0.2238,
-            "shipped_log_loss_same_legs": 0.6365,
+            "n": 48,
+            "hit_rate": 0.5,
+            "log_loss": 0.6444,
+            "brier": 0.2276,
+            "shipped_log_loss_same_legs": 0.6444,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -953,11 +953,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 127,
-            "hit_rate": 0.5984,
-            "log_loss": 0.6545,
-            "brier": 0.232,
-            "shipped_log_loss_same_legs": 0.6545,
+            "n": 128,
+            "hit_rate": 0.5938,
+            "log_loss": 0.6572,
+            "brier": 0.2333,
+            "shipped_log_loss_same_legs": 0.6572,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -979,11 +979,11 @@
             "verdict": "same"
           },
           "rb_rush_yds": {
-            "n": 107,
-            "hit_rate": 0.5234,
-            "log_loss": 0.6494,
-            "brier": 0.2287,
-            "shipped_log_loss_same_legs": 0.6494,
+            "n": 108,
+            "hit_rate": 0.5278,
+            "log_loss": 0.6517,
+            "brier": 0.2299,
+            "shipped_log_loss_same_legs": 0.6517,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1005,11 +1005,11 @@
             "verdict": "same"
           },
           "wr_rec_yds": {
-            "n": 114,
-            "hit_rate": 0.5175,
-            "log_loss": 0.642,
-            "brier": 0.225,
-            "shipped_log_loss_same_legs": 0.642,
+            "n": 115,
+            "hit_rate": 0.5217,
+            "log_loss": 0.6397,
+            "brier": 0.224,
+            "shipped_log_loss_same_legs": 0.6397,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1022,44 +1022,44 @@
         "changed_legs": 137
       },
       "parlays": {
-        "eligible": 572,
+        "eligible": 575,
         "excluded_by_reason": {
-          "no_stat_line": 30,
+          "no_stat_line": 29,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 2
+          "week_not_replayed": 63
         },
         "rules": {
           "all": {
-            "n": 572,
-            "hit": 187,
-            "staked": 57200.0,
-            "net_fair": 15402.57,
-            "net_vig2": 10612.99,
-            "roi_fair": 0.2693,
-            "roi_vig2": 0.1855,
-            "assumed_price_legs": 467
+            "n": 575,
+            "hit": 188,
+            "staked": 57500.0,
+            "net_fair": 15467.04,
+            "net_vig2": 10663.31,
+            "roi_fair": 0.269,
+            "roi_vig2": 0.1854,
+            "assumed_price_legs": 471
           },
           "ev_gt_0": {
-            "n": 269,
+            "n": 270,
             "hit": 83,
-            "staked": 26900.0,
-            "net_fair": -447.87,
-            "net_vig2": -1589.58,
-            "roi_fair": -0.0166,
-            "roi_vig2": -0.0591,
-            "assumed_price_legs": 297
+            "staked": 27000.0,
+            "net_fair": -547.87,
+            "net_vig2": -1689.58,
+            "roi_fair": -0.0203,
+            "roi_vig2": -0.0626,
+            "assumed_price_legs": 298
           },
           "ev_gt_0.05": {
-            "n": 218,
+            "n": 219,
             "hit": 63,
-            "staked": 21800.0,
-            "net_fair": -1211.1,
-            "net_vig2": -2125.12,
-            "roi_fair": -0.0556,
-            "roi_vig2": -0.0975,
-            "assumed_price_legs": 242
+            "staked": 21900.0,
+            "net_fair": -1311.1,
+            "net_vig2": -2225.12,
+            "roi_fair": -0.0599,
+            "roi_vig2": -0.1016,
+            "assumed_price_legs": 243
           },
           "tier_high_only": {
             "n": 7,
@@ -1072,33 +1072,33 @@
             "assumed_price_legs": 6
           },
           "max_2_legs": {
-            "n": 385,
-            "hit": 129,
-            "staked": 38500.0,
-            "net_fair": 1493.65,
-            "net_vig2": -59.36,
-            "roi_fair": 0.0388,
-            "roi_vig2": -0.0015,
-            "assumed_price_legs": 467
+            "n": 388,
+            "hit": 130,
+            "staked": 38800.0,
+            "net_fair": 1558.11,
+            "net_vig2": -9.04,
+            "roi_fair": 0.0402,
+            "roi_vig2": -0.0002,
+            "assumed_price_legs": 471
           }
         }
       },
       "verdict": "same",
-      "note": "593 of 593 resolved leg(s) re-priced, 137 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "596 of 596 resolved leg(s) re-priced, 137 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     },
     "shrink_to_half": {
       "description": "Props halved toward 0.5 (p = 0.5 + 0.5*(shipped - 0.5)); game legs as shipped. The simplest test of whether the prop model is overconfident rather than wrong.",
       "legs": {
         "pooled": {
-          "n": 593,
-          "hit_rate": 0.5059,
-          "log_loss": 0.6736,
-          "brier": 0.2405,
-          "shipped_log_loss_same_legs": 0.6713,
-          "delta_log_loss": 0.0022,
+          "n": 596,
+          "hit_rate": 0.5067,
+          "log_loss": 0.6741,
+          "brier": 0.2408,
+          "shipped_log_loss_same_legs": 0.6718,
+          "delta_log_loss": 0.0023,
           "ci90": [
             -0.0047,
-            0.0089
+            0.0088
           ],
           "verdict": "same"
         },
@@ -1202,15 +1202,15 @@
             "week": 7
           },
           {
-            "n": 45,
-            "hit_rate": 0.4889,
-            "log_loss": 0.6353,
-            "brier": 0.223,
-            "shipped_log_loss_same_legs": 0.6365,
-            "delta_log_loss": -0.0012,
+            "n": 48,
+            "hit_rate": 0.5,
+            "log_loss": 0.644,
+            "brier": 0.2271,
+            "shipped_log_loss_same_legs": 0.6444,
+            "delta_log_loss": -0.0004,
             "ci90": [
-              -0.0234,
-              0.021
+              -0.0211,
+              0.0205
             ],
             "verdict": "same",
             "week": 8
@@ -1218,11 +1218,11 @@
         ],
         "by_market": {
           "moneyline": {
-            "n": 127,
-            "hit_rate": 0.5984,
-            "log_loss": 0.6545,
-            "brier": 0.232,
-            "shipped_log_loss_same_legs": 0.6545,
+            "n": 128,
+            "hit_rate": 0.5938,
+            "log_loss": 0.6572,
+            "brier": 0.2333,
+            "shipped_log_loss_same_legs": 0.6572,
             "delta_log_loss": 0.0,
             "ci90": [
               0.0,
@@ -1244,15 +1244,15 @@
             "verdict": "same"
           },
           "rb_rush_yds": {
-            "n": 107,
-            "hit_rate": 0.5234,
-            "log_loss": 0.6641,
-            "brier": 0.2356,
-            "shipped_log_loss_same_legs": 0.6494,
-            "delta_log_loss": 0.0147,
+            "n": 108,
+            "hit_rate": 0.5278,
+            "log_loss": 0.6653,
+            "brier": 0.2362,
+            "shipped_log_loss_same_legs": 0.6517,
+            "delta_log_loss": 0.0136,
             "ci90": [
-              -0.0042,
-              0.0334
+              -0.0053,
+              0.032
             ],
             "verdict": "same"
           },
@@ -1270,41 +1270,41 @@
             "verdict": "same"
           },
           "wr_rec_yds": {
-            "n": 114,
-            "hit_rate": 0.5175,
-            "log_loss": 0.6636,
-            "brier": 0.2353,
-            "shipped_log_loss_same_legs": 0.642,
-            "delta_log_loss": 0.0216,
+            "n": 115,
+            "hit_rate": 0.5217,
+            "log_loss": 0.6624,
+            "brier": 0.2347,
+            "shipped_log_loss_same_legs": 0.6397,
+            "delta_log_loss": 0.0227,
             "ci90": [
-              0.0077,
-              0.035
+              0.0084,
+              0.0366
             ],
             "verdict": "worse"
           }
         },
         "skipped_legs": 0,
-        "changed_legs": 329
+        "changed_legs": 331
       },
       "parlays": {
-        "eligible": 572,
+        "eligible": 575,
         "excluded_by_reason": {
-          "no_stat_line": 30,
+          "no_stat_line": 29,
           "leg_not_locked": 84,
           "push": 6,
           "tie": 2,
-          "week_not_resolved": 2
+          "week_not_replayed": 63
         },
         "rules": {
           "all": {
-            "n": 572,
-            "hit": 187,
-            "staked": 57200.0,
-            "net_fair": 15402.57,
-            "net_vig2": 10612.99,
-            "roi_fair": 0.2693,
-            "roi_vig2": 0.1855,
-            "assumed_price_legs": 467
+            "n": 575,
+            "hit": 188,
+            "staked": 57500.0,
+            "net_fair": 15467.04,
+            "net_vig2": 10663.31,
+            "roi_fair": 0.269,
+            "roi_vig2": 0.1854,
+            "assumed_price_legs": 471
           },
           "ev_gt_0": {
             "n": 280,
@@ -1337,19 +1337,19 @@
             "assumed_price_legs": 35
           },
           "max_2_legs": {
-            "n": 385,
-            "hit": 129,
-            "staked": 38500.0,
-            "net_fair": 1493.65,
-            "net_vig2": -59.36,
-            "roi_fair": 0.0388,
-            "roi_vig2": -0.0015,
-            "assumed_price_legs": 467
+            "n": 388,
+            "hit": 130,
+            "staked": 38800.0,
+            "net_fair": 1558.11,
+            "net_vig2": -9.04,
+            "roi_fair": 0.0402,
+            "roi_vig2": -0.0002,
+            "assumed_price_legs": 471
           }
         }
       },
       "verdict": "same",
-      "note": "593 of 593 resolved leg(s) re-priced, 329 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
+      "note": "596 of 596 resolved leg(s) re-priced, 331 changed, 0 skipped by this variant (skipped legs are never scored and never zero-filled). Reported, never adopted."
     }
   },
   "same_game_pairs": {
@@ -1418,16 +1418,16 @@
       },
       {
         "key": "moneyline|rb_rush_yds|opposing",
-        "n": 55,
-        "observed_joint": 0.2,
+        "n": 56,
+        "observed_joint": 0.1964,
         "independent_joint": 0.2596,
         "shipped_joint": 0.1942,
         "rho_shipped": -0.2789,
-        "rho_live": -0.2542,
-        "delta": 0.0058,
+        "rho_live": -0.2693,
+        "delta": 0.0022,
         "ci90": [
-          -0.0752,
-          0.0941
+          -0.0811,
+          0.0868
         ],
         "verdict": "consistent"
       },
@@ -1448,16 +1448,16 @@
       },
       {
         "key": "moneyline|wr_rec_yds",
-        "n": 72,
-        "observed_joint": 0.3056,
-        "independent_joint": 0.3251,
-        "shipped_joint": 0.3484,
+        "n": 73,
+        "observed_joint": 0.3014,
+        "independent_joint": 0.3266,
+        "shipped_joint": 0.3498,
         "rho_shipped": 0.1,
-        "rho_live": -0.0842,
-        "delta": -0.0428,
+        "rho_live": -0.1085,
+        "delta": -0.0485,
         "ci90": [
-          -0.1296,
-          0.047
+          -0.1332,
+          0.0373
         ],
         "verdict": "consistent"
       },
@@ -1658,16 +1658,16 @@
       },
       {
         "key": "rb_rush_yds|wr_rec_yds|opposing",
-        "n": 40,
-        "observed_joint": 0.175,
-        "independent_joint": 0.1923,
-        "shipped_joint": 0.1688,
+        "n": 41,
+        "observed_joint": 0.1951,
+        "independent_joint": 0.1943,
+        "shipped_joint": 0.1708,
         "rho_shipped": -0.1,
-        "rho_live": -0.0734,
-        "delta": 0.0062,
+        "rho_live": 0.0033,
+        "delta": 0.0243,
         "ci90": [
-          -0.0825,
-          0.1059
+          -0.0692,
+          0.1236
         ],
         "verdict": "consistent"
       },
@@ -1749,16 +1749,16 @@
     ],
     "pooled": {
       "key": "all",
-      "n": 1078,
-      "observed_joint": 0.2477,
-      "independent_joint": 0.2411,
-      "shipped_joint": 0.2478,
+      "n": 1081,
+      "observed_joint": 0.2479,
+      "independent_joint": 0.2413,
+      "shipped_joint": 0.2479,
       "rho_shipped": null,
-      "rho_live": 0.028,
-      "delta": -0.0001,
+      "rho_live": 0.0281,
+      "delta": -0.0,
       "ci90": [
-        -0.0212,
-        0.0202
+        -0.0217,
+        0.0206
       ],
       "verdict": "consistent"
     },
@@ -1766,19 +1766,20 @@
       "same_side_game_pair": 206
     },
     "cards": {
-      "n": 355,
-      "all_hit_rate": 0.3099,
-      "mean_model_shipped": 0.2909,
-      "mean_model_independent": 0.2691,
-      "delta": 0.0189,
+      "n": 358,
+      "all_hit_rate": 0.3101,
+      "mean_model_shipped": 0.291,
+      "mean_model_independent": 0.2695,
+      "delta": 0.0191,
       "ci90": [
-        -0.0181,
-        0.0575
+        -0.0195,
+        0.0561
       ],
       "verdict": "consistent",
       "excluded_by_reason": {
-        "leg_not_resolved": 40,
-        "leg_not_locked": 82
+        "leg_not_resolved": 37,
+        "leg_not_locked": 82,
+        "week_not_replayed": 45
       }
     },
     "note": "MEASURE ONLY, like every other block here. The shipped same-game rho (data/parlay_backtest.json, 2023-25) is scored against 2026 outcomes -- RC-N5's precondition for trusting the chained joint -- and no rho measured here is adopted, written back or allowed to reach a leg. A verdict needs the 90% CI to exclude 0 and at least min_n pairs; below that the numbers are printed and the verdict is 'insufficient'."

@@ -1,40 +1,40 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-03T03:58:55Z",
+  "generated_utc": "2026-11-03T05:44:51Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (119 games); scores from data/review.json FINAL rows (120 games); scores from ESPN live, STATUS-gated FINAL (120 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (120 games); scores from data/review.json FINAL rows (120 games); scores from ESPN live, STATUS-gated FINAL (121 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 8,
   "legs": {
-    "on_file": 800,
-    "locked": 645,
+    "on_file": 850,
+    "locked": 695,
     "unlocked": 155,
-    "resolved": 593,
-    "unresolved": 51
+    "resolved": 596,
+    "unresolved": 49
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 329,
-      "hit_rate": 0.5228,
+      "n": 331,
+      "hit_rate": 0.5257,
       "model": {
-        "log_loss": 0.6687,
-        "brier": 0.2378
+        "log_loss": 0.6685,
+        "brier": 0.2377
       },
       "seed": {
         "log_loss": 0.6894,
-        "brier": 0.2481
+        "brier": 0.2482
       },
       "by_pricing": {
-        "calibrated": 329
+        "calibrated": 331
       }
     },
     "moneyline": {
-      "n": 127,
-      "hit_rate": 0.5984,
-      "log_loss": 0.6545,
-      "brier": 0.232
+      "n": 128,
+      "hit_rate": 0.5938,
+      "log_loss": 0.6572,
+      "brier": 0.2333
     },
     "spread": {
       "n": 137,
@@ -60,33 +60,33 @@
       }
     },
     "RB": {
-      "n": 107,
-      "hit_rate": 0.5234,
+      "n": 108,
+      "hit_rate": 0.5278,
       "model": {
-        "log_loss": 0.6494,
-        "brier": 0.2287
+        "log_loss": 0.6517,
+        "brier": 0.2299
       },
       "seed": {
-        "log_loss": 0.6935,
-        "brier": 0.2502
+        "log_loss": 0.6946,
+        "brier": 0.2507
       },
       "by_pricing": {
-        "calibrated": 107
+        "calibrated": 108
       }
     },
     "WR": {
-      "n": 114,
-      "hit_rate": 0.5175,
+      "n": 115,
+      "hit_rate": 0.5217,
       "model": {
-        "log_loss": 0.642,
-        "brier": 0.225
+        "log_loss": 0.6397,
+        "brier": 0.224
       },
       "seed": {
-        "log_loss": 0.7064,
-        "brier": 0.2565
+        "log_loss": 0.7054,
+        "brier": 0.256
       },
       "by_pricing": {
-        "calibrated": 114
+        "calibrated": 115
       }
     }
   },
@@ -304,25 +304,25 @@
     {
       "week": 8,
       "props": {
-        "n": 32,
-        "hit_rate": 0.375,
+        "n": 34,
+        "hit_rate": 0.4118,
         "model": {
-          "log_loss": 0.6862,
-          "brier": 0.2469
+          "log_loss": 0.6836,
+          "brier": 0.2457
         },
         "seed": {
-          "log_loss": 0.7238,
-          "brier": 0.2652
+          "log_loss": 0.7223,
+          "brier": 0.2645
         },
         "by_pricing": {
-          "calibrated": 32
+          "calibrated": 34
         }
       },
       "moneyline": {
-        "n": 13,
-        "hit_rate": 0.7692,
-        "log_loss": 0.5142,
-        "brier": 0.1668
+        "n": 14,
+        "hit_rate": 0.7143,
+        "log_loss": 0.5493,
+        "brier": 0.1836
       },
       "spread": {
         "n": 0,
@@ -674,20 +674,6 @@
       "game_id": "401873035",
       "market": "wr_rec_yds",
       "selection": "D. Smith 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 8,
-      "game_id": "401873036",
-      "market": "rb_rush_yds",
-      "selection": "D. Swift 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 8,
-      "game_id": "401873036",
-      "market": "wr_rec_yds",
-      "selection": "J. Smith-Njigba 60+ rec yds",
       "reason": "no_stat_line"
     }
   ],
@@ -10902,6 +10888,59 @@
       "seed_prob": 0.5126,
       "actual": 38.0,
       "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873036",
+      "market": "moneyline",
+      "selection": "SEA ML",
+      "team": "SEA",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6343,
+      "actual": {
+        "home_score": 17,
+        "away_score": 34
+      },
+      "hit": false
+    },
+    {
+      "week": 8,
+      "game_id": "401873036",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "D. Swift 60+ rush yds",
+      "player": "D'Andre Swift",
+      "team": "CHI",
+      "line": 59.5,
+      "mu": 59.3,
+      "sd": 38.87,
+      "z": -0.0053,
+      "p_team": 0.3657,
+      "pricing": "calibrated",
+      "model_prob": 0.4069,
+      "seed_prob": 0.4463,
+      "actual": 69.0,
+      "hit": true
+    },
+    {
+      "week": 8,
+      "game_id": "401873036",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "J. Smith-Njigba 60+ rec yds",
+      "player": "Jaxon Smith-Njigba",
+      "team": "SEA",
+      "line": 59.5,
+      "mu": 99.15,
+      "sd": 41.58,
+      "z": 0.9534,
+      "p_team": 0.6343,
+      "pricing": "calibrated",
+      "model_prob": 0.6815,
+      "seed_prob": 0.5537,
+      "actual": 118.0,
+      "hit": true
     }
   ]
 }
