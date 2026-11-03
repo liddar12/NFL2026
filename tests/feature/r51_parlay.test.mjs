@@ -122,10 +122,11 @@ def game(p_home, week=1):
     return {"game_id": "g1", "home": "KC", "away": "BUF", "week": week,
             "probs": {"home": p_home, "away": 1.0 - p_home}}
 
-def probs(p_home, qb_yards):
+def probs(p_home, qb_yards, calibration_path=pb.DEFAULT_CALIBRATION_PATH):
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        out = pb.build_props_by_game([game(p_home)], weekly(qb_yards), projections)
+        out = pb.build_props_by_game([game(p_home)], weekly(qb_yards), projections,
+                                     calibration_path=calibration_path)
     return out["g1"], err.getvalue()
 
 # mu sweep: season pass yards 600..1400 over 4 equal weeks (share 0.25) -> mu 150..350,
@@ -134,9 +135,23 @@ sweep = [probs(0.5, y)[0][0] for y in (600.0, 800.0, 1000.0, 1200.0, 1400.0)]
 # season 1000 -> mu 250 (z ~ +0.33), well inside the clamps so p_team's effect shows
 lo_team, _ = probs(0.2, 1000.0)
 hi_team, _ = probs(0.8, 1000.0)
-huge, _ = probs(0.99, 40000.0)
-tiny, _ = probs(0.01, 100.0)
 cal = pb.load_calibration()["props"]
+# The clamps are checked against PINNED coefficients (a=0, b=3, c=1 for every position,
+# live residual_sd kept), so both extremes sit far past 0.05/0.95 whatever the weekly
+# refit does (RCA 2026-11-03: the week-9 refit added 2026, QB b 1.15 -> 0.90, and the
+# old "tiny" input priced 0.0504 against the live file). The live-file tiny leg is
+# kept and checked against the exact clamped formula instead.
+import tempfile, os, copy
+pinned = copy.deepcopy(pb.load_calibration())
+for pos in pinned["props"]["calibration"]:
+    pinned["props"]["calibration"][pos] = dict(pinned["props"]["calibration"][pos], a=0.0, b=3.0, c=1.0)
+fd, pinned_path = tempfile.mkstemp(suffix=".json")
+with os.fdopen(fd, "w") as fh:
+    json.dump(pinned, fh)
+huge, _ = probs(0.99, 40000.0, pinned_path)
+tiny, _ = probs(0.01, 100.0, pinned_path)
+tiny_live, _ = probs(0.01, 100.0)
+os.unlink(pinned_path)
 
 # missing component key on the WR: calibration present -> skipped + counted, never seeded
 err = io.StringIO()
@@ -158,7 +173,7 @@ with contextlib.redirect_stderr(err):
                                   calibration_path="/nonexistent/parlay_backtest.json")["g1"]
 
 print(json.dumps({"sweep": sweep, "lo_team": lo_team, "hi_team": hi_team, "huge": huge,
-                  "tiny": tiny, "cal": cal, "missing": missing, "missing_err": missing_err,
+                  "tiny": tiny, "tiny_live": tiny_live, "cal": cal, "missing": missing, "missing_err": missing_err,
                   "noweek": noweek, "noweek_err": noweek_err, "seed": seed}))
 `;
 
@@ -198,6 +213,12 @@ test('calibrated prop probability is monotone in mu and rises with p_team', () =
   // Clamped to [0.05, 0.95] at the extremes.
   assert.equal(r.huge.find((l) => l.market === 'qb_pass_yds').model_prob, 0.95);
   assert.equal(r.tiny.find((l) => l.market === 'qb_pass_yds').model_prob, 0.05);
+  // Live coefficients: the far-under leg is exactly the clamped formula, never below 0.05.
+  const tl = r.tiny_live.find((l) => l.market === 'qb_pass_yds');
+  const tlRaw = 1 / (1 + Math.exp(-(c.a + c.b * tl.z + c.c * (0.01 - 0.5))));
+  assert.ok(tl.model_prob >= 0.05);
+  assert.ok(Math.abs(tl.model_prob - Math.min(0.95, Math.max(0.05, tlRaw))) < 2e-3,
+    `${tl.model_prob} vs clamp(${tlRaw})`);
   // Every position has coefficients with the expected signs.
   for (const pos of ['QB', 'RB', 'WR']) {
     assert.ok(r.cal.calibration[pos].b > 0, `${pos}: b (z slope) must be positive`);
