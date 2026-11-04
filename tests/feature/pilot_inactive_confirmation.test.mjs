@@ -184,7 +184,7 @@ print(json.dumps({"kept": [p["gsis_id"] for p in w["players"]], "unchanged": jso
   assert.equal(r.counts.unknown_or_stale, 1);
 });
 
-test('pilot config: disabled, shadow serving, engine pinned to aacb19c7; the reader refuses anything else', () => {
+test('pilot config: enabled for SHADOW capture only, shadow serving, engine pinned to aacb19c7; the reader refuses anything else', () => {
   const r = runPy(`
 import json, os, tempfile
 from scripts import pilot_config as pc
@@ -205,7 +205,7 @@ print(json.dumps({"ok": ok,
   "half_override": refused(env={"SELFLEARN_NFL_PILOT_ENABLED": "1"}),
   "extra_key": refused({**base, "authority_id": "x"}),
   "short_sha": refused({**base, "engine_commit": "aacb19c7"})}))`);
-  assert.equal(r.ok.enabled, '0');
+  assert.equal(r.ok.enabled, '1');
   assert.equal(r.ok.serving_mode, 'shadow');
   assert.equal(r.ok.engine_commit, 'aacb19c73122f257449e977df40f2a2733991b2f');
   assert.equal(r.ok.freshness_profile, 'confirmed_inactives_v1');
