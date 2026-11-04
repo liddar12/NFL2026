@@ -212,7 +212,7 @@ print(json.dumps({"ok": ok,
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: only listed offline tools and the locked test-only canary may reference pilot modules', () => {
+test('production is unchanged: only listed offline tools and the two locked pilot workflows may reference pilot modules', () => {
   const hits = [];
   // Checkpoint 2 adds standalone offline tools, not a production caller. The
   // owner separately authorized ONE test-only canary workflow, whose read-only
@@ -222,13 +222,17 @@ test('production is unchanged: only listed offline tools and the locked test-onl
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
     'run_parlay_feedback.py', 'learning_history_guard.py',
   ].map(name => join('scripts', name)));
+  // Two locked workflow exceptions: the test-only canary and the default-off
+  // shadow capture, whose contract is locked by pilot_shadow_workflow.test.mjs.
+  const workflowExceptions = new Set(['selflearning-canary.yml', 'selflearning-shadow-capture.yml']
+    .map(name => join('.github', 'workflows', name)));
   const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);
       if (statSync(join(ROOT, rel)).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs|py|ya?ml|sh|html)$/.test(name)) continue;
-      if (offline.has(rel) || rel === join('.github', 'workflows', 'selflearning-canary.yml')) continue;
+      if (offline.has(rel) || workflowExceptions.has(rel)) continue;
       const src = readFileSync(join(ROOT, rel), 'utf8');
       if (pilotReferences.test(src)) hits.push(rel);
     }

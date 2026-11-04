@@ -41,10 +41,16 @@ def now():
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def disabled_config():
+def pinned_shadow_config():
+    """Require shadow serving and the exact engine pin; ``enabled`` is not read here.
+
+    ``enabled`` gates only the scheduled selflearning-shadow-capture workflow.
+    This tool stays offline and writes only to an explicit local workspace, so
+    the same shadow/pin refusal applies whether the scheduled pilot is on or off.
+    """
     config = pilot_config.read_config(ROOT / "config/selflearning_pilot.json")
-    need(config["enabled"] is False and config["serving_mode"] == "shadow"
-         and config["engine_commit"] == ENGINE_COMMIT, "pilot_disabled_pin_required")
+    need(type(config["enabled"]) is bool and config["serving_mode"] == "shadow"
+         and config["engine_commit"] == ENGINE_COMMIT, "pilot_shadow_pin_required")
 
 
 def workspace_root(value):
@@ -74,7 +80,7 @@ def capture_generation(pool, schedule, calibration, *, workspace=None, execute=F
     Invalid receipts are quarantined by the existing journal, never repaired.
     An offered card referencing a refused prop is itself refused, not truncated.
     """
-    disabled_config()
+    pinned_shadow_config()
     recorded = clock()
     when = lr.instant(recorded)
     need(when is not None, "pilot_capture_clock_invalid")

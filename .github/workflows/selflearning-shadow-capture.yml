@@ -1,0 +1,107 @@
+# Default-off SHADOW capture of MY eligible-prop forecasts, delivered to the
+# pinned SelfLearning journal. Not learning, adoption, serving or publication.
+#
+# - A no-op unless config/selflearning_pilot.json resolves enabled=1. Repository
+#   variables SELFLEARN_NFL_PILOT_ENABLED + SELFLEARN_NFL_ENGINE_COMMIT override
+#   the pair only when BOTH are set (scripts/pilot_config.py); setting them to
+#   0 + the pin is the no-commit kill switch.
+# - serving_mode is shadow-only by the reader; nothing here changes served data.
+# - Read-only repository permission. Never commits, pushes or deploys.
+# - Delivery is server-to-server (no browser, no CORS). The ingest-scoped token
+#   comes only from the SELFLEARN_NFL_INGEST_TOKEN Actions secret; when it is
+#   absent delivery is a dry run. The operator token is never used here.
+name: selflearning-shadow-capture
+
+on:
+  workflow_run:
+    workflows: [daily-pipeline]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selflearning-shadow-capture
+  cancel-in-progress: false
+
+jobs:
+  shadow-capture:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SELFLEARN_BASE_URL: https://self-learning-beige.vercel.app
+      EXPECTED_ENGINE_COMMIT: aacb19c73122f257449e977df40f2a2733991b2f
+    steps:
+      - name: Checkout published main data
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || 'main' }}
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve pilot configuration
+        id: pilot
+        env:
+          SELFLEARN_NFL_PILOT_ENABLED: ${{ vars.SELFLEARN_NFL_PILOT_ENABLED }}
+          SELFLEARN_NFL_ENGINE_COMMIT: ${{ vars.SELFLEARN_NFL_ENGINE_COMMIT }}
+        run: |
+          python3 -B scripts/pilot_config.py --github-output "$GITHUB_OUTPUT"
+
+      - name: Refuse drifting engine pin or non-shadow serving
+        env:
+          RESOLVED_COMMIT: ${{ steps.pilot.outputs.engine_commit }}
+          RESOLVED_MODE: ${{ steps.pilot.outputs.serving_mode }}
+        run: |
+          test "$RESOLVED_COMMIT" = "$EXPECTED_ENGINE_COMMIT"
+          test "$RESOLVED_MODE" = shadow
+
+      - name: Report disabled pilot
+        if: steps.pilot.outputs.enabled != '1'
+        run: |
+          echo "::notice::SelfLearning pilot disabled (source: ${{ steps.pilot.outputs.configuration_source }}); no capture, no delivery."
+
+      - name: Capture shadow generation
+        if: steps.pilot.outputs.enabled == '1'
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          python3 -B scripts/pilot_capture.py --execute --workspace "$RUNNER_TEMP/shadow" \
+            | tee "$RUNNER_TEMP/evidence/capture.json"
+
+      - name: Deliver to pinned SelfLearning journal
+        if: steps.pilot.outputs.enabled == '1'
+        env:
+          SELFLEARN_NFL_INGEST_TOKEN: ${{ secrets.SELFLEARN_NFL_INGEST_TOKEN }}
+        run: |
+          set -o pipefail
+          if [ -z "$SELFLEARN_NFL_INGEST_TOKEN" ]; then
+            echo "::warning::SELFLEARN_NFL_INGEST_TOKEN secret not configured; delivery dry run only."
+            python3 -B scripts/export_learning.py --snapshots "$RUNNER_TEMP/shadow/snapshots" \
+              | tee "$RUNNER_TEMP/evidence/delivery.json"
+            exit 0
+          fi
+          python3 -B scripts/export_learning.py --send --snapshots "$RUNNER_TEMP/shadow/snapshots" \
+            --base-url "$SELFLEARN_BASE_URL" --out-dir "$RUNNER_TEMP/delivery" \
+            | tee "$RUNNER_TEMP/evidence/delivery.json"
+
+      - name: Retain shadow evidence only
+        if: always() && steps.pilot.outputs.enabled == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: selflearning-shadow-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/evidence
+            ${{ runner.temp }}/shadow
+            ${{ runner.temp }}/delivery
+          if-no-files-found: warn
+          retention-days: 14
