@@ -3,14 +3,21 @@
 // side effect of merging this workflow; serving stays shadow-only.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const PIN = 'aacb19c73122f257449e977df40f2a2733991b2f';
-const source = readFileSync(join(ROOT, '.github/workflows/selflearning-shadow-capture.yml'), 'utf8');
+// The workflow is staged under docs/pilot/proposed/ until a token with GitHub
+// `workflow` permission installs it at .github/workflows/ (same bytes). The
+// installed copy wins when both exist, and the two must then be identical.
+const INSTALLED = join(ROOT, '.github/workflows/selflearning-shadow-capture.yml');
+const PROPOSED = join(ROOT, 'docs/pilot/proposed/selflearning-shadow-capture.yml');
+const source = readFileSync(existsSync(INSTALLED) ? INSTALLED : PROPOSED, 'utf8');
+if (existsSync(INSTALLED) && existsSync(PROPOSED))
+  assert.equal(readFileSync(PROPOSED, 'utf8'), source, 'installed and proposed workflow differ');
 const NAMES = [
   'Checkout published main data', 'Setup Python', 'Resolve pilot configuration',
   'Refuse drifting engine pin or non-shadow serving', 'Report disabled pilot',
