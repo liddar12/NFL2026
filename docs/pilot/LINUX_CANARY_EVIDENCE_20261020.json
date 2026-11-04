@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "kind": "nfl.test_only_linux_canary_preparation.v1",
+  "recorded_utc": "2026-10-20T21:02:23Z",
+  "local_timezone": "America/Chicago",
+  "source_commit": "5223c81b827986a29901148aed7dd5131b869003",
+  "previous_pr_head": "b383156d8c29a497824813c238ea7d72dd030a85",
+  "engine_commit": "aacb19c73122f257449e977df40f2a2733991b2f",
+  "branch": "build/lean-checkpoint2-20261020",
+  "status": "local_validation_complete_actual_hosted_linux_run_pending",
+  "learning_enabled": false,
+  "serving_mode": "shadow",
+  "merged": false,
+  "deployed": false,
+  "production_authorized": false,
+  "actual_linux_canary_executed": false,
+  "existing_ci_and_production_workflows_changed": false,
+  "app_production_scripts_data_config_engine_changed": false,
+  "additional_repository_secret_required": false,
+  "repository_visibility_verified": {"liddar12/NFL2026": "public", "liddar12/SelfLearning": "public"},
+  "workflow": ".github/workflows/selflearning-canary.yml",
+  "job": "linux-canary",
+  "limits": {
+    "job_timeout_minutes": 15,
+    "cli_parent_timeout_seconds": 330,
+    "cli_wall_clock_seconds": 300,
+    "maximum_cli_cpu_seconds": 180,
+    "maximum_cli_address_space_bytes": 2147483648,
+    "maximum_cli_file_bytes": 134217729
+  },
+  "hosted_success_requires": [
+    "actual Linux and the exact NFL event SHA",
+    "exact clean pinned engine checkout, not an installed package or floating main",
+    "53 selected focused tests passed with zero failed/cancelled/skipped and zero process exit",
+    "three actual bounded isolated CLI executions using actual UTC",
+    "4 late imports, 0 prospective imports, cohort 2 on synthetic historical fixture evidence",
+    "revisions 4 -> 4 -> 8, identical retry state, four distinct superseding links",
+    "all learning/adoption/publication/authentication/production flags false",
+    "unchanged tracked checkouts and temporary outputs outside both repositories"
+  ],
+  "logs_directory": "/private/tmp/nfl-linux-canary-evidence-20261020.NxcbRq",
+  "python_local": "3.12.9",
+  "local_engine_checkout": "/Users/jliddar/code/SelfLearning-runtime-publish-20261018",
+  "checks": [
+    {
+      "name": "full_features_exact_engine",
+      "command": "node --test --test-concurrency=1 tests/feature/*.mjs",
+      "exit_code": 0,
+      "passed": 2249,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 167747.5955,
+      "log": "features-python312.log",
+      "log_sha256": "df789de37ba77329b43972cd492cfe1f5dd36c180efdfdd290f66c23ec0a08f1"
+    },
+    {
+      "name": "core_partition",
+      "command": "bash tests/run_gate.sh --partition core",
+      "exit_code": 0,
+      "result": "GATE PARTITION core RESULT: PASS (partial checks only)",
+      "browser_executed": false,
+      "log": "core-python312.log",
+      "log_sha256": "22fdf6aa6fde30b618d9b827e735945580a36ee94e34aaf9509d5ef44b13730a"
+    },
+    {
+      "name": "exact_focused_workflow_command_and_TAP_zero_skip_guard",
+      "exit_code": 0,
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "actual_linux_execution": false,
+      "log": "pilot-focused.tap",
+      "log_sha256": "62cad760bdb5f8bd15d255c66377d7c5b117790052ed6f7da13a31d9f6d40c76"
+    },
+    {
+      "name": "macos_platform_refusal_not_linux_execution",
+      "command": "python3 -I -S -B tests/pilot_linux_canary.py --engine-checkout CHECKOUT --expected-nfl-sha EXACT_SHA --output TEMP_FILE",
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "reason": "pilot_linux_canary_linux_required",
+      "output_file_absent": true,
+      "log": "macos-refusal.json",
+      "log_sha256": "d95ea7213700ee5fc3065b77bc9f9b223c4ea9f90f2c4d815f10d21e905b49c6"
+    },
+    {
+      "name": "workflow_yaml_syntax",
+      "command": "ruby YAML.load_file",
+      "exit_code": 0,
+      "scope": "syntax only, not hosted execution acceptance"
+    },
+    {
+      "name": "pinned_engine_library_state_shape_check",
+      "platform": "darwin",
+      "exit_code": 0,
+      "revision_counts": [4, 4, 8],
+      "real_engine_superseding_and_receipt_id_contract": true,
+      "actual_linux_execution": false
+    }
+  ],
+  "independent_source_review": {
+    "remaining_reproducible_p1_p2": 0,
+    "scope": "workflow, guards and harness; not actual Linux execution"
+  },
+  "prior_hosted_CI_not_canary_acceptance": {
+    "run_id": 39494287715,
+    "head": "b383156d8c29a497824813c238ea7d72dd030a85",
+    "all_four_jobs_successful": true,
+    "features_passed": 2227,
+    "features_skipped": 11,
+    "feature_skip_reason": "SELFLEARN_CHECKOUT absent; includes the bounded CLI integration",
+    "browser_passed": 364,
+    "browser_skipped": 4
+  },
+  "next": "Owner fast-forward push to existing draft PR184 branch starts ordinary CI and the new canary; require both workflows and actual canary job success before treating Linux acceptance as complete. Keep draft and learning disabled."
+}
