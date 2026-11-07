@@ -1,8 +1,8 @@
 {
   "season": 2026,
   "week": 9,
-  "generated_utc": "2026-11-07T01:49:50Z",
-  "pool_generated_utc": "2026-11-07T01:49:44Z",
+  "generated_utc": "2026-11-07T10:17:56Z",
+  "pool_generated_utc": "2026-11-07T10:17:49Z",
   "source": "scripts/build_my_cards.py over data/leg_pool.json (the offered legs), data/schedule_full.json (kickoff + status gating) and data/parlay_backtest.json (the measured correlations)",
   "dials": [
     "safe",
@@ -203,6 +203,14 @@
       "cards_seen": 840,
       "cards_added": 13,
       "locked_added": 13,
+      "unlocked_added": 0
+    },
+    {
+      "pool_generated_utc": "2026-11-07T10:17:49Z",
+      "week": 9,
+      "cards_seen": 840,
+      "cards_added": 6,
+      "locked_added": 6,
       "unlocked_added": 0
     }
   ],
@@ -640110,6 +640118,1984 @@
       "first_seen_utc": "2026-11-07T01:49:44Z",
       "locked": true,
       "locked_utc": "2026-11-07T01:49:44Z"
+    },
+    {
+      "card_id": "b4b805ddd3cc",
+      "dial": "longshot",
+      "seed": "DET",
+      "rank": 8,
+      "n_legs": 5,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0206,
+      "implied": 0.0115,
+      "ev": 0.7945,
+      "tier": "low",
+      "payout": 8599.27,
+      "assumed": 5,
+      "earliest_kickoff_utc": "2026-11-08T18:00Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "J. Gibbs 70+ rush yds",
+          "game_id": "401873042",
+          "team": "DET",
+          "side": "away",
+          "player": "Jahmyr Gibbs",
+          "gsis_id": "espn-4429795",
+          "position": "RB",
+          "line": 69.5,
+          "mu": 67.67,
+          "model_prob": 0.4058,
+          "implied_prob": 0.4241,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:eaf8118f8b124fb31505e9f78fc9929d32f8819b95b7e70e55b01ccca3317c68",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873042",
+            "player_id": "espn-4429795",
+            "market": "rb_rush_yds",
+            "line": 69.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.40583024279453694,
+            "served_prob": 0.4058,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 69.5,
+              "mu": 67.66666666666667,
+              "sd": 38.8694,
+              "z": -0.04716649429456921,
+              "p_team": 0.6740999999999999,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873042",
+                "side:away",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:670f74cab9a689511e527a0278df02f151c70aac8b9961f18ec107e9a9213612"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Lamb 80+ rec yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "CeeDee Lamb",
+          "gsis_id": "espn-4241389",
+          "position": "WR",
+          "line": 79.5,
+          "mu": 80.47,
+          "model_prob": 0.4098,
+          "implied_prob": 0.4282,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:568aae18b5a71cc7b27c1e05b905f1a1dc2f6bf036292b4837cb0a5a7490603b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-4241389",
+            "market": "wr_rec_yds",
+            "line": 79.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.4097953739668518,
+            "served_prob": 0.4098,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 79.5,
+              "mu": 80.46604057099923,
+              "sd": 41.5833,
+              "z": 0.023231455199544674,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:55875db0e239bec6aff605da0308de8723b3b928af223a9de719630867851172"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Prescott 275+ pass yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "Dak Prescott",
+          "gsis_id": "espn-2577417",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 239.21,
+          "model_prob": 0.3833,
+          "implied_prob": 0.4005,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:dab63630436d0ced86e868903363936a7e4fbd6ee9ff70bee23ee91b9cc8e65f",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-2577417",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3832792269127052,
+            "served_prob": 0.3833,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 239.21318094665205,
+              "sd": 76.6615,
+              "z": -0.46029387702233787,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c2010e31705a343ef0c846987a1d7bc3ce1f3660e04276cfc89c7e6ea61677a5"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "T. Franklin 30+ rec yds",
+          "game_id": "401873041",
+          "team": "DEN",
+          "side": "away",
+          "player": "Troy Franklin",
+          "gsis_id": "espn-4431280",
+          "position": "WR",
+          "line": 29.5,
+          "mu": 28.47,
+          "model_prob": 0.3925,
+          "implied_prob": 0.4102,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:601753d7250434055d9cfca68d5796aff95f317f16d1c9846c3b3cd872af1a54",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873041",
+            "player_id": "espn-4431280",
+            "market": "wr_rec_yds",
+            "line": 29.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3925394654112291,
+            "served_prob": 0.3925,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 29.5,
+              "mu": 28.469632123106518,
+              "sd": 41.5833,
+              "z": -0.024778405679527174,
+              "p_team": 0.6605,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873041",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:4949f4ed15380613e77a1bd09af1ee69dad8bd52fd863256043db788bcf6bfdb"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Nix 275+ pass yds",
+          "game_id": "401873041",
+          "team": "DEN",
+          "side": "away",
+          "player": "Bo Nix",
+          "gsis_id": "espn-4426338",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 229.8,
+          "model_prob": 0.3687,
+          "implied_prob": 0.3853,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:571a1e27a3545bcb1f7dd046f47489aeb71d67b3db06764d7797d972079c1fbb",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873041",
+            "player_id": "espn-4426338",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3687423301269026,
+            "served_prob": 0.3687,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 229.80294555796317,
+              "sd": 76.6615,
+              "z": -0.5830443500588539,
+              "p_team": 0.6605,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873041",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:d2c039efeaa73d16ecf29b8e03503f39e1832f6fac4cdcefb6e1f56819e68390"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
+    },
+    {
+      "card_id": "ccb8a8246264",
+      "dial": "longshot",
+      "seed": "MIA",
+      "rank": 6,
+      "n_legs": 4,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0388,
+      "implied": 0.0269,
+      "ev": 0.4432,
+      "tier": "low",
+      "payout": 3619.2,
+      "assumed": 4,
+      "earliest_kickoff_utc": "2026-11-08T18:00Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "J. Wright 20+ rush yds",
+          "game_id": "401873042",
+          "team": "MIA",
+          "side": "home",
+          "player": "Jaylen Wright",
+          "gsis_id": "espn-4682745",
+          "position": "RB",
+          "line": 19.5,
+          "mu": 19.24,
+          "model_prob": 0.3995,
+          "implied_prob": 0.4175,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:29dfbdd585c435b1beddacaa4443d1c3e8ec1888cec29fd509595ad829efba92",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873042",
+            "player_id": "espn-4682745",
+            "market": "rb_rush_yds",
+            "line": 19.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3994746856745922,
+            "served_prob": 0.3995,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 19.5,
+              "mu": 19.235501405810684,
+              "sd": 38.8694,
+              "z": -0.006804802600228357,
+              "p_team": 0.3259,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873042",
+                "side:home",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": {
+                "status": "QUESTIONABLE",
+                "class": "week"
+              },
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:44b015f90f8b838f7071c1b46ec8ed718041312682dc1a5b83a37b05ad4cc610"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Lamb 80+ rec yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "CeeDee Lamb",
+          "gsis_id": "espn-4241389",
+          "position": "WR",
+          "line": 79.5,
+          "mu": 80.47,
+          "model_prob": 0.4098,
+          "implied_prob": 0.4282,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:568aae18b5a71cc7b27c1e05b905f1a1dc2f6bf036292b4837cb0a5a7490603b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-4241389",
+            "market": "wr_rec_yds",
+            "line": 79.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.4097953739668518,
+            "served_prob": 0.4098,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 79.5,
+              "mu": 80.46604057099923,
+              "sd": 41.5833,
+              "z": 0.023231455199544674,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:55875db0e239bec6aff605da0308de8723b3b928af223a9de719630867851172"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Prescott 275+ pass yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "Dak Prescott",
+          "gsis_id": "espn-2577417",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 239.21,
+          "model_prob": 0.3833,
+          "implied_prob": 0.4005,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:dab63630436d0ced86e868903363936a7e4fbd6ee9ff70bee23ee91b9cc8e65f",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-2577417",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3832792269127052,
+            "served_prob": 0.3833,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 239.21318094665205,
+              "sd": 76.6615,
+              "z": -0.46029387702233787,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c2010e31705a343ef0c846987a1d7bc3ce1f3660e04276cfc89c7e6ea61677a5"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "rb_rush_yds",
+          "selection": "D. Achane 80+ rush yds",
+          "game_id": "401873042",
+          "team": "MIA",
+          "side": "home",
+          "player": "De'Von Achane",
+          "gsis_id": "espn-4429160",
+          "position": "RB",
+          "line": 79.5,
+          "mu": 75.82,
+          "model_prob": 0.3593,
+          "implied_prob": 0.3755,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:8f8b50eb1d93c4cfa9c8cc3bbf5e5cec16e2e1c81d4a4df8a0373948c27dd5c1",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873042",
+            "player_id": "espn-4429160",
+            "market": "rb_rush_yds",
+            "line": 79.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.35934144807512286,
+            "served_prob": 0.3593,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 79.5,
+              "mu": 75.82304123374502,
+              "sd": 38.8694,
+              "z": -0.09459777527450858,
+              "p_team": 0.3259,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873042",
+                "side:home",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:1a4672e4165ee766d0f86f2bc74daa316afc8d183b9c58caac4fc786d6b8d986"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
+    },
+    {
+      "card_id": "1093e512ae4d",
+      "dial": "longshot",
+      "seed": "MIA",
+      "rank": 8,
+      "n_legs": 5,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.02,
+      "implied": 0.0111,
+      "ev": 0.8047,
+      "tier": "low",
+      "payout": 8928.77,
+      "assumed": 5,
+      "earliest_kickoff_utc": "2026-11-08T14:30Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "J. Wright 20+ rush yds",
+          "game_id": "401873042",
+          "team": "MIA",
+          "side": "home",
+          "player": "Jaylen Wright",
+          "gsis_id": "espn-4682745",
+          "position": "RB",
+          "line": 19.5,
+          "mu": 19.24,
+          "model_prob": 0.3995,
+          "implied_prob": 0.4175,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:29dfbdd585c435b1beddacaa4443d1c3e8ec1888cec29fd509595ad829efba92",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873042",
+            "player_id": "espn-4682745",
+            "market": "rb_rush_yds",
+            "line": 19.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3994746856745922,
+            "served_prob": 0.3995,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 19.5,
+              "mu": 19.235501405810684,
+              "sd": 38.8694,
+              "z": -0.006804802600228357,
+              "p_team": 0.3259,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873042",
+                "side:home",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": {
+                "status": "QUESTIONABLE",
+                "class": "week"
+              },
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:44b015f90f8b838f7071c1b46ec8ed718041312682dc1a5b83a37b05ad4cc610"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Lamb 80+ rec yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "CeeDee Lamb",
+          "gsis_id": "espn-4241389",
+          "position": "WR",
+          "line": 79.5,
+          "mu": 80.47,
+          "model_prob": 0.4098,
+          "implied_prob": 0.4282,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:568aae18b5a71cc7b27c1e05b905f1a1dc2f6bf036292b4837cb0a5a7490603b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-4241389",
+            "market": "wr_rec_yds",
+            "line": 79.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.4097953739668518,
+            "served_prob": 0.4098,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 79.5,
+              "mu": 80.46604057099923,
+              "sd": 41.5833,
+              "z": 0.023231455199544674,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:55875db0e239bec6aff605da0308de8723b3b928af223a9de719630867851172"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Prescott 275+ pass yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "Dak Prescott",
+          "gsis_id": "espn-2577417",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 239.21,
+          "model_prob": 0.3833,
+          "implied_prob": 0.4005,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:dab63630436d0ced86e868903363936a7e4fbd6ee9ff70bee23ee91b9cc8e65f",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-2577417",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3832792269127052,
+            "served_prob": 0.3833,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 239.21318094665205,
+              "sd": 76.6615,
+              "z": -0.46029387702233787,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c2010e31705a343ef0c846987a1d7bc3ce1f3660e04276cfc89c7e6ea61677a5"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "T. Higgins 60+ rec yds",
+          "game_id": "401873038",
+          "team": "CIN",
+          "side": "away",
+          "player": "Tee Higgins",
+          "gsis_id": "espn-4239993",
+          "position": "WR",
+          "line": 59.5,
+          "mu": 58.97,
+          "model_prob": 0.3954,
+          "implied_prob": 0.4132,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:89ab1385638be73045cec4e0848f62c4a5887ee9ee0ef1ff28674fee70f00c1b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873038",
+            "player_id": "espn-4239993",
+            "market": "wr_rec_yds",
+            "line": 59.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3953592001470018,
+            "served_prob": 0.3954,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 59.5,
+              "mu": 58.97416920318559,
+              "sd": 41.5833,
+              "z": -0.012645239719175989,
+              "p_team": 0.5601,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873038",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:beca961d6b9de2ac7ae01c50ddf998d121c308f3cb9f6e18862683f9206fab33"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "J. Burrow 275+ pass yds",
+          "game_id": "401873038",
+          "team": "CIN",
+          "side": "away",
+          "player": "Joe Burrow",
+          "gsis_id": "espn-3915511",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 230.34,
+          "model_prob": 0.3582,
+          "implied_prob": 0.3743,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:b01ddcd4541a0d8b04e46022fdccd0b7da2d6b460687fc9de42f1c5c01bbf9a4",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873038",
+            "player_id": "espn-3915511",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.35818684986129,
+            "served_prob": 0.3582,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 230.33706204249881,
+              "sd": 76.6615,
+              "z": -0.576077143774922,
+              "p_team": 0.5601,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873038",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:4c6c3524df5d8996027e9adecedec7352cffcab04c607047789794365386442a"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
+    },
+    {
+      "card_id": "e0181398581b",
+      "dial": "longshot",
+      "seed": "NE",
+      "rank": 4,
+      "n_legs": 3,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0912,
+      "implied": 0.0701,
+      "ev": 0.3006,
+      "tier": "low",
+      "payout": 1326.22,
+      "assumed": 3,
+      "earliest_kickoff_utc": "2026-11-08T21:25Z",
+      "legs": [
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Maye 225+ pass yds",
+          "game_id": "401873049",
+          "team": "NE",
+          "side": "home",
+          "player": "Drake Maye",
+          "gsis_id": "espn-4431452",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 186.76,
+          "model_prob": 0.3961,
+          "implied_prob": 0.4139,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:2afb57f1ca2f042a91a4987f50ca012b3591b7120e1f60c3ec48d28c046fa576",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873049",
+            "player_id": "espn-4431452",
+            "market": "qb_pass_yds",
+            "line": 224.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39606220576459633,
+            "served_prob": 0.3961,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 224.5,
+              "mu": 186.7563231022843,
+              "sd": 76.6615,
+              "z": -0.4923420086707889,
+              "p_team": 0.6573,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873049",
+                "side:home",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:09818ba4a32378a78eca39eaa01d7e5f4e7819937e55b2a733ae7cfed3ab9ab7"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "T. Johnson 20+ rec yds",
+          "game_id": "401873050",
+          "team": "TB",
+          "side": "away",
+          "player": "Tez Johnson",
+          "gsis_id": "espn-4608810",
+          "position": "WR",
+          "line": 19.5,
+          "mu": 19.59,
+          "model_prob": 0.3946,
+          "implied_prob": 0.4124,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:8dded2803f403775be329e2a4a4f4e504fa19175c7a0310e8078e3881e10368d",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873050",
+            "player_id": "espn-4608810",
+            "market": "wr_rec_yds",
+            "line": 19.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39459621314906485,
+            "served_prob": 0.3946,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 19.5,
+              "mu": 19.58654633224893,
+              "sd": 41.5833,
+              "z": 0.0020812761913780063,
+              "p_team": 0.2853,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873050",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c91aa083014270d73c5dec4a8b9432f6d1f8baa6a9ad33e632837cdc3f73abdb"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Mayfield 225+ pass yds",
+          "game_id": "401873050",
+          "team": "TB",
+          "side": "away",
+          "player": "Baker Mayfield",
+          "gsis_id": "espn-3052587",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 198.02,
+          "model_prob": 0.3931,
+          "implied_prob": 0.4108,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:4ef37d05aea5525a23df6d1c61a32fc9758e53682bcc0379d39fbc54a9a87aea",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873050",
+            "player_id": "espn-3052587",
+            "market": "qb_pass_yds",
+            "line": 224.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39314959232561714,
+            "served_prob": 0.3931,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 224.5,
+              "mu": 198.02136775801202,
+              "sd": 76.6615,
+              "z": -0.3453967407628077,
+              "p_team": 0.2853,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873050",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:9ef2854e5cee3b7f137f83898adb7a5246acad02d91b479190607d1b89f5cb2b"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
+    },
+    {
+      "card_id": "736b95852009",
+      "dial": "longshot",
+      "seed": "PHI",
+      "rank": 5,
+      "n_legs": 4,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0321,
+      "implied": 0.0258,
+      "ev": 0.2446,
+      "tier": "low",
+      "payout": 3771.96,
+      "assumed": 4,
+      "earliest_kickoff_utc": "2026-11-08T18:00Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "S. Barkley 80+ rush yds",
+          "game_id": "401873044",
+          "team": "PHI",
+          "side": "home",
+          "player": "Saquon Barkley",
+          "gsis_id": "espn-3929630",
+          "position": "RB",
+          "line": 79.5,
+          "mu": 73.47,
+          "model_prob": 0.3407,
+          "implied_prob": 0.356,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:63d669e5befde2b919f0cec987f2f0e95d1daf213b5a07459a9ec343a923b44b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873044",
+            "player_id": "espn-3929630",
+            "market": "rb_rush_yds",
+            "line": 79.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.34071655217110863,
+            "served_prob": 0.3407,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 79.5,
+              "mu": 73.46509916427591,
+              "sd": 38.8694,
+              "z": -0.15526097227443922,
+              "p_team": 0.4454,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873044",
+                "side:home",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:cde0fe2a3595906e5453decaaf3d9f3b05f8a9cac5dfe9a611056221aca5bbc0"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "T. Johnson 20+ rec yds",
+          "game_id": "401873050",
+          "team": "TB",
+          "side": "away",
+          "player": "Tez Johnson",
+          "gsis_id": "espn-4608810",
+          "position": "WR",
+          "line": 19.5,
+          "mu": 19.59,
+          "model_prob": 0.3946,
+          "implied_prob": 0.4124,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:8dded2803f403775be329e2a4a4f4e504fa19175c7a0310e8078e3881e10368d",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873050",
+            "player_id": "espn-4608810",
+            "market": "wr_rec_yds",
+            "line": 19.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39459621314906485,
+            "served_prob": 0.3946,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 19.5,
+              "mu": 19.58654633224893,
+              "sd": 41.5833,
+              "z": 0.0020812761913780063,
+              "p_team": 0.2853,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873050",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c91aa083014270d73c5dec4a8b9432f6d1f8baa6a9ad33e632837cdc3f73abdb"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "B. Mayfield 225+ pass yds",
+          "game_id": "401873050",
+          "team": "TB",
+          "side": "away",
+          "player": "Baker Mayfield",
+          "gsis_id": "espn-3052587",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 198.02,
+          "model_prob": 0.3931,
+          "implied_prob": 0.4108,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:4ef37d05aea5525a23df6d1c61a32fc9758e53682bcc0379d39fbc54a9a87aea",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873050",
+            "player_id": "espn-3052587",
+            "market": "qb_pass_yds",
+            "line": 224.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39314959232561714,
+            "served_prob": 0.3931,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 224.5,
+              "mu": 198.02136775801202,
+              "sd": 76.6615,
+              "z": -0.3453967407628077,
+              "p_team": 0.2853,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873050",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:9ef2854e5cee3b7f137f83898adb7a5246acad02d91b479190607d1b89f5cb2b"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Lamb 80+ rec yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "CeeDee Lamb",
+          "gsis_id": "espn-4241389",
+          "position": "WR",
+          "line": 79.5,
+          "mu": 80.47,
+          "model_prob": 0.4098,
+          "implied_prob": 0.4282,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:568aae18b5a71cc7b27c1e05b905f1a1dc2f6bf036292b4837cb0a5a7490603b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-4241389",
+            "market": "wr_rec_yds",
+            "line": 79.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.4097953739668518,
+            "served_prob": 0.4098,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 79.5,
+              "mu": 80.46604057099923,
+              "sd": 41.5833,
+              "z": 0.023231455199544674,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:55875db0e239bec6aff605da0308de8723b3b928af223a9de719630867851172"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
+    },
+    {
+      "card_id": "15eabc874064",
+      "dial": "longshot",
+      "seed": "PHI",
+      "rank": 8,
+      "n_legs": 5,
+      "same_game": false,
+      "mixed_game": true,
+      "model": 0.0163,
+      "implied": 0.0089,
+      "ev": 0.8333,
+      "tier": "low",
+      "payout": 11133.13,
+      "assumed": 5,
+      "earliest_kickoff_utc": "2026-11-08T18:00Z",
+      "legs": [
+        {
+          "market": "rb_rush_yds",
+          "selection": "S. Barkley 80+ rush yds",
+          "game_id": "401873044",
+          "team": "PHI",
+          "side": "home",
+          "player": "Saquon Barkley",
+          "gsis_id": "espn-3929630",
+          "position": "RB",
+          "line": 79.5,
+          "mu": 73.47,
+          "model_prob": 0.3407,
+          "implied_prob": 0.356,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:63d669e5befde2b919f0cec987f2f0e95d1daf213b5a07459a9ec343a923b44b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873044",
+            "player_id": "espn-3929630",
+            "market": "rb_rush_yds",
+            "line": 79.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.34071655217110863,
+            "served_prob": 0.3407,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "rb_rush_yds",
+              "line": 79.5,
+              "mu": 73.46509916427591,
+              "sd": 38.8694,
+              "z": -0.15526097227443922,
+              "p_team": 0.4454,
+              "calibration": {
+                "a": -0.342013,
+                "b": 1.942857,
+                "c": 0.301095
+              },
+              "correlation_tags": [
+                "game:401873044",
+                "side:home",
+                "market:rb_rush_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:cde0fe2a3595906e5453decaaf3d9f3b05f8a9cac5dfe9a611056221aca5bbc0"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "C. Lamb 80+ rec yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "CeeDee Lamb",
+          "gsis_id": "espn-4241389",
+          "position": "WR",
+          "line": 79.5,
+          "mu": 80.47,
+          "model_prob": 0.4098,
+          "implied_prob": 0.4282,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:568aae18b5a71cc7b27c1e05b905f1a1dc2f6bf036292b4837cb0a5a7490603b",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-4241389",
+            "market": "wr_rec_yds",
+            "line": 79.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.4097953739668518,
+            "served_prob": 0.4098,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 79.5,
+              "mu": 80.46604057099923,
+              "sd": 41.5833,
+              "z": 0.023231455199544674,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:55875db0e239bec6aff605da0308de8723b3b928af223a9de719630867851172"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Prescott 275+ pass yds",
+          "game_id": "401873040",
+          "team": "DAL",
+          "side": "away",
+          "player": "Dak Prescott",
+          "gsis_id": "espn-2577417",
+          "position": "QB",
+          "line": 274.5,
+          "mu": 239.21,
+          "model_prob": 0.3833,
+          "implied_prob": 0.4005,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:dab63630436d0ced86e868903363936a7e4fbd6ee9ff70bee23ee91b9cc8e65f",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873040",
+            "player_id": "espn-2577417",
+            "market": "qb_pass_yds",
+            "line": 274.5,
+            "side": "away",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3832792269127052,
+            "served_prob": 0.3833,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 274.5,
+              "mu": 239.21318094665205,
+              "sd": 76.6615,
+              "z": -0.46029387702233787,
+              "p_team": 0.48229999999999995,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873040",
+                "side:away",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:c2010e31705a343ef0c846987a1d7bc3ce1f3660e04276cfc89c7e6ea61677a5"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "qb_pass_yds",
+          "selection": "D. Maye 225+ pass yds",
+          "game_id": "401873049",
+          "team": "NE",
+          "side": "home",
+          "player": "Drake Maye",
+          "gsis_id": "espn-4431452",
+          "position": "QB",
+          "line": 224.5,
+          "mu": 186.76,
+          "model_prob": 0.3961,
+          "implied_prob": 0.4139,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:2afb57f1ca2f042a91a4987f50ca012b3591b7120e1f60c3ec48d28c046fa576",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873049",
+            "player_id": "espn-4431452",
+            "market": "qb_pass_yds",
+            "line": 224.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.39606220576459633,
+            "served_prob": 0.3961,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "qb_pass_yds",
+              "line": 224.5,
+              "mu": 186.7563231022843,
+              "sd": 76.6615,
+              "z": -0.4923420086707889,
+              "p_team": 0.6573,
+              "calibration": {
+                "a": 0.130054,
+                "b": 1.294982,
+                "c": 0.544311
+              },
+              "correlation_tags": [
+                "game:401873049",
+                "side:home",
+                "market:qb_pass_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:09818ba4a32378a78eca39eaa01d7e5f4e7819937e55b2a733ae7cfed3ab9ab7"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        },
+        {
+          "market": "wr_rec_yds",
+          "selection": "R. Doubs 50+ rec yds",
+          "game_id": "401873049",
+          "team": "NE",
+          "side": "home",
+          "player": "Romeo Doubs",
+          "gsis_id": "espn-4361432",
+          "position": "WR",
+          "line": 49.5,
+          "mu": 43.28,
+          "model_prob": 0.337,
+          "implied_prob": 0.3522,
+          "price_source": "assumed",
+          "priced": false,
+          "learning_receipt": {
+            "version": 1,
+            "contract_id": "sha256:d031e4ff43caa5901dc50006e34796e6f4a70354447542d60d42adf65451edd1",
+            "season": 2026,
+            "week": 9,
+            "game_id": "401873049",
+            "player_id": "espn-4361432",
+            "market": "wr_rec_yds",
+            "line": 49.5,
+            "side": "home",
+            "direction": "over",
+            "comparison_operator": "gte",
+            "base_prob": 0.3370015402544138,
+            "served_prob": 0.337,
+            "base_model_version": "sha256:57685cac4b5d8b57b07766304fdd5e44a00872d406182b271ef9539dbc3ff85f",
+            "calibrator_version": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "calibrator": null,
+            "forecast_created_utc": "2026-11-07T10:17:49Z",
+            "source_snapshot_id": "sha256:fd84e277a49d31c2971425ff9b18c7bf25bba98b588d75c6af3a3b4e184ebebe",
+            "source_timestamps": {
+              "player_weekly": "2026-11-07T10:17:41Z",
+              "player_projections": "2026-11-07T10:15:58Z",
+              "game_predictions": "2026-11-07T10:15:58Z",
+              "pool_backtest": "2026-11-03T14:54:59Z"
+            },
+            "generation_sha": "11d7169cc5dca196ac16822152c793d49cd27575",
+            "publication_status": "generated_unverified",
+            "features": {
+              "market": "wr_rec_yds",
+              "line": 49.5,
+              "mu": 43.28352227464919,
+              "sd": 41.5833,
+              "z": -0.1494945741523836,
+              "p_team": 0.6573,
+              "calibration": {
+                "a": -0.407427,
+                "b": 1.92171,
+                "c": 0.114603
+              },
+              "correlation_tags": [
+                "game:401873049",
+                "side:home",
+                "market:wr_rec_yds"
+              ]
+            },
+            "input_context": {
+              "availability": null,
+              "eligibility": null,
+              "this_week": null
+            },
+            "receipt_id": "sha256:4af212167beaa2a5d6647d9262041bd6d8a20a6027b203e967c19d8511dbf827"
+          },
+          "season": 2026,
+          "direction": "over",
+          "comparison_operator": "gte"
+        }
+      ],
+      "first_seen_utc": "2026-11-07T10:17:49Z",
+      "locked": true,
+      "locked_utc": "2026-11-07T10:17:49Z"
     }
   ]
 }
