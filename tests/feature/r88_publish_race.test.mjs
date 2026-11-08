@@ -697,6 +697,60 @@ test('(j2) when even the fallback fails the gate, nothing is published, exactly 
   } finally { cleanup(world); }
 });
 
+test('(j3) the fallback re-mirrors the week archive onto the published parlays.json (data-ci #388)', () => {
+  // 2026-11-08: a scheduled daily raced the late-window gameday. The merged tree
+  // failed the gate, the fallback restored the published parlays.json, but the
+  // week archive (merged like a ledger) kept THIS run's open week, so the archive
+  // and parlays.json disagreed on updated_utc and r73 went red on main.
+  const world = makeWorld();
+  try {
+    const ENV = { PUBLISH_VALIDATE_CMD: 'python3 tools/validate_stub.py --join',
+                  PUBLISH_ARCHIVE_CMD: 'python3 tools/archive_stub.py' };
+    const ARCHIVE_STUB = [
+      'import json',
+      '# Toy stand-in for scripts/build_parlay_archive.py: the open week mirrors parlays.json.',
+      'p = json.load(open("data/parlays.json"))',
+      'a = json.load(open("' + ARCHIVE + '"))',
+      'frozen = [c for c in a["parlays"] if c.get("frozen_utc")]',
+      'a["updated_utc"] = p["updated_utc"]',
+      'a["parlays"] = frozen + [c for c in p["parlays"] if c["card_id"] not in {f["card_id"] for f in frozen}]',
+      'json.dump(a, open("' + ARCHIVE + '", "w"), indent=2)',
+    ].join('\n') + '\n';
+    const weekOf = (repo, asOf, cardId) => {
+      writeFileSync(join(repo, 'tools/archive_stub.py'), ARCHIVE_STUB);
+      writeJson(repo, 'data/parlays.json', { season: 2026, week: 2, updated_utc: asOf,
+        parlays: [archiveCard(cardId)] });
+      const a = readJson(repo, ARCHIVE);
+      a.updated_utc = asOf;
+      a.archived_utc = asOf;
+      a.parlays = [archiveCard('c-frozen', { frozen_utc: T0 }), archiveCard(cardId)];
+      a.history.push({ updated_utc: asOf, archived_utc: asOf });
+      writeJson(repo, ARCHIVE, a);
+    };
+    // A (gameday) publishes a consistent week and its source.
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    writeJson(world.a, 'data/source.json', { generated_utc: TA });
+    weekOf(world.a, TA, 'c-a');
+    assert.equal(publish(world.a, 'data: gameday refresh [skip actions]', ENV).status, 0);
+
+    // B (daily) built from the old source, with a NEWER parlays.json and archive.
+    generate(world.b, { asOf: TB, legSel: 'B ML', cardId: 'bbb', pHome: 0.77 });
+    weekOf(world.b, TB, 'c-b');
+    const r = publish(world.b, 'data: daily pipeline refresh [skip actions]', ENV);
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /data\/parlays\.json: fallback, taking the published version/);
+    assert.match(r.out, /open week re-mirrored from the published parlays\.json/);
+
+    const parlays = readMain(world, 'data/parlays.json');
+    const arch = readMain(world, ARCHIVE);
+    assert.equal(parlays.updated_utc, TA, 'the published parlays.json is kept');
+    assert.equal(arch.updated_utc, parlays.updated_utc, 'the archive mirrors the parlays.json it ships with');
+    assert.ok(arch.parlays.some((c) => c.card_id === 'c-frozen'), 'frozen history is kept');
+    assert.ok(arch.parlays.some((c) => c.card_id === 'c-a') && !arch.parlays.some((c) => c.card_id === 'c-b'),
+      'the open week is the published one, not the discarded generation');
+  } finally { cleanup(world); }
+});
+
 /* ---------- (f) a remote that always says no ----------------------------- */
 
 test('(f) a remote that always rejects: exactly 5 attempts, then one ::error:: and exit 1', () => {

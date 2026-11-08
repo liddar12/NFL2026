@@ -42,6 +42,7 @@
 # Env (test seams; the defaults are what production runs):
 #   PUBLISH_BRANCH        main or release/*           (default: main when unset)
 #   PUBLISH_VALIDATE_CMD  the contract gate            (default: python3 scripts/validate_data.py)
+#   PUBLISH_ARCHIVE_CMD   week-archive re-mirror       (default: python3 scripts/build_parlay_archive.py)
 #   PUBLISH_BACKOFF_S     seconds between attempts     (default: 5)
 #   PUBLISH_ATTEMPTS      how many attempts            (default: 5)
 #
@@ -52,6 +53,8 @@ BOT_NAME="nfl2026-bot"
 BOT_EMAIL="bot@j5lagenticstrategy.com"
 
 VALIDATE_CMD="${PUBLISH_VALIDATE_CMD:-python3 scripts/validate_data.py}"
+# The week-archive builder the R111 fallback re-runs (a stub in the race test).
+ARCHIVE_CMD="${PUBLISH_ARCHIVE_CMD:-python3 scripts/build_parlay_archive.py}"
 BACKOFF_S="${PUBLISH_BACKOFF_S:-5}"
 ATTEMPTS="${PUBLISH_ATTEMPTS:-5}"
 
@@ -225,6 +228,21 @@ fall_back_to_theirs() {
     fi
     log "  $path: fallback, taking the published version (this run's copy did not join the other writer's files)"
   done <<< "$(git diff --cached --name-only "$onto" -- data/)"
+  # 2026-11-08 (data-ci #388, #199): the week archive is merged like a ledger, so
+  # the loop above keeps it, and its OPEN week still mirrored this run's
+  # parlays.json while the published parlays.json was restored. The archive's
+  # frozen cards are history and stay; its open week must mirror the parlays.json
+  # this tree will publish, so the archive builder re-mirrors it (offline, and a
+  # no-op when nothing differs). The gate then runs on the result as before.
+  if [ -n "$(git diff --cached --name-only "$onto" -- 'data/parlays/*_wk*.json')" ] \
+     && [ -f data/parlays.json ]; then
+    if eval "$ARCHIVE_CMD"; then
+      git add -A -- data/parlays/
+      log "  data/parlays/: open week re-mirrored from the published parlays.json"
+    else
+      die "the week archive could not be re-mirrored onto the published parlays.json during the fallback. Nothing was published; this run's generation is intact in its checkout."
+    fi
+  fi
   FELL_BACK=1
 }
 
