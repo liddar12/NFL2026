@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-08T11:52:13Z",
+  "generated_utc": "2026-11-08T12:26:22Z",
   "model_candidate": "weekly_split_v2",
   "model_incumbent": "weekly_split_v1",
   "fixture": {
@@ -179,10 +179,213 @@
       "revert": 0.45
     },
     "elo_chain_from": 2019,
-    "runtime_s": 0.58
+    "runtime_s": 1.09
   },
   "live_2026": {
-    "weeks": 0,
-    "note": "GET https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv -> HTTP 504 (no 2026 weekly stats published yet) \u2014 LIVE 2026: the shipped weekly estimate per player-week as made and locked before kickoff (data/estimates/2026.json) scored against resolved actual PPR (data/estimate_scores.json), not the 2023-25 corpus; measured only \u2014 the never-regress verdict above stays on the corpus"
+    "season": 2026,
+    "weeks": 9,
+    "weeks_resolved": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "rows": 2407,
+    "ledger": "data/estimates/2026.json",
+    "scores": "data/estimate_scores.json",
+    "shipped": {
+      "mae": 5.4681,
+      "rank_corr": 0.4895,
+      "topk": 0.7256
+    },
+    "gated": {
+      "mae": 5.4294,
+      "rank_corr": 0.486,
+      "topk": 0.7058
+    },
+    "candidate": {
+      "mae": 5.4681,
+      "rank_corr": 0.4895,
+      "topk": 0.7256
+    },
+    "per_week": [
+      {
+        "week": 1,
+        "n": 256,
+        "shipped": {
+          "mae": 6.0716,
+          "rank_corr": 0.4914,
+          "topk": 0.7437
+        },
+        "gated": {
+          "mae": 6.0761,
+          "rank_corr": 0.4569,
+          "topk": 0.7301
+        },
+        "candidate": {
+          "mae": 6.0716,
+          "rank_corr": 0.4914,
+          "topk": 0.7437
+        }
+      },
+      {
+        "week": 2,
+        "n": 258,
+        "shipped": {
+          "mae": 5.3622,
+          "rank_corr": 0.5169,
+          "topk": 0.7778
+        },
+        "gated": {
+          "mae": 5.3836,
+          "rank_corr": 0.5032,
+          "topk": 0.7392
+        },
+        "candidate": {
+          "mae": 5.3622,
+          "rank_corr": 0.5169,
+          "topk": 0.7778
+        }
+      },
+      {
+        "week": 3,
+        "n": 273,
+        "shipped": {
+          "mae": 5.1489,
+          "rank_corr": 0.5361,
+          "topk": 0.752
+        },
+        "gated": {
+          "mae": 5.1535,
+          "rank_corr": 0.5209,
+          "topk": 0.744
+        },
+        "candidate": {
+          "mae": 5.1489,
+          "rank_corr": 0.5361,
+          "topk": 0.752
+        }
+      },
+      {
+        "week": 4,
+        "n": 272,
+        "shipped": {
+          "mae": 5.4855,
+          "rank_corr": 0.5275,
+          "topk": 0.7158
+        },
+        "gated": {
+          "mae": 5.4883,
+          "rank_corr": 0.5171,
+          "topk": 0.7036
+        },
+        "candidate": {
+          "mae": 5.4855,
+          "rank_corr": 0.5275,
+          "topk": 0.7158
+        }
+      },
+      {
+        "week": 5,
+        "n": 272,
+        "shipped": {
+          "mae": 5.6263,
+          "rank_corr": 0.4987,
+          "topk": 0.698
+        },
+        "gated": {
+          "mae": 5.6765,
+          "rank_corr": 0.4939,
+          "topk": 0.6733
+        },
+        "candidate": {
+          "mae": 5.6263,
+          "rank_corr": 0.4987,
+          "topk": 0.698
+        }
+      },
+      {
+        "week": 6,
+        "n": 265,
+        "shipped": {
+          "mae": 4.7092,
+          "rank_corr": 0.5612,
+          "topk": 0.6834
+        },
+        "gated": {
+          "mae": 4.678,
+          "rank_corr": 0.5721,
+          "topk": 0.6896
+        },
+        "candidate": {
+          "mae": 4.7092,
+          "rank_corr": 0.5612,
+          "topk": 0.6834
+        }
+      },
+      {
+        "week": 7,
+        "n": 271,
+        "shipped": {
+          "mae": 4.6293,
+          "rank_corr": 0.6207,
+          "topk": 0.7449
+        },
+        "gated": {
+          "mae": 4.4675,
+          "rank_corr": 0.6443,
+          "topk": 0.7503
+        },
+        "candidate": {
+          "mae": 4.6293,
+          "rank_corr": 0.6207,
+          "topk": 0.7449
+        }
+      },
+      {
+        "week": 8,
+        "n": 270,
+        "shipped": {
+          "mae": 5.0316,
+          "rank_corr": 0.5624,
+          "topk": 0.7112
+        },
+        "gated": {
+          "mae": 5.0738,
+          "rank_corr": 0.5679,
+          "topk": 0.629
+        },
+        "candidate": {
+          "mae": 5.0316,
+          "rank_corr": 0.5624,
+          "topk": 0.7112
+        }
+      },
+      {
+        "week": 9,
+        "n": 270,
+        "shipped": {
+          "mae": 7.1661,
+          "rank_corr": 0.0923,
+          "topk": 0.3602
+        },
+        "gated": {
+          "mae": 6.889,
+          "rank_corr": 0.0973,
+          "topk": 0.5055
+        },
+        "candidate": {
+          "mae": 7.1661,
+          "rank_corr": 0.0923,
+          "topk": 0.3602
+        }
+      }
+    ],
+    "note": "LIVE 2026: the shipped weekly estimate per player-week as made and locked before kickoff (data/estimates/2026.json) scored against resolved actual PPR (data/estimate_scores.json), not the 2023-25 corpus; measured only \u2014 the never-regress verdict above stays on the corpus"
   }
 }

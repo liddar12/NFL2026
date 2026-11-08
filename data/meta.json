@@ -55,7 +55,7 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-11-08T11:52:44Z",
+    "changed_utc": "2026-11-08T12:26:34Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
       "proj_points",
@@ -85,7 +85,7 @@
       "pooled_rho_ppg_rule": 0.6151,
       "pooled_mae_total_rule": 59.9976,
       "pooled_mae_ppg_rule": 60.4155,
-      "measured_utc": "2026-11-08T11:52:44Z"
+      "measured_utc": "2026-11-08T12:26:34Z"
     },
     "candidate": {
       "signals_applied": [
@@ -102,21 +102,21 @@
     }
   },
   "learning_record": {
-    "weeks_resolved": 0,
-    "players_scored": 0,
-    "mae_ppr": null,
-    "bias_ppr": null,
-    "candidate_mae_ppr": null,
-    "candidate_bias_ppr": null,
-    "gated_mae_ppr": null,
-    "gated_bias_ppr": null,
-    "band_coverage": null,
+    "weeks_resolved": 9,
+    "players_scored": 281,
+    "mae_ppr": 5.468,
+    "bias_ppr": 0.575,
+    "candidate_mae_ppr": 5.468,
+    "candidate_bias_ppr": 0.575,
+    "gated_mae_ppr": 5.429,
+    "gated_bias_ppr": 0.272,
+    "band_coverage": 0.4433,
     "signals_with_weight": [],
     "ledger": "data/estimates/2026.json",
-    "objective_ready": false,
+    "objective_ready": true,
     "adoption_margin_mae": 0.1,
-    "note": "GET https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv failed: ReadTimeout",
-    "updated_utc": "2026-11-08T11:57:01Z",
+    "note": "shipped, candidate and gated scored on locked pre-kickoff estimates; the never-regress comparison is candidate vs gated on the walk-forward player objective (scripts/fit_player_signals.py) \u2014 shipped == candidate under the R49 owner override",
+    "updated_utc": "2026-11-08T12:29:36Z",
     "last_proposal": {
       "generated_utc": "2026-11-03T14:56:04Z",
       "verdict": "retain",
