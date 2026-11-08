@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-08T17:25:20Z",
+  "generated_utc": "2026-11-08T18:45:17Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (121 games); scores from data/review.json FINAL rows (122 games); scores from ESPN live, STATUS-gated FINAL (122 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (122 games); scores from data/review.json FINAL rows (122 games); scores from ESPN live, STATUS-gated FINAL (123 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 9,
@@ -10,7 +10,7 @@
     "on_file": 863,
     "locked": 708,
     "unlocked": 155,
-    "resolved": 600,
+    "resolved": 601,
     "unresolved": 93
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 129,
-      "hit_rate": 0.5969,
-      "log_loss": 0.6557,
-      "brier": 0.2326
+      "n": 130,
+      "hit_rate": 0.6,
+      "log_loss": 0.6552,
+      "brier": 0.2323
     },
     "spread": {
       "n": 137,
@@ -349,10 +349,10 @@
         }
       },
       "moneyline": {
-        "n": 1,
+        "n": 2,
         "hit_rate": 1.0,
-        "log_loss": 0.4659,
-        "brier": 0.1387
+        "log_loss": 0.5227,
+        "brier": 0.1661
       },
       "spread": {
         "n": 0,
@@ -11351,6 +11351,21 @@
       "seed_prob": 0.449,
       "actual": 6.0,
       "hit": false
+    },
+    {
+      "week": 9,
+      "game_id": "401873038",
+      "market": "moneyline",
+      "selection": "CIN ML",
+      "team": "CIN",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.5601,
+      "actual": {
+        "home_score": 17,
+        "away_score": 34
+      },
+      "hit": true
     }
   ]
 }
