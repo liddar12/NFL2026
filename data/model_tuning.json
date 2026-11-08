@@ -43,6 +43,150 @@
   },
   "history": [
     {
+      "generated_utc": "2026-11-08T14:44:01Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 5,
+      "fold_candidates": [
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.1,
+          "n_train": 96,
+          "n_held": 25
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.39875,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 10.625,
+          "revert": 0.26875,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.38,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 34.375,
+          "revert": 0.40625,
+          "n_train": 97,
+          "n_held": 24
+        }
+      ],
+      "evals": 3121,
+      "margin": 0.0015,
+      "n_resolved": 121,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 0.625,
+        "revert": 0.30625
+      },
+      "current_loss": 0.665464,
+      "candidate_loss": 0.656923,
+      "heldout_current_loss": 0.665464,
+      "heldout_candidate_loss": 0.673458,
+      "improvement": -0.007994,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.625, 'revert': 0.30625} scores 0.673458 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.665464 across 5 folds over n=121 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false."
+    },
+    {
+      "generated_utc": "2026-11-08T12:59:00Z",
+      "kind": "game_params",
+      "objective": "log_loss",
+      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
+      "axes": [
+        {
+          "name": "hfa_elo",
+          "lo": 0.0,
+          "hi": 120.0,
+          "min_step": 0.5
+        },
+        {
+          "name": "revert",
+          "lo": 0.0,
+          "hi": 0.9,
+          "min_step": 0.005
+        }
+      ],
+      "folds": 5,
+      "fold_candidates": [
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.1,
+          "n_train": 96,
+          "n_held": 25
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.39875,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 10.625,
+          "revert": 0.26875,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 0.0,
+          "revert": 0.38,
+          "n_train": 97,
+          "n_held": 24
+        },
+        {
+          "hfa_elo": 34.375,
+          "revert": 0.40625,
+          "n_train": 97,
+          "n_held": 24
+        }
+      ],
+      "evals": 3121,
+      "margin": 0.0015,
+      "n_resolved": 121,
+      "current": {
+        "hfa_elo": 45.0,
+        "revert": 0.45
+      },
+      "candidate": {
+        "hfa_elo": 0.625,
+        "revert": 0.30625
+      },
+      "current_loss": 0.665464,
+      "candidate_loss": 0.656923,
+      "heldout_current_loss": 0.665464,
+      "heldout_candidate_loss": 0.673458,
+      "improvement": -0.007994,
+      "on_boundary": {},
+      "adopted": false,
+      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.625, 'revert': 0.30625} scores 0.673458 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.665464 across 5 folds over n=121 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false."
+    },
+    {
       "generated_utc": "2026-11-03T14:55:37Z",
       "kind": "signal_promotion",
       "format": 2,
@@ -67324,78 +67468,6 @@
     },
     {
       "generated_utc": "2026-11-08T05:15:36Z",
-      "kind": "game_params",
-      "objective": "log_loss",
-      "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
-      "axes": [
-        {
-          "name": "hfa_elo",
-          "lo": 0.0,
-          "hi": 120.0,
-          "min_step": 0.5
-        },
-        {
-          "name": "revert",
-          "lo": 0.0,
-          "hi": 0.9,
-          "min_step": 0.005
-        }
-      ],
-      "folds": 5,
-      "fold_candidates": [
-        {
-          "hfa_elo": 0.0,
-          "revert": 0.1,
-          "n_train": 96,
-          "n_held": 25
-        },
-        {
-          "hfa_elo": 0.0,
-          "revert": 0.39875,
-          "n_train": 97,
-          "n_held": 24
-        },
-        {
-          "hfa_elo": 10.625,
-          "revert": 0.26875,
-          "n_train": 97,
-          "n_held": 24
-        },
-        {
-          "hfa_elo": 0.0,
-          "revert": 0.38,
-          "n_train": 97,
-          "n_held": 24
-        },
-        {
-          "hfa_elo": 34.375,
-          "revert": 0.40625,
-          "n_train": 97,
-          "n_held": 24
-        }
-      ],
-      "evals": 3121,
-      "margin": 0.0015,
-      "n_resolved": 121,
-      "current": {
-        "hfa_elo": 45.0,
-        "revert": 0.45
-      },
-      "candidate": {
-        "hfa_elo": 0.625,
-        "revert": 0.30625
-      },
-      "current_loss": 0.665464,
-      "candidate_loss": 0.656923,
-      "heldout_current_loss": 0.665464,
-      "heldout_candidate_loss": 0.673458,
-      "improvement": -0.007994,
-      "on_boundary": {},
-      "adopted": false,
-      "reason": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.625, 'revert': 0.30625} scores 0.673458 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.665464 across 5 folds over n=121 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false."
-    },
-    {
-      "generated_utc": "2026-11-08T12:59:00Z",
       "kind": "game_params",
       "objective": "log_loss",
       "search": "coarse-to-fine box refinement (scripts/refit.search_axes)",
