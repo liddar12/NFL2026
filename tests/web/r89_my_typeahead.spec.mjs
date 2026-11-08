@@ -72,8 +72,20 @@ const FINAL_GAME = SCHEDULE.games.find((g) => Number(g.week) === WEEK && g.statu
 const FINAL_ROWS = FINAL_GAME
   ? POOL.players.filter((r) => r.team === FINAL_GAME.home || r.team === FINAL_GAME.away) : [];
 const FINAL_PLAYER = unambiguous(FINAL_ROWS) || FINAL_ROWS[0] || null;
-/* A player whose game has NOT kicked off (the derived upcoming seed). */
-const LIVE_PLAYER = unambiguous(SEED_ROWS) || SEED_PLAYER;
+/* A player whose game has NOT kicked off (the derived upcoming seed) AND whom the
+ * default dial can use. R117 restated (app/views/myparlays.js DIALS.even and
+ * PROP_DIAL_BAND; this test may not import the module): a prop rung is offered
+ * only within 0.10 of the dial's 0.50 target, so a player whose best rung is
+ * further away seeds "No card could be built around him at this dial" by design.
+ * 2026-11-08: the derived seed team was BUF and the first unambiguous row was
+ * Greg Dortch, best rung 0.34, and three R89 tests went red on main's data with
+ * no code change. The seed is chosen from the rows the dial can actually use. */
+const DEFAULT_DIAL_TARGET = 0.50;
+const PROP_DIAL_BAND = 0.10;
+const dialable = (r) => (r.rungs || []).some(
+  (k) => Math.abs(Number(k.model_prob) - DEFAULT_DIAL_TARGET) - PROP_DIAL_BAND <= 1e-9);
+const LIVE_ROWS = SEED_ROWS.filter(dialable);
+const LIVE_PLAYER = unambiguous(LIVE_ROWS) || LIVE_ROWS[0] || unambiguous(SEED_ROWS) || SEED_PLAYER;
 
 function watch(page) {
   const errors = [];
