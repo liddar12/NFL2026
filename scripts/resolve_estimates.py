@@ -373,8 +373,27 @@ def _load(path):
         return json.load(fh)
 
 
+class FeedUnavailable(RuntimeError):
+    """The stats release answered with a transient failure (5xx, timeout, reset).
+
+    RCA 2026-11-08: a 504 from the nflverse release was reported as "no weekly stats
+    published yet", every resolver rewrote its document with 0 weeks resolved, and
+    the publish wiped the season's graded record (estimates 2407 -> 0, MY cards
+    23385 -> 7609). Only a 404 means "not published"; anything else is an outage,
+    and an outage must leave the last good document on disk. So this is raised, the
+    resolver exits non-zero before writing, and its continue-on-error stage keeps
+    yesterday's file for the publish."""
+
+
+# Waits between attempts on a transient failure (seconds); tests set this to ().
+_RETRY_DELAYS = (10, 30)
+
+
 def fetch_csv(season, cache_dir=None):
-    """Rows for the season, or (None, reason) when the release has none yet."""
+    """Rows for the season, or (None, reason) when the release has none yet (HTTP 404).
+
+    Raises FeedUnavailable when the release cannot be read for any other reason
+    (5xx, timeout, connection fault) after the retries in _RETRY_DELAYS."""
     url = RELEASE_URL.format(season=int(season))
     cached = os.path.join(cache_dir, "stats_player_week_%d.csv" % season) if cache_dir else None
     if cached and os.path.exists(cached):
@@ -384,13 +403,27 @@ def fetch_csv(season, cache_dir=None):
         import requests  # noqa: PLC0415 — runner dependency, guarded
     except ImportError:
         return None, "requests is not installed (the daily runner installs it)"
-    try:
-        resp = requests.get(url, timeout=_HTTP_TIMEOUT)
-    except Exception as exc:  # noqa: BLE001 — a network fault is a skip, not a crash
-        return None, "GET %s failed: %s" % (url, exc.__class__.__name__)
-    if resp.status_code != 200:
-        return None, "GET %s -> HTTP %s (no %d weekly stats published yet)" % (
-            url, resp.status_code, season)
+    import time  # noqa: PLC0415
+    failure = None
+    for attempt, delay in enumerate((0,) + tuple(_RETRY_DELAYS)):
+        if delay:
+            time.sleep(delay)
+        try:
+            resp = requests.get(url, timeout=_HTTP_TIMEOUT)
+        except Exception as exc:  # noqa: BLE001 — a network fault is transient
+            failure = "GET %s failed: %s" % (url, exc.__class__.__name__)
+            continue
+        if resp.status_code == 404:
+            return None, "GET %s -> HTTP 404 (no %d weekly stats published yet)" % (
+                url, season)
+        if resp.status_code != 200:
+            failure = "GET %s -> HTTP %s" % (url, resp.status_code)
+            continue
+        failure = None
+        break
+    if failure:
+        raise FeedUnavailable("%s after %d attempt(s); the last good document is kept"
+                              % (failure, 1 + len(tuple(_RETRY_DELAYS))))
     text = resp.content.decode("utf-8", errors="replace")
     if cached:
         os.makedirs(cache_dir, exist_ok=True)

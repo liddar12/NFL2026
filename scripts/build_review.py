@@ -1512,8 +1512,15 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
         stats_reason = "offline run: stats not fetched"
         sources["stats"] = None
     else:
-        from scripts.resolve_estimates import RELEASE_URL, fetch_csv  # noqa: PLC0415
-        rows, why = fetch_csv(season, None)
+        from scripts.resolve_estimates import (  # noqa: PLC0415
+            RELEASE_URL, FeedUnavailable, fetch_csv)
+        try:
+            rows, why = fetch_csv(season, None)
+        except FeedUnavailable as exc:
+            # The review is a required stage: an outage omits the stat factors (noted
+            # below) instead of failing the publish; the players come from the last
+            # good estimate_scores.json, which the failed resolver left in place.
+            rows, why = None, str(exc)
         if rows is None:
             stats_reason = why
             sources["stats"] = None
