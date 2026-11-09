@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-08T23:32:59Z",
+  "generated_utc": "2026-11-09T00:25:22Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (129 games); scores from data/review.json FINAL rows (130 games); scores from ESPN live, STATUS-gated FINAL (130 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (130 games); scores from data/review.json FINAL rows (130 games); scores from ESPN live, STATUS-gated FINAL (132 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 9,
@@ -10,7 +10,7 @@
     "on_file": 864,
     "locked": 708,
     "unlocked": 156,
-    "resolved": 630,
+    "resolved": 632,
     "unresolved": 71
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 137,
-      "hit_rate": 0.6131,
-      "log_loss": 0.6475,
-      "brier": 0.2286
+      "n": 139,
+      "hit_rate": 0.6187,
+      "log_loss": 0.6416,
+      "brier": 0.226
     },
     "spread": {
       "n": 137,
@@ -349,10 +349,10 @@
         }
       },
       "moneyline": {
-        "n": 9,
-        "hit_rate": 0.8889,
-        "log_loss": 0.5085,
-        "brier": 0.1614
+        "n": 11,
+        "hit_rate": 0.9091,
+        "log_loss": 0.4598,
+        "brier": 0.1404
       },
       "spread": {
         "n": 0,
@@ -11735,6 +11735,36 @@
       "seed_prob": 0.6069,
       "actual": 49.0,
       "hit": false
+    },
+    {
+      "week": 9,
+      "game_id": "401873047",
+      "market": "moneyline",
+      "selection": "SF ML",
+      "team": "SF",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7854,
+      "actual": {
+        "home_score": 38,
+        "away_score": 17
+      },
+      "hit": true
+    },
+    {
+      "week": 9,
+      "game_id": "401873048",
+      "market": "moneyline",
+      "selection": "SEA ML",
+      "team": "SEA",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7865,
+      "actual": {
+        "home_score": 17,
+        "away_score": 3
+      },
+      "hit": true
     }
   ]
 }
