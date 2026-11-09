@@ -55,7 +55,7 @@
     "season_games": 17,
     "games_source": "player_history seasons.games (ESPN kona statId 210, the same actuals entry as prior_season_points)",
     "absence_source": "data/injuries.json (ESPN injury report, scripts/availability.py canonical codes; blocked weeks per scripts/build_weekly.blocked_week_count: stated duration, out-for-season, or the 4-game IR/PUP/NFI floor)",
-    "changed_utc": "2026-11-09T02:41:45Z",
+    "changed_utc": "2026-11-09T05:48:00Z",
     "shipped_rule": "prior_season_points",
     "applies_to": [
       "proj_points",
@@ -69,9 +69,9 @@
       "gated_series": "gated_points/gated_low/gated_high (+ gated_rule) on every record; the ledger scores shipped, candidate and gated",
       "band_multiplier": 2.25,
       "backtest_2025": {
-        "gated_mae": 56.7,
-        "candidate_mae": 53.599,
-        "band_coverage_after_calibration": 0.684
+        "gated_mae": 56.266,
+        "candidate_mae": 52.968,
+        "band_coverage_after_calibration": 0.7013
       }
     },
     "recency_weights": [
@@ -80,12 +80,12 @@
     ],
     "gate": {
       "adopted_for_shipped": false,
-      "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.5873 -> 0.616, pooled MAE 60.2448 -> 60.6534 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
-      "pooled_rho_total_rule": 0.5873,
-      "pooled_rho_ppg_rule": 0.616,
-      "pooled_mae_total_rule": 60.2448,
-      "pooled_mae_ppg_rule": 60.6534,
-      "measured_utc": "2026-11-09T02:41:45Z"
+      "reason": "NEVER REGRESS for the shipped number: pooled rank-corr 0.588 -> 0.6151, pooled MAE 59.9573 -> 60.4471 \u2014 the per-game rule must improve BOTH to replace prior_season_points; it ships as the CANDIDATE baseline instead",
+      "pooled_rho_total_rule": 0.588,
+      "pooled_rho_ppg_rule": 0.6151,
+      "pooled_mae_total_rule": 59.9573,
+      "pooled_mae_ppg_rule": 60.4471,
+      "measured_utc": "2026-11-09T05:48:00Z"
     },
     "candidate": {
       "signals_applied": [

@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-09T02:44:11Z",
+  "generated_utc": "2026-11-09T05:51:42Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (133 games); scores from data/review.json FINAL rows (134 games); scores from ESPN live, STATUS-gated FINAL (134 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (134 games); scores from data/review.json FINAL rows (134 games); scores from ESPN live, STATUS-gated FINAL (135 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 9,
@@ -10,7 +10,7 @@
     "on_file": 864,
     "locked": 708,
     "unlocked": 156,
-    "resolved": 644,
+    "resolved": 645,
     "unresolved": 61
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 141,
-      "hit_rate": 0.617,
-      "log_loss": 0.6438,
-      "brier": 0.227
+      "n": 142,
+      "hit_rate": 0.6197,
+      "log_loss": 0.6416,
+      "brier": 0.226
     },
     "spread": {
       "n": 137,
@@ -349,10 +349,10 @@
         }
       },
       "moneyline": {
-        "n": 13,
-        "hit_rate": 0.8462,
-        "log_loss": 0.5117,
-        "brier": 0.1648
+        "n": 14,
+        "hit_rate": 0.8571,
+        "log_loss": 0.4991,
+        "brier": 0.1588
       },
       "spread": {
         "n": 0,
@@ -11914,6 +11914,21 @@
       "model_prob": 0.3162,
       "seed_prob": 0.4371,
       "actual": 171.0,
+      "hit": true
+    },
+    {
+      "week": 9,
+      "game_id": "401873050",
+      "market": "moneyline",
+      "selection": "CHI ML",
+      "team": "CHI",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.7147,
+      "actual": {
+        "home_score": 27,
+        "away_score": 24
+      },
       "hit": true
     }
   ]
