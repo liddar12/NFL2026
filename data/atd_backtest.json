@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-03T14:56:18Z",
+  "generated_utc": "2026-11-10T15:31:17Z",
   "kind": "atd_backtest",
   "policy": "MEASURE ONLY (R99 E1). P(anytime TD) = 1 - exp(-lambda_team * share), walk-forward. No ATD leg is offered while adopted is false. No book price is an input.",
   "model": "lambda_team = league TDs/game x shrunk offence rate x shrunk opponent TDs-allowed rate x home factor; share = TD share shrunk toward carries/targets opportunity share, R92 depth cascade, team sum <= 1",
@@ -124,20 +124,20 @@
     },
     "2026": {
       "stats": {
-        "rows": 8428,
-        "kept_rows": 2732,
+        "rows": 9464,
+        "kept_rows": 3071,
         "not_reg": 0,
-        "other_season": 8,
-        "no_offense": 5688,
+        "other_season": 9,
+        "no_offense": 6384,
         "duplicate_player_week": 0
       },
-      "team_games": 242,
+      "team_games": 272,
       "snaps": {
-        "rows": 11292,
-        "kept": 2949,
-        "unmapped": 10
+        "rows": 12693,
+        "kept": 3317,
+        "unmapped": 13
       },
-      "universe": 3096
+      "universe": 3481
     }
   },
   "seasons": {
@@ -648,34 +648,35 @@
       5,
       6,
       7,
-      8
+      8,
+      9
     ],
     "model": {
-      "n": 3096,
-      "log_loss": 0.37942,
-      "brier": 0.11709,
-      "calibration_intercept": 0.0751,
-      "calibration_slope": 1.0496,
-      "mean_p": 0.1606,
-      "hit_rate": 0.1615
+      "n": 3481,
+      "log_loss": 0.38005,
+      "brier": 0.11714,
+      "calibration_intercept": 0.0234,
+      "calibration_slope": 1.018,
+      "mean_p": 0.1607,
+      "hit_rate": 0.1606
     },
     "position_base_rate": {
-      "n": 3096,
-      "log_loss": 0.43857,
-      "brier": 0.13441,
-      "calibration_intercept": -0.0169,
-      "calibration_slope": 0.9819,
-      "mean_p": 0.1598,
-      "hit_rate": 0.1615
+      "n": 3481,
+      "log_loss": 0.437,
+      "brier": 0.13379,
+      "calibration_intercept": -0.0186,
+      "calibration_slope": 0.9854,
+      "mean_p": 0.1599,
+      "hit_rate": 0.1606
     },
     "opportunity_only": {
-      "n": 3096,
-      "log_loss": 0.38297,
-      "brier": 0.11865,
-      "calibration_intercept": 0.1026,
-      "calibration_slope": 1.0614,
-      "mean_p": 0.1595,
-      "hit_rate": 0.1615
+      "n": 3481,
+      "log_loss": 0.38263,
+      "brier": 0.11847,
+      "calibration_intercept": 0.0727,
+      "calibration_slope": 1.0423,
+      "mean_p": 0.159,
+      "hit_rate": 0.1606
     },
     "per_week": [
       {
@@ -773,6 +774,18 @@
           "mean_p": 0.16,
           "hit_rate": 0.175
         }
+      },
+      {
+        "week": 9,
+        "model": {
+          "n": 385,
+          "log_loss": 0.38507,
+          "brier": 0.1175,
+          "calibration_intercept": -0.3371,
+          "calibration_slope": 0.8056,
+          "mean_p": 0.1615,
+          "hit_rate": 0.1532
+        }
       }
     ],
     "live_2026": {
@@ -784,11 +797,12 @@
         5,
         6,
         7,
-        8
+        8,
+        9
       ],
-      "legs": 3096,
-      "offered_mean": 0.1606,
-      "hit_rate": 0.1615,
+      "legs": 3481,
+      "offered_mean": 0.1607,
+      "hit_rate": 0.1606,
       "per_week": [
         {
           "week": 2,
@@ -887,11 +901,29 @@
           "adjusted_log_loss": 0.369,
           "raw_ece": 0.0344,
           "adjusted_ece": 0.0394
+        },
+        {
+          "week": 9,
+          "n": 385,
+          "fit_weeks": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "raw_log_loss": 0.3851,
+          "adjusted_log_loss": 0.3863,
+          "raw_ece": 0.0204,
+          "adjusted_ece": 0.024
         }
       ],
       "adjustment": null,
       "applied": false,
-      "reason": "hold: the layer is worse on held-out week(s) [2, 3, 4, 5, 7]"
+      "reason": "hold: the layer is worse on held-out week(s) [2, 3, 4, 5, 7, 9]"
     }
   },
   "in_season_min_weeks": 4,

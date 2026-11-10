@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-03T14:56:10Z",
+  "generated_utc": "2026-11-10T15:31:08Z",
   "kind": "weather_backtest",
   "seasons_scored": [
     "2022",
@@ -338,7 +338,7 @@
       "wind_extreme": "kph >= 30"
     }
   },
-  "weather_history_sha256": "746d9eaba95b13e5eb7cdce9a008cb30f9d6cf251b8a2f6f781a0a9d780bc2c6",
+  "weather_history_sha256": "ac0433b7c15b4f0f90171f4afe03c2b94cb64410d4c524b070522d8a0830ab67",
   "power": {
     "rain_catch_rate_rb": {
       "analysis_sample": "marginal",
@@ -1251,14 +1251,14 @@
     "reach": {
       "available": true,
       "reason": "",
-      "slate": "2026 week 9",
-      "rungs": 1062,
-      "rungs_moved_beyond_ece": 0,
-      "rungs_crossing_support": 0,
-      "mean_abs_delta_p": 0.0,
+      "slate": "2026 week 10",
+      "rungs": 951,
+      "rungs_moved_beyond_ece": 78,
+      "rungs_crossing_support": 4,
+      "mean_abs_delta_p": 0.001768,
       "p90_abs_delta_p": 0.0,
-      "max_abs_delta_p": 0.0,
-      "games_triggering": 0,
+      "max_abs_delta_p": 0.04778,
+      "games_triggering": 1,
       "ece": 0.0066,
       "effect_ratio": 0.946163,
       "note": "Computed on ONE live slate, named above. Rung counts differ week to week and are never a season-long frequency. A rung that crosses a support bound is not re-priced - it stops being OFFERED - and backtest_parlay never calls build_weekly, so no gate in this repo watches that happen."
