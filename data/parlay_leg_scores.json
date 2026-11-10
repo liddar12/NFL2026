@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-10T04:41:26Z",
+  "generated_utc": "2026-11-10T06:24:00Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (135 games); scores from data/review.json FINAL rows (135 games); scores from ESPN live, STATUS-gated FINAL (136 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (135 games); scores from data/review.json FINAL rows (136 games); scores from ESPN live, STATUS-gated FINAL (136 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 9,
@@ -10,24 +10,24 @@
     "on_file": 909,
     "locked": 753,
     "unlocked": 156,
-    "resolved": 651,
-    "unresolved": 57
+    "resolved": 653,
+    "unresolved": 55
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 370,
-      "hit_rate": 0.527,
+      "n": 372,
+      "hit_rate": 0.5269,
       "model": {
-        "log_loss": 0.6722,
-        "brier": 0.2395
+        "log_loss": 0.6718,
+        "brier": 0.2393
       },
       "seed": {
-        "log_loss": 0.6862,
-        "brier": 0.2465
+        "log_loss": 0.6863,
+        "brier": 0.2466
       },
       "by_pricing": {
-        "calibrated": 370
+        "calibrated": 372
       }
     },
     "moneyline": {
@@ -60,33 +60,33 @@
       }
     },
     "RB": {
-      "n": 119,
-      "hit_rate": 0.521,
+      "n": 120,
+      "hit_rate": 0.525,
       "model": {
-        "log_loss": 0.6564,
-        "brier": 0.2322
+        "log_loss": 0.6549,
+        "brier": 0.2314
       },
       "seed": {
-        "log_loss": 0.6892,
-        "brier": 0.248
+        "log_loss": 0.6893,
+        "brier": 0.2481
       },
       "by_pricing": {
-        "calibrated": 119
+        "calibrated": 120
       }
     },
     "WR": {
-      "n": 131,
-      "hit_rate": 0.5038,
+      "n": 132,
+      "hit_rate": 0.5,
       "model": {
-        "log_loss": 0.6377,
-        "brier": 0.2229
+        "log_loss": 0.6383,
+        "brier": 0.2232
       },
       "seed": {
         "log_loss": 0.703,
-        "brier": 0.2548
+        "brier": 0.2549
       },
       "by_pricing": {
-        "calibrated": 131
+        "calibrated": 132
       }
     }
   },
@@ -334,18 +334,18 @@
     {
       "week": 9,
       "props": {
-        "n": 39,
-        "hit_rate": 0.5385,
+        "n": 41,
+        "hit_rate": 0.5366,
         "model": {
-          "log_loss": 0.7035,
-          "brier": 0.2545
+          "log_loss": 0.6981,
+          "brier": 0.2519
         },
         "seed": {
-          "log_loss": 0.6584,
-          "brier": 0.2328
+          "log_loss": 0.6607,
+          "brier": 0.2339
         },
         "by_pricing": {
-          "calibrated": 39
+          "calibrated": 41
         }
       },
       "moneyline": {
@@ -746,20 +746,6 @@
       "game_id": "401873049",
       "market": "wr_rec_yds",
       "selection": "R. Doubs 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 9,
-      "game_id": "401873051",
-      "market": "rb_rush_yds",
-      "selection": "J. Cook III 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 9,
-      "game_id": "401873051",
-      "market": "wr_rec_yds",
-      "selection": "J. Jefferson 60+ rec yds",
       "reason": "no_stat_line"
     }
   ],
@@ -12007,6 +11993,44 @@
         "home_score": 6,
         "away_score": 23
       },
+      "hit": false
+    },
+    {
+      "week": 9,
+      "game_id": "401873051",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "J. Cook III 60+ rush yds",
+      "player": "James Cook",
+      "team": "BUF",
+      "line": 59.5,
+      "mu": 85.72,
+      "sd": 38.87,
+      "z": 0.6745,
+      "p_team": 0.4865,
+      "pricing": "calibrated",
+      "model_prob": 0.6245,
+      "seed_prob": 0.4946,
+      "actual": 107.0,
+      "hit": true
+    },
+    {
+      "week": 9,
+      "game_id": "401873051",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "J. Jefferson 60+ rec yds",
+      "player": "Justin Jefferson",
+      "team": "MIN",
+      "line": 59.5,
+      "mu": 70.47,
+      "sd": 41.58,
+      "z": 0.2638,
+      "p_team": 0.5135,
+      "pricing": "calibrated",
+      "model_prob": 0.5098,
+      "seed_prob": 0.5054,
+      "actual": 58.0,
       "hit": false
     }
   ]
