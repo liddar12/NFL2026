@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-11-09T10:33:09Z",
+  "generated_utc": "2026-11-10T10:15:13Z",
   "fixture": {
     "games_meta": "data/fixtures/backtest_weekly/games_meta.json",
     "weekly_actuals": "data/fixtures/backtest_weekly/weekly_actuals.json",
@@ -312,9 +312,9 @@
         ]
       },
       "RB": {
-        "a": -0.209904,
-        "b": 1.141453,
-        "c": 1.012535,
+        "a": -0.20932,
+        "b": 1.147236,
+        "c": 1.008361,
         "fit_seasons": [
           2023,
           2024,
@@ -323,9 +323,9 @@
         ]
       },
       "WR": {
-        "a": -0.253535,
-        "b": 1.118828,
-        "c": 0.382963,
+        "a": -0.256081,
+        "b": 1.119454,
+        "c": 0.384949,
         "fit_seasons": [
           2023,
           2024,
@@ -354,14 +354,14 @@
   },
   "live_2026": {
     "weeks": 9,
-    "legs_resolved": 370,
+    "legs_resolved": 372,
     "seed": {
-      "log_loss": 0.6862,
-      "hit_rate": 0.527
+      "log_loss": 0.6863,
+      "hit_rate": 0.5269
     },
     "calibrated": {
-      "log_loss": 0.6722,
-      "hit_rate": 0.527
+      "log_loss": 0.6718,
+      "hit_rate": 0.5269
     },
     "refit": {
       "applied": true,
@@ -376,9 +376,9 @@
         8,
         9
       ],
-      "reason": "refit adopted under never-regress \u2014 2025 held-out fold: refit 0.6701 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6692 <= current 0.6747"
+      "reason": "refit adopted under never-regress \u2014 2025 held-out fold: refit 0.6702 <= current 0.6705; 2026 legs walk-forward by week: refit 0.6688 <= current 0.6742"
     },
-    "note": "370 locked prop leg(s) resolved over week(s) [1, 2, 3, 4, 5, 6, 7, 8, 9]; seed vs calibrated on the 370 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
+    "note": "372 locked prop leg(s) resolved over week(s) [1, 2, 3, 4, 5, 6, 7, 8, 9]; seed vs calibrated on the 372 calibrated-priced leg(s), seed recomputed from the locked p_team (identical legs; hit_rate = share of those legs that hit)"
   },
   "correlations": {
     "pairs": [
