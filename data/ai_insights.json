@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-11-13T17:39:38Z",
+  "updated_utc": "2026-11-13T22:04:33Z",
   "default": "off",
   "players": {
     "espn-3918298": {
@@ -1047,6 +1047,32 @@
         ]
       }
     },
+    "espn-3917315": {
+      "trajectory_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "OLS slope -34.9 pts/yr over 5 seasons; QB age-curve residual -0.1138/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -34.87,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          10,
+          14,
+          17
+        ]
+      }
+    },
     "espn-3912547": {
       "trajectory_adj": {
         "value": 0.189,
@@ -1457,32 +1483,6 @@
         ]
       }
     },
-    "espn-3917315": {
-      "trajectory_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "OLS slope -34.9 pts/yr over 5 seasons; QB age-curve residual -0.1138/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -34.87,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
-          14,
-          17
-        ]
-      }
-    },
     "espn-4685720": {
       "trajectory_adj": {
         "value": 0.1541,
@@ -1630,26 +1630,6 @@
           13,
           15,
           18
-        ]
-      }
-    },
-    "espn-4567048": {
-      "trajectory_adj": {
-        "value": -0.0584,
-        "source": "measured",
-        "why": "OLS slope -5.0 pts/yr over 4 seasons; RB age-curve residual -0.0334/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -5.0,
-        "seasons_observed": 4
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "KC won 29% of sub-32F games vs 68% overall (7 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 7,
-        "weeks": [
-          8,
-          12,
-          14
         ]
       }
     },
@@ -1872,6 +1852,32 @@
         ]
       }
     },
+    "espn-3886598": {
+      "trajectory_adj": {
+        "value": 0.1551,
+        "source": "measured",
+        "why": "OLS slope +31.0 pts/yr over 5 seasons; WR age-curve residual +0.6348/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 31.01,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          10,
+          14,
+          17
+        ]
+      }
+    },
     "espn-4595348": {
       "trajectory_adj": {
         "value": 0.0601,
@@ -2017,6 +2023,52 @@
         ]
       }
     },
+    "espn-4567048": {
+      "trajectory_adj": {
+        "value": -0.0584,
+        "source": "measured",
+        "why": "OLS slope -5.0 pts/yr over 4 seasons; RB age-curve residual -0.0334/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -5.0,
+        "seasons_observed": 4
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "KC won 29% of sub-32F games vs 68% overall (7 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 7,
+        "weeks": [
+          8,
+          12,
+          14
+        ]
+      }
+    },
+    "espn-3916433": {
+      "trajectory_adj": {
+        "value": 0.0043,
+        "source": "measured",
+        "why": "OLS slope +1.7 pts/yr over 5 seasons; WR age-curve residual -0.0040/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 1.67,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
+        "n": 0,
+        "weeks": [
+          9,
+          11,
+          13
+        ]
+      }
+    },
     "espn-8439": {
       "trajectory_adj": {
         "value": -0.189,
@@ -2122,32 +2174,6 @@
         ]
       }
     },
-    "espn-3886598": {
-      "trajectory_adj": {
-        "value": 0.1551,
-        "source": "measured",
-        "why": "OLS slope +31.0 pts/yr over 5 seasons; WR age-curve residual +0.6348/yr (measured 2021-2025)",
-        "slope_pts_per_yr": 31.01,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
-          14,
-          17
-        ]
-      }
-    },
     "espn-15864": {
       "trajectory_adj": {
         "value": 0.1007,
@@ -2225,58 +2251,6 @@
           8,
           11,
           12
-        ]
-      }
-    },
-    "espn-4429205": {
-      "trajectory_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "OLS slope -43.1 pts/yr over 3 seasons; WR age-curve residual -0.2727/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -43.1,
-        "seasons_observed": 3
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
-          14,
-          17
-        ]
-      }
-    },
-    "espn-3916433": {
-      "trajectory_adj": {
-        "value": 0.0043,
-        "source": "measured",
-        "why": "OLS slope +1.7 pts/yr over 5 seasons; WR age-curve residual -0.0040/yr (measured 2021-2025)",
-        "slope_pts_per_yr": 1.67,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
-        "n": 0,
-        "weeks": [
-          9,
-          11,
-          13
         ]
       }
     },
@@ -2494,6 +2468,34 @@
         ]
       }
     },
+    "espn-4432708": {
+      "trajectory_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 2
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.202,
+        "source": "measured",
+        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 3,
+        "weeks": [
+          10,
+          13,
+          14,
+          16,
+          17
+        ]
+      }
+    },
     "espn-4569173": {
       "trajectory_adj": {
         "value": 0.0273,
@@ -2514,6 +2516,32 @@
           16,
           17,
           18
+        ]
+      }
+    },
+    "espn-4429205": {
+      "trajectory_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "OLS slope -43.1 pts/yr over 3 seasons; WR age-curve residual -0.2727/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -43.1,
+        "seasons_observed": 3
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          10,
+          14,
+          17
         ]
       }
     },
@@ -2568,6 +2596,48 @@
           15,
           16,
           18
+        ]
+      }
+    },
+    "espn-3916148": {
+      "trajectory_adj": {
+        "value": -0.0009,
+        "source": "measured",
+        "why": "OLS slope -0.2 pts/yr over 5 seasons; RB age-curve residual +0.0781/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -0.17,
+        "seasons_observed": 5
+      },
+      "cold_adj": {
+        "value": 0.1353,
+        "source": "measured",
+        "why": "TEN won 50% of sub-32F games vs 36% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          8
+        ]
+      }
+    },
+    "espn-16737": {
+      "trajectory_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "OLS slope -34.0 pts/yr over 5 seasons; WR age-curve residual -0.1398/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -34.04,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "SF won 0% of sub-32F games vs 62% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          13
         ]
       }
     },
@@ -2732,34 +2802,6 @@
         ]
       }
     },
-    "espn-4432708": {
-      "trajectory_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
-        "slope_pts_per_yr": 0.0,
-        "seasons_observed": 2
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.202,
-        "source": "measured",
-        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 3,
-        "weeks": [
-          10,
-          13,
-          14,
-          16,
-          17
-        ]
-      }
-    },
     "espn-4248528": {
       "trajectory_adj": {
         "value": -0.0955,
@@ -2921,48 +2963,6 @@
         ]
       }
     },
-    "espn-3916148": {
-      "trajectory_adj": {
-        "value": -0.0009,
-        "source": "measured",
-        "why": "OLS slope -0.2 pts/yr over 5 seasons; RB age-curve residual +0.0781/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -0.17,
-        "seasons_observed": 5
-      },
-      "cold_adj": {
-        "value": 0.1353,
-        "source": "measured",
-        "why": "TEN won 50% of sub-32F games vs 36% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 2,
-        "weeks": [
-          8
-        ]
-      }
-    },
-    "espn-16737": {
-      "trajectory_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "OLS slope -34.0 pts/yr over 5 seasons; WR age-curve residual -0.1398/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -34.04,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "SF won 0% of sub-32F games vs 62% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          13
-        ]
-      }
-    },
     "espn-4241985": {
       "trajectory_adj": {
         "value": 0.1421,
@@ -3036,6 +3036,28 @@
           13,
           15,
           18
+        ]
+      }
+    },
+    "espn-4429059": {
+      "trajectory_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (1) - slope prior +0.0 pts/yr from the RB age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 1
+      },
+      "cold_adj": {
+        "value": 0.202,
+        "source": "measured",
+        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 3,
+        "weeks": [
+          10,
+          13,
+          14,
+          16,
+          17
         ]
       }
     },
@@ -3176,28 +3198,6 @@
         ]
       }
     },
-    "espn-4429059": {
-      "trajectory_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (1) - slope prior +0.0 pts/yr from the RB age-curve position (AI estimate)",
-        "slope_pts_per_yr": 0.0,
-        "seasons_observed": 1
-      },
-      "cold_adj": {
-        "value": 0.202,
-        "source": "measured",
-        "why": "HOU won 67% of sub-32F games vs 46% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 3,
-        "weeks": [
-          10,
-          13,
-          14,
-          16,
-          17
-        ]
-      }
-    },
     "espn-2576980": {
       "trajectory_adj": {
         "value": 0.0352,
@@ -3224,6 +3224,38 @@
           11,
           14,
           15,
+          18
+        ]
+      }
+    },
+    "espn-4385690": {
+      "trajectory_adj": {
+        "value": -0.1843,
+        "source": "measured",
+        "why": "OLS slope -12.1 pts/yr over 3 seasons; TE age-curve residual -0.1238/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -12.1,
+        "seasons_observed": 3
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.1948,
+        "source": "measured",
+        "why": "BUF won 91% of sub-32F games vs 71% overall (11 cold games, measured 2021-2025)",
+        "n": 11,
+        "weeks": [
+          8,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
           18
         ]
       }
@@ -3450,38 +3482,6 @@
         ]
       }
     },
-    "espn-4385690": {
-      "trajectory_adj": {
-        "value": -0.1843,
-        "source": "measured",
-        "why": "OLS slope -12.1 pts/yr over 3 seasons; TE age-curve residual -0.1238/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -12.1,
-        "seasons_observed": 3
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.1948,
-        "source": "measured",
-        "why": "BUF won 91% of sub-32F games vs 71% overall (11 cold games, measured 2021-2025)",
-        "n": 11,
-        "weeks": [
-          8,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16,
-          18
-        ]
-      }
-    },
     "espn-4433970": {
       "trajectory_adj": {
         "value": 0.044,
@@ -3680,6 +3680,38 @@
         ]
       }
     },
+    "espn-5083076": {
+      "trajectory_adj": {
+        "value": 0.075,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (1) - slope prior +14.0 pts/yr from the TE age-curve position (AI estimate)",
+        "slope_pts_per_yr": 13.98,
+        "seasons_observed": 1
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "CLE won 0% of sub-32F games vs 40% overall (7 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 7,
+        "weeks": [
+          8,
+          10,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      }
+    },
     "espn-3045147": {
       "trajectory_adj": {
         "value": -0.25,
@@ -3789,68 +3821,6 @@
           15,
           16,
           17,
-          18
-        ]
-      }
-    },
-    "espn-5083076": {
-      "trajectory_adj": {
-        "value": 0.075,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (1) - slope prior +14.0 pts/yr from the TE age-curve position (AI estimate)",
-        "slope_pts_per_yr": 13.98,
-        "seasons_observed": 1
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "CLE won 0% of sub-32F games vs 40% overall (7 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 7,
-        "weeks": [
-          8,
-          10,
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18
-        ]
-      }
-    },
-    "espn-4241372": {
-      "trajectory_adj": {
-        "value": -0.1575,
-        "source": "measured",
-        "why": "OLS slope -31.5 pts/yr over 5 seasons; WR age-curve residual +1.3237/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -31.51,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.0274,
-        "source": "measured",
-        "why": "PHI won 67% of sub-32F games vs 69% overall (6 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 6,
-        "weeks": [
-          8,
-          9,
-          11,
-          14,
-          15,
-          16,
           18
         ]
       }
@@ -4049,6 +4019,32 @@
         ]
       }
     },
+    "espn-4036133": {
+      "trajectory_adj": {
+        "value": -0.097,
+        "source": "measured",
+        "why": "OLS slope -19.4 pts/yr over 5 seasons; TE age-curve residual +0.0072/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -19.39,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          10,
+          14,
+          17
+        ]
+      }
+    },
     "espn-4430539": {
       "trajectory_adj": {
         "value": 0.25,
@@ -4159,6 +4155,32 @@
         ]
       }
     },
+    "espn-2573079": {
+      "trajectory_adj": {
+        "value": -0.2417,
+        "source": "measured",
+        "why": "OLS slope -48.3 pts/yr over 5 seasons; QB age-curve residual +2.9380/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -48.34,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.25,
+        "source": "measured",
+        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
+        "n": 1,
+        "weeks": [
+          10,
+          14,
+          17
+        ]
+      }
+    },
     "espn-4431268": {
       "trajectory_adj": {
         "value": 0.06,
@@ -4245,32 +4267,6 @@
         "n": 2,
         "weeks": [
           16
-        ]
-      }
-    },
-    "espn-4036133": {
-      "trajectory_adj": {
-        "value": -0.097,
-        "source": "measured",
-        "why": "OLS slope -19.4 pts/yr over 5 seasons; TE age-curve residual +0.0072/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -19.39,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
-          14,
-          17
         ]
       }
     },
@@ -4415,32 +4411,6 @@
         ]
       }
     },
-    "espn-2573079": {
-      "trajectory_adj": {
-        "value": -0.2417,
-        "source": "measured",
-        "why": "OLS slope -48.3 pts/yr over 5 seasons; QB age-curve residual +2.9380/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -48.34,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.25,
-        "source": "measured",
-        "why": "MIN won 0% of sub-32F games vs 60% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
-          14,
-          17
-        ]
-      }
-    },
     "espn-3051876": {
       "trajectory_adj": {
         "value": -0.0434,
@@ -4499,6 +4469,30 @@
           15,
           16,
           18
+        ]
+      }
+    },
+    "espn-4242557": {
+      "trajectory_adj": {
+        "value": 0.1196,
+        "source": "measured",
+        "why": "OLS slope +23.9 pts/yr over 5 seasons; TE age-curve residual +1.9751/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 23.92,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0765,
+        "source": "measured",
+        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          9
         ]
       }
     },
@@ -4808,30 +4802,6 @@
         ]
       }
     },
-    "espn-4242557": {
-      "trajectory_adj": {
-        "value": 0.1196,
-        "source": "measured",
-        "why": "OLS slope +23.9 pts/yr over 5 seasons; TE age-curve residual +1.9751/yr (measured 2021-2025)",
-        "slope_pts_per_yr": 23.92,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.0765,
-        "source": "measured",
-        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 2,
-        "weeks": [
-          9
-        ]
-      }
-    },
     "espn-4038441": {
       "trajectory_adj": {
         "value": 0.0437,
@@ -4930,6 +4900,30 @@
         "weeks": [
           10,
           18
+        ]
+      }
+    },
+    "espn-2573401": {
+      "trajectory_adj": {
+        "value": -0.1386,
+        "source": "measured",
+        "why": "OLS slope -27.7 pts/yr over 5 seasons; TE age-curve residual +0.1843/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -27.72,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0765,
+        "source": "measured",
+        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          9
         ]
       }
     },
@@ -5147,30 +5141,6 @@
         ]
       }
     },
-    "espn-2573401": {
-      "trajectory_adj": {
-        "value": -0.1386,
-        "source": "measured",
-        "why": "OLS slope -27.7 pts/yr over 5 seasons; TE age-curve residual +0.1843/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -27.72,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.0765,
-        "source": "measured",
-        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 2,
-        "weeks": [
-          9
-        ]
-      }
-    },
     "espn-4242512": {
       "trajectory_adj": {
         "value": 0.0721,
@@ -5198,6 +5168,26 @@
         ]
       }
     },
+    "espn-4882093": {
+      "trajectory_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (1) - slope prior +0.0 pts/yr from the RB age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 1
+      },
+      "cold_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
+        "n": 0,
+        "weeks": [
+          9,
+          11,
+          13
+        ]
+      }
+    },
     "espn-4040761": {
       "trajectory_adj": {
         "value": -0.2287,
@@ -5219,6 +5209,22 @@
           15,
           18
         ]
+      }
+    },
+    "espn-4427728": {
+      "trajectory_adj": {
+        "value": 0.0805,
+        "source": "measured",
+        "why": "OLS slope +16.1 pts/yr over 3 seasons; RB age-curve residual +6.7273/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 16.1,
+        "seasons_observed": 3
+      },
+      "cold_adj": {
+        "value": 0.0674,
+        "source": "ai_estimated",
+        "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
+        "n": 11,
+        "weeks": []
       }
     },
     "espn-4428850": {
@@ -5371,42 +5377,6 @@
         "weeks": [
           13
         ]
-      }
-    },
-    "espn-4882093": {
-      "trajectory_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (1) - slope prior +0.0 pts/yr from the RB age-curve position (AI estimate)",
-        "slope_pts_per_yr": 0.0,
-        "seasons_observed": 1
-      },
-      "cold_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
-        "n": 0,
-        "weeks": [
-          9,
-          11,
-          13
-        ]
-      }
-    },
-    "espn-4427728": {
-      "trajectory_adj": {
-        "value": 0.0805,
-        "source": "measured",
-        "why": "OLS slope +16.1 pts/yr over 3 seasons; RB age-curve residual +6.7273/yr (measured 2021-2025)",
-        "slope_pts_per_yr": 16.1,
-        "seasons_observed": 3
-      },
-      "cold_adj": {
-        "value": 0.0674,
-        "source": "ai_estimated",
-        "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
-        "n": 11,
-        "weeks": []
       }
     },
     "espn-4360939": {
@@ -5666,6 +5636,26 @@
           15,
           16,
           18
+        ]
+      }
+    },
+    "espn-4362619": {
+      "trajectory_adj": {
+        "value": 0.1353,
+        "source": "measured",
+        "why": "OLS slope +27.1 pts/yr over 3 seasons; RB age-curve residual +0.8759/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 27.05,
+        "seasons_observed": 3
+      },
+      "cold_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
+        "n": 0,
+        "weeks": [
+          9,
+          11,
+          13
         ]
       }
     },
@@ -5929,26 +5919,6 @@
         ]
       }
     },
-    "espn-4362619": {
-      "trajectory_adj": {
-        "value": 0.1353,
-        "source": "measured",
-        "why": "OLS slope +27.1 pts/yr over 3 seasons; RB age-curve residual +0.8759/yr (measured 2021-2025)",
-        "slope_pts_per_yr": 27.05,
-        "seasons_observed": 3
-      },
-      "cold_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "no sub-32F sample for JAX 2021-2025 - neutral (AI estimate)",
-        "n": 0,
-        "weeks": [
-          9,
-          11,
-          13
-        ]
-      }
-    },
     "espn-3045523": {
       "trajectory_adj": {
         "value": -0.1681,
@@ -5969,35 +5939,6 @@
         "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
         "n": 11,
         "weeks": []
-      }
-    },
-    "espn-4597500": {
-      "trajectory_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
-        "slope_pts_per_yr": 0.0,
-        "seasons_observed": 2
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": -0.0559,
-        "source": "measured",
-        "why": "NYJ won 25% of sub-32F games vs 31% overall (4 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 4,
-        "weeks": [
-          8,
-          10,
-          14,
-          16,
-          17,
-          18
-        ]
       }
     },
     "espn-4430871": {
@@ -6188,6 +6129,35 @@
         "weeks": [
           14,
           15
+        ]
+      }
+    },
+    "espn-4597500": {
+      "trajectory_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 2
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0559,
+        "source": "measured",
+        "why": "NYJ won 25% of sub-32F games vs 31% overall (4 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 4,
+        "weeks": [
+          8,
+          10,
+          14,
+          16,
+          17,
+          18
         ]
       }
     },
@@ -6747,6 +6717,35 @@
         ]
       }
     },
+    "espn-4569371": {
+      "trajectory_adj": {
+        "value": 0.0,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 2
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0559,
+        "source": "measured",
+        "why": "NYJ won 25% of sub-32F games vs 31% overall (4 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 4,
+        "weeks": [
+          8,
+          10,
+          14,
+          16,
+          17,
+          18
+        ]
+      }
+    },
     "espn-4360797": {
       "trajectory_adj": {
         "value": -0.0847,
@@ -6824,25 +6823,6 @@
           13,
           15,
           16,
-          18
-        ]
-      }
-    },
-    "espn-4596334": {
-      "trajectory_adj": {
-        "value": -0.0362,
-        "source": "measured",
-        "why": "OLS slope -7.2 pts/yr over 3 seasons; RB age-curve residual +3.0681/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -7.25,
-        "seasons_observed": 3
-      },
-      "cold_adj": {
-        "value": 0.25,
-        "source": "measured",
-        "why": "LAC won 100% of sub-32F games vs 54% overall (1 cold game, measured 2021-2025) - low sample, treat gently",
-        "n": 1,
-        "weeks": [
-          10,
           18
         ]
       }
@@ -7049,6 +7029,30 @@
         "weeks": [
           14,
           17
+        ]
+      }
+    },
+    "espn-4426553": {
+      "trajectory_adj": {
+        "value": 0.0932,
+        "source": "measured",
+        "why": "OLS slope +18.6 pts/yr over 3 seasons; TE age-curve residual +2.2639/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 18.65,
+        "seasons_observed": 3
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0765,
+        "source": "measured",
+        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          9
         ]
       }
     },
@@ -7291,6 +7295,30 @@
         ]
       }
     },
+    "espn-4386544": {
+      "trajectory_adj": {
+        "value": -0.04,
+        "source": "ai_estimated",
+        "why": "fewer than 3 seasons observed (2) - slope prior -1.9 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": -1.93,
+        "seasons_observed": 2
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": -0.0765,
+        "source": "measured",
+        "why": "LAR won 50% of sub-32F games vs 58% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          9
+        ]
+      }
+    },
     "espn-4808839": {
       "trajectory_adj": {
         "value": 0.06,
@@ -7315,6 +7343,36 @@
           10,
           12,
           13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ]
+      }
+    },
+    "espn-4428085": {
+      "trajectory_adj": {
+        "value": -0.065,
+        "source": "measured",
+        "why": "OLS slope -13.0 pts/yr over 3 seasons; TE age-curve residual +1.1231/yr (measured 2021-2025)",
+        "slope_pts_per_yr": -13.0,
+        "seasons_observed": 3
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.0059,
+        "source": "measured",
+        "why": "GB won 60% of sub-32F games vs 59% overall (10 cold games, measured 2021-2025)",
+        "n": 10,
+        "weeks": [
+          9,
+          10,
           14,
           15,
           16,
@@ -7404,33 +7462,31 @@
         ]
       }
     },
-    "espn-4242540": {
+    "espn-4361372": {
       "trajectory_adj": {
-        "value": -0.1374,
+        "value": 0.0663,
         "source": "measured",
-        "why": "OLS slope -27.5 pts/yr over 4 seasons; WR age-curve residual +2.0820/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -27.49,
+        "why": "OLS slope +13.3 pts/yr over 4 seasons; TE age-curve residual +5.5159/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 13.27,
         "seasons_observed": 4
       },
       "stack_synergy": {
-        "value": 0.06,
+        "value": 0.04,
         "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
       },
       "cold_adj": {
-        "value": 0.0544,
+        "value": -0.0559,
         "source": "measured",
-        "why": "PIT won 62% of sub-32F games vs 57% overall (8 cold games, measured 2021-2025)",
-        "n": 8,
+        "why": "NYJ won 25% of sub-32F games vs 31% overall (4 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 4,
         "weeks": [
           8,
           10,
-          11,
-          12,
-          13,
-          15,
+          14,
           16,
+          17,
           18
         ]
       }
@@ -7489,44 +7545,13 @@
         ]
       }
     },
-    "espn-3911853": {
-      "trajectory_adj": {
-        "value": -0.1052,
-        "source": "measured",
-        "why": "OLS slope -3.6 pts/yr over 5 seasons; TE age-curve residual -0.0870/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -3.65,
-        "seasons_observed": 5
-      },
-      "stack_synergy": {
-        "value": 0.04,
-        "source": "ai_estimated",
-        "pair": "QB+TE",
-        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.1491,
-        "source": "measured",
-        "why": "DEN won 67% of sub-32F games vs 52% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 3,
-        "weeks": [
-          8,
-          11,
-          12,
-          13,
-          14,
-          16,
-          17,
-          18
-        ]
-      }
-    },
     "espn-4241476": {
       "trajectory_adj": {
-        "value": 0.06,
+        "value": 0.0,
         "source": "ai_estimated",
-        "why": "0 seasons observed - rookie year-1 -> year-2 position prior +0.06 for WR (ROOKIE_YEAR2_DELTA rule, documented not fitted) (AI estimate)",
-        "slope_pts_per_yr": 10.2,
-        "seasons_observed": 0
+        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 2
       },
       "stack_synergy": {
         "value": 0.06,
@@ -7548,67 +7573,6 @@
           14,
           15,
           16,
-          18
-        ]
-      }
-    },
-    "espn-4696882": {
-      "trajectory_adj": {
-        "value": 0.0,
-        "source": "ai_estimated",
-        "why": "fewer than 3 seasons observed (2) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
-        "slope_pts_per_yr": 0.0,
-        "seasons_observed": 2
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.2,
-        "source": "measured",
-        "why": "BAL won 80% of sub-32F games vs 60% overall (5 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 5,
-        "weeks": [
-          8,
-          9,
-          10,
-          14,
-          15,
-          16,
-          17,
-          18
-        ]
-      }
-    },
-    "espn-4567156": {
-      "trajectory_adj": {
-        "value": -0.1138,
-        "source": "measured",
-        "why": "OLS slope -22.8 pts/yr over 4 seasons; WR age-curve residual +0.4489/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -22.77,
-        "seasons_observed": 4
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.25,
-        "source": "measured",
-        "why": "WAS won 100% of sub-32F games vs 43% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
-        "n": 2,
-        "weeks": [
-          8,
-          9,
-          10,
-          11,
-          14,
-          15,
           18
         ]
       }
@@ -7646,11 +7610,11 @@
     },
     "espn-4431492": {
       "trajectory_adj": {
-        "value": 0.06,
+        "value": 0.0,
         "source": "ai_estimated",
-        "why": "0 seasons observed - rookie year-1 -> year-2 position prior +0.06 for WR (ROOKIE_YEAR2_DELTA rule, documented not fitted) (AI estimate)",
-        "slope_pts_per_yr": 10.2,
-        "seasons_observed": 0
+        "why": "fewer than 3 seasons observed (1) - slope prior +0.0 pts/yr from the WR age-curve position (AI estimate)",
+        "slope_pts_per_yr": 0.0,
+        "seasons_observed": 1
       },
       "stack_synergy": {
         "value": 0.06,
@@ -7675,13 +7639,74 @@
         ]
       }
     },
+    "espn-4361577": {
+      "trajectory_adj": {
+        "value": 0.0389,
+        "source": "measured",
+        "why": "OLS slope +7.8 pts/yr over 5 seasons; WR age-curve residual +0.1916/yr (measured 2021-2025)",
+        "slope_pts_per_yr": 7.78,
+        "seasons_observed": 5
+      },
+      "stack_synergy": {
+        "value": 0.06,
+        "source": "ai_estimated",
+        "pair": "QB+WR",
+        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.25,
+        "source": "measured",
+        "why": "WAS won 100% of sub-32F games vs 43% overall (2 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 2,
+        "weeks": [
+          8,
+          9,
+          10,
+          11,
+          14,
+          15,
+          18
+        ]
+      }
+    },
+    "espn-3911853": {
+      "trajectory_adj": {
+        "value": 0.02,
+        "source": "ai_estimated",
+        "why": "0 seasons observed - rookie year-1 -> year-2 position prior +0.02 for TE (ROOKIE_YEAR2_DELTA rule, documented not fitted) (AI estimate)",
+        "slope_pts_per_yr": 2.4,
+        "seasons_observed": 0
+      },
+      "stack_synergy": {
+        "value": 0.04,
+        "source": "ai_estimated",
+        "pair": "QB+TE",
+        "why": "QB+TE stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
+      },
+      "cold_adj": {
+        "value": 0.1491,
+        "source": "measured",
+        "why": "DEN won 67% of sub-32F games vs 52% overall (3 cold games, measured 2021-2025) - low sample, treat gently",
+        "n": 3,
+        "weeks": [
+          8,
+          11,
+          12,
+          13,
+          14,
+          16,
+          17,
+          18
+        ]
+      }
+    },
     "espn-4242392": {
       "trajectory_adj": {
-        "value": -0.0132,
-        "source": "measured",
-        "why": "OLS slope -2.6 pts/yr over 5 seasons; TE age-curve residual +0.0368/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -2.64,
-        "seasons_observed": 5
+        "value": 0.02,
+        "source": "ai_estimated",
+        "why": "0 seasons observed - rookie year-1 -> year-2 position prior +0.02 for TE (ROOKIE_YEAR2_DELTA rule, documented not fitted) (AI estimate)",
+        "slope_pts_per_yr": 2.4,
+        "seasons_observed": 0
       },
       "stack_synergy": {
         "value": 0.04,
@@ -7698,28 +7723,6 @@
           17,
           18
         ]
-      }
-    },
-    "espn-11394": {
-      "trajectory_adj": {
-        "value": -0.0219,
-        "source": "measured",
-        "why": "OLS slope -4.4 pts/yr over 4 seasons; QB age-curve residual +9.8035/yr (measured 2021-2025)",
-        "slope_pts_per_yr": -4.38,
-        "seasons_observed": 4
-      },
-      "stack_synergy": {
-        "value": 0.06,
-        "source": "ai_estimated",
-        "pair": "QB+WR",
-        "why": "QB+WR stacks compound in spike weeks; position-pair default, no measured stack data this build (AI estimate)"
-      },
-      "cold_adj": {
-        "value": 0.0674,
-        "source": "ai_estimated",
-        "why": "no team cold sample - dome-teams-outdoor-cold group delta applied (11 games group-wide, 2021-2025) (AI estimate)",
-        "n": 11,
-        "weeks": []
       }
     }
   },
