@@ -208,6 +208,16 @@ def grade_prop(leg, week, by_week, snaps_by_week=None):
            "selection": leg.get("selection"),
            "home": leg.get("team"), "away": leg.get("team")}
     row, why = find_player(ref, rows)
+    if row is None and why == "no_stat_line" and leg.get("player"):
+        # A TRADED player (2026-11-08: Audric Estime, recorded CLE on Nov 3, played
+        # for NO against CLE in week 9) has no row under the team on his card. The
+        # book settles a player prop on the PLAYER, so the leg grades from his one
+        # stat row that week when exactly one row carries his full name at his
+        # position; two such rows stay unresolved. bet_facts (AC3) joins the same way.
+        full = norm_name(leg["player"])
+        same = [r for r in rows if r["pos"] == position and r["norm"] == full]
+        if len(same) == 1:
+            row, why = same[0], None
     if row is None:
         if why == "no_stat_line":
             ev, snaps = snap_evidence(leg, week, snaps_by_week)
@@ -779,6 +789,21 @@ def selftest():
     assert fully_excluded(x_rows[2][1], {"gX"}) and not fully_excluded(x_rows[0][1], {"gX"})
     assert not fully_excluded(x_rows[2][1], set()) and not fully_excluded({"legs": []}, {"gX"})
     assert document(2026, x_weeks, x_graded, "f", None, "t", excluded=2)["excluded"] == 2
+
+    # 2026-11-08 (data-ci #403): a player TRADED after his card was recorded grades
+    # from his one stat row under his new team; a full name two rows share does not.
+    traded = _leg("rb_rush_yds", "A. Estime 20+ rush yds", team="CLE", side="away",
+                  player="Audric Estime", position="RB", line=19.5)
+    tr_rows = index_stats([
+        {"season_type": "REG", "week": "1", "position": "RB", "team": "NO",
+         "player_display_name": "Audric Estime", "passing_yards": 0, "rushing_yards": 72,
+         "receiving_yards": 5}])
+    assert grade_prop(traded, 1, tr_rows) == ("hit", 72.0, None), grade_prop(traded, 1, tr_rows)
+    twin = index_stats([
+        {"season_type": "REG", "week": "1", "position": "RB", "team": t,
+         "player_display_name": "Audric Estime", "passing_yards": 0, "rushing_yards": 72,
+         "receiving_yards": 0} for t in ("NO", "NYJ")])
+    assert grade_prop(traded, 1, twin)[0] == "pending", "two same-name rows must not be guessed"
 
     print("selftest OK: locked-only grading, an unresolved leg is pending and never a "
           "miss, exact push voids, winner-only finals grade a moneyline and not a "
