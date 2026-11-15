@@ -1,6 +1,6 @@
 {
   "kind": "learning_loops",
-  "generated_utc": "2026-11-15T01:52:57Z",
+  "generated_utc": "2026-11-15T05:41:04Z",
   "policy": "state is the latest unambiguous timestamped decision; effective separately reports the current configuration where established. Holds do not undo an earlier adoption. Invalid/conflicting history is flagged. Reasons are verbatim; transitions records decision-state changes and is append-only.",
   "summary": {
     "adopted": 5,
@@ -18,9 +18,9 @@
       "moves": "every game win probability",
       "source": "data/model_tuning.json",
       "state": "held",
-      "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.22375} scores 0.661544 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.662502 across 5 folds over n=135 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them.",
-      "last_run_utc": "2026-11-13T03:51:36Z",
-      "runs": 151,
+      "why": "NEVER REGRESS: best off-grid candidate {'hfa_elo': 0.0, 'revert': 0.22375} scores 0.660727 HELD-OUT vs incumbent (hfa_elo=45.0 revert=0.450) at 0.663727 across 5 folds over n=136 resolved locks; the 0.0015 margin is not cleared, so the incumbent params are kept unchanged. should_adopt == false. CLAMPED, NOT CONVERGED: hfa_elo pinned to its lo bound 0 - the search box chose these values, not the data. Widen the bounds in scripts/models/elo.py before trusting them.",
+      "last_run_utc": "2026-11-15T05:37:53Z",
+      "runs": 152,
       "live": "hfa 45.0 \u00b7 revert 0.45 \u00b7 k 25.0",
       "live_since_utc": "2026-07-17T17:16:18Z",
       "chronology": {
@@ -322,7 +322,7 @@
       "source": "data/replay_lab.json",
       "state": "measuring",
       "why": "candidate parlay rules replayed on 10 week(s): same pool_calibration, seed, shrink_to_half, spread_margin_model",
-      "last_run_utc": "2026-11-15T01:52:53Z",
+      "last_run_utc": "2026-11-15T05:41:00Z",
       "effective": {
         "state": "measure_only",
         "source": "data/replay_lab.json",
