@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-15T17:02:45Z",
+  "generated_utc": "2026-11-15T19:19:50Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (136 games); scores from data/review.json FINAL rows (137 games); scores from ESPN live, STATUS-gated FINAL (121 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (137 games); scores from data/review.json FINAL rows (137 games); scores from ESPN live, STATUS-gated FINAL (122 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
   "weeks_resolved": 9,
   "weeks": [
@@ -2456,20 +2456,20 @@
     },
     {
       "week": 10,
-      "n_cards": 3622,
-      "locked": 3622,
-      "graded": 112,
-      "pending": 3510,
+      "n_cards": 3802,
+      "locked": 3802,
+      "graded": 113,
+      "pending": 3689,
       "buckets": {
         "all_hit": 3,
-        "push": 3,
+        "push": 4,
         "partial": 36,
         "all_missed": 70,
-        "pending": 3510
+        "pending": 3689
       },
       "by_dial": {
         "safe": {
-          "n": 1205,
+          "n": 1254,
           "graded": 57,
           "all_hit": 1,
           "hit_rate": 0.0175,
@@ -2501,21 +2501,21 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 56,
-            "pending": 1148
+            "pending": 1197
           }
         },
         "even": {
-          "n": 1244,
-          "graded": 16,
+          "n": 1333,
+          "graded": 17,
           "all_hit": 1,
-          "hit_rate": 0.0625,
+          "hit_rate": 0.0588,
           "mean_model": 0.3347,
           "log_loss": 0.7556,
           "brier": 0.2794,
-          "staked": 1600.0,
-          "net_fair": -853.71,
-          "net_vig2": -875.35,
-          "roi_fair": -0.5336,
+          "staked": 1700.0,
+          "net_fair": -626.25,
+          "net_vig2": -660.6,
+          "roi_fair": -0.3684,
           "calibration": {
             "version": "original_contract_v1",
             "n": 2,
@@ -2526,7 +2526,7 @@
             "log_loss": 0.7556,
             "brier": 0.2794,
             "excluded": {
-              "changed_contract": 2,
+              "changed_contract": 3,
               "incomplete_contract": 12,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -2534,14 +2534,14 @@
           },
           "settlements": {
             "all_hit": 1,
-            "reduced_hit": 2,
+            "reduced_hit": 3,
             "void": 0,
             "loss": 13,
-            "pending": 1228
+            "pending": 1316
           }
         },
         "longshot": {
-          "n": 1173,
+          "n": 1215,
           "graded": 39,
           "all_hit": 1,
           "hit_rate": 0.0256,
@@ -2573,13 +2573,13 @@
             "reduced_hit": 1,
             "void": 0,
             "loss": 37,
-            "pending": 1134
+            "pending": 1176
           }
         }
       },
       "by_legs": {
         "2": {
-          "n": 407,
+          "n": 424,
           "graded": 13,
           "all_hit": 3,
           "hit_rate": 0.2308,
@@ -2611,21 +2611,21 @@
             "reduced_hit": 3,
             "void": 0,
             "loss": 7,
-            "pending": 394
+            "pending": 411
           }
         },
         "3": {
-          "n": 650,
-          "graded": 16,
+          "n": 686,
+          "graded": 17,
           "all_hit": 0,
           "hit_rate": 0.0,
           "mean_model": null,
           "log_loss": null,
           "brier": null,
-          "staked": 1600.0,
-          "net_fair": -1600.0,
-          "net_vig2": -1600.0,
-          "roi_fair": -1.0,
+          "staked": 1700.0,
+          "net_fair": -1372.54,
+          "net_vig2": -1385.25,
+          "roi_fair": -0.8074,
           "calibration": {
             "version": "original_contract_v1",
             "n": 0,
@@ -2636,7 +2636,7 @@
             "log_loss": null,
             "brier": null,
             "excluded": {
-              "changed_contract": 7,
+              "changed_contract": 8,
               "incomplete_contract": 9,
               "invalid_probability": 0,
               "inconsistent_result": 0
@@ -2644,14 +2644,14 @@
           },
           "settlements": {
             "all_hit": 0,
-            "reduced_hit": 0,
+            "reduced_hit": 1,
             "void": 0,
             "loss": 16,
-            "pending": 634
+            "pending": 669
           }
         },
         "4": {
-          "n": 717,
+          "n": 752,
           "graded": 19,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2683,11 +2683,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 19,
-            "pending": 698
+            "pending": 733
           }
         },
         "5": {
-          "n": 863,
+          "n": 907,
           "graded": 30,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2719,11 +2719,11 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 30,
-            "pending": 833
+            "pending": 877
           }
         },
         "6": {
-          "n": 985,
+          "n": 1033,
           "graded": 34,
           "all_hit": 0,
           "hit_rate": 0.0,
@@ -2755,7 +2755,7 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 34,
-            "pending": 951
+            "pending": 999
           }
         }
       }
@@ -1804032,8 +1804032,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804239,8 +1804242,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804397,8 +1804403,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804514,8 +1804523,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804583,8 +1804595,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804704,8 +1804719,11 @@
           "selection": "DET ML",
           "market": "moneyline",
           "game_id": "401873053",
-          "result": "pending",
-          "actual": null,
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
           "gsis_id": null,
           "line": null,
           "side": "home"
@@ -1804911,6 +1804929,64 @@
       "money": {
         "net_fair": 264.47,
         "net_vig2": 250.31,
+        "assumed_price_legs": 2
+      }
+    },
+    {
+      "card_id": "fb38a4af5e5a",
+      "week": 10,
+      "dial": "even",
+      "seed": "WAS",
+      "n_legs": 3,
+      "model": 0.2124,
+      "result": "void",
+      "bucket": "push",
+      "legs": [
+        {
+          "selection": "J. Daniels 150+ pass yds",
+          "market": "qb_pass_yds",
+          "game_id": "401873052",
+          "result": "hit",
+          "actual": 249.0,
+          "gsis_id": "espn-4426348",
+          "line": 149.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:8ec1a2cb9469115de07f9dd7a930b73c1be1d2b1bfad554b94aeef0f44e01334"
+        },
+        {
+          "selection": "T. McLaurin 50+ rec yds",
+          "market": "wr_rec_yds",
+          "game_id": "401873052",
+          "result": "void",
+          "actual": null,
+          "gsis_id": "espn-3121422",
+          "line": 49.5,
+          "side": "away",
+          "direction": "over",
+          "season": 2026,
+          "comparison_operator": "gte",
+          "receipt_id": "sha256:f129cfe37370e9d64fbb51c3698c97e28776cd3ad9706dc45cbbb5e129e2af50"
+        },
+        {
+          "selection": "DET ML",
+          "market": "moneyline",
+          "game_id": "401873053",
+          "result": "hit",
+          "actual": {
+            "home_score": 35,
+            "away_score": 10
+          },
+          "gsis_id": null,
+          "line": null,
+          "side": "home"
+        }
+      ],
+      "money": {
+        "net_fair": 227.46,
+        "net_vig2": 214.75,
         "assumed_price_legs": 2
       }
     },
