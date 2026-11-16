@@ -1,40 +1,40 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-15T23:54:39Z",
+  "generated_utc": "2026-11-16T01:52:05Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (145 games); scores from data/review.json FINAL rows (145 games); scores from ESPN live, STATUS-gated FINAL (146 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (147 games); scores from data/review.json FINAL rows (146 games); scores from ESPN live, STATUS-gated FINAL (148 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 10,
   "legs": {
-    "on_file": 921,
+    "on_file": 923,
     "locked": 759,
-    "unlocked": 162,
-    "resolved": 685,
-    "unresolved": 70
+    "unlocked": 164,
+    "resolved": 695,
+    "unresolved": 62
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 394,
-      "hit_rate": 0.5305,
+      "n": 402,
+      "hit_rate": 0.5348,
       "model": {
-        "log_loss": 0.6695,
-        "brier": 0.2381
+        "log_loss": 0.669,
+        "brier": 0.2379
       },
       "seed": {
-        "log_loss": 0.6875,
-        "brier": 0.2472
+        "log_loss": 0.6872,
+        "brier": 0.247
       },
       "by_pricing": {
-        "calibrated": 394
+        "calibrated": 402
       }
     },
     "moneyline": {
-      "n": 154,
-      "hit_rate": 0.6169,
-      "log_loss": 0.6381,
-      "brier": 0.2244
+      "n": 156,
+      "hit_rate": 0.6218,
+      "log_loss": 0.635,
+      "brier": 0.2229
     },
     "spread": {
       "n": 137,
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 129,
-      "hit_rate": 0.5504,
+      "n": 131,
+      "hit_rate": 0.5573,
       "model": {
-        "log_loss": 0.7206,
-        "brier": 0.2624
+        "log_loss": 0.7193,
+        "brier": 0.2617
       },
       "seed": {
-        "log_loss": 0.6685,
-        "brier": 0.2378
+        "log_loss": 0.6668,
+        "brier": 0.237
+      },
+      "by_pricing": {
+        "calibrated": 131
+      }
+    },
+    "RB": {
+      "n": 129,
+      "hit_rate": 0.5349,
+      "model": {
+        "log_loss": 0.6548,
+        "brier": 0.2314
+      },
+      "seed": {
+        "log_loss": 0.6858,
+        "brier": 0.2464
       },
       "by_pricing": {
         "calibrated": 129
       }
     },
-    "RB": {
-      "n": 126,
-      "hit_rate": 0.5397,
-      "model": {
-        "log_loss": 0.6515,
-        "brier": 0.2298
-      },
-      "seed": {
-        "log_loss": 0.6863,
-        "brier": 0.2466
-      },
-      "by_pricing": {
-        "calibrated": 126
-      }
-    },
     "WR": {
-      "n": 139,
-      "hit_rate": 0.5036,
+      "n": 142,
+      "hit_rate": 0.5141,
       "model": {
-        "log_loss": 0.6383,
-        "brier": 0.2232
+        "log_loss": 0.6354,
+        "brier": 0.2218
       },
       "seed": {
-        "log_loss": 0.7062,
-        "brier": 0.2565
+        "log_loss": 0.7071,
+        "brier": 0.2569
       },
       "by_pricing": {
-        "calibrated": 139
+        "calibrated": 142
       }
     }
   },
@@ -364,25 +364,25 @@
     {
       "week": 10,
       "props": {
-        "n": 22,
-        "hit_rate": 0.5909,
+        "n": 30,
+        "hit_rate": 0.6333,
         "model": {
-          "log_loss": 0.6305,
-          "brier": 0.2187
+          "log_loss": 0.6339,
+          "brier": 0.2208
         },
         "seed": {
-          "log_loss": 0.7089,
-          "brier": 0.2578
+          "log_loss": 0.6982,
+          "brier": 0.2525
         },
         "by_pricing": {
-          "calibrated": 22
+          "calibrated": 30
         }
       },
       "moneyline": {
-        "n": 10,
-        "hit_rate": 0.6,
-        "log_loss": 0.5911,
-        "brier": 0.2045
+        "n": 12,
+        "hit_rate": 0.6667,
+        "log_loss": 0.5589,
+        "brier": 0.1884
       },
       "spread": {
         "n": 0,
@@ -787,65 +787,9 @@
     },
     {
       "week": 10,
-      "game_id": "401873061",
-      "market": "qb_pass_yds",
-      "selection": "M. Stafford 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873061",
-      "market": "rb_rush_yds",
-      "selection": "K. Williams 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
       "game_id": "401873062",
       "market": "qb_pass_yds",
       "selection": "K. Cousins 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873062",
-      "market": "rb_rush_yds",
-      "selection": "A. Jeanty 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873062",
-      "market": "wr_rec_yds",
-      "selection": "J. Smith-Njigba 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873063",
-      "market": "qb_pass_yds",
-      "selection": "B. Purdy 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873063",
-      "market": "rb_rush_yds",
-      "selection": "C. McCaffrey 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873063",
-      "market": "wr_rec_yds",
-      "selection": "C. Lamb 60+ rec yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873063",
-      "market": "wr_rec_yds",
-      "selection": "G. Pickens 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -12734,6 +12678,188 @@
         "home_score": 6,
         "away_score": 34
       },
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873061",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "M. Stafford 225+ pass yds",
+      "player": "Matthew Stafford",
+      "team": "LAR",
+      "line": 224.5,
+      "mu": 231.32,
+      "sd": 76.66,
+      "z": 0.089,
+      "p_team": 0.6928,
+      "pricing": "calibrated",
+      "model_prob": 0.5645,
+      "seed_prob": 0.5771,
+      "actual": 249.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873061",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "K. Williams 60+ rush yds",
+      "player": "Kyren Williams",
+      "team": "LAR",
+      "line": 59.5,
+      "mu": 72.89,
+      "sd": 38.87,
+      "z": 0.3445,
+      "p_team": 0.6928,
+      "pricing": "calibrated",
+      "model_prob": 0.5935,
+      "seed_prob": 0.5771,
+      "actual": 23.0,
+      "hit": false
+    },
+    {
+      "week": 10,
+      "game_id": "401873062",
+      "market": "moneyline",
+      "selection": "SEA ML",
+      "team": "SEA",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6712,
+      "actual": {
+        "home_score": 13,
+        "away_score": 21
+      },
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873062",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "A. Jeanty 60+ rush yds",
+      "player": "Ashton Jeanty",
+      "team": "LV",
+      "line": 59.5,
+      "mu": 53.14,
+      "sd": 38.87,
+      "z": -0.1636,
+      "p_team": 0.3288,
+      "pricing": "calibrated",
+      "model_prob": 0.3612,
+      "seed_prob": 0.4315,
+      "actual": 18.0,
+      "hit": false
+    },
+    {
+      "week": 10,
+      "game_id": "401873062",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "J. Smith-Njigba 60+ rec yds",
+      "player": "Jaxon Smith-Njigba",
+      "team": "SEA",
+      "line": 59.5,
+      "mu": 102.88,
+      "sd": 41.58,
+      "z": 1.0433,
+      "p_team": 0.6712,
+      "pricing": "calibrated",
+      "model_prob": 0.727,
+      "seed_prob": 0.5685,
+      "actual": 171.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873063",
+      "market": "moneyline",
+      "selection": "SF ML",
+      "team": "SF",
+      "side": "away",
+      "line": null,
+      "model_prob": 0.6717,
+      "actual": {
+        "home_score": 40,
+        "away_score": 46
+      },
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873063",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "B. Purdy 225+ pass yds",
+      "player": "Brock Purdy",
+      "team": "SF",
+      "line": 224.5,
+      "mu": 209.4,
+      "sd": 76.66,
+      "z": -0.197,
+      "p_team": 0.6717,
+      "pricing": "calibrated",
+      "model_prob": 0.4979,
+      "seed_prob": 0.5687,
+      "actual": 389.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873063",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "C. McCaffrey 60+ rush yds",
+      "player": "Christian McCaffrey",
+      "team": "SF",
+      "line": 59.5,
+      "mu": 39.99,
+      "sd": 38.87,
+      "z": -0.5019,
+      "p_team": 0.6717,
+      "pricing": "calibrated",
+      "model_prob": 0.3559,
+      "seed_prob": 0.5687,
+      "actual": 62.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873063",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "C. Lamb 60+ rec yds",
+      "player": "CeeDee Lamb",
+      "team": "DAL",
+      "line": 59.5,
+      "mu": 82.88,
+      "sd": 41.58,
+      "z": 0.5622,
+      "p_team": 0.3283,
+      "pricing": "calibrated",
+      "model_prob": 0.5768,
+      "seed_prob": 0.4313,
+      "actual": 72.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873063",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "G. Pickens 60+ rec yds",
+      "player": "George Pickens",
+      "team": "DAL",
+      "line": 59.5,
+      "mu": 76.41,
+      "sd": 41.58,
+      "z": 0.4068,
+      "p_team": 0.3283,
+      "pricing": "calibrated",
+      "model_prob": 0.5334,
+      "seed_prob": 0.4313,
+      "actual": 145.0,
       "hit": true
     }
   ]
