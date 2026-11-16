@@ -1,8 +1,8 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-16T02:50:15Z",
+  "generated_utc": "2026-11-16T05:58:26Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (147 games); scores from data/review.json FINAL rows (148 games); scores from ESPN live, STATUS-gated FINAL (148 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (148 games); scores from data/review.json FINAL rows (148 games); scores from ESPN live, STATUS-gated FINAL (149 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 10,
@@ -10,31 +10,31 @@
     "on_file": 923,
     "locked": 759,
     "unlocked": 164,
-    "resolved": 695,
-    "unresolved": 62
+    "resolved": 699,
+    "unresolved": 59
   },
   "skipped": null,
   "pooled": {
     "props": {
-      "n": 402,
-      "hit_rate": 0.5348,
+      "n": 405,
+      "hit_rate": 0.5358,
       "model": {
-        "log_loss": 0.669,
-        "brier": 0.2379
+        "log_loss": 0.6683,
+        "brier": 0.2376
       },
       "seed": {
-        "log_loss": 0.6872,
+        "log_loss": 0.6871,
         "brier": 0.247
       },
       "by_pricing": {
-        "calibrated": 402
+        "calibrated": 405
       }
     },
     "moneyline": {
-      "n": 156,
-      "hit_rate": 0.6218,
-      "log_loss": 0.635,
-      "brier": 0.2229
+      "n": 157,
+      "hit_rate": 0.6242,
+      "log_loss": 0.6346,
+      "brier": 0.2227
     },
     "spread": {
       "n": 137,
@@ -45,48 +45,48 @@
   },
   "by_position": {
     "QB": {
-      "n": 131,
-      "hit_rate": 0.5573,
+      "n": 132,
+      "hit_rate": 0.5606,
       "model": {
-        "log_loss": 0.7193,
-        "brier": 0.2617
+        "log_loss": 0.7197,
+        "brier": 0.262
       },
       "seed": {
-        "log_loss": 0.6668,
-        "brier": 0.237
+        "log_loss": 0.6666,
+        "brier": 0.2369
       },
       "by_pricing": {
-        "calibrated": 131
+        "calibrated": 132
       }
     },
     "RB": {
-      "n": 129,
-      "hit_rate": 0.5349,
+      "n": 130,
+      "hit_rate": 0.5308,
       "model": {
-        "log_loss": 0.6548,
-        "brier": 0.2314
+        "log_loss": 0.6541,
+        "brier": 0.2311
       },
       "seed": {
-        "log_loss": 0.6858,
-        "brier": 0.2464
+        "log_loss": 0.6863,
+        "brier": 0.2466
       },
       "by_pricing": {
-        "calibrated": 129
+        "calibrated": 130
       }
     },
     "WR": {
-      "n": 142,
-      "hit_rate": 0.5141,
+      "n": 143,
+      "hit_rate": 0.5175,
       "model": {
-        "log_loss": 0.6354,
-        "brier": 0.2218
+        "log_loss": 0.6337,
+        "brier": 0.221
       },
       "seed": {
-        "log_loss": 0.7071,
-        "brier": 0.2569
+        "log_loss": 0.7067,
+        "brier": 0.2567
       },
       "by_pricing": {
-        "calibrated": 142
+        "calibrated": 143
       }
     }
   },
@@ -364,25 +364,25 @@
     {
       "week": 10,
       "props": {
-        "n": 30,
-        "hit_rate": 0.6333,
+        "n": 33,
+        "hit_rate": 0.6364,
         "model": {
-          "log_loss": 0.6339,
-          "brier": 0.2208
+          "log_loss": 0.6291,
+          "brier": 0.2185
         },
         "seed": {
-          "log_loss": 0.6982,
-          "brier": 0.2525
+          "log_loss": 0.6962,
+          "brier": 0.2515
         },
         "by_pricing": {
-          "calibrated": 30
+          "calibrated": 33
         }
       },
       "moneyline": {
-        "n": 12,
-        "hit_rate": 0.6667,
-        "log_loss": 0.5589,
-        "brier": 0.1884
+        "n": 13,
+        "hit_rate": 0.6923,
+        "log_loss": 0.5592,
+        "brier": 0.1881
       },
       "spread": {
         "n": 0,
@@ -790,27 +790,6 @@
       "game_id": "401873062",
       "market": "qb_pass_yds",
       "selection": "K. Cousins 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873064",
-      "market": "qb_pass_yds",
-      "selection": "J. Burrow 225+ pass yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873064",
-      "market": "rb_rush_yds",
-      "selection": "C. Brown 60+ rush yds",
-      "reason": "no_stat_line"
-    },
-    {
-      "week": 10,
-      "game_id": "401873064",
-      "market": "wr_rec_yds",
-      "selection": "J. Chase 60+ rec yds",
       "reason": "no_stat_line"
     },
     {
@@ -12860,6 +12839,78 @@
       "model_prob": 0.5334,
       "seed_prob": 0.4313,
       "actual": 145.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873064",
+      "market": "moneyline",
+      "selection": "CIN ML",
+      "team": "CIN",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.5701,
+      "actual": {
+        "home_score": 38,
+        "away_score": 18
+      },
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873064",
+      "market": "qb_pass_yds",
+      "position": "QB",
+      "selection": "J. Burrow 225+ pass yds",
+      "player": "Joe Burrow",
+      "team": "CIN",
+      "line": 224.5,
+      "mu": 206.65,
+      "sd": 76.66,
+      "z": -0.2328,
+      "p_team": 0.5701,
+      "pricing": "calibrated",
+      "model_prob": 0.4618,
+      "seed_prob": 0.528,
+      "actual": 409.0,
+      "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873064",
+      "market": "rb_rush_yds",
+      "position": "RB",
+      "selection": "C. Brown 60+ rush yds",
+      "player": "Chase Brown",
+      "team": "CIN",
+      "line": 59.5,
+      "mu": 55.21,
+      "sd": 38.87,
+      "z": -0.1105,
+      "p_team": 0.5701,
+      "pricing": "calibrated",
+      "model_prob": 0.4341,
+      "seed_prob": 0.528,
+      "actual": 44.0,
+      "hit": false
+    },
+    {
+      "week": 10,
+      "game_id": "401873064",
+      "market": "wr_rec_yds",
+      "position": "WR",
+      "selection": "J. Chase 60+ rec yds",
+      "player": "Ja'Marr Chase",
+      "team": "CIN",
+      "line": 59.5,
+      "mu": 94.19,
+      "sd": 41.58,
+      "z": 0.8343,
+      "p_team": 0.5701,
+      "pricing": "calibrated",
+      "model_prob": 0.6697,
+      "seed_prob": 0.528,
+      "actual": 231.0,
       "hit": true
     }
   ]
