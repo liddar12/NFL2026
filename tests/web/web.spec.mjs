@@ -1404,7 +1404,17 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
   function seedAvail() {
     const proj = readData('player_projections.json');
     const ps = proj.players;
-    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos)
+    // Week-state, not one day's feed (data-ci #463, week 11): the first WR by
+    // feed order was Puka Nacua, and LAR's bye IS the week Lineup opens on, so
+    // the bye took precedence over the IR fixture — no OUT chip on the bench,
+    // and Compare printed him ACTIVE. The fixtures must land on players who
+    // actually play the week the page shows (lineup.js: game_predictions.week).
+    const wk = Number(readData('game_predictions.json').week);
+    const byeNow = new Set(readData('player_weekly.json').players
+      .filter((p) => (p.weeks || []).some((w) => Number(w.wk) === wk && w.bye))
+      .map((p) => String(p.gsis_id)));
+    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos
+      && !byeNow.has(String(p.gsis_id)))
       .slice(0, n).map((p) => String(p.gsis_id));
     const nameOf = (id) => String(ps.find((p) => String(p.gsis_id) === id).name);
     const qb = pick('QB', 1); const rb = pick('RB', 4); const wr = pick('WR', 4); const te = pick('TE', 2);
