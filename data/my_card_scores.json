@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-17T07:00:24Z",
+  "generated_utc": "2026-11-17T10:18:56Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
   "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (149 games); scores from data/review.json FINAL rows (150 games); scores from ESPN live, STATUS-gated FINAL (134 games)",
   "rule": "only LOCKED cards are graded; a prop leg hits when the market's yards reach the recorded line and a game leg is graded against FINAL scores (moneyline on the winner, spread on the margin against the handicap its selection states, an exact push void); a card is a hit only when every leg hit, a miss when any leg missed, void when something voided and nothing missed, and pending while any leg is unresolved -- an unresolved leg is never a miss; a leg of an owner-excluded game is void and a card made only of such legs is dropped (R108); calibration original_contract_v1 scores only complete hit/miss contracts, with its denominator and exclusions separate from settlement counts and money",
@@ -2762,91 +2762,19 @@
     },
     {
       "week": 11,
-      "n_cards": 808,
-      "locked": 808,
+      "n_cards": 851,
+      "locked": 851,
       "graded": 0,
-      "pending": 808,
+      "pending": 851,
       "buckets": {
         "all_hit": 0,
         "push": 0,
         "partial": 0,
         "all_missed": 0,
-        "pending": 808
+        "pending": 851
       },
       "by_dial": {
         "safe": {
-          "n": 260,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 260
-          }
-        },
-        "even": {
-          "n": 279,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 279
-          }
-        },
-        "longshot": {
           "n": 269,
           "graded": 0,
           "all_hit": 0,
@@ -2881,118 +2809,82 @@
             "loss": 0,
             "pending": 269
           }
+        },
+        "even": {
+          "n": 304,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 304
+          }
+        },
+        "longshot": {
+          "n": 278,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 278
+          }
         }
       },
       "by_legs": {
         "2": {
-          "n": 157,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 157
-          }
-        },
-        "3": {
-          "n": 157,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 157
-          }
-        },
-        "4": {
-          "n": 158,
-          "graded": 0,
-          "all_hit": 0,
-          "hit_rate": null,
-          "mean_model": null,
-          "log_loss": null,
-          "brier": null,
-          "staked": null,
-          "net_fair": null,
-          "net_vig2": null,
-          "roi_fair": null,
-          "calibration": {
-            "version": "original_contract_v1",
-            "n": 0,
-            "all_hit": 0,
-            "hit_rate": null,
-            "mean_model": null,
-            "expected_hits": null,
-            "log_loss": null,
-            "brier": null,
-            "excluded": {
-              "changed_contract": 0,
-              "incomplete_contract": 0,
-              "invalid_probability": 0,
-              "inconsistent_result": 0
-            }
-          },
-          "settlements": {
-            "all_hit": 0,
-            "reduced_hit": 0,
-            "void": 0,
-            "loss": 0,
-            "pending": 158
-          }
-        },
-        "5": {
           "n": 163,
           "graded": 0,
           "all_hit": 0,
@@ -3028,8 +2920,8 @@
             "pending": 163
           }
         },
-        "6": {
-          "n": 173,
+        "3": {
+          "n": 164,
           "graded": 0,
           "all_hit": 0,
           "hit_rate": null,
@@ -3061,7 +2953,115 @@
             "reduced_hit": 0,
             "void": 0,
             "loss": 0,
-            "pending": 173
+            "pending": 164
+          }
+        },
+        "4": {
+          "n": 166,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 166
+          }
+        },
+        "5": {
+          "n": 174,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 174
+          }
+        },
+        "6": {
+          "n": 184,
+          "graded": 0,
+          "all_hit": 0,
+          "hit_rate": null,
+          "mean_model": null,
+          "log_loss": null,
+          "brier": null,
+          "staked": null,
+          "net_fair": null,
+          "net_vig2": null,
+          "roi_fair": null,
+          "calibration": {
+            "version": "original_contract_v1",
+            "n": 0,
+            "all_hit": 0,
+            "hit_rate": null,
+            "mean_model": null,
+            "expected_hits": null,
+            "log_loss": null,
+            "brier": null,
+            "excluded": {
+              "changed_contract": 0,
+              "incomplete_contract": 0,
+              "invalid_probability": 0,
+              "inconsistent_result": 0
+            }
+          },
+          "settlements": {
+            "all_hit": 0,
+            "reduced_hit": 0,
+            "void": 0,
+            "loss": 0,
+            "pending": 184
           }
         }
       }
