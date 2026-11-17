@@ -1,16 +1,16 @@
 {
   "season": 2026,
-  "generated_utc": "2026-11-16T23:25:17Z",
+  "generated_utc": "2026-11-17T04:28:59Z",
   "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2026.csv",
-  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (148 games); scores from data/review.json FINAL rows (149 games); scores from ESPN live, STATUS-gated FINAL (149 games)",
+  "finals_source": "winner only from the graded lock receipts data/snapshots/*_games_open.json (149 games); scores from data/review.json FINAL rows (149 games); scores from ESPN live, STATUS-gated FINAL (150 games)",
   "ledger": "data/estimates/parlays_2026.json",
   "rule": "prop hit = the market's yards >= the locked line; seed = parlay_builder.seed_prop_prob(locked p_team) on the same legs; only legs locked before kickoff are scored; a player with no stat line, a tie or a push is unresolved with a reason, never a miss",
   "weeks_resolved": 10,
   "legs": {
-    "on_file": 923,
-    "locked": 759,
+    "on_file": 969,
+    "locked": 805,
     "unlocked": 164,
-    "resolved": 699,
+    "resolved": 700,
     "unresolved": 59
   },
   "skipped": null,
@@ -31,10 +31,10 @@
       }
     },
     "moneyline": {
-      "n": 157,
-      "hit_rate": 0.6242,
-      "log_loss": 0.6346,
-      "brier": 0.2227
+      "n": 158,
+      "hit_rate": 0.6203,
+      "log_loss": 0.6379,
+      "brier": 0.2243
     },
     "spread": {
       "n": 137,
@@ -379,10 +379,10 @@
         }
       },
       "moneyline": {
-        "n": 13,
-        "hit_rate": 0.6923,
-        "log_loss": 0.5592,
-        "brier": 0.1881
+        "n": 14,
+        "hit_rate": 0.6429,
+        "log_loss": 0.6026,
+        "brier": 0.2086
       },
       "spread": {
         "n": 0,
@@ -12912,6 +12912,21 @@
       "seed_prob": 0.528,
       "actual": 231.0,
       "hit": true
+    },
+    {
+      "week": 10,
+      "game_id": "401873065",
+      "market": "moneyline",
+      "selection": "BAL ML",
+      "team": "BAL",
+      "side": "home",
+      "line": null,
+      "model_prob": 0.6889,
+      "actual": {
+        "home_score": 20,
+        "away_score": 23
+      },
+      "hit": false
     }
   ]
 }
