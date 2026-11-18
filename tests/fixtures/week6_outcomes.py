@@ -19,6 +19,8 @@ KICKOFF = "2026-09-02T00:15:00Z"
 STATS_HEADERS = ("season", "week", "season_type", "position", "team", "player_id",
                  "player_display_name", "passing_yards", "rushing_yards", "receiving_yards")
 SNAPS_HEADERS = ("season", "week", "game_type", "team", "player", "offense_snaps")
+ROSTER_IDENTITY_HEADERS = ("season", "espn_id", "gsis_id", "pfr_id")
+ROSTER_HEADERS = (*ROSTER_IDENTITY_HEADERS, "week", "team")
 
 
 def csv_bytes(headers, rows):
@@ -38,6 +40,11 @@ def stats_row(value="80", **extra):
 def snap_row(**extra):
     return {"season": "2026", "week": "6", "game_type": "REG", "team": "SEA",
             "player": "Alpha One", "offense_snaps": "50", **extra}
+
+
+def roster_row(**extra):
+    return {"season": "2026", "espn_id": "fixture-1", "gsis_id": "00-fixture",
+            "pfr_id": "OneAl00", "week": "7", "team": "MIN", **extra}
 
 
 def generation(snapshot_dir, created=T0):
@@ -67,7 +74,8 @@ def generation(snapshot_dir, created=T0):
 
 
 def bundle(*, value="80", status="STATUS_FINAL", stats_rows=None, snap_rows=None,
-           observed="2026-09-03T12:00:00Z", game_extra=None):
+           observed="2026-09-03T12:00:00Z", game_extra=None, include_roster=False,
+           roster_headers=ROSTER_HEADERS, roster_rows=None):
     event = {"id": "G1", "date": KICKOFF, "status": {"type": {"name": status}},
              "competitions": [{"competitors": [
                  {"homeAway": "home", "score": "24", "team": {"abbreviation": "SEA"}},
@@ -78,6 +86,11 @@ def bundle(*, value="80", status="STATUS_FINAL", stats_rows=None, snap_rows=None
     bodies = {capture.SCOREBOARD_PROFILE: scoreboard,
               capture.STATS_PROFILE: csv_bytes(STATS_HEADERS, [stats_row(value)] if stats_rows is None else stats_rows),
               capture.SNAPS_PROFILE: csv_bytes(SNAPS_HEADERS, [snap_row()] if snap_rows is None else snap_rows)}
+    if include_roster:
+        if roster_rows is None:
+            row = roster_row()
+            roster_rows = [{key: row[key] for key in roster_headers}]
+        bodies[capture.ROSTERS_PROFILE] = csv_bytes(roster_headers, roster_rows)
     current = lr.instant(observed)
 
     def clock():
@@ -85,7 +98,8 @@ def bundle(*, value="80", status="STATUS_FINAL", stats_rows=None, snap_rows=None
         current += dt.timedelta(seconds=1)
         return current.isoformat().replace("+00:00", "Z")
 
-    return capture.capture(2026, [6], fetcher=lambda spec: (200, {}, bodies[spec["profile"]]), clock=clock)
+    return capture.capture(2026, [6], fetcher=lambda spec: (200, {}, bodies[spec["profile"]]),
+                           clock=clock, include_roster=include_roster)
 
 
 def plan(snapshot_dir):
