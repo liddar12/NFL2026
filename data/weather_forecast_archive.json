@@ -1,8 +1,8 @@
 {
   "counts": {
-    "appended": 18,
+    "appended": 2,
     "games": 115,
-    "observations": 8213,
+    "observations": 8215,
     "refused": {
       "conflict": 0,
       "duplicate": 0,
@@ -11,7 +11,7 @@
       "not_forecast": 0
     }
   },
-  "generated_utc": "2026-11-17T22:05:00Z",
+  "generated_utc": "2026-11-18T03:44:31Z",
   "kind": "weather_forecast_archive",
   "observations": [
     {
@@ -65717,6 +65717,22 @@
       "source": "forecast",
       "temp_c": 16.7,
       "wind_kph": 6.8
+    },
+    {
+      "fetched_utc": "2026-11-18T03:36:30Z",
+      "key": "2026|12|CLE|LV",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 5.2,
+      "wind_kph": 30.0
+    },
+    {
+      "fetched_utc": "2026-11-18T03:36:30Z",
+      "key": "2026|12|TB|CAR",
+      "precip_mm": 0.0,
+      "source": "forecast",
+      "temp_c": 13.9,
+      "wind_kph": 6.5
     }
   ],
   "rule": "Append-only. A (key, fetched_utc) pair already present is never rewritten, reordered or dropped, so a re-run adds zero rows and a changed upstream value is refused rather than overwriting the observation as it stood. generated_utc is the last APPEND, not the last run: a run that appends nothing leaves this file byte-identical.",
