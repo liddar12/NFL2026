@@ -166,3 +166,26 @@ test('feedback command reports disabled flags without opening an engine or works
     assert.equal(result[key], false, key);
   }
 });
+
+
+test('qualified-jobs upgrade reads approved qualified-shadow history without allowing old execution', () => {
+  run(String.raw`
+OLD_SHADOW = "889e147e84b01c28898f268eb89f91c978ef490f"
+MEASURED_CODE = "sha256:2ea378132a1ac93a2a2a6c0e607174ec819cf1fe6703b40fbd07832a941ea564"
+with tempfile.TemporaryDirectory() as temporary:
+    data = Path(temporary).resolve()
+    artifacts = data / "snapshots" / "learning_feedback"
+    initial = state(1)
+    historical = record(initial, OLD_SHADOW, MEASURED_CODE)
+    point(historical)
+    before = contents()
+    assert feedback.previous(data, artifacts) == (historical, initial)
+    assert contents() == before
+    reject("feedback_exact_engine_commit_required", lambda: feedback.engine(data / "old-engine", OLD_SHADOW))
+    bad = record(initial, OLD_SHADOW, NEW_CODE)
+    point(bad)
+    before = contents()
+    reject("feedback_run_contract_mismatch", lambda: feedback.previous(data, artifacts))
+    assert contents() == before
+`);
+});

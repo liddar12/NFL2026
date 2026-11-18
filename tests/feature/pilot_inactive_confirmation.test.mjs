@@ -207,22 +207,26 @@ print(json.dumps({"ok": ok,
   "short_sha": refused({**base, "engine_commit": "aacb19c7"})}))`);
   assert.equal(r.ok.enabled, '0');
   assert.equal(r.ok.serving_mode, 'shadow');
-  assert.equal(r.ok.engine_commit, '889e147e84b01c28898f268eb89f91c978ef490f');
+  assert.equal(r.ok.engine_commit, '5e68953989b95731503d9e909ede7d4279b2a570');
   assert.equal(r.ok.freshness_profile, 'confirmed_inactives_v1');
   for (const k of ['live_mode', 'old_profile', 'half_override', 'extra_key', 'short_sha']) assert.equal(r[k], true, k);
 });
 
-test('production is unchanged: only listed offline tools and the locked test-only canary may reference pilot modules', () => {
+test('production is unchanged: only listed standalone tools and the locked test-only canary may reference pilot modules', () => {
   const hits = [];
-  // Checkpoint 2 adds standalone offline tools, not a production caller. The
+  // Collection clients are explicit standalone commands; no scheduled or app
+  // caller may reach them. Include each new client in both the allowlist and
+  // searched symbols, so adding a production caller still fails this check. The
   // owner separately authorized ONE test-only canary workflow, whose read-only
   // command/checkout contract is locked by pilot_canary_workflow.test.mjs.
   const offline = new Set([
     'inactive_confirmation.py', 'pilot_config.py', 'pilot_capture.py',
     'learning_journal.py', 'export_learning.py', 'capture_outcome_evidence.py',
     'run_parlay_feedback.py', 'learning_history_guard.py',
+    'run_forecast_delivery.py', 'export_publication.py', 'queue_publication.py',
+    'export_outcome_capture.py', 'export_capture_application.py',
   ].map(name => join('scripts', name)));
-  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard/;
+  const pilotReferences = /inactive_confirmation|pilot_config|selflearning_pilot|pilot_capture|learning_journal|export_learning|capture_outcome_evidence|run_parlay_feedback|learning_history_guard|run_forecast_delivery|export_publication|queue_publication|export_outcome_capture|export_capture_application/;
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
       const rel = join(dir, name);

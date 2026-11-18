@@ -178,6 +178,35 @@ def _load(path):
         return json.load(fh)
 
 
+def _sync_published(path, durable_root):
+    """Flush a checked private file and its directory ancestry on recovery."""
+    root = os.path.realpath(durable_root)
+    resolved = os.path.realpath(path)
+    if resolved == root or os.path.commonpath((root, resolved)) != root:
+        raise ValueError("learning snapshot outside durable boundary")
+    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    directory = os.path.dirname(resolved)
+    while True:
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        if directory == root:
+            break
+        directory = os.path.dirname(directory)
+    # The workspace may have been created by this call's preceding write.
+    descriptor = os.open(os.path.dirname(root), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def _immutable_write(path, doc):
     """Publish atomically without overwriting. Conflicting content fails closed."""
     if os.path.exists(path):
