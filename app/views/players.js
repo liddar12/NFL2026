@@ -295,18 +295,31 @@ export function lineReportTeams(doc, wk) {
   return doc.teams;
 }
 
-function lineChip(label, grp, title) {
+function lineChip(label, grp, title, expectedStarters = 0) {
   const out = Array.isArray(grp.out) ? grp.out : [];
   const q = (Array.isArray(grp.doubtful) ? grp.doubtful : [])
     .concat(Array.isArray(grp.questionable) ? grp.questionable : []);
+  const unknown = expectedStarters > 0
+    ? (grp.unknown_starters ?? Math.max(0, expectedStarters - grp.starters))
+    : 0;
+  const statuses = [];
+  const details = [];
   if (out.length) {
-    const t = `${title} out: ${out.join(', ')}` + (q.length ? ` · questionable: ${q.join(', ')}` : '');
-    return `<span class="line-chip line-chip--out" title="${esc(t)}">${esc(label)}: ${out.length} out</span>`;
+    statuses.push(`${out.length} out`);
+    details.push(`out: ${out.join(', ')}`);
   }
   if (q.length) {
-    return `<span class="line-chip" title="${esc(`${title} questionable: ${q.join(', ')}`)}">${esc(label)}: ${q.length} Q</span>`;
+    if (!out.length) statuses.push(`${q.length} Q`);
+    details.push(`questionable: ${q.join(', ')}`);
   }
-  return '';
+  if (unknown > 0) {
+    statuses.push(`${unknown} unknown`);
+    details.push(`${grp.starters}/${expectedStarters} starters identified in the depth chart`);
+  }
+  if (!statuses.length) return '';
+  const tone = out.length ? ' line-chip--out' : '';
+  const description = `${title} ${details.join(' · ')}`;
+  return `<span class="line-chip${tone}" title="${esc(description)}">${esc(label)}: ${esc(statuses.join(' · '))}</span>`;
 }
 
 /** The chips for a player on `team` facing `opp` this week, or ''. */
@@ -314,7 +327,7 @@ export function lineChipsHtml(teams, team, opp) {
   if (!teams) return '';
   const own = team ? teams[String(team).toUpperCase()] : null;
   const vs = opp ? teams[String(opp).toUpperCase()] : null;
-  const a = own && own.ol ? lineChip('OL', own.ol, 'Own offensive line') : '';
+  const a = own && own.ol ? lineChip('OL', own.ol, 'Own offensive line', 5) : '';
   const b = vs && vs.dl ? lineChip('vs DL', vs.dl, 'Opposing defensive front') : '';
   return [a, b].filter(Boolean).join(' ');
 }

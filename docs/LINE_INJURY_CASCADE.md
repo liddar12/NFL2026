@@ -47,7 +47,7 @@ The committed file is the fresh pull, byte-for-byte what the builder writes.
 
 ```
 {season, week, generated_utc, available, reason, source, snapshot, positions,
- teams: {TEAM: {ol: {starters, names, out, doubtful, questionable},
+ teams: {TEAM: {ol: {starters, names, out, doubtful, questionable, unknown_starters?},
                 dl: {...}}},
  counts: {teams, ol_starters, dl_starters, ol_out, dl_out, ol_doubtful,
           dl_doubtful, ol_questionable, dl_questionable, starters_matched}}
@@ -55,6 +55,11 @@ The committed file is the fresh pull, byte-for-byte what the builder writes.
 
 * Starters = the **latest** snapshot, rank 1, OL / DL-front positions, one
   entry per player.
+* An offensive line with fewer than five distinct rank-1 players publishes the
+  difference as `unknown_starters`. It keeps the identified players and their
+  injury statuses. The November 18, 2026 nflverse snapshot listed the same
+  Pittsburgh player at both starting guard slots, so Pittsburgh had four
+  identified starters and one unknown. Rank-2 players stay outside the report.
 * Join to the injury report: ESPN athlete id against the chart's `espn_id`
   when `injuries.json` carries `athlete_id`, else `(team, normalized name)`
   (`name_key`: lower-case, punctuation and Jr/Sr/II/III dropped). A starter
@@ -71,8 +76,12 @@ The committed file is the fresh pull, byte-for-byte what the builder writes.
 One component, `.line-chip` (geometry of `.lu-bye`; meaning carried by the
 text, never by colour alone; names on the title):
 
-* `OL: 2 out` — the player's own line; `OL: 1 Q` when nobody is out but
-  someone is doubtful/questionable; nothing when the line is healthy.
+* The player's own line shows `OL: 2 out` for two known absences and `OL: 1 Q`
+  for one doubtful or questionable player when nobody is out. A complete line
+  with no listed injuries has no chip.
+* `OL: 1 unknown` identifies a coverage gap and can appear alongside known
+  injuries, such as `OL: 1 out · 1 unknown`. Older reports derive the gap from
+  the number of identified starters.
 * `vs DL: 1 out` — the week's opponent's front, same rules.
 
 Where: every offence starter row on **LINEUP** (`app/views/lineup.js`), every
