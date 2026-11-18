@@ -40,9 +40,9 @@ export default defineConfig({
 
   // Serve the repo root statically so absolute /data, /app, /manifest paths
   // resolve exactly as they do in production. reuseExistingServer lets a dev
-  // keep `npm run serve` running across test runs.
+  // keep the same local test server running across test runs.
   webServer: {
-    command: 'python3 -m http.server 4321',
+    command: 'python3 tests/serve.py',
     cwd: REPO_ROOT,
     url: 'http://127.0.0.1:4321',
     reuseExistingServer: true,
