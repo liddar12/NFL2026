@@ -94,8 +94,15 @@ test('rejects duplicate cards and legs, mismatched seasons and terms, and missin
   assert.match(inspectGrading(data).atd.mismatches.join('\n'), /no unique corresponding receipt leg/);
 });
 
-test('CLI requires positive MY and ATD coverage from the selected data directory', () => {
+test('CLI requires every gradeable MY and ATD offer from the selected data directory', () => {
   const data = fixture();
+  const kickoff = '2032-10-25T17:00:00Z';
+  const generated = '2032-10-26T10:00:00Z';
+  data.facts.generated_utc = data.myScores.generated_utc = data.atdScores.generated_utc = generated;
+  data.records[myPath].cards[0].locked = true;
+  data.myScores.cards[0].result = 'void';
+  for (const card of data.atdScores.cards) card.result = 'hit';
+  data.facts.weeks[week].games.G1.k = kickoff;
   const dir = mkdtempSync(join(tmpdir(), 'grading-parity-'));
   function write(file, doc) {
     const path = join(dir, file);
@@ -105,16 +112,18 @@ test('CLI requires positive MY and ATD coverage from the selected data directory
   try {
     for (const [path, doc] of Object.entries(data.records)) write(path, doc);
     write('bet_facts.json', data.facts);
+    write('schedule_full.json', { season, updated_utc: generated, games: [{ game_id: 'G1', week, home: 'AAA', away: 'BBB',
+      kickoff_utc: kickoff, status: 'STATUS_FINAL' }] });
     write('my_card_scores.json', data.myScores);
     write('atd_card_scores.json', data.atdScores);
     const run = () => spawnSync(process.execPath, [script, dir], { encoding: 'utf8' });
     const pass = run();
     assert.equal(pass.status, 0, pass.stderr);
     assert.match(pass.stdout, /MY grading: 2 legs compared.*\nATD grading: 3 legs compared/);
-    write('atd_card_scores.json', { season, cards: [] });
+    write('atd_card_scores.json', { season, generated_utc: generated, cards: [] });
     const fail = run();
     assert.equal(fail.status, 1);
-    assert.match(fail.stderr, /ATD: expected at least one comparable leg/);
+    assert.match(fail.stderr, /ATD: .*missing grade card/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
