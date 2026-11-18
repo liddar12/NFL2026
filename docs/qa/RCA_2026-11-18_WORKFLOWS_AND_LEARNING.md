@@ -1,6 +1,35 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 1. November 18, 2026, 1:59 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+Revision 2. November 18, 2026, 2:30 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+
+## Current checkpoint
+
+NFL source `64060b9ed877ffafd351621e8731e529ee473190` passed the full local
+gate: exit 0, all eight steps, 2,307 feature tests with no failures or skips,
+and 364 browser/PWA/performance tests with four existing conditional skips.
+It pins engine `889e147e84b01c28898f268eb89f91c978ef490f`, whose core suite
+passed 1,295 tests plus 838 subtests with both NFL checkouts and no skips.
+The hosted boundary suite passed 492 tests. Those are local checks, not
+GitHub CI, native PostgreSQL or hosted Supabase acceptance.
+
+The implementation branches are `build/published-evidence-20261118` (NFL)
+and `build/nfl-qualified-shadow-20261118` (engine). Both remain local. The
+earlier checkpoints below retain their evidence; these commits supersede them
+for the combined review. This document is a documentation-only follow-up to
+the tested NFL source.
+
+At **2:25 p.m. CST**, a fresh production HTTP read still showed Week 11,
+`calibration_adopted: true`, `live_adjustment: null` and
+`held: no adopted correction`. The pool was generated at 12:50:29 p.m. CST.
+GitHub main `ff98e60f62f8a06632dcf65b53bc3cbfde8d91a7` still has the
+disabled/shadow pilot pinned to `aacb19c7`. It is one data-only commit
+(49 files) beyond the original audit base; no source changed. Preserve its
+new ledger/snapshot entries and regenerate data when reconciling the release.
+The tested local tree is not a claim to have merged that later data refresh.
+
+The live historical NFL calibration and the shared feedback runtime are
+different. The shared engine is **not currently changing recommendations**.
+No activation or new prospective accuracy claim follows from the local tests.
 
 ## What the audit established
 
@@ -121,21 +150,103 @@ two verified revisions, duplicate captures preserved the state/run/evaluation
 pointers, and every activation flag stayed false. This used synthetic inputs
 and real runner APIs, not a live forecast.
 
-**Remaining adoption blocker:** `nfl_file_feedback.evaluate()` still uses the
-legacy-admitting walk-forward report for retrospective metrics and its proposed
-shadow numeric gate. That report lacks a stable/legacy provenance breakdown.
-It is non-authorizing and automatic promotion stays off, but it must not be
-treated as proof of qualified improvement. Unify its qualification/coverage
-rules with the trusted corrections fitter before using it for a serving decision.
+## Follow-up repairs verified locally
+
+### Published commit and one grading generation
+
+All three publishers now emit a receipt containing the workflow run, attempt
+and final pushed commit (or an explicit no-op). Data CI resolves that receipt
+and both validation jobs test its immutable SHA. Wrong run/attempt metadata,
+missing receipts and commits outside main are refused. A historical result
+cannot close a newer main incident, and no-op publication leaves it unchanged.
+The report queue uses GitHub's `queue: max` support; the installed Actionlint
+1.7.12 predates that key, so only its exact stale-schema diagnostic was excluded.
+The remaining workflow lint checks and 42 focused publication tests passed.
+Remote Actions behavior still needs verification after publishing.
+
+The production grading capture now freezes the schedule identity, raw ESPN
+scoreboards, player statistics, participation and roster evidence together.
+Daily/gameday capture before their first game-lock resolution; weekly backtest
+does so before its current-season lock stage. Historical backtest inputs are
+unchanged. Configured consumers cannot substitute a live fetch, manual CSV or
+old results from another capture. Unchanged verified historical FINALs can
+survive omitted upstream events, but explicit contrary identity/status evidence
+blocks that fallback. Contradictory nested competition IDs, kickoff times and
+FINAL lifecycle states are quarantined by both NFL and the engine.
+
+Current-run lock/refit admission checks the captured fixture and winner without
+rewriting old locks or changing the fitting equations. A stored refit count is
+no longer presented as proof of identical receipt membership. Weekly fantasy
+estimate grading requires complete FINAL coverage. This is distinct from the
+per-game gating used for parlay legs. Legacy CSV-only manual capture remains
+available; production explicitly selects the stronger scoreboard profile.
+
+A fresh read-only source capture at 2:21 p.m. CST returned HTTP 200 for all
+13 source requests. It covered all 150 FINAL games in Weeks 1–10 with zero
+unknown games, zero conflicting games and zero historical fallback. The
+capture is outside the repositories; no generated production data was edited.
+The frozen schedule's own timestamp remains visible rather than being restamped
+as a freshly fetched schedule.
+
+Two isolated replays of all seven grading CLIs and the production browser-grade
+validator passed with network access refused. Each compared 130,697 MY legs and
+143,928 ATD legs with zero mismatches. All 30,208 graded MY cards and 22,663
+graded ATD cards retained their original outcomes and leg measurements; none
+was added or removed. Review and bet facts each matched all 150 captured scores.
+All derived documents repeated semantically, excluding four documented clock
+fields whose per-pass values were independently checked. Lock files and the
+raw capture manifest remained byte-identical. This rehearsal performed no
+prediction rebuild or fit/refit and wrote only to a disposable checkout.
+
+### Qualified shadow evaluation
+
+The previous shadow-report blocker is repaired locally. Operational file
+feedback and CLI reports now use `event_bound_labels_v2`, sharing the trusted
+fitter's label admission rule. Frozen forecast totals remain visible alongside
+legacy, unresolved, void and unqualified exclusions. Every training fold applies
+the same as-of rule; unchanged legacy observations do not acquire new provenance.
+Generic v1 reports remain readable for historical research, but the owner reader
+cannot accept their numeric gate as qualified evidence.
+
+Executed regressions exposed and close two generation-evidence loopholes:
+invalid nonempty records cannot stand in for durable ACKs, and a complete late
+import cannot backfill proof at an earlier training cutoff. A timing-only test
+passes with 110/110 and 220/220 timely fold records, and holds with late or
+partial records even when final coverage is 330/330. Metrics remain visible;
+all serving/activation flags remain false. This is not proof of public
+publication, sufficient future sample size or improved joint parlay selection.
+
+The actual runner upgrade from `aacb19c7` to `889e147e` preserved old artifact
+bytes and first-observation clocks. Two unchanged legacy labels stayed excluded;
+two genuinely corrected labels qualified through appended revisions. Duplicate
+retries retained identical state/run/evaluation pointers. The small synthetic
+candidate remained held, as it should.
+
+Follow-up evidence under `code/evidence/`:
+
+- `nfl-published-evidence-full-gate-20261118.log`
+- `selflearn-qualified-shadow-core-final-20261118.log`
+- `selflearn-qualified-shadow-hosted-final-20261118.log`
+- `nfl-qualified-shadow-pin-focused-final-20261118.tap` (53/53)
+- `nfl-qualified-shadow-upgrade-rehearsal-20261118.py`, `.json`, `.log`
+- `nfl-grading-v2-live-capture-summary-20261118.json` and its retained raw capture
+- `nfl-grading-v2-rehearsal-20261118.json`, `.log`
+- `nfl-learning-main-recheck-20261118.json`
+- `nfl-learning-live-recheck-20261118.json`
+
+GitHub's queue semantics are documented in its
+[May 7, 2026 release note](https://github.blog/changelog/2026-05-07-github-actions-concurrency-groups-now-allow-larger-queues/).
+This platform documentation supports the queue configuration, not a claim that
+the new workflows have already executed remotely.
 
 ## Ordered roadmap and ownership
 
 | Stage | Work and acceptance | Owner / manual involvement |
 |---|---|---|
 | 1. Reliable NFL release | Publish the tested grading repair branch, run remote CI on the exact source/data SHA, drain older refresh jobs, merge only the reviewed artifact, verify production bytes and three representative refreshes. | Codex prepares and verifies; owner release authorization remains outstanding. |
-| 2. Dependable publishing | Pin downstream checks to the published SHA; capture FINAL evidence with the same inputs; enforce grading coverage as well as agreement; deduplicate repeated incident signatures. | Automated implementation and tests; no manual data edits. |
+| 2. Dependable publishing | Exact-SHA handoff and shared FINAL capture now pass local checks. Still enforce aggregate grading coverage as well as agreement, deduplicate repeated incident signatures, and verify three representative remote refreshes. | Automated implementation and tests; no manual data edits. |
 | 3. Durable shared collection | Publish the engine commit before the NFL canary references it. Verify/apply the additive migration, reconcile Vercel alias and exact engine pin, wire pre-kickoff receipts and publication proof, raw outcomes and bounded scheduled workers. Replay and restart must preserve IDs; a correction must append a revision. | Codex; owner authorizes cloud release/migration. Account access is the only other manual dependency if existing connections cannot perform it. |
-| 4. Safe serving | Unify shadow-report and trusted-fitter label qualification, showing legacy/unresolved exclusions. Reevaluate on untouched future/held-out periods, with clustered uncertainty, per-position calibration, coverage and parlay concentration. Approve one bounded correction, prove the served pool cites its artifact, and exercise automatic fallback to the base model. | Codex automates evidence and fallback; owner approves the serving policy. Future games, not more agents, supply prospective evidence. |
+| 4. Safe serving | Unified shadow/fitter label qualification is locally verified. Reevaluate on untouched future/held-out periods, with clustered uncertainty, per-position calibration, coverage and parlay concentration. Approve one bounded correction, prove the served pool cites its artifact, and exercise automatic fallback to the base model. | Codex automates evidence and fallback; owner approves the serving policy. Future games, not more agents, supply prospective evidence. |
 | 5. Operations | Show last forecast/publication/outcome/worker timestamps, pending and rejected counts, correction artifact and whether it reached recommendations. Verify Henry's monitoring connection. | Codex and Henry after connection verification; no Claude dependency. |
 
 Collection, evaluation, adoption and use are separate states. The final proof is
