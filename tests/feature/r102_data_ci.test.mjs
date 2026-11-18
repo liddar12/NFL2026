@@ -13,7 +13,7 @@
  *   - it is not itself triggered by a push (so [skip actions] cannot skip it);
  *   - red opens or updates ONE titled issue and exits non-zero, green closes it,
  *     and a superseded (cancelled) check reports nothing;
- *   - permissions are the minimum: contents read, issues write.
+ *   - only the report job can write issues. Actions and Checks are read-only.
  */
 
 import { test } from 'node:test';
@@ -55,16 +55,14 @@ test('R102: data-ci runs exactly the CI gate and browser E2E on the same resolve
   assert.match(ci, /run: npm run test:e2e/, 'the same browser command as ci.yml');
 });
 
-test('R102: red opens or updates one issue and fails; green closes it; superseded reports nothing', () => {
+test('R102: the report runs on terminal job outcomes with the exact candidate and serialized issue writes', () => {
   assert.match(WF, /DATA_CI_TITLE: "\[data-ci\] main is red on pipeline data"/);
-  assert.match(WF, /needs: \[resolve, gate, e2e\]\s*\n\s*if: \$\{\{ always\(\) && needs.resolve.result != 'skipped' \}\}/, 'the report runs whatever the jobs did');
-  const run = WF.slice(WF.indexOf('  report:'));
-  const cancel = run.indexOf('"cancelled"');
-  const green = run.indexOf('gh issue close');
-  const update = run.indexOf('gh issue comment');
-  const create = run.indexOf('gh issue create --title "$DATA_CI_TITLE"');
-  assert.ok(cancel > 0 && cancel < green, 'a cancelled check exits before touching any issue');
-  assert.ok(green > 0 && update > green && create > update, 'close on green; comment else create on red');
-  assert.match(run.slice(create), /exit 1/, 'red stays red in the Actions list');
-  assert.match(WF, /permissions:\s*\n\s*contents: read\s*\n\s*issues: write\s*\n/, 'least privilege');
+  const report = WF.slice(WF.indexOf('  report:'));
+  assert.match(report, /needs: \[resolve, gate, e2e\]\s*\n\s*if: \$\{\{ always\(\) && needs.resolve.result != 'skipped' \}\}/);
+  assert.match(report, /group: data-ci-issue\s*\n\s*queue: max\s*\n\s*cancel-in-progress: false/);
+  assert.match(report, /permissions:\s*\n\s*contents: read\s*\n\s*issues: write\s*\n\s*actions: read\s*\n\s*checks: read\s*\n/);
+  assert.doesNotMatch(WF.slice(0, WF.indexOf('  report:')), /issues: write/);
+  assert.match(report, /ref: \$\{\{ github.workflow_sha \}\}/);
+  assert.match(report, /SHA: \$\{\{ needs.resolve.outputs.sha \}\}/);
+  assert.match(report, /run: python3 scripts\/data_ci_incident\.py/);
 });
