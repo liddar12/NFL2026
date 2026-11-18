@@ -45,6 +45,7 @@
 #   PUBLISH_ARCHIVE_CMD   week-archive re-mirror       (default: python3 scripts/build_parlay_archive.py)
 #   PUBLISH_BACKOFF_S     seconds between attempts     (default: 5)
 #   PUBLISH_ATTEMPTS      how many attempts            (default: 5)
+#   PUBLISH_RECEIPT_PATH  optional Actions handoff file (run ID, attempt, SHA/noop)
 #
 # Docs: docs/PUBLISH.md.
 set -euo pipefail
@@ -65,6 +66,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MERGE_LEDGERS="$HERE/merge_ledgers.py"
 
 log()  { echo "publish: $*"; }
+
+# A downstream workflow consumes this only after the publisher step succeeds.
+# Exclusive creation prevents a stale receipt from being reused.
+write_receipt() {
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ]; then
+    (set -o noclobber; printf '%s %s %s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$1" > "$PUBLISH_RECEIPT_PATH")
+  fi
+}
 
 # Set by replay_onto when it had to resolve conflicts (and therefore already ran
 # the contract gate on the merged tree). A CLEAN rebase is validated too: every
@@ -286,7 +295,7 @@ main() {
     echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote replayed generation_base
+  local message="$1" attempt remote replayed generation_base candidate
   generation_base="$(git rev-parse HEAD)"
 
   # Resolve and validate before changing config, the index or local history.
@@ -300,12 +309,23 @@ main() {
     exit 2
   fi
 
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ] &&
+     { ! [[ "${GITHUB_RUN_ID:-}" =~ ^[1-9][0-9]*$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[1-9][0-9]*$ ]] ||
+       [ -e "$PUBLISH_RECEIPT_PATH" ] || [ -L "$PUBLISH_RECEIPT_PATH" ] ||
+       [ ! -w "$(dirname "$PUBLISH_RECEIPT_PATH")" ]; }; then
+    die "publisher receipt requires an unused path in a writable directory and the Actions run ID and attempt."
+  fi
+  if [ -n "${PUBLISH_RECEIPT_PATH:-}" ] && [ "${GITHUB_REF:-}" != "refs/heads/$target_branch" ]; then
+    die "the Actions source ref must match the publish branch $target_branch."
+  fi
+
   git config user.name  "$BOT_NAME"
   git config user.email "$BOT_EMAIL"
 
   git add data/
   if git diff --cached --quiet; then
     echo "No data changes to commit."
+    write_receipt noop
     exit 0
   fi
   git commit -q -m "$message"
@@ -336,6 +356,7 @@ main() {
         if git diff --cached --quiet "$remote" -- .; then
           git reset --quiet --hard "$remote"
           log "  nothing of this run's survives the fallback; $target_branch already holds it"
+          write_receipt noop
           exit 0
         fi
         git -c core.editor=true commit --quiet --amend --no-edit
@@ -356,8 +377,15 @@ main() {
     if ! eval "$VALIDATE_CMD"; then
       die "final candidate failed contracts or grading parity. Nothing was published."
     fi
-    if git push origin "HEAD:refs/heads/$target_branch"; then
-      log "attempt $attempt: published $(git rev-parse --short HEAD) to $target_branch"
+    candidate="$(git rev-parse HEAD)"
+    if [ "$candidate" = "$remote" ]; then
+      log "attempt $attempt: $target_branch already holds this run's changes"
+      write_receipt noop
+      exit 0
+    fi
+    if git push origin "$candidate:refs/heads/$target_branch"; then
+      log "attempt $attempt: published $candidate to $target_branch"
+      write_receipt "$candidate"
       if [ "$FELL_BACK" -eq 1 ]; then
         echo "::warning::published this run's ledger entries and snapshots, but its regenerable files lost to the other writer's (they did not join across files); the next run regenerates them"
       fi

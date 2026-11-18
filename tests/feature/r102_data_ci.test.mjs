@@ -7,8 +7,8 @@
  * .github/workflows/data-ci.yml runs when a pipeline RUN completes. Locked here:
  *   - it is triggered by the completion of all three pipelines, by their exact
  *     workflow names (a rename would silently disconnect it), and by dispatch;
- *   - it checks out main as it stands (the data commit included), not the
- *     triggering run's head;
+ *   - it checks both jobs against the exact published SHA, after resolving the
+ *     matching run-attempt receipt or the dispatch SHA;
  *   - it runs exactly ci.yml's gate (tests/run_gate.sh) and browser E2E;
  *   - it is not itself triggered by a push (so [skip actions] cannot skip it);
  *   - red opens or updates ONE titled issue and exits non-zero, green closes it,
@@ -36,13 +36,18 @@ test('R102: data-ci fires when each pipeline finishes, by its exact workflow nam
     assert.ok(listed.includes(nameOf(p)), `${p} (name: ${nameOf(p)}) triggers data-ci`);
   }
   assert.match(WF, /\n  workflow_dispatch:/);
-  const on = WF.slice(WF.indexOf('\non:'), WF.indexOf('\nconcurrency:'));
+  const on = WF.slice(WF.indexOf('\non:'), WF.indexOf('\npermissions:'));
   assert.doesNotMatch(on, /\n  push:|\n  pull_request:/, 'never push-triggered: [skip actions] cannot skip it');
 });
 
-test('R102: data-ci tests main as it stands and runs exactly the CI gate + browser E2E', () => {
-  const checkouts = WF.match(/uses: actions\/checkout@v4\s*\n\s*with:\s*\n\s*ref: main/g) || [];
-  assert.equal(checkouts.length, 2, 'both jobs check out main (the data commit), not the triggering head');
+test('R102: data-ci runs exactly the CI gate and browser E2E on the same resolved SHA', () => {
+  for (const name of ['gate', 'e2e']) {
+    const job = WF.split(`\n  ${name}:\n`)[1].split(/\n  \w+:\n/)[0];
+    assert.match(job, /needs: resolve/);
+    assert.match(job, /TEST_SHA: \$\{\{ needs.resolve.outputs.sha \}\}/);
+    assert.match(job, /ref: \$\{\{ env.TEST_SHA \}\}/);
+    assert.match(job, /test "\$\(git rev-parse HEAD\)" = "\$TEST_SHA"/);
+  }
   assert.match(WF, /run: bash tests\/run_gate\.sh/);
   assert.match(WF, /run: npm run test:e2e/);
   const ci = read('.github/workflows/ci.yml');
@@ -52,8 +57,8 @@ test('R102: data-ci tests main as it stands and runs exactly the CI gate + brows
 
 test('R102: red opens or updates one issue and fails; green closes it; superseded reports nothing', () => {
   assert.match(WF, /DATA_CI_TITLE: "\[data-ci\] main is red on pipeline data"/);
-  assert.match(WF, /needs: \[gate, e2e\]\s*\n\s*if: \$\{\{ always\(\) \}\}/, 'the report runs whatever the jobs did');
-  const run = WF.slice(WF.indexOf('set -euo pipefail'));
+  assert.match(WF, /needs: \[resolve, gate, e2e\]\s*\n\s*if: \$\{\{ always\(\) && needs.resolve.result != 'skipped' \}\}/, 'the report runs whatever the jobs did');
+  const run = WF.slice(WF.indexOf('  report:'));
   const cancel = run.indexOf('"cancelled"');
   const green = run.indexOf('gh issue close');
   const update = run.indexOf('gh issue comment');

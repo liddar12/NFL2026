@@ -67,6 +67,12 @@ jobs:
       - name: Begin per-stage record (R88)
         run: python3 scripts/stage_status.py begin --workflow daily --run-id "${{ github.run_id }}"
 
+      # Freeze ESPN FINAL observations and nflverse CSVs for all grading.
+      # The committed schedule supplies expected fixture identities. Capture
+      # failures stop grading and publication.
+      - name: Capture grading inputs once
+        run: bash scripts/stage.sh daily "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
+
       # Step 0 — LEARNING LOOP resolve. Grade yesterday's locks BEFORE rebuilding,
       # so the day's build sees a fully resolved record (and any adopted params).
       # STATUS-gated + idempotent; clean no-op when no locked game has gone FINAL.
@@ -235,11 +241,6 @@ jobs:
       - name: Estimate ledger self-heal (every committed lock survives)
         run: bash scripts/stage.sh daily "Estimate ledger self-heal (every committed lock survives)" -- python scripts/restore_ledger_players.py
 
-      # All grading consumers replay these exact CSV bytes, including explicit
-      # unpublished-source states. Capture errors stop publication.
-      - name: Capture grading inputs once
-        run: bash scripts/stage.sh daily "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
-
       - name: Resolve estimates against nflverse weekly actuals
         run: bash scripts/stage.sh --continue-on-error daily "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run
@@ -334,5 +335,15 @@ jobs:
       # other generated artifact.
       - name: Commit data/
         env:
+          PUBLISH_RECEIPT_PATH: ${{ runner.temp }}/published-data.txt
           PUBLISH_BRANCH: ${{ github.ref_name }}
         run: 'bash scripts/publish_data.sh "data: daily pipeline refresh [skip actions]"'
+
+      - name: Retain exact published commit for Data CI
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-data-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/published-data.txt
+          retention-days: 14
+          if-no-files-found: error

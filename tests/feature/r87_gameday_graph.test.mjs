@@ -135,8 +135,8 @@ test('F17 (i) — gameday lock path runs the full chain in dependency order', ()
     previousName = script;
   }
 
-  // ...and the race-safe commit is last: nothing may be generated after the
-  // contracts are validated and the tree is staged.
+  // Only publishing the receipt may follow the race-safe commit. Nothing may
+  // regenerate data after the contracts are validated and the tree is staged.
   // R88 — the commit step's body moved into scripts/publish_data.sh (F16), so
   // `git commit` is no longer inline; match either spelling. This is the only
   // change R88 makes to this file: the stage wrapper leaves every command's
@@ -148,11 +148,10 @@ test('F17 (i) — gameday lock path runs the full chain in dependency order', ()
     commitAt > validateAt,
     'gameday.yml commits before validate_data.py — the contracts must gate the push',
   );
-  assert.equal(
-    commitAt,
-    lock.length - 1,
-    'the commit step is no longer the last step of the gameday lock path',
-  );
+  assert.deepEqual(lock.slice(commitAt + 1).map(step => step.name), [
+    'Retain exact published commit for Data CI',
+  ]);
+  assert.match(lock.at(-1).code, /actions\/upload-artifact@v4/);
 });
 
 test('F17 (ii) — gameday.yml no longer invokes the absent scores CLI', () => {

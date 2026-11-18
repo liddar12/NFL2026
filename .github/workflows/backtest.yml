@@ -52,6 +52,11 @@ jobs:
       - name: Begin per-stage record (R88)
         run: python3 scripts/stage_status.py begin --workflow backtest --run-id "${{ github.run_id }}"
 
+      # Retain the committed schedule's fixture identities and capture ESPN
+      # FINAL observations alongside the CSVs before grading current locks.
+      - name: Capture grading inputs once
+        run: bash scripts/stage.sh backtest "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
+
       # Resolve any locks first so the backtest sees the freshest graded record.
       - name: Resolve locks against FINAL scores
         run: bash scripts/stage.sh backtest "Resolve locks against FINAL scores" -- python -m scripts.resolve_locks
@@ -263,10 +268,31 @@ jobs:
       - name: Validate data contracts
         run: python scripts/validate_data.py
 
+      - name: Retain grading inputs for replay
+        if: ${{ always() && env.NFL_GRADING_CAPTURE_DIR != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: grading-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.NFL_GRADING_CAPTURE_DIR }}
+          retention-days: 14
+          if-no-files-found: warn
+
       # RACE-SAFE PUBLISH (F16). This job shares the `data-pipeline` concurrency
       # group with daily.yml but NOT with gameday.yml, so a gameday window can
       # push underneath it. The old fast-forward-only pull-and-push retry loop
       # could not merge two commits from a common base; scripts/publish_data.sh
       # now owns the publish and is race-safe by construction — docs/PUBLISH.md.
       - name: Commit tuning record
+        env:
+          PUBLISH_RECEIPT_PATH: ${{ runner.temp }}/published-data.txt
+          PUBLISH_BRANCH: ${{ github.ref_name }}
         run: 'bash scripts/publish_data.sh "data: weekly backtest refit [skip actions]"'
+
+      - name: Retain exact published commit for Data CI
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-data-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/published-data.txt
+          retention-days: 14
+          if-no-files-found: error

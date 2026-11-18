@@ -84,6 +84,12 @@ jobs:
       - name: Begin per-stage record (R88)
         run: python3 scripts/stage_status.py begin --workflow gameday --run-id "${{ github.run_id }}"
 
+      # Freeze ESPN FINAL observations and nflverse CSVs for all grading.
+      # The committed schedule supplies expected fixture identities. Capture
+      # failures stop grading and publication.
+      - name: Capture grading inputs once
+        run: bash scripts/stage.sh gameday "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
+
       # LEARNING LOOP step 1 — RESOLVE. Grade the point-in-time record first: any
       # locked row whose game is now FINAL gets actual/brier/log_loss filled in
       # place (STATUS-gated; idempotent; clean no-op when nothing is FINAL yet).
@@ -205,9 +211,6 @@ jobs:
       # Sunday gameday run left the mirror on the morning's value (61.102 vs
       # 61.088 on 2026-09-20) and main's own fast gate went red until Monday's
       # daily. Grading is mode-independent; the network is optional.
-      - name: Capture grading inputs once
-        run: bash scripts/stage.sh gameday "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
-
       - name: Resolve estimates against nflverse weekly actuals
         run: bash scripts/stage.sh --continue-on-error gameday "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run
@@ -333,5 +336,15 @@ jobs:
       # the snapshots and data/pipeline_stages.json.
       - name: Commit snapshots + data
         env:
+          PUBLISH_RECEIPT_PATH: ${{ runner.temp }}/published-data.txt
           PUBLISH_BRANCH: ${{ github.ref_name }}
         run: 'bash scripts/publish_data.sh "data: gameday refresh [skip actions]"'
+
+      - name: Retain exact published commit for Data CI
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-data-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/published-data.txt
+          retention-days: 14
+          if-no-files-found: error
