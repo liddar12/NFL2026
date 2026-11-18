@@ -66,8 +66,8 @@ const teamOf = (leg) => leg.team || String(leg.selection || '').split(' ')[0] ||
 /** The leg's game in one week of facts: by id, else (a week leg carries none) by team. */
 function findGame(leg, wk) {
   const games = (wk && wk.games) || {};
-  if (leg.game_id != null && games[String(leg.game_id)]) {
-    return [String(leg.game_id), games[String(leg.game_id)]];
+  if (leg.game_id != null) {
+    return [String(leg.game_id), games[String(leg.game_id)] || null];
   }
   const team = teamOf(leg);
   if (!team) return [null, null];
@@ -102,6 +102,9 @@ export function gradeLeg(leg, facts) {
     return { result: 'void', actual: null, reason: 'excluded_game' };
   }
   if (!wk) return pending('week_not_published');
+  if (leg.season != null && facts.season != null && Number(leg.season) !== Number(facts.season)) {
+    return pending('season_mismatch');
+  }
   const market = leg.market;
   if (GAME_MARKETS.has(market)) {
     if (!game) return pending('no_game');
@@ -128,17 +131,27 @@ export function gradeLeg(leg, facts) {
     }
     return pending('no_final');
   }
-  const p = leg.gsis_id != null ? (wk.players || {})[String(leg.gsis_id)] : null;
+  const scoped = Object.prototype.hasOwnProperty.call(wk, 'players_by_game');
+  if (facts.grading_policy === 'event_bound_v1' && !scoped) return pending('player_game_facts_missing');
+  if (scoped || leg.game_id != null) {
+    if (!game) return pending('game_unknown');
+    if (leg.team != null && leg.team !== game.h && leg.team !== game.a) return pending('receipt_team_mismatch');
+    if (!(typeof game.hs === 'number' && typeof game.as === 'number') && !['home', 'away'].includes(game.w)) {
+      return pending('no_final');
+    }
+  }
+  const players = scoped ? ((wk.players_by_game || {})[gid] || {}) : (wk.players || {});
+  const p = leg.gsis_id != null ? players[String(leg.gsis_id)] : null;
   if (market in PROP_COL) {
     if (leg.line == null || !Number.isFinite(Number(leg.line))) return pending('no_line');
-    if (!p || p.y == null) return pending('no_stat_line');
+    if (!p || p.y == null) return pending((p && p.reason) || 'no_stat_line');
     if (p.y === 'dnp') return { result: 'void', actual: null, reason: 'did_not_play' };
     const yards = Number(p.y[PROP_COL[market]]);
     if (!Number.isFinite(yards)) return pending('no_stat_line');
     return { result: yards >= Number(leg.line) ? 'hit' : 'miss', actual: yards, reason: null };
   }
   if (market === ATD) {
-    if (!p || p.td == null) return pending('no_stat_line');
+    if (!p || p.td == null) return pending((p && p.reason) || 'no_stat_line');
     if (p.td === 'dnp') return { result: 'void', actual: null, reason: 'did_not_play' };
     return { result: Number(p.td) >= 1 ? 'hit' : 'miss', actual: { tds: Number(p.td) }, reason: null };
   }

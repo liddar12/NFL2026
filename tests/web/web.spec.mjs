@@ -1400,12 +1400,32 @@ test.describe('Rel16 bug fixes', () => {
  * ------------------------------------------------------------------------- */
 
 test.describe('availability on Lineup + Compare (REL17)', () => {
+  const firstBlockedWeek = 1;
+  const returnWeek = 9;
+
   /** Roster + the ids the availability fixtures are attached to. */
-  function seedAvail() {
-    const proj = readData('player_projections.json');
-    const ps = proj.players;
-    const pick = (pos, n) => ps.filter((p) => String(p.position).toUpperCase() === pos)
-      .slice(0, n).map((p) => String(p.gsis_id));
+  function seedAvail(shownWeek = Number(readData('game_predictions.json').week)) {
+    const activeWeek = Number.isFinite(shownWeek) ? Math.min(18, Math.max(1, Math.round(shownWeek))) : 1;
+    const ps = readData('player_projections.json').players;
+    const weeksById = new Map(readData('player_weekly.json').players.map(
+      (p) => [String(p.gsis_id), new Map(p.weeks.map((w) => [Number(w.wk), w]))],
+    ));
+    const weekOf = (p, wk) => weeksById.get(String(p.gsis_id))?.get(wk);
+    // A bye takes precedence over IR. Select actual games in every week the
+    // specs exercise so feed order and the live slate cannot hide the IR chip.
+    const testWeeks = [activeWeek, firstBlockedWeek, returnWeek];
+    const pick = (pos, n) => {
+      const players = ps.filter((p) => String(p.position).toUpperCase() === pos
+        && testWeeks.every((wk) => {
+          const w = weekOf(p, wk);
+          return w && !w.bye && w.pts > 0;
+        }));
+      // The recovered WR must earn a starting slot on the return week.
+      if (pos === 'WR') players.sort((a, b) => weekOf(b, returnWeek).pts - weekOf(a, returnWeek).pts);
+      expect(players.length, `${pos} fixture candidates for weeks ${testWeeks.join(', ')}`)
+        .toBeGreaterThanOrEqual(n);
+      return players.slice(0, n).map((p) => String(p.gsis_id));
+    };
     const nameOf = (id) => String(ps.find((p) => String(p.gsis_id) === id).name);
     const qb = pick('QB', 1); const rb = pick('RB', 4); const wr = pick('WR', 4); const te = pick('TE', 2);
     return { qb, rb, wr, te, nameOf };
@@ -1413,8 +1433,8 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
 
   /**
    * Serve data/player_weekly.json with `mutate(doc)` applied. `mutate` receives
-   * the REAL committed document — with one exception: every real-world
-   * availability block is stripped first, so the fixture flags applied by
+   * the committed document with real-world availability and eligibility
+   * signals stripped first, so the fixture flags applied by
    * mutate() are the ONLY injuries in the served document. These tests assert
    * rendering (chip vs ACTIVE, provenance, forced slots) for players picked by
    * feed order, and the real feed moves daily — the 2026-08-25 pipeline
@@ -1427,6 +1447,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     const doc = readData('player_weekly.json');
     for (const p of doc.players) {
       delete p.availability;
+      delete p.eligibility;
       for (const w of p.weeks) {
         if (!w.bye) w.avail = true;
       }
@@ -1474,7 +1495,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
 
   test('an IR player is DEMOTED to the bench, never silently auto-started', async ({ page }) => {
     const { qb, rb, wr, te, nameOf } = seedAvail();
-    // The manager's WR1 — his highest-projected WR — lands on IR for the season.
+    // The manager's WR1 lands on IR for the season.
     await withWeekly(page, (doc) => flag(doc, wr[0], SEASON_IR, 'all'));
     const slots = {
       QB1: qb[0], RB1: rb[0], RB2: rb[1], WR1: wr[0], WR2: wr[1], TE1: te[0], FLEX: rb[2],
@@ -1527,7 +1548,7 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     await page.goto('/#/lineup');
     await page.waitForSelector('.lu-card', { timeout: 8000 });
     // Week 1 is inside the blocked window regardless of the live week.
-    await page.locator('.wk-chip[data-wk="1"]').click();
+    await page.locator(`.wk-chip[data-wk="${firstBlockedWeek}"]`).click();
     await page.waitForSelector('.av-chip--out', { timeout: 8000 });
 
     const chip = page.locator('.av-chip--out').first();
@@ -1544,26 +1565,13 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
     expect(note).toContain(nameOf(wr[0]));
 
     // Week 9 is outside the window — he is startable again with no chip.
-    await page.locator('.wk-chip[data-wk="9"]').click();
-    await page.waitForTimeout(150);
-    expect(await page.locator('.av-chip').count()).toBe(0);
-    expect(await page.locator('.lu-card').first().innerText()).toContain(nameOf(wr[0]));
+    await page.locator(`.wk-chip[data-wk="${returnWeek}"]`).click();
+    await expect(page.locator('.av-chip')).toHaveCount(0);
+    await expect(page.locator('.lu-card').first()).toContainText(nameOf(wr[0]));
   });
 
   test('a FORCED start is filled, flagged, and never called "optimal"', async ({ page }) => {
-    const { qb, wr, te, nameOf } = seedAvail();
-    // R124 — both backs must have a GAME in the week Lineup opens on (the
-    // game_predictions week): a back on bye scores 0 as a bye, not as a forced
-    // start. Week 6 put the feed's second RB (Gibbs, DET) on bye and left one
-    // banner of two (data-ci #156).
-    const wkNow = Number(readData('game_predictions.json').week);
-    const weeklyById = new Map(readData('player_weekly.json').players.map((p) => [String(p.gsis_id), p]));
-    const rb = readData('player_projections.json').players
-      .filter((p) => String(p.position).toUpperCase() === 'RB')
-      .map((p) => String(p.gsis_id))
-      .filter((id) => ((weeklyById.get(id) || {}).weeks || []).some((w) => Number(w.wk) === wkNow && !w.bye))
-      .slice(0, 2);
-    expect(rb.length).toBe(2);
+    const { qb, rb, wr, te, nameOf } = seedAvail();
     // Both rostered RBs are on IR in the same week and there is no RB behind them.
     await withWeekly(page, (doc) => {
       flag(doc, rb[0], SEASON_IR, 'all');
@@ -1637,11 +1645,16 @@ test.describe('availability on Lineup + Compare (REL17)', () => {
   });
 
   test('a league-rule IR gets NO evidence quote — there is no report to quote', async ({ page }) => {
-    const { rb, wr } = seedAvail();
+    const { rb, wr } = seedAvail(firstBlockedWeek);
+    await page.route('**/data/game_predictions.json', (route) => route.fulfill({
+      json: { ...readData('game_predictions.json'), week: firstBlockedWeek },
+    }));
     await withWeekly(page, (doc) => flag(doc, wr[0], RULE_IR, [1, 2, 3, 4]));
     await page.goto(`/#/compare?a=${wr[0]}&b=${rb[0]}`);
     await page.waitForSelector('.cmp-grid', { timeout: 8000 });
     await expect(page.locator('.cmp-metric--avail')).toHaveCount(2);
+    await expect(page.locator('.cmp-metric--avail .av-chip--out')).toContainText('4+ WKS');
+    await expect(page.locator('.cmp-metric--avail .av-prov--min')).toHaveCount(1);
     // LEAGUE MIN says "we applied the league's floor"; a generic sentence under
     // WHY · TEAM REPORT would be fabrication.
     await expect(page.locator('.cmp-evid')).toHaveCount(0);

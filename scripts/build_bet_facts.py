@@ -103,7 +103,8 @@ def recorded_legs(data_dir=DATA):
         for path in sorted(glob.glob(os.path.join(data_dir, pattern))):
             doc = _load(path, {}) or {}
             for c in doc.get("cards") or []:
-                rows.extend(dict(leg, week=doc.get("week")) for leg in c.get("legs") or [])
+                rows.extend(dict(leg, week=doc.get("week"), season=doc.get("season"))
+                            for leg in c.get("legs") or [])
     rows.extend((_load(os.path.join(data_dir, "estimates", "parlays_2026.json"), {}) or {})
                 .get("legs") or [])
     return rows
@@ -113,14 +114,64 @@ def week_teams(recorded):
     """R118 -- {(espn id, week): team} from the legs as recorded. A player traded
     after a week (Xavier Smith, LAR -> SF after week 3) is graded for that week
     on the roster his bets named, never on today's (data-ci #111)."""
-    out = {}
+    teams = {}
     for r in recorded or []:
         try:
             wk = int(r.get("week"))
         except (TypeError, ValueError):
             continue
         if r.get("gsis_id") and r.get("team"):
-            out[(str(r["gsis_id"]), wk)] = r["team"]
+            teams.setdefault((str(r["gsis_id"]), wk), set()).add(r["team"])
+    return {key: next(iter(values)) if len(values) == 1 else None
+            for key, values in teams.items()}
+
+
+def scoped_players(week, idents, recorded, stat_rows, td_rows, snaps_week, ctx):
+    """Every recorded contract plus positively observed participant, by fixture.
+
+    Conflicting recorded identities cannot overwrite another receipt. Weekly
+    roster teams are not used as evidence for historical did-not-play calls.
+    """
+    from scripts.player_outcomes import _identity, event_reason, player_event_facts
+    requests = {}
+
+    def add(leg):
+        pid = str(leg.get("gsis_id") or "")
+        gid = str(leg.get("game_id") or "")
+        if pid and gid:
+            key = (gid, pid)
+            fields = ("gsis_id", "nflverse_id", "player", "team", "position", "game_id", "season")
+            ref = {k: leg[k] for k in fields if leg.get(k) is not None}
+            requests.setdefault(key, {})[json.dumps(ref, sort_keys=True)] = ref
+
+    for leg in recorded or []:
+        if leg.get("week") == week or str(leg.get("week")) == str(week):
+            add(leg)
+    for pid, ident in idents.items():
+        ref = dict(ident, player=ident.get("name"), gsis_id=pid)
+        row = None
+        for source in (stat_rows, td_rows, (snaps_week or {}).get("rows")):
+            found, why = _identity(ref, source, ctx.get("ids") or {})
+            if why not in (None, "no_stat_line"):
+                row = None
+                break
+            if found:
+                row = found
+                break
+        if row:
+            games = [g for (wk, _), g in ctx["games"].items()
+                     if wk == week and g and event_reason(row, g) is None]
+            if len(games) == 1:
+                add(dict(ref, team=row["team"], game_id=games[0]["game_id"],
+                         season=games[0]["season"]))
+    out = {}
+    for (gid, pid), refs in sorted(requests.items()):
+        values = [player_event_facts(ref, week, stat_rows, td_rows, snaps_week, ctx)
+                  for ref in refs.values()]
+        first = values[0]
+        if any(v != first for v in values[1:]):
+            first = {"y": None, "td": None, "reason": "recorded_identity_conflict"}
+        out.setdefault(gid, {})[pid] = first
     return out
 
 
@@ -203,7 +254,8 @@ def game_facts(games, finals):
 
 
 def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, excluded,
-          season, generated_utc, source, teams_by_week=None):
+          season, generated_utc, source, teams_by_week=None, event_context=None,
+          recorded=None):
     gf = game_facts(games, finals)
     weeks = {}
     for wk in sorted(gf):
@@ -214,6 +266,8 @@ def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, exclu
         for pid in sorted(idents):
             ident = idents[pid]
             team = (teams_by_week or {}).get((pid, wk))
+            if (pid, wk) in (teams_by_week or {}) and team is None:
+                continue                  # conflicting receipts never choose by order
             if team and team != ident.get("team"):
                 ident = dict(ident, team=team)
             f = player_facts(ident, (stats_by_week or {}).get(wk),
@@ -221,9 +275,26 @@ def build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week, exclu
             if f is not None:
                 players[pid] = f
         weeks[str(wk)] = {"games": gf[wk], "players": players}
-    return {"kind": "bet_facts", "season": int(season), "generated_utc": generated_utc,
+        if event_context is not None:
+            scoped = scoped_players(wk, idents, recorded, (stats_by_week or {}).get(wk),
+                                    (td_by_week or {}).get(wk), (snaps_by_week or {}).get(wk),
+                                    event_context)
+            weeks[str(wk)]["players_by_game"] = scoped
+            # Compatibility data is conservative: a weekly map cannot express
+            # different outcomes for two contracts naming different fixtures.
+            grouped = {}
+            for entries in scoped.values():
+                for pid, value in entries.items():
+                    grouped.setdefault(pid, []).append({"y": value["y"], "td": value["td"]})
+            weeks[str(wk)]["players"] = {
+                pid: values[0] if all(v == values[0] for v in values) else {"y": None, "td": None}
+                for pid, values in grouped.items()}
+    doc = {"kind": "bet_facts", "season": int(season), "generated_utc": generated_utc,
             "rule": RULE, "source": source, "excluded": sorted(excluded or []),
             "weeks": weeks}
+    if event_context is not None:
+        doc["grading_policy"] = "event_bound_v1"
+    return doc
 
 
 def write(doc, path=OUT_PATH):
@@ -253,9 +324,11 @@ def run(offline=False, cache_dir=None, out_path=OUT_PATH, now=None):
             snaps_by_week = _snaps(season, cache_dir, None, False)
             stats_note = "nflverse stats_player_week (%d weeks)%s" % (
                 len(stats_by_week), "" if snaps_by_week else "; snap counts unavailable")
+    from scripts.player_outcomes import load_context
+    event_context = load_context(DATA, season, finals, cache_dir)
     doc = build(games, finals, idents, stats_by_week, td_by_week, snaps_by_week,
                 excluded_ids(), season, now, "finals: %s; stats: %s" % (finals_source, stats_note),
-                teams_by_week=week_teams(recorded))
+                teams_by_week=week_teams(recorded), event_context=event_context, recorded=recorded)
     write(doc, out_path)
     n_players = sum(len(w["players"]) for w in doc["weeks"].values())
     print("bet_facts: %d week(s), %d player-week fact(s), %d excluded game(s) -> %s"

@@ -925,7 +925,7 @@ def check_no_unplayable_legs(weekly, parlays, leg_pool=None):
 
 def check_parlay_model_independence(parlays, predictions, label="parlays.json",
                                     tol=1.5e-3):
-    """Every parlay leg's `model_prob` is OURS, recomputed, for the team it names.
+    """Check game legs against the model for their named game and team.
 
     parlays     : data/parlays.json document.
     predictions : data/game_predictions.json document (the slate whose probabilities
@@ -935,43 +935,32 @@ def check_parlay_model_independence(parlays, predictions, label="parlays.json",
 
       1. A moneyline leg's model_prob equals the game model's win probability for the
          team the selection names.
-      2. A spread leg's model_prob equals OUR margin model evaluated at the handicap
-         the selection names, for the team the selection names. This is the rule that
-         reds the shipped-before-R30 data, where model_prob was the book's de-vigged
-         cover probability (e.g. TEN -3 at 0.4783, NYG +2.5 at 0.4892, MIN -1.5 at
-         0.4826 — all book numbers, none of them producible by any model here).
-      3. No leg carries a market whose model we do not have (currently: `total`).
+      2. A spread leg's model_prob follows R51: 0.5 at the stated handicap.
+      3. Unsupported markets, including `total`, are rejected. Player props
+         have separate checks.
 
-    Plus a mechanical tripwire: on a leg that carries a real book price, model_prob
-    and implied_prob must not be the identical number, because after R30 the IMPL
-    column IS the market feed's probability for that game and the MODEL column may
-    never be the same value. Rules 1-2 are the real proof; this one states the policy
-    where a future market has no recomputable model. (A genuine 4-decimal coincidence
-    between our number and the book's would red the gate — ~1 in 10,000 per leg. That
-    is the deliberate trade: a false red is a conversation, a market price wearing our
-    label is the failure this whole check exists to prevent.)
-
-    Legs whose game cannot be resolved on the slate are reported, never skipped
-    quietly — an unresolvable leg is a leg nobody is checking.
+    Expected probabilities come from the game predictions and the R51 spread
+    rule. A market price can independently round to the same display value.
+    Game cards must resolve the named team within the card's game. Week cards
+    resolve each team against the slate.
     """
     problems = []
-    by_team = {}   # team -> (game_id, p_home, is_home)
+    by_team = {}   # team -> [(game_id, win probability)]
     for g in (predictions or {}).get("games", []) or []:
         gid = g.get("game_id")
-        p_home = (g.get("probs") or {}).get("home")
-        if p_home is None:
-            continue
-        by_team[g.get("home")] = (gid, float(p_home), True)
-        by_team[g.get("away")] = (gid, float(p_home), False)
+        probs = g.get("probs") or {}
+        for side in ("home", "away"):
+            if gid is not None and probs.get(side) is not None:
+                by_team.setdefault(g.get(side), []).append((gid, float(probs[side])))
 
     for parlay in (parlays or {}).get("parlays", []) or []:
         pid = parlay.get("parlay_id", "?")
+        game_id = parlay.get("game_id")
 
         for leg in parlay.get("legs", []) or []:
             market = leg.get("market")
             sel = str(leg.get("selection", ""))
             mp = leg.get("model_prob")
-            ip = leg.get("implied_prob")
 
             if market in _PARLAY_BANNED_MARKETS:
                 problems.append(
@@ -980,15 +969,12 @@ def check_parlay_model_independence(parlays, predictions, label="parlays.json",
                     % (pid, sel, market, _PARLAY_BANNED_MARKETS[market]))
                 continue
 
-            # R51: a spread leg is pinned to exactly 0.5 below (NO EDGE), so a
-            # book cover price that happens to be 0.5000 is coincidence, not a
-            # copy — the equality rule guards the moneyline column only.
-            if market == "moneyline" and mp is not None \
-                    and ip is not None and float(mp) == float(ip):
+            if market in _PROP_MARKETS or market == "anytime_td":
+                continue
+            if market not in _PARLAY_MODELLED_MARKETS:
                 problems.append(
-                    "%s leg '%s' has model_prob == implied_prob (%.4f) — the IMPL "
-                    "column carries the market feed's probability, so the MODEL "
-                    "column may never equal it" % (pid, sel, float(mp)))
+                    "%s leg '%s' has unsupported market %r" % (pid, sel, market))
+                continue
 
             if market == "moneyline":
                 m = _ML_SELECTION_RE.match(sel)
@@ -996,36 +982,45 @@ def check_parlay_model_independence(parlays, predictions, label="parlays.json",
                     problems.append("%s moneyline leg has unparseable selection %r"
                                     % (pid, sel))
                     continue
-                team = m.group(1)
-                if team not in by_team:
-                    problems.append("%s leg '%s' names team %s, which is not on the "
-                                    "slate in game_predictions.json" % (pid, sel, team))
-                    continue
-                _gid, p_home, is_home = by_team[team]
-                expected = p_home if is_home else 1.0 - p_home
-                if mp is None or abs(float(mp) - expected) > tol:
-                    problems.append(
-                        "%s leg '%s' model_prob %r != our model's win probability "
-                        "%.4f for %s" % (pid, sel, mp, expected, team))
-
-            elif market == "spread":
+            else:
                 m = _SPREAD_SELECTION_RE.match(sel)
                 if not m:
                     problems.append("%s spread leg has unparseable selection %r "
                                     "(expected e.g. 'KC -3.5')" % (pid, sel))
                     continue
-                team, point = m.group(1), float(m.group(2))
-                if team not in by_team:
-                    problems.append("%s leg '%s' names team %s, which is not on the "
-                                    "slate in game_predictions.json" % (pid, sel, team))
+
+            team = m.group(1)
+            candidates = by_team.get(team, [])
+            if not candidates:
+                problems.append("%s leg '%s' names team %s, which is not on the "
+                                "slate in game_predictions.json" % (pid, sel, team))
+                continue
+            if parlay.get("scope") == "game":
+                candidates = [(gid, p) for gid, p in candidates if gid == game_id]
+                if not candidates:
+                    problems.append("%s leg '%s' names team %s, which has no "
+                                    "prediction for game %r" % (pid, sel, team, game_id))
                     continue
+            if len(candidates) != 1:
+                problems.append("%s leg '%s' has multiple slate predictions for %s"
+                                % (pid, sel, team))
+                continue
+
+            if market == "moneyline":
+                _, expected = candidates[0]
+                if mp is None or not abs(float(mp) - expected) <= tol:
+                    problems.append(
+                        "%s leg '%s' model_prob %r != our model's win probability "
+                        "%.4f for %s" % (pid, sel, mp, expected, team))
+            else:
+                point = float(m.group(2))
                 # R51: the Elo-margin cover model measured BELOW a coin flip at
                 # the book's number (log-loss 0.7196 vs 0.6931, 796 games
                 # 2023-25; scripts/backtest_parlay.py), so a spread leg prices
                 # at exactly 0.5 — NO EDGE — until a margin model clears
                 # never-regress. Anything else is either the retired inversion
                 # or a market number wearing the MODEL column.
-                if mp is None or abs(float(mp) - 0.5) > tol:
+                if mp is None or not abs(float(mp) - 0.5) <= tol:
                     problems.append(
                         "%s leg '%s' model_prob %r != 0.5 for %s at %+g — a spread "
                         "leg carries NO EDGE (R51) and never the book's cover price"
@@ -1335,7 +1330,21 @@ def check_bet_facts(doc):
                 problems.append("wk %s game %s: half a score" % (wk, gid))
             if "w" in g and "hs" in g:
                 problems.append("wk %s game %s: a score AND a winner-only mark" % (wk, gid))
-        for pid, f in (blk.get("players") or {}).items():
+        player_facts = list((blk.get("players") or {}).items())
+        if doc.get("grading_policy") == "event_bound_v1" and "players_by_game" not in blk:
+            problems.append("wk %s: event-bound policy requires players_by_game" % wk)
+        for gid, entries in (blk.get("players_by_game") or {}).items():
+            game = (blk.get("games") or {}).get(gid)
+            if game is None:
+                problems.append("wk %s: scoped player facts name unknown game %s" % (wk, gid))
+            for pid, value in entries.items():
+                player_facts.append(("%s/%s" % (gid, pid), value))
+                resolved = value.get("y") is not None or value.get("td") is not None
+                if resolved and (not game or not ("hs" in game or game.get("w") in ("home", "away"))):
+                    problems.append("wk %s game %s: player facts resolve before FINAL" % (wk, gid))
+                if value.get("reason") and resolved:
+                    problems.append("wk %s game %s: unresolved reason beside resolved player facts" % (wk, gid))
+        for pid, f in player_facts:
             y, td = f.get("y"), f.get("td")
             if isinstance(y, str) and y != "dnp":
                 problems.append("wk %s %s: y is %r (only 'dnp' may be a string)" % (wk, pid, y))
@@ -2714,10 +2723,10 @@ def _selftest():
     _red(_parlay([{"market": "total", "selection": "Over 44.5",
                    "model_prob": 0.52, "implied_prob": 0.5238}]),
          "a total leg with no scoring model behind it")
-    # The market feed's number in both columns.
+    # The copied price fails because DEN's model win probability is 0.594.
     _red(_parlay([{"market": "moneyline", "selection": "DEN ML",
                    "model_prob": 0.45, "implied_prob": 0.45}]),
-         "model_prob identical to the market feed's probability")
+         "a copied market price that contradicts DEN's model win probability")
     # --- R30: the SAME policy on every other model output ---------------------
     # The check above recomputes parlay legs. It cannot cover a feed we have not
     # written a model for, which is precisely where borrowing a book number is
@@ -2767,7 +2776,7 @@ def _selftest():
         {"market": "spread", "selection": "DEN +3",
          "model_prob": 0.5, "implied_prob": 0.5108},
         {"market": "moneyline", "selection": "DEN ML",
-         "model_prob": 0.594, "implied_prob": 0.45},
+         "model_prob": 0.594, "implied_prob": 0.594},
     ]), _preds)
 
     # --- R30b: the six formerly-decorative schema keywords now BITE ----------
@@ -3461,8 +3470,9 @@ def _selftest():
     print("selftest OK: availability cross-file invariant catches renormalized "
           "blocked weeks, duration/consequence drift, orphan flags, dropped "
           "reports (a hurt pool player with no block) and a dishonest "
-          "model summary; parlay legs reject a market price in model_prob, a "
-          "mislabelled side, a total leg and a model/market collision; the six "
+          "model summary; parlay legs reject model probabilities that disagree "
+          "with the prediction and unsupported totals, and accept a model "
+          "probability that independently matches the market price; the six "
           "R30b keywords (minProperties/maxProperties/pattern/exclusiveMinimum/"
           "exclusiveMaximum/minLength) each fail a violating document; $ref is "
           "a hard error; market_prices is validated below the top level; the R58 "

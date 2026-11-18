@@ -139,6 +139,8 @@ def run(cache_dir=None, out_path=OUT_PATH, now=None, offline=False):
         else:
             by_week = index_stats(csv_rows)
             atd = {"td": index_td(csv_rows), "snaps": _snaps(season, cache_dir, None, offline)}
+            from scripts.player_outcomes import load_context
+            atd["context"] = load_context(DATA, season, finals, cache_dir)
         rows, pending = grade_records(week_recs, by_week, finals, atd, excluded=excluded)
         g_rows, g_pending = grade_records(game_recs, by_week, finals, atd, scope="game",
                                           excluded=excluded)

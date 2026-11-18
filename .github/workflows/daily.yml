@@ -235,6 +235,23 @@ jobs:
       - name: Estimate ledger self-heal (every committed lock survives)
         run: bash scripts/stage.sh daily "Estimate ledger self-heal (every committed lock survives)" -- python scripts/restore_ledger_players.py
 
+      # All grading consumers replay these exact CSV bytes, including explicit
+      # unpublished-source states. Capture errors stop publication.
+      - name: Capture grading inputs once
+        run: |
+          export NFL_GRADING_CAPTURE_DIR="$RUNNER_TEMP/grading-inputs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          printf 'NFL_GRADING_CAPTURE_DIR=%s\n' "$NFL_GRADING_CAPTURE_DIR" >> "$GITHUB_ENV"
+          season="$(python3 -c 'import json; print(json.load(open("data/schedule_full.json"))["season"])')"
+          python3 scripts/capture_grading_inputs.py --season "$season" --output "$NFL_GRADING_CAPTURE_DIR"
+
+      - name: Retain grading inputs for replay
+        uses: actions/upload-artifact@v4
+        with:
+          name: grading-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.NFL_GRADING_CAPTURE_DIR }}
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Resolve estimates against nflverse weekly actuals
         run: bash scripts/stage.sh --continue-on-error daily "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
         continue-on-error: true   # a stats outage degrades the record, never the run

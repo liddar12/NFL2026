@@ -134,6 +134,7 @@ from scripts.build_parlay_archive import card_id as parlay_card_id  # noqa: E402
 from scripts.harness import metrics  # noqa: E402
 from scripts.resolve_estimates import norm_name  # noqa: E402
 from scripts.scrape.espn import FINAL_STATUSES  # noqa: E402
+from scripts.scrape.renames import normalize_team  # noqa: E402
 
 DATA = os.path.join(_ROOT, "data")
 OUT_PATH = os.path.join(DATA, "review.json")
@@ -218,6 +219,56 @@ def finals_index(rows):
     return out
 
 
+def merge_review_finals(schedule, season, previous, fresh, *, require_fresh_teams=True):
+    """Preserve verified prior scores for the same fixture, then apply fresh finals."""
+    fixtures = {}
+    if schedule.get("season", season) == season:
+        for game in schedule.get("games") or []:
+            gid = str(game.get("game_id") or "")
+            week = str(game.get("week"))
+            home, away = normalize_team(game.get("home")), normalize_team(game.get("away"))
+            if gid and week.isdigit() and home and away and home != away:
+                if game.get("season", season) == season:
+                    fixtures.setdefault(gid, set()).add((week, home, away))
+
+    def verified(rows, require_teams):
+        results, conflicts = {}, set()
+        for row in rows:
+            gid = str(row.get("game_id") or "")
+            matches = fixtures.get(gid, ())
+            if len(matches) != 1 or row.get("season", season) != season:
+                continue
+            week, home, away = next(iter(matches))
+            if row.get("week") is not None and str(row["week"]) != week:
+                continue
+            if any((require_teams or key in row) and normalize_team(row.get(key)) != team
+                   for key, team in (("home", home), ("away", away))):
+                continue
+            status = row.get("status")
+            if status not in FINAL_STATUSES and not (status is None and row.get("final") is True):
+                continue
+            hs, as_ = row.get("home_score"), row.get("away_score")
+            if type(hs) is not int or type(as_) is not int or min(hs, as_) < 0:
+                continue
+            final = {"game_id": gid, "home_score": hs, "away_score": as_,
+                     "status": status or "STATUS_FINAL"}
+            if results.setdefault(gid, final) != final:
+                conflicts.add(gid)
+        return {gid: final for gid, final in results.items() if gid not in conflicts}
+
+    prior_rows = []
+    if previous and previous.get("season") == season:
+        for week, block in (previous.get("weeks") or {}).items():
+            for game in block.get("games") or []:
+                final = game.get("final")
+                if game.get("final_source") == "espn_final" and final:
+                    prior_rows.append({**game, "week": week, "home_score": final.get("home_score"),
+                                       "away_score": final.get("away_score")})
+    prior = verified(prior_rows, True)
+    current = verified(fresh, require_fresh_teams)
+    return list((prior | current).values()), len(prior.keys() - current.keys()), len(current)
+
+
 def lock_index(lock_rows):
     """{event_id: lock row} for game rows carrying a 2-way probs vector."""
     out = {}
@@ -280,6 +331,20 @@ def review_game(game, lock, final, qb1_by_team=None, injury_by_key=None,
            "kickoff_utc": game.get("kickoff_utc"), "picked": None, "pick_prob": None,
            "final": None, "status": game.get("status"), "final_source": None,
            "result": None, "brier": None, "why": None}
+    winner = None
+    if final is not None:
+        hs, as_ = final["home_score"], final["away_score"]
+        row["final"] = {"home_score": hs, "away_score": as_,
+                        "winner": home if hs > as_ else (away if as_ > hs else None)}
+        row["status"] = final.get("status") or "STATUS_FINAL"
+        row["final_source"] = "espn_final"
+        winner = row["final"]["winner"]
+    elif lock and lock.get("resolved") and lock.get("actual") in (0, 1):
+        winner = home if lock["actual"] == 0 else away
+        row["final"] = {"home_score": None, "away_score": None, "winner": winner}
+        row["status"] = "STATUS_FINAL"
+        row["final_source"] = "lock_receipt"
+
     if lock is None:
         row["why"] = {"source": "measured", "summary": "no pre-kickoff lock for this game",
                       "reasons": []}
@@ -290,20 +355,6 @@ def review_game(game, lock, final, qb1_by_team=None, injury_by_key=None,
     pick_prob = p_home if picked_idx == 0 else p_away
     row["picked"] = picked
     row["pick_prob"] = _r(pick_prob, 4)
-
-    winner = None
-    if final is not None:
-        hs, as_ = final["home_score"], final["away_score"]
-        row["final"] = {"home_score": hs, "away_score": as_,
-                        "winner": home if hs > as_ else (away if as_ > hs else None)}
-        row["status"] = final.get("status") or "STATUS_FINAL"
-        row["final_source"] = "espn_final"
-        winner = row["final"]["winner"]
-    elif lock.get("resolved") and lock.get("actual") in (0, 1):
-        winner = home if lock["actual"] == 0 else away
-        row["final"] = {"home_score": None, "away_score": None, "winner": winner}
-        row["status"] = "STATUS_FINAL"
-        row["final_source"] = "lock_receipt"
 
     reasons = [{"factor": "confidence", "points": None,
                 "text": "picked %s at %d%% (lock %s, model %s%s)" % (
@@ -634,23 +685,29 @@ def review_player(score_row, identity, weekly=None, stats_row=None, injury=None,
 # parlays                                                                       #
 # --------------------------------------------------------------------------- #
 
-def leg_outcomes_from_ledger(scores_doc):
+def leg_outcomes_from_ledger(scores_doc, event_bound=False):
     """THE ONE ADAPTER between partition C's R58 leg ledger and this review.
 
     Reads data/parlay_leg_scores.json (scripts/resolve_parlay_legs.py):
       resolved[]   {week, game_id, market, selection, ..., actual, hit: bool}
       unresolved[] {week, game_id, market, selection, reason}
-                   reason in no_stat_line | ambiguous | player_unidentified |
-                   no_final_score | tie | push | no_line | no_model_prob
     -> {(week, game_id, market, selection): {hit: True|False|None, actual, reason}}
     hit None + reason "push"/"tie" is a VOID leg; any other None is PENDING.
-    An unresolved leg is never a miss (the resolver's rule, kept here).
+    Production reviews require a fixture-bound ledger policy for player props.
     """
+    from scripts.resolve_parlay_legs import GRADING_POLICY
+
+    scores_doc = scores_doc or {}
+    trusted_props = not event_bound or scores_doc.get("grading_policy") == GRADING_POLICY
     out = {}
-    for r in (scores_doc or {}).get("resolved") or []:
+    for r in scores_doc.get("resolved") or []:
+        if not trusted_props and r["market"] in PROP_MARKETS:
+            continue
         key = (int(r["week"]), str(r["game_id"]), r["market"], r["selection"])
         out[key] = {"hit": bool(r["hit"]), "actual": r.get("actual"), "reason": None}
-    for u in (scores_doc or {}).get("unresolved") or []:
+    for u in scores_doc.get("unresolved") or []:
+        if not trusted_props and u["market"] in PROP_MARKETS:
+            continue
         key = (int(u["week"]), str(u["game_id"]), u["market"], u["selection"])
         out.setdefault(key, {"hit": None, "actual": None, "reason": u.get("reason")})
     return out
@@ -662,13 +719,16 @@ def _team_of_selection(selection):
 
 
 def leg_game_id(leg, parlay_game_id, week, ledger_legs, games_by_team):
-    """The game a leg belongs to: the parlay's own game, else the ledger entry with
-    the same (week, market, selection), else the team named by the selection."""
+    """Use the recorded fixture, or infer it from one unambiguous legacy match."""
+    if leg.get("game_id") is not None:
+        gid = str(leg["game_id"])
+        return gid if gid and (not parlay_game_id or str(parlay_game_id) == gid) else None
     if parlay_game_id:
         return str(parlay_game_id)
-    hit = (ledger_legs or {}).get((int(week), leg.get("market"), leg.get("selection")))
-    if hit:
-        return str(hit)
+    ref = (int(week), leg.get("market"), leg.get("selection"))
+    if ref in (ledger_legs or {}):
+        hit = ledger_legs[ref]
+        return str(hit) if hit else None
     team = _team_of_selection(leg.get("selection"))
     g = (games_by_team or {}).get(team)
     return str(g["game_id"]) if g else None
@@ -719,6 +779,8 @@ def review_parlay(parlay, week, outcomes, ledger_legs=None, games_by_team=None,
                 why = "graded: %s" % (d[2] or result)
             elif oc is not None:
                 why = "ledger: %s" % (oc.get("reason") or "unresolved")
+            elif d is not None and d[2] and leg.get("market") in PROP_MARKETS:
+                why = "pending: %s" % d[2]
             else:
                 why = "not in the leg ledger yet" if gid else "game not identified"
         legs_out.append({"selection": leg.get("selection"), "market": leg.get("market"),
@@ -750,7 +812,7 @@ def fully_excluded(row, excluded):
         l.get("game_id") is not None and str(l["game_id"]) in excluded for l in legs)
 
 
-def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger):
+def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger, context=None):
     """R106 — leg -> (result, actual, reason) from FINAL scores, the nflverse stat
     line and the snap sheet, through the MY-cards graders (one rule for every
     card). The player's full name, team and line come from the leg-ledger row when
@@ -778,8 +840,11 @@ def direct_leg_grader(sched, finals, stats_rows, snaps, parlay_ledger):
         if market in PROP_POSITION:
             line = leg.get("line") if leg.get("line") is not None else row.get("line")
             return rmc.grade_prop({"market": market, "position": PROP_POSITION[market],
-                                   "player": row.get("player"), "selection": sel,
-                                   "team": team, "line": line}, week, by_week, snaps)
+                                   "game_id": gid, "player": leg.get("player") or row.get("player"),
+                                   "selection": sel, "team": leg.get("team") or row.get("team") or team,
+                                   "gsis_id": leg.get("gsis_id") or row.get("gsis_id"),
+                                   "season": leg.get("season") or row.get("season"),
+                                   "line": line}, week, by_week, snaps, context)
         return None
     return grade
 
@@ -1265,19 +1330,25 @@ def build(inputs, now):
     weekly_by_id = {p["gsis_id"]: p for p in (inputs.get("weekly") or {}).get("players") or []}
     by_np, names = index_stats(inputs.get("stats_rows") or [])
     stats_available = bool(inputs.get("stats_rows"))
-    outcomes = leg_outcomes_from_ledger(inputs.get("leg_scores"))
+    grading_context = inputs.get("grading_context")
+    outcomes = leg_outcomes_from_ledger(inputs.get("leg_scores"),
+                                       event_bound=grading_context is not None)
     price_index = ledger_price_index(inputs.get("parlay_ledger"))
     ledger_legs = {}
     for l in (inputs.get("parlay_ledger") or {}).get("legs") or []:
-        ledger_legs.setdefault((int(l["week"]), l.get("market"), l.get("selection")),
-                               str(l.get("game_id")))
+        if l.get("game_id") is None:
+            continue
+        key = (int(l["week"]), l.get("market"), l.get("selection"))
+        gid = str(l["game_id"])
+        if ledger_legs.setdefault(key, gid) != gid:
+            ledger_legs[key] = None
     locks = inputs.get("locks") or {}          # {week: [rows]}
     scores = (inputs.get("estimate_scores") or {}).get("resolved") or []
     parlays_doc = inputs.get("parlays") or {}
     previous = inputs.get("previous") or {}
     archives = inputs.get("archives") or {}
     direct = direct_leg_grader(sched, finals, inputs.get("stats_rows"), inputs.get("snaps"),
-                               inputs.get("parlay_ledger"))
+                               inputs.get("parlay_ledger"), grading_context)
     # R108 — the owner's excluded games (load_inputs reads config/excluded_games.json);
     # absent from an inputs dict (the fixtures) excludes nothing.
     excluded = {str(g) for g in inputs.get("excluded_games") or ()}
@@ -1434,7 +1505,8 @@ def _stamp(doc, *keys):
     return None
 
 
-def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, season=None):
+def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, season=None,
+                cache_dir=None):
     """Committed inputs (+ optional finals file / stats CSV; + ESPN / nflverse on the
     runner when not offline). Every skip is recorded in notes and sources."""
     data = os.path.join(root, "data")
@@ -1477,16 +1549,16 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     from scripts import excluded_games  # noqa: PLC0415 — R108, the owner's list
     excluded = sorted(excluded_games.excluded_ids())
 
-    finals, finals_reason = [], None
+    fresh_finals, finals_reason = [], None
+    fetched = 0
     if finals_path:
-        finals = _load(finals_path)
-        sources["finals"] = "file:%s" % os.path.relpath(finals_path, root)
+        fresh_finals = _load(finals_path)
+        finals_source = "file:%s" % os.path.relpath(finals_path, root)
     elif offline:
         finals_reason = "offline run: ESPN not fetched"
-        sources["finals"] = "lock receipts only (offline)"
+        finals_source = "lock receipts only (offline)"
     else:
         from scripts.scrape import espn  # noqa: PLC0415 — runner only
-        fetched = 0
         for wk in sorted(locks):
             try:
                 rows = espn.fetch_scores(season, week=wk, final_only=True)
@@ -1494,13 +1566,20 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
                 notes.append("finals wk %d: ESPN fetch failed (%s: %s)" % (
                     wk, exc.__class__.__name__, exc))
                 continue
-            for r in rows:
-                r["week"] = wk
-            finals.extend(rows)
+            fresh_finals.extend({"week": wk, **r} for r in rows)
             fetched += 1
-        sources["finals"] = "espn (%d week(s) fetched)" % fetched
-        if not finals:
-            finals_reason = "ESPN returned no FINAL rows for the locked weeks"
+        finals_source = "espn (%d week(s) fetched)" % fetched
+    finals, retained, fresh = merge_review_finals(
+        sched, season, previous, fresh_finals, require_fresh_teams=not finals_path)
+    if not offline or finals_path:
+        finals_source += " (%d verified FINAL scores)" % fresh
+        if not fresh:
+            finals_reason = "no verified FINAL scores from %s" % finals_source
+    if retained:
+        retained_source = "prior review (%d verified FINAL scores retained)" % retained
+        finals_source = retained_source if offline and not finals_path else finals_source + "; " + retained_source
+        notes.append("finals: " + retained_source + ("; " + finals_reason if finals_reason else ""))
+    sources["finals"] = finals_source
 
     stats_rows, stats_reason = [], None
     if stats_csv:
@@ -1515,7 +1594,7 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
         from scripts.resolve_estimates import (  # noqa: PLC0415
             RELEASE_URL, FeedUnavailable, fetch_csv)
         try:
-            rows, why = fetch_csv(season, None)
+            rows, why = fetch_csv(season, cache_dir)
         except FeedUnavailable as exc:
             # The review is a required stage: an outage omits the stat factors (noted
             # below) instead of failing the publish; the players come from the last
@@ -1531,8 +1610,13 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
     snaps = None
     if not offline and not stats_csv:
         from scripts.resolve_my_cards import _snaps  # noqa: PLC0415 — runner only
-        snaps = _snaps(season, None, None, False)
+        snaps = _snaps(season, cache_dir, None, False)
     sources["snaps"] = "nflverse snap_counts" if snaps else None
+    from scripts.player_outcomes import load_context
+    from scripts.resolve_parlay_legs import winners_from_locks
+    event_finals = winners_from_locks(locks.values())
+    event_finals.update(finals_index(finals))
+    grading_context = load_context(data, season, event_finals, cache_dir)
 
     return {"season": season, "schedule": sched, "predictions": gp, "tuning": tuning,
             "archives": archives, "snaps": snaps,
@@ -1540,7 +1624,7 @@ def load_inputs(root=_ROOT, offline=False, finals_path=None, stats_csv=None, sea
             "finals_reason": finals_reason, "estimate_scores": es, "weekly": weekly,
             "projections": proj, "injuries": inj, "forecast": fc, "parlays": parlays,
             "ledger": ledger, "parlay_ledger": pledger, "leg_scores": legs,
-            "stats_rows": stats_rows, "stats_reason": stats_reason,
+            "stats_rows": stats_rows, "stats_reason": stats_reason, "grading_context": grading_context,
             "excluded_games": excluded,
             "previous": previous, "sources": sources, "notes": notes}
 
@@ -1553,10 +1637,10 @@ def write(doc, path=OUT_PATH):
 
 
 def run(offline=False, finals_path=None, stats_csv=None, out_path=OUT_PATH, now=None,
-        season=None):
+        season=None, cache_dir=None):
     now = now or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     inputs = load_inputs(offline=offline, finals_path=finals_path, stats_csv=stats_csv,
-                         season=season)
+                         season=season, cache_dir=cache_dir)
     doc = build(inputs, now)
     write(doc, out_path)
     for wk, blk in doc["weeks"].items():
@@ -1979,6 +2063,7 @@ def main(argv=None):
     ap.add_argument("--offline", action="store_true", help="committed inputs only; no network")
     ap.add_argument("--finals", default=None, help="JSON list of ESPN-shaped FINAL rows")
     ap.add_argument("--stats-csv", default=None, help="nflverse stats_player_week CSV path")
+    ap.add_argument("--cache-dir", default=None, help="directory of retained grading inputs")
     ap.add_argument("--out", default=OUT_PATH)
     ap.add_argument("--season", type=int, default=None)
     ap.add_argument("--selftest", action="store_true")
@@ -1987,7 +2072,7 @@ def main(argv=None):
         selftest()
         return 0
     run(offline=args.offline, finals_path=args.finals, stats_csv=args.stats_csv,
-        out_path=args.out, season=args.season)
+        out_path=args.out, season=args.season, cache_dir=args.cache_dir)
     return 0
 
 

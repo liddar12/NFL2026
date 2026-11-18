@@ -23,9 +23,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import { gradeLeg } from '../../app/bets.js';
+import { inspectGradingDirectory } from '../../scripts/validate_grading.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const read = (p) => JSON.parse(readFileSync(join(ROOT, p), 'utf8'));
 const py = (body) => JSON.parse(execFileSync('python3', ['-'], {
   cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
   input: `import json, sys\nsys.path.insert(0, ".")\n${body}\n`,
@@ -143,36 +143,10 @@ test('AC3: an excluded game voids its legs; a week with no facts is pending', ()
 const HAS_FACTS = existsSync(join(ROOT, 'data/bet_facts.json'));
 
 test('AC3: every graded MY and ATD leg on file regrades identically from data/bet_facts.json', { skip: !HAS_FACTS && 'first runner build pending' }, () => {
-  const facts = read('data/bet_facts.json');
-  const weeksWithFacts = new Set(Object.keys(facts.weeks));
-  const check = (scoreDoc, recordPath) => {
-    let n = 0;
-    const bad = [];
-    const recs = new Map();
-    for (const g of scoreDoc.cards || []) {
-      if (!weeksWithFacts.has(String(g.week))) continue;
-      const path = recordPath(g);
-      if (!recs.has(path)) recs.set(path, existsSync(join(ROOT, path)) ? new Map(read(path).cards.map((c) => [c.card_id, c])) : new Map());
-      const rec = recs.get(path).get(g.card_id);
-      if (!rec) continue;
-      for (const sl of g.legs) {
-        const leg = rec.legs.find((l) => l.selection === sl.selection && l.market === sl.market);
-        if (!leg) continue;
-        n += 1;
-        const got = gradeLeg({ week: g.week, ...leg }, facts).result;
-        // the facts may be NEWER than the score file (a later stat line), never older
-        if (got !== sl.result && !(sl.result === 'pending')) bad.push(`${g.week} ${sl.selection}: py ${sl.result} js ${got}`);
-      }
-    }
-    return { n, bad };
-  };
-  const wk = (w) => `2026_wk${String(w).padStart(2, '0')}.json`;
-  const my = check(read('data/my_card_scores.json'), (g) => `data/my_cards/${wk(g.week)}`);
-  const dirs = { week: 'atd_cards', game: 'atd_game_cards', my: 'atd_my_cards' };
-  const atd = check(read('data/atd_card_scores.json'), (g) => `data/${dirs[g.scope]}/${wk(g.week)}`);
-  assert.ok(my.n > 0, 'graded MY legs exist to compare');
-  assert.deepEqual(my.bad.slice(0, 10), [], `MY legs disagree (${my.bad.length})`);
-  assert.deepEqual(atd.bad.slice(0, 10), [], `ATD legs disagree (${atd.bad.length})`);
+  const { my, atd, failures } = inspectGradingDirectory();
+  assert.deepEqual({ files: failures, my: my.mismatches.slice(0, 10), atd: atd.mismatches.slice(0, 10) },
+    { files: [], my: [], atd: [] }, `parity failures: ${my.mismatches.length} MY, ${atd.mismatches.length} ATD`);
+  assert.ok(my.compared > 0, 'graded MY legs exist to compare');
 });
 
 test('wiring: daily and gameday build the facts right after the ATD resolver, continue-on-error', () => {

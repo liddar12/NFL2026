@@ -52,7 +52,7 @@ set -euo pipefail
 BOT_NAME="nfl2026-bot"
 BOT_EMAIL="bot@j5lagenticstrategy.com"
 
-VALIDATE_CMD="${PUBLISH_VALIDATE_CMD:-python3 scripts/validate_data.py}"
+VALIDATE_CMD="${PUBLISH_VALIDATE_CMD:-python3 scripts/validate_data.py && node scripts/validate_grading.mjs}"
 # The week-archive builder the R111 fallback re-runs (a stub in the race test).
 ARCHIVE_CMD="${PUBLISH_ARCHIVE_CMD:-python3 scripts/build_parlay_archive.py}"
 BACKOFF_S="${PUBLISH_BACKOFF_S:-5}"
@@ -286,7 +286,8 @@ main() {
     echo "usage: bash scripts/publish_data.sh \"<commit message>\"" >&2
     exit 2
   fi
-  local message="$1" attempt remote replayed
+  local message="$1" attempt remote replayed generation_base
+  generation_base="$(git rev-parse HEAD)"
 
   # Resolve and validate before changing config, the index or local history.
   local target_branch="${PUBLISH_BRANCH-main}"
@@ -317,6 +318,14 @@ main() {
     remote="$(git rev-parse FETCH_HEAD)"
 
     if ! git merge-base --is-ancestor "$remote" HEAD; then
+      # A data-only race can be reconciled. A new producer, input fixture or
+      # contract requires a new generation; passing a shape check cannot prove
+      # these old outputs were built by the newly landed implementation.
+      if ! git diff --quiet "$generation_base" "$remote" -- \
+          scripts/ app/ config/ fixtures/ data/fixtures/ data/contracts/ \
+          app.js index.html package.json package-lock.json .github/workflows/; then
+        die "generation source changed while this run was building. Nothing was published; rerun against the current source."
+      fi
       log "attempt $attempt: $target_branch moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
       replay_onto "$remote"
       log "attempt $attempt: replayed onto $(git rev-parse --short "$remote"); head is now $(git rev-parse --short HEAD)"
@@ -342,6 +351,11 @@ main() {
       fi
     fi
 
+    # This also covers the clean fast-forward path, which previously relied on
+    # a workflow check that could precede intervening changes to the candidate.
+    if ! eval "$VALIDATE_CMD"; then
+      die "final candidate failed contracts or grading parity. Nothing was published."
+    fi
     if git push origin "HEAD:refs/heads/$target_branch"; then
       log "attempt $attempt: published $(git rev-parse --short HEAD) to $target_branch"
       if [ "$FELL_BACK" -eq 1 ]; then
