@@ -4,7 +4,7 @@
 # Gates on EXIT CODES, in order (never on grepping colored summaries):
 #   1. python3 scripts/validate_data.py     — data contracts + cross-file invariants
 #   2. bash tests/smoke.sh                   — files exist, JSON parses, core invariants
-#   3. node --test tests/feature/*.mjs       — the locked feature tests
+#   3. node --test --test-concurrency=N tests/feature/*.mjs — the locked feature tests
 #                                              (INCLUDES contrast_aa.test.mjs — WCAG AA)
 #   4. python3 scripts/backtest_weekly.py --gate  — R51 weekly split never-regress
 #                                              (weekly_split_v2 vs v1 on committed actuals)
@@ -70,7 +70,17 @@ run_step "validate data contracts" python3 scripts/validate_data.py
 run_step "smoke tests"             bash tests/smoke.sh
 fi
 if [ "$partition" != core ]; then
-run_step "feature tests (incl. AA contrast)" node --test tests/feature/*.mjs
+  # Leave CPU capacity for subprocesses started by the feature tests.
+  if [ "${FEATURE_WORKERS+x}" ]; then
+    if [[ ! "$FEATURE_WORKERS" =~ ^[1-9][0-9]*$ ]]; then
+      echo "FEATURE_WORKERS must be a positive integer" >&2
+      exit 2
+    fi
+    feature_workers="$FEATURE_WORKERS"
+  else
+    feature_workers="$(node -p 'Math.max(1, Math.min(4, require("node:os").availableParallelism() - 1))')" || exit 1
+  fi
+  run_step "feature tests (incl. AA contrast)" node --test --test-concurrency="$feature_workers" tests/feature/*.mjs
 fi
 if [ "$partition" != features ]; then
 run_step "weekly split never-regress (R51)" python3 scripts/backtest_weekly.py --gate
