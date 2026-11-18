@@ -206,19 +206,7 @@ jobs:
       # 61.088 on 2026-09-20) and main's own fast gate went red until Monday's
       # daily. Grading is mode-independent; the network is optional.
       - name: Capture grading inputs once
-        run: |
-          export NFL_GRADING_CAPTURE_DIR="$RUNNER_TEMP/grading-inputs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          printf 'NFL_GRADING_CAPTURE_DIR=%s\n' "$NFL_GRADING_CAPTURE_DIR" >> "$GITHUB_ENV"
-          season="$(python3 -c 'import json; print(json.load(open("data/schedule_full.json"))["season"])')"
-          python3 scripts/capture_grading_inputs.py --season "$season" --output "$NFL_GRADING_CAPTURE_DIR"
-
-      - name: Retain grading inputs for replay
-        uses: actions/upload-artifact@v4
-        with:
-          name: grading-inputs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.NFL_GRADING_CAPTURE_DIR }}
-          retention-days: 14
-          if-no-files-found: error
+        run: bash scripts/stage.sh gameday "Capture grading inputs once" -- bash scripts/capture_grading_inputs.sh
 
       - name: Resolve estimates against nflverse weekly actuals
         run: bash scripts/stage.sh --continue-on-error gameday "Resolve estimates against nflverse weekly actuals" -- python scripts/resolve_estimates.py
@@ -327,6 +315,15 @@ jobs:
 
       - name: Validate data contracts
         run: python scripts/validate_data.py
+
+      - name: Retain grading inputs for replay
+        if: ${{ always() && env.NFL_GRADING_CAPTURE_DIR != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: grading-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.NFL_GRADING_CAPTURE_DIR }}
+          retention-days: 14
+          if-no-files-found: warn
 
       # RACE-SAFE PUBLISH (F16). daily.yml may push while this window commits, and
       # the two are on DIFFERENT concurrency groups so nothing serialises them.

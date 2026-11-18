@@ -7,6 +7,8 @@ const setup = String.raw`
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -132,5 +134,56 @@ receipts = [{"name": name, "url": "https://example.invalid/" + name, "sha256": "
             for name, raw in SOURCES.items()]
 (legacy / MANIFEST).write_text(json.dumps({"version": 1, "sources": receipts}))
 assert run_loaders(legacy) == (rows, snaps, context)
+`);
+});
+
+test('workflow capture helper exports the verified generation path and refuses tampered bytes', () => {
+  run(String.raw`
+scripts = root / "scripts"
+scripts.mkdir()
+for name in ("capture_grading_inputs.sh", "capture_grading_inputs.py"):
+    shutil.copyfile(Path.cwd() / "scripts" / name, scripts / name)
+(data / "schedule_full.json").write_text(json.dumps({"season": 2026, "games": []}))
+
+runner = root / "runner temp"
+runner.mkdir()
+env_file = runner / "actions environment"
+env_file.write_text("EXISTING=value\n")
+cache = runner / "grading-inputs-123456-2"
+capture(2026, cache, transport=transport)
+marker = cache / MANIFEST
+manifest_before = marker.read_bytes()
+
+network_attempt = root / "network_called"
+(root / "sitecustomize.py").write_text(
+    "from pathlib import Path\n"
+    "import urllib.request\n"
+    "def reject_network(*args, **kwargs):\n"
+    f"    Path({str(network_attempt)!r}).touch()\n"
+    "    raise AssertionError('grading capture helper unexpectedly fetched')\n"
+    "urllib.request.urlopen = reject_network\n"
+)
+env = dict(os.environ, RUNNER_TEMP=str(runner), GITHUB_ENV=str(env_file),
+           GITHUB_RUN_ID="123456", GITHUB_RUN_ATTEMPT="2", PYTHONPATH=str(root))
+command = ["bash", "scripts/capture_grading_inputs.sh"]
+
+done = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
+assert done.returncode == 0, done.stderr
+assert str(marker) in done.stdout, done.stdout
+assignment = f"{ENV}={cache}\n"
+assert env_file.read_text() == "EXISTING=value\n" + assignment
+assert marker.read_bytes() == manifest_before
+assert all((cache / name).read_bytes() == raw for name, raw in SOURCES.items())
+assert not network_attempt.exists()
+
+tampered = SOURCES[SNAPS].replace(b",12\n", b",99\n")
+(cache / SNAPS).write_bytes(tampered)
+refused = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True)
+assert refused.returncode != 0, refused.stdout
+assert SNAPS in refused.stderr and "SHA256" in refused.stderr, refused.stderr
+assert env_file.read_text() == "EXISTING=value\n" + assignment * 2
+assert marker.read_bytes() == manifest_before
+assert (cache / SNAPS).read_bytes() == tampered
+assert not network_attempt.exists()
 `);
 });
