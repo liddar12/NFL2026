@@ -23,8 +23,9 @@ from scripts.resolve_my_cards import _snaps
 ENV = "NFL_GRADING_CAPTURE_DIR"
 STATS, SNAPS, ROSTER = "stats_player_week_2026.csv", "snap_counts_2026.csv", "roster_2026.csv"
 SOURCES = {
-    STATS: (b"season,week,game_id,team,opponent_team,player_id,passing_yards,rushing_yards,"
-            b"receiving_yards,rushing_tds,receiving_tds\n2026,11,2026_11_BUF_KC,KC,BUF,p1,200,10,0,0,0\n"),
+    STATS: (b"season,week,game_id,team,opponent_team,player_id,position,player_display_name,"
+            b"passing_yards,rushing_yards,receiving_yards,rushing_tds,receiving_tds\n"
+            b"2026,11,2026_11_BUF_KC,KC,BUF,p1,QB,Test Player,200,10,0,0,0\n"),
     SNAPS: (b"season,week,game_id,team,opponent,player,pfr_player_id,offense_snaps\n"
             b"2026,11,2026_11_BUF_KC,KC,BUF,Test Player,r1,12\n"),
     ROSTER: b"season,gsis_id,pfr_id,espn_id\n2026,p1,r1,101\n",

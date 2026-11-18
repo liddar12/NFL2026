@@ -18,10 +18,11 @@ from scripts import capture_grading_inputs as C
 
 STATS, SNAPS, ROSTER = "stats_player_week_2026.csv", "snap_counts_2026.csv", "roster_2026.csv"
 BODIES = {
-    STATS: (b"season,week,game_id,team,opponent_team,player_id,passing_yards,rushing_yards,"
-            b"receiving_yards,rushing_tds,receiving_tds\n2026,11,2026_11_BUF_KC,BUF,KC,p1,200,10,0,0,0\n"),
-    SNAPS: (b"season,week,game_id,team,opponent,pfr_player_id,offense_snaps\n"
-            b"2026,11,2026_11_BUF_KC,BUF,KC,r1,12\n"),
+    STATS: (b"season,week,game_id,team,opponent_team,player_id,position,player_display_name,"
+            b"passing_yards,rushing_yards,receiving_yards,rushing_tds,receiving_tds\n"
+            b"2026,11,2026_11_BUF_KC,KC,BUF,p1,QB,Test Player,200,10,0,0,0\n"),
+    SNAPS: (b"season,week,game_id,team,opponent,player,pfr_player_id,offense_snaps\n"
+            b"2026,11,2026_11_BUF_KC,KC,BUF,Test Player,r1,12\n"),
     ROSTER: b"season,gsis_id,pfr_id\n2026,p1,r1\n",
 }
 
@@ -152,6 +153,36 @@ with patch.object(C.os, "fsync", interrupted_sync):
     rejected(C.CaptureTampered, "injected final sync failure", C.capture, 2026, sync_failed, transport=fixture)
 assert not (sync_failed / C.MANIFEST).exists()
 rejected(C.CaptureUnpublished, "manifest.json", C.read_rows, sync_failed, STATS)
+`);
+});
+
+test('missing grading columns fail before publication and either stats name header works', () => {
+  run(String.raw`
+from scripts.resolve_parlay_legs import index_stats, index_td
+
+def capture_with(name, body, label):
+    def transport(url, **kwargs):
+        if url.rsplit("/", 1)[-1] == name:
+            return 200, body
+        return fixture(url, **kwargs)
+
+    return C.capture(2026, root / label, transport=transport)
+
+for label, name, column, value, error in (
+        ("position", STATS, b"position", b"QB", "position"),
+        ("stat_name", STATS, b"player_display_name", b"Test Player", "player_display_name or player_name"),
+        ("snap_name", SNAPS, b"player", b"Test Player", "player")):
+    body = BODIES[name].replace(b"," + column + b",", b",").replace(b"," + value + b",", b",")
+    rejected(C.CaptureError, error, capture_with, name, body, label)
+    assert not list((root / label).iterdir())
+
+for variant in ("player_display_name", "player_name"):
+    body = BODIES[STATS].replace(b"player_display_name", variant.encode())
+    capture_with(STATS, body, variant)
+    rows = C.read_rows(root / variant, STATS)
+    assert rows[0][variant] == "Test Player"
+    assert index_stats(rows)[11][0]["name"] == "Test Player"
+    assert index_td(rows)[11][0]["norm"] == "test player"
 `);
 });
 

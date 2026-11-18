@@ -29,11 +29,11 @@ RETRY_DELAYS = (1, 2)
 _RELEASE_BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 _SOURCE_SPECS = (
     ("stats_player", "stats_player_week", {
-        "season", "week", "game_id", "team", "opponent_team", "player_id",
+        "season", "week", "game_id", "team", "opponent_team", "player_id", "position",
         "passing_yards", "rushing_yards", "receiving_yards", "rushing_tds", "receiving_tds",
     }),
     ("snap_counts", "snap_counts", {
-        "season", "week", "game_id", "team", "opponent", "pfr_player_id", "offense_snaps",
+        "season", "week", "game_id", "team", "opponent", "player", "pfr_player_id", "offense_snaps",
     }),
     ("rosters", "roster", {"season", "gsis_id", "pfr_id"}),
 )
@@ -204,8 +204,13 @@ def _csv_rows(raw, name, season, columns):
         text = io.StringIO(raw.decode("utf-8-sig"), newline="")
         reader = csv.DictReader(text, strict=True)
         header = reader.fieldnames
-        if not header or not columns.issubset(header) or len(header) != len(set(header)):
-            raise ValueError("invalid or missing required CSV columns")
+        if not header or len(header) != len(set(header)):
+            raise ValueError("invalid CSV header")
+        missing = columns.difference(header)
+        if missing:
+            raise ValueError("missing required CSV columns: " + ", ".join(sorted(missing)))
+        if name.startswith("stats_player_week_") and not {"player_display_name", "player_name"}.intersection(header):
+            raise ValueError("missing required CSV column: player_display_name or player_name")
         found = False
         for row in reader:
             if None in row or None in row.values() or row["season"] != str(season):
