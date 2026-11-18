@@ -12,7 +12,7 @@ const commands = [
   'python3 scripts/validate_data.py', 'bash tests/smoke.sh',
   'node --test tests/feature/probe.mjs',
   ...['weekly', 'parlay', 'kdst', 'leg_pool'].map(name => `python3 scripts/backtest_${name}.py --gate`),
-  'npx playwright test --config tests/playwright.config.mjs',
+  'npx playwright test --config tests/playwright.config.mjs --workers=2',
 ];
 
 function jobs(text) {
@@ -97,11 +97,12 @@ test('real runner dispatch is exhaustive, disjoint, ordered, explicit and propag
     writeFileSync(join(directory, 'tests/feature/probe.mjs'), '');
     const stub = '#!/bin/bash\ncommand="${0##*/} $*"\nprintf "%s\\n" "$command" >> "$COMMAND_LOG"\nif [ "$command" = "$FAIL_COMMAND" ]; then exit 7; fi\n';
     for (const tool of ['python3', 'bash', 'node', 'npx']) writeFileSync(join(bin, tool), stub, {mode: 0o755});
-    function run(args = [], failure = '') {
+    function run(args = [], failure = '', workers = '') {
       writeFileSync(log, '');
       const result = spawnSync('/bin/bash', [join(directory, 'tests/run_gate.sh'), ...args], {
         encoding: 'utf8', timeout: 5000,
-        env: {...process.env, PATH: bin + ':' + process.env.PATH, COMMAND_LOG: log, FAIL_COMMAND: failure},
+        env: {...process.env, PATH: bin + ':' + process.env.PATH, COMMAND_LOG: log,
+          FAIL_COMMAND: failure, PW_WORKERS: workers},
       });
       return {...result, commands: readFileSync(log, 'utf8').trim().split('\n').filter(Boolean)};
     }
@@ -109,6 +110,9 @@ test('real runner dispatch is exhaustive, disjoint, ordered, explicit and propag
     assert.equal(all.status, 0, all.stderr);
     assert.deepEqual(all.commands, commands, 'default preserves every original command and order');
     assert.deepEqual(run(['--partition', 'all']).commands, commands);
+    assert.deepEqual(run([], '', '3').commands, [
+      ...commands.slice(0, -1), commands.at(-1).replace('--workers=2', '--workers=3'),
+    ], 'an explicit worker budget changes only browser concurrency');
     assert.deepEqual(core.commands, commands.filter((_, i) => i !== 2));
     assert.deepEqual(features.commands, [commands[2]]);
     for (const result of [core, features]) {
