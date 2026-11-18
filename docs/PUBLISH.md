@@ -36,7 +36,7 @@ with exit 1.
       starting commit. Re-run the pipeline on that new source. Data-only races
       and documentation updates can still be reconciled.
    4. The merged tree must pass the contract and grading-parity gate
-      (`python3 scripts/validate_data.py && node scripts/validate_grading.mjs`)
+      (`python3 scripts/validate_data.py && node scripts/validate_grading.mjs --prior-ref <fetched-full-sha>`)
       **while the rebase can still be abandoned**. It fails → `git rebase --abort`,
       one `::error::` line, exit 1. A document that fails validation is never
       published, however much work produced it. A rebase that produced no conflict
@@ -62,13 +62,22 @@ It never rewrites the remote — no forced push, with or without a lease — and
 resets another writer's commit. The only history it rewrites is the local commit it
 created itself.
 
-The parity check joins scored MY and ATD legs to their original receipts and
-regrades them from the candidate's browser facts. It checks both settled and
-pending outcomes, actuals and available void reasons. Agreement is necessary;
-it does not authenticate the raw sources or prove that every eligible card was
-graded. Daily and gameday retain one checksummed CSV capture for all grading
-consumers. Freezing FINAL evidence and recording a generation-wide evidence
-digest remain separate follow-up work.
+The grading check joins scored MY and ATD legs to their original receipts and
+regrades them from the candidate's browser facts. It also enumerates the saved
+offer inventory: every gradeable card must appear once, including a losing card
+with another leg still pending. Unlocked MY offers, pending cards and configured
+exclusions remain explicit. The fetched full commit supplies prior receipt
+inventory, so deleting the offers and their grades together cannot shrink the
+denominator silently. Previously settled terms becoming unresolved are reported;
+valid identity or source corrections must not be forced back to an incorrect
+settlement. The gate checks structure and consistency, not provider authenticity.
+
+Daily and gameday retain one checksummed capture containing CSV sources, raw
+ESPN scoreboards, frozen schedule identity and prior verified FINAL evidence.
+The same manifest feeds all grading consumers. Prior FINAL evidence is retained
+only under the documented identity and contradiction rules; a fresh contradiction
+of a previously verified FINAL stops the generation for investigation. The published review identifies the
+capture used. No validator changes predictions or fits a model from outcomes.
 
 ## Which side wins a conflicted path
 

@@ -41,7 +41,7 @@
 #
 # Env (test seams; the defaults are what production runs):
 #   PUBLISH_BRANCH        main or release/*           (default: main when unset)
-#   PUBLISH_VALIDATE_CMD  the contract gate            (default: python3 scripts/validate_data.py)
+#   PUBLISH_VALIDATE_CMD  test-only gate override      (default: contracts + grading/inventory vs fetched SHA)
 #   PUBLISH_ARCHIVE_CMD   week-archive re-mirror       (default: python3 scripts/build_parlay_archive.py)
 #   PUBLISH_BACKOFF_S     seconds between attempts     (default: 5)
 #   PUBLISH_ATTEMPTS      how many attempts            (default: 5)
@@ -53,7 +53,6 @@ set -euo pipefail
 BOT_NAME="nfl2026-bot"
 BOT_EMAIL="bot@j5lagenticstrategy.com"
 
-VALIDATE_CMD="${PUBLISH_VALIDATE_CMD:-python3 scripts/validate_data.py && node scripts/validate_grading.mjs}"
 # The week-archive builder the R111 fallback re-runs (a stub in the race test).
 ARCHIVE_CMD="${PUBLISH_ARCHIVE_CMD:-python3 scripts/build_parlay_archive.py}"
 BACKOFF_S="${PUBLISH_BACKOFF_S:-5}"
@@ -66,6 +65,16 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MERGE_LEDGERS="$HERE/merge_ledgers.py"
 
 log()  { echo "publish: $*"; }
+
+# Compare receipt inventory to the exact fetched publication, including after
+# a race/fallback. The caller owns this immutable SHA; it is not a client input.
+validate_candidate() {
+  if [ -n "${PUBLISH_VALIDATE_CMD:-}" ]; then
+    eval "$PUBLISH_VALIDATE_CMD"
+  else
+    python3 scripts/validate_data.py && node scripts/validate_grading.mjs --prior-ref "$1"
+  fi
+}
 
 # A downstream workflow consumes this only after the publisher step succeeds.
 # Exclusive creation prevents a stale receipt from being reused.
@@ -270,10 +279,10 @@ replay_onto() {
     # Validate the MERGED tree while the rebase can still be abandoned. This is
     # the only moment where both are true: the tree is what would be published,
     # and abandoning it costs nothing.
-    if ! eval "$VALIDATE_CMD"; then
+    if ! validate_candidate "$onto"; then
       log "  the merged tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
       fall_back_to_theirs "$onto"
-      if ! eval "$VALIDATE_CMD"; then
+      if ! validate_candidate "$onto"; then
         die "the merged tree fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). This run's generation and the other writer's commit are both intact; re-run the pipeline against the new head."
       fi
     fi
@@ -349,7 +358,7 @@ main() {
       log "attempt $attempt: $target_branch moved to $(git rev-parse --short "$remote") while this run was working; re-creating this run's data commit on top of it"
       replay_onto "$remote"
       log "attempt $attempt: replayed onto $(git rev-parse --short "$remote"); head is now $(git rev-parse --short HEAD)"
-      if [ "$REBASE_RESOLVED" -eq 0 ] && ! eval "$VALIDATE_CMD"; then
+      if [ "$REBASE_RESOLVED" -eq 0 ] && ! validate_candidate "$remote"; then
         log "  the replayed tree fails the data contracts; falling back to the published regenerable files and keeping this run's ledgers and snapshots"
         replayed="$(git rev-parse HEAD)"
         fall_back_to_theirs "$remote"
@@ -360,7 +369,7 @@ main() {
           exit 0
         fi
         git -c core.editor=true commit --quiet --amend --no-edit
-        if ! eval "$VALIDATE_CMD"; then
+        if ! validate_candidate "$remote"; then
           git reset --quiet --hard "$replayed"
           die "the tree replayed onto $(git rev-parse --short "$remote") fails the data contracts, so it is not published (the fallback to the published regenerable files fails them too). Nothing on $target_branch changed; re-run the pipeline against the new head."
         fi
@@ -374,7 +383,7 @@ main() {
 
     # This also covers the clean fast-forward path, which previously relied on
     # a workflow check that could precede intervening changes to the candidate.
-    if ! eval "$VALIDATE_CMD"; then
+    if ! validate_candidate "$remote"; then
       die "final candidate failed contracts or grading parity. Nothing was published."
     fi
     candidate="$(git rev-parse HEAD)"

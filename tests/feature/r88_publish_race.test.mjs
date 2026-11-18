@@ -265,7 +265,7 @@ test('the DEFAULT contract gate is the real validate_data.py', () => {
   // The env var exists so this test can substitute a toy validator. If the
   // default drifted, production would publish through a gate that is not the
   // gate, and no other test would notice.
-  assert.match(PUBLISH_SRC, /PUBLISH_VALIDATE_CMD:-python3 scripts\/validate_data\.py/);
+  assert.match(PUBLISH_SRC, /python3 scripts\/validate_data\.py && node scripts\/validate_grading\.mjs --prior-ref "\$1"/);
   assert.match(PUBLISH_SRC, /PUBLISH_BACKOFF_S:-5/, 'the production backoff is 5s');
   assert.match(PUBLISH_SRC, /PUBLISH_ATTEMPTS:-5/, 'the production bound is 5 attempts');
 });
@@ -319,6 +319,26 @@ test('(a) clean push: no race, one commit, exit 0', () => {
     assert.equal(readMain(world, 'data/game_predictions.json').generated_utc, TA);
     assert.equal(readMain(world, 'data/estimates/parlays_2026.json').legs.length, 2);
     assert.equal(git(world.a, 'log', '--oneline', 'origin/main').split('\n').length, 2);
+  } finally { cleanup(world); }
+});
+
+test('the default gate receives the fetched full SHA and a refusal cannot publish', () => {
+  const world = makeWorld();
+  try {
+    const remote = git(world.a, 'rev-parse', 'origin/main');
+    mkdirSync(join(world.a, 'scripts'), { recursive: true });
+    // Execute the production default command routing with bounded stand-ins.
+    // The actual inventory validator has separate lost-receipt acceptance tests.
+    writeFileSync(join(world.a, 'scripts/validate_data.py'), 'print("contracts checked")\n');
+    writeFileSync(join(world.a, 'scripts/validate_grading.mjs'),
+      `import {writeFileSync} from 'node:fs'; writeFileSync('gate-arguments.json', JSON.stringify(process.argv.slice(2))); process.exit(1);\n`);
+    generate(world.a, { asOf: TA, legSel: 'A ML', cardId: 'aaa', pHome: 0.61 });
+    const refused = publish(world.a, 'data: held inventory', { PUBLISH_VALIDATE_CMD: '' });
+    assert.equal(refused.status, 1, refused.out);
+    assert.match(refused.out, /contracts checked/);
+    assert.deepEqual(readJson(world.a, 'gate-arguments.json'), ['--prior-ref', remote]);
+    assert.equal(git(world.remote, 'rev-parse', 'main'), remote);
+    assert.match(refused.out, /Nothing was published/);
   } finally { cleanup(world); }
 });
 
