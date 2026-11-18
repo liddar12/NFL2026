@@ -131,6 +131,27 @@ with workspace():
 `);
 });
 
+test('qualified-shadow upgrade reads the independently measured event-label runtime without importing it', () => {
+  run(String.raw`
+reviewed = "69d37eb0d171f7999b94f706748f4635f9c58606"
+reviewed_code = "sha256:f5b5a90f07497d28d64e0c782695a566269443fb5a2052d3f1811603a7b1da89"
+with tempfile.TemporaryDirectory() as temporary:
+    data = Path(temporary).resolve()
+    artifacts = data / "snapshots" / "learning_feedback"
+    initial = state(1)
+    historical = record(initial, reviewed, reviewed_code)
+    point(historical)
+    before = contents()
+    assert feedback.previous(data, artifacts) == (historical, initial)
+    assert contents() == before
+    assert not any(name == "selflearn_core" or name.startswith("selflearn_core.") for name in sys.modules)
+    reject("feedback_exact_engine_commit_required", lambda: feedback.engine(data / "old-engine", reviewed))
+    bad = record(initial, reviewed, NEW_CODE)
+    point(bad)
+    reject("feedback_run_contract_mismatch", lambda: feedback.previous(data, artifacts))
+`);
+});
+
 test('feedback command reports disabled flags without opening an engine or workspace', () => {
   const result = JSON.parse(execFileSync('python3', ['-I', '-S', '-B', 'scripts/run_parlay_feedback.py'], {
     cwd: root,
