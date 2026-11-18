@@ -19,8 +19,8 @@ def refused(fn):
  except (ValueError,RuntimeError,OSError,KeyError,TypeError):return True
  return False
 def setup(root):
- data=root/'data';snapshots=data/'snapshots';f.generation(snapshots);f.generation(snapshots,'2026-09-01T13:00:00Z')
- captured=f.capture.save_capture(f.bundle(),snapshots/'outcome_evidence')
+ data=root/'data';snapshots=data/'snapshots';f.bound_generation(snapshots);f.bound_generation(snapshots,'2026-09-01T13:00:00Z')
+ captured=f.capture.save_capture(f.bound_bundle(),snapshots/'outcome_evidence')
  return data,snapshots,captured
 def run(data,snapshots,captures,observed='2026-09-04T15:00:00Z',evaluated='2026-09-04T15:00:01Z'):
  engine=pathlib.Path(os.environ['SELFLEARN_CHECKOUT']);pin=I.ENGINE_COMMIT
@@ -253,7 +253,7 @@ with tempfile.TemporaryDirectory() as tmp:
  first=run(data,snapshots,[],'2026-09-01T15:00:00Z','2026-09-01T15:00:01Z');forecast=state(data)
  graded=run(data,snapshots,[captured]);a=state(data);pointer_before=I.read_json(data/'learning_feedback.json')
  repeated=run(data,snapshots,[captured]);same=I.read_json(data/'learning_feedback.json')==pointer_before
- correction=f.capture.save_capture(f.bundle(value='0',observed='2026-09-05T12:00:00Z'),snapshots/'outcome_evidence')
+ correction=f.capture.save_capture(f.bound_bundle(value='0',observed='2026-09-05T12:00:00Z'),snapshots/'outcome_evidence')
  corrected=run(data,snapshots,[correction],'2026-09-06T15:00:00Z','2026-09-06T15:00:01Z');b=state(data)
  old_retry=run(data,snapshots,[captured],'2026-09-07T15:00:00Z','2026-09-07T15:00:01Z');after=state(data)
  print(json.dumps({'first':first,'graded':graded,'repeated':repeated,'same_pointer':same,'corrected':corrected,

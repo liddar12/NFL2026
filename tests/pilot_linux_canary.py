@@ -196,9 +196,9 @@ def run(*, engine_checkout, expected_nfl_sha, output):
         with tempfile.TemporaryDirectory(prefix='nfl-cp2-linux-canary-', dir=output.parent) as temporary:
             workspace = outside_checkouts(temporary, engine)
             snapshots = workspace / 'snapshots'
-            fixture.generation(snapshots)
-            fixture.generation(snapshots, '2026-09-01T13:00:00Z')
-            captured = fixture.capture.save_capture(fixture.bundle(), snapshots / 'outcome_evidence')
+            fixture.bound_generation(snapshots)
+            fixture.bound_generation(snapshots, '2026-09-01T13:00:00Z')
+            captured = fixture.capture.save_capture(fixture.bound_bundle(), snapshots / 'outcome_evidence')
             initial, first_state, first_start, first_end = run_cli(feedback, workspace, engine, captured)
             validate_summary(initial, 4, True)
             need(first_start <= instant(first_state['updated_utc']) <= first_end
@@ -206,7 +206,7 @@ def run(*, engine_checkout, expected_nfl_sha, output):
                     for row in first_state['receipt_imports']), 'pilot_linux_canary_actual_clock_invalid')
             repeated, repeat_state, _, _ = run_cli(feedback, workspace, engine, captured)
             validate_summary(repeated, 4, False)
-            correction = fixture.capture.save_capture(fixture.bundle(value='0', observed='2026-09-05T12:00:00Z'),
+            correction = fixture.capture.save_capture(fixture.bound_bundle(value='0', observed='2026-09-05T12:00:00Z'),
                 snapshots / 'outcome_evidence')
             corrected, corrected_state, correction_start, correction_end = run_cli(feedback, workspace, engine, correction)
             validate_summary(corrected, 8, True)

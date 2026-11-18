@@ -234,9 +234,16 @@ def player_event_facts(leg, week, stat_rows, td_rows, snaps_week, ctx):
         if len(expected) != 1 or not any(_row_id(r, ids) == expected for r in (stat, td, snap) if r):
             return pending("identity_unverified_team_change")
     if stat or td or (snap and snap["snaps"] >= 1):
-        return {"y": [stat["yards"][p] for p in ("QB", "RB", "WR")] if stat else
-                     ([0, 0, 0] if stat_rows is not None else None),
-                "td": td["tds"] if td else (0 if td_rows is not None else None)}
+        touchdowns = td["tds"] if td else (0 if td_rows is not None else None)
+        if stat and not stat.get("primary_yards_known", True):
+            # A matched row proves presence, but its missing measurement
+            # cannot become zero by using the no-stat snap fallback.
+            if touchdowns is None:
+                return pending("missing_stat_value")
+            return {"y": None, "td": touchdowns}
+        yards = ([stat["yards"][p] for p in ("QB", "RB", "WR")] if stat
+                 else [0, 0, 0] if stat_rows is not None else None)
+        return {"y": yards, "td": touchdowns}
     # Absence proves DNP only on the specific named team's published event sheet.
     team = normalize_team(leg.get("team"))
     sheet = [r for r in (snaps_week or {}).get("rows", []) if event_reason(r, game) is None]

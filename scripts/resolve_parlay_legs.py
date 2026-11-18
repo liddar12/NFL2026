@@ -98,6 +98,15 @@ def _yards(row, col):
         return 0.0
 
 
+def _finite_yards(value):
+    """Measured zero is valid; missing and nonfinite values are unknown."""
+    try:
+        yards = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return yards if math.isfinite(yards) else None
+
+
 # --------------------------------------------------------------------------- #
 # stats index + player join                                                     #
 # --------------------------------------------------------------------------- #
@@ -124,11 +133,13 @@ def index_stats(csv_rows):
         if not n:
             continue
         team = normalize_team(r.get("team") or r.get("recent_team"))
+        yards = {p: _finite_yards(r.get(c)) for p, c in YARDS_COL.items()}
         by_week.setdefault(wk, []).append({
             "name": name, "norm": n, "pos": pos, "team": team,
             "player_id": r.get("player_id"), "source_game_id": r.get("game_id"),
             "opponent": normalize_team(r.get("opponent_team")),
-            "yards": {p: _yards(r, c) for p, c in YARDS_COL.items()},
+            "yards": {p: value if value is not None else 0.0 for p, value in yards.items()},
+            "primary_yards_known": yards[pos] is not None,
         })
     return by_week
 
@@ -316,6 +327,9 @@ def resolve_props(ledger, csv_rows, context=None):
             row, why = find_player(leg, by_week[wk])
             if row is None:
                 unresolved.append(_ref(leg, why))
+                continue
+            if not row.get("primary_yards_known", True):
+                unresolved.append(_ref(leg, "missing_stat_value"))
                 continue
             yards = row["yards"][leg["position"]]
             name = row["name"]

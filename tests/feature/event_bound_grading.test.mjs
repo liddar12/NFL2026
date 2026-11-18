@@ -121,6 +121,23 @@ emit(facts(leg, [dict(other_stats, position="WR")],
   assertPending(r);
 });
 
+test('missing measured yards stay pending while a measured zero and independent TD still grade', () => {
+  const r = py(`
+snap_rows = [snap, cle_sheet, no_sheet]
+snaps = index_snaps(snap_rows)
+values = ["", "NA", "NaN", "Infinity", "bad", "0"]
+emit({
+    "props": [grade_prop(leg, week, index_stats([dict(stats, rushing_yards=value)]), snaps, ctx)
+              for value in values],
+    "facts": facts(leg, [dict(stats, rushing_yards="NA")], snap_rows),
+})
+`);
+  assert.deepEqual(r.props.slice(0, -1),
+    Array.from({ length: 5 }, () => ['pending', null, 'missing_stat_value']));
+  assert.deepEqual(r.props.at(-1), ['miss', 0, null]);
+  assert.deepEqual(r.facts, { y: null, td: 1 });
+});
+
 test('unknown explicit game, wrong team, wrong season and absent final stay pending', () => {
   const r = py(`
 emit({
