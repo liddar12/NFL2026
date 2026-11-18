@@ -27,6 +27,19 @@ from scripts import export_learning as export, capture_outcome_evidence as captu
 from scripts.learning_history_guard import _git  # noqa: E402
 
 ENGINE_COMMIT="aacb19c73122f257449e977df40f2a2733991b2f"
+# Read-only compatibility after a pin upgrade. These fingerprints were computed
+# by selflearn_core.learning_jobs.code_identity() through engine() on the clean
+# pinned checkout. The digest includes Python sources, interpreter build, machine
+# and system. Unlisted historical runtimes fail closed until independently
+# verified and added here. A run record cannot authorize another runtime.
+APPROVED_HISTORICAL_ENGINE_CODE_IDS={
+    "aacb19c73122f257449e977df40f2a2733991b2f":frozenset({
+        "sha256:c6a86873d8873c508033a82423c707ef97f86867023638512ce26205e7b9c17e",  # Apple Python 3.9.6
+        "sha256:6b5445ff01e75ec341f504f5d4b983d3c179912ecc29747cac3ccee5f504c9e6",  # uv CPython 3.11.16
+        "sha256:7396574b800e4b91a7a0503c5149647f235d04a13374539446079028bd6b8e55",  # uv CPython 3.12.9
+        "sha256:294fff7efe157f3568584f27c1fec43e1ef834d260346440baf22909b31cf75d",  # pyenv CPython 3.12.9
+    }),
+}
 OUTCOME_BASIS="threshold_observations_not_sportsbook_settlement"
 SETTLEMENT_SUPPORT="unresolved_push_and_official_void"
 MAX_BYTES=128*1024*1024
@@ -150,6 +163,24 @@ def pointer(data):
     return export._delivery_path(data,"learning_feedback.json")
 
 
+def validate_run_record(run,run_id):
+    """A retained run uses the current pin or an approved historical pair."""
+    need(type(run) is dict and run.get("run_id")==run_id
+         and run_id==export.fingerprint({k:v for k,v in run.items()if k!="run_id"}),"feedback_pointer_mismatch")
+    need(set(run)=={"version","kind","state_id","evaluation_id","graph_id","engine_commit","engine_code_id","execution_profile",
+                   "execution_profile_id","basis","run_id",*FLAGS}
+         and type(run["version"]) is int and run["version"]==1 and run["kind"]=="nfl.repository_feedback_run.v1"
+         and all(run[k] is False for k in FLAGS)
+         and run["basis"]=="local_repository_files_not_live_publication_or_hosted_ACK"
+         and known_execution_profile(run["execution_profile"])
+         and run["execution_profile_id"]==export.fingerprint(run["execution_profile"]),"feedback_run_contract_mismatch")
+    export._hash(run["graph_id"])
+    code_id=export._hash(run["engine_code_id"])
+    commit=run["engine_commit"]
+    need(type(commit)is str and (commit==ENGINE_COMMIT or
+         code_id in APPROVED_HISTORICAL_ENGINE_CODE_IDS.get(commit,())),"feedback_run_contract_mismatch")
+
+
 def previous(data,artifacts):
     path=pointer(data)
     if not path.exists():
@@ -160,18 +191,8 @@ def previous(data,artifacts):
     need(type(value) is dict and set(value)=={"version","kind","run_id","state_id","evaluation_id"}
          and type(value["version"]) is int and value["version"]==1 and value["kind"]=="nfl.repository_feedback_pointer.v1")
     run=read_json(artifact(artifacts,"runs",value["run_id"]))
-    need(type(run) is dict and run.get("run_id")==value["run_id"]
-         and value["run_id"]==export.fingerprint({k:v for k,v in run.items()if k!="run_id"})
-         and run.get("state_id")==value["state_id"]and run.get("evaluation_id")==value["evaluation_id"],"feedback_pointer_mismatch")
-    need(set(run)=={"version","kind","state_id","evaluation_id","graph_id","engine_commit","engine_code_id","execution_profile",
-                   "execution_profile_id","basis","run_id",*FLAGS}
-         and type(run["version"]) is int and run["version"]==1 and run["kind"]=="nfl.repository_feedback_run.v1"
-         and all(run[k] is False for k in FLAGS)
-         and run["basis"]=="local_repository_files_not_live_publication_or_hosted_ACK"
-         and run["engine_commit"]==ENGINE_COMMIT
-         and known_execution_profile(run["execution_profile"])
-         and run["execution_profile_id"]==export.fingerprint(run["execution_profile"]),"feedback_run_contract_mismatch")
-    export._hash(run["graph_id"]);export._hash(run["engine_code_id"])
+    validate_run_record(run,value["run_id"])
+    need(run["state_id"]==value["state_id"]and run["evaluation_id"]==value["evaluation_id"],"feedback_pointer_mismatch")
     state=read_json(artifact(artifacts,"states",value["state_id"]))
     report=read_json(artifact(artifacts,"evaluations",value["evaluation_id"]))
     need(state.get("state_id")==value["state_id"]
@@ -192,6 +213,8 @@ def previous(data,artifacts):
             need(total<=MAX_CAPTURE_HISTORY_BYTES,"feedback_state_history_limit")
             need(type(record)is dict and record.get("state_id")in lineage,
                  "feedback_pointer_rewound_or_incomplete")
+            need(path.suffix==".json","feedback_run_contract_mismatch")
+            validate_run_record(record,"sha256:"+path.stem)
     return value,state
 
 
