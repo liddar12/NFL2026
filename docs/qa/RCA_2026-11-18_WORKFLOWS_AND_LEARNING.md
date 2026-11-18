@@ -1,8 +1,45 @@
 # Workflow reliability and shared learning release roadmap
 
-Revision 2. November 18, 2026, 2:30 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
+Revision 3. November 18, 2026, 3:10 p.m. CST (America/Chicago). Codex owns this work; no Claude or Cursor dependency.
 
 ## Current checkpoint
+
+The new NFL source is `479ac73bcc14dbe5db0cc52f8de1f11cd903f68f` on
+`build/grading-coverage-20261118`. This checkpoint adds offer-derived grading
+coverage, prior-publication receipt retention and Data CI incident deduplication.
+The new engine source is `5e68953989b95731503d9e909ede7d4279b2a570` on
+`build/nfl-qualified-jobs-20261118`. Both remain local and unpushed.
+
+The engine passed 1,306 core tests plus 838 subtests, 492 hosted-boundary tests
+with no skips, and six local PostgreSQL-WASM adapter tests. New durable job
+policies explicitly qualify labels in inline and subprocess execution. A real
+old-code/new-code rehearsal preserved completed legacy job results and refused
+to resume an unfinished old job under different source. These checks do not prove
+hosted Supabase operation or an independently assembled publication cohort.
+
+The NFL coverage replay passed on a detached copy of that exact source, using
+retained raw evidence with network access blocked: 30,208 MY and 22,663 ATD
+card rows unchanged, 274,625 leg comparisons without mismatch, 150 verified FINAL
+scores retained, and all 37 receipt files unchanged. Missing grades, erased
+receipts, changed original terms, policy downgrade and coordinated disappearance
+of verified FINAL evidence are refused. Recognized player-stat withholding can
+still correct an earlier grade; it is reported, not forced back into a result.
+Focused suites passed: coverage 26, publication 34, incident reporting 20.
+
+**The new NFL full gate is not green yet.** Data contracts and smoke checks
+passed, but the full feature run has reported four Git-fixture failures so far.
+They passed in focused runs. The full runner uses nine parallel feature files on
+this Mac; exact failure stacks and a bounded-worker rerun remain to be assessed.
+This is a new local acceptance issue, not proof that parallelism caused the
+original GitHub grading failures. Do not deploy this candidate on the strength
+of its focused checks alone. See the live local gate log in
+`/Users/jliddar/code/evidence/nfl-grading-coverage-full-gate-20261118.log`.
+
+The NFL file-feedback pin remains `889e147e`, an ancestor of the new engine
+checkpoint. Publish reachable engine source before a remote NFL canary can fetch
+that pin; choose and verify any later combined pin deliberately.
+
+## Previous full-gate checkpoint
 
 NFL source `64060b9ed877ffafd351621e8731e529ee473190` passed the full local
 gate: exit 0, all eight steps, 2,307 feature tests with no failures or skips,
@@ -256,3 +293,55 @@ under the approved artifact. None of these tests guarantees a winning parlay.
 
 No remote push, merge, deployment, hosted migration or learning activation was
 performed by this local repair work.
+
+
+## Collection implementation order and owner actions
+
+1. Finish the new NFL acceptance run, reconcile latest main's data without
+   losing offer history, and regenerate only through the pipeline. Run remote CI
+   on the exact generated commit before a production release. Drain pre-fix
+   publisher jobs at the release boundary. Owner release authorization remains
+   separate from the local build scope.
+2. Reconcile the engine source, public Vercel alias and Supabase migration history.
+   The afternoon read still found the production alias READY at `aacb19c7`;
+   connected migration reads returned permission/connection errors. Those errors
+   leave persistence unverified; they do not establish a database outage. Restore
+   appropriate administration access if needed, then approve concrete deployment
+   and migration changes. Never pass secrets through a handoff or chat.
+3. Selectively port the already-written forecast sender, publication exporter/
+   queue client, raw capture chunker and resumable v2 outcome sender from the
+   preserved November 9 worktree. Keep November 18 grading/capture code. Adapt
+   the sender's metadata and fact checks for optional retained roster evidence;
+   the old sender currently rejects that newer capture. Port the journal's strict
+   JSON/directory-fsync support and update engine pins together.
+4. Collect one designated genuine pre-kickoff publication vintage per populated
+   week at first. A current 1,008-receipt generation passed the exact local adapter;
+   that is not a durable hosted ACK. The legacy whole-capture protocol caps at 500,
+   so use resumable v2 with its complete membership contract. Retain original
+   private graph, ACK and outbox across runner loss; temporary Actions artifacts
+   are insufficient as the sole authority. Match the published Git pool bytes,
+   then let the worker independently observe the actual public origin.
+5. Capture FINAL outcomes and qualified identity evidence; verify repeated
+   delivery, lost replies, restart and superseding corrections against hosted
+   persistence. Assemble evaluation inputs from one durable journal watermark.
+   Never truncate a multiweek population to fit current 2,000-receipt/transport
+   limits; complete cohort handling is still an integration task.
+6. Evaluate against the baseline on untouched periods under the declared
+   statistical rule, including clustered uncertainty and no worse position.
+   Obtain the first scoped adoption approval and demonstrate the candidate ID,
+   baseline and adjustment in the served output, with tested fallback. The current
+   learner covers MY player-yardage probabilities. Game/Week joint-hit policy,
+   moneylines, anytime TD and unrecorded browser-built cards require separate
+   evidence. Collection-on, evaluation-on and correction-serving are distinct
+   statuses; no future betting improvement is guaranteed by a passing build.
+7. Verify Henry's monitoring account/channel and then automate freshness,
+   delivery backlog, worker heartbeat and distinct-incident reporting. Codex owns
+   implementation; no Claude or Cursor dependency. Routine forecast capture,
+   grading and evidence generation should require no manual operator work.
+
+New evidence lives in `code/evidence/nfl-grading-coverage-capture-replay-20261118.*`,
+`selflearn-qualified-jobs-core-20261118.log`,
+`selflearn-qualified-jobs-hosted-final-20261118.log`,
+`selflearn-qualified-jobs-sql-20261118.log` and
+`selflearn-qualified-jobs-upgrade-20261118.{py,json}`. The readable report is
+`code/reports/github-learning-rca-20261118/report.html`, revision 9.
